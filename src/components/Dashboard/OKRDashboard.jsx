@@ -9,7 +9,7 @@ import {
 } from 'recharts';
 import { 
     AlertTriangle, CheckCircle, Clock, Target, Users, TrendingUp, 
-    ArrowUpRight, ArrowDownRight, MoreHorizontal, Loader2,
+    ArrowUpRight, ArrowDownRight, ChevronRight, MoreHorizontal, Loader2,
     ShieldCheck, Calendar, ChevronDown, CheckCircle2
 } from 'lucide-react';
 
@@ -1011,14 +1011,14 @@ const OKRDashboard = () => {
                             DEPARTMENTAL LOAD
                         </h3>
                     </div>
-                    <div className="p-6 flex-1 relative min-h-[300px] min-w-0 flex flex-col items-center justify-center">
+                    <div className="p-6 flex-1 relative min-h-[300px] min-w-0">
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[-20px] flex flex-col items-center z-10 pointer-events-none">
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TASKS</span>
                             <span className="text-3xl font-black text-[#1E1B4B] tabular-nums leading-none">
                                 {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
                             </span>
                         </div>
-                        <ResponsiveContainer width="100%" height={300} minHeight={100} minWidth={100}>
+                        <ResponsiveContainer width="100%" height={300} minHeight={150} minWidth={150}>
                             <PieChart>
                                 <Pie
                                     data={displayedDeptContributionData}
@@ -1202,7 +1202,7 @@ const OKRDashboard = () => {
                                             className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm group-hover:shadow-indigo-200"
                                             title="View in Team Tasks"
                                         >
-                                            <ArrowRight size={16} />
+                                            <ChevronRight size={16} />
                                         </div>
                                     </td>
                                 </tr>
@@ -1246,13 +1246,13 @@ const OKRDashboard = () => {
                 </div>
 
                 {/* Completion Trend */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[320px] col-span-1 md:col-span-2">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-[320px] col-span-1 md:col-span-2 relative">
                     <h3 className="text-sm font-bold text-slate-700 capitalize tracking-tight flex items-center gap-2 mb-3">
                         <TrendingUp size={16} className="text-blue-600" />
                         Enterprise Completion Trend
                     </h3>
-                    <div style={{ height: '250px', minHeight: '250px' }} className="min-h-0 min-w-0">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={100} minWidth={100}>
+                    <div style={{ height: '220px', width: '100%' }} className="relative min-h-0 min-w-0">
+                        <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={150}>
                             <AreaChart data={trendData} margin={{ top: 36, right: 30, left: 20, bottom: 10 }}>
                                 <defs>
                                     <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">

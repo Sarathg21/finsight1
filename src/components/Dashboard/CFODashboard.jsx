@@ -9,7 +9,7 @@ import {
     PieChart, Pie, Cell, ComposedChart, Line, Area
 } from 'recharts';
 import {
-    TrendingUp, Users, CheckSquare, AlertTriangle, ArrowRight,
+    TrendingUp, Users, CheckSquare, AlertTriangle, ChevronRight,
     BarChart2, Loader2, CheckCircle, Activity, Shield, Layout, Target, Clock, PlusCircle,
     Plus, MessageSquare, User, ChevronDown, XCircle, Calendar
 } from 'lucide-react';
@@ -339,7 +339,7 @@ const TaskTrendsChart = ({ data }) => {
             </div>
 
             <div className="flex-1 w-full min-h-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
                     <ComposedChart data={trends} margin={{ top: 10, right: 30, bottom: 30, left: 10 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                         <XAxis
@@ -1235,7 +1235,7 @@ const CFODashboard = () => {
                                              <input type="date" className="bg-transparent border-none text-[11px] font-bold focus:ring-0 p-0" value={fromDate} onChange={(e) => handleDateChange('from', e.target.value)} />
                                          </div>
                                      </div>
-                                     <ArrowRight size={14} className="mt-4 text-slate-300" />
+                                     <ChevronRight size={14} className="mt-4 text-slate-300" />
                                      <div className="flex flex-col">
                                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1 text-center">Period ends</span>
                                          <div className="flex items-center gap-2 bg-slate-100/50 px-3 py-1.5 rounded-xl border border-slate-200/50">
@@ -1563,7 +1563,7 @@ const CFODashboard = () => {
                                         onClick={() => navigate('/performance-dashboard')}
                                         className="mt-6 w-full py-3 bg-slate-50 hover:bg-indigo-50 text-indigo-500 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-2 group border border-slate-100/50"
                                     >
-                                        Full Rankings <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+                                        Full Rankings <ChevronRight size={12} className="group-hover:translate-x-1 transition-transform" />
                                     </button>
                                 </div>
                                 <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-5 hover:shadow-md transition-all flex items-center gap-4 group">

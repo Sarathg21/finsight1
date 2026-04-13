@@ -10,7 +10,7 @@ const ChartPanel = ({ title, children, height = 220, compact = true, titleClassN
                 {title}
             </h3>
             <div className="relative z-10">
-                <ResponsiveContainer width="100%" height={height} minWidth={1} minHeight={height}>
+                <ResponsiveContainer width="100%" height={height} minWidth={150} minHeight={height}>
                     {children}
                 </ResponsiveContainer>
             </div>

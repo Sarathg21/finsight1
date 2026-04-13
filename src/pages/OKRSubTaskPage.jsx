@@ -76,7 +76,7 @@ const KpiCard = ({ label, value, sub, gradient, Icon }) => (
     <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-4 rounded-2xl shadow-lg flex flex-col transition-all hover:scale-[1.03] group h-full`}>
         <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700" />
         <div className="flex items-start justify-between relative z-10 w-full mb-1">
-            <span className="text-[10px] font-black text-white/80 uppercase tracking-[0.1em] drop-shadow-sm line-clamp-2">{label}</span>
+            <span className="text-[10px] font-black text-white/80 uppercase tracking-[0.1em] drop-shadow-sm leading-tight pr-2">{label}</span>
             {Icon && <Icon size={16} className="text-white/40 group-hover:text-white/80 transition-colors shrink-0 ml-1" />}
         </div>
         <div className="relative z-10 flex flex-col">
@@ -179,27 +179,50 @@ const OKRSubTaskPage = () => {
                 return hasNoParent && (isParentByFlag || isRecurring) && dateMatch;
             });
 
+            // Compute reliable subtask stats from allTasks by grouping them by their parent
+            const statsFromTasks = {};
+            allTasks.forEach(t => {
+                const pid = String(t.parent_task_id || t.parent_id || '');
+                if (pid && pid !== 'undefined') {
+                    if (!statsFromTasks[pid]) statsFromTasks[pid] = { total: 0, completed: 0, submitted: 0 };
+                    statsFromTasks[pid].total++;
+                    const st = String(t.status || t.task_status || '').toUpperCase();
+                    if (['COMPLETED', 'APPROVED', 'DONE', 'SUCCESS'].includes(st)) {
+                        statsFromTasks[pid].completed++;
+                    }
+                    if (['SUBMITTED', 'PENDING_APPROVAL', 'REVIEW'].includes(st)) {
+                        statsFromTasks[pid].submitted++;
+                    }
+                }
+            });
+
             console.log('[OKR-Sub] objectives report count:', list.length, '| manual parents from tasks:', manualParents.length);
 
             const dropdownList = list
-                .map(item => ({
-                    parent_task_id:     item.parent_task_id ?? item.id ?? item.task_id,
-                    objective_title:    item.objective_title || item.title || item.name || 'Objective',
-                    total_subtasks:     cleanNum(item.total_subtasks ?? item.sub_total ?? item.subtask_count ?? item.total_tasks),
-                    completed_subtasks: cleanNum(item.completed_subtasks ?? item.sub_comp ?? item.completed_count ?? item.completed_tasks),
-                    submitted_subtasks: cleanNum(item.submitted_subtasks ?? item.submitted_count),
-                }));
+                .map(item => {
+                    const pid = String(item.parent_task_id ?? item.id ?? item.task_id ?? '');
+                    const st = statsFromTasks[pid] || { total: 0, completed: 0, submitted: 0 };
+                    return {
+                        parent_task_id:     item.parent_task_id ?? item.id ?? item.task_id,
+                        objective_title:    item.objective_title || item.title || item.name || 'Objective',
+                        total_subtasks:     Math.max(cleanNum(item.total_subtasks ?? item.sub_total ?? item.subtask_count ?? item.total_tasks), st.total),
+                        completed_subtasks: Math.max(cleanNum(item.completed_subtasks ?? item.sub_comp ?? item.completed_count ?? item.completed_tasks), st.completed),
+                        submitted_subtasks: Math.max(cleanNum(item.submitted_subtasks ?? item.submitted_count), st.submitted),
+                    };
+                });
 
             // Merge manual parents if not already in list
             manualParents.forEach(mp => {
                 const mid = mp.id || mp.task_id;
-                if (!dropdownList.some(o => String(o.parent_task_id) === String(mid))) {
+                const smid = String(mid);
+                const st = statsFromTasks[smid] || { total: 0, completed: 0, submitted: 0 };
+                if (!dropdownList.some(o => String(o.parent_task_id) === smid)) {
                     dropdownList.push({
                         parent_task_id: mid,
                         objective_title: mp.title || mp.task_name || 'Strategic Objective',
-                        total_subtasks: cleanNum(mp.subtask_count || (Array.isArray(mp.subtasks) ? mp.subtasks.length : 0)),
-                        completed_subtasks: 0, // Placeholder, will be updated by fetchDrilldown
-                        submitted_subtasks: 0
+                        total_subtasks: Math.max(cleanNum(mp.subtask_count || (Array.isArray(mp.subtasks) ? mp.subtasks.length : 0)), st.total),
+                        completed_subtasks: st.completed,
+                        submitted_subtasks: st.submitted
                     });
                 }
             });
@@ -208,9 +231,11 @@ const OKRSubTaskPage = () => {
             setObjectivesList(finalDropdown);
 
             /* global KPI calculation with fallbacks */
+            const fallbackGlobalSubmitted = allTasks.filter(t => ['SUBMITTED', 'PENDING_APPROVAL', 'REVIEW'].includes(String(t.status || t.task_status || '').toUpperCase())).length;
             const listTotal     = dropdownList.reduce((a, i) => a + i.total_subtasks, 0);
             const listDone      = dropdownList.reduce((a, i) => a + i.completed_subtasks, 0);
-            const listSubmit    = dropdownList.reduce((a, i) => a + i.submitted_subtasks, 0);
+            let listSubmit      = dropdownList.reduce((a, i) => a + i.submitted_subtasks, 0);
+            listSubmit = Math.max(listSubmit, fallbackGlobalSubmitted);
             
             // If the global overview for the 2-day filter is 0, use the wide-list totals (according to DB)
             const gTotal = cleanNum(globalData.total_subtasks ?? globalData.sub_total ?? globalData.total_tasks ?? summaryData.total_tasks);

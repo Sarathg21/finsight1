@@ -8,7 +8,7 @@ import Badge from '../UI/Badge';
 import CustomSelect from '../UI/CustomSelect';
 import ReworkCommentModal from '../Modals/ReworkCommentModal';
 import {
-    BarChart2, CheckSquare, AlertTriangle, Clock, ArrowRight,
+    BarChart2, CheckSquare, AlertTriangle, Clock,
     Calendar, Users, TrendingUp, Medal, CalendarCheck, CheckCircle, Loader2,
     ChevronRight, Plus, Settings, MessageSquare, ChevronDown, User, Edit2, Activity,
     Target, AlertCircle, Briefcase
@@ -821,7 +821,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         Execution Trends
                     </h3>
                     <div className="flex-1 min-h-0">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
                             <BarChart data={trends}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis 

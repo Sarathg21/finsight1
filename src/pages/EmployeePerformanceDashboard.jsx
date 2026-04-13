@@ -9,7 +9,7 @@ import {
     Users, BarChart2, CheckSquare, AlertTriangle, Clock,
     Activity, TrendingUp, Calendar, ChevronDown, ChevronLeft, ChevronRight, Layout,
     CheckCircle, Shield, Target, Plus, Search, HelpCircle,
-    ArrowRight, Loader2, Bell, Settings, User, Briefcase, Building2, AlertCircle, ExternalLink,
+    Loader2, Bell, Settings, User, Briefcase, Building2, AlertCircle, ExternalLink,
     Download, FileSpreadsheet
 } from 'lucide-react';
 import {
@@ -1106,7 +1106,7 @@ const PerformanceDashboard = () => {
                                 <input type="date" className="bg-transparent border-none text-[11px] font-medium focus:ring-0 p-0" value={fromDate} onChange={(e) => handleDateChange('from', e.target.value)} />
                             </div>
                         </div>
-                        <ArrowRight size={14} className="mt-5 text-slate-300" />
+                        <ChevronRight size={14} className="mt-5 text-slate-300" />
                         <div className="flex flex-col">
                             <span className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Period ends</span>
                             <div className="flex items-center gap-2 bg-slate-100/50 px-3 py-1.5 rounded-xl border border-slate-200/50">
@@ -1238,7 +1238,7 @@ const PerformanceDashboard = () => {
                     </div>
 
                     <div className="flex-1 min-h-[320px] h-[320px] min-w-0 -ml-6 relative">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
                             <BarChart data={activityTrends} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis 
@@ -1279,16 +1279,16 @@ const PerformanceDashboard = () => {
                         <p className="text-[11px] text-slate-400 font-medium mt-1">Department task health · Approved vs Pending vs Overdue</p>
                     </div>
                     {/* PieChart — use fixed pixel dimensions instead of aspect to avoid -1 warning */}
-                    <div className="relative w-48 h-48 mx-auto">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={100} minHeight={100}>
+                    <div className="relative w-56 h-56 mx-auto">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={180} minHeight={180}>
                             <PieChart>
                                 <Pie
                                     data={orgStatusPie}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius="65%"
-                                    outerRadius="85%"
-                                    paddingAngle={8}
+                                    innerRadius="70%"
+                                    outerRadius="90%"
+                                    paddingAngle={6}
                                     dataKey="value"
                                     stroke="none"
                                 >
@@ -1297,36 +1297,36 @@ const PerformanceDashboard = () => {
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                            <p className="text-[32px] font-semibold text-indigo-950 leading-none">{deptMetrics.completion_pct}%</p>
+                            <p className="text-[36px] font-semibold text-indigo-950 leading-none">{deptMetrics.completion_pct}%</p>
                             <div className="mt-1 flex flex-col items-center">
-                                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-widest">Completion Rate</p>
+                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Completion Rate</p>
                             </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 w-full mt-8">
-                        <div className="bg-slate-50 border border-slate-100 p-2 sm:p-3 rounded-2xl flex flex-col items-center">
+                    <div className="flex flex-wrap justify-center gap-3 w-full mt-8">
+                        <div className="bg-slate-50 border border-slate-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
                             <span className="text-slate-900 font-black text-lg">{deptMetrics.total_tasks || 0}</span>
-                            <span className="text-[9px] uppercase font-bold text-slate-400">Total</span>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 whitespace-nowrap">Total</span>
                         </div>
-                        <div className="bg-emerald-50 border border-emerald-100 p-2 sm:p-3 rounded-2xl flex flex-col items-center">
+                        <div className="bg-emerald-50 border border-emerald-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
                             <span className="text-emerald-600 font-black text-lg">{deptMetrics.completed_tasks || 0}</span>
-                            <span className="text-[9px] uppercase font-bold text-emerald-400">Approved</span>
+                            <span className="text-[10px] uppercase font-bold text-emerald-500 whitespace-nowrap">Approved</span>
                         </div>
-                        <div className="bg-amber-50 border border-amber-100 p-2 sm:p-3 rounded-2xl flex flex-col items-center">
+                        <div className="bg-amber-50 border border-amber-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
                             <span className="text-amber-600 font-black text-lg">{deptMetrics.submitted_tasks || 0}</span>
-                            <span className="text-[9px] uppercase font-bold text-amber-500">Pending</span>
+                            <span className="text-[10px] uppercase font-bold text-amber-500 whitespace-nowrap">Pending</span>
                         </div>
-                        <div className="bg-rose-50 border border-rose-100 p-2 sm:p-3 rounded-2xl flex flex-col items-center">
+                        <div className="bg-rose-50 border border-rose-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
                             <span className="text-rose-600 font-black text-lg">{deptMetrics.overdue_tasks || 0}</span>
-                            <span className="text-[9px] uppercase font-bold text-rose-400">Overdue</span>
+                            <span className="text-[10px] uppercase font-bold text-rose-500 whitespace-nowrap">Overdue</span>
                         </div>
-                        <div className="bg-blue-50 border border-blue-100 p-2 sm:p-3 rounded-2xl flex flex-col items-center">
+                        <div className="bg-blue-50 border border-blue-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
                             <span className="text-blue-600 font-black text-lg">{deptMetrics.in_progress || 0}</span>
-                            <span className="text-[9px] uppercase font-bold text-blue-400">Progress</span>
+                            <span className="text-[10px] uppercase font-bold text-blue-500 whitespace-nowrap">Progress</span>
                         </div>
-                        <div className="bg-indigo-50 border border-indigo-100 p-2 sm:p-3 rounded-2xl flex flex-col items-center">
+                        <div className="bg-indigo-50 border border-indigo-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
                             <span className="text-indigo-600 font-black text-lg">{deptMetrics.open_pending || 0}</span>
-                            <span className="text-[9px] uppercase font-bold text-indigo-400">Open-Pend</span>
+                            <span className="text-[10px] uppercase font-bold text-indigo-500 whitespace-nowrap">Open-Pend</span>
                         </div>
                     </div>
                 </div>

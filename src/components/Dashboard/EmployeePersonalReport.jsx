@@ -251,8 +251,10 @@ const EmployeePersonalReport = () => {
             reworks,
             submitted,
             newTasks,
-            efficiency: performanceIndex,
-            deptAvg: summary.dept_avg_score || 0
+            efficiency: Math.round(summary.performance_score ?? performanceIndex),
+            performanceScore: Math.round(summary.performance_score ?? performanceIndex),
+            deptAvg: Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0),
+            vsDeptAvg: Math.round(summary.score_vs_department_avg ?? 0)
         };
     }, [tasks, summary, fromDate, toDate]);
 
@@ -494,8 +496,8 @@ const EmployeePersonalReport = () => {
                             </div>
                         </div>
                         <div className="flex items-baseline gap-1">
-                            <p className="text-[32px] font-bold leading-none">{metrics.efficiency}%</p>
-                            <span className="text-[14px] font-medium opacity-70">/ {metrics.deptAvg}%</span>
+                            <p className="text-[32px] font-bold leading-none">{metrics.performanceScore}%</p>
+                            <span className="text-[14px] font-medium opacity-70">/ {metrics.deptAvg}% ({metrics.vsDeptAvg > 0 ? '+' : ''}{metrics.vsDeptAvg}%)</span>
                         </div>
                     </div>
                 </div>
@@ -518,7 +520,7 @@ const EmployeePersonalReport = () => {
 
                 <div className="flex flex-col lg:flex-row items-center gap-12">
                     <div className="relative w-[280px] h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
                             <PieChart>
                                 <Pie 
                                     data={pieData.length > 0 ? pieData : [{name:'None', value: 1}]}
@@ -575,7 +577,7 @@ const EmployeePersonalReport = () => {
             <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm mb-6">
                 <h3 className="text-[16px] font-semibold text-[#1E1B4B] mb-6">Monthly Performance Trend</h3>
                 <div className="h-[250px] w-full mt-4">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
                         <ComposedChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} dy={10} />

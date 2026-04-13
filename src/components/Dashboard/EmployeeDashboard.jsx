@@ -8,7 +8,7 @@ import Badge from '../UI/Badge';
 import ChartPanel from '../Charts/ChartPanel';
 import {
     TrendingUp, CheckCircle, Clock, AlertCircle,
-    ThumbsUp, Calendar, ArrowRight, ChevronRight, CalendarCheck, Loader2,
+    ThumbsUp, Calendar, ChevronRight, CalendarCheck, Loader2,
     Search as SearchIcon, Plus, Settings, MessageSquare, ChevronDown, User, Edit2, Activity, CheckSquare, BarChart2, PlusCircle, RefreshCw,
     Download, FileSpreadsheet
 } from 'lucide-react';
@@ -366,10 +366,10 @@ const EmployeeDashboard = () => {
                 return due && due < today && !TERMINAL_SET.has(t.status);
             }).length;
 
-            // Use the most generous performance index available (backend or local calculation)
-            const backendScore = dashboardPayload?.performance_index || dashboardPayload?.performanceScore || 0;
+            // Use performance_score explicitly from backend payload
+            const backendScore = dashboardPayload?.performance_score ?? dashboardPayload?.performance_index ?? dashboardPayload?.performanceScore ?? 0;
             const localScore = totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
-            const finalScore = localScore > 0 ? localScore : backendScore;
+            const finalScore = backendScore > 0 || dashboardPayload?.performance_score !== undefined ? backendScore : localScore;
 
             setDashboardData({
                 ...dashboardPayload,
@@ -383,7 +383,9 @@ const EmployeeDashboard = () => {
                 new_tasks: counts.NEW,
                 cancelled_tasks: counts.CANCELLED,
                 performance_index: finalScore,
-                dept_avg_score: dashboardPayload?.dept_avg_score || 0,
+                performance_score: finalScore,
+                department_avg_score: dashboardPayload?.department_avg_score ?? dashboardPayload?.dept_avg_score ?? 0,
+                score_vs_department_avg: dashboardPayload?.score_vs_department_avg ?? 0,
             });
             setTodayTasks(sortedToday);
             setAllTasks(normalized);
@@ -552,8 +554,9 @@ const EmployeeDashboard = () => {
     const metrics = useMemo(() => {
         if (!dashboardData) return null;
 
-        // Use real values from dashboardData. If stats are 0, they should show as 0.
-        const currentScore = dashboardData.performance_index || 0;
+        const currentScore = Math.round(dashboardData.performance_score ?? dashboardData.performance_index ?? 0);
+        const deptAvg = Math.round(dashboardData.department_avg_score ?? dashboardData.dept_avg_score ?? 0);
+        const vsDeptAvg = Math.round(dashboardData.score_vs_department_avg ?? 0);
 
         // Mock status distribution based on dashboard summary
         let statusDistribution = [
@@ -567,8 +570,9 @@ const EmployeeDashboard = () => {
 
         const performanceTrend = [
             { name: 'Target', score: 100, fill: '#f1f5f9' },
-            { name: 'My Score', score: currentScore, fill: '#8b5cf6' },
-            { name: 'Dept Avg', score: dashboardData.dept_avg_score || 0, fill: '#10b981' },
+            { name: 'Employee Score', score: currentScore, fill: '#8b5cf6' },
+            { name: 'Dept Avg', score: deptAvg, fill: '#10b981' },
+            { name: 'Vs Dept Avg', score: vsDeptAvg, fill: '#f59e0b' },
         ];
 
 
@@ -579,6 +583,8 @@ const EmployeeDashboard = () => {
                 pendingSubmission: dashboardData.pending_submission || 0,
                 approved: dashboardData.approved_tasks || 0,
                 overdue: dashboardData.overdue_tasks || 0,
+                deptAvg,
+                vsDeptAvg,
                 dateRangeSub: 'Global Metrics',
             },
             performanceTrend,
@@ -737,11 +743,11 @@ const EmployeeDashboard = () => {
                             sub="Assigned to you"
                         />
                         <Stat 
-                            label="Performance Index" 
+                            label="Employee Score" 
                             value={`${score}%`} 
                             icon={TrendingUp} 
                             color="green" 
-                            sub="Department avg: 82%"
+                            sub={`Dept Avg: ${stats.deptAvg}% | Vs Dept Avg: ${stats.vsDeptAvg > 0 ? '+' : ''}${stats.vsDeptAvg}%`}
                         />
                         <Stat 
                             label="Pending Submission" 

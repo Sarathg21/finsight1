@@ -5,7 +5,7 @@ import api from '../services/api';
 import {
     Search, RefreshCw, Download, Plus, ChevronRight,
     Paperclip, CheckCircle2, RotateCcw,
-    XCircle, User, Users, Calendar, Layout, ArrowRight,
+    XCircle, User, Users, Calendar, Layout,
     ClipboardCheck, Play, Upload, AlertTriangle, Target
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -89,7 +89,7 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
             </td>
             <td className="py-2.5 text-right pr-4">
                 <button className="text-slate-300 hover:text-violet-500 transition-colors scale-110">
-                    <ArrowRight size={14} />
+                    <ChevronRight size={14} />
                 </button>
             </td>
         </tr>
@@ -293,7 +293,7 @@ const TaskRow = ({
                                 onClick={(e) => e.stopPropagation()}
                                 className="p-2 text-slate-300 hover:text-violet-500 transition-colors"
                             >
-                                <ArrowRight size={14} />
+                                <ChevronRight size={14} />
                             </button>
                         )}
                     </div>
