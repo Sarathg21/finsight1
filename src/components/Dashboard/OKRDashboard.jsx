@@ -5,10 +5,10 @@ import { useAuth } from '../../context/AuthContext';
 import { OKRS } from '../../data/mockData';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-    PieChart, Pie, AreaChart, Area, Legend, LabelList
+    PieChart, Pie, AreaChart, Area, LabelList
 } from 'recharts';
-import { 
-    AlertTriangle, CheckCircle, Clock, Target, Users, TrendingUp, 
+import {
+    AlertTriangle, CheckCircle, Clock, Target, Users, TrendingUp,
     ArrowUpRight, ArrowDownRight, ChevronRight, MoreHorizontal, Loader2,
     ShieldCheck, Calendar, ChevronDown, CheckCircle2
 } from 'lucide-react';
@@ -30,54 +30,54 @@ const extractArr = (resData) => {
 /* Small stat tile — CFO-style large gradient card */
 const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
     const c = {
-        violet: { 
-            bg: 'bg-gradient-to-br from-[#7B51ED] via-[#8B64F1] to-[#6D43E0]', 
-            shadow: 'shadow-[0_8px_30px_rgb(123,81,237,0.3)]', 
-            icon: 'bg-white/20', 
-            accent: 'bg-violet-400/30' 
+        violet: {
+            bg: 'bg-gradient-to-br from-[#7B51ED] via-[#8B64F1] to-[#6D43E0]',
+            shadow: 'shadow-[0_8px_30px_rgb(123,81,237,0.3)]',
+            icon: 'bg-white/20',
+            accent: 'bg-violet-400/30'
         },
-        green: { 
-            bg: 'bg-gradient-to-br from-[#10B981] via-[#34D399] to-[#059669]', 
-            shadow: 'shadow-[0_8px_30_rgb(16,185,129,0.3)]', 
-            icon: 'bg-white/20', 
-            accent: 'bg-emerald-400/30' 
+        green: {
+            bg: 'bg-gradient-to-br from-[#10B981] via-[#34D399] to-[#059669]',
+            shadow: 'shadow-[0_8px_30_rgb(16,185,129,0.3)]',
+            icon: 'bg-white/20',
+            accent: 'bg-emerald-400/30'
         },
-        blue: { 
-            bg: 'bg-gradient-to-br from-[#4285F4] via-[#60A5FA] to-[#2563EB]', 
-            shadow: 'shadow-[0_8px_30px_rgb(66,133,244,0.3)]', 
-            icon: 'bg-white/20', 
-            accent: 'bg-blue-400/30' 
+        blue: {
+            bg: 'bg-gradient-to-br from-[#4285F4] via-[#60A5FA] to-[#2563EB]',
+            shadow: 'shadow-[0_8px_30px_rgb(66,133,244,0.3)]',
+            icon: 'bg-white/20',
+            accent: 'bg-blue-400/30'
         },
-        amber: { 
-            bg: 'bg-gradient-to-br from-[#F59E0B] via-[#FBBF24] to-[#D97706]', 
-            shadow: 'shadow-[0_8px_30px_rgb(245,158,11,0.3)]', 
-            icon: 'bg-white/20', 
-            accent: 'bg-amber-400/30' 
+        amber: {
+            bg: 'bg-gradient-to-br from-[#F59E0B] via-[#FBBF24] to-[#D97706]',
+            shadow: 'shadow-[0_8px_30px_rgb(245,158,11,0.3)]',
+            icon: 'bg-white/20',
+            accent: 'bg-amber-400/30'
         },
-        rose: { 
-            bg: 'bg-gradient-to-br from-[#F43F5E] via-[#FB7185] to-[#E11D48]', 
-            shadow: 'shadow-[0_8px_30px_rgb(244,63,94,0.3)]', 
-            icon: 'bg-white/20', 
-            accent: 'bg-rose-400/30' 
+        rose: {
+            bg: 'bg-gradient-to-br from-[#F43F5E] via-[#FB7185] to-[#E11D48]',
+            shadow: 'shadow-[0_8px_30px_rgb(244,63,94,0.3)]',
+            icon: 'bg-white/20',
+            accent: 'bg-rose-400/30'
         },
-        indigo: { 
-            bg: 'bg-gradient-to-br from-[#4F46E5] via-[#6366F1] to-[#4338CA]', 
-            shadow: 'shadow-[0_8px_30px_rgb(79,70,229,0.3)]', 
-            icon: 'bg-white/20', 
-            accent: 'bg-indigo-400/30' 
+        indigo: {
+            bg: 'bg-gradient-to-br from-[#4F46E5] via-[#6366F1] to-[#4338CA]',
+            shadow: 'shadow-[0_8px_30px_rgb(79,70,229,0.3)]',
+            icon: 'bg-white/20',
+            accent: 'bg-indigo-400/30'
         },
-    }[color] || { 
-        bg: 'bg-gradient-to-br from-violet-500 to-indigo-600', 
-        shadow: 'shadow-[0_8px_30px_rgb(124,58,237,0.3)]', 
-        icon: 'bg-white/20', 
-        accent: 'bg-violet-400/30' 
+    }[color] || {
+        bg: 'bg-gradient-to-br from-violet-500 to-indigo-600',
+        shadow: 'shadow-[0_8px_30px_rgb(124,58,237,0.3)]',
+        icon: 'bg-white/20',
+        accent: 'bg-violet-400/30'
     };
 
     return (
         <div className={`group animate-fade-in-up relative overflow-hidden rounded-[1.25rem] ${c.bg} ${c.shadow} p-4 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full`}>
             {/* Background Ornaments */}
             <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full ${c.accent} blur-2xl opacity-50 group-hover:scale-125 transition-transform duration-700`} />
-            
+
             <div className="relative z-10 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -89,7 +89,7 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
                         {value ?? '0'}
                     </div>
                 </div>
-                
+
                 {Icon && (
                     <div className="flex-shrink-0">
                         <Icon size={24} className="text-white drop-shadow-md" strokeWidth={2.5} />
@@ -120,7 +120,7 @@ const OKRDashboard = () => {
 
     const getStoredFilters = () => ({
         from_date: validDate(localStorage.getItem('dashboard_from_date'), defaultFrom),
-        to_date:   validDate(localStorage.getItem('dashboard_to_date'),   defaultTo),
+        to_date: validDate(localStorage.getItem('dashboard_to_date'), defaultTo),
         department: localStorage.getItem('dashboard_department') || 'All'
     });
 
@@ -145,7 +145,7 @@ const OKRDashboard = () => {
     useEffect(() => {
         // Prevent fetching with partial/invalid dates (e.g. while typing '2026' as '0002')
         if (filters.from_date.length < 10 || filters.to_date.length < 10) return;
-        
+
         localStorage.setItem('dashboard_from_date', filters.from_date);
         localStorage.setItem('dashboard_to_date', filters.to_date);
         if (filters.department) localStorage.setItem('dashboard_department', filters.department);
@@ -267,7 +267,7 @@ const OKRDashboard = () => {
         ]);
         setOverdueTasks([]);
     };
-    
+
     const fetchDashboardData = async () => {
         setLoading(true);
         const extractTasks = (res) => {
@@ -310,7 +310,7 @@ const OKRDashboard = () => {
                 // Handle DD-MM-YYYY or DD/MM/YYYY
                 const dmy = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
                 if (dmy) {
-                    return `${dmy[3]}-${String(dmy[2]).padStart(2,'0')}-${String(dmy[1]).padStart(2,'0')}`;
+                    return `${dmy[3]}-${String(dmy[2]).padStart(2, '0')}-${String(dmy[1]).padStart(2, '0')}`;
                 }
                 const d = new Date(val);
                 return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
@@ -319,7 +319,7 @@ const OKRDashboard = () => {
             const today = new Date().toISOString().slice(0, 10);
             const firstOfCurrent = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
             const safeFrom = toDateKey(filters.from_date) || firstOfCurrent;
-            const safeTo   = toDateKey(filters.to_date) || today;
+            const safeTo = toDateKey(filters.to_date) || today;
 
             const currentParams = { from_date: safeFrom, to_date: safeTo };
             const deptVal = String(filters.department || '').trim();
@@ -338,7 +338,7 @@ const OKRDashboard = () => {
             if (!isCFO || (deptVal && deptVal.toLowerCase() !== 'all' && deptVal.toLowerCase() !== 'undefined')) {
                 baseCandidates.push({ ep: '/dashboard/manager', p: currentParams });
             }
-            
+
             let summaryData = {};
             for (const cand of baseCandidates) {
                 try {
@@ -390,7 +390,7 @@ const OKRDashboard = () => {
             const apiDeptNames = extractArr(deptsRes.data).map(d => d.name || d.department_name).filter(Boolean);
 
             const rawCurrentList = extractArr(objListRes.data);
-            const rawWideList    = extractArr(wideObjListRes.data);
+            const rawWideList = extractArr(wideObjListRes.data);
             const objectivesList = rawCurrentList.length > 0 ? rawCurrentList : rawWideList;
 
             const seenIds = new Set();
@@ -404,7 +404,7 @@ const OKRDashboard = () => {
                 const dueDate = t.due_date || t.end_date;
                 const cKey = creationDate ? String(creationDate).slice(0, 10) : null;
                 const dKey = dueDate ? String(dueDate).slice(0, 10) : null;
-                
+
                 // A task is relevant if it was assigned within the window OR is due within the window
                 const isWithinRange = (k) => k && k >= safeFrom && k <= safeTo;
                 if (!isWithinRange(cKey) && !isWithinRange(dKey)) return false;
@@ -415,7 +415,7 @@ const OKRDashboard = () => {
                     const tDept = getDeptNameHelper(t);
                     const matchesName = tDept ? (tDept.toLowerCase().includes(filterDept.toLowerCase()) || filterDept.toLowerCase().includes(tDept.toLowerCase())) : false;
                     const matchesId = String(t.department_id || t.dept_id || t.owner_dept_id || '').toLowerCase() === filterDept.toLowerCase();
-                    
+
                     if (!matchesName && !matchesId) return false;
                 }
 
@@ -440,7 +440,7 @@ const OKRDashboard = () => {
                 const isParentByChildren = parentSet.has(id);
                 const isParentByFlag = t.is_parent || t.task_type === 'PARENT' || (t.subtask_count && t.subtask_count > 0);
                 const isRecurring = !!(t.recurring_task_id || t.recurring_id || t.automation_id);
-                
+
                 const parentIdRaw = t.parent_task_id || t.parent_id;
                 const parentId = parentIdRaw ? String(parentIdRaw).trim() : null;
                 // Treat as parent if it has no parent OR if the parent it references is NOT in our current dataset
@@ -491,13 +491,13 @@ const OKRDashboard = () => {
             });
 
             let serverObjs = Array.isArray(data.objective_completion) ? [...data.objective_completion] : [];
-            
+
             manualObjs.forEach(mObj => {
                 const existing = serverObjs.find(s => String(s.parent_task_id || s.id) === String(mObj.id));
                 if (!existing) {
                     serverObjs.push(mObj);
                 } else {
-                    existing.objective_title = mObj.objective_title; 
+                    existing.objective_title = mObj.objective_title;
                     const sTotal = existing.total_subtasks || existing.sub_total || 0;
                     const sDone = existing.completed_subtasks || existing.sub_comp || 0;
                     existing.total_subtasks = Math.max(mObj.total_subtasks, sTotal);
@@ -512,7 +512,7 @@ const OKRDashboard = () => {
             if (objectivesList.length > 0) {
                 const getIds = (e) => {
                     const ids = new Set();
-                    ['parent_task_id','id','task_id','objective_id'].forEach(k => {
+                    ['parent_task_id', 'id', 'task_id', 'objective_id'].forEach(k => {
                         if (e[k]) ids.add(String(e[k]).replace(/\D/g, ''));
                     });
                     return ids;
@@ -545,7 +545,7 @@ const OKRDashboard = () => {
                     });
                     if (!auth) return;
                     const authTotal = Number(auth.total_subtasks ?? auth.sub_total ?? 0);
-                    const authDone  = Number(auth.completed_subtasks ?? auth.sub_comp ?? 0);
+                    const authDone = Number(auth.completed_subtasks ?? auth.sub_comp ?? 0);
                     if (authTotal > 0) {
                         obj.total_subtasks = authTotal;
                         obj.completed_subtasks = authDone;
@@ -560,8 +560,8 @@ const OKRDashboard = () => {
 
             // ── Baseline Fallback for Blank States ──
             if (serverObjs.length === 0 && allTasks.length > 0) {
-                 const completed = allTasks.filter(t => (t.status||'').toUpperCase() === 'APPROVED').length;
-                 const progress  = Math.round((completed / Math.max(allTasks.length, 1)) * 100);
+                const completed = allTasks.filter(t => (t.status || '').toUpperCase() === 'APPROVED').length;
+                const progress = Math.round((completed / Math.max(allTasks.length, 1)) * 100);
                 serverObjs.push({
                     id: 'synthetic-ops',
                     objective_title: 'Operational Execution',
@@ -609,23 +609,41 @@ const OKRDashboard = () => {
             }
 
             // Sync metrics (Priority: summaryData > calculation)
-            data.total_objectives     = summaryData.total_objectives || serverObjs.length || 0;
-            data.completed_tasks      = summaryData.completed_tasks || serverObjs.reduce((acc, o) => acc + (o.completed_subtasks || 0), 0) || 0;
-            data.total_subtasks       = summaryData.total_subtasks || serverObjs.reduce((acc, o) => acc + (o.total_subtasks || 0), 0) || 0;
-            data.overall_progress     = summaryData.overall_progress || (data.total_subtasks > 0 ? Math.round((data.completed_tasks / data.total_subtasks) * 100) : 0);
-            data.at_risk              = summaryData.at_risk || serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length || 0;
-            data.avg_health_score     = summaryData.avg_health || (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
+            data.total_objectives = summaryData.total_objectives || serverObjs.length || 0;
+            data.completed_tasks = summaryData.completed_tasks || serverObjs.reduce((acc, o) => acc + (o.completed_subtasks || 0), 0) || 0;
+            data.total_subtasks = summaryData.total_subtasks || serverObjs.reduce((acc, o) => acc + (o.total_subtasks || 0), 0) || 0;
+            data.overall_progress = summaryData.overall_progress || (data.total_subtasks > 0 ? Math.round((data.completed_tasks / data.total_subtasks) * 100) : 0);
+            data.at_risk = summaryData.at_risk || serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length || 0;
+            data.avg_health_score = summaryData.avg_health || (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
 
+            // Build department contribution from ALL individual tasks (not just parent objectives)
+            // so every department that has tasks appears in the DEPARTMENTAL LOAD pie chart.
             const deptMap = {};
-            serverObjs.forEach(o => {
-                (o.deptsArray || ['General']).forEach(d => {
-                    const dName = String(d || 'General').trim();
-                    deptMap[dName] = (deptMap[dName] || 0) + (o.total_subtasks || 1);
-                });
+            const getDeptFromTask = (t) => {
+                if (!t) return null;
+                const candidates = [t.department_name, t.department, t.dept_name, t.dept, t.owner_dept, t.assigned_dept];
+                for (const c of candidates) {
+                    if (c && c !== 'N/A' && c !== 'undefined' && c !== 'null') return String(c).trim();
+                }
+                return null;
+            };
+            // Primary: aggregate from all tasks
+            allTasks.forEach(t => {
+                const dName = getDeptFromTask(t) || 'General';
+                deptMap[dName] = (deptMap[dName] || 0) + 1;
             });
-            data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({ 
-                department_name: name, 
-                subtask_count: count 
+            // Fallback: if no tasks available, aggregate from objectives' deptsArray
+            if (Object.keys(deptMap).length <= 1 && serverObjs.length > 0) {
+                serverObjs.forEach(o => {
+                    (o.deptsArray || ['General']).forEach(d => {
+                        const dName = String(d || 'General').trim();
+                        deptMap[dName] = (deptMap[dName] || 0) + (o.total_subtasks || 1);
+                    });
+                });
+            }
+            data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
+                department_name: name,
+                subtask_count: count
             }));
 
             setMetrics([
@@ -642,7 +660,7 @@ const OKRDashboard = () => {
                 const subComp = o.completed_subtasks || o.sub_comp || 0;
                 const progress = o.progress_pct !== undefined ? o.progress_pct : (subTotal > 0 ? Math.round((subComp / subTotal) * 100) : 0);
                 const rating = o.risk_rating || (progress < 40 ? 'High' : (progress < 80 ? 'Medium' : 'Low'));
-                
+
                 const start = o.start_date || o.created_at;
                 const end = o.due_date || o.end_date;
                 let daysTotal = 45;
@@ -679,7 +697,8 @@ const OKRDashboard = () => {
             }));
 
             const rowDepts = serverObjs.flatMap(o => o.deptsArray || []).filter(Boolean);
-            setAvailableDepts(Array.from(new Set([...apiDeptNames, ...rowDepts])).filter(n => n && n !== 'Corporate'));
+            const taskDepts = allTasks.map(t => getDeptFromTask(t)).filter(Boolean);
+            setAvailableDepts(Array.from(new Set([...apiDeptNames, ...rowDepts, ...taskDepts])).filter(n => n && n !== 'Corporate' && n !== 'General'));
 
             const objCompletion = serverObjs.map(o => ({
                 name: o.objective_title || o.title || 'Objective',
@@ -726,8 +745,8 @@ const OKRDashboard = () => {
                     : 0)
             );
 
-            const hasValidTrData = Array.isArray(trData) && trData.length > 0 && 
-                                   trData.some(t => toPct(t.completion_pct ?? t.completion ?? t.progress ?? t.value ?? t.rate ?? 0) > 0);
+            const hasValidTrData = Array.isArray(trData) && trData.length > 0 &&
+                trData.some(t => toPct(t.completion_pct ?? t.completion ?? t.progress ?? t.value ?? t.rate ?? 0) > 0);
 
             if (hasValidTrData) {
                 let lastValue = 0;
@@ -745,11 +764,11 @@ const OKRDashboard = () => {
                 const labelFor = (d) => d.toISOString().slice(0, 7);
                 const from = safeFrom ? new Date(safeFrom) : new Date();
                 const to = safeTo ? new Date(safeTo) : new Date();
-                
+
                 // Enforce a strict 6-month trailing graph representation ending in the selected 'To' month
                 const endMonth = new Date(to.getFullYear(), to.getMonth(), 1);
                 const startMonth = new Date(to.getFullYear(), to.getMonth() - 5, 1);
-                
+
                 const bucketMap = {};
                 let cursor = new Date(startMonth);
                 while (cursor <= endMonth) {
@@ -765,7 +784,7 @@ const OKRDashboard = () => {
                     if (!rawDate) return;
                     const d = new Date(rawDate);
                     if (Number.isNaN(d.getTime())) return;
-                    
+
                     const key = monthKey(d);
                     if (!bucketMap[key]) return; // Only process tasks that fall within our 6-month bucket window
 
@@ -783,7 +802,7 @@ const OKRDashboard = () => {
                         if (!rawDate) return;
                         const d = new Date(rawDate);
                         if (Number.isNaN(d.getTime())) return;
-                        
+
                         const key = monthKey(d);
                         if (!bucketMap[key]) return;
 
@@ -844,15 +863,15 @@ const OKRDashboard = () => {
 
     const displayedMetrics = React.useMemo(() => {
         if (!filters.department || filters.department === 'All') return metrics;
-        
+
         let totalSubs = 0;
         let doneSubs = 0;
         let totalScore = 0;
         let riskImpactCount = 0;
-        
+
         displayedTableData.forEach(row => {
-            totalSubs  += (row.subTotal || 0);
-            doneSubs   += (row.subComp || 0);
+            totalSubs += (row.subTotal || 0);
+            doneSubs += (row.subComp || 0);
             totalScore += (row.score || 0);
             if (row.rating === 'High') riskImpactCount++;
         });
@@ -860,7 +879,7 @@ const OKRDashboard = () => {
         const finalTotalObjectives = displayedTableData.length;
         const finalOverallProgress = totalSubs > 0 ? Math.round((doneSubs / totalSubs) * 100) : 0;
         const avgCompletion = finalTotalObjectives > 0 ? Math.round(totalScore / finalTotalObjectives) : 0;
-        
+
         return [
             { label: 'TOTAL OBJECTIVES', value: finalTotalObjectives, color: 'indigo', icon: Target },
             { label: 'TOTAL SUBTASKS', value: totalSubs, color: 'blue', icon: TrendingUp },
@@ -887,8 +906,8 @@ const OKRDashboard = () => {
             status: row.rating,
             score: row.score,
             color: row.rating === 'High' ? 'bg-rose-500 text-white shadow-lg' :
-                   row.rating === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                   'bg-emerald-500 text-white shadow-md'
+                row.rating === 'Medium' ? 'bg-amber-100 text-amber-700 border border-amber-200' :
+                    'bg-emerald-500 text-white shadow-md'
         }));
     }, [displayedTableData, riskOverview, filters.department]);
 
@@ -929,8 +948,8 @@ const OKRDashboard = () => {
                         <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-2 rounded-full border border-white/20">
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black text-white/60 uppercase tracking-widest leading-none">From:</span>
-                                <input 
-                                    type="date" 
+                                <input
+                                    type="date"
                                     className="bg-transparent border-none text-[12px] font-bold text-white p-0 focus:ring-0 cursor-pointer w-[150px]"
                                     style={{ colorScheme: 'dark' }}
                                     min="2020-01-01"
@@ -943,8 +962,8 @@ const OKRDashboard = () => {
                             <div className="w-px h-4 bg-white/20 mx-2"></div>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black text-white/60 uppercase tracking-widest leading-none">To:</span>
-                                <input 
-                                    type="date" 
+                                <input
+                                    type="date"
                                     className="bg-transparent border-none text-[12px] font-bold text-white p-0 focus:ring-0 cursor-pointer w-[150px]"
                                     style={{ colorScheme: 'dark' }}
                                     min="2020-01-01"
@@ -962,7 +981,7 @@ const OKRDashboard = () => {
             {/* ── KPI ROW ── */}
             <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
                 {displayedMetrics.map((m, i) => (
-                    <Stat 
+                    <Stat
                         key={i}
                         label={m.label}
                         value={m.value}
@@ -978,7 +997,7 @@ const OKRDashboard = () => {
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-[420px] overflow-hidden">
                     <div className="bg-[#1E1B4B] px-6 py-4 flex justify-between items-center">
                         <h3 className="text-[12px] font-black text-white uppercase tracking-widest flex items-center gap-2">
-                             OBJECTIVE PROGRESS (PCT)
+                            OBJECTIVE PROGRESS (PCT)
                         </h3>
                     </div>
                     <div className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6">
@@ -989,7 +1008,7 @@ const OKRDashboard = () => {
                                     <span className="text-[10px] font-black text-blue-600">{row.progress}%</span>
                                 </div>
                                 <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-0.5">
-                                    <div 
+                                    <div
                                         className={`h-full rounded-full transition-all duration-1000 ${row.progress > 80 ? 'bg-[#10b981]' : row.progress > 50 ? 'bg-[#3b82f6]' : 'bg-[#ef4444]'}`}
                                         style={{ width: `${row.progress}%` }}
                                     />
@@ -1006,43 +1025,55 @@ const OKRDashboard = () => {
 
                 {/* Departmental Load */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-[420px] overflow-hidden">
-                    <div className="bg-[#1E1B4B] px-6 py-4 flex justify-between items-center">
+                    <div className="bg-[#1E1B4B] px-6 py-4 flex justify-between items-center flex-shrink-0">
                         <h3 className="text-[12px] font-black text-white uppercase tracking-widest flex items-center gap-2">
                             DEPARTMENTAL LOAD
                         </h3>
                     </div>
-                    <div className="p-6 flex-1 relative min-h-[300px] min-w-0">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[-20px] flex flex-col items-center z-10 pointer-events-none">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">TASKS</span>
-                            <span className="text-3xl font-black text-[#1E1B4B] tabular-nums leading-none">
-                                {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
-                            </span>
+                    <div className="p-4 flex flex-col flex-1 min-h-0">
+                        {/* Donut Chart */}
+                        <div className="relative flex-shrink-0" style={{ height: 200 }}>
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 pointer-events-none">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TASKS</span>
+                                <span className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
+                                    {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
+                                </span>
+                            </div>
+                            <ResponsiveContainer width="100%" height={200} minHeight={1} minWidth={1}>
+                                <PieChart>
+                                    <Pie
+                                        data={displayedDeptContributionData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={55}
+                                        outerRadius={80}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                        stroke="#fff"
+                                        strokeWidth={3}
+                                    >
+                                        {displayedDeptContributionData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                </PieChart>
+                            </ResponsiveContainer>
                         </div>
-                        <ResponsiveContainer width="100%" height={300} minHeight={1} minWidth={1}>
-                            <PieChart>
-                                <Pie
-                                    data={displayedDeptContributionData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={70}
-                                    outerRadius={100}
-                                    paddingAngle={5}
-                                    dataKey="value"
-                                    stroke="#fff"
-                                    strokeWidth={4}
-                                >
-                                    {displayedDeptContributionData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                                    ))}
-                                </Pie>
-                                <Tooltip />
-                                <Legend 
-                                    verticalAlign="bottom" 
-                                    height={40}
-                                    formatter={(val) => <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{val}</span>}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
+                        {/* Custom Legend — scrollable */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar mt-2 min-h-0">
+                            <div className="flex flex-col gap-y-2 px-1">
+                                {displayedDeptContributionData.map((entry, idx) => (
+                                    <div key={idx} className="flex items-start gap-2 min-w-0">
+                                        <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0 mt-[3px]" style={{ backgroundColor: entry.fill }} />
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight flex-1">
+                                            {entry.name}
+                                        </span>
+                                        <span className="text-[10px] font-black text-slate-700 ml-auto flex-shrink-0">{entry.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1080,30 +1111,30 @@ const OKRDashboard = () => {
                             <p className="text-[10px] font-medium text-white/90 uppercase tracking-widest">Strategic KPI Tracking</p>
                         </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 bg-white/10 p-1.5 rounded-xl border border-white/10">
                         <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg border border-white/10 hover:border-white/20 transition-colors">
-                            <input 
-                                type="date" 
-                                className="bg-transparent border-none text-[12px] font-bold text-white p-0 focus:ring-0 cursor-pointer w-[150px]" 
+                            <input
+                                type="date"
+                                className="bg-transparent border-none text-[12px] font-bold text-white p-0 focus:ring-0 cursor-pointer w-[150px]"
                                 style={{ colorScheme: 'dark' }}
                                 min="2020-01-01"
                                 max="2030-12-31"
                                 onFocus={(e) => e.target.showPicker?.()}
-                                value={filters.from_date} 
+                                value={filters.from_date}
                                 onChange={(e) => setFilters({ ...filters, from_date: e.target.value })}
                             />
                         </div>
                         <span className="text-white/30 font-bold">/</span>
                         <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg border border-white/10 hover:border-white/20 transition-colors">
-                            <input 
-                                type="date" 
-                                className="bg-transparent border-none text-[12px] font-bold text-white p-0 focus:ring-0 cursor-pointer w-[150px]" 
+                            <input
+                                type="date"
+                                className="bg-transparent border-none text-[12px] font-bold text-white p-0 focus:ring-0 cursor-pointer w-[150px]"
                                 style={{ colorScheme: 'dark' }}
                                 min="2020-01-01"
                                 max="2030-12-31"
                                 onFocus={(e) => e.target.showPicker?.()}
-                                value={filters.to_date} 
+                                value={filters.to_date}
                                 onChange={(e) => setFilters({ ...filters, to_date: e.target.value })}
                             />
                             <Calendar size={14} className="text-indigo-400" />
@@ -1133,79 +1164,78 @@ const OKRDashboard = () => {
                                     navigate(`/tasks/team?search=${title}&task_id=${tid}&from_obj=1`);
                                 };
                                 return (
-                                <tr
-                                    key={idx}
-                                    className="hover:bg-indigo-50/60 transition-all duration-200 group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-500"
-                                    onClick={handleObjRowClick}
-                                    title={`Click to view team tasks for: ${row.title || row.objective}`}
-                                >
-                                    <td className="py-6 px-6">
-                                        <span className="text-[14px] font-bold text-slate-400 transition-colors group-hover:text-indigo-600">
-                                            OBJ-{row.id || (idx + 1)}
-                                        </span>
-                                    </td>
-                                    <td className="py-6 px-6">
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[15px] font-bold text-slate-800 leading-tight group-hover:text-indigo-700 transition-colors">
-                                                    {row.title || row.objective_title}
-                                                </span>
-                                                <span className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <ArrowUpRight size={14} className="text-indigo-400" />
-                                                </span>
+                                    <tr
+                                        key={idx}
+                                        className="hover:bg-indigo-50/60 transition-all duration-200 group cursor-pointer border-l-4 border-l-transparent hover:border-l-indigo-500"
+                                        onClick={handleObjRowClick}
+                                        title={`Click to view team tasks for: ${row.title || row.objective}`}
+                                    >
+                                        <td className="py-6 px-6">
+                                            <span className="text-[14px] font-bold text-slate-400 transition-colors group-hover:text-indigo-600">
+                                                OBJ-{row.id || (idx + 1)}
+                                            </span>
+                                        </td>
+                                        <td className="py-6 px-6">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[15px] font-bold text-slate-800 leading-tight group-hover:text-indigo-700 transition-colors">
+                                                        {row.title || row.objective_title}
+                                                    </span>
+                                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <ArrowUpRight size={14} className="text-indigo-400" />
+                                                    </span>
+                                                </div>
+                                                {row.deptNames?.[0] && (
+                                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mt-1">
+                                                        {row.deptNames[0]}
+                                                    </span>
+                                                )}
                                             </div>
-                                            {row.deptNames?.[0] && (
-                                                <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mt-1">
-                                                    {row.deptNames[0]}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-6 px-6 text-center">
-                                        <span className="text-[16px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100/50">
-                                            {row.deptsCount || 1}
-                                        </span>
-                                    </td>
-                                    <td className="py-6 px-6 text-center text-[15px] font-bold text-slate-600">
-                                        {row.completed || 0}
-                                    </td>
-                                    <td className="py-6 px-6 text-center text-[15px] font-bold text-slate-600">
-                                        {row.total || 0}
-                                    </td>
-                                    <td className="py-6 px-6 w-32">
-                                        <div className="flex flex-col gap-1.5">
-                                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                <div 
-                                                    className="h-full bg-indigo-500 rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(99,102,241,0.3)]"
-                                                    style={{ width: `${row.progress||0}%` }}
-                                                ></div>
+                                        </td>
+                                        <td className="py-6 px-6 text-center">
+                                            <span className="text-[16px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100/50">
+                                                {row.deptsCount || 1}
+                                            </span>
+                                        </td>
+                                        <td className="py-6 px-6 text-center text-[15px] font-bold text-slate-600">
+                                            {row.completed || 0}
+                                        </td>
+                                        <td className="py-6 px-6 text-center text-[15px] font-bold text-slate-600">
+                                            {row.total || 0}
+                                        </td>
+                                        <td className="py-6 px-6 w-32">
+                                            <div className="flex flex-col gap-1.5">
+                                                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-indigo-500 rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(99,102,241,0.3)]"
+                                                        style={{ width: `${row.progress || 0}%` }}
+                                                    ></div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-400 text-right">{row.progress || 0}%</span>
                                             </div>
-                                            <span className="text-[10px] font-bold text-slate-400 text-right">{row.progress||0}%</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-6 px-6 text-center">
-                                        <span className={`text-[20px] font-black ${row.progress >= 100 ? 'text-emerald-500' : (row.progress >= 50 ? 'text-indigo-600' : 'text-rose-500')}`}>
-                                            {row.progress||0}%
-                                        </span>
-                                    </td>
-                                    <td className="py-6 px-6 text-right">
-                                        <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border shadow-sm ${
-                                            row.risk === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                                            row.risk === 'Medium' ? 'bg-amber-50 text-amber-600 border-amber-100' :
-                                            'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                        }`}>
-                                            {row.risk || 'Low'}
-                                        </span>
-                                    </td>
-                                    <td className="py-6 px-6 text-right">
-                                        <div 
-                                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm group-hover:shadow-indigo-200"
-                                            title="View in Team Tasks"
-                                        >
-                                            <ChevronRight size={16} />
-                                        </div>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td className="py-6 px-6 text-center">
+                                            <span className={`text-[20px] font-black ${row.progress >= 100 ? 'text-emerald-500' : (row.progress >= 50 ? 'text-indigo-600' : 'text-rose-500')}`}>
+                                                {row.progress || 0}%
+                                            </span>
+                                        </td>
+                                        <td className="py-6 px-6 text-right">
+                                            <span className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border shadow-sm ${row.risk === 'High' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                                                    row.risk === 'Medium' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                                        'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                }`}>
+                                                {row.risk || 'Low'}
+                                            </span>
+                                        </td>
+                                        <td className="py-6 px-6 text-right">
+                                            <div
+                                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-50 text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm group-hover:shadow-indigo-200"
+                                                title="View in Team Tasks"
+                                            >
+                                                <ChevronRight size={16} />
+                                            </div>
+                                        </td>
+                                    </tr>
                                 );
                             }) : (
                                 <tr>
@@ -1228,13 +1258,13 @@ const OKRDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Heatmap/Overdue Summary */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col h-[280px]">
-                     <h3 className="text-sm font-bold text-slate-700 capitalize tracking-tight flex items-center gap-2 mb-6">
+                    <h3 className="text-sm font-bold text-slate-700 capitalize tracking-tight flex items-center gap-2 mb-6">
                         <Clock size={16} className="text-rose-500" />
                         Executive Criticals
                     </h3>
                     <div className="space-y-4">
                         {overdueTasks.slice(0, 3).map((t, i) => (
-                             <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-3">
+                            <div key={i} className="flex items-center justify-between border-b border-slate-50 pb-3">
                                 <div className="flex flex-col">
                                     <span className="text-[11px] font-medium text-slate-800 truncate max-w-[180px] capitalize tracking-tight">{t.title}</span>
                                     <span className="text-[9px] font-medium text-slate-400 capitalize">Critical Timeline</span>
@@ -1256,8 +1286,8 @@ const OKRDashboard = () => {
                             <AreaChart data={trendData} margin={{ top: 36, right: 30, left: 20, bottom: 10 }}>
                                 <defs>
                                     <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#1e3a8a" stopOpacity={0.15}/>
-                                        <stop offset="95%" stopColor="#1e3a8a" stopOpacity={0}/>
+                                        <stop offset="5%" stopColor="#1e3a8a" stopOpacity={0.15} />
+                                        <stop offset="95%" stopColor="#1e3a8a" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -1270,18 +1300,18 @@ const OKRDashboard = () => {
                                     ]}
                                 />
                                 <Tooltip formatter={(v) => [`${v}%`, 'Completion']} />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="value" 
-                                    stroke="#1e3a8a" 
-                                    fillOpacity={1} 
-                                    fill="url(#colorTrend)" 
+                                <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="#1e3a8a"
+                                    fillOpacity={1}
+                                    fill="url(#colorTrend)"
                                     strokeWidth={3}
                                     dot={{ r: 4, fill: '#1e3a8a', strokeWidth: 2, stroke: '#fff' }}
                                 >
-                                    <LabelList 
-                                        dataKey="value" 
-                                        position="top" 
+                                    <LabelList
+                                        dataKey="value"
+                                        position="top"
                                         formatter={(v) => `${v}%`}
                                         style={{ fontSize: '11px', fontWeight: '700', fill: '#1e3a8a' }}
                                         offset={8}

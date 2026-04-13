@@ -59,12 +59,20 @@ const LoginPage = () => {
             <div className="flex-[0_0_50%] w-1/2 flex-col justify-between p-14 relative overflow-hidden z-[2] hidden lg:flex">
                 <div className="relative z-[1] flex-1 flex flex-col justify-center items-center text-center">
                     <div className="w-[120px] h-[120px] flex items-center justify-center mb-8 self-center">
-                        <img
-                            src="/images/logo.png"
-                            alt="Tascade Logo"
-                            className="w-[110%] h-[110%] object-contain block"
-                            onError={e => { e.currentTarget.style.display = 'none'; }}
-                        />
+                        <a
+                            href="http://65.2.177.80/login"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-full h-full flex items-center justify-center"
+                            aria-label="Open Tascade Live Login"
+                        >
+                            <img
+                                src="/images/logo.png"
+                                alt="Tascade Logo"
+                                className="w-[110%] h-[110%] object-contain block"
+                                onError={e => { e.currentTarget.style.display = 'none'; }}
+                            />
+                        </a>
                     </div>
                     <h1 className="text-[3.5rem] font-semibold text-white tracking-[-0.02em] mb-1">Tascade®</h1>
                     <h2 className="text-[1.75rem] font-semibold text-white mb-3 tracking-[-0.01em]">Track. Measure. Succeed.</h2>
