@@ -83,14 +83,18 @@ const RecurringTasksPage = () => {
         
         setLoading(true);
         try {
-            // Single call — avoids sending redundant parallel requests or double-calling
+            // Single call with large limit — avoids sending redundant parallel requests
             const endpointCalls = [
-                api.get('/recurring-tasks'),
+                api.get('/recurring-tasks', { params: { limit: 200 } }), // Standard (Personal or Default)
             ];
 
-            // Only add department specific call if needed (avoid double fetching all)
-            if (!isAdminOrCFO && user?.role?.toUpperCase() === 'MANAGER' && user?.department_id) {
-                endpointCalls.push(api.get('/recurring-tasks', { params: { department_id: user.department_id } }).catch(() => ({ data: [] })));
+            if (isAdminOrCFO) {
+                // Try scope=org (standard for Admin/CFO in this backend)
+                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'org', limit: 200 } }).catch(() => ({ data: [] })));
+                endpointCalls.push(api.get('/recurring-tasks', { params: { limit: 200 } }).catch(() => ({ data: [] })));
+            } else if (user?.role?.toUpperCase() === 'MANAGER') {
+                // Try department scope for managers
+                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'department', limit: 200 } }).catch(() => ({ data: [] })));
             }
 
             const results = await Promise.allSettled(endpointCalls);
@@ -371,16 +375,16 @@ const RecurringTasksPage = () => {
             {/* ── MAIN TABLE CARD ── */}
             <div className="bg-white/70 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-200/20 border border-white overflow-hidden mb-8 min-h-[500px] flex flex-col">
                 <div className="overflow-x-auto flex-1">
-                    <table className="w-full text-left border-collapse table-fixed">
+                    <table className="w-full text-left border-collapse">
                         <thead className="bg-[#fbfcff]/50 text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-indigo-50/50">
-                            <tr className="bg-slate-50/30">
-                                <th className="px-1.5 py-3 pl-6 text-[10px] uppercase font-black tracking-tighter w-[80px]">ID</th>
-                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter w-auto">TASK TEMPLATE</th>
+                            <tr>
+                                <th className="px-4 py-5 pl-6">ID</th>
+                                <th className="px-4 py-5">Template</th>
 
-                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter w-[120px]">ASSIGNER</th>
-                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter text-center w-[120px]">FREQUENCY</th>
-                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter text-center w-[120px]">STATUS</th>
-                                <th className="px-1.5 py-3 text-right pr-6 text-[10px] uppercase font-black tracking-tighter w-[120px]">ACTIONS</th>
+                                <th className="px-4 py-5 font-black">Assigned By</th>
+                                <th className="px-4 py-5">Frequency</th>
+                                <th className="px-4 py-5">Status</th>
+                                <th className="px-4 py-5 text-right pr-6">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-indigo-50/40">
@@ -410,34 +414,40 @@ const RecurringTasksPage = () => {
                                                 className={`group cursor-pointer transition-all duration-300 ${isSelected ? 'bg-indigo-100/40' : 'hover:bg-white/60'}`}
                                             >
                                                 {/* ID Badge Column */}
-                                                <td className="px-1.5 py-2 pl-6">
-                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded text-[9px] font-black font-mono tracking-tighter">
+                                                <td className="px-4 py-5 pl-6">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-lg text-[10px] font-black font-mono tracking-widest shadow-sm">
                                                         RT-{t.id || t.recurring_id}
                                                     </span>
                                                 </td>
-                                                <td className="px-1.5 py-2">
-                                                    <div className="flex items-center gap-2">
+                                                <td className="px-4 py-5">
+                                                    <div className="flex items-center gap-3">
                                                         <div className={`transition-transform duration-300 ${expandedRowId === id ? 'rotate-90' : ''}`}>
-                                                            <ChevronRight size={12} className="text-slate-400" />
+                                                            <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600" />
                                                         </div>
-                                                        <span className={`text-[12px] font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-700'} tracking-tight max-w-[200px] truncate`}>
-                                                            {t.title}
-                                                        </span>
+                                                        <div className="flex flex-col">
+                                                            <span className={`text-[15px] font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-700'} tracking-tight max-w-[300px] truncate`}>
+                                                                {t.title}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-1.5 py-2">
-                                                    <span className="text-[11px] font-bold text-slate-700 truncate max-w-[80px] block">{t.assigned_by_name || 'Sys'}</span>
+                                                <td className="px-4 py-5">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[13px] font-bold text-slate-700">{t.assigned_by_name || 'System Admin'}</span>
+                                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Executor</span>
+                                                    </div>
                                                 </td>
-                                                <td className="px-1.5 py-2 text-center">
-                                                    <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{formatFrequency(t)}</span>
+                                                <td className="px-4 py-5">
+                                                    <span className="text-[13px] font-bold text-slate-500">{formatFrequency(t)}</span>
                                                 </td>
-                                                <td className="px-1.5 py-2 text-center">
-                                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${
+                                                <td className="px-4 py-5">
+                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${
                                                         isActive 
                                                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
                                                             : 'bg-orange-50 text-orange-600 border-orange-100'
                                                     }`}>
-                                                        {isActive ? 'Active' : 'Paused'}
+                                                        {isActive ? <Check size={12} strokeWidth={4} /> : <Pause size={12} strokeWidth={4} />}
+                                                        {isActive ? 'Active' : 'Inactive'}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-5 text-right relative pr-6" onClick={(e) => e.stopPropagation()}>

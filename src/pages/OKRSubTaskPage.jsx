@@ -576,25 +576,25 @@ const OKRSubTaskPage = () => {
                         <table className="w-full text-left">
                             <thead className="bg-[#f1f5f9] text-[10px] font-black text-slate-500 uppercase tracking-tight border-b border-slate-200">
                                 <tr>
-                                    <th className="py-3 px-4">Task ID</th>
+                                    <th className="py-3 px-4 pl-6">Task ID</th>
                                     <th className="py-3 px-4">Sub Objective</th>
                                     <th className="py-3 px-4">Department</th>
                                     <th className="py-3 px-4">Assigned To</th>
                                     <th className="py-3 px-4 text-center">Status</th>
                                     <th className="py-3 px-4">Due Date</th>
-                                    <th className="py-3 px-4 text-right">Days Left</th>
+                                    <th className="py-3 px-4 text-right pr-6">Days Left</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {subtasks.map((st, i) => (
                                     <tr key={st.task_id ?? i} className="hover:bg-blue-50/30 transition-colors text-[12px]">
-                                        <td className="py-3 px-4 font-bold text-slate-400">T-{st.task_id}</td>
+                                        <td className="py-3 px-4 pl-6 font-bold text-slate-400">T-{st.task_id}</td>
                                         <td className="py-3 px-4 font-semibold text-slate-900 max-w-[220px] truncate" title={st.subtask_title}>{st.subtask_title}</td>
                                         <td className="py-3 px-4 text-slate-500">{st.department_name}</td>
                                         <td className="py-3 px-4 font-semibold text-slate-700">{st.assigned_to_name}</td>
                                         <td className="py-3 px-4 text-center"><StatusBadge status={st.status} /></td>
                                         <td className="py-3 px-4 text-slate-500">{st.due_date}</td>
-                                        <td className={`py-3 px-4 text-right font-black text-[11px] ${
+                                        <td className={`py-3 px-4 text-right pr-6 font-black text-[11px] ${
                                             st.days_left_text?.includes('late') ? 'text-rose-600' :
                                             st.days_left_text === 'Done'        ? 'text-emerald-600' : 'text-amber-600'
                                         }`}>

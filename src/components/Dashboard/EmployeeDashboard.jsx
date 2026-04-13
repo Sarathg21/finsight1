@@ -752,68 +752,94 @@ const EmployeeDashboard = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left table-fixed">
+                        <table className="w-full text-left">
                             <thead className="text-[12px] text-slate-400 border-b border-slate-100 bg-slate-50/30">
-                                <tr className="bg-slate-50/30">
-                                    <th className="py-2 px-1.5 pl-6 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[25%] uppercase">TASK</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 text-center w-[6%]">ID</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[15%]">PARENT</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[10%]">START</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[10%]">DUE</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 text-center w-[12%]">PRIORITY</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-center text-slate-400 w-[12%]">STATUS</th>
-                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-right text-slate-400 pr-6 w-[10%] uppercase">ACTIONS</th>
+                                <tr>
+                                    <th className="py-2.5 px-3 pl-6 font-bold whitespace-nowrap text-slate-400">Task</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400 text-center">P.ID</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400">Parent</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400">Assigned</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400">Due</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400 text-center">Prio</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-center text-slate-400">Status</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-right text-slate-400 pr-6">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {pendingTasks.length === 0 ? (
                                     <tr><td colSpan="8" className="py-12 text-center text-slate-400 font-bold text-xs">No tasks present</td></tr>
                                 ) : (
-                                    paginatedTasks.map(task => {
-                                        const isDateOverdue = task.due_date && new Date(task.due_date) < new Date();
-                                        return (
+                                    paginatedTasks.map(task => (
                                         <tr key={task.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-1.5 px-1.5 pl-6">
-                                                <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px] block leading-tight">{task.title}</span>
+                                            <td className="py-1.5 px-3 pl-6">
+                                                <span className="text-[12.5px] font-bold text-slate-700 truncate max-w-[200px] block leading-tight">{task.title}</span>
                                             </td>
-                                            <td className="py-1.5 px-1.5 text-center">
-                                                <span className="text-[10px] font-medium text-slate-400">#{task.id || task.task_id}</span>
+                                            <td className="py-1.5 px-3 text-center">
+                                                <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">{task.parent_task_id ? `#${task.parent_task_id}` : '-'}</span>
                                             </td>
-                                            <td className="py-1.5 px-1.5">
-                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[100px] block uppercase tracking-tighter">
+                                            <td className="py-1.5 px-3">
+                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[150px] block">
                                                     {task.parent_task_title || '-'}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-1.5 whitespace-nowrap">
-                                                <span className="text-[10px] font-bold text-slate-400">
-                                                    {formatDisplayDate(task.assigned_date || task.assigned_at || task.created_at) || '-'}
+                                            <td className="py-1.5 px-3 whitespace-nowrap">
+                                                <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                                                    {formatDisplayDate(
+                                                        task.assigned_date || 
+                                                        task.assigned_at || 
+                                                        task.created_at || 
+                                                        task.updated_at || 
+                                                        task.assignedAt || 
+                                                        task.createdAt
+                                                    ) || '-'}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-1.5 whitespace-nowrap">
-                                                <span className={`text-[10px] font-bold ${isDateOverdue ? 'text-rose-500' : 'text-slate-600'}`}>
-                                                    {formatDisplayDate(task.due_date || task.dueDate) || '-'}
+                                            <td className="py-1.5 px-3 whitespace-nowrap">
+                                                <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                                                    {formatDisplayDate(
+                                                        task.due_date || 
+                                                        task.dueDate
+                                                    ) || '-'}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-1.5 whitespace-nowrap text-center">
-                                                <div className="flex items-center justify-center gap-1.5">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
-                                                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600">{task.severity || 'MED'}</span>
+                                            <td className="py-1.5 px-3 whitespace-nowrap text-center">
+                                                <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-slate-600 whitespace-nowrap">
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-red-500' : 'bg-amber-400'}`}></span>
+                                                    {task.severity === 'HIGH' ? 'H' : 'M'}
                                                 </div>
                                             </td>
-                                            <td className="py-1.5 px-1.5 text-center whitespace-nowrap text-[9px] font-black uppercase tracking-tighter">
-                                                {task.status}
+                                            <td className="py-1.5 px-3 text-center whitespace-nowrap">
+                                                <div className="flex justify-center whitespace-nowrap">
+                                                    {task.status === 'SUBMITTED' ? (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-violet-50 text-violet-600 border border-violet-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
+                                                            <CheckCircle size={9} /> SUB
+                                                        </span>
+                                                    ) : task.status === 'IN_PROGRESS' || task.status === 'STARTED' ? (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
+                                                            <Clock size={9} /> PROG
+                                                        </span>
+                                                    ) : task.status === 'NEW' ? (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
+                                                            <PlusCircle size={9} /> NEW
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm text-center">
+                                                            {String(task.status).substring(0, 4)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
-                                            <td className="py-1.5 px-1.5 text-right pr-6">
+                                            <td className="py-1.5 px-3 text-right pr-6 whitespace-nowrap">
                                                 <button
                                                     onClick={() => navigate(`/tasks?taskId=${task.id}`)}
-                                                    className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase tracking-widest rounded border border-indigo-100 hover:bg-indigo-600 hover:text-white transition shadow-sm"
+                                                    className="px-2 py-1 bg-[#4285F4] text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-600 transition active:scale-95 shadow-sm inline-flex items-center gap-1"
                                                 >
                                                     View
                                                 </button>
                                             </td>
                                         </tr>
-                                        );
-                                    })
+
+                                    ))
                                 )}
                             </tbody>
                         </table>

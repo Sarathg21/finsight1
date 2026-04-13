@@ -837,16 +837,16 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left table-fixed">
+                        <table className="w-full text-left">
                             <thead className="text-[12px] text-slate-400 border-b border-slate-100 bg-slate-50/30">
-                                <tr className="bg-slate-50/10">
-                                    <th className="py-3 px-2 pl-6 font-bold text-[10px] uppercase tracking-tighter w-[30%]">TASK</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[5%]">PID</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[15%]">PARENT</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[10%]">USER</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[12%]">PRIORITY</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-center w-[15%]">STATUS</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-right pr-6 w-[12%]">ACTIONS</th>
+                                <tr>
+                                    <th className="py-3 px-2 pl-6 font-bold text-[10px] uppercase tracking-tighter">Task</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">PID</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">Parent</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">User</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">Prio</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-center">Stat</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-right pr-6">Act</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -879,9 +879,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                                 </div>
                                             </td>
                                             <td className="py-2 px-2">
-                                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">
+                                                <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
                                                     <div className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
-                                                    {task.severity || 'MED'}
+                                                    {task.severity === 'HIGH' ? 'High' : 'Med'}
                                                 </div>
                                             </td>
                                             <td className="py-2 px-2 text-center">

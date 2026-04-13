@@ -30,7 +30,7 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
     const status = task?.status || 'N/A';
     const severity = task?.severity || 'LOW';
 
-    const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && taskTitles[task.parent_task_id]);
+    const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && task.parent_task_id !== '-' ? taskTitles[task.parent_task_id] : '');
 
     return (
         <tr
@@ -43,7 +43,7 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                 if (e.key === 'Enter' || e.key === ' ') onViewDetails(task);
             }}
         >
-            <td className="py-2.5 pl-12 relative text-left">
+            <td className="py-2.5 px-4 pl-12 relative text-left">
                 <div className="absolute left-14 top-0 bottom-0 w-[2.5px] bg-slate-100"></div>
                 <div className={`absolute left-14 ${isLast ? 'h-6' : 'h-full'} w-[12px] border-l-[2.5px] border-b-[2.5px] border-slate-100 rounded-bl-xl`}></div>
                 <div className="flex items-center gap-2 ml-6 relative z-10">
@@ -51,11 +51,12 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest bg-white/80 px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">#Sub-{taskId}</span>
                 </div>
             </td>
-            <td className="py-2.5 text-left text-slate-400 font-medium text-[11px]">
-                {task.parent_task_id ? `#${task.parent_task_id}` : '-'}
+            <td className="py-2.5 px-4 text-left text-slate-400 font-medium text-[11px]">
+                {task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}
             </td>
-            <td className="py-2.5 text-left">
-                <div className="flex flex-col gap-0.5">
+            <td className="py-2.5 px-4 pl-6 text-left">
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-violet-600">T-{task.task_id}</span>
                     <span className="text-[14px] font-bold text-slate-700 tracking-tight leading-tight">{title}</span>
                     {task.parent_task_title && (
                         <span className="text-[10px] font-medium text-slate-400 truncate max-w-[180px] uppercase tracking-wider whitespace-nowrap overflow-hidden">Parent: {task.parent_task_title}</span>
@@ -63,10 +64,10 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                 </div>
             </td>
 
-            <td className="py-2.5 text-left">
+            <td className="py-2.5 px-4 text-left">
                 <span className="text-slate-400 text-[10px] font-medium italic">-</span>
             </td>
-            <td className="py-2.5 text-left">
+            <td className="py-2.5 px-4 text-left">
                 <span className="text-slate-400 text-[10.5px] font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden">
                     {task.assigned_at || task.assigned_date || task.created_at
                         ? format(
@@ -76,19 +77,19 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                         : '-'}
                 </span>
             </td>
-            <td className="py-2.5 text-left">
+            <td className="py-2.5 px-4 text-left">
                 <span className="text-[12.5px] font-bold text-slate-600 truncate max-w-[120px] inline-block">{assignedTo}</span>
             </td>
-            <td className="py-2.5 text-left">
+            <td className="py-2.5 px-4 text-left">
                 <span className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap overflow-hidden">{dueDate}</span>
             </td>
-            <td className="py-2.5 text-center">
+            <td className="py-2.5 px-4 text-center">
                 {renderStatusBadge?.(status)}
             </td>
-            <td className="py-2.5 text-left">
+            <td className="py-2.5 px-4 text-left">
                 {renderSeverityTag?.(severity)}
             </td>
-            <td className="py-2.5 text-right pr-4">
+            <td className="py-2.5 px-4 text-right pr-4">
                 <button className="text-slate-300 hover:text-violet-500 transition-colors scale-110">
                     <ChevronRight size={14} />
                 </button>
@@ -133,7 +134,7 @@ const TaskRow = ({
     const dueDate = rawDueDateMain ? format(new Date(rawDueDateMain), 'MMM d, yyyy') : 'N/A';
     const dueDateShort = rawDueDateMain ? format(new Date(rawDueDateMain), 'yy-MM-dd') : 'N/A';
     const isOverdue = dueDate !== 'N/A' && new Date(rawDueDateMain) < new Date() && !['APPROVED', 'CANCELLED'].includes(status);
-    const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && taskTitles[task.parent_task_id]);
+    const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && task.parent_task_id !== '-' ? taskTitles[task.parent_task_id] : '');
 
     const handleRowClick = () => {
         if (!onViewDetails) return;
@@ -157,7 +158,7 @@ const TaskRow = ({
                     if (e.key === 'Enter' || e.key === ' ') handleRowClick();
                 }}
             >
-                <td className="py-1 px-1.5 pl-6 font-black">
+                <td className="py-1 px-4 pl-6 font-black">
                     <div className="flex items-center gap-1.5">
                         {isParent ? (
                             <button
@@ -172,10 +173,10 @@ const TaskRow = ({
                         <span className="text-[9px] font-black text-violet-600 tracking-tighter uppercase">#{taskId}</span>
                     </div>
                 </td>
-                <td className="py-1 px-1.5 text-left text-slate-400 font-medium text-[9px] hidden sm:table-cell">
-                    {task.parent_task_id ? `#${task.parent_task_id}` : '-'}
+                <td className="py-1 px-4 text-left text-slate-400 font-medium text-[9px] hidden sm:table-cell">
+                    {task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}
                 </td>
-                <td className="py-1 px-1.5 text-left">
+                <td className="py-1 px-4 text-left">
                     <div className="flex flex-col gap-0">
                         <div className="flex items-center gap-1">
                             <h4 className="font-bold text-[#1E1B4B] text-[11px] tracking-tight truncate max-w-[150px]">
@@ -190,33 +191,33 @@ const TaskRow = ({
                     </div>
                 </td>
 
-                <td className="py-1 px-1.5 text-left">
+                <td className="py-1 px-4 text-left">
                     <span className="text-[10px] font-bold text-slate-700 truncate max-w-[80px] block">
                         {assignedBy || 'Sys'}
                     </span>
                 </td>
-                <td className="py-1 px-1.5 text-left whitespace-nowrap">
+                <td className="py-1 px-4 text-left whitespace-nowrap">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                         {task.assigned_at || task.assigned_date || task.created_at
                             ? format(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
                             : '-'}
                     </span>
                 </td>
-                <td className="py-1 px-1.5 text-left">
+                <td className="py-1 px-4 text-left">
                     <span className="text-[11px] font-black text-indigo-600 truncate max-w-[100px] block tracking-tighter">{assignedTo}</span>
                 </td>
-                <td className="py-1 px-1.5 text-left whitespace-nowrap">
+                <td className="py-1 px-4 text-left whitespace-nowrap">
                     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${isOverdue ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                         <span className="text-[9px] font-black tracking-tighter uppercase">{dueDateShort}</span>
                     </div>
                 </td>
-                <td className="py-1 px-1.5 text-center whitespace-nowrap">
+                <td className="py-1 px-4 text-center whitespace-nowrap">
                     {renderStatusBadge?.(status)}
                 </td>
-                <td className="py-1 px-1.5 text-left whitespace-nowrap">
+                <td className="py-1 px-4 text-left whitespace-nowrap">
                     {renderSeverityTag?.(severity)}
                 </td>
-                <td className="py-1 px-1.5 text-right pr-6">
+                <td className="py-1 px-4 text-right pr-6">
                     <div className="flex justify-end gap-1.5">
                         {status === 'SUBMITTED' && String(task?.employee_id || task?.assigned_to_emp_id || task?.assigned_to_id) !== String(user?.id) ? (
                             <>
@@ -723,20 +724,19 @@ const TeamTasksPage = () => {
 
             <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left capitalize table-fixed">
+                    <table className="w-full text-left capitalize">
                         <thead>
-                            <tr className="text-[9px] font-black text-slate-400 uppercase tracking-tighter border-b border-slate-100 bg-slate-50/20">
-                                <th className="py-2 px-1.5 pl-6 w-[5%]">ID</th>
-                                <th className="py-2 px-1.5 font-bold text-[9px] hidden sm:table-cell w-[5%]">PID</th>
-                                <th className="py-2 px-1.5 w-[25%]">TASK</th>
-
-                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[10%]">ASSIGNER</th>
-                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[8%]">DATE</th>
-                                <th className="py-2 px-1.5 uppercase font-black text-indigo-500 w-[10%]">ASSIGNEE</th>
-                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[8%]">DUE</th>
-                                <th className="py-2 px-1.5 text-center uppercase font-black text-slate-400 w-[15%]">STATUS</th>
-                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[10%]">SEVERITY</th>
-                                <th className="py-2 px-1.5 text-right pr-6 uppercase font-black text-slate-400 w-[10%]">ACTIONS</th>
+                            <tr className="text-[9px] font-black text-slate-400 uppercase tracking-tighter border-b border-slate-100 bg-slate-50/30">
+                                <th className="py-2 px-4 pl-6">ID</th>
+                                <th className="py-2 px-4 font-bold text-[9px] hidden sm:table-cell">PID</th>
+                                <th className="py-2 px-4">Task</th>
+                                <th className="py-2 px-4">From</th>
+                                <th className="py-2 px-4">Date</th>
+                                <th className="py-2 px-4 text-indigo-500">To</th>
+                                <th className="py-2 px-4">Due</th>
+                                <th className="py-2 px-4 text-center">Stat</th>
+                                <th className="py-2 px-4">Severity</th>
+                                <th className="py-2 px-4 text-right pr-6">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">

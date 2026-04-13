@@ -110,21 +110,21 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
 
   return (
     <div className="overflow-x-auto bg-white rounded-[1.5rem] shadow-sm border border-slate-100 mt-6 overflow-hidden">
-      <table className="w-full text-left border-collapse text-[15px] table-fixed">
+      <table className="w-full text-left border-collapse text-[15px]">
         <thead className="bg-slate-50/10 text-slate-400 text-[10px] uppercase tracking-tighter font-bold border-b border-slate-100/80">
-          <tr className="bg-slate-50/30">
-            <th className="py-2.5 px-1.5 pl-6 font-bold text-[10px] w-[6%]">ID</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] w-[6%]">PID</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] w-[14%]">PARENT</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] w-[12%]">USER</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] hidden md:table-cell w-[10%]">ROLE</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] uppercase tracking-tighter w-[22%]">TASK</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] uppercase tracking-tighter w-[10%]">ASSIGNER</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] uppercase tracking-tighter w-[10%]">START</th>
-            <th className="py-2.5 px-1.5 font-bold text-[10px] uppercase tracking-tighter w-[10%]">DUE</th>
-            <th className="py-2.5 px-1.5 text-center font-bold text-[10px] uppercase tracking-tighter w-[10%]">PRIORITY</th>
-            <th className="py-2.5 px-1.5 text-center font-bold text-[10px] uppercase tracking-tighter w-[15%]">STATUS</th>
-            <th className="py-2.5 px-1.5 text-right pr-6 font-bold text-[10px] uppercase tracking-tighter w-[15%]">ACTIONS</th>
+          <tr>
+            <th className="py-2.5 px-4 pl-6 font-bold text-[10px]">ID</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">PID</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">Parent</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">User</th>
+            <th className="py-2.5 px-4 font-bold text-[10px] hidden md:table-cell">Role</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">Task</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">By</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">Start</th>
+            <th className="py-2.5 px-4 font-bold text-[10px]">Due</th>
+            <th className="py-2.5 px-4 text-center font-bold text-[10px]">Prio</th>
+            <th className="py-2.5 px-4 text-center font-bold text-[10px]">Stat</th>
+            <th className="py-2.5 px-4 text-right pr-6 font-bold text-[10px]">Act</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-50 text-slate-700">
@@ -140,15 +140,15 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
 
             return (
               <tr key={taskKey} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => onViewDetails(task)}>
-                <td className="py-2 px-1.5 pl-6 font-bold text-violet-600 text-[10px]">#{task.id}</td>
-                <td className="py-2 px-1.5 text-slate-400 font-medium text-[10px]">{task.parent_task_id ? `#${task.parent_task_id}` : '-'}</td>
-                <td className="py-2 px-1.5 text-slate-500 font-bold truncate max-w-[100px] text-[10px] uppercase tracking-tighter">{task.parent_task_title || task?.parent_task?.title || '-'}</td>
+                <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[10px]">#{task.id}</td>
+                <td className="py-2 px-4 text-slate-400 font-medium text-[10px]">{task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}</td>
+                <td className="py-2 px-4 text-slate-500 font-bold truncate max-w-[100px] text-[10px] uppercase tracking-tighter" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
 
-                <td className="py-2 px-1.5">
+                <td className="py-2 px-4">
                     <span className="truncate font-bold text-[11px] text-slate-800 tracking-tight max-w-[80px] block">{task.assigneeName || task.employee_id}</span>
                 </td>
 
-                <td className="py-2 px-1.5 whitespace-nowrap hidden md:table-cell">
+                <td className="py-2 px-4 whitespace-nowrap hidden md:table-cell">
                     <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-full capitalize tracking-tighter ${
                         (assignee?.role || task.assignee_role || '').toUpperCase() === 'MANAGER' ? 'bg-indigo-50 text-indigo-700' :
                         (assignee?.role || task.assignee_role || '').toUpperCase() === 'EMPLOYEE' ? 'bg-slate-50 text-slate-600' :
@@ -158,31 +158,28 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
                     </span>
                 </td>
 
-                <td className="py-2 px-1.5 max-w-[150px]">
+                <td className="py-2 px-4 max-w-[150px]">
                     <div className="font-bold text-[11px] text-slate-800 truncate tracking-tight">{task.title}</div>
                     <div className="text-[9px] font-medium text-slate-400 truncate opacity-0 group-hover:opacity-100 transition-opacity">{task.description}</div>
                 </td>
 
-                <td className="py-2 px-1.5 text-slate-600 truncate font-semibold text-[10px] max-w-[80px]">
+                <td className="py-2 px-4 text-slate-600 truncate font-semibold text-[10px] max-w-[80px]">
                     {task.assignerName || task.assigned_by || 'Sys'}
                 </td>
 
-                <td className="py-2 px-1.5 text-slate-500 whitespace-nowrap font-bold text-[10px]">
+                <td className="py-2 px-4 text-slate-500 whitespace-nowrap font-bold text-[10px]">
                     {task.assigned_date ? format(new Date(task.assigned_date), 'yy-MM-dd') : '-'}
                 </td>
 
-                <td className={`py-2 px-1.5 whitespace-nowrap font-bold text-[10px] ${isOverdue ? 'text-red-500' : 'text-slate-600'}`}>
+                <td className={`py-2 px-4 whitespace-nowrap font-bold text-[10px] ${isOverdue ? 'text-red-500' : 'text-slate-600'}`}>
                     {task.due_date ? format(new Date(task.due_date), 'yy-MM-dd') : '-'}
                 </td>
 
-                <td className="py-2 px-1.5 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${task.priority === 'HIGH' ? 'bg-rose-500' : task.priority === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                        <span className="text-[10px] font-black uppercase tracking-tighter text-slate-600">{task.priority || 'MED'}</span>
-                    </div>
+                <td className="py-2 px-4 text-center">
+                    <div className={`w-2 h-2 rounded-full mx-auto ${task.priority === 'HIGH' ? 'bg-rose-500' : task.priority === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} title={task.priority} />
                 </td>
 
-                <td className="py-2 px-1.5 text-center whitespace-nowrap">
+                <td className="py-2 px-4 text-center whitespace-nowrap">
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${
                         task.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
                         task.status === 'REWORK' ? 'bg-amber-50 text-amber-600' :
@@ -192,7 +189,7 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
                     </span>
                 </td>
 
-                <td className="py-2 px-1.5 text-right pr-6">
+                <td className="py-2 px-4 text-right pr-6">
                   <div className="flex justify-end gap-1 flex-nowrap items-center">
 
                     {/* SUBMITTED → Approve / Rework */}
@@ -273,19 +270,19 @@ const ActionTaskTable = ({
 
   return (
     <div className="overflow-x-auto bg-white rounded-[1.5rem] shadow-sm border border-slate-100 mt-6 overflow-hidden">
-      <table className="w-full text-left border-collapse table-fixed">
+      <table className="w-full text-left border-collapse">
         <thead className="bg-slate-50/10 text-slate-400 text-[10px] uppercase tracking-wider font-bold border-b border-slate-100/80">
-          <tr className="bg-slate-50/20">
-            <th className="py-2.5 px-3 pl-6 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[6%]">ID</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[6%]">PID</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[18%]">PARENT</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[25%]">TASK</th>
-            {viewMode !== 'personal' && <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[12%]">ASSIGNEE</th>}
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[12%]">ASSIGNER</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] text-center w-[15%]">STATUS</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] text-center w-[12%]">PRIORITY</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] w-[10%]">DUE</th>
-            <th className="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-tighter text-[9px] text-right pr-6 w-[12%]">ACTIONS</th>
+          <tr>
+            <th className="py-2.5 px-4 pl-6 text-slate-400 font-bold capitalize tracking-widest text-[10px]">ID</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">PID</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">Parent</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">Task</th>
+            {viewMode !== 'personal' && <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">Assignee</th>}
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">By</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-center">Status</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-center">Prio</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">Due</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-right pr-6">Actions</th>
           </tr>
         </thead>
 
@@ -296,10 +293,10 @@ const ActionTaskTable = ({
 
             return (
               <tr key={task.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => onViewDetails(task)}>
-                <td className="py-2 px-3 pl-6 font-bold text-violet-600 text-[12px]">#{task.id}</td>
-                <td className="py-2 px-3 text-slate-400 font-medium text-[11px] font-black">{task.parent_task_id ? `#${task.parent_task_id}` : '-'}</td>
-                <td className="py-2 px-3 text-slate-500 font-medium truncate max-w-[150px] text-[11px]">{task.parent_task_title || task.parentTaskTitle || task.parent_task_name || task.parent_title || task.parent_name || task.parent_directive_title || task.parent_directive_name || task?.parent_task?.title || task?.parent?.title || '-'}</td>
-                <td className="py-2 px-3 min-w-0">
+                <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[12px]">#{task.id}</td>
+                <td className="py-2 px-4 text-slate-400 font-medium text-[11px] font-black">{task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}</td>
+                <td className="py-2 px-4 text-slate-500 font-medium truncate max-w-[150px] text-[11px]" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
+                <td className="py-2 px-4 min-w-0">
                   <div className="flex items-center gap-1.5">
                     <div className="min-w-0">
                       <div className="font-bold text-slate-800 text-[12.5px] truncate max-w-[250px] tracking-tight">{task.title}</div>
@@ -311,26 +308,26 @@ const ActionTaskTable = ({
                 </td>
 
                 {viewMode !== 'personal' && (
-                <td className="py-2 px-3">
+                <td className="py-2 px-4">
                   <div className="flex flex-col min-w-0">
                     <span className="truncate font-bold text-slate-800 text-[12px] tracking-tight max-w-[100px]">{assigneeName}</span>
                   </div>
                 </td>
                 )}
 
-                <td className="py-2 px-3 font-bold text-slate-600 truncate text-[11px] max-w-[80px]">{assignerName}</td>
+                <td className="py-2 px-4 font-bold text-slate-600 truncate text-[11px] max-w-[80px]">{assignerName}</td>
 
-                <td className="py-2 px-3 text-center whitespace-nowrap">
+                <td className="py-2 px-4 text-center whitespace-nowrap">
                   <StatusCell task={task} />
                 </td>
 
-                <td className="py-2 px-3 text-center whitespace-nowrap">
+                <td className="py-2 px-4 text-center whitespace-nowrap">
                   {(() => {
                     const sev = (task.priority || task.severity || '').toUpperCase();
                     return sev ? (
-                      <div className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-tighter text-slate-600 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1 text-[10px] font-medium text-slate-600 whitespace-nowrap">
                         <span className={`w-1.5 h-1.5 rounded-full ${sev === 'HIGH' ? 'bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]' : sev === 'MEDIUM' ? 'bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)]' : 'bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]'}`}></span>
-                        {sev}
+                        {sev.charAt(0)}
                       </div>
                     ) : (
                       <span className="text-slate-400 text-[10px]">-</span>
@@ -338,9 +335,9 @@ const ActionTaskTable = ({
                   })()}
                 </td>
 
-                <td className="py-2 px-3 font-semibold text-slate-600 text-[11px] whitespace-nowrap">{task.due_date}</td>
+                <td className="py-2 px-4 font-semibold text-slate-600 text-[11px] whitespace-nowrap">{task.due_date}</td>
 
-                <td className="py-2 px-3 text-right pr-6">
+                <td className="py-2 px-4 text-right pr-6">
                   <div className="flex justify-end gap-1 flex-nowrap items-center">
 
                     {/* ── ASSIGNEE ACTIONS: START / SUBMIT / RESTART
@@ -562,27 +559,8 @@ const TaskPage = () => {
       // Removed parallel detail fetching to avoid server timeouts and 403 errors.
 
       const normalised = raw.map(t => {
-        const parentId =
-                    t.parent_task_id ??
-                    t.parent_id ??
-                    (t.parent_task ? (t.parent_task.task_id ?? t.parent_task.id) : null);
-        const inlineParentTitle =
-  t.parent_task_title ??
-  t.parentTaskTitle ??
-  t.parent_task_name ??
-  t.parent_title ??
-  t.parent_name ??
-  t.parent_directive_title ??
-  t.parent_directive_name ??
-  (t.parent_task
-    ? (t.parent_task.task_title ??
-       t.parent_task.title ??
-       t.parent_task.task_name ??
-       t.parent_task.name ??
-       t.parent_task.directive_title)
-    : undefined) ??
-  taskMap[parentId] ??
-  '';
+        const parentId = t.parent_task_id ?? t.parent_id ?? null;
+        const inlineParentTitle = t.parent_task_title ?? t.parent_task_name ?? t.parent_title ?? '';
 
         return {
           ...t,

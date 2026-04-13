@@ -22,19 +22,8 @@ api.interceptors.request.use((config) => {
     // Remove empty string parameters that cause 422/500 backend errors.
     // Ensure from_date/to_date/start_date/end_date are never empty.
     if (config.params) {
-        // --- End-point Specific Sanitization ---
-        const url = config.url || '';
-        const isRecurringRoute = url.includes('/recurring-tasks');
-
         Object.keys(config.params).forEach(key => {
             const val = config.params[key];
-            
-            // Backend /recurring-tasks does NOT support 'limit' or 'scope'
-            if (isRecurringRoute && (key === 'limit' || key === 'scope')) {
-                delete config.params[key];
-                return;
-            }
-
             if (val === '' || val === null || val === undefined) {
                 // Remove empty or null params
                 delete config.params[key];

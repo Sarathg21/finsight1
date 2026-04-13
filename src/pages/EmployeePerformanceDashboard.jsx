@@ -1396,20 +1396,21 @@ const PerformanceDashboard = () => {
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10">
                             <tr>
-                                <th className="px-2 py-3 text-left">Employee</th>
-                                <th className="px-2 py-3 text-center">Tasks</th>
-                                <th className="px-2 py-3 text-center">Active</th>
-                                <th className="px-2 py-3 text-center">Pending</th>
-                                <th className="px-2 py-3 text-center">Overdue</th>
-                                <th className="px-2 py-3 text-right">Completion Rate</th>
-                                <th className="px-2 py-3 text-center">Performance Score</th>
-                                <th className="px-2 py-3 text-center">Actions</th>
+                                <th className="px-4 py-3 text-left">Employee</th>
+                                <th className="px-4 py-3 text-left min-w-[160px]">Dept</th>
+                                <th className="px-4 py-3 text-center">Tasks</th>
+                                <th className="px-4 py-3 text-center">Active</th>
+                                <th className="px-4 py-3 text-center">Pending</th>
+                                <th className="px-4 py-3 text-center">Overdue</th>
+                                <th className="px-4 py-3 text-right">Completion Rate</th>
+                                <th className="px-4 py-3 text-center">Performance Score</th>
+                                <th className="px-4 py-3 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 font-medium">
                             {teamPerformance.slice((teamPage-1)*teamItemsPerPage, teamPage*teamItemsPerPage).map((emp, i) => (
                                 <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
-                                    <td className="px-2 py-2">
+                                    <td className="px-4 py-2 pl-6">
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-[10px] font-semibold shrink-0">{getInitials(emp.name)}</div>
                                             <div className="min-w-0">
@@ -1418,19 +1419,22 @@ const PerformanceDashboard = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-2 py-2 text-center tabular-nums font-medium text-slate-700">{emp.tasks_assigned}</td>
-                                    <td className="px-2 py-2 text-center tabular-nums">
+                                    <td className="px-4 py-2 text-left min-w-[160px]">
+                                        <div className="text-[11px] font-medium text-slate-600 whitespace-normal leading-tight">{emp.department}</div>
+                                    </td>
+                                    <td className="px-4 py-2 text-center tabular-nums font-medium text-slate-700">{emp.tasks_assigned}</td>
+                                    <td className="px-4 py-2 text-center tabular-nums">
                                         <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${emp.in_progress > 0 ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>
                                             {emp.in_progress ?? 0}
                                         </span>
                                     </td>
-                                    <td className="px-2 py-2 text-center tabular-nums">
+                                    <td className="px-4 py-2 text-center tabular-nums">
                                         <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${emp.pending_review > 0 ? 'bg-amber-50 text-amber-600' : 'text-slate-400'}`}>
                                             {emp.pending_review ?? 0}
                                         </span>
                                     </td>
-                                    <td className={`px-2 py-2 text-center tabular-nums text-[11px] ${emp.overdue > 0 ? 'text-rose-500 font-semibold' : ''}`}>{emp.overdue}</td>
-                                    <td className="px-2 py-2">
+                                    <td className={`px-4 py-2 text-center tabular-nums text-[11px] ${emp.overdue > 0 ? 'text-rose-500 font-semibold' : ''}`}>{emp.overdue}</td>
+                                    <td className="px-4 py-2">
                                         <div className="flex items-center justify-end gap-1.5 text-[11px]">
                                             <span>{emp.completion_rate}%</span>
                                             <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden">
@@ -1438,7 +1442,7 @@ const PerformanceDashboard = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-2 py-2 text-center">
+                                    <td className="px-4 py-2 text-center">
                                         <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-black tabular-nums ${
                                             (emp.performance_score || emp.completion_rate) >= 70 ? 'bg-emerald-50 text-emerald-700' :
                                             (emp.performance_score || emp.completion_rate) >= 40 ? 'bg-amber-50 text-amber-700' :
@@ -1447,7 +1451,7 @@ const PerformanceDashboard = () => {
                                             {emp.performance_score || emp.completion_rate || 0}%
                                         </span>
                                     </td>
-                                    <td className="px-2 py-2 text-center">
+                                    <td className="px-4 py-2 text-center pr-6">
                                         <button
                                             onClick={() => navigate(`/tasks?mode=team&employeeId=${emp.emp_id}`)}
                                             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-[10px] font-semibold transition-all hover:shadow-sm active:scale-95"
@@ -1527,11 +1531,11 @@ const PerformanceDashboard = () => {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-4 text-left">Employee Name</th>
-                                    <th className="px-2 py-4 text-center">Active Tasks</th>
-                                    <th className="px-2 py-4 text-center">Overdue Tasks</th>
-                                    <th className="px-2 py-4 text-center">Execution Score (Delivery Health)</th>
-                                    <th className="px-4 py-4 text-center">Delivery Risk Status</th>
+                                    <th className="px-4 py-4 text-left pl-6">Employee Name</th>
+                                    <th className="px-4 py-4 text-center">Active Tasks</th>
+                                    <th className="px-4 py-4 text-center">Overdue Tasks</th>
+                                    <th className="px-4 py-4 text-center">Execution Score (Delivery Health)</th>
+                                    <th className="px-4 py-4 text-center pr-6">Delivery Risk Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 font-medium">
@@ -1548,7 +1552,7 @@ const PerformanceDashboard = () => {
 
                                     return (
                                         <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 pl-6">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${riskConfig.bg} ${riskConfig.text}`}>
                                                         {getInitials(emp.name)}
@@ -1556,15 +1560,15 @@ const PerformanceDashboard = () => {
                                                     <div className="capitalize font-semibold text-slate-800 text-sm truncate">{emp.name}</div>
                                                 </div>
                                             </td>
-                                            <td className="px-2 py-3 text-center tabular-nums text-slate-600 font-bold text-sm">
+                                            <td className="px-4 py-3 text-center tabular-nums text-slate-600 font-bold text-sm">
                                                 {emp.active_tasks ?? 0}
                                             </td>
-                                            <td className="px-2 py-3 text-center tabular-nums">
+                                            <td className="px-4 py-3 text-center tabular-nums">
                                                 <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black ${emp.overdue_tasks > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>
                                                     {emp.overdue_tasks ?? 0}
                                                 </span>
                                             </td>
-                                            <td className="px-2 py-3 text-center">
+                                            <td className="px-4 py-3 text-center">
                                                 <div className="flex items-center justify-center gap-1.5">
                                                     <span className={`font-black text-[13px] tabular-nums ${scoreColor}`}>{score}%</span>
                                                     <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
@@ -1575,7 +1579,7 @@ const PerformanceDashboard = () => {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-4 py-3 text-center pr-6">
                                                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${riskConfig.bg} ${riskConfig.text}`}>
                                                     <span className={`w-1 h-1 rounded-full ${riskConfig.dot}`} />
                                                     {riskConfig.label}
