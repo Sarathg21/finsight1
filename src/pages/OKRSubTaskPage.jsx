@@ -38,7 +38,7 @@ const extractArr = (data) => {
 };
 
 const STATUS_DONE = new Set(['COMPLETED', 'APPROVED', 'DONE', 'FINISHED', 'SUCCESS']);
-const STATUS_SUBMITTED = new Set(['SUBMITTED', 'REVIEW', 'NEW', 'PENDING', 'STARTED', 'IN_PROGRESS', 'IN PROGRESS', 'REWORK', 'CHANGES_REQUESTED']);
+const STATUS_SUBMITTED = new Set(['SUBMITTED', 'PENDING_APPROVAL', 'REVIEW']);
 
 const normStatus = (s) => (s || '').toString().trim().toUpperCase().replace(/\s+/g, '_');
 const isDone = (s) => STATUS_DONE.has(normStatus(s?.status ?? s?.task_status ?? s ?? ''));

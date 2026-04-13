@@ -1018,7 +1018,7 @@ const OKRDashboard = () => {
                                 {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
                             </span>
                         </div>
-                        <ResponsiveContainer width="100%" height={300} minHeight={150} minWidth={150}>
+                        <ResponsiveContainer width="100%" height={300} minHeight={1} minWidth={1}>
                             <PieChart>
                                 <Pie
                                     data={displayedDeptContributionData}
@@ -1252,7 +1252,7 @@ const OKRDashboard = () => {
                         Enterprise Completion Trend
                     </h3>
                     <div style={{ height: '220px', width: '100%' }} className="relative min-h-0 min-w-0">
-                        <ResponsiveContainer width="100%" height="100%" minHeight={150} minWidth={150}>
+                        <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
                             <AreaChart data={trendData} margin={{ top: 36, right: 30, left: 20, bottom: 10 }}>
                                 <defs>
                                     <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">

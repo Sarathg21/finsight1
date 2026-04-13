@@ -41,20 +41,74 @@ const AssignTaskPage = () => {
             
             try {
                 const [empRes, deptRes] = await Promise.all([
-                    api.get(isAltRole ? '/employees' : '/employees/assignable').catch(() => ({ data: [] })),
-                    api.get('/admin/departments').catch(() => api.get('/departments')).catch(() => ({ data: [] }))
+                    api.get(isAltRole ? '/employees' : '/employees/assignable')
+                        .catch(() => api.get('/employees'))
+                        .catch(() => api.get('/employees/assignable'))
+                        .catch(() => ({ data: [] })),
+                    api.get('/admin/departments')
+                        .catch(() => api.get('/departments'))
+                        .catch(() => api.get('/dashboard/cfo/departments'))
+                        .catch(() => ({ data: [] }))
                 ]);
                 
                 const extract = (res) => {
-                    const raw = res.data;
+                    const raw = res?.data;
                     if (Array.isArray(raw)) return raw;
                     if (Array.isArray(raw?.data)) return raw.data;
                     if (Array.isArray(raw?.items)) return raw.items;
+                    if (Array.isArray(raw?.results)) return raw.results;
+                    if (Array.isArray(raw?.departments)) return raw.departments;
+                    if (Array.isArray(raw?.rows)) return raw.rows;
                     return [];
                 };
 
-                setEligibleAssignees(extract(empRes));
-                setDepartments(extract(deptRes));
+                const normalizeEmps = (list) => list.map(e => ({
+                    ...e,
+                    emp_id: e.emp_id || e.employee_id || e.id || e.user_id,
+                    name: e.name || e.full_name || [e.first_name, e.last_name].filter(Boolean).join(' ') || e.username || e.email || 'Employee'
+                }));
+
+                const normalizeDepts = (list) => list.map(d => {
+                    if (typeof d === 'string') {
+                        return { id: d, department_id: d, name: d };
+                    }
+                    const deptId = d.department_id || d.dept_id || d.id || d.code || d.department_code;
+                    return {
+                        ...d,
+                        id: deptId,
+                        department_id: deptId,
+                        name: d.name || d.department_name || d.dept_name || d.department || d.title || d.code
+                    };
+                }).filter(d => d?.id || d?.department_id || d?.name);
+
+                const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
+                const fallbackDeptId =
+                    savedUser?.department_id || savedUser?.dept_id || savedUser?.department || savedUser?.department_name || '';
+                const fallbackDeptName =
+                    savedUser?.department_name || savedUser?.department || (fallbackDeptId ? String(fallbackDeptId) : '');
+
+                const normalizedEmps = normalizeEmps(extract(empRes));
+                const normalizedDepts = normalizeDepts(extract(deptRes));
+
+                const deptFromEmployees = normalizedEmps.map(e => {
+                    const deptId = e.department_id || e.dept_id || e.department || e.department_name;
+                    const deptName = e.department_name || e.department || e.department_id || e.dept_id || deptId;
+                    if (!deptId && !deptName) return null;
+                    return { id: deptId || deptName, department_id: deptId || deptName, name: deptName || deptId };
+                }).filter(Boolean);
+
+                const mergedDeptMap = new Map();
+                [...normalizedDepts, ...deptFromEmployees].forEach(d => {
+                    const key = d.id || d.department_id || d.name;
+                    if (!key) return;
+                    if (!mergedDeptMap.has(key)) mergedDeptMap.set(key, d);
+                });
+                const mergedDepts = Array.from(mergedDeptMap.values());
+
+                setEligibleAssignees(normalizedEmps);
+                setDepartments(mergedDepts.length > 0
+                    ? mergedDepts
+                    : (fallbackDeptId ? [{ id: fallbackDeptId, department_id: fallbackDeptId, name: fallbackDeptName }] : []));
             } catch (err) {
                 console.error("Failed to fetch metadata", err);
                 toast.error('Failed to load metadata');

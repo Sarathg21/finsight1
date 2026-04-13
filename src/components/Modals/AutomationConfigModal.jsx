@@ -61,28 +61,82 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             const isAltRole = role === 'ADMIN' || role === 'CFO' || role === 'MANAGER';
 
             const [deptRes, empRes] = await Promise.all([
-                api.get('/admin/departments').catch(() => ({ data: [] })),
-                api.get(isAltRole ? '/employees' : '/employees/assignable').catch(() => ({ data: [] }))
+                api.get('/admin/departments')
+                    .catch(() => api.get('/departments'))
+                    .catch(() => api.get('/dashboard/cfo/departments'))
+                    .catch(() => ({ data: [] })),
+                api.get(isAltRole ? '/employees' : '/employees/assignable')
+                    .catch(() => api.get('/employees'))
+                    .catch(() => api.get('/employees/assignable'))
+                    .catch(() => ({ data: [] }))
             ]);
             
-            const depts = Array.isArray(deptRes.data?.data) ? deptRes.data.data : (Array.isArray(deptRes.data) ? deptRes.data : []);
+            const extractList = (res) => {
+                const raw = res?.data;
+                if (Array.isArray(raw)) return raw;
+                if (Array.isArray(raw?.data)) return raw.data;
+                if (Array.isArray(raw?.items)) return raw.items;
+                if (Array.isArray(raw?.results)) return raw.results;
+                if (Array.isArray(raw?.departments)) return raw.departments;
+                if (Array.isArray(raw?.rows)) return raw.rows;
+                return [];
+            };
+
+            const depts = extractList(deptRes);
             
             // Normalize depts to have dept_id
-            const normalizedDepts = depts.map(d => ({
-                ...d,
-                dept_id: d.dept_id || d.department_id || d.id
-            }));
+            const normalizedDepts = depts.map(d => {
+                if (typeof d === 'string') {
+                    return { dept_id: d, name: d };
+                }
+                return {
+                    ...d,
+                    dept_id: d.dept_id || d.department_id || d.id || d.code || d.department_code,
+                    name: d.name || d.department_name || d.dept_name || d.department || d.title || d.code
+                };
+            }).filter(d => d?.dept_id || d?.name);
 
             // Extract employees — handle both wrapped and plain array responses
             const emps = Array.isArray(empRes.data?.data) ? empRes.data.data
                         : Array.isArray(empRes.data?.items) ? empRes.data.items
                         : Array.isArray(empRes.data) ? empRes.data
                         : [];
+            const normalizedEmps = emps.map(e => ({
+                ...e,
+                emp_id: e.emp_id || e.employee_id || e.id || e.user_id,
+                name: e.name || e.full_name || [e.first_name, e.last_name].filter(Boolean).join(' ') || e.username || e.email || 'Employee'
+            }));
+
+            const deptFromEmployees = normalizedEmps.map(e => {
+                const deptId = e.department_id || e.dept_id || e.department || e.department_name;
+                const deptName = e.department_name || e.department || e.department_id || e.dept_id || deptId;
+                if (!deptId && !deptName) return null;
+                return { dept_id: deptId || deptName, name: deptName || deptId };
+            }).filter(Boolean);
 
             console.log(`AutomationModal: loaded ${normalizedDepts.length} depts, ${emps.length} employees`);
 
-            setDepartments(normalizedDepts);
-            setEmployees(emps);
+            // If all endpoints fail for CFO, fall back to the user's own department
+            const fallbackDeptId =
+                savedUser?.department_id || savedUser?.dept_id || savedUser?.department || savedUser?.department_name || '';
+            const fallbackDeptName =
+                savedUser?.department_name || savedUser?.department || (fallbackDeptId ? String(fallbackDeptId) : '');
+
+            const mergedDeptMap = new Map();
+            [...normalizedDepts, ...deptFromEmployees].forEach(d => {
+                const key = d.dept_id || d.id || d.name;
+                if (!key) return;
+                if (!mergedDeptMap.has(key)) mergedDeptMap.set(key, d);
+            });
+
+            const mergedDepts = Array.from(mergedDeptMap.values());
+
+            const finalDepts = mergedDepts.length > 0
+                ? mergedDepts
+                : (fallbackDeptId ? [{ dept_id: fallbackDeptId, name: fallbackDeptName }] : []);
+
+            setDepartments(finalDepts);
+            setEmployees(normalizedEmps);
         } catch (err) {
             console.error("Meta fetch failed", err);
         }
