@@ -83,18 +83,14 @@ const RecurringTasksPage = () => {
         
         setLoading(true);
         try {
-            // Single call with large limit — avoids sending redundant parallel requests
+            // Single call — avoids sending redundant parallel requests or double-calling
             const endpointCalls = [
-                api.get('/recurring-tasks', { params: { limit: 200 } }), // Standard (Personal or Default)
+                api.get('/recurring-tasks'),
             ];
 
-            if (isAdminOrCFO) {
-                // Try scope=org (standard for Admin/CFO in this backend)
-                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'org', limit: 200 } }).catch(() => ({ data: [] })));
-                endpointCalls.push(api.get('/recurring-tasks', { params: { limit: 200 } }).catch(() => ({ data: [] })));
-            } else if (user?.role?.toUpperCase() === 'MANAGER') {
-                // Try department scope for managers
-                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'department', limit: 200 } }).catch(() => ({ data: [] })));
+            // Only add department specific call if needed (avoid double fetching all)
+            if (!isAdminOrCFO && user?.role?.toUpperCase() === 'MANAGER' && user?.department_id) {
+                endpointCalls.push(api.get('/recurring-tasks', { params: { department_id: user.department_id } }).catch(() => ({ data: [] })));
             }
 
             const results = await Promise.allSettled(endpointCalls);
@@ -375,28 +371,28 @@ const RecurringTasksPage = () => {
             {/* ── MAIN TABLE CARD ── */}
             <div className="bg-white/70 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-200/20 border border-white overflow-hidden mb-8 min-h-[500px] flex flex-col">
                 <div className="overflow-x-auto flex-1">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse table-fixed">
                         <thead className="bg-[#fbfcff]/50 text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-indigo-50/50">
-                            <tr>
-                                <th className="px-6 py-5">ID</th>
-                                <th className="px-10 py-5">Template</th>
-                                <th className="px-8 py-5">Department</th>
-                                <th className="px-8 py-5">Assigned By</th>
-                                <th className="px-8 py-5">Frequency</th>
-                                <th className="px-8 py-5">Status</th>
-                                <th className="px-10 py-5 text-right">Actions</th>
+                            <tr className="bg-slate-50/30">
+                                <th className="px-1.5 py-3 pl-6 text-[10px] uppercase font-black tracking-tighter w-[80px]">ID</th>
+                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter w-auto">TASK TEMPLATE</th>
+
+                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter w-[120px]">ASSIGNER</th>
+                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter text-center w-[120px]">FREQUENCY</th>
+                                <th className="px-1.5 py-3 text-[10px] uppercase font-black tracking-tighter text-center w-[120px]">STATUS</th>
+                                <th className="px-1.5 py-3 text-right pr-6 text-[10px] uppercase font-black tracking-tighter w-[120px]">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-indigo-50/40">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="py-20 text-center">
+                                    <td colSpan={6} className="py-20 text-center">
                                         <Loader2 className="animate-spin text-indigo-500 mx-auto" size={32} />
                                     </td>
                                 </tr>
                             ) : filteredTemplates.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="py-12 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] text-[10px]">No matches found for active filters.</td>
+                                    <td colSpan={6} className="py-12 text-center text-slate-400 italic font-medium uppercase tracking-[0.2em] text-[10px]">No matches found for active filters.</td>
                                 </tr>
                             ) : (
                                 filteredTemplates.map((t) => {
@@ -414,49 +410,37 @@ const RecurringTasksPage = () => {
                                                 className={`group cursor-pointer transition-all duration-300 ${isSelected ? 'bg-indigo-100/40' : 'hover:bg-white/60'}`}
                                             >
                                                 {/* ID Badge Column */}
-                                                <td className="px-6 py-5">
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-lg text-[10px] font-black font-mono tracking-widest shadow-sm">
+                                                <td className="px-1.5 py-2 pl-6">
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded text-[9px] font-black font-mono tracking-tighter">
                                                         RT-{t.id || t.recurring_id}
                                                     </span>
                                                 </td>
-                                                <td className="px-10 py-5">
-                                                    <div className="flex items-center gap-3">
+                                                <td className="px-1.5 py-2">
+                                                    <div className="flex items-center gap-2">
                                                         <div className={`transition-transform duration-300 ${expandedRowId === id ? 'rotate-90' : ''}`}>
-                                                            <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600" />
+                                                            <ChevronRight size={12} className="text-slate-400" />
                                                         </div>
-                                                        <div className="flex flex-col">
-                                                            <span className={`text-[15px] font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-700'} tracking-tight`}>
-                                                                {t.title}
-                                                            </span>
-                                                        </div>
+                                                        <span className={`text-[12px] font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-700'} tracking-tight max-w-[200px] truncate`}>
+                                                            {t.title}
+                                                        </span>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-5">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[13px] font-bold text-slate-700 truncate max-w-[150px]">{t.department_name || t.dept_name || 'Accounts Payable'}</span>
-                                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Focus Dept</span>
-                                                    </div>
+                                                <td className="px-1.5 py-2">
+                                                    <span className="text-[11px] font-bold text-slate-700 truncate max-w-[80px] block">{t.assigned_by_name || 'Sys'}</span>
                                                 </td>
-                                                <td className="px-8 py-5">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[13px] font-bold text-slate-700">{t.assigned_by_name || 'System Admin'}</span>
-                                                        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Executor</span>
-                                                    </div>
+                                                <td className="px-1.5 py-2 text-center">
+                                                    <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">{formatFrequency(t)}</span>
                                                 </td>
-                                                <td className="px-8 py-5">
-                                                    <span className="text-[13px] font-bold text-slate-500">{formatFrequency(t)}</span>
-                                                </td>
-                                                <td className="px-8 py-5">
-                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-sm ${
+                                                <td className="px-1.5 py-2 text-center">
+                                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter border ${
                                                         isActive 
                                                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
                                                             : 'bg-orange-50 text-orange-600 border-orange-100'
                                                     }`}>
-                                                        {isActive ? <Check size={12} strokeWidth={4} /> : <Pause size={12} strokeWidth={4} />}
-                                                        {isActive ? 'Active' : 'Inactive'}
+                                                        {isActive ? 'Active' : 'Paused'}
                                                     </div>
                                                 </td>
-                                                <td className="px-10 py-5 text-right relative" onClick={(e) => e.stopPropagation()}>
+                                                <td className="px-4 py-5 text-right relative pr-6" onClick={(e) => e.stopPropagation()}>
                                                     <button 
                                                         onClick={() => setRowMenuId(rowMenuId === id ? null : id)}
                                                         className={`p-2.5 rounded-xl transition-all shadow-sm ${rowMenuId === id ? 'bg-indigo-600 text-white shadow-indigo-200' : 'text-slate-400 group-hover:text-indigo-600 hover:bg-indigo-50'}`}

@@ -318,6 +318,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     assigneeName: t.assigned_to_name,
                     severity: (t.priority || t.severity || 'MEDIUM').toUpperCase(),
                     department: t.department_name || t.department_id,
+                    parent_task_id: t.parent_task_id || t.parent_id,
+                    parent_task_title: t.parent_task_title || t.parent_task_name || ''
                 }));
                 setTodayTeamTasks(fetchedTasks);
             }
@@ -377,46 +379,13 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         return true;
                     });
 
-                    // Pass 1: Build map
+                    // Pass 1: Build map for local fallbacks
                     const taskMap = {};
                     filtered.forEach(t => {
                         const id = t.task_id || t.id;
                         const title = t.task_title || t.subtask_title || t.title || t.task_name || t.name || t.directive_title || t.directive_name;
                         if (id && title) taskMap[id] = title;
                     });
-
-                    // Pass 1.5: Fetch each child task's detail to get parent_task_title.
-                    // The backend now returns parent_task_title on GET /tasks/{task_id}.
-                    const tasksNeedingParentFetch2 = [];
-                    const seenParentIds2 = new Set();
-                    filtered.forEach(t => {
-                        const childId = t.task_id || t.id;
-                        const pid = t.parent_task_id || t.parent_id || (t.parent_task ? (t.parent_task.task_id || t.parent_task.id) : null);
-                        const ptitle = t.parent_task_title || t.parentTaskTitle || t.parent_task_name || t.parent_title || t.parent_name || t.parent_directive_title || t.parent_directive_name ||
-                                      (t.parent_task ? (t.parent_task.task_title || t.parent_task.title || t.parent_task.task_name || t.parent_task.name || t.parent_task.directive_title) : '');
-                        if (pid && !ptitle && !taskMap[pid] && childId && !seenParentIds2.has(pid)) {
-                            seenParentIds2.add(pid);
-                            tasksNeedingParentFetch2.push({ childId, pid });
-                        }
-                    });
-
-                    if (tasksNeedingParentFetch2.length > 0) {
-                        console.log(`ManagerDashboard (Fallback) - Fetching ${tasksNeedingParentFetch2.length} task details for parent titles...`);
-                        await Promise.allSettled(
-                            tasksNeedingParentFetch2.map(async ({ childId, pid }) => {
-                                try {
-                                    const res = await api.get(`/tasks/${childId}`);
-                                    const detail = res.data?.data || res.data;
-                                    if (detail && !Array.isArray(detail)) {
-                                        const parentTitle = detail.parent_task_title || detail.parentTaskTitle;
-                                        if (parentTitle) taskMap[pid] = parentTitle;
-                                    }
-                                } catch (err) {
-                                    console.warn(`Failed to fetch task detail ${childId}:`, err);
-                                }
-                            })
-                        );
-                    }
 
                     // Pass 2: Normalize
                     const normalized = filtered.map((t) => {
@@ -868,16 +837,16 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left table-fixed">
                             <thead className="text-[12px] text-slate-400 border-b border-slate-100 bg-slate-50/30">
-                                <tr>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap">Tasks</th>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap">Parent Task ID</th>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap">Parent Task</th>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap">Assignee</th>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap">Priority</th>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap text-center">Status</th>
-                                    <th className="py-3 px-6 font-medium whitespace-nowrap text-right">Actions</th>
+                                <tr className="bg-slate-50/10">
+                                    <th className="py-3 px-2 pl-6 font-bold text-[10px] uppercase tracking-tighter w-[30%]">TASK</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[5%]">PID</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[15%]">PARENT</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[10%]">USER</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter w-[12%]">PRIORITY</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-center w-[15%]">STATUS</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-right pr-6 w-[12%]">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
@@ -892,41 +861,35 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     </tr>
                                 ) : (
                                     paginatedTasks.map(task => (
-                                        <tr key={task.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-2 px-6 flex items-center gap-3">
-                                                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-sm border border-white">
-                                                    <User size={14} />
-                                                </div>
-                                                <span className="text-[13.5px] font-semibold text-slate-700 truncate max-w-[250px]">{task.title}</span>
+                                        <tr key={task.id} className="hover:bg-slate-50/50 transition-colors group">
+                                            <td className="py-2 px-2 pl-6 flex items-center gap-2">
+                                                <span className="text-[12px] font-bold text-slate-700 truncate max-w-[200px]">{task.title}</span>
                                             </td>
-                                            <td className="py-2 px-6">
-                                                <span className="text-[13px] font-medium text-slate-500">{task.parent_task_id ? `#${task.parent_task_id}` : '-'}</span>
+                                            <td className="py-2 px-2">
+                                                <span className="text-[11px] font-medium text-slate-400">#{task.parent_task_id || '-'}</span>
                                             </td>
-                                            <td className="py-2 px-6">
-                                                <span className="text-[13px] font-medium text-slate-500 truncate max-w-[150px] block">
+                                            <td className="py-2 px-2">
+                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[120px] block uppercase tracking-tighter">
                                                     {task.parent_task_title || '-'}
                                                 </span>
                                             </td>
-                                            <td className="py-2 px-6">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-6 h-6 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden flex items-center justify-center shrink-0">
-                                                        <User size={14} className="text-slate-400" />
-                                                    </div>
-                                                    <span className="text-[13px] font-medium text-slate-600">{task.assigneeName || 'Unassigned'}</span>
+                                            <td className="py-2 px-2">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[11px] font-bold text-slate-600 truncate max-w-[80px]">{task.assigneeName || 'Unassigned'}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-2 px-6">
-                                                <div className="flex items-center gap-1.5 text-[13px] font-medium text-slate-600">
-                                                    <span className={`w-2 h-2 rounded-full ${task.severity === 'HIGH' ? 'bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]' : 'bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)]'}`}></span>
-                                                    {task.severity === 'HIGH' ? 'High' : 'Medium'}
+                                            <td className="py-2 px-2">
+                                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-tighter">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
+                                                    {task.severity || 'MED'}
                                                 </div>
                                             </td>
-                                            <td className="py-2 px-6 text-center">
-                                                <span className={`px-4 py-1.5 rounded-full text-[11px] font-bold shadow-sm inline-block min-w-[90px] ${task.status === 'SUBMITTED' ? 'bg-[#9B51E0] text-white' : task.status === 'IN_PROGRESS' ? 'bg-[#34D399] text-white' : task.status === 'APPROVED' ? 'bg-emerald-500 text-white' : 'bg-[#4285F4] text-white'}`}>
-                                                    {task.status === 'SUBMITTED' ? 'Review' : task.status === 'IN_PROGRESS' ? 'In Progress' : task.status === 'APPROVED' ? 'Approved' : 'New'}
+                                            <td className="py-2 px-2 text-center">
+                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${task.status === 'SUBMITTED' ? 'bg-indigo-500 text-white' : task.status === 'IN_PROGRESS' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {task.status}
                                                 </span>
                                             </td>
-                                            <td className="py-2 px-6 text-right">
+                                            <td className="py-2 px-2 text-right pr-6">
                                                 {task.status === 'SUBMITTED' ? (
                                                     <div className="flex gap-2 justify-end">
                                                         <button onClick={() => handleStatusChange(task.id, 'APPROVE')} className="w-7 h-7 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle size={14} /></button>

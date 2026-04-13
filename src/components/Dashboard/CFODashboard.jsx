@@ -66,54 +66,49 @@ const DepartmentPerformanceGrid = ({ data }) => {
 
             <div className="overflow-x-auto">
                 <table className="w-full text-left">
-                    <thead className="text-[13px] text-slate-400 font-bold border-b border-slate-100">
+                    <thead className="text-[10px] text-slate-400 font-bold border-b border-slate-100 uppercase tracking-tighter">
                         <tr>
-                            <th className="py-2.5 px-2.5 font-bold text-[13px]">Department</th>
-                            <th className="py-2.5 px-2.5 font-bold text-center">Total</th>
-                            <th className="py-2.5 px-2.5 font-bold text-center">Overdue</th>
-                            <th className="py-2.5 px-2.5 font-bold text-center text-indigo-500">Progress</th>
-                            <th className="py-2.5 px-2.5 font-bold text-center text-emerald-500">Done</th>
-                            <th className="py-2.5 px-2.5 font-bold min-w-[120px]">Completion %</th>
-                            <th className="py-2.5 px-2.5 font-bold text-right">Status</th>
+                            <th className="py-2.5 px-1.5 pl-6 font-bold text-[10px]">Dept</th>
+                            <th className="py-2.5 px-1.5 font-bold text-center">Total</th>
+                            <th className="py-2.5 px-1.5 font-bold text-center">O.D</th>
+                            <th className="py-2.5 px-1.5 font-bold text-center text-indigo-500">Prog</th>
+                            <th className="py-2.5 px-1.5 font-bold text-center text-emerald-500">Done</th>
+                            <th className="py-2.5 px-1.5 font-bold min-w-[60px] text-center">%</th>
+                            <th className="py-2.5 px-1.5 font-bold text-right pr-6">Status</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                         {data.map((dept, idx) => (
                             <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
-                                <td className="py-2 px-2.5">
-                                    <span className="text-[13px] font-medium text-slate-800 capitalize tracking-tight">
+                                <td className="py-2 px-1.5 pl-6">
+                                    <span className="text-[11px] font-bold text-slate-800 capitalize tracking-tight whitespace-nowrap truncate max-w-[100px] block">
                                         {dept.department_name || dept.name || 'Unknown'}
                                     </span>
                                 </td>
-                                <td className="py-2 px-2.5 text-center font-bold text-slate-600 tabular-nums">
+                                <td className="py-2 px-1.5 text-center font-bold text-slate-600 tabular-nums text-[10px]">
                                     {dept.total_tasks || 0}
                                 </td>
-                                <td className="py-2 px-2.5 text-center font-bold text-rose-600 tabular-nums">
+                                <td className="py-2 px-1.5 text-center font-bold text-rose-600 tabular-nums text-[10px]">
                                     {dept.overdue_tasks || 0}
                                 </td>
-                                <td className="py-2 px-2.5 text-center font-bold text-indigo-600 tabular-nums">
+                                <td className="py-2 px-1.5 text-center font-bold text-indigo-600 tabular-nums text-[10px]">
                                     {dept.in_progress_tasks || 0}
                                 </td>
-                                <td className="py-2 px-2.5 text-center font-bold text-emerald-600 tabular-nums">
+                                <td className="py-2 px-1.5 text-center font-bold text-emerald-600 tabular-nums text-[10px]">
                                     {dept.completed_tasks || 0}
                                 </td>
-                                <td className="py-2 px-2.5">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex-1 h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner p-0.5">
-                                            <div
-                                                className="h-full rounded-full bg-emerald-400 transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(52,211,153,0.3)]"
-                                                style={{ width: `${dept.completion_pct || 0}%` }}
-                                            />
+                                <td className="py-2 px-1.5">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                        <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden max-w-[40px]">
+                                            <div className="h-full bg-indigo-500" style={{ width: `${dept.completion_pct || 0}%` }} />
                                         </div>
-                                        <span className="text-[13px] font-black text-slate-700 w-10 tabular-nums">
-                                            {Math.round(dept.completion_pct || 0)}%
-                                        </span>
+                                        <span className="text-[9px] font-black text-slate-400">{Math.round(dept.completion_pct || 0)}%</span>
                                     </div>
                                 </td>
-                                <td className="py-2 px-2.5 text-right whitespace-nowrap">
-                                    <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full border border-slate-100 bg-white shadow-sm transition-transform group-hover:scale-105 min-w-max">
-                                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getStatusColor(dept.status)}`} />
-                                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest whitespace-nowrap">
+                                <td className="py-2 px-1.5 text-right pr-6 whitespace-nowrap">
+                                    <div className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-full border border-slate-100 bg-white shadow-sm transition-transform group-hover:scale-105 min-w-max">
+                                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getStatusColor(dept.status)}`} />
+                                        <span className="text-[9px] font-black text-slate-500 capitalize tracking-tight whitespace-nowrap">
                                             {getStatusText(dept.status)}
                                         </span>
                                     </div>
@@ -962,38 +957,7 @@ const CFODashboard = () => {
                 if (id && title) taskMap[id] = title;
             });
 
-            // Pass 1.5: Fetch each child task's detail to get parent_task_title.
-            // The backend now returns parent_task_title on GET /tasks/{task_id}.
-            const tasksNeedingParentFetch = [];
-            const seenParentIds = new Set();
-            [...todayRows, ...allTasks].forEach(t => {
-                const childId = t.task_id || t.id;
-                const pid = t.parent_task_id || t.parent_id || (t.parent_task ? (t.parent_task.task_id || t.parent_task.id) : null);
-                const ptitle = t.parent_task_title || t.parentTaskTitle || t.parent_task_name || t.parent_title || t.parent_name || t.parent_directive_title || t.parent_directive_name ||
-                    (t.parent_task ? (t.parent_task.task_title || t.parent_task.title || t.parent_task.task_name || t.parent_task.name || t.parent_task.directive_title) : '');
-                if (pid && !ptitle && !taskMap[pid] && childId && !seenParentIds.has(pid)) {
-                    seenParentIds.add(pid);
-                    tasksNeedingParentFetch.push({ childId, pid });
-                }
-            });
 
-            if (tasksNeedingParentFetch.length > 0) {
-                console.log(`CFODashboard - Fetching ${tasksNeedingParentFetch.length} task details for parent titles...`);
-                await Promise.allSettled(
-                    tasksNeedingParentFetch.map(async ({ childId, pid }) => {
-                        try {
-                            const res = await api.get(`/tasks/${childId}`);
-                            const detail = res.data?.data || res.data;
-                            if (detail && !Array.isArray(detail)) {
-                                const parentTitle = detail.parent_task_title || detail.parentTaskTitle;
-                                if (parentTitle) taskMap[pid] = parentTitle;
-                            }
-                        } catch (err) {
-                            console.warn(`Failed to fetch task detail ${childId}:`, err);
-                        }
-                    })
-                );
-            }
 
             // Pass 2: Normalize
             // Pass 2: Normalize
@@ -1017,12 +981,9 @@ const CFODashboard = () => {
                             t.parent_task.task_name ||
                             t.parent_task.name ||
                             t.parent_task.directive_title)
-                        : '');
-
-                // fallback from fetched parents
-                if (!ptitle && pid && taskMap[pid]) {
-                    ptitle = taskMap[pid];
-                }
+                        : '') ||
+                    taskMap[pid] ||
+                    '';
 
                 // Robust Department Extraction
                 const deptCandidates = [
@@ -1450,17 +1411,17 @@ const CFODashboard = () => {
                                     </h3>
                                 </div>
                                 <div className="flex-1 overflow-x-auto custom-scrollbar">
-                                    <table className="w-full text-left font-sans">
+                                    <table className="w-full text-left font-sans table-fixed">
                                         <thead className="sticky top-0 bg-white z-10 border-b border-slate-100">
-                                            <tr className="text-[11px] font-extrabold text-slate-500 capitalize tracking-widest">
-                                                <th className="py-3 px-6 whitespace-nowrap">Department</th>
-                                                <th className="py-3 px-3 text-center whitespace-nowrap">Top Performer</th>
-                                                <th className="py-3 px-3 text-center whitespace-nowrap">Total Tasks</th>
-                                                <th className="py-3 px-3 text-center whitespace-nowrap">Overdue</th>
-                                                <th className="py-3 px-3 text-center whitespace-nowrap">In Progress</th>
-                                                <th className="py-3 px-3 text-center whitespace-nowrap">Completed</th>
-                                                <th className="py-3 px-3 whitespace-nowrap">Completion Rate</th>
-                                                <th className="py-3 px-6 text-right whitespace-nowrap min-w-[110px]">Status</th>
+                                            <tr className="text-[9px] font-extrabold text-slate-400 capitalize tracking-tighter bg-slate-50/10">
+                                                <th className="py-2 px-1.5 pl-4 whitespace-nowrap w-auto">DEPARTMENT</th>
+                                                <th className="py-2 px-1.5 text-center whitespace-nowrap w-[150px]">TOP PERFORMER</th>
+                                                <th className="py-2 px-1.5 text-center whitespace-nowrap w-[100px]">TOTAL TASKS</th>
+                                                <th className="py-2 px-1.5 text-center whitespace-nowrap w-[80px]">OVERDUE</th>
+                                                <th className="py-2 px-1.5 text-center whitespace-nowrap w-[100px]">IN PROGRESS</th>
+                                                <th className="py-2 px-1.5 text-center whitespace-nowrap w-[90px]">APPROVED</th>
+                                                <th className="py-2 px-1.5 whitespace-nowrap text-center w-[100px]">COMPLETION %</th>
+                                                <th className="py-2 px-1.5 text-right whitespace-nowrap min-w-[70px] pr-4 w-[110px]">STATUS</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
@@ -1473,31 +1434,33 @@ const CFODashboard = () => {
                                                 };
                                                 return (
                                                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors group cursor-pointer" onClick={() => handleDeptSelect(dept.department_id || dept.id || dept.name)}>
-                                                        <td className="py-3 px-6 font-medium text-slate-900 tracking-tight text-[13px]">{dept.department_name || dept.name}</td>
-                                                        <td className="py-3 px-3 text-center">
+                                                        <td className="py-2 px-1.5 pl-4 font-bold text-slate-700 text-[11px] whitespace-nowrap truncate max-w-[100px]">{dept.department_name || dept.name}</td>
+                                                        <td className="py-2 px-1.5 text-center">
                                                             {dept.top_performer ? (
-                                                                <div className="grid place-items-center">
-                                                                    <span className="text-[13px] font-bold text-indigo-600 block leading-none">{dept.top_performer.name}</span>
-                                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mt-1">{dept.top_performer.score}% Score</span>
+                                                                <div className="flex flex-col items-center whitespace-nowrap scale-[0.9]">
+                                                                    <span className="text-[10px] font-bold text-slate-800 tracking-tight">{dept.top_performer.name}</span>
+                                                                    <span className="text-[8px] text-[#4f46e5]/70 font-black uppercase tracking-widest">{Math.round(dept.top_performer.completion_pct || dept.top_performer.score || 0)}%</span>
                                                                 </div>
                                                             ) : (
-                                                                <span className="text-slate-300 text-[11px] font-bold tracking-widest uppercase italic">Calculating..</span>
+                                                                <span className="text-slate-300 text-[8px] font-bold tracking-widest uppercase italic">Calc..</span>
                                                             )}
                                                         </td>
-                                                        <td className="py-3 px-3 text-center font-semibold text-slate-700 tabular-nums text-[13px]">{dept.total_tasks || 0}</td>
-                                                        <td className="py-3 px-3 text-center font-semibold text-rose-600 tabular-nums text-[13px]">{dept.overdue_tasks || 0}</td>
-                                                        <td className="py-3 px-3 text-center font-semibold text-indigo-700 tabular-nums text-[13px]">{dept.in_progress_tasks || 0}</td>
-                                                        <td className="py-3 px-3 text-center font-semibold text-emerald-600 tabular-nums text-[13px]">{dept.approved_tasks || 0}</td>
-                                                        <td className="py-3 px-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                                    <div className={`h-full rounded-full ${dept.completion_pct > 50 ? 'bg-indigo-500' : dept.completion_pct > 25 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${dept.completion_pct || 0}%` }} />
+                                                        <td className="py-2 px-1.5 text-center text-[10px] font-medium text-slate-500">{dept.total_tasks || 0}</td>
+                                                        <td className="py-2 px-1.5 text-center text-[10px] font-black text-rose-500">{dept.overdue_tasks || 0}</td>
+                                                        <td className="py-2 px-1.5 text-center text-[10px] font-medium text-indigo-500">{dept.in_progress_tasks || 0}</td>
+                                                        <td className="py-2 px-1.5 text-center text-[10px] font-medium text-emerald-600">{dept.approved_tasks || 0}</td>
+                                                        <td className="py-2 px-1.5">
+                                                            <div className="flex flex-col gap-1 min-w-[50px]">
+                                                                <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner border border-slate-50">
+                                                                    <div
+                                                                        className={`h-full rounded-full transition-all duration-1000 ${dept.status === 'ON_TRACK' ? 'bg-emerald-500' : dept.status === 'AT_RISK' ? 'bg-amber-400' : 'bg-rose-500'}`}
+                                                                        style={{ width: `${dept.completion_pct || 0}%` }}
+                                                                    />
                                                                 </div>
-                                                                <span className="text-[13px] font-semibold text-slate-900 tabular-nums min-w-[45px]">{Math.round(dept.completion_pct || 0)}%</span>
                                                             </div>
                                                         </td>
-                                                        <td className="py-4 px-6 text-right">
-                                                            <span className={`inline-block whitespace-nowrap text-[12px] font-semibold px-3 py-1 rounded-full capitalize tracking-tight border ${statusStyles[dept.status || 'NO_DATA']}`}>
+                                                        <td className="py-2 px-1.5 text-right pr-4">
+                                                            <span className={`inline-block whitespace-nowrap text-[9px] font-semibold px-1.5 py-0.5 rounded-full capitalize tracking-tight border ${statusStyles[dept.status || 'NO_DATA']}`}>
                                                                 {(dept.status || 'No Data').toLowerCase().replace(/_/g, ' ')}
                                                             </span>
                                                         </td>

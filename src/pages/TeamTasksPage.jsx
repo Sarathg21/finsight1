@@ -51,17 +51,18 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest bg-white/80 px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">#Sub-{taskId}</span>
                 </div>
             </td>
+            <td className="py-2.5 text-left text-slate-400 font-medium text-[11px]">
+                {task.parent_task_id ? `#${task.parent_task_id}` : '-'}
+            </td>
             <td className="py-2.5 text-left">
                 <div className="flex flex-col gap-0.5">
                     <span className="text-[14px] font-bold text-slate-700 tracking-tight leading-tight">{title}</span>
-                    {parentTitle && (
-                        <span className="text-[10px] font-medium text-slate-400 truncate max-w-[180px] uppercase tracking-wider whitespace-nowrap overflow-hidden">Parent: {parentTitle}</span>
+                    {task.parent_task_title && (
+                        <span className="text-[10px] font-medium text-slate-400 truncate max-w-[180px] uppercase tracking-wider whitespace-nowrap overflow-hidden">Parent: {task.parent_task_title}</span>
                     )}
                 </div>
             </td>
-            <td className="py-2.5 text-left">
-                <span className="text-slate-500 text-[10.5px] font-bold uppercase tracking-widest px-2 py-0.5 bg-white rounded-lg border border-slate-100 shadow-sm">{String(task?.department_name || 'N/A')}</span>
-            </td>
+
             <td className="py-2.5 text-left">
                 <span className="text-slate-400 text-[10px] font-medium italic">-</span>
             </td>
@@ -130,6 +131,7 @@ const TaskRow = ({
     const assignedBy = task?.assigned_by_name || 'System';
     const rawDueDateMain = task?.due_date || '';
     const dueDate = rawDueDateMain ? format(new Date(rawDueDateMain), 'MMM d, yyyy') : 'N/A';
+    const dueDateShort = rawDueDateMain ? format(new Date(rawDueDateMain), 'yy-MM-dd') : 'N/A';
     const isOverdue = dueDate !== 'N/A' && new Date(rawDueDateMain) < new Date() && !['APPROVED', 'CANCELLED'].includes(status);
     const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && taskTitles[task.parent_task_id]);
 
@@ -155,92 +157,66 @@ const TaskRow = ({
                     if (e.key === 'Enter' || e.key === ' ') handleRowClick();
                 }}
             >
-                <td className="py-2.5 pl-4 text-left">
-                    <div className="flex items-center gap-3">
+                <td className="py-1 px-1.5 pl-6 font-black">
+                    <div className="flex items-center gap-1.5">
                         {isParent ? (
                             <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onToggle?.();
-                                }}
-                                className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all ${expanded ? 'bg-violet-600 text-white shadow-lg shadow-violet-200' : 'bg-slate-100 text-slate-400 group-hover:bg-violet-100 group-hover:text-violet-600 hover:shadow-sm'}`}
+                                onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
+                                className={`w-4 h-4 rounded-md flex items-center justify-center transition-all ${expanded ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-400'}`}
                             >
-                                <ChevronRight
-                                    size={10}
-                                    strokeWidth={4}
-                                    className={`transition-transform duration-300 ${expanded ? 'rotate-90' : 'rotate-0'}`}
-                                />
+                                <ChevronRight size={8} strokeWidth={4} className={`transition-transform duration-300 ${expanded ? 'rotate-90' : 'rotate-0'}`} />
                             </button>
                         ) : (
-                            <div className="w-5 h-5" />
+                            <div className="w-4 h-4" />
                         )}
-                        <span className="text-[10.5px] font-black text-violet-600 tracking-widest uppercase">#{taskId}</span>
+                        <span className="text-[9px] font-black text-violet-600 tracking-tighter uppercase">#{taskId}</span>
                     </div>
                 </td>
-                <td className="py-2 px-1.5 text-left">
-                    <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-1.5 text-left">
-                            <h4 className="font-bold text-[#1E1B4B] text-[13px] tracking-tight truncate max-w-[180px]">
+                <td className="py-1 px-1.5 text-left text-slate-400 font-medium text-[9px] hidden sm:table-cell">
+                    {task.parent_task_id ? `#${task.parent_task_id}` : '-'}
+                </td>
+                <td className="py-1 px-1.5 text-left">
+                    <div className="flex flex-col gap-0">
+                        <div className="flex items-center gap-1">
+                            <h4 className="font-bold text-[#1E1B4B] text-[11px] tracking-tight truncate max-w-[150px]">
                                 {title}
                             </h4>
-                            {task?.has_attachments && <Paperclip size={10} className="text-slate-400 shrink-0" />}
                         </div>
-                        {parentTitle && (
-                            <p className="text-[10px] font-semibold text-slate-400 truncate max-w-[200px] text-left uppercase tracking-wider">
-                                {parentTitle}
+                        {task.parent_task_title && (
+                            <p className="text-[8px] font-bold text-slate-300 truncate max-w-[150px] uppercase tracking-tighter">
+                                {task.parent_task_title}
                             </p>
                         )}
                     </div>
                 </td>
-                <td className="py-2 px-1.5 text-left">
-                    <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-widest px-1.5 py-0.5 bg-slate-50 rounded-md border border-slate-100">{dept}</span>
+
+                <td className="py-1 px-1.5 text-left">
+                    <span className="text-[10px] font-bold text-slate-700 truncate max-w-[80px] block">
+                        {assignedBy || 'Sys'}
+                    </span>
                 </td>
-                <td className="py-2 px-1.5 text-left">
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 rounded-full bg-violet-100 border border-violet-200 flex items-center justify-center text-[10px] font-bold text-violet-700 shrink-0 shadow-sm">
-                            {assignedBy?.charAt(0) || 'S'}
-                        </div>
-                        <span className="text-[12px] font-bold text-slate-700 truncate max-w-[70px]">{assignedBy}</span>
-                    </div>
-                </td>
-                <td className="py-2 px-1.5 text-left">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <td className="py-1 px-1.5 text-left whitespace-nowrap">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                         {task.assigned_at || task.assigned_date || task.created_at
-                            ? format(
-                                new Date(task.assigned_at || task.assigned_date || task.created_at),
-                                'yy-MM-dd'
-                            )
+                            ? format(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
                             : '-'}
                     </span>
                 </td>
-                <td className="py-2 px-1.5 text-left">
-                    <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-500 overflow-hidden shrink-0 shadow-sm">
-                            {assignedTo?.charAt(0) || <User size={13} />}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[13px] font-black text-[#1E1B4B] truncate max-w-[100px] tracking-tight">{assignedTo}</span>
-                            {(task.is_reassigned || task.reassigned_from || (task.reassignment_count > 0)) && (
-                                <span className="inline-flex items-center gap-1 text-[8.5px] font-black text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 mt-0.5 w-fit uppercase tracking-tighter">
-                                    Reassigned
-                                </span>
-                            )}
-                        </div>
+                <td className="py-1 px-1.5 text-left">
+                    <span className="text-[11px] font-black text-indigo-600 truncate max-w-[100px] block tracking-tighter">{assignedTo}</span>
+                </td>
+                <td className="py-1 px-1.5 text-left whitespace-nowrap">
+                    <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${isOverdue ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                        <span className="text-[9px] font-black tracking-tighter uppercase">{dueDateShort}</span>
                     </div>
                 </td>
-                <td className="py-2 px-1.5 text-left">
-                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border shadow-sm ${isOverdue ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
-                        <Calendar size={12} strokeWidth={3} />
-                        <span className="text-[10px] font-black tracking-tighter uppercase whitespace-nowrap">{dueDate}</span>
-                    </div>
-                </td>
-                <td className="px-1.5 py-2 text-center">
+                <td className="py-1 px-1.5 text-center whitespace-nowrap">
                     {renderStatusBadge?.(status)}
                 </td>
-                <td className="px-1.5 py-2 text-left">
+                <td className="py-1 px-1.5 text-left whitespace-nowrap">
                     {renderSeverityTag?.(severity)}
                 </td>
-                <td className="px-1.5 py-2 text-right pr-4">
+                <td className="py-1 px-1.5 text-right pr-6">
                     <div className="flex justify-end gap-1.5">
                         {status === 'SUBMITTED' && String(task?.employee_id || task?.assigned_to_emp_id || task?.assigned_to_id) !== String(user?.id) ? (
                             <>
@@ -747,26 +723,27 @@ const TeamTasksPage = () => {
 
             <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left capitalize">
+                    <table className="w-full text-left capitalize table-fixed">
                         <thead>
-                            <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 bg-slate-50/30">
-                                <th className="py-2.5 px-1.5 pl-4">ID</th>
-                                <th className="py-2.5 px-1.5">Task</th>
-                                <th className="py-2.5 px-1.5">Dept</th>
-                                <th className="py-2.5 px-1.5">From</th>
-                                <th className="py-2.5 px-1.5">Date</th>
-                                <th className="py-2.5 px-1.5">Assignee</th>
-                                <th className="py-2.5 px-1.5">Due</th>
-                                <th className="py-2.5 px-1.5 text-center">Status</th>
-                                <th className="py-2.5 px-1.5">Prio</th>
-                                <th className="py-2.5 px-1.5 text-right pr-4">Actions</th>
+                            <tr className="text-[9px] font-black text-slate-400 uppercase tracking-tighter border-b border-slate-100 bg-slate-50/20">
+                                <th className="py-2 px-1.5 pl-6 w-[5%]">ID</th>
+                                <th className="py-2 px-1.5 font-bold text-[9px] hidden sm:table-cell w-[5%]">PID</th>
+                                <th className="py-2 px-1.5 w-[25%]">TASK</th>
+
+                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[10%]">ASSIGNER</th>
+                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[8%]">DATE</th>
+                                <th className="py-2 px-1.5 uppercase font-black text-indigo-500 w-[10%]">ASSIGNEE</th>
+                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[8%]">DUE</th>
+                                <th className="py-2 px-1.5 text-center uppercase font-black text-slate-400 w-[15%]">STATUS</th>
+                                <th className="py-2 px-1.5 uppercase font-black text-slate-400 w-[10%]">SEVERITY</th>
+                                <th className="py-2 px-1.5 text-right pr-6 uppercase font-black text-slate-400 w-[10%]">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {loading ? (
-                                <tr className="animate-pulse"><td colSpan={9} className="p-20 text-center text-slate-300 font-bold">Syncing Executive Intelligence...</td></tr>
+                                <tr className="animate-pulse"><td colSpan={10} className="p-20 text-center text-slate-300 font-bold">Syncing Executive Intelligence...</td></tr>
                             ) : tasks.length === 0 ? (
-                                <tr><td colSpan={9} className="p-20 text-center opacity-50"><Layout size={48} className="text-slate-200 mx-auto mb-4" /><p className="text-slate-400 font-bold text-[11px]">No matching team tasks found</p></td></tr>
+                                <tr><td colSpan={10} className="p-20 text-center opacity-50"><Layout size={48} className="text-slate-200 mx-auto mb-4" /><p className="text-slate-400 font-bold text-[11px]">No matching team tasks found</p></td></tr>
                             ) : tasks.map((task, idx) => (
                                 <TaskRow
                                     key={task?.task_id || task?.id || idx}

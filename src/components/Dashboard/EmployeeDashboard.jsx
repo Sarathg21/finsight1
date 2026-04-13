@@ -261,40 +261,7 @@ const EmployeeDashboard = () => {
                 if (id && title) taskMap[id] = title;
             });
 
-            // Pass 1.5: Fetch each child task's individual detail to retrieve parent_task_title.
-            // The backend now returns parent_task_title on GET /tasks/{task_id}.
-            // We fetch the *child* task (which the employee has access to) rather than the parent task
-            // (which may be 403-restricted), so we can reliably read parent_task_title from the response.
-            const tasksNeedingParentFetch = [];
-            const seenParentIds = new Set();
-            [...todayT, ...allRaw].forEach(t => {
-                const childId = t.task_id || t.id;
-                const pid = t.parent_task_id || t.parent_id || (t.parent_task ? (t.parent_task.task_id || t.parent_task.id) : null);
-                const ptitle = t.parent_task_title || t.parentTaskTitle || t.parent_task_name || t.parent_title || t.parent_name || t.parent_directive_title || t.parent_directive_name ||
-                              (t.parent_task ? (t.parent_task.task_title || t.parent_task.title || t.parent_task.task_name || t.parent_task.name || t.parent_task.directive_title) : '');
-                if (pid && !ptitle && !taskMap[pid] && childId && !seenParentIds.has(pid)) {
-                    seenParentIds.add(pid);
-                    tasksNeedingParentFetch.push({ childId, pid });
-                }
-            });
 
-            if (tasksNeedingParentFetch.length > 0) {
-                console.log(`EmployeeDashboard - Fetching ${tasksNeedingParentFetch.length} task details for parent titles...`);
-                await Promise.allSettled(
-                    tasksNeedingParentFetch.map(async ({ childId, pid }) => {
-                        try {
-                            const res = await api.get(`/tasks/${childId}`);
-                            const detail = res.data?.data || res.data;
-                            if (detail && !Array.isArray(detail)) {
-                                const parentTitle = detail.parent_task_title || detail.parentTaskTitle;
-                                if (parentTitle) taskMap[pid] = parentTitle;
-                            }
-                        } catch (err) {
-                            console.warn(`Failed to fetch task detail ${childId}:`, err);
-                        }
-                    })
-                );
-            }
 
             // Pass 2: Normalize with local lookup fallback
             const getParentInfo = (t) => {
@@ -602,8 +569,10 @@ const EmployeeDashboard = () => {
     // Derive tasks list from source (either specialized todayTasks or full allTasks)
     const filteredTasksSource = useMemo(() => {
         const source = activeTab === "TODAY" ? allTasks.filter(t => {
-            const dateStr = t.assigned_date || t.assigned_at || t.created_at || t.updated_at || t.assignedAt || t.createdAt || t.due_date || t.dueDate;
-            return toDateKey(dateStr) === getToday();
+            const todayStr = getToday();
+            const isDueToday = toDateKey(t.due_date || t.end_date || t.dueDate) === todayStr;
+            const isAssignedToday = toDateKey(t.assigned_date || t.assigned_at || t.created_at || t.assignedAt || t.createdAt) === todayStr;
+            return isDueToday || isAssignedToday;
         }) : allTasks;
         return source.filter(t => {
             const isCancelled = t.status === 'CANCELLED';
@@ -783,87 +752,68 @@ const EmployeeDashboard = () => {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left table-fixed">
                             <thead className="text-[12px] text-slate-400 border-b border-slate-100 bg-slate-50/30">
-                                <tr>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-slate-400">Task</th>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-slate-400 text-center">P.ID</th>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-slate-400">Parent</th>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-slate-400">Date</th>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-slate-400 text-center">Prio</th>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-center text-slate-400">Status</th>
-                                    <th className="py-2.5 px-1.5 font-bold whitespace-nowrap text-right text-slate-400 pr-4">Actions</th>
+                                <tr className="bg-slate-50/30">
+                                    <th className="py-2 px-1.5 pl-6 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[25%] uppercase">TASK</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 text-center w-[6%]">ID</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[15%]">PARENT</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[10%]">START</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 w-[10%]">DUE</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-slate-400 text-center w-[12%]">PRIORITY</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-center text-slate-400 w-[12%]">STATUS</th>
+                                    <th className="py-2 px-1.5 font-bold text-[10px] uppercase tracking-tighter text-right text-slate-400 pr-6 w-[10%] uppercase">ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {pendingTasks.length === 0 ? (
-                                    <tr><td colSpan="7" className="py-12 text-center text-slate-400 font-bold text-xs">No tasks present</td></tr>
+                                    <tr><td colSpan="8" className="py-12 text-center text-slate-400 font-bold text-xs">No tasks present</td></tr>
                                 ) : (
-                                    paginatedTasks.map(task => (
+                                    paginatedTasks.map(task => {
+                                        const isDateOverdue = task.due_date && new Date(task.due_date) < new Date();
+                                        return (
                                         <tr key={task.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-1.5 px-1.5">
-                                                <span className="text-[12.5px] font-bold text-slate-700 truncate max-w-[130px] block leading-tight">{task.title}</span>
+                                            <td className="py-1.5 px-1.5 pl-6">
+                                                <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px] block leading-tight">{task.title}</span>
                                             </td>
                                             <td className="py-1.5 px-1.5 text-center">
-                                                <span className="text-[11px] font-medium text-slate-500 whitespace-nowrap">{task.parent_task_id ? `#${task.parent_task_id}` : '-'}</span>
+                                                <span className="text-[10px] font-medium text-slate-400">#{task.id || task.task_id}</span>
                                             </td>
                                             <td className="py-1.5 px-1.5">
-                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[90px] block">
+                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[100px] block uppercase tracking-tighter">
                                                     {task.parent_task_title || '-'}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-1.5">
-                                                <span className="text-[11px] font-bold text-slate-600 whitespace-nowrap">
-                                                    {formatDisplayDate(
-                                                        task.assigned_date || 
-                                                        task.assigned_at || 
-                                                        task.created_at || 
-                                                        task.updated_at || 
-                                                        task.assignedAt || 
-                                                        task.createdAt || 
-                                                        task.due_date || 
-                                                        task.dueDate
-                                                    )}
+                                            <td className="py-1.5 px-1.5 whitespace-nowrap">
+                                                <span className="text-[10px] font-bold text-slate-400">
+                                                    {formatDisplayDate(task.assigned_date || task.assigned_at || task.created_at) || '-'}
                                                 </span>
                                             </td>
-                                            <td className="py-1.5 px-1.5">
-                                                <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-slate-600">
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-red-500' : 'bg-amber-400'}`}></span>
-                                                    {task.severity === 'HIGH' ? 'High' : 'Med'}
+                                            <td className="py-1.5 px-1.5 whitespace-nowrap">
+                                                <span className={`text-[10px] font-bold ${isDateOverdue ? 'text-rose-500' : 'text-slate-600'}`}>
+                                                    {formatDisplayDate(task.due_date || task.dueDate) || '-'}
+                                                </span>
+                                            </td>
+                                            <td className="py-1.5 px-1.5 whitespace-nowrap text-center">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
+                                                    <span className="text-[9px] font-black uppercase tracking-tighter text-slate-600">{task.severity || 'MED'}</span>
                                                 </div>
                                             </td>
-                                            <td className="py-1.5 px-1.5 text-center">
-                                                <div className="flex justify-center">
-                                                    {task.status === 'SUBMITTED' ? (
-                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-violet-50 text-violet-600 border border-violet-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
-                                                            <CheckCircle size={9} /> Submitted
-                                                        </span>
-                                                    ) : task.status === 'IN_PROGRESS' || task.status === 'STARTED' ? (
-                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
-                                                            <Clock size={9} /> Progress
-                                                        </span>
-                                                    ) : task.status === 'NEW' ? (
-                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
-                                                            <PlusCircle size={9} /> New
-                                                        </span>
-                                                    ) : (
-                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm text-center">
-                                                            {task.status}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                            <td className="py-1.5 px-1.5 text-center whitespace-nowrap text-[9px] font-black uppercase tracking-tighter">
+                                                {task.status}
                                             </td>
-                                            <td className="py-1.5 px-1.5 text-right pr-4">
+                                            <td className="py-1.5 px-1.5 text-right pr-6">
                                                 <button
                                                     onClick={() => navigate(`/tasks?taskId=${task.id}`)}
-                                                    className="px-2.5 py-1 bg-[#4285F4] text-white text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-600 transition active:scale-95 shadow-sm inline-flex items-center gap-1"
+                                                    className="px-2 py-0.5 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase tracking-widest rounded border border-indigo-100 hover:bg-indigo-600 hover:text-white transition shadow-sm"
                                                 >
                                                     View
                                                 </button>
                                             </td>
                                         </tr>
-
-                                    ))
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
