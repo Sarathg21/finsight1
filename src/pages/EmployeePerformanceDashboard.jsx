@@ -855,7 +855,7 @@ const PerformanceDashboard = () => {
                 const dKey = dueDate ? String(dueDate).slice(0, 10) : null;
 
                 const isWithinRange = (k) => k && k >= sf && k <= st;
-                return isWithinRange(cKey) || isWithinRange(dKey);
+                if (!isWithinRange(cKey) && !isWithinRange(dKey)) return false;
 
                 if (hasDept) {
                     const tDeptId = String(t.department_id || '');
