@@ -3,7 +3,14 @@ import { toast } from "react-hot-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import api from "../services/api";
-import { format } from "date-fns";
+// date-fns format replaced with native JS
+const fmtDate = (d, pattern) => {
+    if (!d || isNaN(d.getTime())) return '-';
+    const y = pattern.startsWith('yy-') ? String(d.getFullYear()).slice(-2) : String(d.getFullYear());
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
 import Badge from "../components/UI/Badge";
 import CustomSelect from "../components/UI/CustomSelect";
 import { Plus, Search, Loader2, History, Paperclip, ChevronDown, ChevronRight, CheckSquare, Check, X, ArrowLeftRight, RotateCcw, Play, Upload, RefreshCw, AlertTriangle, FileSpreadsheet } from "lucide-react";
@@ -169,11 +176,11 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
                 </td>
 
                 <td className="py-2 px-4 text-slate-500 whitespace-nowrap font-bold text-[10px]">
-                    {task.assigned_date ? format(new Date(task.assigned_date), 'yy-MM-dd') : '-'}
+                    {task.assigned_date ? fmtDate(new Date(task.assigned_date), 'yy-MM-dd') : '-'}
                 </td>
 
                 <td className={`py-2 px-4 whitespace-nowrap font-bold text-[10px] ${isOverdue ? 'text-red-500' : 'text-slate-600'}`}>
-                    {task.due_date ? format(new Date(task.due_date), 'yy-MM-dd') : '-'}
+                    {task.due_date ? fmtDate(new Date(task.due_date), 'yy-MM-dd') : '-'}
                 </td>
 
                 <td className="py-2 px-4 text-center">

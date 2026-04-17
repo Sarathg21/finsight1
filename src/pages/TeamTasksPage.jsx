@@ -8,7 +8,16 @@ import {
     XCircle, User, Users, Calendar, Layout,
     ClipboardCheck, Play, Upload, AlertTriangle, Target
 } from 'lucide-react';
-import { format } from 'date-fns';
+// date-fns format replaced with native JS helpers
+const fmtDate = (d, pattern) => {
+    if (!d || isNaN(d.getTime())) return 'N/A';
+    if (pattern === 'MMM d, yyyy') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    // 'yy-MM-dd' or 'yyyy-MM-dd'
+    const y = pattern.startsWith('yy-') ? String(d.getFullYear()).slice(-2) : String(d.getFullYear());
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
 import toast from 'react-hot-toast';
 import ReassignTaskModal from '../components/Modals/ReassignTaskModal';
 import ReworkCommentModal from '../components/Modals/ReworkCommentModal';
@@ -26,7 +35,7 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
     const title = task?.task_title || task?.title || 'Untitled Subtask';
     const assignedTo = task?.assigned_to_name || 'Unassigned';
     const rawDueDate = task?.due_date || '';
-    const dueDate = rawDueDate ? format(new Date(rawDueDate), 'MMM d, yyyy') : 'N/A';
+    const dueDate = rawDueDate ? fmtDate(new Date(rawDueDate), 'MMM d, yyyy') : 'N/A';
     const status = task?.status || 'N/A';
     const severity = task?.severity || 'LOW';
 
@@ -70,7 +79,7 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
             <td className="py-2.5 px-4 text-left">
                 <span className="text-slate-400 text-[10.5px] font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden">
                     {task.assigned_at || task.assigned_date || task.created_at
-                        ? format(
+                        ? fmtDate(
                             new Date(task.assigned_at || task.assigned_date || task.created_at),
                             'yyyy-MM-dd'
                         )
@@ -131,8 +140,8 @@ const TaskRow = ({
     const assignedTo = task?.assigned_to_name || 'Unassigned';
     const assignedBy = task?.assigned_by_name || 'System';
     const rawDueDateMain = task?.due_date || '';
-    const dueDate = rawDueDateMain ? format(new Date(rawDueDateMain), 'MMM d, yyyy') : 'N/A';
-    const dueDateShort = rawDueDateMain ? format(new Date(rawDueDateMain), 'yy-MM-dd') : 'N/A';
+    const dueDate = rawDueDateMain ? fmtDate(new Date(rawDueDateMain), 'MMM d, yyyy') : 'N/A';
+    const dueDateShort = rawDueDateMain ? fmtDate(new Date(rawDueDateMain), 'yy-MM-dd') : 'N/A';
     const isOverdue = dueDate !== 'N/A' && new Date(rawDueDateMain) < new Date() && !['APPROVED', 'CANCELLED'].includes(status);
     const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && task.parent_task_id !== '-' ? taskTitles[task.parent_task_id] : '');
 
@@ -199,7 +208,7 @@ const TaskRow = ({
                 <td className="py-1 px-4 text-left whitespace-nowrap">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                         {task.assigned_at || task.assigned_date || task.created_at
-                            ? format(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
+                            ? fmtDate(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
                             : '-'}
                     </span>
                 </td>
