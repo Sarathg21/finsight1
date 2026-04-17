@@ -254,7 +254,7 @@ const OrgTreePage = () => {
         try {
             const results = await Promise.allSettled([
                 api.get('/org/tree'),
-                api.get('/admin/departments'),
+                api.get('/departments'),
                 api.get('/employees')
             ]);
             

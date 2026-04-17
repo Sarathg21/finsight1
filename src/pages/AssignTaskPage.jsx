@@ -45,9 +45,9 @@ const AssignTaskPage = () => {
                         .catch(() => api.get('/employees'))
                         .catch(() => api.get('/employees/assignable'))
                         .catch(() => ({ data: [] })),
-                    api.get('/admin/departments')
-                        .catch(() => api.get('/departments'))
+                    api.get('/departments')
                         .catch(() => api.get('/dashboard/cfo/departments'))
+                        .catch(() => (role === 'ADMIN' ? api.get('/admin/departments') : Promise.reject()))
                         .catch(() => ({ data: [] }))
                 ]);
                 
