@@ -943,7 +943,7 @@ const OKRDashboard = () => {
                 </div>
 
                 <div className="bg-gradient-to-r from-[#1E3A8A] to-[#2563EB] text-white py-4 px-8 rounded-full flex justify-between items-center shadow-lg border border-blue-400/20">
-                    <h2 className="text-xl font-black tracking-tight text-white">Fj Group — OKR Execution Dashboard</h2>
+                    <h2 className="text-xl font-black tracking-tight text-white">FJ Group — OKR Execution Dashboard</h2>
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md px-6 py-2 rounded-full border border-white/20">
                             <div className="flex items-center gap-2">

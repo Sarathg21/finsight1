@@ -571,8 +571,7 @@ const EmployeeDashboard = () => {
         const source = activeTab === "TODAY" ? allTasks.filter(t => {
             const todayStr = getToday();
             const isDueToday = toDateKey(t.due_date || t.end_date || t.dueDate) === todayStr;
-            const isAssignedToday = toDateKey(t.assigned_date || t.assigned_at || t.created_at || t.assignedAt || t.createdAt) === todayStr;
-            return isDueToday || isAssignedToday;
+            return isDueToday;
         }) : allTasks;
         return source.filter(t => {
             const isCancelled = t.status === 'CANCELLED';
