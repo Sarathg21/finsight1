@@ -84,7 +84,7 @@ const fetchEmployeeTasksFallback = async (params = {}) => {
 };
 
 const STATUS_LABEL = {
-    NEW: 'New',
+    NEW: 'Not Started',
     IN_PROGRESS: 'In Progress',
     SUBMITTED: 'Submitted',
     APPROVED: 'Approved',
@@ -576,7 +576,7 @@ const EmployeeDashboard = () => {
             { name: 'In Progress', value: dashboardData.in_progress_tasks || 0, color: STATUS_COLORS.IN_PROGRESS },
             { name: 'Submitted', value: dashboardData.submitted_tasks || 0, color: STATUS_COLORS.SUBMITTED },
             { name: 'Rework', value: dashboardData.rework_tasks || 0, color: STATUS_COLORS.REWORK },
-            { name: 'New', value: dashboardData.new_tasks || 0, color: STATUS_COLORS.NEW },
+            { name: 'Not Started', value: dashboardData.new_tasks || 0, color: STATUS_COLORS.NEW },
             { name: 'Cancelled', value: dashboardData.cancelled_tasks || 0, color: STATUS_COLORS.CANCELLED },
         ].filter(d => d.value > 0);
 
@@ -796,8 +796,8 @@ const EmployeeDashboard = () => {
                     <div className="flex items-center gap-6 pt-6 px-6 border-b border-slate-100 pb-0">
                         <h2 className="text-[17px] font-bold text-slate-800 pb-4">My Task List</h2>
                         <div className="flex gap-3 sm:gap-4 ml-2 overflow-x-auto no-scrollbar">
-                            {['Today', 'New', 'Progress', 'Submitted', 'Reworks', 'All'].map((tab) => {
-                                const tabKey = tab === 'Today' ? 'TODAY' : tab === 'Progress' ? 'IN_PROGRESS' : tab.toUpperCase().replace(' ', '_');
+                            {['Today', 'Not Started', 'Progress', 'Submitted', 'Reworks', 'All'].map((tab) => {
+                                const tabKey = tab === 'Today' ? 'TODAY' : tab === 'Progress' ? 'IN_PROGRESS' : tab === 'Not Started' ? 'NEW' : tab.toUpperCase().replace(' ', '_');
                                 return (
                                     <span
                                         key={tab}
@@ -880,7 +880,7 @@ const EmployeeDashboard = () => {
                                                         </span>
                                                     ) : task.status === 'NEW' ? (
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
-                                                            <PlusCircle size={9} /> NEW
+                                                            <PlusCircle size={9} /> NOT STARTED
                                                         </span>
                                                     ) : (
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm text-center">

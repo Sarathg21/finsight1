@@ -70,7 +70,7 @@ const fetchManagerTasksFallback = async (params = {}) => {
 };
 
 const STATUS_LABEL = {
-    NEW: 'New',
+    NEW: 'Not Started',
     IN_PROGRESS: 'In Progress',
     SUBMITTED: 'Submitted',
     APPROVED: 'Approved',
@@ -632,7 +632,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const stats = metrics || { score: 0, completionRate: 0, totalReworks: 0, pendingSubmission: 0, totalActive: 0, managerScore: null, teamScore: null, managerPersonalScore: null, managerScoreDelta: null };
 
     const rawStatusData = dashboardData ? [
-        { name: 'New', value: dashboardData.new_tasks || 0, fill: '#3b82f6' },
+        { name: 'Not Started', value: dashboardData.new_tasks || 0, fill: '#3b82f6' },
         { name: 'In Progress', value: dashboardData.in_progress_tasks || 0, fill: '#8b5cf6' },
         { name: 'Submitted', value: dashboardData.submitted_tasks || 0, fill: '#f59e0b' },
         { name: 'Approved', value: dashboardData.approved_tasks || 0, fill: '#10b981' },
@@ -845,7 +845,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">Parent</th>
                                     <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">User</th>
                                     <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">Prio</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-center">Stat</th>
+                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-center">Status</th>
                                     <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-right pr-6">Act</th>
                                 </tr>
                             </thead>

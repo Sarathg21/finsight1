@@ -22,7 +22,7 @@ import ReworkCommentModal from "../components/Modals/ReworkCommentModal";
 const formatStatus = (s) => {
   if (!s) return "-";
   const status = String(s).toUpperCase();
-  if (status === 'NEW' || status === 'NOT_STARTED') return 'New';
+  if (status === 'NEW' || status === 'NOT_STARTED') return 'Not Started';
   return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 
@@ -131,7 +131,7 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
             <th className="py-2.5 px-4 font-bold text-[10px]">Start</th>
             <th className="py-2.5 px-4 font-bold text-[10px]">Due</th>
             <th className="py-2.5 px-4 text-center font-bold text-[10px]">Prio</th>
-            <th className="py-2.5 px-4 text-center font-bold text-[10px]">Stat</th>
+            <th className="py-2.5 px-4 text-center font-bold text-[10px]">Status</th>
             <th className="py-2.5 px-4 text-right pr-6 font-bold text-[10px]">Act</th>
           </tr>
         </thead>
@@ -1089,7 +1089,7 @@ const handleReworkConfirm = async (comment) => {
               options={[
                 { value: 'All', label: 'Status: All' },
                 { value: 'Overdue', label: 'Overdue' },
-                { value: 'NEW', label: 'New' },
+                { value: 'NEW', label: 'Not Started' },
                 { value: 'IN_PROGRESS', label: 'In Progress' },
                 { value: 'SUBMITTED', label: 'Submitted' },
                 { value: 'APPROVED', label: 'Approved' },

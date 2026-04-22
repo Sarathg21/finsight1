@@ -4,7 +4,7 @@ import Badge from "../UI/Badge";
 
 /* ── status label map ── */
 const STATUS_LABEL = {
-    NEW: 'New',
+    NEW: 'Not Started',
     IN_PROGRESS: 'In Progress',
     SUBMITTED: 'Submitted',
     APPROVED: 'Approved',

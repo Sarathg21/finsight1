@@ -526,7 +526,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                                 <p className="text-sm font-medium text-slate-700 truncate">{sub.title || sub.task_title || 'Untitled Subtask'}</p>
                                                 <p className="text-[10px] text-slate-400">Due: {sub.due_date || '-'} · Assigned to: {sub.assigned_to_name || sub.employee_name || sub.employee_id || 'Unassigned'}</p>
                                             </div>
-                                            <Badge variant={sub.status || 'NEW'}>{(sub.status || 'NEW').replace(/_/g, ' ')}</Badge>
+                                            <Badge variant={sub.status || 'NEW'}>{(sub.status === 'NEW' || !sub.status) ? 'Not Started' : sub.status.replace(/_/g, ' ')}</Badge>
                                         </div>
                                     ))
                                 )}

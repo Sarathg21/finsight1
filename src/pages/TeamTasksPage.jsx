@@ -574,7 +574,7 @@ const TeamTasksPage = () => {
     const renderStatusBadge = useCallback((status) => {
         const s = (status || '').toUpperCase();
         const config = {
-            NEW: { color: 'bg-slate-100 text-slate-500', label: 'New' },
+            NEW: { color: 'bg-slate-100 text-slate-500', label: 'Not Started' },
             IN_PROGRESS: { color: 'bg-blue-100 text-blue-600', label: 'In Progress' },
             SUBMITTED: { color: 'bg-purple-100 text-purple-600', label: 'Submitted' },
             REWORK: { color: 'bg-orange-100 text-orange-600', label: 'Rework' },
@@ -714,7 +714,7 @@ const TeamTasksPage = () => {
                             </div>
                         )}
                         <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1">Status</label>
-                            <CustomSelect value={filters.status} onChange={(v) => setFilters(p => ({ ...p, status: v }))} options={[{ value: '', label: 'All Status' }, { value: 'NEW', label: 'New' }, { value: 'IN_PROGRESS', label: 'In Progress' }, { value: 'SUBMITTED', label: 'Submitted' }, { value: 'REWORK', label: 'Rework' }, { value: 'APPROVED', label: 'Approved' }, { value: 'CANCELLED', label: 'Cancelled' }]} />
+                            <CustomSelect value={filters.status} onChange={(v) => setFilters(p => ({ ...p, status: v }))} options={[{ value: '', label: 'All Status' }, { value: 'NEW', label: 'Not Started' }, { value: 'IN_PROGRESS', label: 'In Progress' }, { value: 'SUBMITTED', label: 'Submitted' }, { value: 'REWORK', label: 'Rework' }, { value: 'APPROVED', label: 'Approved' }, { value: 'CANCELLED', label: 'Cancelled' }]} />
                         </div>
                         <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1">Severity</label>
                             <CustomSelect value={filters.severity} onChange={(v) => setFilters(p => ({ ...p, severity: v }))} options={[{ value: '', label: 'All Severity' }, { value: 'HIGH', label: 'High' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'LOW', label: 'Low' }]} />
@@ -743,7 +743,7 @@ const TeamTasksPage = () => {
                                 <th className="py-2 px-4">Date</th>
                                 <th className="py-2 px-4 text-indigo-500">To</th>
                                 <th className="py-2 px-4">Due</th>
-                                <th className="py-2 px-4 text-center">Stat</th>
+                                <th className="py-2 px-4 text-center">Status</th>
                                 <th className="py-2 px-4">Severity</th>
                                 <th className="py-2 px-4 text-right pr-6">Actions</th>
                             </tr>

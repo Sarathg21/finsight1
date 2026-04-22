@@ -375,7 +375,7 @@ const EmployeePersonalReport = () => {
     }
 
     const pieDataMap = [
-        { name: 'New', value: summary.graphs?.status_distribution?.NEW ?? metrics.newTasks ?? 0, color: '#3b82f6', bg: 'bg-blue-500' },
+        { name: 'Not Started', value: summary.graphs?.status_distribution?.NEW ?? metrics.newTasks ?? 0, color: '#3b82f6', bg: 'bg-blue-500' },
         { name: 'In Progress', value: summary.graphs?.status_distribution?.IN_PROGRESS ?? metrics.inProgress ?? 0, color: '#8b5cf6', bg: 'bg-purple-500' },
         { name: 'Submitted', value: summary.graphs?.status_distribution?.SUBMITTED ?? metrics.submitted ?? 0, color: '#f59e0b', bg: 'bg-amber-400' },
         { name: 'Approved', value: summary.graphs?.status_distribution?.APPROVED ?? metrics.completed ?? 0, color: '#10b981', bg: 'bg-emerald-500' },

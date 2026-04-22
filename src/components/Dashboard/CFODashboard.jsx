@@ -1096,7 +1096,7 @@ const CFODashboard = () => {
             { name: 'Pending', value: dashboardData.pending_tasks || 0, fill: '#f59e0b' },
             { name: 'Rework', value: dashboardData.rework_tasks || 0, fill: '#ef4444' },
             { name: 'In Progress', value: dashboardData.in_progress_tasks || 0, fill: '#6366f1' },
-            { name: 'New', value: dashboardData.new_tasks || 0, fill: '#3b82f6' },
+            { name: 'Not Started', value: dashboardData.new_tasks || 0, fill: '#3b82f6' },
         ].filter(d => d.value > 0);
 
         const departmentsOnTrack = deptSource.filter(d => {
@@ -1413,14 +1413,14 @@ const CFODashboard = () => {
                                 <div className="flex-1 overflow-x-auto custom-scrollbar">
                                     <table className="w-full text-left font-sans">
                                         <thead className="sticky top-0 bg-white z-10 border-b border-slate-100">
-                                            <tr className="text-[9px] font-extrabold text-slate-400 capitalize tracking-tighter">
-                                                <th className="py-2 px-4 pl-6 whitespace-nowrap">Dept</th>
-                                                <th className="py-2 px-4 text-center whitespace-nowrap">Top</th>
-                                                <th className="py-2 px-4 text-center whitespace-nowrap">Tasks</th>
-                                                <th className="py-2 px-4 text-center whitespace-nowrap">O.D</th>
-                                                <th className="py-2 px-4 text-center whitespace-nowrap">Prog</th>
-                                                <th className="py-2 px-4 text-center whitespace-nowrap">Appr</th>
-                                                <th className="py-2 px-4 whitespace-nowrap text-center">%</th>
+                                            <tr className="text-[11px] font-extrabold text-slate-400 capitalize tracking-tighter">
+                                                <th className="py-2 px-4 pl-6 whitespace-nowrap">Department</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">Top Performer</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">Total Tasks</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">Overdue</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">In Progress</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">Approved</th>
+                                                <th className="py-2 px-4 whitespace-nowrap text-center">Completion %</th>
                                                 <th className="py-2 px-4 text-right whitespace-nowrap min-w-[70px] pr-6">Status</th>
                                             </tr>
                                         </thead>
@@ -1434,7 +1434,7 @@ const CFODashboard = () => {
                                                 };
                                                 return (
                                                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors group cursor-pointer" onClick={() => handleDeptSelect(dept.department_id || dept.id || dept.name)}>
-                                                        <td className="py-2 px-4 pl-6 font-bold text-slate-700 text-[11px] whitespace-nowrap truncate max-w-[100px]">{dept.department_name || dept.name}</td>
+                                                        <td className="py-2 px-4 pl-6 font-bold text-slate-700 text-[12.5px] whitespace-nowrap">{dept.department_name || dept.name}</td>
                                                         <td className="py-2 px-4 text-center">
                                                             {dept.top_performer ? (
                                                                 <div className="flex flex-col items-center whitespace-nowrap scale-[0.9]">
