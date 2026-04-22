@@ -4,11 +4,12 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import {
     Calendar, Download, FileSpreadsheet, Activity, AlertTriangle, 
-    CheckSquare, ClipboardList, Play, ArrowUpRight, BarChart2
+    CheckSquare, ClipboardList, Play, ArrowUpRight, BarChart2,
+    TrendingUp, Users, ChevronDown, RefreshCw
 } from 'lucide-react';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-    PieChart, Pie, Cell, ComposedChart
+    PieChart, Pie, Cell, ComposedChart, LabelList
 } from 'recharts';
 
 const EmployeePersonalReport = () => {
@@ -170,7 +171,43 @@ const EmployeePersonalReport = () => {
     const handleDownload = async (format) => {
         const toastId = toast.loading(`Preparing ${format}...`);
         try {
-            let endpoint = format === 'pdf' ? `/reports/employee/export-pdf` : `/reports/employee/export-excel`;
+            if (format === 'excel') {
+                const csvRows = [];
+                csvRows.push(['Task ID', 'Title', 'Status', 'Due Date']);
+                
+                const exportTasks = tasks.filter(t => {
+                    const dateStr = t.assigned_at || t.assigned_date || t.created_at || t.date || t.due_date || t.updated_at;
+                    const taskDate = toDateKey(dateStr);
+                    if (!taskDate) return true;
+                    return (!fromDate || taskDate >= fromDate) && (!toDate || taskDate <= toDate);
+                });
+
+                if (exportTasks.length === 0) {
+                    toast.error('No tasks found to export', { id: toastId });
+                    return;
+                }
+
+                exportTasks.forEach(t => {
+                    csvRows.push([
+                        t.id || t.task_id || '-',
+                        `"${(t.title || t.task_name || '').replace(/"/g, '""')}"`,
+                        t.status || 'NEW',
+                        t.due_date || t.dueDate || '-'
+                    ].join(','));
+                });
+
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `My_Performance_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+                toast.success('Downloaded successfully', { id: toastId });
+                return;
+            }
+
+            let endpoint = `/reports/employee/export-pdf`;
             const params = { from_date: fromDate, to_date: toDate };
             const res = await api.get(endpoint, { params, responseType: 'blob' });
 
@@ -208,7 +245,7 @@ const EmployeePersonalReport = () => {
 
     // Derived Metrics with client-side date filtering
     const metrics = useMemo(() => {
-        let active = 0, completed = 0, inProgress = 0, overdue = 0, reworks = 0, newTasks = 0, submitted = 0;
+        let active = 0, completed = 0, inProgress = 0, overdue = 0, dueToday = 0, reworks = 0, newTasks = 0, submitted = 0, cancelled = 0;
         
         // 1. Client-side date filter (Guarantees UI reflects the filter even if API returns too many tasks)
         const periodTasks = tasks.filter(t => {
@@ -225,16 +262,19 @@ const EmployeePersonalReport = () => {
             if (status === 'APPROVED' || status === 'COMPLETED') completed++;
             else if (status === 'IN_PROGRESS' || status === 'STARTED') inProgress++;
             else if (status === 'REWORK') reworks++;
-            else if (status === 'NEW') newTasks++;
             else if (status === 'SUBMITTED') submitted++;
+            else if (status === 'CANCELLED') cancelled++;
+            else newTasks++;
 
             if (!['APPROVED', 'CANCELLED', 'COMPLETED'].includes(status)) {
                 active++;
-                // Check overdue
+                // Check overdue and due today
                 const dueStr = t.due_date || t.dueDate;
                 if (dueStr) {
-                    const due = new Date(dueStr);
-                    if (due < new Date()) overdue++;
+                    const dueKey = toDateKey(dueStr);
+                    const todayStr = getToday();
+                    if (dueKey < todayStr) overdue++;
+                    else if (dueKey === todayStr) dueToday++;
                 }
             }
         });
@@ -242,15 +282,17 @@ const EmployeePersonalReport = () => {
         const performanceIndex = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         return {
-            total,
-            active,
-            completed,
+            total: summary.total_tasks ?? total,
+            active: summary.active_tasks ?? active,
+            completed: summary.approved_tasks ?? completed,
             inProgress,
-            overdue,
-            pending: (newTasks + reworks),
+            overdue: summary.overdue_tasks ?? overdue,
+            dueToday: summary.due_today_tasks ?? dueToday,
+            pending: summary.pending_submission_tasks ?? (newTasks + reworks),
             reworks,
             submitted,
             newTasks,
+            cancelled,
             efficiency: Math.round(summary.performance_score ?? performanceIndex),
             performanceScore: Math.round(summary.performance_score ?? performanceIndex),
             deptAvg: Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0),
@@ -260,13 +302,14 @@ const EmployeePersonalReport = () => {
 
     // Dynamic Trend Data: based on filter range (month buckets)
     const trendData = useMemo(() => {
+        // 1. Calculate local buckets to use as a fallback for 'approved' counts
         const from = fromDate && fromDate.length === 10 ? new Date(fromDate) : new Date();
         const to = toDate && toDate.length === 10 ? new Date(toDate) : new Date();
         const start = new Date(from.getFullYear(), from.getMonth(), 1);
         const end = new Date(to.getFullYear(), to.getMonth(), 1);
 
         const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        const labelFor = (d) => d.toLocaleDateString('en-US', { month: 'short' });
+        const labelFor = (d) => d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
         const buckets = {};
         let cursor = new Date(start);
@@ -291,6 +334,21 @@ const EmployeePersonalReport = () => {
             }
         });
 
+        // 2. If backend provides the trend, map it natively but fallback to local approved counts if the backend omits it
+        if (summary?.graphs?.performance_trend && Array.isArray(summary.graphs.performance_trend)) {
+            return summary.graphs.performance_trend.map(pt => {
+                const nameStr = pt.period || pt.name || pt.month || '';
+                const localMatch = Object.values(buckets).find(b => b.name === nameStr);
+                
+                return {
+                    name: nameStr,
+                    approved: pt.approved_tasks ?? pt.approved ?? (localMatch ? localMatch.approved : 0),
+                    score: pt.score ?? pt.performance_score ?? 0
+                };
+            });
+        }
+
+        // 3. Raw fallback if backend has no graph data
         const rows = Object.values(buckets).map(b => ({
             name: b.name,
             approved: b.approved,
@@ -304,7 +362,7 @@ const EmployeePersonalReport = () => {
             return rows.map(r => ({ ...r, approved, score }));
         }
         return rows;
-    }, [tasks, fromDate, toDate]);
+    }, [tasks, summary, fromDate, toDate]);
 
     const getInitials = (name) => {
         if (!name) return 'U';
@@ -315,388 +373,423 @@ const EmployeePersonalReport = () => {
         return <div className="p-10 text-center text-slate-500 font-medium">Loading report data...</div>;
     }
 
-    const COLORS = ['#3b82f6', '#ef4444', '#8b5cf6', '#e2e8f0', '#10b981']; 
-    const pieData = [
-        { name: 'New', value: metrics.newTasks || (metrics.pending - metrics.reworks) },
-        { name: 'Overdue', value: metrics.overdue },
-        { name: 'In Progress', value: metrics.inProgress },
-        { name: 'Submitted', value: metrics.submitted },
-        { name: 'Approved', value: metrics.completed }
-    ].filter(d => true); // ensure mapping to colors aligns
+    const pieDataMap = [
+        { name: 'New', value: summary.graphs?.status_distribution?.NEW ?? metrics.newTasks ?? 0, color: '#3b82f6', bg: 'bg-blue-500' },
+        { name: 'In Progress', value: summary.graphs?.status_distribution?.IN_PROGRESS ?? metrics.inProgress ?? 0, color: '#8b5cf6', bg: 'bg-purple-500' },
+        { name: 'Submitted', value: summary.graphs?.status_distribution?.SUBMITTED ?? metrics.submitted ?? 0, color: '#f59e0b', bg: 'bg-amber-400' },
+        { name: 'Approved', value: summary.graphs?.status_distribution?.APPROVED ?? metrics.completed ?? 0, color: '#10b981', bg: 'bg-emerald-500' },
+        { name: 'Rework', value: summary.graphs?.status_distribution?.REWORK ?? metrics.reworks ?? 0, color: '#ef4444', bg: 'bg-red-500' },
+        { name: 'Cancelled', value: summary.graphs?.status_distribution?.CANCELLED ?? metrics.cancelled ?? 0, color: '#94a3b8', bg: 'bg-slate-400' }
+    ];
+    const activePieData = pieDataMap.filter(d => d.value > 0);
+    const donutTotal = summary.total_tasks ?? metrics.total;
+
+    let exactPcts = pieDataMap.map(() => 0);
+    if (donutTotal > 0) {
+        const pieSum = pieDataMap.reduce((acc, cur) => acc + cur.value, 0);
+        const rawPcts = pieDataMap.map(stat => (stat.value / donutTotal) * 100);
+        
+        if (pieSum === donutTotal) {
+            const flooredPcts = rawPcts.map(p => Math.floor(p));
+            let diff = 100 - flooredPcts.reduce((a, b) => a + b, 0);
+            let remainders = rawPcts.map((p, i) => ({ idx: i, rem: p - flooredPcts[i] }));
+            remainders.sort((a, b) => b.rem - a.rem);
+            for (let i = 0; i < diff && i < remainders.length; i++) {
+                flooredPcts[remainders[i].idx] += 1;
+            }
+            exactPcts = flooredPcts;
+        } else {
+            exactPcts = rawPcts.map(p => Math.round(p));
+        }
+    }
 
     return (
         <div className="min-h-screen bg-[#F8FAFF] p-4 lg:p-8 space-y-6 font-sans">
             
-            {/* Page Header (replaces standard dashboard header in this view) */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-2">
+            {/* ── Page Header ─────────────────────────────── */}
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
                 <div>
-                    <h1 className="text-[28px] font-bold text-indigo-600 leading-tight">Reports</h1>
-                    <p className="text-[11px] font-bold text-indigo-300 uppercase tracking-widest mt-1">Analytics & Performance Insights</p>
+                    <h1 className="text-[26px] font-bold text-[#1E1B4B] leading-tight">My Performance</h1>
+                    <p className="text-[12px] text-slate-400 mt-0.5">Overview of your tasks and performance</p>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-4 bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="flex items-center gap-3 px-3">
-                        <span className="text-[12px] font-bold text-slate-400">From</span>
-                        <div className="flex items-center gap-2">
-                            <input 
-                                type="date" 
-                                className="border-none text-[13px] font-semibold text-slate-700 bg-transparent p-0 focus:ring-0 cursor-pointer" 
-                                value={fromDate} 
-                                onChange={e => {
-                                    const val = e.target.value;
-                                    setFromDate(val);
-                                    localStorage.setItem('dashboard_from_date', val);
-                                    window.dispatchEvent(new Event('dashboard-filter-change'));
-                                }} 
-                            />
-                            <Calendar size={14} className="text-slate-400" />
+
+                <div className="flex flex-wrap items-center gap-3">
+                    {/* Date range pill */}
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm">
+                        <Calendar size={14} className="text-slate-400 flex-shrink-0" />
+                        <input
+                            type="date"
+                            className="border-none text-[12px] font-semibold text-slate-700 bg-transparent p-0 focus:ring-0 cursor-pointer"
+                            value={fromDate}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setFromDate(val);
+                                localStorage.setItem('dashboard_from_date', val);
+                                window.dispatchEvent(new Event('dashboard-filter-change'));
+                            }}
+                        />
+                        <span className="text-slate-300 text-[12px]">-</span>
+                        <input
+                            type="date"
+                            className="border-none text-[12px] font-semibold text-slate-700 bg-transparent p-0 focus:ring-0 cursor-pointer"
+                            value={toDate}
+                            onChange={e => {
+                                const val = e.target.value;
+                                setToDate(val);
+                                localStorage.setItem('dashboard_to_date', val);
+                                window.dispatchEvent(new Event('dashboard-filter-change'));
+                            }}
+                        />
+                        <ChevronDown size={14} className="text-slate-400 flex-shrink-0" />
+                    </div>
+
+                    {/* PDF button */}
+                    <button
+                        onClick={() => handleDownload('pdf')}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-[#1E1B4B] rounded-xl hover:bg-slate-50 transition-all font-semibold text-[12px] shadow-sm"
+                    >
+                        <Download size={14} className="text-rose-500" />
+                        PDF
+                    </button>
+
+                    {/* Excel button */}
+                    <button
+                        onClick={() => handleDownload('excel')}
+                        className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-[#1E1B4B] rounded-xl hover:bg-slate-50 transition-all font-semibold text-[12px] shadow-sm"
+                    >
+                        <FileSpreadsheet size={14} className="text-emerald-500" />
+                        Excel
+                    </button>
+                </div>
+            </div>
+
+            {/* ── KPI Strip ───────────────────────────────── */}
+            <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-slate-100">
+                    <div className="flex items-center gap-4 px-6 first:pl-0">
+                        <div className="w-11 h-11 rounded-2xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+                            <CheckSquare size={20} className="text-indigo-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-slate-400 capitalize tracking-wide mb-0.5">Total Tasks</p>
+                            <p className="text-[28px] font-bold text-[#1E1B4B] leading-none">{metrics.total}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">All time tasks</p>
                         </div>
                     </div>
-                    <div className="w-px h-6 bg-slate-200"></div>
-                    <div className="flex items-center gap-3 px-3">
-                        <span className="text-[12px] font-bold text-slate-400">To</span>
-                        <div className="flex items-center gap-2">
-                            <input 
-                                type="date" 
-                                className="border-none text-[13px] font-semibold text-slate-700 bg-transparent p-0 focus:ring-0 cursor-pointer" 
-                                value={toDate} 
-                                onChange={e => {
-                                    const val = e.target.value;
-                                    setToDate(val);
-                                    localStorage.setItem('dashboard_to_date', val);
-                                    window.dispatchEvent(new Event('dashboard-filter-change'));
-                                }} 
-                            />
-                            <Calendar size={14} className="text-slate-400" />
+
+                    <div className="flex items-center gap-4 px-6">
+                        <div className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                            <TrendingUp size={20} className="text-emerald-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-slate-400 capitalize tracking-wide mb-0.5">Performance Score</p>
+                            <p className="text-[28px] font-bold text-emerald-500 leading-none">{metrics.performanceScore}%</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Your performance</p>
                         </div>
                     </div>
-                    
-                    <div className="flex items-center gap-2 ml-4">
-                        <button onClick={() => handleDownload('pdf')} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-[#1E1B4B] rounded-xl hover:bg-slate-50 transition-all font-semibold text-[13px]">
-                            <Download size={16} className="text-indigo-500" /> Pdf
-                        </button>
-                        <button onClick={() => handleDownload('excel')} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-[#1E1B4B] rounded-xl hover:bg-slate-50 transition-all font-semibold text-[13px]">
-                            <FileSpreadsheet size={16} className="text-emerald-500" /> Excel
-                        </button>
+
+                    <div className="flex items-center gap-4 px-6">
+                        <div className="w-11 h-11 rounded-2xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                            <Users size={20} className="text-blue-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-slate-400 capitalize tracking-wide mb-0.5">Dept Avg Score</p>
+                            <p className="text-[28px] font-bold text-blue-500 leading-none">{metrics.deptAvg}%</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Department average</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 px-6">
+                        <div className="w-11 h-11 rounded-2xl bg-fuchsia-50 flex items-center justify-center flex-shrink-0">
+                            <TrendingUp size={20} className="text-fuchsia-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-slate-400 capitalize tracking-wide mb-0.5">Vs Dept Avg</p>
+                            <p className="text-[28px] font-bold text-fuchsia-500 leading-none">
+                                {metrics.vsDeptAvg > 0 ? '+' : ''}{metrics.vsDeptAvg}%
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Performance difference</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Performance Hero */}
+            {/* ── Action Required ─────────────────────────── */}
+            <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm">
+                <div className="mb-4">
+                    <h3 className="text-[15px] font-bold text-[#1E1B4B]">Action Required</h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Focus areas that need your attention</p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="border border-slate-100 rounded-2xl p-4 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <ClipboardList size={18} className="text-slate-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-slate-500capitalize tracking-wide">Active Tasks</p>
+                            <p className="text-[26px] font-bold text-[#1E1B4B] leading-none my-1">{metrics.active}</p>
+                            <p className="text-[10px] text-slate-400">Tasks in progress</p>
+                        </div>
+                    </div>
+
+                    <div className="border-l-4 border-rose-400 border border-rose-50 rounded-2xl p-4 flex items-start gap-3 bg-rose-50/30">
+                        <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <AlertTriangle size={18} className="text-rose-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-rose-500 capitalize tracking-wide">Overdue</p>
+                            <p className="text-[26px] font-bold text-rose-600 leading-none my-1">{metrics.overdue}</p>
+                            <p className="text-[10px] text-slate-400">Past due tasks</p>
+                        </div>
+                    </div>
+
+                    <div className="border border-slate-100 rounded-2xl p-4 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Calendar size={18} className="text-amber-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-amber-500 capitalize tracking-wide">Due Today</p>
+                            <p className="text-[26px] font-bold text-amber-600 leading-none my-1">{metrics.dueToday}</p>
+                            <p className="text-[10px] text-slate-400">Tasks due today</p>
+                        </div>
+                    </div>
+
+                    <div className="border border-slate-100 rounded-2xl p-4 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Activity size={18} className="text-violet-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-violet-500 capitalizetracking-wide">Pending Submission</p>
+                            <p className="text-[26px] font-bold text-violet-600 leading-none my-1">{metrics.pending}</p>
+                            <p className="text-[10px] text-slate-400">Awaiting your submission</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Task Status Distribution (Exclusive) */}
             <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm mb-6">
-                <h2 className="text-[22px] font-semibold text-[#1E1B4B] mb-8">
-                    PERFORMANCE - {user?.name || 'Employee'}
-                </h2>
-                
-                <div className="flex flex-col xl:flex-row items-center gap-12">
-                    <div className="flex items-center gap-6">
-                        <div className="relative">
-                            <div className="w-[120px] h-[120px] rounded-full border-[6px] border-[#F8FAFF] bg-white shadow-lg flex items-center justify-center">
-                                <span className="text-[40px] font-bold text-[#1E1B4B]">{user?.name ? user.name.charAt(0).toUpperCase() : 'A'}</span>
-                            </div>
-                            <div className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center shadow-md border-4 border-white">
-                                <ArrowUpRight size={20} strokeWidth={3} />
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h3 className="text-[26px] font-medium text-[#1E1B4B] mb-2">{user?.name || 'Employee'}</h3>
-                            <div className="flex items-center gap-4">
-                                <span className="bg-[#1E1B4B] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full flex items-center gap-2">
-                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> {user?.emp_id || user?.id || '—'}
-                                </span>
-                                <span className="text-[14px] font-semibold text-slate-400">Performance Score</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 bg-[#F8FAFF] rounded-3xl p-8 grid grid-cols-2 lg:grid-cols-4 gap-8">
-                        <div>
-                            <p className="text-[12px] font-bold text-slate-400 mb-2">Efficiency</p>
-                            <p className="text-[32px] font-semibold text-indigo-500 leading-none">{metrics.efficiency}%</p>
-                        </div>
-                        <div>
-                            <p className="text-[12px] font-bold text-slate-400 mb-2">Total Tasks</p>
-                            <p className="text-[32px] font-semibold text-slate-600 leading-none">{metrics.total}</p>
-                        </div>
-                        <div className="col-span-2 flex justify-between">
-                            <div>
-                                <p className="text-[12px] font-bold text-emerald-500 mb-2">Completed</p>
-                                <p className="text-[32px] font-semibold text-emerald-500 leading-none">{metrics.completed}</p>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <p className="text-[12px] font-bold text-orange-400 mb-2">Pending</p>
-                            <p className="text-[28px] font-semibold text-orange-400 leading-none">{metrics.pending}</p>
-                        </div>
-                        <div>
-                            <p className="text-[12px] font-bold text-rose-500 mb-2">Overdue</p>
-                            <p className="text-[28px] font-semibold text-rose-500 leading-none">{metrics.overdue}</p>
-                        </div>
-                        <div className="col-span-2">
-                            <p className="text-[12px] font-bold text-fuchsia-500 mb-2">Reworks</p>
-                            <p className="text-[28px] font-semibold text-fuchsia-500 leading-none">{metrics.reworks}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <div className="flex flex-col lg:flex-row gap-8">
 
-            {/* Small Stat Cards Row */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-                <div className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider mb-2">Active Tasks</p>
-                        <p className="text-[28px] font-bold text-[#1E1B4B] leading-none">{metrics.active}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-400">
-                        <ClipboardList size={20} />
-                    </div>
-                </div>
-                
-                <div className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-wider mb-2">Completed</p>
-                        <p className="text-[28px] font-bold text-emerald-600 leading-none">{metrics.completed}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-400">
-                        <CheckSquare size={20} />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[11px] font-bold text-orange-500 uppercase tracking-wider mb-2">In Progress</p>
-                        <p className="text-[28px] font-bold text-orange-500 leading-none">{metrics.inProgress}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-300">
-                        <Play size={20} />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 flex items-center justify-between">
-                    <div>
-                        <p className="text-[11px] font-bold text-rose-500 uppercase tracking-wider mb-2">Overdue</p>
-                        <p className="text-[28px] font-bold text-rose-600 leading-none">{metrics.overdue}</p>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-300">
-                        <AlertTriangle size={20} />
-                    </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] rounded-[1.5rem] p-5 shadow-md flex items-center justify-between text-white relative overflow-hidden">
-                    <div className="absolute right-0 bottom-0 opacity-20">
-                        <Activity size={100} strokeWidth={1} />
-                    </div>
-                    <div className="relative z-10 w-full">
-                        <div className="flex justify-between items-start mb-2">
-                            <p className="text-[11px] font-bold uppercase tracking-wider">VS Dept Avg</p>
-                            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-                                <Activity size={14} />
-                            </div>
+                    {/* Left - Table */}
+                    <div className="flex-1 min-w-0">
+                        <div className="mb-5">
+                            <h3 className="text-[16px] font-bold text-[#1E1B4B]">Task Status Distribution (Exclusive)</h3>
+                            <p className="text-[11px] text-slate-400 mt-0.5">Breakdown of tasks by current status</p>
                         </div>
-                        <div className="flex items-baseline gap-1">
-                            <p className="text-[32px] font-bold leading-none">{metrics.performanceScore}%</p>
-                            <span className="text-[14px] font-medium opacity-70">/ {metrics.deptAvg}% ({metrics.vsDeptAvg > 0 ? '+' : ''}{metrics.vsDeptAvg}%)</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* Task Distribution (Aggregate) */}
-            <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm mb-6">
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <div className="flex items-center gap-2 mb-1">
-                            <BarChart2 size={18} className="text-indigo-400" />
-                            <h3 className="text-[18px] font-semibold text-[#1E1B4B]">Task Distribution (Aggregate)</h3>
-                        </div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-6">Tasks Status Analysis</p>
-                    </div>
-                    <div className="px-4 py-1.5 rounded-full border border-indigo-100 flex items-center gap-2 text-[12px] font-bold">
-                        <span className="text-slate-400">Total:</span> <span className="text-indigo-600">{metrics.total}</span>
-                    </div>
-                </div>
-
-                <div className="flex flex-col lg:flex-row items-center gap-12">
-                    <div className="relative w-[280px] h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
-                            <PieChart>
-                                <Pie 
-                                    data={pieData.length > 0 ? pieData : [{name:'None', value: 1}]}
-                                    innerRadius={70} 
-                                    outerRadius={110} 
-                                    paddingAngle={5} 
-                                    dataKey="value"
-                                >
-                                    {pieData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                            </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                            <p className="text-[11px] font-bold text-slate-400 tracking-widest uppercase mb-1">Impact</p>
-                            <p className="text-[36px] font-bold text-[#1E1B4B] leading-none mb-1">{metrics.total}</p>
-                            <p className="text-[11px] font-bold text-slate-400 tracking-widest uppercase">Tasks</p>
-                        </div>
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="border-b border-slate-100">
+                                    <th className="pb-3 text-[11px] font-bold text-slate-400capitalize tracking-wider">Status</th>
+                                    <th className="pb-3 text-[11px] font-bold text-slate-400 capitalize tracking-wider text-center">Tasks</th>
+                                    <th className="pb-3 text-[11px] font-bold text-slate-400 capitalize tracking-wider">% of Total</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {pieDataMap.map((stat, i) => {
+                                    const pct = exactPcts[i];
+                                    return (
+                                        <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="py-3 pr-4">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stat.bg}`}></span>
+                                                    <span className="text-[13px] font-semibold text-[#1E1B4B]">{stat.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-center">
+                                                <span className="text-[14px] font-bold text-[#1E1B4B]">{stat.value}</span>
+                                            </td>
+                                            <td className="py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[13px] font-bold text-[#1E1B4B] w-10 flex-shrink-0">{pct}%</span>
+                                                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full ${stat.bg} rounded-full transition-all duration-700`}
+                                                            style={{ width: `${pct}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot>
+                                <tr className="border-t-2 border-slate-200">
+                                    <td className="pt-3 pb-1">
+                                        <span className="text-[13px] font-black text-[#1E1B4B]">Total</span>
+                                    </td>
+                                    <td className="pt-3 pb-1 text-center">
+                                        <span className="text-[14px] font-black text-[#1E1B4B]">{donutTotal}</span>
+                                    </td>
+                                    <td className="pt-3 pb-1">
+                                        <span className="text-[13px] font-black text-[#1E1B4B]">100%</span>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
 
-                    <div className="flex-1 w-full space-y-6">
-                        {[
-                            { label: 'New', count: pieData[0]?.value||0, color: '#3b82f6', bg: 'bg-blue-500' },
-                            { label: 'Overdue', count: pieData[1]?.value||0, color: '#ef4444', bg: 'bg-red-500' },
-                            { label: 'In Progress', count: pieData[2]?.value||0, color: '#8b5cf6', bg: 'bg-purple-500' },
-                            { label: 'Submitted', count: pieData[3]?.value||0, color: '#e2e8f0', bg: 'bg-slate-300' },
-                            { label: 'Approved', count: pieData[4]?.value||0, color: '#10b981', bg: 'bg-emerald-500' }
-                        ].map((stat, i) => {
-                            const pct = metrics.total > 0 ? Math.round((stat.count / metrics.total) * 100) : 0;
-                            return (
-                                <div key={i} className="flex flex-col gap-2">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${stat.bg}`}></span>
-                                            <span className="text-[14px] font-semibold text-[#1E1B4B]">{stat.label}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[12px] font-medium text-slate-400">{stat.count} Tasks</span>
-                                            <span className="text-[14px] font-bold text-[#1E1B4B] w-10 text-right">{pct}%</span>
-                                        </div>
-                                    </div>
-                                    <div className="w-full h-2.5 bg-slate-50 rounded-full overflow-hidden">
-                                        <div className={`h-full ${stat.bg} rounded-full transition-all duration-1000`} style={{ width: `${pct}%` }}></div>
-                                    </div>
+                    {/* Divider */}
+                    <div className="hidden lg:block w-px bg-slate-100 self-stretch"></div>
+
+                    {/* Right - Donut Chart */}
+                    <div className="flex-1 min-w-0 flex flex-col">
+                        <div className="mb-5">
+                            <h3 className="text-[16px] font-bold text-[#1E1B4B]">Task Status Distribution</h3>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-6 flex-1">
+                            {/* Donut */}
+                            <div className="relative w-[320px] h-[320px] flex-shrink-0 mx-auto sm:mx-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                                        <Pie
+                                            data={activePieData.length > 0 ? activePieData : [{name:'None', value: 1, color:'#e2e8f0'}]}
+                                            innerRadius={100}
+                                            outerRadius={150}
+                                            paddingAngle={3}
+                                            dataKey="value"
+                                            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                                                if (percent < 0.04) return null;
+                                                const RADIAN = Math.PI / 180;
+                                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                                const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                                const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                                return (
+                                                    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" style={{ fontSize: '13px', fontWeight: 700 }}>
+                                                        {`${Math.round(percent * 100)}%`}
+                                                    </text>
+                                                );
+                                            }}
+                                            labelLine={false}
+                                        >
+                                            {(activePieData.length > 0 ? activePieData : [{name:'None', value: 1, color:'#e2e8f0'}]).map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none mt-1">
+                                    <p className="text-[32px] font-black text-[#1E1B4B] leading-none">{donutTotal}</p>
+                                    <p className="text-[12px] font-bold text-slate-400 capitalize tracking-widest mt-1">Total Tasks</p>
                                 </div>
-                            );
-                        })}
+                            </div>
+
+                            {/* Legend + Info */}
+                            <div className="flex flex-col gap-1.5 flex-1">
+                                {pieDataMap.map((stat, i) => (
+                                    <div key={i} className="flex items-center gap-2">
+                                        <span className={`w-3 h-3 rounded-full flex-shrink-0 ${stat.bg}`}></span>
+                                        <span className="text-[12px] font-semibold text-slate-600">{stat.name}</span>
+                                        <span className="text-[12px] font-bold text-slate-400 ml-auto">({stat.value})</span>
+                                    </div>
+                                ))}
+
+                                <div className="mt-4 flex items-start gap-2 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <svg className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                                    </svg>
+                                    <p className="text-[10px] text-slate-400 font-medium leading-relaxed">These status categories are mutually exclusive and add up to total tasks.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Monthly Performance Trend */}
             <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm mb-6">
-                <h3 className="text-[16px] font-semibold text-[#1E1B4B] mb-6">Monthly Performance Trend</h3>
-                <div className="h-[250px] w-full mt-4">
+                {/* Header row */}
+                <div className="flex items-start justify-between mb-2">
+                    <div>
+                        <h3 className="text-[16px] font-bold text-[#1E1B4B]">Monthly Performance Trend</h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Your approved tasks and performance score over time</p>
+                    </div>
+                    {/* Legend top-right */}
+                    <div className="flex items-center gap-5 flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-emerald-500 rounded-sm flex-shrink-0"></div>
+                            <span className="text-[11px] font-semibold text-slate-500">Approved Tasks (Count)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="relative w-6 h-0 border-t-2 border-purple-500 flex items-center justify-center">
+                                <div className="w-2 h-2 rounded-full border-2 border-purple-500 bg-white absolute"></div>
+                            </div>
+                            <span className="text-[11px] font-semibold text-slate-500">Performance Score (%)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="h-[300px] w-full mt-6">
                     <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
-                        <ComposedChart data={trendData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                        <ComposedChart data={trendData} margin={{ top: 24, right: 60, left: 60, bottom: 10 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} dy={10} />
-                            <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} domain={[0, 'auto']} />
-                            <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} domain={[0, 100]} />
-                            <Tooltip 
-                                cursor={{fill: '#f8fafc'}}
-                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 600 }}
+                            <XAxis
+                                dataKey="name"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 600 }}
+                                dy={10}
                             />
-                            {/* Legend moved to bottom manually via UI later */}
-                            <Bar yAxisId="left" dataKey="approved" fill="#10b981" barSize={32} radius={[4, 4, 0, 0]} />
-                            <Line yAxisId="right" type="monotone" dataKey="score" stroke="#8b5cf6" strokeWidth={3} dot={{r: 4, fill: '#fff', stroke: '#8b5cf6', strokeWidth: 2}} activeDot={{r: 6}} />
+                            <YAxis
+                                yAxisId="left"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }}
+                                domain={[0, dataMax => Math.max(dataMax + 2, 8)]}
+                                label={{ value: 'Approved Tasks (Count)', angle: -90, position: 'insideLeft', offset: -40, style: { fill: '#94a3b8', fontSize: 11, fontWeight: 600 } }}
+                            />
+                            <YAxis
+                                yAxisId="right"
+                                orientation="right"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }}
+                                domain={[0, 100]}
+                                tickFormatter={v => `${v}%`}
+                                label={{ value: 'Performance Score (%)', angle: -90, position: 'insideRight', offset: -45, textAnchor: 'middle', style: { fill: '#94a3b8', fontSize: 11, fontWeight: 600, textAnchor: 'middle' } }}
+                            />
+                            <Tooltip
+                                cursor={{ fill: '#f8fafc' }}
+                                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', fontWeight: 600 }}
+                                formatter={(value, name) => name === 'score' ? [`${value}%`, 'Performance Score'] : [value, 'Approved Tasks']}
+                            />
+                            <Bar yAxisId="left" dataKey="approved" fill="#10b981" barSize={36} radius={[4, 4, 0, 0]}>
+                                <LabelList dataKey="approved" position="top" style={{ fill: '#475569', fontSize: 12, fontWeight: 700 }} />
+                            </Bar>
+                            <Line
+                                yAxisId="right"
+                                type="monotone"
+                                dataKey="score"
+                                stroke="#8b5cf6"
+                                strokeWidth={2.5}
+                                dot={{ r: 5, fill: '#fff', stroke: '#8b5cf6', strokeWidth: 2.5 }}
+                                activeDot={{ r: 7 }}
+                            >
+                                <LabelList dataKey="score" position="top" style={{ fill: '#8b5cf6', fontSize: 11, fontWeight: 700 }} formatter={v => `${v}%`} />
+                            </Line>
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
-                <div className="flex justify-center items-center gap-6 mt-4 pt-4">
+
+                {/* Footer note */}
+                <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-50">
                     <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 bg-emerald-500 rounded-sm"></div>
-                        <span className="text-[12px] font-bold text-emerald-600">Approved Tasks</span>
+                        <svg className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <p className="text-[10px] text-slate-400">Performance score is calculated based on timely completion, quality and adherence to task requirements.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-0 border-t-2 border-purple-500 relative flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full border-2 border-purple-500 bg-white absolute"></div></div>
-                        <span className="text-[12px] font-bold text-purple-600">Performance Score %</span>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        <p className="text-[10px] text-slate-400">Last updated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                        <RefreshCw size={12} className="text-slate-400" />
                     </div>
                 </div>
             </div>
 
-            {/* Performance Report & Top High Performers Split */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
-                <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-8">
-                        <h3 className="text-[18px] font-semibold text-[#1E1B4B]">Performance Report</h3>
-                        <button className="px-5 py-1.5 rounded-full bg-indigo-50 text-indigo-500 text-[11px] font-bold transition-colors hover:bg-indigo-100">Reset</button>
-                    </div>
-                    
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-slate-100">
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider">Employee</th>
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider text-center">Total</th>
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider text-center">Done</th>
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider text-right">On-Time %</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td className="py-5">
-                                    <p className="text-[14px] font-semibold text-[#1E1B4B]">{user?.name || 'AP Exec 1'}</p>
-                                    <p className="text-[11px] font-medium text-slate-400 mt-1">{user?.department || 'Accounts Payables'}</p>
-                                </td>
-                                <td className="py-5 text-center text-[15px] font-medium text-slate-600">{metrics.total}</td>
-                                <td className="py-5 text-center">
-                                    <span className="bg-emerald-50 text-emerald-600 text-[12px] font-bold px-3 py-1.5 rounded-lg">{metrics.completed}</span>
-                                </td>
-                                <td className="py-5 text-right text-[15px] font-bold text-indigo-600">{metrics.efficiency}%</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
 
-                <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-sm">
-                    <h3 className="text-[18px] font-semibold text-[#1E1B4B] mb-8">Top High Performers</h3>
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="border-b border-slate-100">
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider">Rank</th>
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider">Top Performer</th>
-                                <th className="pb-4 text-[12px] font-bold text-slate-500 tracking-wider text-right">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {topPerformers.length > 0 ? (
-                                topPerformers.map((performer, idx) => {
-                                    const isMe = (performer.name === (user?.name || '')) || (String(performer.empId) === String(user?.emp_id || user?.id));
-                                    const isMyDept = (performer.department === (user?.department_name || user?.department));
-                                    return (
-                                        <tr key={idx} className={isMyDept ? 'bg-indigo-50/20' : ''}>
-                                            <td className="py-4 w-16">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[13px] ${idx === 0 ? 'bg-amber-100 text-amber-600 shadow-sm' : 'bg-slate-50 text-slate-400'}`}>
-                                                    {idx + 1}
-                                                </div>
-                                            </td>
-                                            <td className="py-4">
-                                                <p className="text-[14px] font-semibold text-[#1E1B4B]">
-                                                    {performer.name || 'Awaiting Stats'}
-                                                    {(isMe && isMyDept) && <span className="ml-2 text-[10px] bg-indigo-100/50 text-indigo-600 px-2 py-0.5 rounded-full font-bold">You</span>}
-                                                </p>
-                                                <p className="text-[11px] font-medium text-slate-400 mt-1 uppercase tracking-wider">
-                                                    {performer.department || 'Department'}
-                                                    {performer.total > 0 && ` • ${performer.completed}/${performer.total} tasks`}
-                                                </p>
-                                            </td>
-                                             <td className="py-4 text-right text-[15px] font-bold text-indigo-600">{performer.score != null ? `${performer.score}%` : 'N/A'}</td>
-                                        </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td className="py-4 w-16">
-                                        <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-[13px]">1</div>
-                                    </td>
-                                    <td className="py-4">
-                                        <p className="text-[14px] font-semibold text-[#1E1B4B]">
-                                            {user?.department_name || user?.department || 'My Department'}
-                                        </p>
-                                        <p className="text-[11px] font-medium text-slate-400 mt-1 uppercase tracking-wider">
-                                            Awaiting Department Top Performer..
-                                        </p>
-                                    </td>
-                                    <td className="py-4 text-right text-[15px] font-bold text-indigo-600">
-                                        N/A
-                                    </td>
-                                </tr>
-                            )}
-
-                        </tbody>
-                    </table>
-                </div>
-            </div>
             
         </div>
     );

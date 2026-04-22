@@ -340,15 +340,17 @@ const EmployeeDashboard = () => {
 
             setDashboardData({
                 ...dashboardPayload,
-                total_tasks: totalActive, // Standardized: only active tasks
-                approved_tasks: approvedCount,
-                submitted_tasks: counts.SUBMITTED,
-                pending_submission: pendingSubmission, // NEW + REWORK
-                overdue_tasks: overdue,
-                in_progress_tasks: inProgress,
-                rework_tasks: counts.REWORK,
-                new_tasks: counts.NEW,
-                cancelled_tasks: counts.CANCELLED,
+                total_tasks: dashboardPayload?.total_tasks ?? totalActive, 
+                active_tasks: dashboardPayload?.active_tasks ?? totalActive,
+                approved_tasks: dashboardPayload?.approved_tasks ?? approvedCount,
+                submitted_tasks: dashboardPayload?.submitted_tasks ?? counts.SUBMITTED,
+                pending_submission: dashboardPayload?.pending_submission_tasks ?? pendingSubmission, 
+                overdue_tasks: dashboardPayload?.overdue_tasks ?? overdue,
+                due_today_tasks: dashboardPayload?.due_today_tasks ?? 0,
+                in_progress_tasks: dashboardPayload?.in_progress_tasks ?? inProgress,
+                rework_tasks: dashboardPayload?.rework_tasks ?? counts.REWORK,
+                new_tasks: dashboardPayload?.new_tasks ?? counts.NEW,
+                cancelled_tasks: dashboardPayload?.cancelled_tasks ?? counts.CANCELLED,
                 performance_index: finalScore,
                 performance_score: finalScore,
                 department_avg_score: dashboardPayload?.department_avg_score ?? dashboardPayload?.dept_avg_score ?? 0,
@@ -371,6 +373,49 @@ const EmployeeDashboard = () => {
         const toastId = toast.loading(`Preparing ${format.toUpperCase()} report...`);
         try {
             const rolePath = user?.role?.toLowerCase() || 'employee';
+            
+            // Client-side fallback for Employee Excel export since backend route is missing
+            if (rolePath === 'employee' && format === 'excel') {
+                const csvRows = [];
+                csvRows.push(['Task ID', 'Title', 'Status', 'Severity', 'Due Date', 'Assigned By', 'Department']);
+                
+                const exportTasks = allTasks.filter(t => {
+                    const dateStr = t.assigned_at || t.assigned_date || t.created_at || t.date || t.due_date || t.updated_at || t.start_date;
+                    const taskDate = toDateKey(dateStr);
+                    if (!taskDate) return true;
+                    return (!fromDate || taskDate >= fromDate) && (!toDate || taskDate <= toDate);
+                });
+
+                if (exportTasks.length === 0) {
+                    toast.error('No tasks found in this period to export', { id: toastId });
+                    return;
+                }
+
+                exportTasks.forEach(t => {
+                    csvRows.push([
+                        t.id || '-',
+                        `"${(t.title || '').replace(/"/g, '""')}"`,
+                        t.status || 'NEW',
+                        t.severity || 'LOW',
+                        t.due_date ? formatDisplayDate(t.due_date) : '-',
+                        `"${(t.assignerName || '').replace(/"/g, '""')}"`,
+                        `"${(t.department || '').replace(/"/g, '""')}"`
+                    ].join(','));
+                });
+
+                const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+                const blobUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = `my_tasks_export_${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(blobUrl);
+                toast.success(`EXCEL downloaded successfully`, { id: toastId });
+                return;
+            }
+
             let endpoint = format === 'pdf' ? `/reports/${rolePath}/export-pdf` : `/reports/${rolePath}/export-excel`;
             const params = {
                 employee_id: user?.emp_id,
@@ -547,7 +592,9 @@ const EmployeeDashboard = () => {
             score: currentScore,
             stats: {
                 total: dashboardData.total_tasks || 0,
-                pendingSubmission: dashboardData.pending_submission || 0,
+                active: dashboardData.active_tasks || 0,
+                dueToday: dashboardData.due_today_tasks || 0,
+                pendingSubmission: dashboardData.pending_submission_tasks ?? dashboardData.pending_submission ?? 0,
                 approved: dashboardData.approved_tasks || 0,
                 overdue: dashboardData.overdue_tasks || 0,
                 deptAvg,
@@ -708,22 +755,36 @@ const EmployeeDashboard = () => {
                     value={stats.total}
                             icon={CheckSquare} 
                             color="blue" 
-                            sub="Assigned to you"
                         />
                         <Stat 
                             label="Employee Score" 
                             value={`${score}%`} 
                             icon={TrendingUp} 
                             color="green" 
-                            sub={`Dept Avg: ${stats.deptAvg}% | Vs Dept Avg: ${stats.vsDeptAvg > 0 ? '+' : ''}${stats.vsDeptAvg}%`}
+                            sub={`Dept Avg ${stats.deptAvg}% | Vs Dept Avg ${stats.vsDeptAvg > 0 ? '+' : ''}${stats.vsDeptAvg}%`}
                         />
                         <Stat 
                             label="Pending Submission" 
                             value={stats.pendingSubmission} 
                             icon={Activity} 
                             color="violet" 
-                            sub="Tasks requiring action"
                         />
+                    </div>
+                    
+                    {/* Secondary alert strip */}
+                    <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 bg-white rounded-2xl shadow-sm border border-slate-100 py-3">
+                        <div className="flex flex-col items-center justify-center px-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active Tasks</span>
+                            <span className="text-xl font-bold text-[#1E1B4B] leading-none">{stats.active}</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center px-4">
+                            <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Overdue</span>
+                            <span className="text-xl font-bold text-rose-600 leading-none">{stats.overdue}</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center px-4">
+                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Due Today</span>
+                            <span className="text-xl font-bold text-amber-500 leading-none">{stats.dueToday}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -884,7 +945,7 @@ const EmployeeDashboard = () => {
                     <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">
                         <h3 className="text-[15px] font-bold text-slate-800 mb-4 tracking-tight">Quick Actions</h3>
                         <div className="flex flex-col gap-3">
-                            <button onClick={() => navigate('/tasks')} className="w-full py-3 px-5 bg-[#7B51ED] text-white shadow-lg shadow-violet-500/20 rounded-xl font-bold flex items-center gap-3 hover:bg-violet-700 hover:translate-y-[-1px] transition-all text-[13px]">
+                            <button onClick={() => navigate(dashboardData?.view_all_url || '/tasks')} className="w-full py-3 px-5 bg-[#7B51ED] text-white shadow-lg shadow-violet-500/20 rounded-xl font-bold flex items-center gap-3 hover:bg-violet-700 hover:translate-y-[-1px] transition-all text-[13px]">
                                 <CheckSquare size={16} strokeWidth={2.5} /> View My Tasks
                             </button>
                             <div className="h-px bg-slate-100 my-1" />
