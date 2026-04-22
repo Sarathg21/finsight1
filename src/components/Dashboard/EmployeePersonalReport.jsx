@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     Calendar, Download, FileSpreadsheet, Activity, AlertTriangle, 
     CheckSquare, ClipboardList, Play, ArrowUpRight, BarChart2,
-    TrendingUp, Users, ChevronDown, RefreshCw
+    TrendingUp, Users, ChevronDown, RefreshCw, Info
 } from 'lucide-react';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -293,6 +293,7 @@ const EmployeePersonalReport = () => {
             submitted,
             newTasks,
             cancelled,
+            onTimePct: summary.on_time_pct !== undefined && summary.on_time_pct !== null ? Math.round(Number(summary.on_time_pct)) : 0,
             efficiency: Math.round(summary.performance_score ?? performanceIndex),
             performanceScore: Math.round(summary.performance_score ?? performanceIndex),
             deptAvg: Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0),
@@ -482,7 +483,30 @@ const EmployeePersonalReport = () => {
                             <TrendingUp size={20} className="text-emerald-500" />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-slate-400 capitalize tracking-wide mb-0.5">Performance Score</p>
+                            <div className="relative group w-max">
+                                <div className="flex items-center gap-1 cursor-help">
+                                    <p className="text-[11px] font-bold text-slate-400 capitalize tracking-wide mb-0.5">Performance Score</p>
+                                    <Info size={12} className="text-slate-400 mb-0.5" />
+                                </div>
+                                <div className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[280px] opacity-0 transition-opacity group-hover:opacity-100 z-50 bg-[#1E1B4B] text-white shadow-xl rounded-xl p-4 text-left">
+                                    {/* Arrow */}
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-b-[#1E1B4B]"></div>
+                                    
+                                    <p className="text-[11px] text-slate-200 mb-2 leading-relaxed">
+                                        Performance Score is calculated based on tasks due in the selected period.
+                                    </p>
+                                    <p className="text-[11px] font-semibold text-white mb-1">Scoring basis:</p>
+                                    <ul className="text-[11px] text-slate-200 space-y-1 mb-3 ml-1">
+                                        <li>• On-time submitted/approved task = 100 points</li>
+                                        <li>• Submitted within 2 days after due date = 60 points</li>
+                                        <li>• Submitted more than 2 days late = 0 points</li>
+                                        <li>• Each rework reduces 10 points</li>
+                                    </ul>
+                                    <p className="text-[11px] text-slate-200 leading-relaxed border-t border-slate-700 pt-2 mt-2">
+                                        <span className="font-semibold text-white">Final score =</span> Earned points ÷ Ideal points for all due tasks in the selected period.
+                                    </p>
+                                </div>
+                            </div>
                             <p className="text-[28px] font-bold text-emerald-500 leading-none">{metrics.performanceScore}%</p>
                             <p className="text-[10px] text-slate-400 mt-0.5">Your performance</p>
                         </div>
@@ -520,7 +544,7 @@ const EmployeePersonalReport = () => {
                     <h3 className="text-[15px] font-bold text-[#1E1B4B]">Action Required</h3>
                     <p className="text-[11px] text-slate-400 mt-0.5">Focus areas that need your attention</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <div className="border border-slate-100 rounded-2xl p-4 flex items-start gap-3">
                         <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center flex-shrink-0 mt-0.5">
                             <ClipboardList size={18} className="text-slate-500" />
@@ -559,9 +583,20 @@ const EmployeePersonalReport = () => {
                             <Activity size={18} className="text-violet-500" />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-violet-500 capitalizetracking-wide">Pending Submission</p>
+                            <p className="text-[11px] font-bold text-violet-500 capitalize tracking-wide">Pending Submission</p>
                             <p className="text-[26px] font-bold text-violet-600 leading-none my-1">{metrics.pending}</p>
                             <p className="text-[10px] text-slate-400">Awaiting your submission</p>
+                        </div>
+                    </div>
+
+                    <div className="border border-slate-100 rounded-2xl p-4 flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <CheckSquare size={18} className="text-teal-500" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] font-bold text-teal-500 capitalize tracking-wide">On-Time Achievement %</p>
+                            <p className="text-[26px] font-bold text-teal-600 leading-none my-1">{metrics.onTimePct}%</p>
+                            <p className="text-[10px] text-slate-400">Due tasks completed on time</p>
                         </div>
                     </div>
                 </div>
