@@ -247,13 +247,13 @@ const TaskTrendsChart = ({ data }) => {
     // Normalize data keys to handle API variations (lowercase vs PascalCase)
     const trends = useMemo(() => {
         const source = data && data.length > 0 ? data : [
-            { name: 'Nov', New: 80, Pending: 40, Overdue: 20, Completed: 30 },
-            { name: 'Dec', New: 60, Pending: 80, Overdue: 35, Completed: 40 },
-            { name: 'Jan', New: 95, Pending: 45, Overdue: 15, Completed: 65 },
-            { name: 'Feb', New: 115, Pending: 55, Overdue: 10, Completed: 60 },
-            { name: 'Mar', New: 110, Pending: 65, Overdue: 25, Completed: 75 },
-            { name: 'Mar', New: 130, Pending: 75, Overdue: 40, Completed: 110 },
-            { name: 'Apr', New: 150, Pending: 85, Overdue: 50, Completed: 125 },
+            { name: 'Nov', 'Not Started': 80, Pending: 40, Overdue: 20, Completed: 30 },
+            { name: 'Dec', 'Not Started': 60, Pending: 80, Overdue: 35, Completed: 40 },
+            { name: 'Jan', 'Not Started': 95, Pending: 45, Overdue: 15, Completed: 65 },
+            { name: 'Feb', 'Not Started': 115, Pending: 55, Overdue: 10, Completed: 60 },
+            { name: 'Mar', 'Not Started': 110, Pending: 65, Overdue: 25, Completed: 75 },
+            { name: 'Mar', 'Not Started': 130, Pending: 75, Overdue: 40, Completed: 110 },
+            { name: 'Apr', 'Not Started': 150, Pending: 85, Overdue: 50, Completed: 125 },
         ];
         return source.map((d, index) => {
             const getVal = (keys) => {
@@ -274,7 +274,7 @@ const TaskTrendsChart = ({ data }) => {
                 ((inProgress || 0) + (submitted || 0) + (rework || 0));
 
             // New tasks variants
-            const initialNew = getVal(['New', 'new', 'new_tasks', 'new_count', 'total_new', 'newTasks', 'total_tasks', 'total', 'created_count']);
+            const initialNew = getVal(['Not Started', 'New', 'new', 'new_tasks', 'new_count', 'total_new', 'newTasks', 'total_tasks', 'total', 'created_count']);
 
             // Total volume fallback logic
             const total = getVal(['total_tasks', 'total', 'total_count', 'count', 'tasks', 'total_volume']) || 0;
@@ -301,7 +301,7 @@ const TaskTrendsChart = ({ data }) => {
 
             return {
                 name: formatMonthName(d.name || d.month),
-                New: Math.max(0, n),
+                'Not Started': Math.max(0, n),
                 Pending: Math.max(0, p),
                 Overdue: Math.max(0, o),
                 Completed: Math.max(0, c)
@@ -321,7 +321,7 @@ const TaskTrendsChart = ({ data }) => {
 
             <div className="flex items-center gap-8 mb-8 ml-2">
                 {[
-                    { label: 'New Tasks', color: 'bg-[#3b82f6]' },
+                    { label: 'Not Started', color: 'bg-[#3b82f6]' },
                     { label: 'Pending', color: 'bg-[#febc6b]' },
                     { label: 'Overdue', color: 'bg-[#ff697e]' },
                     { label: 'Completed', color: 'bg-[#38b2ac]', isLine: true }
@@ -366,7 +366,7 @@ const TaskTrendsChart = ({ data }) => {
                                     return true;
                                 });
                                 const colorMap = {
-                                    New: '#3b82f6',
+                                    'Not Started': '#3b82f6',
                                     Pending: '#febc6b',
                                     Overdue: '#ff697e',
                                     Completed: '#38b2ac',
@@ -383,7 +383,7 @@ const TaskTrendsChart = ({ data }) => {
                                 );
                             }}
                         />
-                        <Bar dataKey="New" fill="#3b82f6" barSize={10} radius={[5, 5, 0, 0]} />
+                        <Bar dataKey="Not Started" fill="#3b82f6" barSize={10} radius={[5, 5, 0, 0]} />
                         <Bar dataKey="Pending" fill="#febc6b" barSize={10} radius={[5, 5, 0, 0]} />
                         <Bar dataKey="Overdue" fill="#ff697e" barSize={10} radius={[5, 5, 0, 0]} />
 

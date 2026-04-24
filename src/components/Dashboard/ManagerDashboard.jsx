@@ -5,17 +5,15 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { calculateManagerScore } from '../../utils/performanceEngine';
 import Badge from '../UI/Badge';
-import CustomSelect from '../UI/CustomSelect';
-import ReworkCommentModal from '../Modals/ReworkCommentModal';
 import {
     BarChart2, CheckSquare, AlertTriangle, Clock,
     Calendar, Users, TrendingUp, Medal, CalendarCheck, CheckCircle, Loader2,
-    ChevronRight, Plus, Settings, MessageSquare, ChevronDown, User, Edit2, Activity,
-    Target, AlertCircle, Briefcase
+    ChevronRight, User, Target, AlertCircle, Briefcase, Activity,
+    ListChecks, Eye, XCircle
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    PieChart, Pie, Cell, ResponsiveContainer
+    PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line
 } from 'recharts';
 
 const TERMINAL_STATUSES = new Set(['APPROVED', 'CANCELLED']);
@@ -165,13 +163,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
     // Determine current user state
     const isActuallyCFO = user?.role?.toUpperCase() === 'CFO';
-    const canSwitchDept = ['MANAGER', 'CFO', 'ADMIN'].includes(user?.role?.toUpperCase());
-    const [selectedDeptId, setSelectedDeptId] = useState(overriddenDept?.id || null);
-    const [departments, setDepartments] = useState([]);
-
-    // Determine current department for context
-    const currentDeptId = overriddenDept?.id || selectedDeptId || user?.department_id || user?.dept_id;
-    const currentDeptName = overriddenDept?.name || departments.find(d => (d.department_id || d.id) === currentDeptId)?.name || user?.department_name || user?.department || 'Department';
+    // Determine current department for context (locked to manager's own department)
+    const currentDeptId = overriddenDept?.id || user?.department || user?.department_id || user?.dept_id;
+    const currentDeptName = overriddenDept?.name || user?.department_name || user?.department || 'Department';
 
     const getFirstDayOfMonth = () => {
         const now = new Date();
@@ -197,16 +191,10 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
     const [dashboardData, setDashboardData] = useState(null);
     const [todayTeamTasks, setTodayTeamTasks] = useState([]);
-    const [activities, setActivities] = useState([]);
     const [reportTeam, setReportTeam] = useState([]);
     const [trends, setTrends] = useState([]);
     const [employeeRisk, setEmployeeRisk] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [taskFilter, setTaskFilter] = useState("Today's Tasks");
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 7;
-    const [reworkModalOpen, setReworkModalOpen] = useState(false);
-    const [taskForRework, setTaskForRework] = useState(null);
 
     // ── Independent date filters for sub-sections ────────────────────────────
     const [teamPerfFrom, setTeamPerfFrom] = useState(getFirstDayOfMonth());
@@ -216,6 +204,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const [riskFrom, setRiskFrom] = useState(getFirstDayOfMonth());
     const [riskTo, setRiskTo] = useState(getToday());
     const [riskLoading, setRiskLoading] = useState(false);
+    const [riskShowAll, setRiskShowAll] = useState(false);
 
     const formatTimeAgo = (dateStr) => {
         if (!dateStr) return 'Just now';
@@ -236,19 +225,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const fetchDashboardData = async () => {
         // ── Safe Parameter Normalization ────────────────────────────────────────
         // Prevents 422 Unprocessable Entity by ensuring dates are valid ISO strings (YYYY-MM-DD)
-        const getValidFromDate = () => {
-            const stored = localStorage.getItem('dashboard_from_date');
-            if (stored && stored.length === 10) return stored;
-            return fromDate && fromDate.length === 10 ? fromDate : getFirstDayOfMonth();
-        };
-        const getValidToDate = () => {
-            const stored = localStorage.getItem('dashboard_to_date');
-            if (stored && stored.length === 10) return stored;
-            return toDate && toDate.length === 10 ? toDate : getToday();
-        };
-
-        const safeFrom = getValidFromDate();
-        const safeTo   = getValidToDate();
+        const safeFrom = fromDate && fromDate.length === 10 ? fromDate : getFirstDayOfMonth();
+        const safeTo   = toDate && toDate.length === 10 ? toDate : getToday();
 
         setLoading(true);
         const params = {
@@ -272,63 +250,39 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             // Fetch all metrics using standard endpoints
             const results = await Promise.allSettled([
                 api.get('/dashboard/manager', { params }),
-                api.get('/dashboard/manager/today', { params }),
-                api.get('/manager/reports', { params }),
                 api.get('/dashboard/manager/trends', { params }),
                 api.get('/dashboard/manager/employee-risk', { params }),
                 api.get('/dashboard/manager/team-performance', { params }),
                 api.get('/dashboard/manager/department-metrics', { params }),
-                api.get('/notifications', { timeout: 10000, params: { limit: 50 } }),
                 api.get('/dashboard/manager/analytics', { params })
             ]);
 
             const [
                 managerDash, 
-                todayTasksRes, 
-                reportsRes, 
                 trendsRes, 
                 riskRes, 
                 teamPerfRes,
                 metricsRes,
-                notifyRes,
                 analyticsRes
             ] = results;
 
+            let finalPayload = {};
+
             if (managerDash.status === 'fulfilled') {
-                dashPayload = managerDash.value.data?.data || managerDash.value.data || {};
-                setDashboardData(dashPayload);
+                finalPayload = { ...finalPayload, ...(managerDash.value.data?.data || managerDash.value.data || {}) };
             }
 
-            // Merge analytics data (score fields) directly into dashboardData
             if (analyticsRes?.status === 'fulfilled') {
                 const analyticsPayload = analyticsRes.value.data?.data || analyticsRes.value.data || {};
-                dashPayload = { ...dashPayload, ...analyticsPayload };
-                setDashboardData(prev => ({ ...prev, ...analyticsPayload }));
+                finalPayload = { ...finalPayload, ...analyticsPayload };
             }
 
-            if (todayTasksRes.status === 'fulfilled') {
-                const todayPayload = todayTasksRes.value.data?.data || todayTasksRes.value.data || [];
-                const tasks = Array.isArray(todayPayload) ? todayPayload : [];
-                
-                // Normalization logic
-                fetchedTasks = tasks.map(t => ({
-                    ...t,
-                    id: t.task_id || t.id,
-                    employee_id: t.assigned_to_emp_id,
-                    assigneeName: t.assigned_to_name,
-                    severity: (t.priority || t.severity || 'MEDIUM').toUpperCase(),
-                    department: t.department_name || t.department_id,
-                    parent_task_id: t.parent_task_id || t.parent_id,
-                    parent_task_title: t.parent_task_title || t.parent_task_name || ''
-                }));
-                setTodayTeamTasks(fetchedTasks);
+            if (metricsRes.status === 'fulfilled') {
+                const mData = metricsRes.value.data?.data || metricsRes.value.data || {};
+                finalPayload = { ...finalPayload, ...mData };
             }
 
-            if (reportsRes.status === 'fulfilled') {
-                const reportPayload = reportsRes.value.data?.data || reportsRes.value.data || {};
-                const stats = reportPayload?.manager_stats || (Array.isArray(reportPayload) ? reportPayload : []);
-                setReportTeam(Array.isArray(stats) ? stats : []);
-            }
+            setDashboardData(finalPayload);
 
             if (trendsRes.status === 'fulfilled') {
                 setTrends(trendsRes.value.data?.data || trendsRes.value.data || []);
@@ -341,134 +295,6 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             if (teamPerfRes.status === 'fulfilled') {
                 const perfData = teamPerfRes.value.data?.data || teamPerfRes.value.data || [];
                 if (perfData.length > 0) setReportTeam(perfData);
-            }
-
-            if (metricsRes.status === 'fulfilled') {
-                const mData = metricsRes.value.data?.data || metricsRes.value.data || {};
-                setDashboardData(prev => ({ ...prev, ...mData }));
-            }
-
-            if (notifyRes.status === 'fulfilled') {
-                const notifyRaw = notifyRes.value.data;
-                const items = Array.isArray(notifyRaw) ? notifyRaw : (notifyRaw.notifications || notifyRaw.data || notifyRaw.items || []);
-                const dataList = Array.isArray(items) ? items : [];
-                
-                // Consistency: filter read using global blacklist
-                const readBlacklist = JSON.parse(localStorage.getItem('read_notifications') || '[]');
-                const filtered = dataList.filter(n => {
-                    const isRead = n.is_read || n.read || n.isRead || (n.status === 'READ');
-                    const id = n.id || n.notification_id || n.notificationId || '';
-                    return !isRead && !readBlacklist.includes(String(id));
-                });
-                setActivities(filtered);
-            }
-
-            const totalFromDashboard = dashPayload?.total_tasks ?? dashPayload?.total ?? 0;
-            const hasDashboardStats = totalFromDashboard > 0;
-            const hasToday = fetchedTasks.length > 0;
-
-            if (!hasDashboardStats && !hasToday) {
-                console.log("ManagerDashboard - Falling back to task aggregation...");
-                const rawTasks = await fetchManagerTasksFallback(params);
-                if (rawTasks.length > 0) {
-                    const filtered = rawTasks.filter((t) => {
-                        const k = toDateKey(t.assigned_date || t.created_at || t.due_date);
-                        if (!k) return true; // Don't filter out if no date exists
-                        if (fromDate && k < fromDate) return false;
-                        if (toDate && k > toDate) return false;
-                        return true;
-                    });
-
-                    // Pass 1: Build map for local fallbacks
-                    const taskMap = {};
-                    filtered.forEach(t => {
-                        const id = t.task_id || t.id;
-                        const title = t.task_title || t.subtask_title || t.title || t.task_name || t.name || t.directive_title || t.directive_name;
-                        if (id && title) taskMap[id] = title;
-                    });
-
-                    // Pass 2: Normalize
-                    const normalized = filtered.map((t) => {
-                        const pid = t.parent_task_id || t.parent_id || (t.parent_task ? (t.parent_task.task_id || t.parent_task.id) : null);
-                        const ptitle = t.parent_task_title || t.parentTaskTitle || t.parent_task_name || t.parent_title || t.parent_name || t.parent_directive_title || t.parent_directive_name || 
-                                      (t.parent_task ? (t.parent_task.task_title || t.parent_task.title || t.parent_task.task_name || t.parent_task.name || t.parent_task.directive_title) : '') ||
-                                      taskMap[pid] || '';
-                        
-                        return {
-                            id: t.task_id || t.id,
-                            title: t.title,
-                            status: String(t.status || '').toUpperCase(),
-                            severity: (t.priority || t.severity || 'MEDIUM').toUpperCase(),
-                            employee_id: t.assigned_to_emp_id || t.employee_id,
-                            assigneeName: t.assigned_to_name || t.assignee_name || t.employee_name || 'Unassigned',
-                            parent_task_id: pid,
-                            parent_task_title: ptitle,
-                        };
-                    });
-
-                    const statusCounts = { NEW: 0, IN_PROGRESS: 0, SUBMITTED: 0, APPROVED: 0, REWORK: 0 };
-                    const byEmp = new Map();
-                    normalized.forEach((t) => {
-                        const s = t.status;
-                        if (s === 'NEW' || s === 'CREATED') statusCounts.NEW += 1;
-                        else if (['IN_PROGRESS', 'STARTED', 'PENDING', 'IN-PROGRESS'].includes(s)) statusCounts.IN_PROGRESS += 1;
-                        else if (s === 'SUBMITTED') statusCounts.SUBMITTED += 1;
-                        else if (s === 'APPROVED' || s === 'COMPLETED') statusCounts.APPROVED += 1;
-                        else if (s === 'REWORK' || s === 'CHANGES_REQUESTED') statusCounts.REWORK += 1;
-
-                        const key = String(t.employee_id || t.assigneeName);
-                        const row = byEmp.get(key) || {
-                            emp_id: t.employee_id || key,
-                            name: t.assigneeName,
-                            role: 'Team Member',
-                            tasks_assigned: 0,
-                            tasks_completed: 0,
-                        };
-                        row.tasks_assigned += 1;
-                        if (s === 'APPROVED' || s === 'COMPLETED') row.tasks_completed += 1;
-                        byEmp.set(key, row);
-                    });
-
-                    const totalCount = normalized.length;
-                    const approvedCount = statusCounts.APPROVED;
-                    
-                    // Standardized Metrics Logic
-                    const totalActive = normalized.filter(t => !TERMINAL_STATUSES.has(t.status)).length; 
-                    const pendingSubmission = statusCounts.NEW + statusCounts.REWORK;
-                    const inProgress = statusCounts.IN_PROGRESS;
-                    const overdue = normalized.filter((t) => {
-                        const due = toDateKey(t.due_date);
-                        const today = new Date().toLocaleDateString('en-CA');
-                        return due && due < today && !TERMINAL_STATUSES.has(t.status);
-                    }).length;
-
-                    setDashboardData(prev => ({
-                        ...prev,
-                        total_tasks: totalActive, // Standardized: only active tasks
-                        approved_tasks: approvedCount,
-                        pending_submission: pendingSubmission, // NEW + REWORK
-                        pending_tasks: totalActive, // For backward compatibility if needed
-                        rework_tasks: statusCounts.REWORK,
-                        new_tasks: statusCounts.NEW,
-                        in_progress_tasks: inProgress,
-                        submitted_tasks: statusCounts.SUBMITTED,
-                        overdue_tasks: overdue,
-                        team_performance_index: totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0,
-                    }));
-                    setTodayTeamTasks(normalized.slice(0, 100));
-                    setReportTeam(Array.from(byEmp.values()));
-
-                    // If CFO, also populate activities from these tasks
-                    if (isActuallyCFO) {
-                        setActivities(normalized.slice(0, 10).map(t => ({
-                            id: t.id,
-                            actor_name: t.assigneeName || 'Member',
-                            task_title: t.title || 'Task',
-                            type: t.status === 'SUBMITTED' ? 'TASK_SUBMITTED' : t.status === 'APPROVED' ? 'TASK_APPROVED' : 'ACTIVITY',
-                            created_at: new Date().toISOString()
-                        })));
-                    }
-                }
             }
         } catch (err) {
             console.error("Critical fail in manager dashboard:", err);
@@ -524,34 +350,6 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         }
     };
 
-    const handleReworkRequest = (task) => {
-        setTaskForRework(task);
-        setReworkModalOpen(true);
-    };
-
-    const handleReworkConfirm = async (comment) => {
-        if (!taskForRework) return;
-        setReworkModalOpen(false);
-        try {
-            await api.post(`/tasks/${taskForRework.id}/transition`, { action: 'REWORK', comment });
-            fetchDashboardData();
-        } catch (err) {
-            console.error('Failed to request rework:', err);
-        }
-        setTaskForRework(null);
-    };
-
-    const handleStatusChange = async (taskId, action) => {
-        if (!taskId && taskId !== 0) return;
-        const confirmed = window.confirm(`Are you sure you want to ${action.toLowerCase()} this task?`);
-        if (!confirmed) return;
-        try {
-            await api.post(`/tasks/${taskId}/transition`, { action, comment: "" });
-            fetchDashboardData();
-        } catch (err) {
-            console.error("ManagerDashboard - Failed to update task status:", err);
-        }
-    };
 
     useEffect(() => {
         if (user?.id) {
@@ -569,49 +367,21 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         if (user?.id) fetchEmployeeRisk(riskFrom, riskTo);
     }, [riskFrom, riskTo, currentDeptId]);
 
-    useEffect(() => {
-        if (canSwitchDept && !overriddenDept) {
-            api.get('/departments').then(res => {
-                const depts = res.data?.data || res.data || [];
-                setDepartments(depts);
-                if (depts.length > 0 && !selectedDeptId) {
-                    // Try to pre-select manager's own department if possible, otherwise first
-                    const userDept = depts.find(d => String(d.department_id || d.id) === String(user?.department_id || user?.dept_id));
-                    setSelectedDeptId(userDept ? (userDept.department_id || userDept.id) : (depts[0].department_id || depts[0].id));
-                }
-            }).catch(e => console.warn("Failed to fetch departments:", e));
-        }
-    }, [canSwitchDept, overriddenDept, user?.department_id, user?.dept_id]);
 
 
-    const filteredTasks = useMemo(() => {
-        let list = todayTeamTasks;
-        if (taskFilter === 'Submitted') list = todayTeamTasks.filter(t => t.status === 'SUBMITTED');
-        else if (taskFilter === 'In Progress') list = todayTeamTasks.filter(t => t.status === 'IN_PROGRESS');
-        // If "Today's Tasks" we can either filter by today's date or leave it. The original code left it unfiltered for 'Today's Tasks'. 
-        // We will leave both 'All' and 'Today's Tasks' returning the full list for now unless there's a strict date property to check against.
-        return list;
-    }, [todayTeamTasks, taskFilter]);
-
-    const paginatedTasks = useMemo(() => {
-        const start = (currentPage - 1) * itemsPerPage;
-        return filteredTasks.slice(start, start + itemsPerPage);
-    }, [filteredTasks, currentPage]);
-
-    const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
 
     const metrics = useMemo(() => {
         if (!dashboardData) return null;
-        const total = dashboardData.total_tasks ?? dashboardData.total ?? 0;
-        const approved = dashboardData.approved_tasks ?? dashboardData.approved ?? 0;
+        const total = dashboardData.total_tasks || dashboardData.team_tasks || dashboardData.total || 0;
+        const approved = dashboardData.approved_tasks || dashboardData.completed_tasks || dashboardData.approved || 0;
 
         return {
             // Legacy task-based stats (kept for internal use)
-            score: dashboardData.team_performance_index ?? dashboardData.performanceScore ?? 0,
+            score: dashboardData.team_performance_index || dashboardData.performance_score || dashboardData.performanceScore || 0,
             completionRate: total > 0 ? Math.round((approved / total) * 100) : 0,
-            totalReworks: dashboardData.rework_tasks ?? dashboardData.reworks ?? 0,
-            pendingSubmission: dashboardData.pending_submission ?? ( (dashboardData.new_tasks||0) + (dashboardData.rework_tasks||0) ),
-            totalActive: dashboardData.total_tasks || 0,
+            totalReworks: dashboardData.rework_tasks || dashboardData.reworks || 0,
+            pendingSubmission: dashboardData.pending_approval || dashboardData.submitted_tasks || dashboardData.pending_review || dashboardData.pending_submission || 0,
+            totalActive: total || 0,
             // Backend-driven performance KPIs
             managerScore: dashboardData.manager_score_current ?? null,
             teamScore: dashboardData.team_score_current ?? null,
@@ -619,6 +389,55 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             managerScoreDelta: dashboardData.manager_score_delta_percent ?? null,
         };
     }, [dashboardData]);
+
+    // Priority: use reportTeam (locally filtered) if available, otherwise fallback to global ranking
+    const rankingSource = (() => {
+        if (Array.isArray(reportTeam) && reportTeam.length > 0) return reportTeam;
+        return dashboardData?.employee_ranking || [];
+    })();
+
+    const finalRankingData = useMemo(() => {
+        const source = rankingSource;
+        const riskMap = {};
+        if (Array.isArray(employeeRisk)) {
+            employeeRisk.forEach(r => {
+                const id = String(r.emp_id || r.id || r.employee_id || '');
+                if (id) riskMap[id] = r;
+            });
+        }
+
+        return source.map((m, idx) => {
+            const id = String(m.emp_id || m.id || m.employee_id || '');
+            const riskItem = riskMap[id] || {};
+            
+            // Standardized name lookup - prioritize risk monitor's known good names
+            const name = m.name || m.employee_name || m.emp_name || m.full_name || 
+                        riskItem.name || riskItem.employee_name || 
+                        (id ? `Emp #${id}` : 'Unknown');
+
+            return {
+                ...m,
+                id,
+                name,
+                role: m.role || m.designation || riskItem.role || 'Team Member',
+                // Standardized metric aliases with risk monitor fallbacks
+                assigned: m.tasks_assigned || m.total_tasks || m.assigned || m.total || riskItem.total_tasks || 0,
+                active:   m.active_tasks   || m.in_progress_tasks || m.active || m.in_progress || riskItem.active_tasks || riskItem.active || 0,
+                pending:  m.pending_review || m.submitted_tasks || m.pending_tasks || m.pending || 0,
+                overdue:  m.overdue_tasks  || m.overdue_count  || m.overdue || riskItem.overdue_tasks || riskItem.overdue || 0,
+                completed:m.approved_tasks || m.completed_tasks || m.completed || ( (m.assigned || m.total_tasks || 0) - (m.active || m.active_tasks || 0) ) || 0,
+                performance_score: m.score ?? m.performance_score ?? riskItem.performance_score ?? riskItem.execution_score ?? null,
+                rank: m.rank ?? idx + 1
+            };
+        // Sort ascending by employee ID (numeric if possible)
+        }).sort((a, b) => {
+            const idA = isNaN(Number(a.id)) ? a.id : Number(a.id);
+            const idB = isNaN(Number(b.id)) ? b.id : Number(b.id);
+            if (idA < idB) return -1;
+            if (idA > idB) return 1;
+            return 0;
+        });
+    }, [rankingSource, employeeRisk]);
 
     if (loading) {
         return (
@@ -639,520 +458,569 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         { name: 'Rework', value: dashboardData.rework_tasks || 0, fill: '#ef4444' },
     ] : [];
 
-    // Use employee_ranking from backend if available, fall back to reportTeam
-    const rankingSource = (() => {
-        const apiRanking = dashboardData?.employee_ranking;
-        if (Array.isArray(apiRanking) && apiRanking.length > 0) return apiRanking;
-        return reportTeam;
-    })();
 
-    const finalRankingData = rankingSource.map((m, idx) => ({
-        ...m,
-        id: m.emp_id || m.id,
-        name: m.name || m.employee_name || m.emp_name || 'Unknown',
-        role: m.role || m.designation || 'Team Member',
-        assigned: m.tasks_assigned || m.assigned || m.total_tasks || 0,
-        completed: m.tasks_completed || m.completed || m.approved_tasks || 0,
-        rank: m.rank ?? idx + 1
-    }));
+    // graphs.task_activity_trends — primary source for the trends bar chart
+    const trendsGraphSource = dashboardData?.graphs?.task_activity_trends;
+    const finalTrendsData = Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0
+        ? trendsGraphSource.map(t => ({
+            // period is the X-axis label (weekly bucket start date string)
+            name: t.period || t.name || t.week || '',
+            // field names per handoff spec
+            new: t.new_tasks ?? t.new ?? 0,
+            pending: t.pending_approval ?? t.pending ?? t.submitted ?? 0,
+            overdue: t.overdue_tasks ?? t.overdue ?? 0,
+            completed: t.completed_tasks ?? t.completed ?? t.approved ?? 0,
+          }))
+        // fall back to the /dashboard/manager/trends API response
+        : Array.isArray(trends) && trends.length > 0
+            ? trends.map(t => ({
+                name: t.period || t.name || t.week || '',
+                new: t.new_tasks ?? t.new ?? 0,
+                pending: t.pending_approval ?? t.pending ?? t.submitted ?? 0,
+                overdue: t.overdue_tasks ?? t.overdue ?? 0,
+                completed: t.completed_tasks ?? t.completed ?? t.approved ?? 0,
+              }))
+            : [];
 
-    // Use workload_distribution_employee_wise graph data if available
+    // graphs.workload_distribution_employee_wise — open_tasks per employee
     const workloadGraphSource = dashboardData?.graphs?.workload_distribution_employee_wise;
+    // graphs.performance_index_employee_wise — score per employee
+    const perfIndexSource = dashboardData?.graphs?.performance_index_employee_wise;
+    const perfIndexMap = Array.isArray(perfIndexSource)
+        ? Object.fromEntries(perfIndexSource.map(p => [String(p.emp_id || p.id || ''), p.score ?? null]))
+        : {};
+
     const finalMemberData = Array.isArray(workloadGraphSource) && workloadGraphSource.length > 0
         ? workloadGraphSource.map(m => ({
             name: (m.name || m.employee_name || m.emp_name || String(m.emp_id || '')).split(' ')[0],
-            Assigned: m.tasks_assigned || m.assigned || m.total_tasks || 0,
-            Completed: m.tasks_completed || m.completed || m.approved_tasks || 0,
+            // open_tasks is the correct backend field per handoff spec
+            Assigned: m.open_tasks ?? m.tasks_assigned ?? m.assigned ?? m.total_tasks ?? 0,
+            Completed: m.tasks_completed ?? m.completed ?? m.approved_tasks ?? 0,
+            PerfScore: perfIndexMap[String(m.emp_id || m.id || '')] ?? null,
           }))
         : rankingSource.map(m => ({
             name: (m.name || m.employee_name || '').split(' ')[0] || String(m.emp_id),
-            Assigned: m.tasks_assigned || m.assigned || m.total_tasks || 0,
-            Completed: m.tasks_completed || m.completed || m.approved_tasks || 0,
+            Assigned: m.tasks_assigned ?? m.assigned ?? m.total_tasks ?? 0,
+            Completed: m.tasks_completed ?? m.completed ?? m.approved_tasks ?? 0,
+            PerfScore: perfIndexMap[String(m.emp_id || m.id || '')] ?? null,
           }));
 
     return (
-        <div className="space-y-4 pb-8">
-            {/* Department Switcher */}
-            {canSwitchDept && !overriddenDept && departments.length > 0 && (
-                <div className="flex items-center gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm animate-fade-in mb-2">
-                    <span className="text-[10px] font-semibold text-slate-400 capitalize tracking-widest pl-2">Select Department:</span>
-                    <CustomSelect
-                        options={departments.map(d => ({ label: d.name, value: d.department_id || d.id }))}
-                        value={currentDeptId}
-                        onChange={(val) => setSelectedDeptId(val)}
-                        className="w-64"
-                    />
+        <div className="space-y-5 pb-10">
+
+            {/* ── PAGE HEADER ─────────────────────────────────────────── */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-[26px] font-black text-slate-800 leading-none tracking-tight">Manager Hub</h1>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em] mt-1">Team Oversight & Performance Tracking</p>
                 </div>
-            )}
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Global date range */}
+                    <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+                        <Calendar size={13} className="text-slate-400 shrink-0" />
+                        <input 
+                            type="date" 
+                            value={fromDate} 
+                            onChange={e => {
+                                const val = e.target.value;
+                                setFromDate(val);
+                                localStorage.setItem('dashboard_from_date', val);
+                                window.dispatchEvent(new Event('dashboard-filter-change'));
+                            }}
+                            className="text-[11px] font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer w-[100px]" 
+                        />
+                        <span className="text-slate-300 font-bold">-</span>
+                        <input 
+                            type="date" 
+                            value={toDate} 
+                            onChange={e => {
+                                const val = e.target.value;
+                                setToDate(val);
+                                localStorage.setItem('dashboard_to_date', val);
+                                window.dispatchEvent(new Event('dashboard-filter-change'));
+                            }}
+                            className="text-[11px] font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer w-[100px]" 
+                        />
+                    </div>
+                    <button className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
+                        <span>📄</span> PDF
+                    </button>
+                    <button className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
+                        <span>📊</span> Excel
+                    </button>
+                    {loading && <Loader2 size={16} className="text-violet-400 animate-spin" />}
+                </div>
+            </div>
 
-            {/* KPI CARDS — 4 task cards + Manager Score cluster */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-6 mb-8 items-stretch">
-                
+
+            {/* ── KPI ROW ────────────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
                 {/* 1. Team Tasks */}
-                <Stat 
-                    label="Team Tasks" 
-                    value={stats.totalActive} 
-                    icon={Briefcase} 
-                    color="violet" 
-                    sub="Active team objectives"
-                />
-
-                {/* 2. In Progress */}
-                <Stat 
-                    label="In Progress" 
-                    value={dashboardData.in_progress_tasks || 0} 
-                    icon={Activity} 
-                    color="blue" 
-                    sub="Currently executing"
-                />
-
-                {/* 3. Pending Approval */}
-                <Stat 
-                    label="Pending Approval" 
-                    value={stats.pendingSubmission} 
-                    icon={Clock} 
-                    color="amber" 
-                    sub="Requires manager review"
-                />
-
-                {/* 4. Overdue Tasks */}
-                <Stat 
-                    label="Overdue Tasks" 
-                    value={dashboardData.overdue_tasks || 0} 
-                    icon={AlertCircle} 
-                    color="rose" 
-                    sub="Past completion deadline"
-                />
-
-                {/* 5. Score Cluster: Manager Score (large) + Team Score & Manager Personal Score (compact, stacked) */}
-                <div className="flex gap-3 min-w-[400px]">
-                    {/* Manager Score — large emerald card */}
-                    <div className="flex-1 group animate-fade-in-up relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-200/50 py-5 px-6 transition-all duration-500 hover:scale-[1.03] hover:shadow-xl border border-white/20 flex flex-col justify-between">
-                        <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-emerald-400/30 blur-2xl" />
-                        <div className="relative z-10 flex items-center justify-between mb-2">
-                            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30">
-                                <Target size={18} className="text-white" strokeWidth={2.5} />
-                            </div>
-                            <div className="text-right">
-                                {(() => {
-                                    const delta = stats.managerScoreDelta;
-                                    if (delta !== null && delta !== undefined) {
-                                        const arrow = delta >= 0 ? '▲' : '▼';
-                                        return <span className="text-[10px] font-bold text-white/90 bg-white/20 px-2 py-0.5 rounded-full">{arrow} {Math.abs(delta)}%</span>;
-                                    }
-                                    return null;
-                                })()}
-                            </div>
-                        </div>
-                        <div className="relative z-10 mt-auto">
-                            <div className="text-3xl font-black text-white tabular-nums tracking-tighter leading-none drop-shadow">
-                                {stats.managerScore != null ? `${stats.managerScore}%` : '—'}
-                            </div>
-                            <div className="text-[11px] font-bold text-white/90 uppercase tracking-widest truncate mt-1.5">Manager Score</div>
-                            <div className="text-[9px] text-white/60 font-semibold truncate uppercase tracking-widest mt-0.5">70% Team + 30% Personal</div>
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-4 shadow-lg shadow-cyan-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Briefcase size={15} className="text-white" />
                         </div>
                     </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.totalActive ?? dashboardData?.total_tasks ?? 0}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Team Tasks</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">All time tasks</div>
+                    </div>
+                </div>
 
-                    {/* Team Score + Manager Personal Score stacked */}
-                    <div className="flex flex-col gap-3 w-[175px]">
-                        {/* Team Score */}
-                        <div className="flex-1 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-100/40 hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col justify-between border border-white/10">
-                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
-                            <div className="flex items-center gap-2 relative z-10">
-                                <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center"><Users size={12} /></div>
-                                <span className="text-[8px] font-black uppercase tracking-widest opacity-80 leading-none">Team Score</span>
-                            </div>
-                            <h4 className="text-xl font-black relative z-10 mt-1">
-                                {stats.teamScore != null ? `${stats.teamScore}%` : '—'}
-                            </h4>
+                {/* 2. In Progress */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 shadow-lg shadow-blue-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Activity size={15} className="text-white" />
                         </div>
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{dashboardData?.in_progress_tasks ?? 0}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">In Progress</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Tasks in progress</div>
+                    </div>
+                </div>
 
-                        {/* Manager Personal Score */}
-                        <div className="flex-1 p-3.5 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-100/40 hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col justify-between border border-white/10">
-                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
-                            <div className="flex items-center gap-2 relative z-10">
-                                <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center"><TrendingUp size={12} /></div>
-                                <span className="text-[8px] font-black uppercase tracking-widest opacity-80 leading-tight">Manager Personal<br/>Score</span>
-                            </div>
-                            <h4 className="text-xl font-black relative z-10 mt-1">
-                                {stats.managerPersonalScore != null ? `${stats.managerPersonalScore}%` : '—'}
-                            </h4>
+                {/* 3. Pending Approval */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white p-4 shadow-lg shadow-amber-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Clock size={15} className="text-white" />
                         </div>
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.pendingSubmission ?? 0}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Pending Approval</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Awaiting approval</div>
+                    </div>
+                </div>
+
+                {/* 4. Overdue Tasks */}
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white p-4 shadow-lg shadow-rose-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <AlertCircle size={15} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{dashboardData?.overdue_tasks ?? 0}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Overdue Tasks</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Past due tasks</div>
+                    </div>
+                </div>
+
+                {/* 5. Manager Score */}
+                <div
+                    title="Performance Score: Net earned score / ideal score for all due tasks in the selected period * 100"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 shadow-lg shadow-emerald-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
+                >
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Target size={15} className="text-white" />
+                        </div>
+                        {(() => { const d = stats.managerScoreDelta; return d != null ? <span className="text-[9px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full ml-auto">{d >= 0 ? '▲' : '▼'} {Math.abs(d)}%</span> : null; })()}
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.managerScore != null ? `${stats.managerScore}%` : '-'}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Manager Score</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Calculation: 70% Team + 30% Personal</div>
+                    </div>
+                </div>
+
+                {/* 6. Team Score */}
+                <div
+                    title="Team Performance Score: Net earned score / ideal score for all team due tasks in the selected period * 100"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white p-4 shadow-lg shadow-violet-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
+                >
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <Users size={15} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${stats.teamScore}%` : '-'}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Team Score</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Team performance</div>
+                    </div>
+                </div>
+
+                {/* 7. Manager Personal Score */}
+                <div
+                    title="Personal Performance Score: Net earned score / ideal score for manager's own due tasks in the selected period * 100"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white p-4 shadow-lg shadow-fuchsia-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
+                >
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <TrendingUp size={15} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.managerPersonalScore != null ? `${stats.managerPersonalScore}%` : '-'}</div>
+                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Personal Score</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Manager's own tasks</div>
                     </div>
                 </div>
             </div>
 
-            {/* Row 2: Trends Chart */}
-            {trends.length > 0 && (
-                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6 h-[380px] flex flex-col">
-                    <h3 className="text-[16px] font-bold text-slate-800 mb-6 flex items-center gap-2">
-                        <BarChart2 size={18} className="text-indigo-500" />
-                        Execution Trends
-                    </h3>
-                    <div className="flex-1 min-h-0">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
-                            <BarChart data={trends}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            {/* Row 2: Task Activity Trends & Completion Overview */}
+            <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_1fr] gap-6">
+                {/* Left: Task Activity Trends */}
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6">
+                    <div className="flex items-center justify-between mb-8">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center shadow-sm border border-violet-100/50">
+                                <TrendingUp size={20} className="text-violet-600" />
+                            </div>
+                            <div>
+                                <h3 className="text-[20px] font-black text-slate-800 tracking-tight">Task Activity Trends</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Dynamic Workload Trajectory</p>
+                            </div>
+                        </div>
+                        <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Not Started</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></div>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pending</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Overdue</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="h-[280px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={finalTrendsData.length ? finalTrendsData : [{ name: 'No Data', new: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                                 <XAxis 
                                     dataKey="name" 
                                     axisLine={false} 
                                     tickLine={false} 
-                                    tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                                    tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 800 }} 
+                                    dy={10} 
                                 />
                                 <YAxis 
                                     axisLine={false} 
                                     tickLine={false} 
-                                    tick={{ fontSize: 11, fill: '#94a3b8' }} 
+                                    tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 800 }} 
+                                    domain={[0, 'auto']}
                                 />
-                                <Tooltip 
-                                    contentStyle={{ borderRadius: '1rem', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} 
-                                    cursor={{ fill: '#f8fafc' }}
+                                <Tooltip
+                                    cursor={{ fill: '#F8FAFC', opacity: 0.4 }}
+                                    contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
                                 />
-                                <Bar dataKey="completed" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} name="Completed" />
-                                <Bar dataKey="assigned" fill="#4285F4" radius={[4, 4, 0, 0]} barSize={20} name="Assigned" />
-                                <Bar dataKey="overdue" fill="#f43f5e" radius={[4, 4, 0, 0]} barSize={20} name="Overdue" />
+                                <Bar dataKey="overdue" stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
+                                <Bar dataKey="pending" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
+                                <Bar dataKey="new" stackId="a" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={32} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
-            )}
 
-            {/* Main Content Split */}
-            <div className="flex flex-col xl:flex-row gap-6 items-start">
-                {/* Left Side - Task Table (grows to fill) */}
-                <div className="flex-1 min-w-0 bg-white rounded-[1.5rem] p-0 shadow-sm border border-slate-100 flex flex-col min-h-[500px]">
-                    <div className="flex items-center gap-0 pt-4 px-4 sm:px-6 border-b border-slate-100 pb-0 overflow-x-auto">
-                        <h2 className="text-[15px] sm:text-[17px] font-bold text-slate-800 pb-4 shrink-0 mr-4">Team Task Overview</h2>
-                        <div className="flex gap-3 sm:gap-5 ml-0 overflow-x-auto pb-0 shrink-0">
-                            {["All", "Today's Tasks", "In Progress", "Submitted"].map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => { setTaskFilter(tab); setCurrentPage(1); }}
-                                    className={`text-sm font-semibold pb-4 -mb-[1px] transition-all ${taskFilter === tab ? 'text-violet-600 border-b-2 border-violet-600' : 'text-slate-400 hover:text-slate-600'}`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6 flex flex-col">
+                    <h3 className="text-[20px] font-black text-slate-800 mb-1 flex items-center gap-2">
+                        <CheckCircle size={20} className="text-emerald-500" /> Task Completion Overview
+                    </h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Department task health - Approved vs Pending vs Overdue</p>
+                    {(() => {
+                        const dd = dashboardData || {};
+                        const total = dd.total_tasks || dd.team_tasks || dd.total || 0;
+                        const approved = dd.approved_tasks || dd.completed_tasks || dd.approved || 0;
+                        const overdue = dd.overdue_tasks || dd.overdue_count || dd.overdue || 0;
+                        const inProg = dd.in_progress_tasks || dd.active_tasks || dd.active || dd.in_progress || 0;
+                        // Use same priority as KPI card — pending_approval first, then submitted_tasks
+                        const pending = dd.pending_approval || dd.submitted_tasks || dd.pending_review || dd.pending_tasks || dd.pending || 0;
+                        const notStarted = Math.max(0, total - approved - overdue - inProg - pending);
+                        const rate = total > 0 ? Math.round((approved / total) * 100) : 0;
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="text-[12px] text-slate-400 border-b border-slate-100 bg-slate-50/30">
-                                <tr>
-                                    <th className="py-3 px-2 pl-6 font-bold text-[10px] uppercase tracking-tighter">Task</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">PID</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">Parent</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">User</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter">Prio</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-center">Status</th>
-                                    <th className="py-3 px-2 font-bold text-[10px] uppercase tracking-tighter text-right pr-6">Act</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {paginatedTasks.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="7" className="py-20 text-center">
-                                            <div className="flex flex-col items-center gap-2 opacity-40">
-                                                <CheckSquare size={32} />
-                                                <p className="text-xs font-bold">No matching team objectives</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    paginatedTasks.map(task => (
-                                        <tr key={task.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="py-2 px-2 pl-6 flex items-center gap-2">
-                                                <span className="text-[12px] font-bold text-slate-700 truncate max-w-[200px]">{task.title}</span>
-                                            </td>
-                                            <td className="py-2 px-2">
-                                                <span className="text-[11px] font-medium text-slate-400">#{task.parent_task_id || '-'}</span>
-                                            </td>
-                                            <td className="py-2 px-2">
-                                                <span className="text-[11px] font-medium text-slate-500 truncate max-w-[120px] block uppercase tracking-tighter">
-                                                    {task.parent_task_title || '-'}
-                                                </span>
-                                            </td>
-                                            <td className="py-2 px-2">
-                                                <div className="flex items-center gap-1.5">
-                                                    <span className="text-[11px] font-bold text-slate-600 truncate max-w-[80px]">{task.assigneeName || 'Unassigned'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-2 px-2">
-                                                <div className="flex items-center gap-1 text-[11px] font-bold text-slate-500">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-rose-500' : 'bg-amber-400'}`}></div>
-                                                    {task.severity === 'HIGH' ? 'High' : 'Med'}
-                                                </div>
-                                            </td>
-                                            <td className="py-2 px-2 text-center">
-                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${task.status === 'SUBMITTED' ? 'bg-indigo-500 text-white' : task.status === 'IN_PROGRESS' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                                                    {task.status}
-                                                </span>
-                                            </td>
-                                            <td className="py-2 px-2 text-right pr-6">
-                                                {task.status === 'SUBMITTED' ? (
-                                                    <div className="flex gap-2 justify-end">
-                                                        <button onClick={() => handleStatusChange(task.id, 'APPROVE')} className="w-7 h-7 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all"><CheckCircle size={14} /></button>
-                                                        <button onClick={() => handleReworkRequest(task)} className="w-7 h-7 flex items-center justify-center bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-600 hover:text-white transition-all"><AlertTriangle size={14} /></button>
-                                                    </div>
-                                                ) : (
-                                                    <button onClick={() => navigate(`/tasks?taskId=${task.id}`)} className="px-5 py-1.5 bg-[#7B51ED] text-white text-[12px] font-bold rounded-lg hover:bg-violet-700 transition-[transform,colors] active:scale-95 shadow-sm">
-                                                        View
-                                                    </button>
-                                                )}
+                        // Donut: only include slices with real values (no 0.1 fakes)
+                        const donutData = [
+                            { name: 'Approved',    value: approved,  fill: '#10B981' },
+                            { name: 'Pending',     value: pending,   fill: '#F59E0B' },
+                            { name: 'In Progress', value: inProg,    fill: '#6366F1' },
+                            { name: 'Overdue',     value: overdue,   fill: '#F43F5E' },
+                            { name: 'Not Started', value: notStarted, fill: '#3B82F6' },
+                        ].filter(d => d.value > 0);
+                        const donutDisplay = donutData.length > 0 ? donutData : [{ name: 'Empty', value: 1, fill: '#F1F5F9' }];
 
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-
-                        {/* Pagination */}
-                        {filteredTasks.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium bg-slate-50/10">
-                                <span>Showing {Math.min(filteredTasks.length, (currentPage - 1) * itemsPerPage + 1)}-{Math.min(filteredTasks.length, currentPage * itemsPerPage)} of {filteredTasks.length}</span>
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        disabled={currentPage === 1}
-                                        onClick={() => setCurrentPage(p => p - 1)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
-                                    >
-                                        &lt;
-                                    </button>
-                                    {[...Array(totalPages)].map((_, i) => (
-                                        <button
-                                            key={i + 1}
-                                            onClick={() => setCurrentPage(i + 1)}
-                                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${currentPage === i + 1 ? 'bg-violet-600 text-white font-bold border-violet-600 shadow-md shadow-violet-200' : 'bg-white text-slate-600 border-slate-100 hover:border-violet-200'}`}
-                                        >
-                                            {i + 1}
-                                        </button>
+                        return (
+                            <div className="flex-1 flex flex-col items-center gap-8 mt-6">
+                                <div className="relative w-48 h-48 shrink-0">
+                                    <div className="absolute inset-0 rounded-full bg-slate-50 border-[14px] border-slate-100/50 shadow-inner" />
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={donutDisplay}
+                                                innerRadius={68}
+                                                outerRadius={88}
+                                                startAngle={90}
+                                                endAngle={-270}
+                                                paddingAngle={donutData.length > 1 ? 4 : 0}
+                                                dataKey="value"
+                                                stroke="none"
+                                                cornerRadius={4}
+                                            >
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pt-2">
+                                        <span className="text-[28px] font-black text-[#1e293b] leading-none tracking-tight">{rate}%</span>
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1.5">Completion Rate</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-3 flex-1 px-2">
+                                    {[
+                                        { label: 'TOTAL',       value: total,      color: 'text-slate-800',   bg: 'bg-slate-50',    labelColor: 'text-slate-400' },
+                                        { label: 'APPROVED',    value: approved,   color: 'text-emerald-500', bg: 'bg-emerald-50',  labelColor: 'text-emerald-500/70' },
+                                        { label: 'PENDING',     value: pending,    color: 'text-amber-500',   bg: 'bg-amber-50',    labelColor: 'text-amber-500/70' },
+                                        { label: 'OVERDUE',     value: overdue,    color: 'text-rose-500',    bg: 'bg-rose-50',     labelColor: 'text-rose-500/70' },
+                                        { label: 'IN PROGRESS', value: inProg,     color: 'text-blue-500',    bg: 'bg-blue-50',     labelColor: 'text-blue-500/70' },
+                                        { label: 'NOT STARTED', value: notStarted, color: 'text-indigo-500',  bg: 'bg-indigo-50',   labelColor: 'text-indigo-500/70' },
+                                    ].map(chip => (
+                                        <div key={chip.label} className={`${chip.bg} rounded-full px-5 py-2.5 flex items-center justify-between shadow-sm border border-white/60`}>
+                                            <span className={`text-[18px] font-black ${chip.color} tabular-nums leading-none`}>{chip.value}</span>
+                                            <span className={`text-[8px] font-black ${chip.labelColor} uppercase tracking-wider`}>{chip.label}</span>
+                                        </div>
                                     ))}
-                                    <button
-                                        disabled={currentPage === totalPages}
-                                        onClick={() => setCurrentPage(p => p + 1)}
-                                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-100 disabled:opacity-30 disabled:pointer-events-none transition-all"
-                                    >
-                                        &gt;
-                                    </button>
                                 </div>
                             </div>
-                        )}
-                    </div>
+                        );
+                    })()}
+                </div>
+            </div>
+
+            {/* Row 3: Bifurcation + Snapshot */}
+            <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-6">
+                {/* Left: Bifurcation */}
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6">
+                    <h3 className="text-[17px] font-bold text-slate-800 mb-1 flex items-center gap-2">
+                        <ListChecks size={18} className="text-violet-500" />
+                        Team Task Status Bifurcation
+                    </h3>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Breakdown of department tasks by current status</p>
+                    {(() => {
+                        const dd = dashboardData || {};
+                        const tsb = dd.team_status_bifurcation || {};
+                        const st  = tsb.statuses || {};
+                        const getCount = (key, flatFallback) =>
+                            st[key]?.count ?? st[key] ?? flatFallback ?? 0;
+                        const rows = [
+                            { label: 'Not Started', value: getCount('NEW',        dd.new_tasks),        fill: '#3b82f6', pct: 0 },
+                            { label: 'In Progress',value: getCount('IN_PROGRESS', dd.in_progress_tasks),fill: '#8b5cf6', pct: 0 },
+                            { label: 'Submitted',  value: getCount('SUBMITTED',   dd.submitted_tasks),  fill: '#f59e0b', pct: 0 },
+                            { label: 'Approved',   value: getCount('APPROVED',    dd.approved_tasks),   fill: '#10b981', pct: 0 },
+                            { label: 'Rework',     value: getCount('REWORK',      dd.rework_tasks),     fill: '#ef4444', pct: 0 },
+                            { label: 'Cancelled',  value: getCount('CANCELLED',   dd.cancelled_tasks),  fill: '#94a3b8', pct: 0 },
+                        ];
+                        const total = (tsb.total_tasks ?? rows.reduce((s, r) => s + r.value, 0)) || 1;
+                        rows.forEach(r => { r.pct = Math.round((r.value / total) * 100); });
+                        const donutD = rows.filter(r => r.value > 0).map(r => ({ name: r.label, value: r.value, fill: r.fill }));
+                        return (
+                            <div className="flex items-center gap-6">
+                                <div className="flex-1 overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                                <th className="pb-2 text-left">Status</th>
+                                                <th className="pb-2 text-center">Tasks</th>
+                                                <th className="pb-2 text-center">% of Total</th>
+                                                <th className="pb-2 pl-4 w-24"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-50">
+                                            {rows.map(r => (
+                                                <tr key={r.label}>
+                                                    <td className="py-2 flex items-center gap-2">
+                                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: r.fill }} />
+                                                        <span className="text-[12px] font-semibold text-slate-700">{r.label}</span>
+                                                    </td>
+                                                    <td className="py-2 text-center text-[13px] font-bold text-slate-700">{r.value}</td>
+                                                    <td className="py-2 text-center text-[12px] font-semibold text-slate-400">{r.pct}%</td>
+                                                    <td className="py-2 pl-4">
+                                                        <div className="w-20 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                                            <div className="h-full rounded-full" style={{ width: `${r.pct}%`, background: r.fill }} />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            <tr className="border-t border-slate-200">
+                                                <td className="py-2 text-[12px] font-black text-slate-700">Total</td>
+                                                <td className="py-2 text-center text-[13px] font-black text-slate-800">{total}</td>
+                                                <td className="py-2 text-center text-[12px] font-bold text-slate-500">100%</td>
+                                                <td />
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div className="relative w-[140px] h-[140px] shrink-0">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie data={donutD.length ? donutD : [{ name: 'Empty', value: 1, fill: '#e2e8f0' }]} cx="50%" cy="50%" innerRadius={45} outerRadius={62} dataKey="value" strokeWidth={0}>
+                                                {donutD.map((e, i) => <Cell key={i} fill={e.fill} />)}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                        <span className="text-xl font-black text-slate-800">{total}</span>
+                                        <span className="text-[9px] text-slate-400 font-bold uppercase">Total</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
 
-                {/* Right Sidebar - Quick Actions + Recent Activity stacked */}
-                <div className="flex flex-col gap-6 w-full xl:w-[320px] shrink-0">
-
-                    {/* Quick Actions */}
-                    <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">
-                        <h3 className="text-[15px] font-bold text-slate-800 mb-4 tracking-tight">Quick Actions</h3>
-                        <div className="flex flex-col gap-3">
-                            <button onClick={() => navigate('/tasks/assign')} className="w-full py-3.5 px-5 bg-[#7B51ED] text-white shadow-lg shadow-violet-500/20 rounded-xl font-bold flex items-center gap-3 hover:bg-violet-700 hover:translate-y-[-1px] transition-all text-[14px]">
-                                <Plus size={18} strokeWidth={2.5} /> Assign Task
-                            </button>
-                            <button onClick={() => navigate('/tasks?mode=team')} className="w-full py-3.5 px-5 bg-[#7B51ED] text-white shadow-lg shadow-violet-500/20 rounded-xl font-bold flex items-center gap-3 hover:bg-violet-700 hover:translate-y-[-1px] transition-all text-[14px]">
-                                <Users size={18} strokeWidth={2.5} /> Manage Team
-                            </button>
-                            <button onClick={() => navigate('/reports')} className="w-full py-3.5 px-5 bg-[#7B51ED] text-white shadow-lg shadow-violet-500/20 rounded-xl font-bold flex items-center gap-3 hover:bg-violet-700 hover:translate-y-[-1px] transition-all text-[14px]">
-                                <Activity size={18} strokeWidth={2.5} /> View Reports
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Recent Activity */}
-                    <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100 flex-1">
-                        <div className="flex justify-between items-center mb-5">
-                            <h3 className="text-[15px] font-bold text-slate-800 tracking-tight">Recent Activity</h3>
-                            <button className="text-slate-400 hover:text-slate-600 transition-colors">
-                                <Settings size={16} />
-                            </button>
-                                    </div>
-
-                        <div className="space-y-3 max-h-[380px] overflow-y-auto custom-scrollbar pr-1">
-                            {activities.length === 0 ? (
-                                <div className="py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-slate-100">
-                                    <Activity className="w-8 h-8 text-slate-200 mx-auto mb-2 opacity-50" />
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">No recent team activity</p>
-                                </div>
-                            ) : (
-                                activities.slice(0, 10).map((n, idx) => {
-                                    const actorName = n.actor_name || n.user_name || n.actor?.name || 'Member';
-                                    const taskTitle = n.task_title || n.title || n.directive_title || n.task?.title || 'Task';
-                                    const type = n.type || n.action || 'ACTIVITY';
-
-                                    const getStyle = () => {
-                                        if (type === 'TASK_APPROVED' || type === 'SUCCESS') return 'bg-emerald-100 text-emerald-600 border-emerald-200';
-                                        if (type === 'TASK_REWORK' || type === 'WARNING') return 'bg-amber-100 text-amber-600 border-amber-200';
-                                        if (type === 'TASK_SUBMITTED') return 'bg-violet-100 text-violet-600 border-violet-200';
-                                        return 'bg-indigo-100 text-indigo-600 border-indigo-200';
-                                    };
-
-                                    return (
-                                        <div key={n.id || idx} className="flex gap-3 items-start border border-slate-100 p-3.5 rounded-2xl bg-white shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                                            <div className={`w-9 h-9 border shadow-sm rounded-full shrink-0 overflow-hidden flex items-center justify-center font-semibold text-xs ${getStyle()}`}>
-                                                {actorName.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex-1 pt-0.5 min-w-0">
-                                                <div className="flex items-center justify-between mb-0.5">
-                                                    <span className="text-[11px] font-semibold text-slate-800 uppercase tracking-tight">{actorName}</span>
-                                                    <span className="text-[9px] font-medium text-slate-400">{formatTimeAgo(n.created_at)}</span>
-                                                </div>
-                                                <p className="text-[13px] text-slate-500 leading-tight">
-                                                    {(() => {
-                                                        const title = <span className="font-semibold text-violet-600">"{taskTitle}"</span>;
-                                                        switch (type) {
-                                                            case 'TASK_SUBMITTED': return <>submitted {title} for review</>;
-                                                            case 'TASK_APPROVED': return <>finalized and approved {title}</>;
-                                                            case 'TASK_REWORK': return <>requested changes on {title}</>;
-                                                            case 'TASK_CREATED': return <>delegated {title}</>;
-                                                            case 'TASK_REASSIGNED': return <>re-assigned {title}</>;
-                                                            default: return n.message || <>interacted with {title}</>;
-                                                        }
-                                                    })()}
-                                                </p>
-                                                {n.comment && <span className="block text-slate-400 mt-1 italic text-[12px] border-l-2 border-slate-100 pl-2">"{n.comment}"</span>}
-                                            </div>
+                {/* Right: Snapshot */}
+                <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6">
+                    <h3 className="text-[17px] font-bold text-slate-800 mb-1 flex items-center gap-2">
+                        <Activity size={18} className="text-rose-500" />
+                        Team Action Snapshot
+                    </h3>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Focus areas requiring managerial attention</p>
+                    {(() => {
+                        const dd = dashboardData || {};
+                        const tas = dd.team_action_snapshot || {};
+                        const snap = [
+                            { label: 'Active Tasks',     sub: 'Not approved or cancelled',  value: tas.active_tasks          ?? dd.in_progress_tasks ?? 0,                           icon: Activity,      bg: 'bg-blue-50',    iconC: 'text-blue-500',    border: 'border-blue-100'    },
+                            { label: 'Pending Approval', sub: 'Awaiting review',             value: tas.pending_approval_tasks ?? dd.submitted_tasks ?? stats.pendingSubmission ?? 0, icon: Clock,         bg: 'bg-amber-50',   iconC: 'text-amber-500',   border: 'border-amber-100'   },
+                            { label: 'Overdue Tasks',    sub: 'Past due, not closed',        value: tas.overdue_tasks          ?? dd.overdue_tasks ?? 0,                              icon: AlertTriangle, bg: 'bg-rose-50',    iconC: 'text-rose-500',    border: 'border-rose-100'    },
+                            { label: 'Due Today',        sub: 'Due today, pending action',   value: tas.due_today_tasks        ?? dd.due_today ?? 0,                                  icon: Calendar,      bg: 'bg-orange-50',  iconC: 'text-orange-500',  border: 'border-orange-100'  },
+                            { label: 'Completed Tasks',  sub: 'Approved tasks',              value: tas.completed_tasks        ?? dd.approved_tasks ?? 0,                             icon: CheckCircle,   bg: 'bg-emerald-50', iconC: 'text-emerald-500', border: 'border-emerald-100' },
+                            { label: 'Cancelled Tasks',  sub: 'Cancelled tasks',             value: tas.cancelled_tasks        ?? dd.cancelled_tasks ?? 0,                            icon: XCircle,       bg: 'bg-slate-50',   iconC: 'text-slate-400',   border: 'border-slate-100'   },
+                        ];
+                        return (
+                            <div className="grid grid-cols-3 gap-3">
+                                {snap.map(s => (
+                                    <div key={s.label} className={`${s.bg} border ${s.border} rounded-2xl p-3.5 flex flex-col gap-2 hover:shadow-md transition-all`}>
+                                        <div className={`w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-sm`}>
+                                            <s.icon size={16} className={s.iconC} />
                                         </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Employee Risk Monitor */}
-                    <div className="bg-white rounded-[1.5rem] p-6 shadow-sm border border-slate-100">
-                        {/* Header + date filter */}
-                        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                            <h3 className="text-[15px] font-bold text-slate-800 flex items-center gap-2 shrink-0">
-                                <AlertTriangle size={16} className="text-rose-500" />
-                                Performance Risk Tracker
-                            </h3>
-                            {riskLoading && <Loader2 size={14} className="text-rose-400 animate-spin" />}
-                        </div>
-                        {/* Date pickers */}
-                        <div className="flex items-center gap-1.5 mb-4 flex-wrap">
-                            <div className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1">
-                                <Calendar size={11} className="text-rose-400 shrink-0" />
-                                <input
-                                    type="date"
-                                    value={riskFrom}
-                                    max={riskTo}
-                                    onChange={e => setRiskFrom(e.target.value)}
-                                    className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]"
-                                />
-                            </div>
-                            <span className="text-[10px] text-slate-400 font-bold">→</span>
-                            <div className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-lg px-2 py-1">
-                                <Calendar size={11} className="text-rose-400 shrink-0" />
-                                <input
-                                    type="date"
-                                    value={riskTo}
-                                    min={riskFrom}
-                                    onChange={e => setRiskTo(e.target.value)}
-                                    className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]"
-                                />
-                            </div>
-                        </div>
-                        {employeeRisk.length === 0 ? (
-                            <div className="py-8 text-center bg-rose-50/30 rounded-xl border border-dashed border-rose-100">
-                                <AlertTriangle size={24} className="text-rose-200 mx-auto mb-2" />
-                                <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest">No risk data for period</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2">
-                                {employeeRisk.slice(0, 4).map((risk, i) => (
-                                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-rose-50/30 border border-rose-100/50 hover:bg-rose-50 transition-all">
-                                        <div className="min-w-0">
-                                            <p className="text-[13px] font-bold text-slate-800 truncate">{risk.name || risk.employee_name}</p>
-                                            <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                                <span className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{risk.risk_level || 'At Risk'}</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right shrink-0">
-                                            <p className="text-[14px] font-semibold text-rose-600 leading-none">{risk.overdue_count || risk.overdue || 0}</p>
-                                            <p className="text-[9px] text-slate-400 font-medium uppercase mt-1">Overdue</p>
+                                        <div>
+                                            <div className="text-[22px] font-black text-slate-800 leading-none">{s.value}</div>
+                                            <div className="text-[11px] font-bold text-slate-700 mt-0.5">{s.label}</div>
+                                            <div className="text-[10px] text-slate-400 font-medium">{s.sub}</div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        )}
-                    </div>
+                        );
+                    })()}
                 </div>
             </div>
 
-            {/* Asset Merit Registry - Full Width Below */}
+
+            {/* ── BOTTOM SPLIT: Execution Monitor + Risk Monitor side-by-side ── */}
+            <div className="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-5 items-start">
+
+            {/* Team Execution Monitor */}
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden">
                 <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/10 flex-wrap">
                     <div className="flex items-center gap-3">
-                        <h3 className="text-[17px] font-bold text-slate-800">Asset Merit Registry</h3>
+                        <h3 className="text-[17px] font-bold text-slate-800">Team Execution Monitor</h3>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Workload &amp; Completion Status</span>
                         {teamPerfLoading && <Loader2 size={15} className="text-violet-400 animate-spin" />}
                     </div>
-                    {/* Team Performance date filters */}
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Period:</span>
                         <div className="flex items-center gap-1 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
                             <Calendar size={12} className="text-violet-400 shrink-0" />
-                            <input
-                                type="date"
-                                value={teamPerfFrom}
-                                max={teamPerfTo}
-                                onChange={e => setTeamPerfFrom(e.target.value)}
-                                className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]"
-                            />
+                            <input type="date" value={teamPerfFrom} max={teamPerfTo} onChange={e => setTeamPerfFrom(e.target.value)} className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]" />
                         </div>
                         <span className="text-[11px] text-slate-400 font-bold">→</span>
                         <div className="flex items-center gap-1 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
                             <Calendar size={12} className="text-violet-400 shrink-0" />
-                            <input
-                                type="date"
-                                value={teamPerfTo}
-                                min={teamPerfFrom}
-                                onChange={e => setTeamPerfTo(e.target.value)}
-                                className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]"
-                            />
+                            <input type="date" value={teamPerfTo} min={teamPerfFrom} onChange={e => setTeamPerfTo(e.target.value)} className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]" />
                         </div>
+                        <button onClick={() => navigate('/tasks/team')} className="ml-2 px-4 py-1.5 border border-violet-200 text-violet-600 text-[11px] font-bold rounded-lg hover:bg-violet-50 transition-all flex items-center gap-1.5">
+                            <Eye size={13} /> View Details
+                        </button>
                     </div>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-[#F8F9FF] text-slate-500 text-[12px] font-medium border-b border-slate-100">
+                <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left border-separate border-spacing-0">
+                        <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold uppercase tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
                             <tr>
-                                <th className="py-3 px-6">Rank</th>
-                                <th className="py-3 px-6">Name</th>
-                                <th className="py-3 px-6 text-center">Assigned</th>
-                                <th className="py-3 px-6 text-center">Completed</th>
-                                <th className="py-3 px-6 text-center">Efficiency</th>
-                                <th className="py-3 px-6 text-right">Action</th>
+                                <th className="py-3 px-2.5 pl-6">Employee</th>
+                                <th className="py-3 px-2.5 text-center">Tasks</th>
+                                <th className="py-3 px-2.5 text-center">Active</th>
+                                <th className="py-3 px-2.5 text-center">Pending</th>
+                                <th className="py-3 px-2.5 text-center">Overdue</th>
+                                <th className="py-3 px-2.5 text-center">Comp %</th>
+                                <th className="py-3 px-2.5 text-center">Score %</th>
+                                <th className="py-3 px-2.5 text-right pr-6">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {finalRankingData.length === 0 ? (
-                                <tr><td colSpan="6" className="py-12 text-center text-slate-400 font-bold text-xs">No ranking data available</td></tr>
+                                <tr><td colSpan="9" className="py-12 text-center text-slate-400 font-bold text-xs">No team data available for selected period</td></tr>
                             ) : (
-                                finalRankingData.slice(0, 5).map((member) => {
-                                    const rate = member.assigned > 0 ? Math.round((member.completed / member.assigned) * 100) : 0;
+                                finalRankingData.map((member) => {
+                                    // Section 7 exact backend fields
+                                    const isManager  = member.is_manager ?? false;
+                                    const totalTasks = member.assigned;
+                                    const inProgress = member.active;
+                                    const pendingRev = member.pending;
+                                    const overdue    = member.overdue;
+                                    const completed  = member.completed;
+                                    // completion_rate from backend takes precedence; fallback = formula
+                                    const compRate   = member.completion_rate != null
+                                        ? Math.round(member.completion_rate)
+                                        : (totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0);
+                                    // performance_score from backend (net earned ÷ ideal × 100)
+                                    const perfScore  = member.performance_score != null
+                                        ? Math.round(member.performance_score)
+                                        : compRate;
+                                    const dept = member.department_name ?? member.department ?? currentDeptName;
                                     return (
-                                        <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
-                                            <td className="py-3 px-6">
-                                                <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold ${member.rank === 1 ? 'bg-[#FFF3E0] text-[#F59E0B]' : 'bg-slate-100 text-slate-500'}`}>#{member.rank}</span>
-                                            </td>
-                                            <td className="py-3 px-6 font-semibold text-slate-800 text-[13.5px]">{member.name}</td>
-                                            <td className="py-3 px-6 text-center font-medium text-slate-600 text-[13px]">{member.assigned}</td>
-                                            <td className="py-3 px-6 text-center font-medium text-slate-600 text-[13px]">{member.completed}</td>
-                                            <td className="py-3 px-6">
-                                                <div className="flex items-center justify-center gap-3">
-                                                    <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                        <div className={`h-full ${rate >= 80 ? 'bg-[#34D399]' : rate >= 50 ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'}`} style={{ width: `${rate}%` }} />
+                                        <tr key={member.id} className={`hover:bg-slate-50/50 transition-colors ${isManager ? 'bg-violet-50/30' : ''}`}>
+                                            <td className="py-3 px-2.5 pl-6">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 ${isManager ? 'bg-gradient-to-br from-emerald-400 to-teal-500' : 'bg-gradient-to-br from-violet-400 to-indigo-500'}`}>
+                                                        {(member.name || 'U').charAt(0)}
                                                     </div>
-                                                    <span className="text-[12px] font-bold text-slate-700">{rate}%</span>
+                                                    <div className="min-w-0">
+                                                        <div className="text-[12px] font-semibold text-slate-800 truncate">{member.name}</div>
+                                                        <div className="text-[9px] font-medium text-slate-400 truncate">
+                                                            {isManager ? 'Manager' : (member.role || 'Employee')}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="py-3 px-6 text-right">
-                                                <button onClick={() => navigate(`/tasks?employeeId=${member.id}`)} className="px-5 py-1.5 bg-[#7B51ED] text-white text-[12px] font-bold rounded-lg hover:bg-violet-700 transition-[transform,colors] active:scale-95 shadow-sm inline-flex items-center gap-1.5">
-                                                    View
+                                            <td className="py-3 px-2.5 text-center text-[12px] font-bold text-slate-700">{totalTasks}</td>
+                                            <td className="py-3 px-2.5 text-center text-[12px] font-semibold text-blue-600">{inProgress}</td>
+                                            <td className="py-3 px-2.5 text-center text-[12px] font-semibold text-amber-600">{pendingRev}</td>
+                                            <td className="py-3 px-2.5 text-center text-[12px] font-semibold text-rose-600">{overdue}</td>
+                                            <td className="py-3 px-2.5">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full ${compRate >= 80 ? 'bg-emerald-400' : compRate >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${Math.min(compRate, 100)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[11px] font-bold ${compRate >= 80 ? 'text-emerald-600' : compRate >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{compRate}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-2.5">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <div className="w-12 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full ${perfScore >= 80 ? 'bg-emerald-400' : perfScore >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${Math.min(perfScore, 100)}%` }} />
+                                                    </div>
+                                                    <span className={`text-[11px] font-bold ${perfScore >= 80 ? 'text-emerald-600' : perfScore >= 50 ? 'text-amber-600' : 'text-rose-600'}`}>{perfScore}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-2.5 text-right pr-6">
+                                                <button onClick={() => navigate(`/tasks?employeeId=${member.id}`)} className="px-3 py-1 bg-[#7B51ED] text-white text-[10px] font-bold rounded-lg hover:bg-violet-700 transition-all active:scale-95 shadow-sm inline-flex items-center gap-1">
+                                                    <Eye size={11} /> View
                                                 </button>
                                             </td>
                                         </tr>
@@ -1161,16 +1029,154 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                             )}
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            {/* Employee Risk Monitor */}
+            <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden">
+                <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/10 flex-wrap">
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-[17px] font-bold text-slate-800 flex items-center gap-2">
+                            <AlertTriangle size={17} className="text-rose-500" /> Employee Risk Monitor
+                        </h3>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Delivery Health &amp; Risk Assessment</span>
+                        {riskLoading && <Loader2 size={14} className="text-rose-400 animate-spin" />}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5">
+                            <Calendar size={11} className="text-rose-400 shrink-0" />
+                            <input type="date" value={riskFrom} max={riskTo} onChange={e => setRiskFrom(e.target.value)} className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]" />
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-bold">→</span>
+                        <div className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5">
+                            <Calendar size={11} className="text-rose-400 shrink-0" />
+                            <input type="date" value={riskTo} min={riskFrom} onChange={e => setRiskTo(e.target.value)} className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]" />
+                        </div>
+                    </div>
+                </div>
+                <div className="px-6 py-4 bg-white">
+                    <div className="flex items-center gap-1.5 flex-nowrap mb-4">
+                        {[
+                            { label: 'On Track', desc: 'No overdue',   dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+                            { label: 'Watch',    desc: '1 overdue',     dot: 'bg-blue-500',    bg: 'bg-blue-50',    text: 'text-blue-700' },
+                            { label: 'At Risk',   desc: '2 overdue',    dot: 'bg-orange-500',  bg: 'bg-amber-50',   text: 'text-orange-700' },
+                            { label: 'Off Track', desc: '3+ overdue',   dot: 'bg-rose-500',    bg: 'bg-rose-50',    text: 'text-rose-700' },
+                        ].map(s => (
+                            <div key={s.label} className={`${s.bg} rounded-full px-2.5 py-1 flex items-center gap-1.5 border border-white/60 shadow-sm shrink-0`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${s.dot} shadow-sm`} />
+                                <div className="flex flex-col leading-[1]">
+                                    <span className={`text-[9px] font-black ${s.text} whitespace-nowrap`}>{s.label}</span>
+                                    <span className="text-[7.5px] font-bold text-slate-400/80 whitespace-nowrap">{s.desc}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-left border-separate border-spacing-0">
+                        <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold uppercase tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th className="py-3 px-2 pl-6">Employee</th>
+                                <th className="py-3 px-1 text-center">Active</th>
+                                <th className="py-3 px-1 text-center">Overdue</th>
+                                <th className="py-3 px-1 text-center">Score %</th>
+                                <th className="py-3 px-2 text-center pr-6">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {employeeRisk.length === 0 ? (
+                                <tr><td colSpan="5" className="py-12 text-center text-rose-400 font-bold text-xs">No risk data for selected period</td></tr>
+                            ) : (
+                ((() => {
+                                // Sort a copy of employeeRisk ascending by emp_id
+                                const sorted = [...employeeRisk].sort((a, b) => {
+                                    const idA = isNaN(Number(a.emp_id || a.id)) ? String(a.emp_id || a.id || '') : Number(a.emp_id || a.id);
+                                    const idB = isNaN(Number(b.emp_id || b.id)) ? String(b.emp_id || b.id || '') : Number(b.emp_id || b.id);
+                                    if (idA < idB) return -1;
+                                    if (idA > idB) return 1;
+                                    return 0;
+                                });
+                                const displayList = riskShowAll ? sorted : sorted.slice(0, 5);
+                                return displayList;
+                            })()).map((risk, i) => {
+                                    const rawStatus = risk.risk_status || risk.risk_level || 'NO_DATA';
+                                    // Normalise to display label
+                                    const statusLabel = {
+                                        ON_TRACK:  'On Track',
+                                        WATCH:     'Watch',
+                                        AT_RISK:   'At Risk',
+                                        OFF_TRACK: 'Off Track',
+                                        NO_DATA:   'No Data',
+                                    }[rawStatus.toUpperCase()] ?? rawStatus;
+                                    const riskStyle = {
+                                        'On Track': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                                        'Watch':    'bg-amber-100  text-amber-700  border-amber-200',
+                                        'At Risk':  'bg-orange-100 text-orange-700 border-orange-200',
+                                        'Off Track':'bg-rose-100   text-rose-700   border-rose-200',
+                                        'No Data':  'bg-slate-100  text-slate-500  border-slate-200',
+                                    }[statusLabel] ?? 'bg-slate-100 text-slate-500 border-slate-200';
+                                    // Section 8 exact backend fields
+                                    const activeTasks = risk.active_tasks ?? risk.in_progress_tasks ?? risk.active ?? risk.in_progress ?? 0;
+                                    const totalTasks  = risk.total_tasks ?? risk.tasks_assigned ?? risk.total ?? 0;
+                                    const overdue     = risk.overdue_tasks ?? risk.overdue_count ?? risk.overdue ?? 0;
+                                    const execScore   = risk.performance_score ?? risk.execution_score ?? 0;
+                                    return (
+                                        <tr key={risk.emp_id ?? i} className="hover:bg-slate-50/50 transition-colors">
+                                            <td className="py-3 px-2 pl-6">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-7 h-7 rounded-full bg-gradient-to-br from-rose-400 to-orange-500 flex items-center justify-center text-white text-[10px] font-bold shrink-0`}>
+                                                        {(risk.name || risk.employee_name || risk.emp_name || risk.full_name || 'U').charAt(0)}
+                                                    </div>
+                                                    <div className="min-w-0 max-w-[100px]">
+                                                        <div className="text-[11px] font-semibold text-slate-800 truncate">
+                                                            {risk.name || risk.employee_name || risk.emp_name || risk.full_name || (risk.emp_id ? `Emp #${risk.emp_id}` : 'Unknown')}
+                                                        </div>
+                                                        <div className="text-[8px] text-slate-400 font-medium truncate">{risk.role || risk.designation || 'Team Member'}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-1 text-center text-[12px] font-bold text-slate-700">{activeTasks}</td>
+                                            <td className="py-3 px-1 text-center text-[12px] font-bold text-rose-600">{overdue}</td>
+                                            <td className="py-3 px-1">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    <div className="w-10 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className={`h-full rounded-full ${execScore >= 80 ? 'bg-emerald-400' : execScore >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`} style={{ width: `${Math.min(execScore, 100)}%` }} />
+                                                    </div>
+                                                    <span className="text-[10px] font-bold text-slate-600">{execScore}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 px-2 text-center pr-6">
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black border ${riskStyle} whitespace-nowrap uppercase`}>● {statusLabel}</span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                {employeeRisk.length > 5 && (
+                    <div className="px-6 py-3 border-t border-slate-50 bg-slate-50/20 flex justify-center">
+                        <button 
+                            onClick={() => setRiskShowAll(!riskShowAll)}
+                            className="text-[11px] font-bold text-[#7B51ED] hover:text-violet-700 flex items-center gap-1.5 transition-colors py-1 px-4 rounded-full border border-violet-100 bg-white shadow-sm"
+                        >
+                            {riskShowAll ? (
+                                <>Show Less</>
+                            ) : (
+                                <>View All ({employeeRisk.length})</>
+                            )}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
 
-            <ReworkCommentModal
-                isOpen={reworkModalOpen}
-                onClose={() => setReworkModalOpen(false)}
-                onConfirm={handleReworkConfirm}
-                taskTitle={taskForRework?.title || ''}
-            />
-        </div >
+        </div>{/* end bottom grid */}
+
+            {/* Team Task Overview + Quick Actions (Footer Position) */}
+
+
+        </div>
     );
 };
 

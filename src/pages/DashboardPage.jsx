@@ -4,11 +4,12 @@ import { useEffect } from 'react';
 import EmployeeDashboard from '../components/Dashboard/EmployeeDashboard';
 import AdminDashboard from '../components/Dashboard/AdminDashboard';
 import CFODashboard from '../components/Dashboard/CFODashboard';
+import ManagerDashboard from '../components/Dashboard/ManagerDashboard';
 import EmployeePerformanceDashboard from './EmployeePerformanceDashboard';
 
 const roleDashboardMap = {
   Employee: EmployeeDashboard,
-  Manager: EmployeePerformanceDashboard,
+  Manager: ManagerDashboard,
   Admin: AdminDashboard,
   CFO: CFODashboard,
 };

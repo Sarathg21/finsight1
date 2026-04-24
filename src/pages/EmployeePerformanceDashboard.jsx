@@ -1224,7 +1224,7 @@ const PerformanceDashboard = () => {
                         <div className="hidden xl:flex items-center gap-6 bg-slate-50/50 px-6 py-2.5 rounded-full border border-slate-100 shadow-sm">
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">New</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Not Started</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-[#f59e0b]" />
