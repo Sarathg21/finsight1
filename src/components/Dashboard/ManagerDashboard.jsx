@@ -505,32 +505,118 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             PerfScore: perfIndexMap[String(m.emp_id || m.id || '')] ?? null,
           }));
 
+    // Helper: extract real error detail from a blob error response body
+    const readBlobError = async (err) => {
+        const errData = err?.response?.data;
+        if (errData instanceof Blob && errData.size > 0) {
+            try {
+                const text = await errData.text();
+                const j = JSON.parse(text);
+                return Array.isArray(j.detail)
+                    ? j.detail.map(d => d.msg).join(', ')
+                    : (j.detail || j.message || text.slice(0, 200));
+            } catch { /* not JSON */ }
+        }
+        return err?.message || 'Unknown error';
+    };
+
     const handleExport = async (format) => {
         const tid = toast.loading(`Preparing ${format.toUpperCase()} export...`);
         try {
-            const params = { from_date: fromDate, to_date: toDate };
-            if (currentDeptId && currentDeptId !== 'all') params.department_id = currentDeptId;
+            const safeFrom = (fromDate && fromDate.length === 10) ? fromDate : getFirstDayOfMonth();
+            const safeTo   = (toDate   && toDate.length   === 10) ? toDate   : getToday();
+            const depId    = (!currentDeptId || currentDeptId === 'all' || currentDeptId === '' || currentDeptId === 'undefined') ? undefined : currentDeptId;
 
-            const res = await api.get(`/reports/manager/export-${format}`, {
-                params,
-                responseType: 'blob'
+            const rolePath = user?.role?.toLowerCase() || 'manager';
+            const depName = currentDeptName !== 'All Departments' ? currentDeptName : undefined;
+
+            const candidates = [];
+            
+            if (depId) {
+                candidates.push({
+                    ep: format === 'pdf' ? '/reports/manager/export-pdf' : '/reports/manager/export-excel',
+                    params: { 
+                        from_date: safeFrom, to_date: safeTo, 
+                        start_date: safeFrom, end_date: safeTo,
+                        department_id: depId, dept_id: depId, dep_id: depId,
+                        scope: 'department', department: depName, dept_name: depName
+                    }
+                });
+            }
+
+            // Fallback: Use the user's role path but ENSURE department params are included if selected
+            candidates.push({
+                ep: format === 'pdf' ? `/reports/${rolePath}/export-pdf` : `/reports/${rolePath}/export-excel`,
+                params: { 
+                    from_date: safeFrom, to_date: safeTo,
+                    start_date: safeFrom, end_date: safeTo,
+                    ...(depId ? { 
+                        department_id: depId, dept_id: depId, dep_id: depId, 
+                        scope: 'department', department: depName, dept_name: depName 
+                    } : { scope: 'org' })
+                }
             });
 
-            const blob = new Blob([res.data], {
-                type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `manager_report_${fromDate}_to_${toDate}.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            toast.success(`${format.toUpperCase()} exported successfully!`, { id: tid });
+            // Ensure unique endpoints
+            const seen = new Set();
+            const unique = candidates.filter(c => seen.has(c.ep) ? false : (seen.add(c.ep), true));
+
+            let lastErrMsg = 'Export failed';
+            let primaryStatus = null;
+
+            for (const { ep, params } of unique) {
+                try {
+                    const res = await api.get(ep, { params, responseType: 'blob' });
+                    const ext = format === 'excel' ? 'xlsx' : 'pdf';
+
+                    // check if the response is actually JSON (masquerading as a blob)
+                    if (res.data.type === 'application/json' || res.data.size < 600) {
+                        const text = await res.data.text();
+                        try {
+                            const json = JSON.parse(text);
+                            if (json.detail || json.message) {
+                                const msg = Array.isArray(json.detail) ? json.detail.map(d => d.msg).join(', ') : (json.detail || json.message);
+                                throw new Error(msg);
+                            }
+                            const downloadUrl = json.download_url || json.data?.download_url;
+                            if (downloadUrl) {
+                                const a = document.createElement('a');
+                                a.href = downloadUrl;
+                                a.download = `manager_report_${safeFrom}_${safeTo}.${ext}`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                toast.success('Download started', { id: tid });
+                                return;
+                            }
+                        } catch (parseErr) {
+                            if (!(parseErr instanceof SyntaxError)) throw parseErr;
+                        }
+                    }
+
+                    const contentType = res.headers['content-type'] ||
+                        (format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                    const blob = new Blob([res.data], { type: contentType });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `manager_report_${safeFrom}_${safeTo}.${ext}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    toast.success('Downloaded successfully', { id: tid });
+                    return;
+                } catch (epErr) {
+                    lastErrMsg = await readBlobError(epErr);
+                    primaryStatus = epErr?.response?.status;
+                    console.warn(`[Export] ${ep} failed (${primaryStatus ?? 'network'}):`, lastErrMsg);
+                }
+            }
+
+            toast.error(lastErrMsg.slice(0, 150), { id: tid });
         } catch (err) {
-            console.error('Export failed:', err);
-            toast.error('Failed to export report. Please try again.', { id: tid });
+            toast.error(err.message || 'Export failed', { id: tid });
         }
     };
 
