@@ -505,6 +505,35 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             PerfScore: perfIndexMap[String(m.emp_id || m.id || '')] ?? null,
           }));
 
+    const handleExport = async (format) => {
+        const tid = toast.loading(`Preparing ${format.toUpperCase()} export...`);
+        try {
+            const params = { from_date: fromDate, to_date: toDate };
+            if (currentDeptId && currentDeptId !== 'all') params.department_id = currentDeptId;
+
+            const res = await api.get(`/reports/manager/export-${format}`, {
+                params,
+                responseType: 'blob'
+            });
+
+            const blob = new Blob([res.data], {
+                type: format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `manager_report_${fromDate}_to_${toDate}.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            toast.success(`${format.toUpperCase()} exported successfully!`, { id: tid });
+        } catch (err) {
+            console.error('Export failed:', err);
+            toast.error('Failed to export report. Please try again.', { id: tid });
+        }
+    };
+
     return (
         <div className="space-y-5 pb-10">
 
@@ -542,10 +571,10 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                             className="text-[11px] font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer w-[100px]" 
                         />
                     </div>
-                    <button className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
+                    <button onClick={() => handleExport('pdf')} className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
                         <span>📄</span> PDF
                     </button>
-                    <button className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
+                    <button onClick={() => handleExport('excel')} className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
                         <span>📊</span> Excel
                     </button>
                     {loading && <Loader2 size={16} className="text-violet-400 animate-spin" />}
@@ -646,7 +675,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${stats.teamScore}%` : '-'}</div>
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${Number(stats.teamScore).toFixed(2)}%` : '-'}</div>
                         <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Team Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Team performance</div>
                     </div>

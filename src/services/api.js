@@ -27,9 +27,19 @@ api.interceptors.request.use((config) => {
             if (val === '' || val === null || val === undefined) {
                 // Remove empty or null params
                 delete config.params[key];
-            } else if (['from_date', 'to_date', 'start_date', 'end_date'].includes(key) && typeof val === 'string' && val.length < 10) {
-                // Remove partial/invalid dates
-                delete config.params[key];
+            } else if (['from_date', 'to_date', 'start_date', 'end_date'].includes(key) && typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed.length < 10) {
+                    delete config.params[key];
+                } else {
+                    // Convert DD-MM-YYYY to YYYY-MM-DD to avoid backend parsing errors
+                    const dmy = trimmed.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+                    if (dmy) {
+                        config.params[key] = `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+                    } else {
+                        config.params[key] = trimmed;
+                    }
+                }
             }
         });
     }
