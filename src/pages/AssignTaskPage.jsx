@@ -293,11 +293,12 @@ const AssignTaskPage = () => {
                         assigned_to_emp_id: formData.assignee,
                         department_id: resolvedDepartmentId,
                         due_date: formData.dueDate,
-                        parent_task_id: null
+                        parent_task_id: null,
+                        task_type: formData.taskStructure === 'PARENT' ? 'PARENT' : 'TASK'
                     };
 
                     const taskRes = await api.post('/tasks', payload);
-                    newTaskId = taskRes.data.id || taskRes.data.task_id || taskRes.data.data?.id;
+                    newTaskId = taskRes.data?.id || taskRes.data?.task_id || taskRes.data?.data?.id || taskRes.data?.data?.task_id;
                 }
 
                 if (attachment && newTaskId) {
@@ -319,6 +320,7 @@ const AssignTaskPage = () => {
                                 title: st.title,
                                 description: st.description,
                                 assigned_to_emp_id: st.assigned_to_emp_id,
+                                department_id: resolvedDepartmentId,
                                 due_date: st.due_date,
                                 priority: st.priority
                             });

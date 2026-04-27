@@ -10,7 +10,7 @@ import {
     TrendingUp, CheckCircle, Clock, AlertCircle,
     ThumbsUp, Calendar, ChevronRight, CalendarCheck, Loader2,
     Search as SearchIcon, Plus, Settings, MessageSquare, ChevronDown, User, Edit2, Activity, CheckSquare, BarChart2, PlusCircle, RefreshCw,
-    Download, FileSpreadsheet
+    Download, FileSpreadsheet, RotateCcw
 } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -882,9 +882,17 @@ const EmployeeDashboard = () => {
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
                                                             <PlusCircle size={9} /> NOT STARTED
                                                         </span>
+                                                    ) : task.status === 'REWORK' ? (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-orange-50 text-orange-600 border border-orange-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
+                                                            <RotateCcw size={9} /> Rework
+                                                        </span>
+                                                    ) : task.status === 'APPROVED' ? (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
+                                                            <CheckCircle size={9} /> Approved
+                                                        </span>
                                                     ) : (
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-50 text-slate-600 border border-slate-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm text-center">
-                                                            {String(task.status).substring(0, 4)}
+                                                            {String(task.status || '-').replace(/_/g, ' ')}
                                                         </span>
                                                     )}
                                                 </div>

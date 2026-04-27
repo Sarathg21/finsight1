@@ -145,6 +145,14 @@ const TaskRow = ({
     const isOverdue = dueDate !== 'N/A' && new Date(rawDueDateMain) < new Date() && !['APPROVED', 'CANCELLED'].includes(status);
     const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && task.parent_task_id !== '-' ? taskTitles[task.parent_task_id] : '');
 
+    // Managers can only act on tasks THEY assigned. CFO/Admin can act on all tasks.
+    const isManager = user?.role?.toUpperCase() === 'MANAGER';
+    const taskAssignedByEmpId =
+        task?.assigned_by_emp_id ?? task?.assigned_by_id ?? task?.created_by_emp_id ?? task?.created_by;
+    const isAssignedByCurrentUser =
+        String(taskAssignedByEmpId) === String(user?.emp_id || user?.id);
+    const canManageTask = !isManager || isAssignedByCurrentUser;
+
     const handleRowClick = () => {
         if (!onViewDetails) return;
         onViewDetails(task);
@@ -228,7 +236,16 @@ const TaskRow = ({
                 </td>
                 <td className="py-1 px-4 text-right pr-6">
                     <div className="flex justify-end gap-1.5">
-                        {status === 'SUBMITTED' && String(task?.employee_id || task?.assigned_to_emp_id || task?.assigned_to_id) !== String(user?.id) ? (
+                        {!canManageTask ? (
+                            // Manager viewing a task assigned by CFO/other role — no actions allowed
+                            <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-2 text-slate-200 cursor-not-allowed"
+                                title="Assigned by another manager/CFO — no actions available"
+                            >
+                                <ChevronRight size={14} />
+                            </button>
+                        ) : status === 'SUBMITTED' && String(task?.employee_id || task?.assigned_to_emp_id || task?.assigned_to_id) !== String(user?.id) ? (
                             <>
                                 <button
                                     onClick={(e) => {
@@ -520,7 +537,25 @@ const TeamTasksPage = () => {
                 if (!subtasksMap[parentId]) {
                     api.get(`/tasks/${parentId}/subtasks`).then(res => {
                         const subs = res.data?.data || res.data || [];
-                        setSubtasksMap(p => ({ ...p, [parentId]: Array.isArray(subs) ? subs : [] }));
+                        const subsArray = Array.isArray(subs) ? subs : [];
+                        // Enrich each subtask with parent info if the backend didn't include it
+                        setTasks(currentTasks => {
+                            const parentTask = currentTasks.find(t =>
+                                String(t.task_id || t.id) === String(parentId)
+                            );
+                            const enriched = subsArray.map(s => ({
+                                ...s,
+                                parent_task_id: s.parent_task_id ?? parentId,
+                                parent_task_title:
+                                    s.parent_task_title ||
+                                    s.parent_task_name ||
+                                    parentTask?.task_title ||
+                                    parentTask?.title ||
+                                    ''
+                            }));
+                            setSubtasksMap(p => ({ ...p, [parentId]: enriched }));
+                            return currentTasks; // no-op, just for access
+                        });
                     });
                 }
             }
