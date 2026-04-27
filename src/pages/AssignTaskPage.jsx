@@ -250,22 +250,6 @@ const AssignTaskPage = () => {
                 navigate('/recurring-tasks');
             } else {
                 // Handle Normal Task Creation
-                if (formData.taskStructure === 'PARENT' && normalSubtasks.length === 0) {
-                    toast.error("Please add at least 1 subtask for Parent Task structure.");
-                    setSubmitting(false);
-                    return;
-                }
-
-                if (formData.taskStructure === 'PARENT') {
-                    for (const st of normalSubtasks) {
-                        if (st.due_date > formData.dueDate) {
-                            toast.error("A subtask due date cannot be after the parent task due date.");
-                            setSubmitting(false);
-                            return;
-                        }
-                    }
-                }
-
                 if (formData.taskStructure === 'SUBTASK' && !formData.parentTaskId) {
                     toast.error("Please select a parent task.");
                     setSubmitting(false);
@@ -310,23 +294,6 @@ const AssignTaskPage = () => {
                         });
                     } catch (uploadErr) {
                         console.warn('Attachment upload failed:', uploadErr);
-                    }
-                }
-
-                if (formData.taskStructure === 'PARENT' && normalSubtasks.length > 0 && newTaskId) {
-                    for (const st of normalSubtasks) {
-                        try {
-                            await api.post(`/tasks/${newTaskId}/subtasks`, {
-                                title: st.title,
-                                description: st.description,
-                                assigned_to_emp_id: st.assigned_to_emp_id,
-                                department_id: resolvedDepartmentId,
-                                due_date: st.due_date,
-                                priority: st.priority
-                            });
-                        } catch (stErr) {
-                            console.error("Normal subtask post failed", stErr);
-                        }
                     }
                 }
 
@@ -566,101 +533,6 @@ const AssignTaskPage = () => {
                                         {existingParentTasks.length === 0 && !loading && (
                                             <p className="text-[11px] text-rose-500 font-bold mt-2 ml-1">No eligible parent tasks found.</p>
                                         )}
-                                    </div>
-                                )}
-                                {formData.taskStructure === 'PARENT' && (
-                                    <div className="pt-2">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div>
-                                                <h4 className="text-[14px] font-black text-slate-800 leading-none">Subtasks</h4>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Create one or more child tasks under this parent task</p>
-                                            </div>
-                                            <button 
-                                                type="button"
-                                                onClick={addNormalSubtask}
-                                                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2"
-                                            >
-                                                <Plus size={14} strokeWidth={3} /> Add Subtask
-                                            </button>
-                                        </div>
-                                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {normalSubtasks.length === 0 ? (
-                                                <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-indigo-100">
-                                                    <p className="text-[11px] font-bold text-slate-400 italic">No subtasks added yet. Click Add Subtask to start.</p>
-                                                </div>
-                                            ) : (
-                                                normalSubtasks.map((st, idx) => (
-                                                    <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative group animate-fade-in">
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => removeNormalSubtask(idx)}
-                                                            className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-colors"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-6">
-                                                            <div className="md:col-span-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Subtask Title *</label>
-                                                                <input 
-                                                                    type="text"
-                                                                    required
-                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[13px] font-semibold"
-                                                                    placeholder="Subtask Title..."
-                                                                    value={st.title}
-                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'title', e.target.value)}
-                                                                />
-                                                            </div>
-                                                            <div className="md:col-span-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Description</label>
-                                                                <input 
-                                                                    type="text"
-                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[13px] font-semibold"
-                                                                    placeholder="Optional description"
-                                                                    value={st.description}
-                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'description', e.target.value)}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Assignee *</label>
-                                                                <select 
-                                                                    required
-                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
-                                                                    value={st.assigned_to_emp_id}
-                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'assigned_to_emp_id', e.target.value)}
-                                                                >
-                                                                    <option value="">Select Assignee</option>
-                                                                    {eligibleAssignees.map(p => (
-                                                                        <option key={p.emp_id} value={p.emp_id}>{p.name}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Priority</label>
-                                                                <select 
-                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
-                                                                    value={st.priority}
-                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'priority', e.target.value)}
-                                                                >
-                                                                    <option value="LOW">Low</option>
-                                                                    <option value="MEDIUM">Medium</option>
-                                                                    <option value="HIGH">High</option>
-                                                                </select>
-                                                            </div>
-                                                            <div className="md:col-span-2">
-                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Due Date *</label>
-                                                                <input 
-                                                                    type="date"
-                                                                    required
-                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
-                                                                    value={st.due_date}
-                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'due_date', e.target.value)}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
                                     </div>
                                 )}
                             </div>
