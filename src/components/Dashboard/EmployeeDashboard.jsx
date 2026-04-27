@@ -332,6 +332,11 @@ const EmployeeDashboard = () => {
                 const today = new Date().toLocaleDateString('en-CA');
                 return due && due < today && !TERMINAL_SET.has(t.status);
             }).length;
+            const dueTodayTasksCount = normalized.filter((t) => {
+                const due = toDateKey(t.due_date);
+                const today = new Date().toLocaleDateString('en-CA');
+                return due === today && !TERMINAL_SET.has(t.status);
+            }).length;
 
             // Use performance_score explicitly from backend payload
             const backendScore = dashboardPayload?.performance_score ?? dashboardPayload?.performance_index ?? dashboardPayload?.performanceScore ?? 0;
@@ -346,7 +351,7 @@ const EmployeeDashboard = () => {
                 submitted_tasks: dashboardPayload?.submitted_tasks ?? counts.SUBMITTED,
                 pending_submission: dashboardPayload?.pending_submission_tasks ?? pendingSubmission, 
                 overdue_tasks: dashboardPayload?.overdue_tasks ?? overdue,
-                due_today_tasks: dashboardPayload?.due_today_tasks ?? 0,
+                due_today_tasks: dashboardPayload?.due_today_tasks || dueTodayTasksCount,
                 in_progress_tasks: dashboardPayload?.in_progress_tasks ?? inProgress,
                 rework_tasks: dashboardPayload?.rework_tasks ?? counts.REWORK,
                 new_tasks: dashboardPayload?.new_tasks ?? counts.NEW,

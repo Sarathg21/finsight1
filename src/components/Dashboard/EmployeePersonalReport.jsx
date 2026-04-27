@@ -287,7 +287,7 @@ const EmployeePersonalReport = () => {
             completed: summary.approved_tasks ?? completed,
             inProgress,
             overdue: summary.overdue_tasks ?? overdue,
-            dueToday: summary.due_today_tasks ?? dueToday,
+            dueToday: summary.due_today_tasks || dueToday,
             pending: summary.pending_submission_tasks ?? (newTasks + reworks),
             reworks,
             submitted,
