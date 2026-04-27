@@ -527,24 +527,32 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             const safeTo   = (toDate   && toDate.length   === 10) ? toDate   : getToday();
             const depId    = (!currentDeptId || currentDeptId === 'all' || currentDeptId === '' || currentDeptId === 'undefined') ? undefined : currentDeptId;
 
-            const rolePath = user?.role?.toLowerCase() || 'manager';
+            let baseRole = 'manager';
+            const r = (user?.role || '').toUpperCase();
+            if (r.includes('CFO')) baseRole = 'cfo';
+            else if (r.includes('ADMIN')) baseRole = 'admin';
+            else if (r.includes('MANAGER')) baseRole = 'manager';
+            else if (r.includes('EMPLOYEE')) baseRole = 'employee';
+
+            const rolePath = baseRole;
             const depName = currentDeptName !== 'All Departments' ? currentDeptName : undefined;
 
             const candidates = [];
             
-            if (depId) {
-                candidates.push({
-                    ep: format === 'pdf' ? '/reports/manager/export-pdf' : '/reports/manager/export-excel',
-                    params: { 
-                        from_date: safeFrom, to_date: safeTo, 
-                        start_date: safeFrom, end_date: safeTo,
+            // ALWAYS try the explicit manager endpoint first
+            candidates.push({
+                ep: format === 'pdf' ? '/reports/manager/export-pdf' : '/reports/manager/export-excel',
+                params: { 
+                    from_date: safeFrom, to_date: safeTo, 
+                    start_date: safeFrom, end_date: safeTo,
+                    ...(depId ? { 
                         department_id: depId, dept_id: depId, dep_id: depId,
                         scope: 'department', department: depName, dept_name: depName
-                    }
-                });
-            }
+                    } : { scope: 'org' })
+                }
+            });
 
-            // Fallback: Use the user's role path but ENSURE department params are included if selected
+            // Fallback: Use the user's standardized role path
             candidates.push({
                 ep: format === 'pdf' ? `/reports/${rolePath}/export-pdf` : `/reports/${rolePath}/export-excel`,
                 params: { 

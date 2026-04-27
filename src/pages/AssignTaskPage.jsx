@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Loader2, Clock, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, Plus, Trash2, ListTodo, CircleDot, GitMerge } from 'lucide-react';
 
 const AssignTaskPage = () => {
     const { user } = useAuth();
@@ -14,6 +14,7 @@ const AssignTaskPage = () => {
     const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [existingParentTasks, setExistingParentTasks] = useState([]);
 
     const [formData, setFormData] = useState({
         title: '',
@@ -22,6 +23,7 @@ const AssignTaskPage = () => {
         priority: 'MEDIUM',
         dueDate: '',
         isRecurring: false,
+        taskStructure: 'SINGLE',
         recurringFrequency: 'WEEKLY',
         recurringDay: 1, // Monthly Day
         weeklyDay: 1, // Integer 1-7 (Mon-Sun)
@@ -29,9 +31,11 @@ const AssignTaskPage = () => {
         yearlyDay: 1,
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
-        status: 'ACTIVE'
+        status: 'ACTIVE',
+        parentTaskId: ''
     });
     const [subtasks, setSubtasks] = useState([]);
+    const [normalSubtasks, setNormalSubtasks] = useState([]);
     const [attachment, setAttachment] = useState(null);
 
     useEffect(() => {
@@ -40,7 +44,7 @@ const AssignTaskPage = () => {
             const isAltRole = role === 'ADMIN' || role === 'CFO';
             
             try {
-                const [empRes, deptRes] = await Promise.all([
+                const [empRes, deptRes, tasksRes] = await Promise.all([
                     api.get(isAltRole ? '/employees' : '/employees/assignable')
                         .catch(() => api.get('/employees'))
                         .catch(() => api.get('/employees/assignable'))
@@ -48,6 +52,8 @@ const AssignTaskPage = () => {
                     api.get('/departments')
                         .catch(() => api.get('/dashboard/cfo/departments'))
                         .catch(() => (role === 'ADMIN' ? api.get('/admin/departments') : Promise.reject()))
+                        .catch(() => ({ data: [] })),
+                    api.get('/tasks')
                         .catch(() => ({ data: [] }))
                 ]);
                 
@@ -89,6 +95,10 @@ const AssignTaskPage = () => {
 
                 const normalizedEmps = normalizeEmps(extract(empRes));
                 const normalizedDepts = normalizeDepts(extract(deptRes));
+                const tasksData = extract(tasksRes);
+                
+                const possibleParents = tasksData.filter(t => !t.parent_task_id && t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
+                setExistingParentTasks(possibleParents);
 
                 const deptFromEmployees = normalizedEmps.map(e => {
                     const deptId = e.department_id || e.dept_id || e.department || e.department_name;
@@ -133,6 +143,26 @@ const AssignTaskPage = () => {
             priority: 'MEDIUM',
             sequence_no: subtasks.length + 1
         }]);
+    };
+
+    const addNormalSubtask = () => {
+        setNormalSubtasks([...normalSubtasks, {
+            title: '',
+            description: '',
+            assigned_to_emp_id: '',
+            due_date: '',
+            priority: 'MEDIUM'
+        }]);
+    };
+
+    const removeNormalSubtask = (index) => {
+        setNormalSubtasks(normalSubtasks.filter((_, i) => i !== index));
+    };
+
+    const handleNormalSubtaskChange = (index, field, value) => {
+        const newList = [...normalSubtasks];
+        newList[index][field] = value;
+        setNormalSubtasks(newList);
     };
 
     const removeSubtask = (index) => {
@@ -220,18 +250,55 @@ const AssignTaskPage = () => {
                 navigate('/recurring-tasks');
             } else {
                 // Handle Normal Task Creation
-                const payload = {
-                    title: formData.title,
-                    description: formData.description,
-                    priority: formData.priority,
-                    assigned_to_emp_id: formData.assignee,
-                    department_id: resolvedDepartmentId,
-                    due_date: formData.dueDate,
-                    parent_task_id: null
-                };
+                if (formData.taskStructure === 'PARENT' && normalSubtasks.length === 0) {
+                    toast.error("Please add at least 1 subtask for Parent Task structure.");
+                    setSubmitting(false);
+                    return;
+                }
 
-                const taskRes = await api.post('/tasks', payload);
-                const newTaskId = taskRes.data.id || taskRes.data.task_id;
+                if (formData.taskStructure === 'PARENT') {
+                    for (const st of normalSubtasks) {
+                        if (st.due_date > formData.dueDate) {
+                            toast.error("A subtask due date cannot be after the parent task due date.");
+                            setSubmitting(false);
+                            return;
+                        }
+                    }
+                }
+
+                if (formData.taskStructure === 'SUBTASK' && !formData.parentTaskId) {
+                    toast.error("Please select a parent task.");
+                    setSubmitting(false);
+                    return;
+                }
+
+                let newTaskId;
+
+                if (formData.taskStructure === 'SUBTASK') {
+                    const payload = {
+                        title: formData.title,
+                        description: formData.description,
+                        priority: formData.priority,
+                        assigned_to_emp_id: formData.assignee,
+                        department_id: resolvedDepartmentId,
+                        due_date: formData.dueDate
+                    };
+                    const taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
+                    newTaskId = taskRes.data.id || taskRes.data.subtask_id || taskRes.data.data?.id;
+                } else {
+                    const payload = {
+                        title: formData.title,
+                        description: formData.description,
+                        priority: formData.priority,
+                        assigned_to_emp_id: formData.assignee,
+                        department_id: resolvedDepartmentId,
+                        due_date: formData.dueDate,
+                        parent_task_id: null
+                    };
+
+                    const taskRes = await api.post('/tasks', payload);
+                    newTaskId = taskRes.data.id || taskRes.data.task_id || taskRes.data.data?.id;
+                }
 
                 if (attachment && newTaskId) {
                     const formDataUpload = new FormData();
@@ -244,6 +311,23 @@ const AssignTaskPage = () => {
                         console.warn('Attachment upload failed:', uploadErr);
                     }
                 }
+
+                if (formData.taskStructure === 'PARENT' && normalSubtasks.length > 0 && newTaskId) {
+                    for (const st of normalSubtasks) {
+                        try {
+                            await api.post(`/tasks/${newTaskId}/subtasks`, {
+                                title: st.title,
+                                description: st.description,
+                                assigned_to_emp_id: st.assigned_to_emp_id,
+                                due_date: st.due_date,
+                                priority: st.priority
+                            });
+                        } catch (stErr) {
+                            console.error("Normal subtask post failed", stErr);
+                        }
+                    }
+                }
+
                 toast.success('Task assigned successfully!');
                 navigate('/tasks');
             }
@@ -398,6 +482,187 @@ const AssignTaskPage = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {!formData.isRecurring && (
+                            <div className="animate-fade-in space-y-6 pt-4 border-t border-indigo-100">
+                                <div className="pt-2 pb-2">
+                                    <div className="mb-4">
+                                        <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Structure</h4>
+                                        <p className="text-[11px] font-bold text-slate-400 mt-1">Choose how this task fits into your workflow.</p>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <label className={`cursor-pointer flex items-center p-4 rounded-xl border ${formData.taskStructure === 'SINGLE' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'} transition-all`}>
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="radio" 
+                                                    name="taskStructure" 
+                                                    value="SINGLE"
+                                                    checked={formData.taskStructure === 'SINGLE'} 
+                                                    onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
+                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-600 border-slate-300"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-[13px] text-slate-800">Standalone Task</span>
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <label className={`cursor-pointer flex items-center p-4 rounded-xl border ${formData.taskStructure === 'PARENT' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'} transition-all`}>
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="radio" 
+                                                    name="taskStructure" 
+                                                    value="PARENT"
+                                                    checked={formData.taskStructure === 'PARENT'} 
+                                                    onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
+                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-600 border-slate-300"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-[13px] text-slate-800">Parent Task</span>
+                                                    <span className="text-[10px] font-semibold text-slate-500 mt-0.5">Create a parent task with subtasks</span>
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <label className={`cursor-pointer flex items-center p-4 rounded-xl border ${formData.taskStructure === 'SUBTASK' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'} transition-all`}>
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="radio" 
+                                                    name="taskStructure" 
+                                                    value="SUBTASK"
+                                                    checked={formData.taskStructure === 'SUBTASK'} 
+                                                    onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
+                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-600 border-slate-300"
+                                                />
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-[13px] text-slate-800">Subtask</span>
+                                                    <span className="text-[10px] font-semibold text-slate-500 mt-0.5">Create a subtask under a parent task</span>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                {formData.taskStructure === 'SUBTASK' && (
+                                    <div className="pt-2 animate-fade-in">
+                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
+                                            Select Parent Task <span className="text-rose-500">*</span>
+                                        </label>
+                                        <select
+                                            name="parentTaskId"
+                                            required={formData.taskStructure === 'SUBTASK'}
+                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 font-medium transition-all text-[13px]"
+                                            value={formData.parentTaskId}
+                                            onChange={handleChange}
+                                        >
+                                            <option value="" className="text-slate-400">Select an existing parent task</option>
+                                            {existingParentTasks.map(t => (
+                                                <option key={t.id || t.task_id} value={t.id || t.task_id}>
+                                                    {t.title} {t.assigned_to_name ? `(${t.assigned_to_name})` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {existingParentTasks.length === 0 && !loading && (
+                                            <p className="text-[11px] text-rose-500 font-bold mt-2 ml-1">No eligible parent tasks found.</p>
+                                        )}
+                                    </div>
+                                )}
+                                {formData.taskStructure === 'PARENT' && (
+                                    <div className="pt-2">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div>
+                                                <h4 className="text-[14px] font-black text-slate-800 leading-none">Subtasks</h4>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Create one or more child tasks under this parent task</p>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                onClick={addNormalSubtask}
+                                                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2"
+                                            >
+                                                <Plus size={14} strokeWidth={3} /> Add Subtask
+                                            </button>
+                                        </div>
+                                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {normalSubtasks.length === 0 ? (
+                                                <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-indigo-100">
+                                                    <p className="text-[11px] font-bold text-slate-400 italic">No subtasks added yet. Click Add Subtask to start.</p>
+                                                </div>
+                                            ) : (
+                                                normalSubtasks.map((st, idx) => (
+                                                    <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative group animate-fade-in">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => removeNormalSubtask(idx)}
+                                                            className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-colors"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-6">
+                                                            <div className="md:col-span-2">
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Subtask Title *</label>
+                                                                <input 
+                                                                    type="text"
+                                                                    required
+                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[13px] font-semibold"
+                                                                    placeholder="Subtask Title..."
+                                                                    value={st.title}
+                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'title', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="md:col-span-2">
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Description</label>
+                                                                <input 
+                                                                    type="text"
+                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[13px] font-semibold"
+                                                                    placeholder="Optional description"
+                                                                    value={st.description}
+                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'description', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Assignee *</label>
+                                                                <select 
+                                                                    required
+                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
+                                                                    value={st.assigned_to_emp_id}
+                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'assigned_to_emp_id', e.target.value)}
+                                                                >
+                                                                    <option value="">Select Assignee</option>
+                                                                    {eligibleAssignees.map(p => (
+                                                                        <option key={p.emp_id} value={p.emp_id}>{p.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Priority</label>
+                                                                <select 
+                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
+                                                                    value={st.priority}
+                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'priority', e.target.value)}
+                                                                >
+                                                                    <option value="LOW">Low</option>
+                                                                    <option value="MEDIUM">Medium</option>
+                                                                    <option value="HIGH">High</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="md:col-span-2">
+                                                                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Due Date *</label>
+                                                                <input 
+                                                                    type="date"
+                                                                    required
+                                                                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
+                                                                    value={st.due_date}
+                                                                    onChange={(e) => handleNormalSubtaskChange(idx, 'due_date', e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {formData.isRecurring && (
                             <div className="animate-fade-in space-y-6 pt-4 border-t border-indigo-100">

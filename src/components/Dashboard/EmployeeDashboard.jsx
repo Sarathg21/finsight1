@@ -797,7 +797,7 @@ const EmployeeDashboard = () => {
                         <h2 className="text-[17px] font-bold text-slate-800 pb-4">My Task List</h2>
                         <div className="flex gap-3 sm:gap-4 ml-2 overflow-x-auto no-scrollbar">
                             {['Today', 'Not Started', 'Progress', 'Submitted', 'Reworks', 'All'].map((tab) => {
-                                const tabKey = tab === 'Today' ? 'TODAY' : tab === 'Progress' ? 'IN_PROGRESS' : tab === 'Not Started' ? 'NEW' : tab.toUpperCase().replace(' ', '_');
+                                const tabKey = tab === 'Today' ? 'TODAY' : tab === 'Progress' ? 'IN_PROGRESS' : tab === 'Not Started' ? 'NEW' : tab === 'Reworks' ? 'REWORK' : tab.toUpperCase().replace(' ', '_');
                                 return (
                                     <span
                                         key={tab}
