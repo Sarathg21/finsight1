@@ -872,11 +872,11 @@ const EmployeeDashboard = () => {
                                                 <div className="flex justify-center whitespace-nowrap">
                                                     {task.status === 'SUBMITTED' ? (
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-violet-50 text-violet-600 border border-violet-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
-                                                            <CheckCircle size={9} /> SUB
+                                                            <CheckCircle size={9} /> SUBMITTED
                                                         </span>
                                                     ) : task.status === 'IN_PROGRESS' || task.status === 'STARTED' ? (
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
-                                                            <Clock size={9} /> PROG
+                                                            <Clock size={9} /> IN PROGRESS
                                                         </span>
                                                     ) : task.status === 'NEW' ? (
                                                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-100 flex items-center gap-1 min-w-[70px] justify-center shadow-sm">
