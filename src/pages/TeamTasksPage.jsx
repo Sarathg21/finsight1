@@ -384,7 +384,9 @@ const TeamTasksPage = () => {
             // Exclude CANCELLED tasks and MANAGER's own tasks from the team view
             const filteredItems = items.filter(t => {
                 const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
-                const isSelf = String(t.assigned_to_emp_id || t.employee_id || t.id) === String(user?.id);
+                // Only compare actual assignee fields — never fall back to task.id
+                const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
+                const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
                 if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) return false;
 
                 if (isCancelled) return false;
@@ -401,7 +403,47 @@ const TeamTasksPage = () => {
                 const dateB = new Date(b.updated_at || b.assigned_date || b.created_at || b.assigned_at || 0);
                 return dateB - dateA;
             });
-            setTasks(sorted);
+
+            // Cross-reference: mark a task as has_subtasks if any other task in the same
+            // response has parent_task_id pointing to it. This ensures the expand button
+            // appears even when the backend omits subtask_count / has_subtasks.
+            const childParentIds = new Set(
+                sorted.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
+            );
+            const enriched = sorted.map(t => ({
+                ...t,
+                has_subtasks:
+                    t.has_subtasks ||
+                    t.task_type === 'PARENT' ||
+                    childParentIds.has(String(t.task_id || t.id)) ||
+                    (t.subtask_count || 0) > 0
+            }));
+
+            setTasks(enriched);
+
+            // Re-fetch subtasks for any currently-expanded parents so newly added
+            // subtasks (e.g. assigned to EMP_AP2, EMP_AP3) are immediately visible.
+            setExpandedTasks(currentExpanded => {
+                currentExpanded.forEach(parentId => {
+                    api.get(`/tasks/${parentId}/subtasks`).then(res => {
+                        const subs = res.data?.data || res.data || [];
+                        const subsArray = Array.isArray(subs) ? subs : [];
+                        const parentTask = enriched.find(t =>
+                            String(t.task_id || t.id) === String(parentId)
+                        );
+                        const enrichedSubs = subsArray.map(s => ({
+                            ...s,
+                            parent_task_id: s.parent_task_id ?? parentId,
+                            parent_task_title:
+                                s.parent_task_title ||
+                                parentTask?.task_title ||
+                                parentTask?.title || ''
+                        }));
+                        setSubtasksMap(p => ({ ...p, [parentId]: enrichedSubs }));
+                    }).catch(() => {});
+                });
+                return currentExpanded; // no-op
+            });
             const totalCount = rawData.total || items.length;
             setPagination({
                 page: rawData.page || page,
@@ -531,37 +573,35 @@ const TeamTasksPage = () => {
     const toggleExpand = useCallback((parentId) => {
         setExpandedTasks(prev => {
             const next = new Set(prev);
-            if (next.has(parentId)) next.delete(parentId);
-            else {
+            if (next.has(parentId)) {
+                next.delete(parentId);
+            } else {
                 next.add(parentId);
-                if (!subtasksMap[parentId]) {
-                    api.get(`/tasks/${parentId}/subtasks`).then(res => {
-                        const subs = res.data?.data || res.data || [];
-                        const subsArray = Array.isArray(subs) ? subs : [];
-                        // Enrich each subtask with parent info if the backend didn't include it
-                        setTasks(currentTasks => {
-                            const parentTask = currentTasks.find(t =>
-                                String(t.task_id || t.id) === String(parentId)
-                            );
-                            const enriched = subsArray.map(s => ({
-                                ...s,
-                                parent_task_id: s.parent_task_id ?? parentId,
-                                parent_task_title:
-                                    s.parent_task_title ||
-                                    s.parent_task_name ||
-                                    parentTask?.task_title ||
-                                    parentTask?.title ||
-                                    ''
-                            }));
-                            setSubtasksMap(p => ({ ...p, [parentId]: enriched }));
-                            return currentTasks; // no-op, just for access
-                        });
+                // Always re-fetch on expand so newly added subtasks are visible
+                api.get(`/tasks/${parentId}/subtasks`).then(res => {
+                    const subs = res.data?.data || res.data || [];
+                    const subsArray = Array.isArray(subs) ? subs : [];
+                    setTasks(currentTasks => {
+                        const parentTask = currentTasks.find(t =>
+                            String(t.task_id || t.id) === String(parentId)
+                        );
+                        const enriched = subsArray.map(s => ({
+                            ...s,
+                            parent_task_id: s.parent_task_id ?? parentId,
+                            parent_task_title:
+                                s.parent_task_title ||
+                                s.parent_task_name ||
+                                parentTask?.task_title ||
+                                parentTask?.title || ''
+                        }));
+                        setSubtasksMap(p => ({ ...p, [parentId]: enriched }));
+                        return currentTasks; // no-op
                     });
-                }
+                }).catch(() => {});
             }
             return next;
         });
-    }, [subtasksMap]);
+    }, []);
 
     const handleAction = async (taskId, action, extra = {}) => {
         if (!taskId) return;
