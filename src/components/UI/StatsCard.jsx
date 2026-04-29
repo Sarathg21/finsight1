@@ -14,8 +14,10 @@ const StatsCard = ({
   sub,
   className = "",
   style = {},
+  onClick,
 }) => {
   const displayTitle = title || label;
+  const isClickable = typeof onClick === 'function';
 
   const getTrendColor = () => {
     if (typeof trend === "number") {
@@ -63,7 +65,11 @@ const StatsCard = ({
 
   return (
     <div
-      className={`group relative overflow-hidden rounded-[1.75rem] ${c.bg} ${c.shadow} p-6 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 ${className}`}
+      onClick={isClickable ? onClick : undefined}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+      className={`group relative overflow-hidden rounded-[1.75rem] ${c.bg} ${c.shadow} p-6 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 ${isClickable ? 'cursor-pointer ring-2 ring-white/0 hover:ring-white/30' : ''} ${className}`}
       style={style}
     >
       {/* Background Ornaments */}

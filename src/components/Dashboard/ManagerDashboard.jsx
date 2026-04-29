@@ -135,7 +135,7 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
             <div className="relative z-10 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[11px] font-bold text-white/70 uppercase tracking-[0.1em] drop-shadow-sm">
+                        <span className="text-[11px] font-bold text-white/70 capitalize tracking-[0.1em] drop-shadow-sm">
                             {label}
                         </span>
                     </div>
@@ -154,6 +154,47 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
                 </div>
             </div>
         </div>
+    );
+};
+
+/* ── InfoTooltip — fixed-position to escape any overflow container ──
+   align="center" (default) — tooltip centred on badge
+   align="left"             — tooltip opens leftward (right edge anchors to badge)
+──────────────────────────────────────────────────────── */
+const InfoTooltip = ({ content, align = 'center' }) => {
+    const [show, setShow] = useState(false);
+    const [pos, setPos]   = useState({ top: 0, left: 0 });
+    return (
+        <>
+            <span
+                onMouseEnter={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    // For left-opening tooltip anchor to the right edge of badge,
+                    // for center anchor to badge midpoint
+                    setPos({
+                        top:  r.top,
+                        left: align === 'left' ? r.right : r.left + r.width / 2,
+                    });
+                    setShow(true);
+                }}
+                onMouseLeave={() => setShow(false)}
+                className="w-3.5 h-3.5 rounded-full bg-slate-400 hover:bg-violet-500 transition-colors text-white text-[8px] font-black inline-flex items-center justify-center leading-none cursor-help ml-1 shrink-0"
+            >?</span>
+            {show && (
+                <div
+                    className="fixed z-[9999] pointer-events-none"
+                    style={{
+                        top:  pos.top,
+                        left: pos.left,
+                        transform: align === 'left'
+                            ? 'translate(-100%, calc(-100% - 10px))'
+                            : 'translate(-50%, calc(-100% - 10px))',
+                    }}
+                >
+                    {content}
+                </div>
+            )}
+        </>
     );
 };
 
@@ -177,8 +218,24 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     };
 
     /* ── Date range filter state ─── */
-    const [fromDate, setFromDate] = useState(getFirstDayOfMonth());
-    const [toDate, setToDate] = useState(getToday());
+    const [fromDate, setFromDate] = useState(() => {
+        const saved = localStorage.getItem('dashboard_from_date');
+        return (saved && saved.length === 10) ? saved : getFirstDayOfMonth();
+    });
+    const [toDate, setToDate] = useState(() => {
+        const saved = localStorage.getItem('dashboard_to_date');
+        return (saved && saved.length === 10) ? saved : getToday();
+    });
+
+    // Persist initial dates to localStorage so TaskPage reads the same range on first load
+    useEffect(() => {
+        if (!localStorage.getItem('dashboard_from_date')) {
+            localStorage.setItem('dashboard_from_date', fromDate);
+        }
+        if (!localStorage.getItem('dashboard_to_date')) {
+            localStorage.setItem('dashboard_to_date', toDate);
+        }
+    }, []);
 
     useEffect(() => {
         const handleFilterChange = () => {
@@ -635,7 +692,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-[26px] font-black text-slate-800 leading-none tracking-tight">Manager Hub</h1>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em] mt-1">Team Oversight & Performance Tracking</p>
+                    <p className="text-[10px] font-bold text-slate-400 capitalize tracking-[0.18em] mt-1">Team Oversight & Performance Tracking</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Global date range */}
@@ -679,7 +736,13 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             {/* ── KPI ROW ────────────────────────────────────────────────── */}
             <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
                 {/* 1. Team Tasks */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-4 shadow-lg shadow-cyan-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                <div
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-4 shadow-lg shadow-cyan-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    onClick={() => navigate(`/tasks/team?status=&from_date=${fromDate}&to_date=${toDate}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/tasks/team?status=&from_date=${fromDate}&to_date=${toDate}`); }}
+                >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -688,13 +751,19 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{stats.totalActive ?? dashboardData?.total_tasks ?? 0}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Team Tasks</div>
-                        <div className="text-[8px] opacity-60 font-medium mt-0.5">All time tasks</div>
+                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Team Tasks</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Active (non-completed)</div>
                     </div>
                 </div>
 
                 {/* 2. In Progress */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 shadow-lg shadow-blue-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                <div
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 shadow-lg shadow-blue-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    onClick={() => navigate(`/tasks/team?status=IN_PROGRESS&from_date=${fromDate}&to_date=${toDate}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/tasks/team?status=IN_PROGRESS&from_date=${fromDate}&to_date=${toDate}`); }}
+                >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -703,13 +772,19 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{dashboardData?.in_progress_tasks ?? 0}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">In Progress</div>
+                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">In Progress</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Tasks in progress</div>
                     </div>
                 </div>
 
                 {/* 3. Pending Approval */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white p-4 shadow-lg shadow-amber-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                <div
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white p-4 shadow-lg shadow-amber-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    onClick={() => navigate(`/tasks/team?status=SUBMITTED&from_date=${fromDate}&to_date=${toDate}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/tasks/team?status=SUBMITTED&from_date=${fromDate}&to_date=${toDate}`); }}
+                >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -718,13 +793,19 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{stats.pendingSubmission ?? 0}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Pending Approval</div>
+                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Pending Approval</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Awaiting approval</div>
                     </div>
                 </div>
 
                 {/* 4. Overdue Tasks */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white p-4 shadow-lg shadow-rose-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px]">
+                <div
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white p-4 shadow-lg shadow-rose-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    onClick={() => navigate(`/tasks/team?status=Overdue&from_date=${fromDate}&to_date=${toDate}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/tasks/team?status=Overdue&from_date=${fromDate}&to_date=${toDate}`); }}
+                >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
                         <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -733,7 +814,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{dashboardData?.overdue_tasks ?? 0}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Overdue Tasks</div>
+                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Overdue Tasks</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Past due tasks</div>
                     </div>
                 </div>
@@ -752,7 +833,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{stats.managerScore != null ? `${stats.managerScore}%` : '-'}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Manager Score</div>
+                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Manager Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Calculation: 70% Team + 30% Personal</div>
                     </div>
                 </div>
@@ -770,7 +851,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${Number(stats.teamScore).toFixed(2)}%` : '-'}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Team Score</div>
+                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Team Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Team performance</div>
                     </div>
                 </div>
@@ -788,7 +869,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{stats.managerPersonalScore != null ? `${stats.managerPersonalScore}%` : '-'}</div>
-                        <div className="text-[9px] font-bold uppercase tracking-widest opacity-80 mt-1">Personal Score</div>
+                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Personal Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Manager's own tasks</div>
                     </div>
                 </div>
@@ -805,26 +886,26 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                             </div>
                             <div>
                                 <h3 className="text-[20px] font-black text-slate-800 tracking-tight">Task Activity Trends</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Dynamic Workload Trajectory</p>
+                                <p className="text-[10px] font-bold text-slate-400 capitalize  tracking-[0.2em] mt-0.5">Dynamic Workload Trajectory</p>
                             </div>
                         </div>
                         <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm">
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Not Started</span>
+                                <span className="text-[10px] font-black text-slate-500 capitalize  tracking-widest">Not Started</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></div>
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Pending</span>
+                                <span className="text-[10px] font-black text-slate-500 capitalize  tracking-widest">Pending</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div>
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Overdue</span>
+                                <span className="text-[10px] font-black text-slate-500 capitalize  tracking-widest">Overdue</span>
                             </div>
                         </div>
                     </div>
                     <div className="h-[280px]">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                             <BarChart data={finalTrendsData.length ? finalTrendsData : [{ name: 'No Data', new: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                                 <XAxis 
@@ -856,7 +937,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     <h3 className="text-[20px] font-black text-slate-800 mb-1 flex items-center gap-2">
                         <CheckCircle size={20} className="text-emerald-500" /> Task Completion Overview
                     </h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-0.5">Department task health - Approved vs Pending vs Overdue</p>
+                    <p className="text-[10px] font-bold text-slate-400 capitalize  tracking-[0.2em] mt-0.5">Department task health - Approved vs Pending vs Overdue</p>
                     {(() => {
                         const dd = dashboardData || {};
                         const total = dd.total_tasks || dd.team_tasks || dd.total || 0;
@@ -882,7 +963,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                             <div className="flex-1 flex flex-col items-center gap-8 mt-6">
                                 <div className="relative w-48 h-48 shrink-0">
                                     <div className="absolute inset-0 rounded-full bg-slate-50 border-[14px] border-slate-100/50 shadow-inner" />
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                                         <PieChart>
                                             <Pie
                                                 data={donutDisplay}
@@ -900,7 +981,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     </ResponsiveContainer>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pt-2">
                                         <span className="text-[28px] font-black text-[#1e293b] leading-none tracking-tight">{rate}%</span>
-                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.15em] mt-1.5">Completion Rate</span>
+                                        <span className="text-[9px] font-bold text-slate-400 capitalize  tracking-[0.15em] mt-1.5">Completion Rate</span>
                                     </div>
                                 </div>
                                 
@@ -915,7 +996,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     ].map(chip => (
                                         <div key={chip.label} className={`${chip.bg} rounded-full px-5 py-2.5 flex items-center justify-between shadow-sm border border-white/60`}>
                                             <span className={`text-[18px] font-black ${chip.color} tabular-nums leading-none`}>{chip.value}</span>
-                                            <span className={`text-[8px] font-black ${chip.labelColor} uppercase tracking-wider`}>{chip.label}</span>
+                                            <span className={`text-[8px] font-black ${chip.labelColor} capitalize  tracking-wider`}>{chip.label}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -933,7 +1014,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         <ListChecks size={18} className="text-violet-500" />
                         Team Task Status Bifurcation
                     </h3>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Breakdown of department tasks by current status</p>
+                    <p className="text-[10px] font-semibold text-slate-400 capitalize  tracking-widest mb-4">Breakdown of department tasks by current status</p>
                     {(() => {
                         const dd = dashboardData || {};
                         const tsb = dd.team_status_bifurcation || {};
@@ -956,7 +1037,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                 <div className="flex-1 overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
-                                            <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                            <tr className="text-[10px] font-bold text-slate-400 capitalize  tracking-widest border-b border-slate-100">
                                                 <th className="pb-2 text-left">Status</th>
                                                 <th className="pb-2 text-center">Tasks</th>
                                                 <th className="pb-2 text-center">% of Total</th>
@@ -989,7 +1070,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     </table>
                                 </div>
                                 <div className="relative w-[140px] h-[140px] shrink-0">
-                                    <ResponsiveContainer width="100%" height="100%">
+                                    <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                                         <PieChart>
                                             <Pie data={donutD.length ? donutD : [{ name: 'Empty', value: 1, fill: '#e2e8f0' }]} cx="50%" cy="50%" innerRadius={45} outerRadius={62} dataKey="value" strokeWidth={0}>
                                                 {donutD.map((e, i) => <Cell key={i} fill={e.fill} />)}
@@ -998,7 +1079,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     </ResponsiveContainer>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                         <span className="text-xl font-black text-slate-800">{total}</span>
-                                        <span className="text-[9px] text-slate-400 font-bold uppercase">Total</span>
+                                        <span className="text-[9px] text-slate-400 font-bold capitalize ">Total</span>
                                     </div>
                                 </div>
                             </div>
@@ -1012,7 +1093,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         <Activity size={18} className="text-rose-500" />
                         Team Action Snapshot
                     </h3>
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Focus areas requiring managerial attention</p>
+                    <p className="text-[10px] font-semibold text-slate-400 capitalize  tracking-widest mb-4">Focus areas requiring managerial attention</p>
                     {(() => {
                         const dd = dashboardData || {};
                         const tas = dd.team_action_snapshot || {};
@@ -1053,7 +1134,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-100 bg-slate-50/10 flex-wrap">
                     <div className="flex items-center gap-3">
                         <h3 className="text-[17px] font-bold text-slate-800">Team Execution Monitor</h3>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Workload &amp; Completion Status</span>
+                        <span className="text-[10px] font-semibold text-slate-400 capitalize  tracking-widest">Workload &amp; Completion Status</span>
                         {teamPerfLoading && <Loader2 size={15} className="text-violet-400 animate-spin" />}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -1073,14 +1154,25 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 </div>
                 <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-left border-separate border-spacing-0">
-                        <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold uppercase tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
+                        <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold capitalize  tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="py-3 px-2.5 pl-6">Employee</th>
                                 <th className="py-3 px-2.5 text-center">Tasks</th>
                                 <th className="py-3 px-2.5 text-center">Active</th>
                                 <th className="py-3 px-2.5 text-center">Pending</th>
                                 <th className="py-3 px-2.5 text-center">Overdue</th>
-                                <th className="py-3 px-2.5 text-center">Comp %</th>
+                                <th className="py-3 px-2.5 text-center">
+                                    <span className="inline-flex items-center justify-center gap-0.5">
+                                        Comp %
+                                        <InfoTooltip content={
+                                            <div className="bg-slate-900 text-white text-[10px] font-semibold rounded-xl px-3 py-2 shadow-2xl leading-relaxed whitespace-nowrap text-center border border-white/10">
+                                                <div className="font-black text-violet-300 mb-1">Completion Rate</div>
+                                                <div>(Approved Tasks ÷ Total Tasks) × 100</div>
+                                                <div className="mt-1 text-slate-400 text-[9px]">Based on the selected date period</div>
+                                            </div>
+                                        } />
+                                    </span>
+                                </th>
                                 <th className="py-3 px-2.5 text-center">Score %</th>
                                 <th className="py-3 px-2.5 text-right pr-6">Action</th>
                             </tr>
@@ -1162,7 +1254,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         <h3 className="text-[17px] font-bold text-slate-800 flex items-center gap-2">
                             <AlertTriangle size={17} className="text-rose-500" /> Employee Risk Monitor
                         </h3>
-                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Delivery Health &amp; Risk Assessment</span>
+                        <span className="text-[10px] font-semibold text-slate-400 capitalize  tracking-widest">Delivery Health &amp; Risk Assessment</span>
                         {riskLoading && <Loader2 size={14} className="text-rose-400 animate-spin" />}
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
@@ -1196,13 +1288,42 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-left border-separate border-spacing-0">
-                        <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold uppercase tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
+                        <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold capitalize  tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="py-3 px-2 pl-6">Employee</th>
                                 <th className="py-3 px-1 text-center">Active</th>
                                 <th className="py-3 px-1 text-center">Overdue</th>
                                 <th className="py-3 px-1 text-center">Score %</th>
-                                <th className="py-3 px-2 text-center pr-6">Status</th>
+                                <th className="py-3 px-2 text-center pr-6">
+                                    <span className="inline-flex items-center justify-center gap-0.5">
+                                        Status
+                                        <InfoTooltip align="left" content={
+                                            <div className="bg-slate-900 text-white text-[10px] rounded-xl px-3 py-2.5 shadow-2xl leading-relaxed border border-white/10 w-64">
+                                                <div className="font-black text-violet-300 mb-2 text-center">Risk Status Criteria</div>
+                                                <div className="flex items-start gap-2 mb-1.5">
+                                                    <span className="mt-0.5 w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                                                    <span><span className="font-bold text-emerald-300">On Track</span><span className="text-slate-400"> — No overdue tasks and score ≥ 80%</span></span>
+                                                </div>
+                                                <div className="flex items-start gap-2 mb-1.5">
+                                                    <span className="mt-0.5 w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                                                    <span><span className="font-bold text-blue-300">Watch</span><span className="text-slate-400"> — No overdue, score 60%–79%</span></span>
+                                                </div>
+                                                <div className="flex items-start gap-2 mb-1.5">
+                                                    <span className="mt-0.5 w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                                                    <span><span className="font-bold text-orange-300">At Risk</span><span className="text-slate-400"> — Overdue tasks exist or score &lt; 60%, but not Off Track</span></span>
+                                                </div>
+                                                <div className="flex items-start gap-2 mb-1.5">
+                                                    <span className="mt-0.5 w-2 h-2 rounded-full bg-rose-400 shrink-0" />
+                                                    <span><span className="font-bold text-rose-300">Off Track</span><span className="text-slate-400"> — Overdue tasks exist and score ≤ 35%</span></span>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <span className="mt-0.5 w-2 h-2 rounded-full bg-slate-400 shrink-0" />
+                                                    <span><span className="font-bold text-slate-300">No Data</span><span className="text-slate-400"> — No tasks in selected period</span></span>
+                                                </div>
+                                            </div>
+                                        } />
+                                    </span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -1268,7 +1389,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                                 </div>
                                             </td>
                                             <td className="py-3 px-2 text-center pr-6">
-                                                <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black border ${riskStyle} whitespace-nowrap uppercase`}>● {statusLabel}</span>
+                                                <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black border ${riskStyle} whitespace-nowrap capitalize `}>● {statusLabel}</span>
                                             </td>
                                         </tr>
                                     );

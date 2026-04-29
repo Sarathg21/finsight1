@@ -103,7 +103,7 @@ const STATUS_COLORS = {
 
 
 /* Small stat tile — CFO-style large gradient card */
-const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
+const Stat = ({ label, value, sub, icon: Icon, color = 'violet', onClick }) => {
     const c = {
         violet: { 
             bg: 'bg-gradient-to-br from-[#7B51ED] via-[#8B64F1] to-[#6D43E0]', 
@@ -149,7 +149,13 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
     };
 
     return (
-        <div className={`group animate-fade-in-up relative overflow-hidden rounded-[1.75rem] ${c.bg} ${c.shadow} p-6 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full`}>
+        <div
+            className={`group animate-fade-in-up relative overflow-hidden rounded-[1.75rem] ${c.bg} ${c.shadow} p-6 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full ${onClick ? 'cursor-pointer ring-2 ring-white/0 hover:ring-white/30' : ''}`}
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+        >
             {/* Background Ornaments */}
             <div className={`absolute -top-6 -right-6 w-32 h-32 rounded-full ${c.accent} blur-3xl opacity-50 group-hover:scale-125 transition-transform duration-700`} />
             <div className={`absolute -bottom-10 -left-10 w-28 h-28 rounded-full ${c.accent} blur-2xl opacity-30 group-hover:scale-125 transition-transform duration-700 delay-100`} />
@@ -757,9 +763,10 @@ const EmployeeDashboard = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <Stat 
                             label="Total Tasks" 
-                    value={stats.total}
+                            value={stats.total}
                             icon={CheckSquare} 
-                            color="blue" 
+                            color="blue"
+                            onClick={() => navigate('/tasks')}
                         />
                         <Stat 
                             label="Employee Score" 
@@ -772,21 +779,31 @@ const EmployeeDashboard = () => {
                             label="Pending Submission" 
                             value={stats.pendingSubmission} 
                             icon={Activity} 
-                            color="violet" 
+                            color="violet"
+                            onClick={() => navigate('/tasks?status=PENDING_SUBMISSION')}
                         />
                     </div>
                     
                     {/* Secondary alert strip */}
                     <div className="mt-4 grid grid-cols-3 divide-x divide-slate-100 bg-white rounded-2xl shadow-sm border border-slate-100 py-3">
-                        <div className="flex flex-col items-center justify-center px-4">
+                        <div 
+                            className="flex flex-col items-center justify-center px-4 cursor-pointer hover:bg-slate-50 transition-colors rounded-l-2xl"
+                            onClick={() => navigate('/tasks?status=ACTIVE')}
+                        >
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active Tasks</span>
                             <span className="text-xl font-bold text-[#1E1B4B] leading-none">{stats.active}</span>
                         </div>
-                        <div className="flex flex-col items-center justify-center px-4">
+                        <div 
+                            className="flex flex-col items-center justify-center px-4 cursor-pointer hover:bg-rose-50 transition-colors"
+                            onClick={() => navigate('/tasks?status=Overdue')}
+                        >
                             <span className="text-[10px] font-bold text-rose-500 uppercase tracking-widest mb-1">Overdue</span>
                             <span className="text-xl font-bold text-rose-600 leading-none">{stats.overdue}</span>
                         </div>
-                        <div className="flex flex-col items-center justify-center px-4">
+                        <div 
+                            className="flex flex-col items-center justify-center px-4 cursor-pointer hover:bg-amber-50 transition-colors rounded-r-2xl"
+                            onClick={() => navigate('/tasks')} // Due today doesn't have a direct status filter yet, navigating to tasks
+                        >
                             <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">Due Today</span>
                             <span className="text-xl font-bold text-amber-500 leading-none">{stats.dueToday}</span>
                         </div>
@@ -868,10 +885,21 @@ const EmployeeDashboard = () => {
                                                 </span>
                                             </td>
                                             <td className="py-1.5 px-3 whitespace-nowrap text-center">
-                                                <div className="flex items-center justify-center gap-1 text-[11px] font-bold text-slate-600 whitespace-nowrap">
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${task.severity === 'HIGH' ? 'bg-red-500' : 'bg-amber-400'}`}></span>
-                                                    {task.severity === 'HIGH' ? 'H' : 'M'}
-                                                </div>
+                                                {(() => {
+                                                    const sev = (task.severity || task.priority || '').toUpperCase();
+                                                    const cfg = sev === 'HIGH'
+                                                        ? 'bg-rose-50 text-rose-600 ring-1 ring-rose-200'
+                                                        : sev === 'MEDIUM'
+                                                        ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-200'
+                                                        : sev === 'LOW'
+                                                        ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
+                                                        : 'bg-slate-50 text-slate-400 ring-1 ring-slate-200';
+                                                    return sev ? (
+                                                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide ${cfg}`}>
+                                                            {sev === 'HIGH' ? 'High' : sev === 'MEDIUM' ? 'Med' : sev === 'LOW' ? 'Low' : sev}
+                                                        </span>
+                                                    ) : <span className="text-slate-300 text-[10px]">—</span>;
+                                                })()}
                                             </td>
                                             <td className="py-1.5 px-3 text-center whitespace-nowrap">
                                                 <div className="flex justify-center whitespace-nowrap">

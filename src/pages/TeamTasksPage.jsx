@@ -365,7 +365,10 @@ const TeamTasksPage = () => {
         setLoading(true);
         try {
             const params = { page, limit: pagination.limit };
-            Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+            Object.entries(filters).forEach(([k, v]) => {
+                // 'Overdue' is a computed client-side filter — never send it to the backend
+                if (v && !(k === 'status' && v === 'Overdue')) params[k] = v;
+            });
             const res = await api.get('/tasks/team', { params });
             const rawData = res.data?.data || res.data || {};
             const items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
@@ -382,6 +385,7 @@ const TeamTasksPage = () => {
                 ).trim();
 
             // Exclude CANCELLED tasks and MANAGER's own tasks from the team view
+            const now = new Date();
             const filteredItems = items.filter(t => {
                 const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
                 // Only compare actual assignee fields — never fall back to task.id
@@ -390,6 +394,13 @@ const TeamTasksPage = () => {
                 if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) return false;
 
                 if (isCancelled) return false;
+
+                // Client-side overdue filter — due_date < today and not terminal
+                if (filters.status === 'Overdue') {
+                    const due = t.due_date ? new Date(t.due_date) : null;
+                    const isTerminal = ['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
+                    return due && due < now && !isTerminal;
+                }
 
                 // Manager employee dropdown filter (client-side fallback)
                 if (employeeFilterId) {
@@ -444,101 +455,115 @@ const TeamTasksPage = () => {
                 });
                 return currentExpanded; // no-op
             });
-            const totalCount = rawData.total || items.length;
+            // Adjust total count if client-side filters removed items
+            let totalCount = rawData.total || items.length;
+            if (!rawData.total || items.length >= rawData.total) {
+                totalCount = enriched.length;
+            } else {
+                totalCount = rawData.total - (items.length - enriched.length);
+            }
+            
             setPagination({
                 page: rawData.page || page,
                 limit: rawData.limit || pagination.limit,
-                total: totalCount
+                total: Math.max(0, totalCount)
             });
-            fetchMetrics(totalCount);
+
+            // ── Compute KPI metrics via a background paginated fetch (limit=100, backend max).
+            // Collects ALL tasks across all pages so KPI cards always show accurate team-wide totals.
+            (() => {
+                const baseMetricParams = {};
+                if (filters.from_date)     baseMetricParams.from_date     = filters.from_date;
+                if (filters.to_date)       baseMetricParams.to_date       = filters.to_date;
+                if (filters.department_id) baseMetricParams.department_id = filters.department_id;
+                // No status filter — count ALL statuses for the global KPI picture
+
+                const fetchAllPages = async () => {
+                    let allItems = [];
+                    let currentPage = 1;
+                    const PAGE_LIMIT = 100; // backend maximum allowed
+                    const SAFETY_CAP = 2000; // never fetch more than this
+
+                    while (allItems.length < SAFETY_CAP) {
+                        const res = await api.get('/tasks/team', {
+                            params: { ...baseMetricParams, limit: PAGE_LIMIT, page: currentPage }
+                        });
+                        const raw = res.data?.data || res.data || {};
+                        const batch = Array.isArray(raw) ? raw : (raw.items || raw.data || []);
+                        if (batch.length === 0) break;
+                        allItems = [...allItems, ...batch];
+                        if (batch.length < PAGE_LIMIT) break; // last page
+                        currentPage++;
+                    }
+                    return allItems;
+                };
+
+                fetchAllPages().then(metricItems => {
+                    const now3 = new Date();
+                    const allTeam = metricItems.filter(t => {
+                        const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
+                        const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
+                        const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
+                        if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) return false;
+                        return !isCancelled;
+                    });
+                    setMetrics({
+                        activeTasks:       allTeam.filter(t => !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase())).length,
+                        inProgress:        allTeam.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length,
+                        pendingSubmission:  allTeam.filter(t => (t.status || '').toUpperCase() === 'SUBMITTED').length,
+                        overdue:           allTeam.filter(t => {
+                            const due = t.due_date ? new Date(t.due_date) : null;
+                            return due && due < now3 && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
+                        }).length
+                    });
+                }).catch(() => {
+                    // Fallback: count from the current page's enriched list if pagination fails
+                    const now3 = new Date();
+                    setMetrics({
+                        activeTasks:       enriched.filter(t => !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase())).length,
+                        inProgress:        enriched.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length,
+                        pendingSubmission:  enriched.filter(t => (t.status || '').toUpperCase() === 'SUBMITTED').length,
+                        overdue:           enriched.filter(t => {
+                            const due = t.due_date ? new Date(t.due_date) : null;
+                            return due && due < now3 && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
+                        }).length
+                    });
+                });
+            })();
         } catch (err) {
             console.error("Fetch tasks error:", err);
             toast.error("Failed to load tasks");
         } finally { setLoading(false); }
     };
 
-    const fetchMetrics = async (overrideTotal = null) => {
-        try {
-            const role = user?.role?.toUpperCase();
-            let endpoint = '/dashboard/manager';
-            if (role === 'CFO' || role === 'ADMIN') endpoint = '/dashboard/cfo';
-            else if (role === 'EMPLOYEE') endpoint = '/reports/employee/summary';
-
-            const params = {};
-            if (filters.from_date) params.from_date = filters.from_date;
-            if (filters.to_date) params.to_date = filters.to_date;
-            if (filters.department_id) params.department_id = filters.department_id;
-
-            const res = await api.get(endpoint, { params });
-            const d = res.data?.data || res.data || {};
-
-            // Helper to get value from multiple possible keys
-            const getVal = (obj, keys) => {
-                for (const k of keys) {
-                    if (obj[k] !== undefined && obj[k] !== null) return Number(obj[k]);
-                }
-                return 0;
-            };
-
-            // Extensive mapping for CFO/Manager dashboards to prevent zeros
-            const inProgressFromApi = getVal(d, ['in_progress_tasks', 'in_progress', 'inProgress', 'total_in_progress', 'tasks_in_progress']);
-            const overdueFromApi = getVal(d, ['overdue_tasks', 'overdue', 'overdue_count', 'overdueTasks', 'total_overdue']);
-            const totalTasksFromApi = getVal(d, ['team_tasks', 'total_tasks', 'total_active', 'total', 'active_tasks', 'tasks_assigned']);
-            const submittedFromApi = getVal(d, ['submitted_tasks', 'submitted', 'pending_approval', 'pending_review', 'pending_submission']);
-            
-            // Priority: Override -> API -> State pagination -> Local tasks
-            let activeTasksCount = overrideTotal !== null ? overrideTotal : (totalTasksFromApi || pagination.total || tasks.length);
-
-            // ── SIMULATION INTELLIGENCE ──
-            // If we have total tasks but breakdown is all zeros, apply realistic proportions for the view
-            if (activeTasksCount > 0 && inProgressFromApi === 0 && overdueFromApi === 0 && submittedFromApi === 0) {
-                // Mock realistic distribution (60% In Progress, 25% Pending, 5% Overdue, rest New)
-                const simInProgress = Math.max(1, Math.floor(activeTasksCount * 0.55));
-                const simOverdue = Math.max(1, Math.floor(activeTasksCount * 0.08));
-                const simPending = Math.max(1, Math.floor(activeTasksCount * 0.25));
-                
-                setMetrics({
-                    activeTasks: activeTasksCount,
-                    inProgress: simInProgress,
-                    pendingSubmission: simPending,
-                    overdue: simOverdue
-                });
-            } else {
-                setMetrics({
-                    activeTasks: activeTasksCount,
-                    inProgress: inProgressFromApi || tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length,
-                    pendingSubmission: submittedFromApi || tasks.filter(t => ['NEW', 'REWORK', 'SUBMITTED'].includes((t.status || '').toUpperCase())).length,
-                    overdue: overdueFromApi || tasks.filter(t => {
-                        const due = t.due_date ? new Date(t.due_date) : null;
-                        return due && due < new Date() && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
-                    }).length
-                });
-            }
-        } catch (err) {
-            console.error("Fetch metrics error:", err);
-            const fallbackTotal = overrideTotal || pagination.total || tasks.length;
-            setMetrics({
-                activeTasks: fallbackTotal,
-                inProgress: tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length || Math.floor(fallbackTotal * 0.4),
-                pendingSubmission: tasks.filter(t => ['NEW', 'REWORK', 'SUBMITTED'].includes((t.status || '').toUpperCase())).length || Math.floor(fallbackTotal * 0.3),
-                overdue: tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'CANCELLED'].includes((t.status || '').toUpperCase())).length || Math.floor(fallbackTotal * 0.1)
-            });
-        }
-    };
+    // fetchMetrics is replaced by inline computation in fetchTasks above.
+    // Kept as a no-op so existing callers (refresh button, action handlers) don't error.
+    const fetchMetrics = () => {};
 
     useEffect(() => {
         api.get('/departments').then(res => setDepartments(res.data?.data || res.data || []));
         api.get('/employees').then(res => setAllEmployees(res.data?.data || res.data || []));
     }, []);
 
-    // Sync URL params → filters (e.g. when navigated from Objective Progress Matrix)
+    // Sync URL params → filters (e.g. when navigated from Dashboard KPI cards)
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const searchParam = params.get('search');
-        const taskIdParam = params.get('task_id');
+        const searchParam   = params.get('search');
+        const taskIdParam   = params.get('task_id');
+        const statusParam   = params.get('status');
+        const fromDateParam = params.get('from_date');
+        const toDateParam   = params.get('to_date');
 
-        if (searchParam) {
-            setFilters(prev => ({ ...prev, search: decodeURIComponent(searchParam) }));
+        // Build a single batched filter update to avoid multiple re-renders
+        const filterUpdates = {};
+
+        if (searchParam)   filterUpdates.search    = decodeURIComponent(searchParam);
+        if (statusParam !== null) filterUpdates.status = statusParam; // '' clears the filter (show all)
+        if (fromDateParam) filterUpdates.from_date  = fromDateParam;
+        if (toDateParam)   filterUpdates.to_date    = toDateParam;
+
+        if (Object.keys(filterUpdates).length > 0) {
+            setFilters(prev => ({ ...prev, ...filterUpdates }));
         }
 
         if (taskIdParam) {
@@ -749,10 +774,10 @@ const TeamTasksPage = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatsCard title="Active Tasks" value={metrics.activeTasks} icon={ClipboardCheck} color="violet" />
-                <StatsCard title="In Progress" value={metrics.inProgress} icon={Play} color="amber" />
-                <StatsCard title="Pending Submission" value={metrics.pendingSubmission} icon={Upload} color="emerald" />
-                <StatsCard title="Overdue" value={metrics.overdue} icon={AlertTriangle} color="rose" />
+                <StatsCard title="Team Tasks"       value={metrics.activeTasks}       icon={ClipboardCheck} color="violet"  onClick={() => setFilters(p => ({ ...p, status: '' }))} />
+                <StatsCard title="In Progress"       value={metrics.inProgress}        icon={Play}           color="amber"   onClick={() => setFilters(p => ({ ...p, status: 'IN_PROGRESS' }))} />
+                <StatsCard title="Pending Approval"  value={metrics.pendingSubmission} icon={Upload}         color="emerald" onClick={() => setFilters(p => ({ ...p, status: 'SUBMITTED' }))} />
+                <StatsCard title="Overdue"           value={metrics.overdue}           icon={AlertTriangle}  color="rose"    onClick={() => setFilters(p => ({ ...p, status: 'Overdue' }))} />
             </div>
 
             <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
@@ -789,7 +814,7 @@ const TeamTasksPage = () => {
                             </div>
                         )}
                         <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1">Status</label>
-                            <CustomSelect value={filters.status} onChange={(v) => setFilters(p => ({ ...p, status: v }))} options={[{ value: '', label: 'All Status' }, { value: 'NEW', label: 'Not Started' }, { value: 'IN_PROGRESS', label: 'In Progress' }, { value: 'SUBMITTED', label: 'Submitted' }, { value: 'REWORK', label: 'Rework' }, { value: 'APPROVED', label: 'Approved' }, { value: 'CANCELLED', label: 'Cancelled' }]} />
+                            <CustomSelect value={filters.status} onChange={(v) => setFilters(p => ({ ...p, status: v }))} options={[{ value: '', label: 'All Status' }, { value: 'NEW', label: 'Not Started' }, { value: 'IN_PROGRESS', label: 'In Progress' }, { value: 'SUBMITTED', label: 'Pending Approval' }, { value: 'REWORK', label: 'Rework' }, { value: 'APPROVED', label: 'Approved' }, { value: 'Overdue', label: 'Overdue' }, { value: 'CANCELLED', label: 'Cancelled' }]} />
                         </div>
                         <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1">Severity</label>
                             <CustomSelect value={filters.severity} onChange={(v) => setFilters(p => ({ ...p, severity: v }))} options={[{ value: '', label: 'All Severity' }, { value: 'HIGH', label: 'High' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'LOW', label: 'Low' }]} />

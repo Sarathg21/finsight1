@@ -184,7 +184,21 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
                 </td>
 
                 <td className="py-2 px-4 text-center">
-                    <div className={`w-2 h-2 rounded-full mx-auto ${task.priority === 'HIGH' ? 'bg-rose-500' : task.priority === 'MEDIUM' ? 'bg-amber-500' : 'bg-emerald-500'}`} title={task.priority} />
+                    {(() => {
+                        const p = (task.priority || '').toUpperCase();
+                        const cfg = p === 'HIGH'
+                            ? 'bg-rose-50 text-rose-600 ring-1 ring-rose-200'
+                            : p === 'MEDIUM'
+                            ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-200'
+                            : p === 'LOW'
+                            ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
+                            : 'bg-slate-50 text-slate-400 ring-1 ring-slate-200';
+                        return p ? (
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide ${cfg}`}>
+                                {p === 'HIGH' ? 'High' : p === 'MEDIUM' ? 'Med' : p === 'LOW' ? 'Low' : p}
+                            </span>
+                        ) : <span className="text-slate-300 text-[10px]">—</span>;
+                    })()}
                 </td>
 
                 <td className="py-2 px-4 text-center whitespace-nowrap">
@@ -332,11 +346,17 @@ const ActionTaskTable = ({
                 <td className="py-2 px-4 text-center whitespace-nowrap">
                   {(() => {
                     const sev = (task.priority || task.severity || '').toUpperCase();
+                    const cfg = sev === 'HIGH'
+                        ? 'bg-rose-50 text-rose-600 ring-1 ring-rose-200'
+                        : sev === 'MEDIUM'
+                        ? 'bg-amber-50 text-amber-600 ring-1 ring-amber-200'
+                        : sev === 'LOW'
+                        ? 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200'
+                        : 'bg-slate-50 text-slate-400 ring-1 ring-slate-200';
                     return sev ? (
-                      <div className="flex items-center justify-center gap-1 text-[10px] font-medium text-slate-600 whitespace-nowrap">
-                        <span className={`w-1.5 h-1.5 rounded-full ${sev === 'HIGH' ? 'bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]' : sev === 'MEDIUM' ? 'bg-amber-400 shadow-[0_0_4px_rgba(251,191,36,0.5)]' : 'bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.5)]'}`}></span>
-                        {sev.charAt(0)}
-                      </div>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wide ${cfg}`}>
+                          {sev === 'HIGH' ? 'High' : sev === 'MEDIUM' ? 'Med' : sev === 'LOW' ? 'Low' : sev}
+                      </span>
                     ) : (
                       <span className="text-slate-400 text-[10px]">-</span>
                     );
@@ -443,13 +463,15 @@ const TaskPage = () => {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const PENDING_SUBMISSION_STATUSES = new Set(['NEW', 'IN_PROGRESS', 'NOT_STARTED', 'REWORK']);
+
   const [filter, setFilter] = useState({
     status: "All",
     severity: "All",
     department: "All",
     search: "",
-    fromDate: "",
-    toDate: "",
+    fromDate: localStorage.getItem('dashboard_from_date') || "",
+    toDate: localStorage.getItem('dashboard_to_date') || "",
     employeeId: "All",
     taskId: "",
   });
@@ -482,6 +504,8 @@ const TaskPage = () => {
     const empIdParam = params.get('employeeId') || params.get('empId');
     const statusParam = params.get('status');
     const severityParam = params.get('severity') || params.get('priority');
+    const fromDateParam = params.get('fromDate') || params.get('from_date');
+    const toDateParam = params.get('toDate') || params.get('to_date');
 
     if (mode === 'personal' || mode === 'team' || mode === 'all') {
       setViewMode(mode);
@@ -492,8 +516,16 @@ const TaskPage = () => {
       if (searchParam) { next.search = searchParam; next.taskId = ""; next.employeeId = "All"; }
       if (taskIdParam) { next.taskId = taskIdParam; next.search = ""; next.employeeId = "All"; }
       if (empIdParam) { next.employeeId = empIdParam; next.taskId = ""; next.search = ""; }
-      if (statusParam) { next.status = statusParam; next.taskId = ""; }
+      if (statusParam) {
+        // Handle virtual statuses
+        if (statusParam.toUpperCase() === 'PENDING_SUBMISSION') next.status = 'PENDING_SUBMISSION';
+        else if (statusParam.toUpperCase() === 'ACTIVE') next.status = 'ACTIVE';
+        else next.status = statusParam;
+        next.taskId = "";
+      }
       if (severityParam) { next.severity = severityParam; next.taskId = ""; }
+      if (fromDateParam) { next.fromDate = fromDateParam; }
+      if (toDateParam) { next.toDate = toDateParam; }
       return next;
     });
   }, [location.search]);
@@ -525,11 +557,11 @@ const TaskPage = () => {
       // Build parameters for server-side filtering
       const params = {
         scope: scopeParam,
-        limit: 100,
+        limit: 200,
         offset: 0
       };
 
-      if (filter.status && filter.status !== 'All' && filter.status !== 'Overdue') {
+      if (filter.status && !['All', 'Overdue', 'PENDING_SUBMISSION', 'ACTIVE'].includes(filter.status)) {
         params.status = filter.status;
       }
       if (filter.severity && filter.severity !== 'All') {
@@ -546,18 +578,35 @@ const TaskPage = () => {
       }
       if (filter.fromDate) {
         params.start_date = filter.fromDate;
+        params.from_date = filter.fromDate;
       }
       if (filter.toDate) {
         params.end_date = filter.toDate;
+        params.to_date = filter.toDate;
       }
 
-      const response = await api.get('/tasks', { params });
+      let allTasks = [];
+      let currentOffset = 0;
+      let hasMore = true;
 
-      const raw = Array.isArray(response.data) ? response.data : (Array.isArray(response.data?.data) ? response.data.data : []);
+      while (hasMore) {
+        params.offset = currentOffset;
+        const response = await api.get('/tasks', { params });
+        const raw = Array.isArray(response.data) ? response.data : (Array.isArray(response.data?.data) ? response.data.data : []);
+        
+        allTasks = [...allTasks, ...raw];
 
+        // If the backend returned fewer tasks than we asked for, or we hit our safety limit, stop fetching.
+        // We check raw.length === 0 in case the backend forces a smaller limit (e.g. 100) than our requested 200.
+        if (raw.length === 0 || allTasks.length >= 2000) {
+            hasMore = false;
+        } else {
+            currentOffset += raw.length; // offset by the actual number of items received
+        }
+      }
 
       const taskMap = {};
-      raw.forEach(t => {
+      allTasks.forEach(t => {
         const id = t.task_id || t.id;
         const title = t.task_title || t.title || t.task_name || t.name || t.directive_title || t.directive_name;
         if (id && title) taskMap[id] = title;
@@ -566,7 +615,7 @@ const TaskPage = () => {
       // Pass 1.5: Simplified - we only map titles that happened to be in the same list.
       // Removed parallel detail fetching to avoid server timeouts and 403 errors.
 
-      const normalised = raw.map(t => {
+      const normalised = allTasks.map(t => {
         const parentId = t.parent_task_id ?? t.parent_id ?? null;
         const inlineParentTitle = t.parent_task_title ?? t.parent_task_name ?? t.parent_title ?? '';
 
@@ -613,6 +662,23 @@ const TaskPage = () => {
           // If task was reassigned to someone else, exclude it
           if (t.reassigned_to_emp_id && assigneeId !== myId) return false;
           return assigneeId === myId;
+        });
+      }
+
+      // Client-side Overdue filter
+      if (filter.status === 'Overdue') {
+        const now = new Date();
+        sorted = sorted.filter(t => {
+            const due = t.due_date ? new Date(t.due_date) : null;
+            const isTerminal = ['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
+            return due && due < now && !isTerminal;
+        });
+      }
+
+      // Client-side Active filter
+      if (filter.status === 'ACTIVE') {
+        sorted = sorted.filter(t => {
+            return !['APPROVED', 'CANCELLED'].includes((t.status || '').toUpperCase());
         });
       }
 
@@ -744,7 +810,10 @@ const TaskPage = () => {
       const isOverdue = dueDateKey && dueDateKey < today && !['APPROVED', 'CANCELLED'].includes(taskStatus);
 
       const matchesStatus = filter.status === "All" ||
-        (filter.status === "Overdue" ? isOverdue : taskStatus === String(filter.status).toUpperCase());
+        (filter.status === "ACTIVE" ? !['APPROVED', 'CANCELLED'].includes(taskStatus) :
+        filter.status === "Overdue" ? isOverdue :
+        filter.status === "PENDING_SUBMISSION" ? PENDING_SUBMISSION_STATUSES.has(taskStatus) :
+        taskStatus === String(filter.status).toUpperCase());
 
       // Check both severity and priority for broader compatibility
       const taskPriority = String(task.priority || task.severity || '').toUpperCase();
@@ -755,7 +824,8 @@ const TaskPage = () => {
         String(task.department).toLowerCase().includes(String(filter.department).toLowerCase());
 
       // Date filtering
-      const taskDate = toDateKey(task.due_date || task.assigned_date || task.created_at);
+      // Prioritize creation/assignment date to match backend logic, falling back to due_date only if others are missing
+      const taskDate = toDateKey(task.created_at || task.assigned_date || task.due_date);
       const matchesFrom = !filter.fromDate || (taskDate && taskDate >= filter.fromDate);
       const matchesTo = !filter.toDate || (taskDate && taskDate <= filter.toDate);
 
@@ -921,7 +991,7 @@ const handleReworkConfirm = async (comment) => {
 
       {/* â•â• TASK MANAGEMENT PREMIUM HERO â•â• */}
       {/* ── METRIC WIDGETS ── */}
-      {/* PREMIUM METRIC WIDGETS */}
+      {/* PREMIUM METRIC WIDGETS — counts from filteredTasks so they always match the visible list */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-full px-4 mx-auto">
         {/* Active Tasks */}
         <div className="bg-violet-50/50 p-6 rounded-[2rem] border border-violet-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-violet-100/50 group">
@@ -930,7 +1000,7 @@ const handleReworkConfirm = async (comment) => {
           </div>
           <div>
             <span className="text-[12px] font-black text-violet-500 capitalize tracking-widest block mb-1">Active Tasks</span>
-            <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">{tasks.filter(t => !['APPROVED', 'CANCELLED', 'SUBMITTED'].includes(String(t.status || '').toUpperCase())).length}</span>
+            <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">{filteredTasks.filter(t => !['APPROVED', 'CANCELLED'].includes(String(t.status || '').toUpperCase())).length}</span>
           </div>
         </div>
 
@@ -941,7 +1011,7 @@ const handleReworkConfirm = async (comment) => {
           </div>
           <div>
             <span className="text-[12px] font-black text-orange-500 capitalize tracking-widest block mb-1">In Progress</span>
-            <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">{tasks.filter(t => String(t.status || '').toUpperCase() === 'IN_PROGRESS').length}</span>
+            <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">{filteredTasks.filter(t => String(t.status || '').toUpperCase() === 'IN_PROGRESS').length}</span>
           </div>
         </div>
 
@@ -952,7 +1022,7 @@ const handleReworkConfirm = async (comment) => {
           </div>
           <div>
             <span className="text-[12px] font-black text-amber-500 capitalize tracking-widest block mb-1">Pending Submission</span>
-            <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">{tasks.filter(t => { const s = String(t.status || '').toUpperCase(); return s === 'NEW' || s === 'REWORK'; }).length}</span>
+            <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">{filteredTasks.filter(t => { const s = String(t.status || '').toUpperCase(); return s === 'NEW' || s === 'REWORK'; }).length}</span>
           </div>
         </div>
 
@@ -964,7 +1034,7 @@ const handleReworkConfirm = async (comment) => {
           <div>
             <span className="text-[12px] font-black text-rose-500 capitalize tracking-widest block mb-1">Overdue</span>
             <span className="text-4xl font-black text-slate-900 leading-none tabular-nums">
-              {tasks.filter(t => {
+              {filteredTasks.filter(t => {
                 const today = new Date().toLocaleDateString('en-CA');
                 const dueDateKey = toDateKey(t.due_date);
                 return dueDateKey && dueDateKey < today && !['APPROVED', 'CANCELLED'].includes(String(t.status || '').toUpperCase());
@@ -1088,6 +1158,7 @@ const handleReworkConfirm = async (comment) => {
             <CustomSelect
               options={[
                 { value: 'All', label: 'Status: All' },
+                { value: 'ACTIVE', label: 'Active Tasks' },
                 { value: 'Overdue', label: 'Overdue' },
                 { value: 'NEW', label: 'Not Started' },
                 { value: 'IN_PROGRESS', label: 'In Progress' },

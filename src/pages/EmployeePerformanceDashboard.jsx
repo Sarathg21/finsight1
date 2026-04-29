@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -35,6 +35,7 @@ const getInitials = (name) => {
 
 const PerformanceDashboard = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     
     if (user?.role?.toUpperCase() === 'EMPLOYEE') {
@@ -147,6 +148,16 @@ const PerformanceDashboard = () => {
         if (fromDate) { setTeamPerfFrom(fromDate); setRiskFrom(fromDate); }
         if (toDate) { setTeamPerfTo(toDate); setRiskTo(toDate); }
     }, [fromDate, toDate]);
+
+    // Handle hash navigation
+    useEffect(() => {
+        if (location.hash) {
+            setTimeout(() => {
+                const el = document.getElementById(location.hash.slice(1));
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 500); // slight delay to allow data to render
+        }
+    }, [location.hash, loading]);
 
     const aggregateFallbackData = useCallback((tasks, baseRegistry = [], allDepts = []) => {
         if (!tasks.length && !baseRegistry.length) return;
@@ -999,6 +1010,19 @@ const PerformanceDashboard = () => {
         return departments.find(d => String(d.department_id || d.id) === String(selectedDept))?.name || 'Selected Department';
     }, [selectedDept, departments]);
 
+    // Handle deep-link scrolling
+    useEffect(() => {
+        if (!loading && !teamPerfLoading && !riskLoading && location.hash) {
+            const id = location.hash.replace('#', '');
+            const element = document.getElementById(id);
+            if (element) {
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 150);
+            }
+        }
+    }, [location.hash, loading, teamPerfLoading, riskLoading]);
+
     const activityTrends = useMemo(() => {
         if (!trends.length) return [];
         
@@ -1126,14 +1150,21 @@ const PerformanceDashboard = () => {
             {/* KPI CARDS — 4 task cards + Manager Score cluster */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-5 mb-12 px-4 items-stretch">
 
-                {/* Task Metric Cards — same size as before */}
+                {/* Task Metric Cards */}
                 {[
-                    { label: 'Team tasks', val: summary.team_tasks, icon: Briefcase, color: 'from-indigo-500 to-indigo-600' },
-                    { label: 'In progress', val: summary.in_progress_tasks, icon: Activity, color: 'from-sky-500 to-sky-600' },
-                    { label: 'Pending approval', val: summary.pending_approval, icon: Clock, color: 'from-amber-500 to-amber-600' },
-                    { label: 'Overdue tasks', val: summary.overdue_tasks, icon: AlertCircle, color: 'from-rose-500 to-rose-600' },
+                    { label: 'Team tasks', val: summary.team_tasks, icon: Briefcase, color: 'from-indigo-500 to-indigo-600', href: '/tasks?mode=team' },
+                    { label: 'In progress', val: summary.in_progress_tasks, icon: Activity, color: 'from-sky-500 to-sky-600', href: '/tasks?mode=team&status=IN_PROGRESS' },
+                    { label: 'Pending approval', val: summary.pending_approval, icon: Clock, color: 'from-amber-500 to-amber-600', href: '/tasks?mode=team&status=SUBMITTED' },
+                    { label: 'Overdue tasks', val: summary.overdue_tasks, icon: AlertCircle, color: 'from-rose-500 to-rose-600', href: '/tasks?mode=team&status=Overdue' },
                 ].map((kpi, i) => (
-                    <div key={i} className={`p-6 rounded-[2rem] bg-gradient-to-br ${kpi.color} text-white shadow-xl shadow-indigo-100/40 hover:scale-[1.02] transition-all flex flex-col`}>
+                    <div
+                        key={i}
+                        onClick={() => navigate(kpi.href)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(kpi.href); }}
+                        className={`p-6 rounded-[2rem] bg-gradient-to-br ${kpi.color} text-white shadow-xl shadow-indigo-100/40 hover:scale-[1.02] transition-all flex flex-col cursor-pointer ring-2 ring-white/0 hover:ring-white/30`}
+                    >
                         <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4"><kpi.icon size={20} /></div>
                         <p className="text-[10px] font-medium uppercase tracking-widest opacity-80 mb-1">{kpi.label}</p>
                         <h4 className="text-2xl font-semibold mt-auto">{kpi.val}</h4>
@@ -1238,7 +1269,7 @@ const PerformanceDashboard = () => {
                     </div>
 
                     <div className="flex-1 min-h-[320px] h-[320px] min-w-0 -ml-6 relative">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={150} minHeight={150}>
+                        <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                             <BarChart data={activityTrends} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis 
@@ -1280,7 +1311,7 @@ const PerformanceDashboard = () => {
                     </div>
                     {/* PieChart — use fixed pixel dimensions instead of aspect to avoid -1 warning */}
                     <div className="relative w-56 h-56 mx-auto">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={180} minHeight={180}>
+                        <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                             <PieChart>
                                 <Pie
                                     data={orgStatusPie}
@@ -1397,7 +1428,7 @@ const PerformanceDashboard = () => {
                         <thead className="bg-slate-50 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10">
                             <tr>
                                 <th className="px-4 py-3 text-left">Employee</th>
-                                <th className="px-4 py-3 text-left min-w-[160px]">Dept</th>
+                                {isCFO && <th className="px-4 py-3 text-left min-w-[140px]">Department</th>}
                                 <th className="px-4 py-3 text-center">Tasks</th>
                                 <th className="px-4 py-3 text-center">Active</th>
                                 <th className="px-4 py-3 text-center">Pending</th>
@@ -1419,9 +1450,11 @@ const PerformanceDashboard = () => {
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2 text-left min-w-[160px]">
-                                        <div className="text-[11px] font-medium text-slate-600 whitespace-normal leading-tight">{emp.department}</div>
-                                    </td>
+                                    {isCFO && (
+                                        <td className="px-4 py-2 text-left min-w-[140px]">
+                                            <div className="text-[11px] font-medium text-slate-600 whitespace-normal leading-tight">{emp.department || '—'}</div>
+                                        </td>
+                                    )}
                                     <td className="px-4 py-2 text-center tabular-nums font-medium text-slate-700">{emp.tasks_assigned}</td>
                                     <td className="px-4 py-2 text-center tabular-nums">
                                         <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${emp.in_progress > 0 ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>
@@ -1468,7 +1501,7 @@ const PerformanceDashboard = () => {
             </div>
 
             {/* EMPLOYEE RISK MONITOR */}
-            <div className="bg-white/90 rounded-[2.5rem] border border-white shadow-2xl mx-4 overflow-hidden mb-20 flex flex-col min-h-[400px]">
+            <div id="employee-risk" className="bg-white/90 rounded-[2.5rem] border border-white shadow-2xl mx-4 overflow-hidden mb-20 flex flex-col min-h-[400px]">
                 <div className="flex flex-wrap items-center justify-between gap-3 p-6 border-b border-indigo-50">
                     <div>
                         <h3 className="text-xl font-medium text-[#1E1B4B]">Employee Risk Monitor</h3>
