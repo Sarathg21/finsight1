@@ -226,12 +226,11 @@ const ExecutiveHealthPanel = ({ metrics, departments }) => {
     );
 };
 
-const TaskTrendsChart = ({ data }) => {
-    // Helper: Convert "2026-02" or "Feb" or "02" to "February"
+const TaskTrendsChart = ({ data, fromDate, toDate }) => {
+    // Helper: Convert "YYYY-MM" -> "Feb"
     const formatMonthName = (val) => {
         if (!val || val === '—') return '—';
         try {
-            // Handle "YYYY-MM"
             if (/^\d{4}-\d{2}$/.test(val)) {
                 const [year, month] = val.split('-');
                 return new Date(year, parseInt(month) - 1).toLocaleString('en-US', { month: 'short' });
@@ -239,133 +238,133 @@ const TaskTrendsChart = ({ data }) => {
             const d = new Date(`${val} 1, 2000`);
             if (!isNaN(d.getTime())) return d.toLocaleString('en-US', { month: 'short' });
             return val;
-        } catch (e) {
-            return val;
-        }
+        } catch (e) { return val; }
     };
 
-    // Map API fields per document section 4:
-    // new_tasks → New bar, pending_submission → Pending Submission bar,
-    // overdue_tasks → Overdue bar, approved_tasks → Approved bar,
-    // performance_score → line
     const trends = useMemo(() => {
-        const source = data && data.length > 0 ? data : [];
-        if (source.length === 0) return [];
-        return source.map(d => {
-            const g = (keys) => {
-                for (const k of keys) {
-                    if (d[k] !== undefined && d[k] !== null) return Number(d[k]);
-                }
-                return 0;
-            };
-            return {
-                name: formatMonthName(d.name || d.month),
-                'New':                g(['new_tasks', 'new', 'Not Started', 'new_count']),
-                'In Progress':        g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'Pending', 'In Progress']),
-                'Overdue':            g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count']),
-                'Approved':           g(['approved_tasks', 'completed', 'Completed', 'approved_count']),
-                'Performance Score':  g(['performance_score', 'perf_score', 'score']),
+        // Build full month skeleton from fromDate → toDate
+        const generateMonthRange = (from, to) => {
+            if (!from || !to) return [];
+            const months = [];
+            const start = new Date(from);
+            const end = new Date(to);
+            // clamp to first of month
+            start.setDate(1);
+            end.setDate(1);
+            const cur = new Date(start);
+            while (cur <= end) {
+                const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
+                months.push({ key, label: cur.toLocaleString('en-US', { month: 'short' }) });
+                cur.setMonth(cur.getMonth() + 1);
+            }
+            return months;
+        };
+
+        const monthRange = generateMonthRange(fromDate, toDate);
+
+        // Build a lookup from backend data keyed by YYYY-MM or short month name
+        const backendMap = {};
+        (data || []).forEach(d => {
+            const rawKey = d.name || d.month || d.period || d.week || '';
+            // Try to extract YYYY-MM key from the raw value
+            let normKey = rawKey;
+            if (/^\d{4}-\d{2}$/.test(rawKey)) {
+                normKey = rawKey; // already YYYY-MM
+            } else {
+                // Try to match short month name to a year-month in range
+                const label = formatMonthName(rawKey);
+                const found = monthRange.find(m => m.label === label);
+                if (found) normKey = found.key;
+            }
+            const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
+            backendMap[normKey] = {
+                new:     g(['new_tasks', 'new', 'Not Started', 'new_count']),
+                pending: g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'Pending', 'In Progress']),
+                overdue: g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count']),
             };
         });
-    }, [data]);
+
+        if (monthRange.length > 0) {
+            return monthRange.map(({ key, label }) => ({
+                name:    label,
+                new:     backendMap[key]?.new     ?? 0,
+                pending: backendMap[key]?.pending ?? 0,
+                overdue: backendMap[key]?.overdue ?? 0,
+            }));
+        }
+
+        // Fallback: just render backend data as-is
+        return (data || []).map(d => {
+            const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
+            return {
+                name:    formatMonthName(d.name || d.month || d.period || d.week),
+                new:     g(['new_tasks', 'new', 'Not Started', 'new_count']),
+                pending: g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'Pending', 'In Progress']),
+                overdue: g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count']),
+            };
+        });
+    }, [data, fromDate, toDate]);
 
     return (
-        <div className="bg-[#fbfcff] rounded-[2rem] border border-slate-100 shadow-sm p-10 h-[520px] flex flex-col">
+        <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6 flex flex-col h-[520px]">
             <div className="flex items-center justify-between mb-8">
-                <h3 className="text-[17px] font-semibold text-[#2d3748] tracking-tight">Task Trends - Last 6 Months</h3>
-                <div className="flex bg-white border border-slate-100 rounded-2xl px-5 py-2.5 cursor-pointer hover:bg-slate-50 transition-all shadow-sm">
-                    <span className="text-[12px] font-semibold text-slate-500 mr-3">Last 6 Months</span>
-                    <ChevronDown size={16} className="text-slate-400" />
-                </div>
-            </div>
-
-            <div className="flex items-center gap-6 mb-8 ml-2 flex-wrap">
-                {[
-                    { label: 'New',                color: 'bg-[#3b82f6]' },
-                    { label: 'In Progress',        color: 'bg-[#febc6b]' },
-                    { label: 'Overdue',            color: 'bg-[#ff697e]' },
-                    { label: 'Approved',           color: 'bg-[#38b2ac]' },
-                    { label: 'Performance Score',  color: 'bg-[#8b5cf6]' },
-                ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${item.color} shadow-sm`} />
-                        <span className="text-[12px] font-bold text-slate-500">{item.label}</span>
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-violet-50 flex items-center justify-center shadow-sm border border-violet-100/50">
+                        <TrendingUp size={20} className="text-violet-600" />
                     </div>
-                ))}
+                    <div>
+                        <h3 className="text-[20px] font-black text-slate-800 tracking-tight">Task Activity Trends</h3>
+                        <p className="text-[10px] font-bold text-slate-400 capitalize tracking-[0.2em] mt-0.5">Dynamic Workload Trajectory</p>
+                    </div>
+                </div>
+                <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
+                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Not Started</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></div>
+                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Pending</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div>
+                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Overdue</span>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-1 w-full min-h-0">
                 <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
-                    <ComposedChart data={trends} margin={{ top: 10, right: 30, bottom: 30, left: 10 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis
-                            dataKey="name"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 11, fontWeight: '900', fill: '#94a3b8' }}
-                            height={60}
-                            dy={20}
-                            interval="preserveStartEnd"
-                            padding={{ left: 10, right: 10 }}
+                    <BarChart data={trends.length ? trends : [{ name: 'No Data', new: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                        <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 800 }} 
+                            dy={10} 
                         />
-                        <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 12, fontWeight: 700, fill: '#adb5bd' }}
-                            domain={['auto', 'auto']}
+                        <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 800 }} 
+                            domain={[0, 'auto']}
                         />
                         <Tooltip
-                            contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: '15px' }}
-                            cursor={{ fill: '#f7fafc', opacity: 0.4 }}
-                            content={({ active, payload, label }) => {
-                                if (!active || !payload || !payload.length) return null;
-                                const seen = new Set();
-                                const unique = payload.filter(p => {
-                                    if (seen.has(p.dataKey)) return false;
-                                    seen.add(p.dataKey);
-                                    return true;
-                                });
-                                const colorMap = {
-                                    'New':                '#3b82f6',
-                                    'Pending Submission': '#febc6b',
-                                    'Overdue':            '#ff697e',
-                                    'Approved':           '#38b2ac',
-                                    'Performance Score':  '#8b5cf6',
-                                };
-                                return (
-                                    <div style={{ background: '#fff', borderRadius: '1.5rem', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', padding: '15px', minWidth: '160px' }}>
-                                        <p style={{ fontWeight: 800, fontSize: '13px', color: '#334155', marginBottom: '8px' }}>{label}</p>
-                                        {unique.map((p, i) => (
-                                            <p key={i} style={{ fontSize: '12px', fontWeight: 600, color: colorMap[p.dataKey] || p.color, margin: '3px 0' }}>
-                                                {p.name}{p.dataKey === 'Performance Score' ? ' : ' + p.value + '%' : ' : ' + p.value}
-                                            </p>
-                                        ))}
-                                    </div>
-                                );
-                            }}
+                            cursor={{ fill: '#F8FAFC', opacity: 0.4 }}
+                            contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
                         />
-                        <Bar dataKey="New"                fill="#3b82f6" barSize={9} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="In Progress" fill="#febc6b" barSize={9} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Overdue"            fill="#ff697e" barSize={9} radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="Approved"           fill="#38b2ac" barSize={9} radius={[4, 4, 0, 0]} />
-                        <Line
-                            type="monotone"
-                            dataKey="Performance Score"
-                            stroke="#8b5cf6"
-                            strokeWidth={3}
-                            dot={{ fill: '#fff', stroke: '#8b5cf6', strokeWidth: 2.5, r: 5 }}
-                            activeDot={{ r: 7, strokeWidth: 0 }}
-                            connectNulls
-                            name="Performance Score"
-                        />
-                    </ComposedChart>
+                        <Bar dataKey="overdue" name="Overdue" stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
+                        <Bar dataKey="pending" name="Pending" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
+                        <Bar dataKey="new" name="Not Started" stackId="a" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={32} />
+                    </BarChart>
                 </ResponsiveContainer>
             </div>
         </div>
     );
 };
 
-const OrganizationHealth = ({ metrics }) => {
+const OrganizationHealth = ({ metrics, prevMonthName }) => {
     const fmt1 = (v) => Number(v).toFixed(1) + '%';
     return (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-hidden">
@@ -379,11 +378,11 @@ const OrganizationHealth = ({ metrics }) => {
                         </div>
                         <div className="grid">
                             <span className="text-[13px] font-semibold text-indigo-500 leading-tight">Org Performance Score</span>
-                            <span className="text-[11px] text-slate-400 font-medium">vs Apr: {metrics?.orgPerfScoreDelta != null ? `${Number(metrics.orgPerfScoreDelta) >= 0 ? '↑' : '↓'} ${Math.abs(Number(metrics.orgPerfScoreDelta)).toFixed(1)}pp` : '—'}</span>
+                            <span className="text-[11px] text-slate-400 font-medium">vs {prevMonthName}: {metrics?.orgPerfScoreDelta != null ? `${Number(metrics.orgPerfScoreDelta) >= 0 ? '↑' : '↓'} ${Math.abs(Number(metrics.orgPerfScoreDelta)).toFixed(1)}pp` : '—'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-[24px] font-bold text-indigo-600 tabular-nums">{fmt1(metrics?.healthOrgPerformanceScore || metrics?.orgPerformanceScore || 0)}</span>
+                        <span className="text-[24px] font-bold text-indigo-600 tabular-nums">{fmt1(metrics?.healthOrgPerformanceScore ?? 0)}</span>
                         <div className="w-1.5 h-8 bg-indigo-500 rounded-full" />
                     </div>
                 </div>
@@ -395,11 +394,11 @@ const OrganizationHealth = ({ metrics }) => {
                         </div>
                         <div className="grid">
                             <span className="text-[13px] font-semibold text-blue-500 leading-tight">Org Completion Rate</span>
-                            <span className="text-[11px] text-slate-400 font-medium">vs Apr: {metrics?.orgCompletionRateDelta != null ? `${Number(metrics.orgCompletionRateDelta) >= 0 ? '↑' : '↓'} ${Math.abs(Number(metrics.orgCompletionRateDelta)).toFixed(1)}pp` : '—'}</span>
+                            <span className="text-[11px] text-slate-400 font-medium">vs {prevMonthName}: {metrics?.orgCompletionRateDelta != null ? `${Number(metrics.orgCompletionRateDelta) >= 0 ? '↑' : '↓'} ${Math.abs(Number(metrics.orgCompletionRateDelta)).toFixed(1)}pp` : '—'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-[24px] font-bold text-blue-600 tabular-nums">{fmt1(metrics?.healthOrgCompletionRate || metrics?.orgCompletionRate || 0)}</span>
+                        <span className="text-[24px] font-bold text-blue-600 tabular-nums">{fmt1(metrics?.healthOrgCompletionRate ?? 0)}</span>
                         <div className="w-1.5 h-8 bg-blue-500 rounded-full" />
                     </div>
                 </div>
@@ -411,11 +410,11 @@ const OrganizationHealth = ({ metrics }) => {
                         </div>
                         <div className="grid">
                             <span className="text-[13px] font-semibold text-teal-500 leading-tight">Org On-Time %</span>
-                            <span className="text-[11px] text-slate-400 font-medium">vs Apr: {metrics?.orgOnTimePctDelta != null ? `${Number(metrics.orgOnTimePctDelta) >= 0 ? '↑' : '↓'} ${Math.abs(Number(metrics.orgOnTimePctDelta)).toFixed(1)}pp` : '—'}</span>
+                            <span className="text-[11px] text-slate-400 font-medium">vs {prevMonthName}: {metrics?.orgOnTimePctDelta != null ? `${Number(metrics.orgOnTimePctDelta) >= 0 ? '↑' : '↓'} ${Math.abs(Number(metrics.orgOnTimePctDelta)).toFixed(1)}pp` : '—'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-[24px] font-bold text-teal-600 tabular-nums">{fmt1(metrics?.healthOrgOnTimePct || metrics?.orgOnTimePct || 0)}</span>
+                        <span className="text-[24px] font-bold text-teal-600 tabular-nums">{fmt1(metrics?.healthOrgOnTimePct ?? 0)}</span>
                         <div className="w-1.5 h-8 bg-teal-500 rounded-full" />
                     </div>
                 </div>
@@ -741,7 +740,7 @@ const CFODashboard = () => {
             const todayRows = Array.isArray(todayPayload) ? todayPayload : (Array.isArray(todayPayload?.items) ? todayPayload.items : []);
 
             const totalTasksFromPayload = dashboardPayload?.total_tasks ?? dashboardPayload?.total ?? 0;
-            const hasDashboardStats = totalTasksFromPayload > 0 || (dashboardPayload?.department_stats?.length > 0) || (dashboardPayload?.dept_stats?.length > 0);
+            const hasDashboardStats = totalTasksFromPayload > 0 || (dashboardPayload?.department_stats?.length > 0) || (dashboardPayload?.dept_stats?.length > 0) || !!dashboardPayload?.top_kpis || !!dashboardPayload?.organization_health;
 
 
 
@@ -877,6 +876,7 @@ const CFODashboard = () => {
 
                 setDeptPerformance((rawDepts.length > 0 ? enrichDepts(rawDepts, buildDeptStatusCounts(normalized)) : deptArray).sort((a, b) => b.completion_pct - a.completion_pct));
                 setDashboardData({
+                    ...dashboardPayload,
                     total_tasks: totalActive,
                     approved_tasks: approvedCount,
                     pending_tasks: totalActive,
@@ -1030,6 +1030,7 @@ const CFODashboard = () => {
             // Fallback: still enrich rawDepts even if no task data
             setDeptPerformance(rawDepts.map(d => ({ ...d, status: deriveStatus(d), new_tasks: 0, in_progress_tasks: 0, submitted_tasks: 0, rework_tasks: 0 })));
             setDashboardData({
+                ...dashboardPayload,
                 total_tasks: 0, approved_tasks: 0, pending_tasks: 0, rework_tasks: 0,
                 in_progress_tasks: 0, new_tasks: 0, org_performance_index: 0, department_stats: []
             });
@@ -1110,23 +1111,14 @@ const CFODashboard = () => {
         // Derived fallbacks so the dashboard still works even if backend returns flat keys
         const kpis = {
             // Top KPI values (document section 2 & 3)
-            activeTasks:          topKpis.active_tasks          ?? dashboardData.total_tasks      ?? dashboardData.active_tasks      ?? 0,
-            approvedTasks:        topKpis.approved_tasks        ?? dashboardData.approved_tasks   ?? 0,
-            departmentsOnTrack:   topKpis.departments_on_track  ?? deptPerformance.filter(d => (d.completion_pct || 0) >= 70).length,
-            employeesAtRisk:      topKpis.employees_at_risk     ?? dashboardData.employees_at_risk ?? 0,
-            orgPerformanceScore:  topKpis.org_performance_score ?? orgMetrics?.org_performance_score ?? dashboardData.org_performance_index ?? (deptPerformance.reduce((a, b) => a + (b.performance_score || b.completion_pct || 0), 0) / (deptPerformance.length || 1)),
-            orgCompletionRate:    topKpis.org_completion_rate   ?? orgMetrics?.org_avg_completion_rate ?? (deptPerformance.reduce((a, b) => a + (b.completion_pct || 0), 0) / (deptPerformance.length || 1)),
-            orgOnTimePct:         topKpis.org_on_time_pct       ?? orgMetrics?.org_avg_on_time_pct ?? (() => {
-                if (allOrgTasks && allOrgTasks.length > 0) {
-                    const onTimeCount = allOrgTasks.filter(t => {
-                        if (['APPROVED', 'COMPLETED', 'CANCELLED'].includes(t.status)) return true;
-                        if (!t.due_date) return true;
-                        return new Date(t.due_date) >= new Date();
-                    }).length;
-                    return (onTimeCount / allOrgTasks.length) * 100;
-                }
-                return 88.5; // Final safe fallback for display purposes
-            })(),
+            // Top KPI values
+            activeTasks:          topKpis.active_tasks ?? 0,
+            approvedTasks:        topKpis.approved_tasks ?? 0,
+            departmentsOnTrack:   topKpis.departments_on_track ?? 0,
+            employeesAtRisk:      topKpis.employees_at_risk ?? 0,
+            orgPerformanceScore:  orgHealth.org_performance_score ?? 0,
+            orgCompletionRate:    orgHealth.org_completion_rate ?? 0,
+            orgOnTimePct:         orgHealth.org_on_time_pct ?? 0,
 
             // Delta values
             activeTasksDelta:        kpiDeltas.active_tasks_delta_pct,
@@ -1168,8 +1160,8 @@ const CFODashboard = () => {
                     const riskMatch = employeeRiskData.find(r => (r.emp_id && r.emp_id === emp.emp_id) || r.name === emp.name) || {};
                     return {
                         rank: i + 1,
-                        name: emp.name || 'Unknown Employee',
-                        role: riskMatch.role || riskMatch.department || emp.department || 'Employee',
+                        name: emp.name || emp.employee_name || emp.emp_name || emp.full_name || emp.user_name || (emp ? `Keys: ${Object.keys(emp).join(',')}` : 'Unknown Employee'),
+                        role: emp.department || emp.department_name || emp.role || emp.designation || riskMatch.department || riskMatch.role || 'Employee',
                         score: Math.round(emp.performance_score || emp.score || 0),
                         completed: emp.approved_tasks || emp.completed || 0,
                         total: emp.total_tasks || emp.total || 0,
@@ -1177,21 +1169,7 @@ const CFODashboard = () => {
                 });
             }
 
-            // Fallback to department performance
-            if (!deptPerformance || deptPerformance.length === 0) return [];
-            
-            return [...deptPerformance]
-                .filter(d => (d.total_tasks || 0) > 0)
-                .sort((a, b) => (b.completion_pct || 0) - (a.completion_pct || 0))
-                .slice(0, 5)
-                .map((d, i) => ({
-                    rank: i + 1,
-                    name: d.department_name || d.name || 'Unknown Dept',
-                    role: `Top Performer: ${d.top_performer?.name || 'Awaiting Stats'}`,
-                    score: Math.round(d.completion_pct || 0),
-                    completed: d.approved_tasks || 0,
-                    total: d.total_tasks || 0
-                }));
+            return [];
         })();
 
         return {
@@ -1237,6 +1215,13 @@ const CFODashboard = () => {
             const healthScore = Math.max(0, 100 - (emp.overdue * 15) - (emp.rework * 10));
             return healthScore < 70;
         }).length;
+    })();
+
+    const prevMonthName = (() => {
+        if (!fromDate) return 'Prev Month';
+        const d = new Date(fromDate);
+        d.setMonth(d.getMonth() - 1);
+        return d.toLocaleString('en-US', { month: 'short' });
     })();
 
     return (
@@ -1295,7 +1280,7 @@ const CFODashboard = () => {
                                 },
                                 {
                                     label: 'Employees At Risk',
-                                    value: kpis.employeesAtRisk || employeesAtRiskCount,
+                                    value: kpis.employeesAtRisk,
                                     delta: kpis.employeesAtRiskDelta,
                                     deltaFormat: 'num',
                                     icon: AlertTriangle,
@@ -1352,17 +1337,18 @@ const CFODashboard = () => {
                                             <div className="text-[32px] font-bold tabular-nums tracking-tight leading-none mb-2">
                                                 {item.value}
                                             </div>
-                                            <div className="text-[11px] font-medium text-white/90">
+                                            <div className="text-[11px] font-medium text-white/90 flex items-center gap-1">
                                                 {item.delta == null 
                                                     ? '—' 
-                                                    : `↑ ${Math.abs(Number(item.delta)).toFixed(item.deltaFormat === 'pp' ? 1 : 0)}${item.deltaFormat === 'pct' ? '%' : item.deltaFormat === 'pp' ? 'pp' : ''} vs Apr`}
+                                                    : (
+                                                        <>
+                                                            <span className="px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] font-bold inline-flex items-center gap-0.5 leading-none">
+                                                                {Number(item.delta) >= 0 ? '▲' : '▼'} {Math.abs(Number(item.delta)).toFixed(item.deltaFormat === 'pp' ? 1 : 0)}{item.deltaFormat === 'pct' ? '%' : item.deltaFormat === 'pp' ? 'pp' : ''}
+                                                            </span>
+                                                            <span className="opacity-80 text-[10px]">vs {prevMonthName}</span>
+                                                        </>
+                                                    )}
                                             </div>
-                                        </div>
-                                        <div className="w-16 h-8 opacity-60">
-                                             <svg viewBox="0 0 100 30" className="w-full h-full stroke-white fill-none" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                 {/* Decorative sparkline paths tailored slightly differently per index just for visual variety */}
-                                                 {idx % 2 === 0 ? <path d="M0 25 L20 15 L40 20 L60 10 L80 15 L100 0" /> : <path d="M0 20 L25 5 L50 15 L75 0 L100 10" />}
-                                             </svg>
                                         </div>
                                     </div>
                                 </div>
@@ -1402,7 +1388,7 @@ const CFODashboard = () => {
 
                         {/* ── ROW 2: Trends + Risk Monitor ── */}
                         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px] gap-4">
-                            <TaskTrendsChart data={trendsData} />
+                            <TaskTrendsChart data={trendsData} fromDate={fromDate} toDate={toDate} />
                             
                             <div id="employee-risk-monitor" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col h-[520px] scroll-mt-6">
                                 <div className="flex items-center justify-between mb-6">
@@ -1584,7 +1570,7 @@ const CFODashboard = () => {
                             </div>
 
                             <div className="flex flex-col gap-4">
-                                <OrganizationHealth metrics={kpis} />
+                                <OrganizationHealth metrics={kpis} prevMonthName={prevMonthName} />
                                 
                                 {/* ── Top High Performers (Rank 1-3 Departments) ── */}
                                 <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
@@ -1603,7 +1589,7 @@ const CFODashboard = () => {
                                                     <div className="grid">
                                                         <h4 className="text-[14px] font-bold text-slate-800 leading-tight mb-0.5">{dept.name}</h4>
                                                         <p className="text-[11px] font-medium text-slate-500">
-                                                            Top Performer: {dept.topPerformerName || '—'}
+                                                            {dept.role || '—'}
                                                         </p>
                                                     </div>
                                                 </div>

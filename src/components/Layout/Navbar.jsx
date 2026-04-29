@@ -53,12 +53,26 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
     const [toDate, setToDate] = useState(() => localStorage.getItem('dashboard_to_date') || getToday());
 
     useEffect(() => {
-        // We still use localStorage for inter-component communication as a fallback,
-        // but we don't treat it as a source of truth across browser refreshes anymore.
-        localStorage.setItem('dashboard_from_date', fromDate);
-        localStorage.setItem('dashboard_to_date', toDate);
-        window.dispatchEvent(new Event('dashboard-filter-change'));
+        const handleFilterChange = () => {
+            const f = localStorage.getItem('dashboard_from_date');
+            const t = localStorage.getItem('dashboard_to_date');
+            if (f && f !== fromDate) setFromDate(f);
+            if (t && t !== toDate) setToDate(t);
+        };
+        window.addEventListener('dashboard-filter-change', handleFilterChange);
+        return () => window.removeEventListener('dashboard-filter-change', handleFilterChange);
     }, [fromDate, toDate]);
+
+    const handleDateChange = (type, val) => {
+        if (type === 'from') {
+            setFromDate(val);
+            localStorage.setItem('dashboard_from_date', val);
+        } else {
+            setToDate(val);
+            localStorage.setItem('dashboard_to_date', val);
+        }
+        window.dispatchEvent(new Event('dashboard-filter-change'));
+    };
 
     const isFetchingNotifs = useRef(false);
     const fetchNotifications = async () => {
@@ -274,7 +288,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                 <input
                                     type="date"
                                     value={fromDate}
-                                    onChange={e => setFromDate(e.target.value)}
+                                    onChange={e => handleDateChange('from', e.target.value)}
                                     className="bg-transparent border-none outline-none text-[12px] font-[600] text-slate-600 cursor-pointer"
                                 />
                             </div>
@@ -283,7 +297,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                 <input
                                     type="date"
                                     value={toDate}
-                                    onChange={e => setToDate(e.target.value)}
+                                    onChange={e => handleDateChange('to', e.target.value)}
                                     className="bg-transparent border-none outline-none text-[12px] font-[600] text-slate-600 cursor-pointer"
                                 />
                             </div>
