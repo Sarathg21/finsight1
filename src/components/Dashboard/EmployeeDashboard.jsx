@@ -84,7 +84,7 @@ const fetchEmployeeTasksFallback = async (params = {}) => {
 };
 
 const STATUS_LABEL = {
-    NEW: 'Not Started',
+    NEW: 'Not started',
     IN_PROGRESS: 'In Progress',
     SUBMITTED: 'Submitted',
     APPROVED: 'Approved',
@@ -587,7 +587,7 @@ const EmployeeDashboard = () => {
             { name: 'In Progress', value: dashboardData.in_progress_tasks || 0, color: STATUS_COLORS.IN_PROGRESS },
             { name: 'Submitted', value: dashboardData.submitted_tasks || 0, color: STATUS_COLORS.SUBMITTED },
             { name: 'Rework', value: dashboardData.rework_tasks || 0, color: STATUS_COLORS.REWORK },
-            { name: 'Not Started', value: dashboardData.new_tasks || 0, color: STATUS_COLORS.NEW },
+            { name: 'Not started', value: dashboardData.new_tasks || 0, color: STATUS_COLORS.NEW },
             { name: 'Cancelled', value: dashboardData.cancelled_tasks || 0, color: STATUS_COLORS.CANCELLED },
         ].filter(d => d.value > 0);
 

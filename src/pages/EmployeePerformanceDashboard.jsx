@@ -969,11 +969,27 @@ const PerformanceDashboard = () => {
     useEffect(() => { fetchTeamPerf(teamPerfFrom, teamPerfTo); }, [teamPerfFrom, teamPerfTo, fetchTeamPerf]);
     useEffect(() => { fetchRiskData(riskFrom, riskTo); },       [riskFrom, riskTo, fetchRiskData]);
 
-    const orgStatusPie = useMemo(() => [
-        { name: 'Done', value: deptMetrics.completed_tasks || 0 },
-        { name: 'Pending', value: deptMetrics.submitted_tasks || 0 },
-        { name: 'Overdue', value: deptMetrics.overdue_tasks || 0 }
-    ].filter(d => d.value > 0), [deptMetrics]);
+    const orgStatusPie = useMemo(() => {
+        const dd         = deptMetrics;
+        const total      = dd.total_tasks      || 0;
+        const approved   = dd.completed_tasks  || 0;
+        const pending    = dd.submitted_tasks  || 0;
+        const overdue    = dd.overdue_tasks    || 0;
+        const inProg     = dd.in_progress      || 0;
+        const filled     = approved + pending + overdue + inProg;
+        const notStarted = Math.max(0, total - filled);
+
+        const slices = [
+            { name: 'Approved',    value: approved,   fill: '#10B981' },
+            { name: 'Pending',     value: pending,    fill: '#F59E0B' },
+            { name: 'In Progress', value: inProg,     fill: '#6366F1' },
+            { name: 'Overdue',     value: overdue,    fill: '#F43F5E' },
+            { name: 'Not Started', value: notStarted, fill: '#3B82F6' },
+        ].filter(d => d.value > 0);
+
+        // Always ensure a complete circle — fallback grey ring if no data
+        return slices.length > 0 ? slices : [{ name: 'Empty', value: 1, fill: '#F1F5F9' }];
+    }, [deptMetrics]);
 
     const handleDateChange = (type, value) => {
         if (type === 'from') {
@@ -1304,61 +1320,54 @@ const PerformanceDashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white/80 p-8 rounded-[2.5rem] border border-white shadow-xl flex flex-col items-center justify-center h-[480px]">
-                    <div className="text-center mb-6">
+                <div className="bg-white/80 p-5 rounded-[2.5rem] border border-white shadow-xl flex flex-col items-center justify-center h-[480px] overflow-hidden">
+                    <div className="text-center mb-3">
                         <h3 className="text-xl font-medium text-[#1E1B4B]">Task Completion Overview</h3>
-                        <p className="text-[11px] text-slate-400 font-medium mt-1">Department task health · Approved vs Pending vs Overdue</p>
+                        <p className="text-[11px] text-slate-400 font-medium mt-1 whitespace-nowrap">Department task health · Approved vs Pending vs Overdue</p>
                     </div>
-                    {/* PieChart — use fixed pixel dimensions instead of aspect to avoid -1 warning */}
-                    <div className="relative w-56 h-56 mx-auto">
+                    {/* PieChart — w-56 h-56 (224px) to leave room for title + 6 stat chips */}
+                    <div className="relative w-56 h-56 mx-auto shrink-0">
                         <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                             <PieChart>
                                 <Pie
                                     data={orgStatusPie}
                                     cx="50%"
                                     cy="50%"
-                                    innerRadius="70%"
-                                    outerRadius="90%"
-                                    paddingAngle={6}
+                                    innerRadius={70}
+                                    outerRadius={96}
+                                    paddingAngle={0}
                                     dataKey="value"
                                     stroke="none"
+                                    cornerRadius={0}
+                                    startAngle={90}
+                                    endAngle={-270}
                                 >
-                                    <Cell fill="#10B981" /><Cell fill="#F59E0B" /><Cell fill="#F43F5E" />
+                                    {orgStatusPie.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                                    ))}
                                 </Pie>
                             </PieChart>
                         </ResponsiveContainer>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                            <p className="text-[36px] font-semibold text-indigo-950 leading-none">{deptMetrics.completion_pct}%</p>
-                            <div className="mt-1 flex flex-col items-center">
-                                <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Completion Rate</p>
-                            </div>
+                            <p className="text-[32px] font-black text-[#1e293b] leading-none tracking-tight">{deptMetrics.completion_pct}%</p>
+                            <p className="text-[10px] font-bold text-slate-400 capitalize tracking-[0.15em] mt-1.5">Completion Rate</p>
                         </div>
                     </div>
-                    <div className="flex flex-wrap justify-center gap-3 w-full mt-8">
-                        <div className="bg-slate-50 border border-slate-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
-                            <span className="text-slate-900 font-black text-lg">{deptMetrics.total_tasks || 0}</span>
-                            <span className="text-[10px] uppercase font-bold text-slate-400 whitespace-nowrap">Total</span>
-                        </div>
-                        <div className="bg-emerald-50 border border-emerald-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
-                            <span className="text-emerald-600 font-black text-lg">{deptMetrics.completed_tasks || 0}</span>
-                            <span className="text-[10px] uppercase font-bold text-emerald-500 whitespace-nowrap">Approved</span>
-                        </div>
-                        <div className="bg-amber-50 border border-amber-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
-                            <span className="text-amber-600 font-black text-lg">{deptMetrics.submitted_tasks || 0}</span>
-                            <span className="text-[10px] uppercase font-bold text-amber-500 whitespace-nowrap">Pending</span>
-                        </div>
-                        <div className="bg-rose-50 border border-rose-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
-                            <span className="text-rose-600 font-black text-lg">{deptMetrics.overdue_tasks || 0}</span>
-                            <span className="text-[10px] uppercase font-bold text-rose-500 whitespace-nowrap">Overdue</span>
-                        </div>
-                        <div className="bg-blue-50 border border-blue-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
-                            <span className="text-blue-600 font-black text-lg">{deptMetrics.in_progress || 0}</span>
-                            <span className="text-[10px] uppercase font-bold text-blue-500 whitespace-nowrap">Progress</span>
-                        </div>
-                        <div className="bg-indigo-50 border border-indigo-100 py-1.5 px-3 sm:px-4 rounded-full flex items-baseline gap-1.5 min-w-0">
-                            <span className="text-indigo-600 font-black text-lg">{deptMetrics.open_pending || 0}</span>
-                            <span className="text-[10px] uppercase font-bold text-indigo-500 whitespace-nowrap">Open-Pend</span>
-                        </div>
+                    {/* 6 stat chips — 3-column grid so all fit without overflow */}
+                    <div className="grid grid-cols-3 gap-2 w-full mt-4 px-2">
+                        {[
+                            { label: 'Total',     value: deptMetrics.total_tasks     || 0, numCls: 'text-slate-900',    bg: 'bg-slate-50   border-slate-100',   lblCls: 'text-slate-400'   },
+                            { label: 'Approved',  value: deptMetrics.completed_tasks  || 0, numCls: 'text-emerald-600',  bg: 'bg-emerald-50 border-emerald-100', lblCls: 'text-emerald-500' },
+                            { label: 'Pending',   value: deptMetrics.submitted_tasks  || 0, numCls: 'text-amber-600',    bg: 'bg-amber-50   border-amber-100',   lblCls: 'text-amber-500'   },
+                            { label: 'Overdue',   value: deptMetrics.overdue_tasks    || 0, numCls: 'text-rose-600',     bg: 'bg-rose-50    border-rose-100',    lblCls: 'text-rose-500'    },
+                            { label: 'Progress',  value: deptMetrics.in_progress      || 0, numCls: 'text-blue-600',     bg: 'bg-blue-50    border-blue-100',    lblCls: 'text-blue-500'    },
+                            { label: 'Open-Pend', value: deptMetrics.open_pending     || 0, numCls: 'text-indigo-600',   bg: 'bg-indigo-50  border-indigo-100',  lblCls: 'text-indigo-500'  },
+                        ].map(chip => (
+                            <div key={chip.label} className={`border rounded-2xl py-2 px-3 flex flex-col items-center gap-0.5 ${chip.bg}`}>
+                                <span className={`text-[17px] font-black tabular-nums leading-none ${chip.numCls}`}>{chip.value}</span>
+                                <span className={`text-[9px] uppercase font-bold tracking-wider leading-none ${chip.lblCls}`}>{chip.label}</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

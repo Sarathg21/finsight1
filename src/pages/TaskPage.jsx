@@ -22,7 +22,7 @@ import ReworkCommentModal from "../components/Modals/ReworkCommentModal";
 const formatStatus = (s) => {
   if (!s) return "-";
   const status = String(s).toUpperCase();
-  if (status === 'NEW' || status === 'NOT_STARTED') return 'Not Started';
+  if (status === 'NEW' || status === 'NOT_STARTED') return 'Not started';
   return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 };
 

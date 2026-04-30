@@ -98,12 +98,21 @@ const AssignTaskPage = () => {
                 const normalizedDepts = normalizeDepts(extract(deptRes));
                 const tasksData = extract(tasksRes);
                 
-                // Only top-level tasks (no parent) can be selected as parent for CFO→Manager subtask
+                // Filter possible parents based on role:
+                // - CFO/ADMIN creates subtasks under top-level parent tasks (Level 0)
+                // - MANAGER creates subchild tasks under child tasks (Level 1)
                 const possibleParents = tasksData.filter(t => {
-                    const isTopLevel = !t.parent_task_id || t.parent_task_id === null || t.parent_task_id === '-';
-                    const isLevel0 = t.task_level === 0 || t.task_level === undefined;
                     const notTerminal = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
-                    return isTopLevel && isLevel0 && notTerminal;
+                    
+                    if (role === 'MANAGER') {
+                        const hasParent = !!t.parent_task_id && t.parent_task_id !== '-';
+                        const isLevel1 = hasParent && t.task_level !== 2;
+                        return isLevel1 && notTerminal;
+                    } else {
+                        const isTopLevel = !t.parent_task_id || t.parent_task_id === null || t.parent_task_id === '-';
+                        const isLevel0 = t.task_level === 0 || t.task_level === undefined;
+                        return isTopLevel && isLevel0 && notTerminal;
+                    }
                 });
                 setExistingParentTasks(possibleParents);
 

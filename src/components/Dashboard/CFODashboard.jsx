@@ -52,6 +52,8 @@ const DepartmentPerformanceGrid = ({ data }) => {
 
     const getStatusText = (status) => {
         if (!status || status === 'NO_DATA') return 'No Data';
+        const key = status.toUpperCase();
+        if (key === 'NEW' || key === 'NOT_STARTED') return 'Not started';
         return status.split('_').map(word =>
             word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
         ).join(' ');

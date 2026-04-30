@@ -12,6 +12,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from 'recharts';
+import DepartmentDistributionCard from '../components/Dashboard/DepartmentDistributionCard';
 
 /* ─── helpers ──────────────────────────────────────────────────────────────── */
 const getRiskLabel = (rating) => {
@@ -63,7 +64,8 @@ const STATUS_COLORS = {
 const StatusBadge = ({ status }) => {
     const key = normStatus(status);
     const cls = STATUS_COLORS[key] || 'bg-slate-100 text-slate-600';
-    const label = (status || '').trim().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    let label = (status || '').trim().replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+    if (key === 'NEW' || key === 'NOT_STARTED') label = 'Not started';
     return (
         <span className={`px-3 py-1 rounded-full text-[11px] font-semibold tracking-tight shadow-sm min-w-[90px] text-center inline-block ${cls}`}>
             {label || '—'}
@@ -312,25 +314,35 @@ const OKRSubTaskPage = () => {
                 const now       = new Date(); now.setHours(0,0,0,0);
 
                 let daysLeftText;
-                if (isDone(st)) {
+                if (st.days_left_text) {
+                    daysLeftText = st.days_left_text;
+                } else if (isDone(st)) {
                     daysLeftText = 'Done';
                 } else if (dueDate) {
                     const diff = Math.ceil((dueDate - now) / 86400000);
                     daysLeftText = diff < 0 ? `${Math.abs(diff)}d late` : diff === 0 ? 'Today' : `${diff}d left`;
                 } else {
-                    daysLeftText = st.days_left_text || '—';
+                    daysLeftText = '—';
                 }
+
+                // Normalise task_level: 1 = manager, 2 = employee
+                const taskLevel = st.task_level ?? (st.task_type === 'EMPLOYEE_TASK' ? 2 : 1);
+                const taskType  = st.task_type || (taskLevel === 2 ? 'EMPLOYEE_TASK' : 'MANAGER_TASK');
 
                 return {
                     ...st,
                     // normalise display fields
-                    task_id:       st.task_id ?? st.id ?? (1000 + idx),
-                    subtask_title: st.subtask_title || st.title || st.task_name || st.name || '(untitled)',
-                    department_name: st.department_name || st.department || st.dept_name || st.dept || '—',
-                    assigned_to_name: st.assigned_to_name || st.assignee_name || st.employee_name || st.assigned_to || '—',
-                    due_date:      dueRaw ? String(dueRaw).slice(0, 10) : '—',
+                    task_id:           st.task_id ?? st.id ?? (1000 + idx),
+                    parent_task_id:    st.parent_task_id ?? st.parentTaskId ?? st.parent_id ?? st.parentId,
+                    subtask_title:     st.subtask_title || st.title || st.task_name || st.name || '(untitled)',
+                    department_name:   st.department_name || st.department || st.dept_name || st.dept || '—',
+                    assigned_to_name:  st.assigned_to_name || st.assignee_name || st.employee_name || st.assigned_to || '—',
+                    parent_task_title: st.parent_task_title || st.root_parent_task_title || '—',
+                    due_date:          dueRaw ? String(dueRaw).slice(0, 10) : '—',
                     status,
-                    days_left_text: daysLeftText,
+                    days_left_text:    daysLeftText,
+                    task_level:        taskLevel,
+                    task_type:         taskType,
                 };
             });
 
@@ -436,6 +448,29 @@ const OKRSubTaskPage = () => {
     const dAvgRate  = cleanNum(g.avg_health_score ?? g.average_progress);
     const dSubPct   = dTotalSub > 0 ? Math.round((dDone   / dTotalSub) * 100) : 0;
     const dSumPct   = dTotalSub > 0 ? Math.round((dSubmit / dTotalSub) * 100) : 0;
+
+    const sortedSubtasks = useMemo(() => {
+        const managers = subtasks.filter(st => st.task_level === 1 || st.task_type === 'MANAGER_TASK');
+        const employees = subtasks.filter(st => st.task_level === 2 || st.task_type === 'EMPLOYEE_TASK');
+
+        const result = [];
+        managers.forEach(mgr => {
+            result.push(mgr);
+            // Group employees under their specific manager task
+            const children = employees.filter(emp => 
+                (emp.parent_task_id && String(emp.parent_task_id) === String(mgr.task_id)) ||
+                (emp.parent_task_title && emp.parent_task_title === mgr.subtask_title)
+            );
+            result.push(...children);
+        });
+
+        // Collect any tasks that weren't matched in the hierarchy
+        const usedIds = new Set(result.map(r => r.task_id));
+        const orphans = employees.filter(emp => !usedIds.has(emp.task_id));
+        result.push(...orphans);
+
+        return result;
+    }, [subtasks]);
 
     const topMetrics = [
         { label: 'Total Objectives',        value: dTotal,                           gradient: 'from-[#4285F4] to-[#2563EB]',   Icon: Target       },
@@ -558,53 +593,122 @@ const OKRSubTaskPage = () => {
             {/* ── MAIN: Objective progress + subtask table ── */}
             <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                 <div className="bg-[#f8fafc] px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-                    <h2 className="text-lg font-black text-slate-800 tracking-tight">
-                        Sub Objectives Tracking:{' '}
-                        <span className="text-blue-700">
-                            {selectedOKR?.parent_task_title || selectedOKR?.objective_title || (filters.currentOkrId ? 'Loading…' : 'Select an Objective')}
-                        </span>
-                        {filters.currentOkrId && (
-                            <span className="text-slate-400 text-sm font-medium ml-2">({filters.currentOkrId})</span>
-                        )}
-                    </h2>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h2 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
+                            <Layers size={18} className="text-blue-600" />
+                            Sub Objectives Tracking:{' '}
+                            <span className="text-blue-700">
+                                {selectedOKR?.parent_task_title || selectedOKR?.objective_title || (filters.currentOkrId ? 'Loading…' : 'Select an Objective')}
+                            </span>
+                        </h2>
+                    </div>
                     <span className="text-xs font-bold text-slate-400">{subtasks.length} subtasks</span>
                 </div>
 
                 <div className="flex flex-col lg:grid lg:grid-cols-[1fr_340px]">
-                    {/* Left: Subtask Table */}
-                    <div className="border-r border-slate-100 overflow-x-auto">
+                    {/* ── LEFT: Subtask Table ── */}
+                    <div className="border-r border-slate-100">
                         <table className="w-full text-left">
                             <thead className="bg-[#f1f5f9] text-[10px] font-black text-slate-500 uppercase tracking-tight border-b border-slate-200">
                                 <tr>
-                                    <th className="py-3 px-4 pl-6">Task ID</th>
-                                    <th className="py-3 px-4">Sub Objective</th>
-                                    <th className="py-3 px-4">Department</th>
-                                    <th className="py-3 px-4">Assigned To</th>
-                                    <th className="py-3 px-4 text-center">Status</th>
-                                    <th className="py-3 px-4">Due Date</th>
-                                    <th className="py-3 px-4 text-right pr-6">Days Left</th>
+                                    <th className="py-2 px-2 pl-3">Task ID</th>
+                                    <th className="py-2 px-2">Sub Objective</th>
+                                    <th className="py-2 px-2">Level</th>
+                                    <th className="py-2 px-2">Parent Task</th>
+                                    <th className="py-2 px-2">Assigned To</th>
+                                    <th className="py-2 px-2 text-center">Status</th>
+                                    <th className="py-2 px-2">Due Date</th>
+                                    <th className="py-2 px-2 text-right pr-3">Days Left</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {subtasks.map((st, i) => (
-                                    <tr key={st.task_id ?? i} className="hover:bg-blue-50/30 transition-colors text-[12px]">
-                                        <td className="py-3 px-4 pl-6 font-bold text-slate-400">T-{st.task_id}</td>
-                                        <td className="py-3 px-4 font-semibold text-slate-900 max-w-[220px] truncate" title={st.subtask_title}>{st.subtask_title}</td>
-                                        <td className="py-3 px-4 text-slate-500">{st.department_name}</td>
-                                        <td className="py-3 px-4 font-semibold text-slate-700">{st.assigned_to_name}</td>
-                                        <td className="py-3 px-4 text-center"><StatusBadge status={st.status} /></td>
-                                        <td className="py-3 px-4 text-slate-500">{st.due_date}</td>
-                                        <td className={`py-3 px-4 text-right pr-6 font-black text-[11px] ${
-                                            st.days_left_text?.includes('late') ? 'text-rose-600' :
-                                            st.days_left_text === 'Done'        ? 'text-emerald-600' : 'text-amber-600'
-                                        }`}>
-                                            {st.days_left_text}
-                                        </td>
-                                    </tr>
-                                ))}
+                            <tbody>
+                                {sortedSubtasks.map((st, i) => {
+                                    const isEmployee = st.task_level === 2 || st.task_type === 'EMPLOYEE_TASK';
+                                    const isLastRow  = i === sortedSubtasks.length - 1;
+                                    
+                                    // Check if next task is also an employee task for vertical line continuation
+                                    const nextIsEmployee = !isLastRow && (sortedSubtasks[i+1].task_level === 2 || sortedSubtasks[i+1].task_type === 'EMPLOYEE_TASK');
+                                    
+                                    const parentLabel = st.parent_task_title || st.root_parent_task_title || '—';
+                                    const dlText = st.days_left_text || '—';
+                                    const dlCls  = dlText.includes('late') ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                                 : dlText === 'Today'      ? 'bg-orange-50 text-orange-600 border border-orange-200'
+                                                 : dlText === 'Done'       ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                                 : 'bg-green-50 text-green-700 border border-green-200';
+                                    
+                                    return (
+                                        <tr key={st.task_id ?? i} className="hover:bg-blue-50/10 transition-colors text-[11px] border-b border-slate-100">
+                                            {/* Task ID with hierarchical dot indicator */}
+                                            <td className="py-3 px-2 pl-4 whitespace-nowrap">
+                                                <div className="flex items-center" style={{ paddingLeft: isEmployee ? '24px' : '0' }}>
+                                                    <div className="relative flex items-center justify-center w-5 h-5 shrink-0">
+                                                        <span className={`w-2 h-2 rounded-full shrink-0 z-10 ${isEmployee ? 'bg-indigo-500 shadow-[0_0_0_2px_rgba(99,102,241,0.1)]' : 'bg-orange-500 shadow-[0_0_0_2px_rgba(249,115,22,0.1)]'}`} />
+                                                        
+                                                        {/* Vertical connector */}
+                                                        {(!isLastRow && (isEmployee ? nextIsEmployee : true)) && (
+                                                            <div 
+                                                                className="absolute top-3 w-px bg-slate-200" 
+                                                                style={{ 
+                                                                    height: '42px', 
+                                                                    left: '50%', 
+                                                                    transform: 'translateX(-50%)' 
+                                                                }} 
+                                                            />
+                                                        )}
+                                                        
+                                                        {/* Horizontal connector for child tasks */}
+                                                        {isEmployee && (
+                                                            <div className="absolute left-[-12px] top-[10px] w-[12px] h-px bg-slate-200" />
+                                                        )}
+                                                    </div>
+                                                    <span className="font-bold text-slate-500 text-[11px] ml-2">T-{st.task_id}</span>
+                                                </div>
+                                            </td>
+
+                                            {/* Sub Objective */}
+                                            <td className="py-3 px-2 font-semibold text-slate-800" style={{ paddingLeft: isEmployee ? '12px' : '0px' }} title={st.subtask_title}>
+                                                <span className="leading-snug">{st.subtask_title}</span>
+                                            </td>
+
+                                            {/* Level badge */}
+                                            <td className="py-3 px-2">
+                                                {isEmployee ? (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+                                                        EMPLOYEE TASK
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">
+                                                        MANAGER TASK
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {/* Parent Task */}
+                                            <td className="py-3 px-2 text-slate-600 text-[11px] font-medium leading-snug">
+                                                {parentLabel}
+                                            </td>
+
+                                            {/* Assigned To */}
+                                            <td className="py-3 px-2 font-semibold text-slate-700 leading-snug">{st.assigned_to_name}</td>
+
+                                            {/* Status */}
+                                            <td className="py-3 px-2 text-center"><StatusBadge status={st.status} /></td>
+
+                                            {/* Due Date */}
+                                            <td className="py-3 px-2 text-slate-500">{st.due_date}</td>
+
+                                            {/* Days Left — colored pill */}
+                                            <td className="py-3 px-2 pr-3 text-right">
+                                                <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-black whitespace-nowrap ${dlCls}`}>
+                                                    {dlText}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {subtasks.length === 0 && !loading && (
                                     <tr>
-                                        <td colSpan={7} className="py-16 text-center">
+                                        <td colSpan={8} className="py-16 text-center">
                                             <div className="flex flex-col items-center gap-3">
                                                 <Layers size={32} className="text-slate-300" />
                                                 <p className="text-slate-400 font-bold italic uppercase tracking-widest text-[11px]">
@@ -616,7 +720,7 @@ const OKRSubTaskPage = () => {
                                 )}
                                 {subtasks.length === 0 && loading && (
                                     <tr>
-                                        <td colSpan={7} className="py-12 text-center">
+                                        <td colSpan={8} className="py-12 text-center">
                                             <Loader2 size={22} className="text-blue-400 animate-spin mx-auto" />
                                         </td>
                                     </tr>
@@ -625,102 +729,26 @@ const OKRSubTaskPage = () => {
                         </table>
                     </div>
 
-                    {/* Right: Progress Analytics */}
-                    <div className="p-5 flex flex-col gap-4 bg-slate-50/50">
-                        {/* Completed */}
-                        <div>
-                            <div className="flex justify-between items-end mb-2">
-                                <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight mb-0.5">Total Subtasks Completed</p>
-                                    <p className="text-lg font-black text-slate-900 leading-none">
-                                        {selectedOKR?.completed_subtasks ?? 0} / {selectedOKR?.total_subtasks ?? 0}
-                                    </p>
-                                </div>
-                                <span className="text-2xl font-black text-blue-800">{selectedOKR?.progress_pct ?? 0}%</span>
-                            </div>
-                            <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
-                                <div className="h-full bg-[#1e40af] transition-all duration-1000 rounded-full"
-                                    style={{ width: `${selectedOKR?.progress_pct ?? 0}%` }} />
-                            </div>
-                        </div>
-
-                        {/* Submitted */}
+                    {/* ── RIGHT: Department Distribution ── */}
+                    <div className="bg-white border-l border-slate-100 flex items-start justify-center p-4">
                         {(() => {
-                            const submittedCount = Math.max(cleanNum(selectedOKR?.submitted_subtasks), subtasks.filter(s => isDone(s) || isActive(s)).length);
-                            const total = Math.max(cleanNum(selectedOKR?.total_subtasks), subtasks.length);
-                            const pct   = total > 0 ? Math.round((submittedCount / total) * 100) : 0;
+                            const mainDept = deptStats[0]?.department_name || "Accounts Payables";
+                            const deptTotal = deptStats[0]?.total_subtasks || 0;
+                            const overallTotal = Math.max(subtasks.length, 1);
+                            const distributionPct = Math.round((deptTotal / overallTotal) * 100);
+
                             return (
-                                <div>
-                                    <div className="flex justify-between items-end mb-2">
-                                        <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight mb-0.5">Total Subtasks Submitted</p>
-                                            <p className="text-lg font-black text-slate-900 leading-none">{submittedCount} / {total}</p>
-                                        </div>
-                                        <span className="text-2xl font-black text-amber-500">{pct}%</span>
-                                    </div>
-                                    <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
-                                        <div className="h-full bg-amber-500 transition-all duration-1000 rounded-full" style={{ width: `${pct}%` }} />
-                                    </div>
-                                </div>
+                                <DepartmentDistributionCard 
+                                    departmentName={mainDept}
+                                    totalSubtasks={selectedOKR?.total_subtasks ?? subtasks.length}
+                                    completedSubtasks={selectedOKR?.completed_subtasks ?? 0}
+                                    submittedSubtasks={Math.max(cleanNum(selectedOKR?.submitted_subtasks), subtasks.filter(s => isDone(s) || isActive(s)).length)}
+                                    daysLeft={selectedOKR?.days_left ?? 0}
+                                    subDepts={deptStats.length || 1}
+                                    completionPct={distributionPct} 
+                                />
                             );
                         })()}
-
-                        {/* Pie Chart */}
-                        {deptDistribution.length > 0 ? (
-                            <>
-                                <div style={{ height: 260 }}>
-                                    <ResponsiveContainer width="100%" height={260}>
-                                        <PieChart>
-                                            <Pie data={deptDistribution} cx="50%" cy="50%" outerRadius={100} dataKey="value"
-                                                stroke="#fff" strokeWidth={2} labelLine={false}
-                                                label={({ cx, cy, midAngle, outerRadius, index }) => {
-                                                    const R = Math.PI / 180;
-                                                    const r = outerRadius * 0.62;
-                                                    const x = cx + r * Math.cos(-midAngle * R);
-                                                    const y = cy + r * Math.sin(-midAngle * R);
-                                                    const words = (deptDistribution[index]?.name || '').split(' ');
-                                                    return (
-                                                        <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={8} fontWeight="bold">
-                                                            {words.map((w, i) => <tspan key={i} x={x} dy={i === 0 ? 0 : 10}>{w}</tspan>)}
-                                                        </text>
-                                                    );
-                                                }}
-                                            >
-                                                {deptDistribution.map((e, i) => <Cell key={i} fill={e.fill} />)}
-                                            </Pie>
-                                            <Tooltip />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                <div className="flex flex-wrap gap-x-3 gap-y-1.5 justify-center">
-                                    {deptDistribution.map((d, i) => (
-                                        <div key={i} className="flex items-center gap-1.5">
-                                            <span className="w-3 h-3 rounded-sm shrink-0" style={{ background: d.fill }} />
-                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-wide">{d.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center h-[200px] text-slate-300 gap-2">
-                                <Layers size={32} />
-                                <p className="text-[11px] font-bold uppercase tracking-widest">No dept breakdown</p>
-                            </div>
-                        )}
-
-                        {/* Stats mini cards */}
-                        <div className="grid grid-cols-3 gap-3">
-                            {[
-                                { label: 'Total Subtasks', val: selectedOKR?.total_subtasks ?? 0, cls: 'text-slate-800' },
-                                { label: 'Days Left',      val: selectedOKR?.days_left ?? '—',    cls: 'text-blue-700' },
-                                { label: 'Sub-Depts',      val: deptStats.length || 1,            cls: 'text-slate-800' },
-                            ].map((c, i) => (
-                                <div key={i} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col items-center">
-                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1">{c.label}</span>
-                                    <span className={`text-sm font-black ${c.cls}`}>{c.val}</span>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 </div>
             </div>
@@ -736,7 +764,8 @@ const OKRSubTaskPage = () => {
                             <tr>
                                 <th className="py-4 px-6">Department Focus</th>
                                 <th className="py-4 px-4 text-center">Total Tasks</th>
-                                <th className="py-4 px-4 text-center">In Progress</th>
+                                <th className="py-4 px-4 text-center">Manager Tasks</th>
+                                <th className="py-4 px-4 text-center">Employee Tasks</th>
                                 <th className="py-4 px-4 text-center">Approved</th>
                                 <th className="py-4 px-4 text-center">Pending</th>
                                 <th className="py-4 px-6 text-right">Contribution (%)</th>
@@ -749,6 +778,8 @@ const OKRSubTaskPage = () => {
                                 const dName   = d.department_name || '—';
                                 const related = subtasks.filter(st => (st.department_name || '—') === dName);
                                 const countSt = (statuses) => related.filter(st => statuses.includes(normStatus(st.status))).length;
+                                const mgrCount = related.filter(st => st.task_level !== 2 && st.task_type !== 'EMPLOYEE_TASK').length;
+                                const empCount = related.filter(st => st.task_level === 2 || st.task_type === 'EMPLOYEE_TASK').length;
 
                                 return (
                                     <tr key={i} className="hover:bg-slate-50 font-bold text-slate-700 group transition-colors">
@@ -757,7 +788,8 @@ const OKRSubTaskPage = () => {
                                             <span className="text-[14px] font-black text-[#1E1B4B] uppercase tracking-tight">{dName}</span>
                                         </td>
                                         <td className="py-4 px-4 text-center tabular-nums text-[15px] text-blue-900 font-black">{d.total_subtasks}</td>
-                                        <td className="py-4 px-4 text-center tabular-nums text-[13px] text-slate-600">{countSt(['IN_PROGRESS', 'STARTED', 'IN PROGRESS'])}</td>
+                                        <td className="py-4 px-4 text-center tabular-nums text-[13px] text-violet-700 font-semibold">{mgrCount}</td>
+                                        <td className="py-4 px-4 text-center tabular-nums text-[13px] text-emerald-600 font-semibold">{empCount}</td>
                                         <td className="py-4 px-4 text-center tabular-nums text-[13px] text-emerald-600">{countSt(['APPROVED', 'COMPLETED', 'DONE'])}</td>
                                         <td className="py-4 px-4 text-center tabular-nums text-[13px] text-amber-600">{countSt(['PENDING', 'NEW', 'SUBMITTED', 'REVIEW', 'REWORK', 'CHANGES_REQUESTED'])}</td>
                                         <td className="py-4 px-6 text-right">
@@ -773,7 +805,7 @@ const OKRSubTaskPage = () => {
                             })}
                             {deptStats.length === 0 && !loading && (
                                 <tr>
-                                    <td colSpan={6} className="py-12 text-center text-slate-300 font-bold uppercase tracking-widest italic text-[11px]">
+                                    <td colSpan={7} className="py-12 text-center text-slate-300 font-bold uppercase tracking-widest italic text-[11px]">
                                         No departmental breakdown available.
                                     </td>
                                 </tr>
@@ -783,15 +815,21 @@ const OKRSubTaskPage = () => {
                 </div>
 
                 {/* Footer summary bar */}
-                <div className="bg-[#f8fafc] p-4 border-t border-slate-200 flex justify-between items-center px-6">
-                    <div className="flex items-center gap-3 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-xl border border-emerald-200 shadow-sm">
-                        <CheckCircle size={16} />
-                        <span className="text-[11px] font-black uppercase tracking-widest">Health Verified</span>
+                <div className="bg-[#f8fafc] p-4 border-t border-slate-200 flex justify-between items-center px-6 flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-violet-100 text-violet-700 px-4 py-2 rounded-xl border border-violet-200 shadow-sm">
+                            <Layers size={14} />
+                            <span className="text-[11px] font-black uppercase tracking-widest">Hierarchy Enabled</span>
+                        </div>
+                        <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-200 shadow-sm">
+                            <TrendingUp size={14} />
+                            <span className="text-[11px] font-black uppercase tracking-widest">Aggregate Progress {selectedOKR?.progress_pct ?? 0}%</span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Aggregate Progress</span>
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest hidden sm:block">Full Descendant Tree</span>
                         <div className="bg-[#1E1B4B] text-white px-6 py-2 rounded-xl font-black text-lg tabular-nums shadow-lg shadow-indigo-900/40">
-                            {selectedOKR?.progress_pct ?? 0}%
+                            {selectedOKR?.total_subtasks ?? subtasks.length} tasks
                         </div>
                     </div>
                 </div>

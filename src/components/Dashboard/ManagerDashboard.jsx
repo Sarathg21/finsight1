@@ -68,7 +68,7 @@ const fetchManagerTasksFallback = async (params = {}) => {
 };
 
 const STATUS_LABEL = {
-    NEW: 'Not Started',
+    NEW: 'Not started',
     IN_PROGRESS: 'In Progress',
     SUBMITTED: 'Submitted',
     APPROVED: 'Approved',
@@ -961,27 +961,27 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
                         return (
                             <div className="flex-1 flex flex-col items-center gap-8 mt-6">
-                                <div className="relative w-48 h-48 shrink-0">
-                                    <div className="absolute inset-0 rounded-full bg-slate-50 border-[14px] border-slate-100/50 shadow-inner" />
+                                <div className="relative w-72 h-72 shrink-0">
+                                    <div className="absolute inset-0 rounded-full bg-slate-50 border-[20px] border-slate-100/50 shadow-inner" />
                                     <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
                                         <PieChart>
                                             <Pie
                                                 data={donutDisplay}
-                                                innerRadius={68}
-                                                outerRadius={88}
+                                                innerRadius={108}
+                                                outerRadius={126}
                                                 startAngle={90}
                                                 endAngle={-270}
                                                 paddingAngle={donutData.length > 1 ? 4 : 0}
                                                 dataKey="value"
                                                 stroke="none"
-                                                cornerRadius={4}
+                                                cornerRadius={6}
                                             >
                                             </Pie>
                                         </PieChart>
                                     </ResponsiveContainer>
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pt-2">
-                                        <span className="text-[28px] font-black text-[#1e293b] leading-none tracking-tight">{rate}%</span>
-                                        <span className="text-[9px] font-bold text-slate-400 capitalize  tracking-[0.15em] mt-1.5">Completion Rate</span>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pt-1">
+                                        <span className="text-[34px] font-black text-[#1e293b] leading-none tracking-tight">{rate}%</span>
+                                        <span className="text-[11px] font-bold text-slate-400 capitalize  tracking-[0.15em] mt-2">Completion Rate</span>
                                     </div>
                                 </div>
                                 
