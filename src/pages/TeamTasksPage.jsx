@@ -38,8 +38,11 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
     const dueDate = rawDueDate ? fmtDate(new Date(rawDueDate), 'MMM d, yyyy') : 'N/A';
     const status = task?.status || 'N/A';
     const severity = task?.severity || 'LOW';
-
-    const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && task.parent_task_id !== '-' ? taskTitles[task.parent_task_id] : '');
+    const taskLevel = task?.task_level ?? 1;
+    // indent based on level: level 1 = pl-12, level 2 = pl-20
+    const indentClass = taskLevel >= 2 ? 'pl-20' : 'pl-12';
+    const rootTitle = task?.root_parent_task_title;
+    const parentTitle = task?.parent_task_title || task?.parent_task_name;
 
     return (
         <tr
@@ -52,9 +55,9 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                 if (e.key === 'Enter' || e.key === ' ') onViewDetails(task);
             }}
         >
-            <td className="py-2.5 px-4 pl-12 relative text-left">
-                <div className="absolute left-14 top-0 bottom-0 w-[2.5px] bg-slate-100"></div>
-                <div className={`absolute left-14 ${isLast ? 'h-6' : 'h-full'} w-[12px] border-l-[2.5px] border-b-[2.5px] border-slate-100 rounded-bl-xl`}></div>
+            <td className={`py-2.5 px-4 ${indentClass} relative text-left`}>
+                <div className={`absolute left-${taskLevel >= 2 ? '20' : '14'} top-0 bottom-0 w-[2.5px] bg-slate-100`}></div>
+                <div className={`absolute left-${taskLevel >= 2 ? '20' : '14'} ${isLast ? 'h-6' : 'h-full'} w-[12px] border-l-[2.5px] border-b-[2.5px] border-slate-100 rounded-bl-xl`}></div>
                 <div className="flex items-center gap-2 ml-6 relative z-10">
                     <span className="text-[16px] font-bold text-slate-400">↳</span>
                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest bg-white/80 px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">#Sub-{taskId}</span>
@@ -67,10 +70,23 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-violet-600">T-{task.task_id}</span>
                     <span className="text-[14px] font-bold text-slate-700 tracking-tight leading-tight">{title}</span>
-                    {task.parent_task_title && (
-                        <span className="text-[10px] font-medium text-slate-400 truncate max-w-[180px] uppercase tracking-wider whitespace-nowrap overflow-hidden">Parent: {task.parent_task_title}</span>
-                    )}
+                    {/* Task/Subtask badge */}
+                    <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-violet-100 text-violet-600 border border-violet-200 shrink-0">Subtask</span>
                 </div>
+                {/* Breadcrumb: root › parent */}
+                {(rootTitle || parentTitle) && (
+                    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                        {rootTitle && rootTitle !== parentTitle && (
+                            <>
+                                <span className="text-[9px] font-medium text-slate-400 truncate max-w-[100px]">{rootTitle}</span>
+                                <span className="text-slate-300 text-[9px]">›</span>
+                            </>
+                        )}
+                        {parentTitle && (
+                            <span className="text-[9px] font-medium text-slate-400 truncate max-w-[120px] uppercase tracking-wider">{parentTitle}</span>
+                        )}
+                    </div>
+                )}
             </td>
 
             <td className="py-2.5 px-4 text-left">
@@ -195,10 +211,20 @@ const TaskRow = ({
                 </td>
                 <td className="py-1 px-4 text-left">
                     <div className="flex flex-col gap-0">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                             <h4 className="font-bold text-[#1E1B4B] text-[11px] tracking-tight truncate max-w-[150px]">
                                 {title}
                             </h4>
+                            {/* Task / Subtask badge based on task_level and task_type */}
+                            {(() => {
+                                const level = task?.task_level ?? task?.level;
+                                const isSubtask = level > 0 || !!task?.parent_task_id;
+                                return isSubtask ? (
+                                    <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-violet-100 text-violet-600 border border-violet-200">Subtask</span>
+                                ) : (
+                                    <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-600 border border-indigo-200">Task</span>
+                                );
+                            })()}
                         </div>
                         {task.parent_task_title && (
                             <p className="text-[8px] font-bold text-slate-300 truncate max-w-[150px] uppercase tracking-tighter">

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Loader2, Clock, Plus, Trash2, ListTodo, CircleDot, GitMerge } from 'lucide-react';
+import { ArrowLeft, Loader2, Clock, Plus, Trash2, FolderOpen, GitBranch, Info, ChevronRight, User2, Users2 } from 'lucide-react';
 
 const AssignTaskPage = () => {
     const { user } = useAuth();
@@ -20,6 +20,7 @@ const AssignTaskPage = () => {
         title: '',
         description: '',
         assignee: '',
+        managerId: '',   // CFO: manager assigned for SUBTASK flow
         priority: 'MEDIUM',
         dueDate: '',
         isRecurring: false,
@@ -97,7 +98,13 @@ const AssignTaskPage = () => {
                 const normalizedDepts = normalizeDepts(extract(deptRes));
                 const tasksData = extract(tasksRes);
                 
-                const possibleParents = tasksData.filter(t => !t.parent_task_id && t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
+                // Only top-level tasks (no parent) can be selected as parent for CFO→Manager subtask
+                const possibleParents = tasksData.filter(t => {
+                    const isTopLevel = !t.parent_task_id || t.parent_task_id === null || t.parent_task_id === '-';
+                    const isLevel0 = t.task_level === 0 || t.task_level === undefined;
+                    const notTerminal = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
+                    return isTopLevel && isLevel0 && notTerminal;
+                });
                 setExistingParentTasks(possibleParents);
 
                 const deptFromEmployees = normalizedEmps.map(e => {
@@ -255,16 +262,28 @@ const AssignTaskPage = () => {
                     setSubmitting(false);
                     return;
                 }
+                // CFO SUBTASK flow: must have a manager selected
+                const isCFOSubtaskFlow = (String(user?.role || '').toUpperCase() === 'CFO' || String(user?.role || '').toUpperCase() === 'ADMIN') && formData.taskStructure === 'SUBTASK';
+                if (isCFOSubtaskFlow && !formData.managerId) {
+                    toast.error("Please select a manager to assign this subtask to.");
+                    setSubmitting(false);
+                    return;
+                }
 
                 let newTaskId;
 
                 if (formData.taskStructure === 'SUBTASK') {
+                    // For CFO flow: use managerId; otherwise fall back to general assignee
+                    const subtaskAssigneeId = isCFOSubtaskFlow ? formData.managerId : formData.assignee;
+                    const selectedManager = eligibleAssignees.find(e => String(e.emp_id) === String(formData.managerId));
+                    const managerDeptId = selectedManager?.department_id || selectedManager?.department || resolvedDepartmentId;
+
                     const payload = {
                         title: formData.title,
                         description: formData.description,
                         priority: formData.priority,
-                        assigned_to_emp_id: formData.assignee,
-                        department_id: resolvedDepartmentId,
+                        assigned_to_emp_id: subtaskAssigneeId,
+                        department_id: managerDeptId || resolvedDepartmentId,
                         due_date: formData.dueDate
                     };
                     const taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
@@ -308,6 +327,9 @@ const AssignTaskPage = () => {
         }
     };
 
+    const isCFO = ['CFO', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
+    const isManager = String(user?.role || '').toUpperCase() === 'MANAGER';
+
     return (
         <div className="max-w-2xl mx-auto space-y-6 animate-fade-in mt-4">
             <div className="flex items-center gap-4 bg-white/50 p-2 rounded-2xl border border-white/40 shadow-sm w-fit">
@@ -325,19 +347,37 @@ const AssignTaskPage = () => {
 
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
-                            Task Title <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            name="title"
-                            required
-                            className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 text-[14px]"
-                            placeholder="e.g. Q3 Performance Review"
-                            value={formData.title}
-                            onChange={handleChange}
-                        />
+                    {/* Row: Task Title + Task Type toggle */}
+                    <div className="flex items-start gap-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                                Task Title <span className="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="title"
+                                required
+                                className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 text-[14px]"
+                                placeholder={isCFO ? 'e.g. Q3 Performance Review' : 'e.g. Prepare Q2 variance analysis'}
+                                value={formData.title}
+                                onChange={handleChange}
+                            />
+                        </div>
+                        <div className="shrink-0 pt-0.5">
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Task Type</label>
+                            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, isRecurring: false })}
+                                    className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${!formData.isRecurring ? 'bg-violet-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+                                >Normal</button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, isRecurring: true })}
+                                    className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${formData.isRecurring ? 'bg-violet-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
+                                >Recurring</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -346,28 +386,36 @@ const AssignTaskPage = () => {
                             name="description"
                             rows="4"
                             className="w-full p-5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 resize-y text-[14px]"
-                            placeholder="Detailed description of the task..."
+                            placeholder="Provide a clear description of the task..."
                             value={formData.description}
                             onChange={handleChange}
                         />
                     </div>
 
+                    {/* Attachment — styled drag-drop box */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Attachment</label>
-                        <input
-                            type="file"
-                            name="attachment"
-                            onChange={(e) => setAttachment(e.target.files[0])}
-                            className="block w-full text-sm text-slate-600 font-medium
-                                file:mr-4 file:py-2.5 file:px-5
-                                file:rounded-xl file:border-0
-                                file:text-sm file:font-bold file:cursor-pointer
-                                file:bg-violet-50 file:text-violet-700
-                                hover:file:bg-violet-100 transition-colors cursor-pointer"
-                        />
+                        <label className="flex flex-col items-center justify-center gap-2 w-full px-5 py-4 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-violet-300 transition-all cursor-pointer group">
+                            <div className="flex items-center gap-2.5">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-500 shrink-0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                <span className="text-[13px] font-bold text-violet-600 group-hover:text-violet-700">Choose file</span>
+                                <span className="text-[13px] text-slate-400 font-medium">or drag and drop here</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium">Supports .pdf, .docx, .xlsx, .png or .jpg (Max 10MB)</p>
+                            <input
+                                type="file"
+                                name="attachment"
+                                className="hidden"
+                                onChange={(e) => setAttachment(e.target.files[0])}
+                            />
+                        </label>
+                        {attachment && (
+                            <p className="text-[11px] text-violet-600 font-bold mt-1.5 ml-1">📎 {attachment.name}</p>
+                        )}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Assignee + Priority (2-col) */}
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
                                 Assignee <span className="text-rose-500">*</span>
@@ -375,11 +423,11 @@ const AssignTaskPage = () => {
                             <select
                                 name="assignee"
                                 required
-                                className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[14px]"
+                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
                                 value={formData.assignee}
                                 onChange={handleChange}
                             >
-                                <option key="placeholder" value="" className="text-slate-400">Select Assignee</option>
+                                <option key="placeholder" value="">Select a team member</option>
                                 {loading ? (
                                     <option key="loading" disabled>Loading...</option>
                                 ) : (
@@ -390,13 +438,13 @@ const AssignTaskPage = () => {
                                     ))
                                 )}
                             </select>
+                            {!isCFO && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
                         </div>
-
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Priority</label>
                             <select
                                 name="priority"
-                                className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[14px]"
+                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
                                 value={formData.priority}
                                 onChange={handleChange}
                             >
@@ -407,6 +455,7 @@ const AssignTaskPage = () => {
                         </div>
                     </div>
 
+                    {/* Due Date — full width */}
                     <div>
                         <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
                             Due Date <span className="text-rose-500">*</span>
@@ -420,121 +469,317 @@ const AssignTaskPage = () => {
                             value={formData.dueDate}
                             onChange={handleChange}
                         />
-                        {formData.isRecurring && <p className="text-[10px] text-violet-500 font-bold mt-1 uppercase">Dynamic date will be used for recurring tasks</p>}
+                        {formData.isRecurring && <p className="text-[11px] text-violet-500 font-bold mt-1 ml-1 uppercase tracking-wide">Dynamic date will be used for recurring tasks</p>}
                     </div>
 
-                    <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
-                                    <Clock size={18} strokeWidth={2.5} />
+                    {/* Task Type card — only for CFO (Manager has inline toggle above) */}
+                    <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-4">
+                        {isCFO && (
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
+                                        <Clock size={18} strokeWidth={2.5} />
+                                    </div>
+                                    <div className="pt-0.5">
+                                        <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Type</h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Normal or Recurring</p>
+                                    </div>
                                 </div>
-                                <div className="pt-0.5">
-                                    <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Type</h4>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Normal or Recurring</p>
+                                <div className="flex bg-white p-1 rounded-xl border border-slate-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, isRecurring: false })}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >Normal</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, isRecurring: true })}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >Recurring</button>
                                 </div>
                             </div>
-                            <div className="flex bg-white p-1 rounded-xl border border-slate-200">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, isRecurring: false })}
-                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                >
-                                    Normal
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, isRecurring: true })}
-                                    className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                >
-                                    Recurring
-                                </button>
-                            </div>
-                        </div>
+                        )}
 
                         {!formData.isRecurring && (
-                            <div className="animate-fade-in space-y-6 pt-4 border-t border-indigo-100">
-                                <div className="pt-2 pb-2">
-                                    <div className="mb-4">
-                                        <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Structure</h4>
+                            <div className="animate-fade-in space-y-5 pt-4 border-t border-indigo-100">
+                                {/* Task Structure Selector */}
+                                <div>
+                                    <div className="mb-3">
+                                        <h4 className="text-[13px] font-black text-slate-800 leading-none">Task Structure</h4>
                                         <p className="text-[11px] font-bold text-slate-400 mt-1">Choose how this task fits into your workflow.</p>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <label className={`cursor-pointer flex items-center p-4 rounded-xl border ${formData.taskStructure === 'SINGLE' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'} transition-all`}>
-                                            <div className="flex items-center gap-3">
-                                                <input 
-                                                    type="radio" 
-                                                    name="taskStructure" 
-                                                    value="SINGLE"
-                                                    checked={formData.taskStructure === 'SINGLE'} 
-                                                    onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
-                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-600 border-slate-300"
-                                                />
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[13px] text-slate-800">Standalone Task</span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {/* Option 1 */}
+                                        <label className={`cursor-pointer flex items-start gap-3 p-4 rounded-xl border-2 transition-all ${
+                                            formData.taskStructure === 'SINGLE'
+                                                ? 'border-indigo-500 bg-indigo-50/50 shadow-sm'
+                                                : 'border-slate-200 bg-white hover:border-indigo-200'
+                                        }`}>
+                                            <input
+                                                type="radio"
+                                                name="taskStructure"
+                                                value="SINGLE"
+                                                checked={formData.taskStructure === 'SINGLE'}
+                                                onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value, parentTaskId: '' })}
+                                                className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0"
+                                            />
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <FolderOpen size={15} className="text-indigo-500" />
+                                                    <span className="font-black text-[13px] text-slate-800">
+                                                        {isManager ? 'Independent Parent Task' : 'Standalone Parent Task'}
+                                                    </span>
                                                 </div>
+                                                <span className="text-[10.5px] font-medium text-slate-500">
+                                                    {isManager ? 'Create a new department-level task.' : 'Create a main task directly. No parent required.'}
+                                                </span>
                                             </div>
                                         </label>
 
-                                        <label className={`cursor-pointer flex items-center p-4 rounded-xl border ${formData.taskStructure === 'PARENT' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'} transition-all`}>
-                                            <div className="flex items-center gap-3">
-                                                <input 
-                                                    type="radio" 
-                                                    name="taskStructure" 
-                                                    value="PARENT"
-                                                    checked={formData.taskStructure === 'PARENT'} 
-                                                    onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
-                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-600 border-slate-300"
-                                                />
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[13px] text-slate-800">Parent Task</span>
-                                                    <span className="text-[10px] font-semibold text-slate-500 mt-0.5">Create a parent task with subtasks</span>
+                                        {/* Option 2 */}
+                                        <label className={`cursor-pointer flex items-start gap-3 p-4 rounded-xl border-2 transition-all ${
+                                            formData.taskStructure === 'SUBTASK'
+                                                ? 'border-indigo-500 bg-indigo-50/50 shadow-sm'
+                                                : 'border-slate-200 bg-white hover:border-indigo-200'
+                                        }`}>
+                                            <input
+                                                type="radio"
+                                                name="taskStructure"
+                                                value="SUBTASK"
+                                                checked={formData.taskStructure === 'SUBTASK'}
+                                                onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
+                                                className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0"
+                                            />
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <GitBranch size={15} className="text-violet-500" />
+                                                    <span className="font-black text-[13px] text-slate-800">
+                                                        {isManager ? 'Subtask' : 'Childtask under Existing Parent'}
+                                                    </span>
                                                 </div>
-                                            </div>
-                                        </label>
-
-                                        <label className={`cursor-pointer flex items-center p-4 rounded-xl border ${formData.taskStructure === 'SUBTASK' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-slate-200 bg-white hover:border-indigo-300'} transition-all`}>
-                                            <div className="flex items-center gap-3">
-                                                <input 
-                                                    type="radio" 
-                                                    name="taskStructure" 
-                                                    value="SUBTASK"
-                                                    checked={formData.taskStructure === 'SUBTASK'} 
-                                                    onChange={(e) => setFormData({ ...formData, taskStructure: e.target.value })}
-                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-600 border-slate-300"
-                                                />
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-[13px] text-slate-800">Subtask</span>
-                                                    <span className="text-[10px] font-semibold text-slate-500 mt-0.5">Create a subtask under a parent task</span>
-                                                </div>
+                                                <span className="text-[10.5px] font-medium text-slate-500">
+                                                    {isManager ? 'Create under an existing assigned or self-created task.' : 'Create a childtask under a selected parent and assign it to a department manager.'}
+                                                </span>
                                             </div>
                                         </label>
                                     </div>
                                 </div>
-                                {formData.taskStructure === 'SUBTASK' && (
-                                    <div className="pt-2 animate-fade-in">
-                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">
-                                            Select Parent Task <span className="text-rose-500">*</span>
-                                        </label>
-                                        <select
-                                            name="parentTaskId"
-                                            required={formData.taskStructure === 'SUBTASK'}
-                                            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 font-medium transition-all text-[13px]"
-                                            value={formData.parentTaskId}
-                                            onChange={handleChange}
-                                        >
-                                            <option value="" className="text-slate-400">Select an existing parent task</option>
-                                            {existingParentTasks.map(t => (
-                                                <option key={t.id || t.task_id} value={t.id || t.task_id}>
-                                                    {t.title} {t.assigned_to_name ? `(${t.assigned_to_name})` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {existingParentTasks.length === 0 && !loading && (
-                                            <p className="text-[11px] text-rose-500 font-bold mt-2 ml-1">No eligible parent tasks found.</p>
-                                        )}
+
+                                {/* CFO Workflow Info Banner — shown below options */}
+                                <div className="flex items-start gap-3 p-4 bg-indigo-50/70 border border-indigo-100 rounded-xl">
+                                    <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+                                        <Info size={14} className="text-indigo-600" />
                                     </div>
-                                )}
+                                    <div>
+                                        <p className="text-[11px] font-black text-indigo-700 tracking-wide mb-0.5">CFO Workflow</p>
+                                        <p className="text-[11px] text-indigo-600/80 font-medium leading-relaxed">
+                                            Create parent tasks and assign childtasks to department managers. Managers can later create employee-level subtasks from their assigned tasks.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Subtask parent + manager selector */}
+                                {formData.taskStructure === 'SUBTASK' && (() => {
+                                    const isCFORole = ['CFO', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
+                                    const managers = eligibleAssignees.filter(e =>
+                                        (e.role || '').toUpperCase() === 'MANAGER'
+                                    );
+                                    const selectedManager = eligibleAssignees.find(e => String(e.emp_id) === String(formData.managerId));
+                                    const managerDept = selectedManager?.department_name || selectedManager?.department || selectedManager?.department_id || '';
+                                    const selectedParent = existingParentTasks.find(t => String(t.id || t.task_id) === String(formData.parentTaskId));
+
+                                    return (
+                                        <div className="animate-fade-in space-y-4 p-5 bg-slate-50/80 rounded-2xl border border-slate-200">
+                                            {/* Manager: Select Parent Task with helper text and filter chips */}
+                                            {isManager && (
+                                                <div>
+                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">
+                                                        Select Parent Task <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <select
+                                                        name="parentTaskId"
+                                                        required
+                                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 font-medium transition-all text-[13px]"
+                                                        value={formData.parentTaskId}
+                                                        onChange={handleChange}
+                                                    >
+                                                        <option value="">Select a parent task</option>
+                                                        {existingParentTasks.map(t => (
+                                                            <option key={t.id || t.task_id} value={t.id || t.task_id}>
+                                                                {t.title}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="text-[11px] text-slate-400 font-medium mt-1.5">
+                                                        Choose from tasks assigned to you by CFO or parent tasks created by you.
+                                                    </p>
+                                                    {/* Filter chips */}
+                                                    <div className="flex gap-2 mt-2">
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[11px] font-bold text-indigo-600">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                                            CFO-assigned
+                                                        </span>
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[11px] font-bold text-emerald-600">
+                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                                                            My department task
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* CFO: Compact 2×2 grid: all 4 fields */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {/* Col 1 Row 1: Select Parent Task */}
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                                        Select Parent Task <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <select
+                                                        name="parentTaskId"
+                                                        required={formData.taskStructure === 'SUBTASK'}
+                                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 font-medium transition-all text-[12px]"
+                                                        value={formData.parentTaskId}
+                                                        onChange={handleChange}
+                                                    >
+                                                        <option value="">Select a parent task</option>
+                                                        {existingParentTasks.map(t => (
+                                                            <option key={t.id || t.task_id} value={t.id || t.task_id}>
+                                                                {t.title}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    {existingParentTasks.length === 0 && !loading && (
+                                                        <p className="text-[10px] text-rose-500 font-bold mt-1">No eligible parent tasks found.</p>
+                                                    )}
+                                                </div>
+
+                                                {/* Col 2 Row 1: Parent Task Owner */}
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Parent Task Owner</label>
+                                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
+                                                        <User2 size={13} className="text-slate-400 shrink-0" />
+                                                        <span className="truncate">{selectedParent?.assigned_to_name || selectedParent?.assigned_by_name || 'CFO User'}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Col 1 Row 2: Assign Child To (Manager) — CFO only */}
+                                                {isCFORole && (
+                                                    <div>
+                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                                            Assign Child To (Manager) <span className="text-rose-500">*</span>
+                                                        </label>
+                                                        <select
+                                                            name="managerId"
+                                                            required
+                                                            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[12px]"
+                                                            value={formData.managerId}
+                                                            onChange={handleChange}
+                                                        >
+                                                            <option value="">Select a Manager</option>
+                                                            {managers.length > 0
+                                                                ? managers.map(m => (
+                                                                    <option key={m.emp_id} value={m.emp_id}>
+                                                                        {m.name} {m.department_id ? `— ${m.department_name || m.department_id}` : ''}
+                                                                    </option>
+                                                                ))
+                                                                : eligibleAssignees.map(m => (
+                                                                    <option key={m.emp_id} value={m.emp_id}>
+                                                                        {m.name} ({m.role})
+                                                                    </option>
+                                                                ))
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {/* Col 2 Row 2: Department — CFO only */}
+                                                {isCFORole && (
+                                                    <div>
+                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Department</label>
+                                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                                            <span className="truncate">{managerDept || <span className="text-slate-300 italic text-[11px]">Auto-filled</span>}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Manager: Root Parent + Direct Parent info cards */}
+                                            {isManager && formData.parentTaskId && selectedParent && (
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div className="flex items-start gap-3 p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                                            <Info size={14} className="text-indigo-500" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Root Parent</p>
+                                                            <p className="text-[12px] font-bold text-slate-700 leading-tight">
+                                                                {selectedParent?.root_parent_task_title || selectedParent?.title || '—'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-start gap-3 p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm">
+                                                        <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center shrink-0">
+                                                            <GitBranch size={14} className="text-violet-500" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Direct Parent</p>
+                                                            <p className="text-[12px] font-bold text-slate-700 leading-tight">
+                                                                {selectedParent?.title || '—'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Hierarchy Preview — always visible in SUBTASK mode */}
+                                            <div className="pt-3 border-t border-slate-100">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Hierarchy Preview</p>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {/* Node 1: Parent Task */}
+                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${
+                                                        selectedParent ? 'bg-white border-indigo-200' : 'bg-slate-50 border-slate-100'
+                                                    }`}>
+                                                        <FolderOpen size={13} className={selectedParent ? 'text-indigo-500' : 'text-slate-300'} />
+                                                        <div>
+                                                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Parent</p>
+                                                            <span className={`text-[11px] font-bold leading-tight block max-w-[120px] truncate ${selectedParent ? 'text-slate-700' : 'text-slate-300 italic'}`}>
+                                                                {selectedParent?.title || 'Select parent task'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight size={14} className="text-slate-300" />
+                                                    {/* Node 2: This Subtask (Child) */}
+                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${
+                                                        formData.title ? 'bg-violet-50 border-violet-200' : 'bg-slate-50 border-slate-100'
+                                                    }`}>
+                                                        <GitBranch size={13} className={formData.title ? 'text-violet-500' : 'text-slate-300'} />
+                                                        <div>
+                                                            <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-0.5 ${formData.title ? 'text-violet-400' : 'text-slate-300'}`}>Child</p>
+                                                            <span className={`text-[11px] font-bold leading-tight block max-w-[120px] truncate ${formData.title ? 'text-violet-700' : 'text-slate-300 italic'}`}>
+                                                                {formData.title || 'Enter task title'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <ChevronRight size={14} className="text-slate-300" />
+                                                    {/* Node 3: Manager (next step) */}
+                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${
+                                                        selectedManager ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'
+                                                    }`}>
+                                                        <Users2 size={13} className={selectedManager ? 'text-emerald-500' : 'text-slate-300'} />
+                                                        <div>
+                                                            <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-0.5 ${selectedManager ? 'text-emerald-500' : 'text-slate-300'}`}>Next step by Manager</p>
+                                                            <span className={`text-[11px] font-bold leading-tight block max-w-[120px] truncate ${selectedManager ? 'text-emerald-700' : 'text-slate-300 italic'}`}>
+                                                                {selectedManager?.name || 'Select a manager'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 font-medium mt-2">This is how the task hierarchy will appear in the system.</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
 

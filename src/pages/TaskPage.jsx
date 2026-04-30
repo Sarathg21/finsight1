@@ -166,9 +166,36 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
                     </span>
                 </td>
 
-                <td className="py-2 px-4 max-w-[150px]">
-                    <div className="font-bold text-[11px] text-slate-800 truncate tracking-tight">{task.title}</div>
-                    <div className="text-[9px] font-medium text-slate-400 truncate opacity-0 group-hover:opacity-100 transition-opacity">{task.description}</div>
+                <td className="py-2 px-4 max-w-[170px]">
+                    <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="font-bold text-[11px] text-slate-800 truncate tracking-tight max-w-[130px]">{task.title}</div>
+                            {(() => {
+                                const level = task?.task_level ?? task?.level;
+                                const isSubtask = level > 0 || !!task?.parent_task_id;
+                                return isSubtask ? (
+                                    <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-violet-100 text-violet-600 border border-violet-200">Subtask</span>
+                                ) : (
+                                    <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-600 border border-indigo-200">Task</span>
+                                );
+                            })()}
+                        </div>
+                        {/* Breadcrumb: root › parent */}
+                        {(task.root_parent_task_title || task.parent_task_title) && (
+                            <div className="flex items-center gap-0.5 flex-wrap">
+                                {task.root_parent_task_title && task.root_parent_task_title !== task.parent_task_title && (
+                                    <>
+                                        <span className="text-[8px] font-medium text-slate-300 truncate max-w-[60px]">{task.root_parent_task_title}</span>
+                                        <span className="text-slate-200 text-[8px]">›</span>
+                                    </>
+                                )}
+                                {task.parent_task_title && (
+                                    <span className="text-[8px] font-medium text-slate-400 truncate max-w-[80px] opacity-0 group-hover:opacity-100 transition-opacity">{task.parent_task_title}</span>
+                                )}
+                            </div>
+                        )}
+                        <div className="text-[9px] font-medium text-slate-400 truncate opacity-0 group-hover:opacity-100 transition-opacity max-w-[130px]">{task.description}</div>
+                    </div>
                 </td>
 
                 <td className="py-2 px-4 text-slate-600 truncate font-semibold text-[10px] max-w-[80px]">
@@ -319,13 +346,34 @@ const ActionTaskTable = ({
                 <td className="py-2 px-4 text-slate-400 font-medium text-[11px] font-black">{task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}</td>
                 <td className="py-2 px-4 text-slate-500 font-medium truncate max-w-[150px] text-[11px]" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
                 <td className="py-2 px-4 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <div className="min-w-0">
-                      <div className="font-bold text-slate-800 text-[12.5px] truncate max-w-[250px] tracking-tight">{task.title}</div>
-                      <div className="text-[10px] font-medium text-slate-400 truncate mt-0.5 max-w-[200px]">
-                        {task.description}
-                      </div>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="font-bold text-slate-800 text-[12.5px] truncate max-w-[220px] tracking-tight">{task.title}</div>
+                        {(() => {
+                            const level = task?.task_level ?? task?.level;
+                            const isSubtask = level > 0 || !!task?.parent_task_id;
+                            return isSubtask ? (
+                                <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-violet-100 text-violet-600 border border-violet-200">Subtask</span>
+                            ) : (
+                                <span className="shrink-0 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-600 border border-indigo-200">Task</span>
+                            );
+                        })()}
                     </div>
+                    {/* Breadcrumb: root › parent */}
+                    {(task.root_parent_task_title || task.parent_task_title) && (
+                        <div className="flex items-center gap-0.5 flex-wrap">
+                            {task.root_parent_task_title && task.root_parent_task_title !== task.parent_task_title && (
+                                <>
+                                    <span className="text-[9px] font-medium text-slate-300 truncate max-w-[80px]">{task.root_parent_task_title}</span>
+                                    <span className="text-slate-200 text-[9px]">›</span>
+                                </>
+                            )}
+                            {task.parent_task_title && (
+                                <span className="text-[9px] font-medium text-slate-400 truncate max-w-[100px]">{task.parent_task_title}</span>
+                            )}
+                        </div>
+                    )}
+                    <div className="text-[10px] font-medium text-slate-400 truncate mt-0.5 max-w-[200px]">{task.description}</div>
                   </div>
                 </td>
 
@@ -633,6 +681,11 @@ const TaskPage = () => {
           assignee_role: t.assignee_role || t.role,
           parent_task_id: parentId,
           parent_task_title: inlineParentTitle,
+          // 3-level hierarchy fields (new from backend)
+          task_level: t.task_level ?? (parentId ? 1 : 0),
+          task_type: t.task_type || (parentId ? 'SUBTASK' : 'TASK'),
+          root_parent_task_id: t.root_parent_task_id ?? null,
+          root_parent_task_title: t.root_parent_task_title ?? '',
           updated_at: t.updated_at || t.modified_at || t.last_modified || null,
           // Normalize all possible "date assigned" field names from the API
           assigned_date:

@@ -243,8 +243,35 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                         <div className="flex items-center gap-3 mb-1">
                             <h2 className="text-xl font-bold text-slate-800">{fullTask.title}</h2>
                             <Badge variant={fullTask.status}>{(fullTask.status || '').replace(/_/g, ' ')}</Badge>
+                            {/* Task / Subtask level badge */}
+                            {(() => {
+                                const level = fullTask.task_level ?? fullTask.level;
+                                const type = (fullTask.task_type || '').toUpperCase();
+                                const isSubtask = level > 0 || fullTask.parent_task_id;
+                                return isSubtask ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-violet-100 text-violet-600 border border-violet-200">Subtask</span>
+                                ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-600 border border-indigo-200">Task</span>
+                                );
+                            })()}
                         </div>
                         <p className="text-sm text-slate-500">Task ID: {fullTask.id}</p>
+                        {/* Breadcrumb: root → parent if available */}
+                        {(fullTask.root_parent_task_title || fullTask.parent_task_title) && (
+                            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                                {fullTask.root_parent_task_title && fullTask.root_parent_task_title !== fullTask.parent_task_title && (
+                                    <>
+                                        <span className="text-[10px] font-bold text-slate-400 truncate max-w-[140px]">{fullTask.root_parent_task_title}</span>
+                                        <span className="text-slate-300 text-[10px]">›</span>
+                                    </>
+                                )}
+                                {fullTask.parent_task_title && (
+                                    <span className="text-[10px] font-bold text-violet-500 truncate max-w-[140px]">{fullTask.parent_task_title}</span>
+                                )}
+                                <span className="text-slate-300 text-[10px]">›</span>
+                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[120px]">{fullTask.title}</span>
+                            </div>
+                        )}
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                         <X size={20} className="text-slate-400" />
@@ -336,9 +363,17 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                         </div>
                         {fullTask.parent_task_id && (
                             <div className="space-y-1">
-                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Parent Task</p>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Under Task</p>
                                 <p className="text-sm font-semibold text-slate-700 truncate max-w-[250px]">
-                                    <span className="text-violet-500 font-bold">#{fullTask.parent_task_id}</span> {fullTask.parent_task_title || fullTask.parent_task_name || "Untitled Parent"}
+                                    <span className="text-violet-500 font-bold">#{fullTask.parent_task_id}</span> {fullTask.parent_task_title || fullTask.parent_task_name || 'Untitled'}
+                                </p>
+                            </div>
+                        )}
+                        {fullTask.root_parent_task_id && fullTask.root_parent_task_id !== fullTask.parent_task_id && (
+                            <div className="space-y-1">
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Root Task</p>
+                                <p className="text-sm font-semibold text-slate-700 truncate max-w-[250px]">
+                                    <span className="text-indigo-500 font-bold">#{fullTask.root_parent_task_id}</span> {fullTask.root_parent_task_title || 'Untitled'}
                                 </p>
                             </div>
                         )}
