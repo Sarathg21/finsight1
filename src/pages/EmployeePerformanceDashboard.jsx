@@ -5,6 +5,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import CustomSelect from '../components/UI/CustomSelect';
 import EmployeePersonalReport from '../components/Dashboard/EmployeePersonalReport';
+import ManagerDashboard from '../components/Dashboard/ManagerDashboard';
 import {
     Users, BarChart2, CheckSquare, AlertTriangle, Clock,
     Activity, TrendingUp, Calendar, ChevronDown, ChevronLeft, ChevronRight, Layout,
@@ -1105,14 +1106,14 @@ const PerformanceDashboard = () => {
     return (
         <div className="min-h-screen bg-[#F8FAFF] p-4 md:p-8 animate-in fade-in duration-700">
             {/* HEADER */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-12 px-4 relative z-10">
+            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-12 px-4 relative z-50">
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-4">
                         <span className="h-[2px] w-10 bg-indigo-600/40 rounded-full" />
                         <p className="text-indigo-600 text-[11px] font-medium tracking-[0.3em] uppercase">Executive Analytics</p>
                     </div>
-                    <h1 className="text-[34px] font-medium text-[#1E1B4B] tracking-tight leading-none mb-4">Manager Dashboard</h1>
-                    <p className="text-[13px] text-slate-500 font-medium mb-6 -mt-2">Cross‑Department Team Performance Monitoring</p>
+                    <h1 className="text-[34px] font-medium text-[#1E1B4B] tracking-tight leading-none mb-4">{isCFO ? "CFO Dashboard" : "Manager Dashboard"}</h1>
+                    <p className="text-[13px] text-slate-500 font-medium mb-6 -mt-2">{isCFO ? "Enterprise Performance & Execution Analytics" : "Cross‑Department Team Performance Monitoring"}</p>
                     {isCFO && (
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white/40 backdrop-blur-md px-4 py-3 rounded-[1.5rem] border border-white/60 shadow-sm w-fit">
                             <div className="flex items-center gap-2 text-slate-500 font-medium text-[13px]">
@@ -1163,6 +1164,12 @@ const PerformanceDashboard = () => {
                 </div>
             </div>
 
+            {isCFO && selectedDept && selectedDept !== 'all' ? (
+                <div className="mt-4 border-t border-slate-200/60 pt-8 relative z-0">
+                    <ManagerDashboard overriddenDept={departments.find(d => String(d.department_id || d.id || d.dept_id || d.name || '') === selectedDept) || { id: selectedDept, name: selectedDept }} />
+                </div>
+            ) : (
+                <>
             {/* KPI CARDS — 4 task cards + Manager Score cluster */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] gap-5 mb-12 px-4 items-stretch">
 
@@ -1193,7 +1200,7 @@ const PerformanceDashboard = () => {
                     <div className="flex-1 p-6 rounded-[2rem] bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-xl shadow-emerald-100/40 hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col">
                         <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 blur-2xl" />
                         <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4 relative z-10"><Target size={20} /></div>
-                        <p className="text-[10px] font-medium uppercase tracking-widest opacity-80 mb-1 relative z-10">Manager Score</p>
+                        <p className="text-[10px] font-medium uppercase tracking-widest opacity-80 mb-1 relative z-10">{isCFO ? "CFO Score" : "Manager Score"}</p>
                         <h4 className="text-2xl font-semibold mt-auto relative z-10">
                             {summary.manager_score_current != null ? `${summary.manager_score_current.toFixed(1)}` : '—'}
                         </h4>
@@ -1238,7 +1245,7 @@ const PerformanceDashboard = () => {
                             <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                             <div className="flex items-center gap-2 mb-2 relative z-10">
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center"><TrendingUp size={14} /></div>
-                                <p className="text-[9px] font-bold uppercase tracking-widest opacity-80 leading-tight">Manager Personal<br/>Score</p>
+                                <p className="text-[9px] font-bold uppercase tracking-widest opacity-80 leading-tight">{isCFO ? "CFO Personal" : "Manager Personal"}<br/>Score</p>
                             </div>
                             <h4 className="text-xl font-bold relative z-10">
                                 {summary.manager_personal_score_current !== null && summary.manager_personal_score_current !== undefined ? `${summary.manager_personal_score_current.toFixed(1)}` : '—'}
@@ -1635,6 +1642,8 @@ const PerformanceDashboard = () => {
                     )}
                 </div>
             </div>
+            </>
+            )}
         </div>
     );
 };

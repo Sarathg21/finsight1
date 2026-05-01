@@ -1159,10 +1159,22 @@ const CFODashboard = () => {
             if (top5Emps && top5Emps.length > 0) {
                 return top5Emps.map((emp, i) => {
                     // Join with employeeRiskData to derive department
-                    const riskMatch = employeeRiskData.find(r => (r.emp_id && r.emp_id === emp.emp_id) || r.name === emp.name) || {};
+                    const riskMatch = employeeRiskData.find(r => (r.emp_id && String(r.emp_id) === String(emp.emp_id)) || (r.name && r.name === emp.name)) || {};
+                    
+                    // Fallback to searching allOrgTasks to find the employee name if missing
+                    let taskMatchName = null;
+                    if (!emp.name && !emp.employee_name && !emp.emp_name && !emp.full_name && !emp.user_name && !riskMatch.name && emp.emp_id) {
+                        const taskMatch = allOrgTasks.find(t => String(t.assigned_to) === String(emp.emp_id) || String(t.emp_id) === String(emp.emp_id) || String(t.assignee_id) === String(emp.emp_id));
+                        if (taskMatch) {
+                            taskMatchName = taskMatch.assigned_to_name || taskMatch.assigneeName || taskMatch.assignee || taskMatch.employee_name;
+                        }
+                    }
+
+                    const finalName = emp.name || emp.employee_name || emp.emp_name || emp.full_name || emp.user_name || riskMatch.name || taskMatchName || (emp.emp_id ? emp.emp_id : (emp ? `Keys: ${Object.keys(emp).join(',')}` : 'Unknown Employee'));
+
                     return {
                         rank: i + 1,
-                        name: emp.name || emp.employee_name || emp.emp_name || emp.full_name || emp.user_name || (emp ? `Keys: ${Object.keys(emp).join(',')}` : 'Unknown Employee'),
+                        name: finalName,
                         role: emp.department || emp.department_name || emp.role || emp.designation || riskMatch.department || riskMatch.role || 'Employee',
                         score: Math.round(emp.performance_score || emp.score || 0),
                         completed: emp.approved_tasks || emp.completed || 0,

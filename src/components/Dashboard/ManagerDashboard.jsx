@@ -205,8 +205,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     // Determine current user state
     const isActuallyCFO = user?.role?.toUpperCase() === 'CFO';
     // Determine current department for context (locked to manager's own department)
-    const currentDeptId = overriddenDept?.id || user?.department || user?.department_id || user?.dept_id;
-    const currentDeptName = overriddenDept?.name || user?.department_name || user?.department || 'Department';
+    const currentDeptId = overriddenDept?.department_id || overriddenDept?.id || overriddenDept?.dept_id || user?.department || user?.department_id || user?.dept_id;
+    const currentDeptName = overriddenDept?.department_name || overriddenDept?.name || user?.department_name || user?.department || 'Department';
 
     const getFirstDayOfMonth = () => {
         const now = new Date();
