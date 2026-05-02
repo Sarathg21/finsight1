@@ -250,7 +250,7 @@ const PerformanceDashboard = () => {
             }
 
             if (!trendMap[bucketKey]) {
-                trendMap[bucketKey] = { name: label, new: 0, pending: 0, overdue: 0, dateKey: bucketKey, sortKey: d.getTime() };
+                trendMap[bucketKey] = { name: label, new: 0, pending: 0, overdue: 0, completed: 0, dateKey: bucketKey, sortKey: d.getTime() };
             }
         }
         
@@ -275,9 +275,14 @@ const PerformanceDashboard = () => {
             
             if (trendMap[bucketKey]) {
                 const status = (t.status || '').toUpperCase();
-                trendMap[bucketKey].new++;
+                if (['NEW', 'NOT_STARTED', 'CREATED', 'ASSIGNED'].includes(status) || !status) {
+                    trendMap[bucketKey].new++;
+                }
                 if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL', 'IN_PROGRESS'].includes(status)) {
                     trendMap[bucketKey].pending++;
+                }
+                if (['APPROVED', 'COMPLETED'].includes(status)) {
+                    trendMap[bucketKey].completed++;
                 }
                 const isOverdue = t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'COMPLETED', 'CANCELLED'].includes(status);
                 if (isOverdue) trendMap[bucketKey].overdue++;
@@ -630,7 +635,11 @@ const PerformanceDashboard = () => {
             // USE LOCAL VARIABLES for fresh checking (state is async)
             const sumData = summaryResults[0].status === 'fulfilled' ? (summaryResults[0].value.data?.data || summaryResults[0].value.data || {}) : {};
             const localHasSummary = Number(sumData.team_tasks || sumData.total_tasks || sumData.total || 0) > 0;
-            const localHasTrends = summaryResults[2].status === 'fulfilled' && (summaryResults[2].value.data?.data || summaryResults[2].value.data || []).length > 0;
+            const trendPayload = summaryResults[2].status === 'fulfilled' ? (summaryResults[2].value.data?.data || summaryResults[2].value.data || []) : [];
+            
+            // localHasTrends is false if empty OR if it's full of zeros while we have tasks
+            const totalApprovedInTrends = trendPayload.reduce((sum, t) => sum + (t.completed ?? t.approved ?? t.completed_tasks ?? 0), 0);
+            const localHasTrends = trendPayload.length > 0 && totalApprovedInTrends > 0;
             const localHasTeam = (perfResults[0].status === 'fulfilled' && (perfResults[0].value.data?.data || perfResults[0].value.data || []).length > 0) || mergedPerf.length > 0;
 
             if (tasks.length > 0 && (!localHasSummary || !localHasTrends || !localHasTeam)) {
@@ -1041,17 +1050,25 @@ const PerformanceDashboard = () => {
     }, [location.hash, loading, teamPerfLoading, riskLoading]);
 
     const activityTrends = useMemo(() => {
-        if (!trends.length) return [];
-        
+        // ── Normalize trends ───────────────────────────────────────────────────
+        // 0. Pre-normalize trends to ensure all expected fields exist
+        const normalized = trends.map(t => ({
+            ...t,
+            new:       t.new ?? t.new_tasks ?? 0,
+            pending:   t.pending ?? t.pending_approval ?? t.submitted ?? t.submitted_tasks ?? 0,
+            overdue:   t.overdue ?? t.overdue_tasks ?? 0,
+            completed: t.completed ?? t.completed_tasks ?? t.approved ?? t.approved_tasks ?? 0
+        }));
+
         // 1. Daily View (Short periods: <= 45 days)
-        if (trends.length <= 45) return trends;
+        if (normalized.length <= 45) return normalized;
 
         // 2. Monthly View (Very long periods: > 120 days)
         if (trends.length > 120) {
             const months = [];
             const monthMap = {};
             
-            trends.forEach(t => {
+            normalized.forEach(t => {
                 let mName = t.month;
                 if (!mName) {
                     const d = new Date(t.date || t.name || t.dateKey);
@@ -1062,20 +1079,26 @@ const PerformanceDashboard = () => {
                 mName = mName || 'Unknown';
                 
                 if (!monthMap[mName]) {
-                    monthMap[mName] = { name: mName, new: 0, pending: 0, overdue: 0 };
+                    monthMap[mName] = { name: mName, new: 0, pending: 0, overdue: 0, completed: 0 };
                     months.push(monthMap[mName]);
                 }
-                monthMap[mName].new += (t.new || 0);
-                monthMap[mName].pending += (t.pending || 0);
-                monthMap[mName].overdue += (t.overdue || 0);
+                monthMap[mName].new       += t.new;
+                monthMap[mName].pending   += t.pending;
+                monthMap[mName].overdue   += t.overdue;
+                monthMap[mName].completed += t.completed;
+
+                // Sync with Source of Truth if only one month/period is shown
+                if (months.length === 1 && deptMetrics?.completed_tasks != null) {
+                    monthMap[mName].completed = Math.max(monthMap[mName].completed, deptMetrics.completed_tasks);
+                }
             });
             return months;
         }
 
         // 3. Weekly View (Medium periods: 46-120 days)
         const weeks = [];
-        for (let i = 0; i < trends.length; i += 7) {
-            const chunk = trends.slice(i, i + 7);
+        for (let i = 0; i < normalized.length; i += 7) {
+            const chunk = normalized.slice(i, i + 7);
             const dateStr = chunk[0].date || chunk[0].name || chunk[0].dateKey;
             let weekName = chunk[0].month ? `${chunk[0].month} W${Math.floor(i/7)%4 + 1}` : chunk[0].name;
             
@@ -1084,15 +1107,20 @@ const PerformanceDashboard = () => {
                 weekName = dateStr;
             }
 
+            const finalCompleted = chunk.reduce((s, it) => s + it.completed, 0);
+
             weeks.push({
-                name: weekName,
-                new: chunk.reduce((s, it) => s + (it.new || 0), 0),
-                pending: chunk.reduce((s, it) => s + (it.pending || 0), 0),
-                overdue: chunk.reduce((s, it) => s + (it.overdue || 0), 0)
+                name:      weekName,
+                new:       chunk.reduce((s, it) => s + it.new, 0),
+                pending:   chunk.reduce((s, it) => s + it.pending, 0),
+                overdue:   chunk.reduce((s, it) => s + it.overdue, 0),
+                completed: (weeks.length === 0 && weeks.length + 7 >= normalized.length && deptMetrics?.completed_tasks != null) 
+                            ? Math.max(finalCompleted, deptMetrics.completed_tasks) 
+                            : finalCompleted
             });
         }
         return weeks;
-    }, [trends]);
+    }, [trends, deptMetrics]);
 
     if (loading && isInitialLoad) {
         return (
@@ -1189,7 +1217,7 @@ const PerformanceDashboard = () => {
                         className={`p-6 rounded-[2rem] bg-gradient-to-br ${kpi.color} text-white shadow-xl shadow-indigo-100/40 hover:scale-[1.02] transition-all flex flex-col cursor-pointer ring-2 ring-white/0 hover:ring-white/30`}
                     >
                         <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4"><kpi.icon size={20} /></div>
-                        <p className="text-[10px] font-medium uppercase tracking-widest opacity-80 mb-1">{kpi.label}</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wider opacity-80 mb-1">{kpi.label}</p>
                         <h4 className="text-2xl font-semibold mt-auto">{kpi.val}</h4>
                     </div>
                 ))}
@@ -1200,7 +1228,7 @@ const PerformanceDashboard = () => {
                     <div className="flex-1 p-6 rounded-[2rem] bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-xl shadow-emerald-100/40 hover:scale-[1.02] transition-all relative overflow-hidden flex flex-col">
                         <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 blur-2xl" />
                         <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center mb-4 relative z-10"><Target size={20} /></div>
-                        <p className="text-[10px] font-medium uppercase tracking-widest opacity-80 mb-1 relative z-10">{isCFO ? "CFO Score" : "Manager Score"}</p>
+                        <p className="text-[10px] font-medium uppercase tracking-wider opacity-80 mb-1 relative z-10">{isCFO ? "CFO Score" : "Manager Score"}</p>
                         <h4 className="text-2xl font-semibold mt-auto relative z-10">
                             {summary.manager_score_current != null ? `${summary.manager_score_current.toFixed(1)}` : '—'}
                         </h4>
@@ -1228,7 +1256,7 @@ const PerformanceDashboard = () => {
                             <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                             <div className="flex items-center gap-2 mb-2 relative z-10">
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center"><Users size={14} /></div>
-                                <p className="text-[9px] font-bold uppercase tracking-widest opacity-80 leading-tight">Team<br/>Score</p>
+                                <p className="text-[9px] font-bold uppercase tracking-wider opacity-80 leading-tight">Team<br/>Score</p>
                             </div>
                             <h4 className="text-xl font-bold relative z-10">
                                 {summary.team_score_current != null ? `${summary.team_score_current.toFixed(1)}` : '—'}
@@ -1245,7 +1273,7 @@ const PerformanceDashboard = () => {
                             <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                             <div className="flex items-center gap-2 mb-2 relative z-10">
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center"><TrendingUp size={14} /></div>
-                                <p className="text-[9px] font-bold uppercase tracking-widest opacity-80 leading-tight">{isCFO ? "CFO Personal" : "Manager Personal"}<br/>Score</p>
+                                <p className="text-[9px] font-bold uppercase tracking-wider opacity-80 leading-tight">{isCFO ? "CFO Personal" : "Manager Personal"}<br/>Score</p>
                             </div>
                             <h4 className="text-xl font-bold relative z-10">
                                 {summary.manager_personal_score_current !== null && summary.manager_personal_score_current !== undefined ? `${summary.manager_personal_score_current.toFixed(1)}` : '—'}
@@ -1277,8 +1305,12 @@ const PerformanceDashboard = () => {
                         {/* Custom Legend — Match the reference image pill design */}
                         <div className="hidden xl:flex items-center gap-6 bg-slate-50/50 px-6 py-2.5 rounded-full border border-slate-100 shadow-sm">
                             <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Approved</span>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Not Started</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Not started</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-[#f59e0b]" />
@@ -1317,11 +1349,19 @@ const PerformanceDashboard = () => {
                                         fontWeight: '700',
                                         padding: '12px'
                                     }}
+                                    formatter={(value, name) => {
+                                        if (name === 'completed') return [value, 'Approved'];
+                                        if (name === 'new')       return [value, 'Not started'];
+                                        if (name === 'pending')   return [value, 'Pending'];
+                                        if (name === 'overdue')   return [value, 'Overdue'];
+                                        return [value, name];
+                                    }}
                                 />
-                                {/* Order from bottom to top: Overdue -> Pending -> New */}
-                                <Bar dataKey="overdue" stackId="a" fill="#ef4444" barSize={32} />
-                                <Bar dataKey="pending" stackId="a" fill="#f59e0b" />
-                                <Bar dataKey="new" stackId="a" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                {/* Order from bottom to top: Overdue -> Pending -> New -> Approved */}
+                                <Bar dataKey="overdue"   name="Overdue"     stackId="a" fill="#ef4444" barSize={32} />
+                                <Bar dataKey="pending"   name="Pending"     stackId="a" fill="#f59e0b" />
+                                <Bar dataKey="new"       name="Not started" stackId="a" fill="#3b82f6" />
+                                <Bar dataKey="completed" name="Approved"    stackId="a" fill="#10b981" radius={[6, 6, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -1580,11 +1620,11 @@ const PerformanceDashboard = () => {
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10">
                                 <tr>
-                                    <th className="px-4 py-4 text-left pl-6">Employee Name</th>
+                                    <th className="px-4 py-4 text-center">Employee Name</th>
                                     <th className="px-4 py-4 text-center">Active Tasks</th>
                                     <th className="px-4 py-4 text-center">Overdue Tasks</th>
-                                    <th className="px-4 py-4 text-center">Execution Score (Delivery Health)</th>
-                                    <th className="px-4 py-4 text-center pr-6">Delivery Risk Status</th>
+                                    <th className="px-4 py-4 text-center">Execution Score</th>
+                                    <th className="px-4 py-4 text-center pr-6">Risk Status</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 font-medium">
@@ -1601,8 +1641,8 @@ const PerformanceDashboard = () => {
 
                                     return (
                                         <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
-                                            <td className="px-4 py-3 pl-6">
-                                                <div className="flex items-center gap-3">
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-center gap-3">
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${riskConfig.bg} ${riskConfig.text}`}>
                                                         {getInitials(emp.name)}
                                                     </div>

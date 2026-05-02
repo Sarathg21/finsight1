@@ -551,6 +551,7 @@ const TaskPage = () => {
     const taskIdParam = params.get('taskId') || params.get('id');
     const empIdParam = params.get('employeeId') || params.get('empId');
     const statusParam = params.get('status');
+    const deptParam = params.get('department_id') || params.get('department') || params.get('dept');
     const severityParam = params.get('severity') || params.get('priority');
     const fromDateParam = params.get('fromDate') || params.get('from_date');
     const toDateParam = params.get('toDate') || params.get('to_date');
@@ -571,6 +572,7 @@ const TaskPage = () => {
         else next.status = statusParam;
         next.taskId = "";
       }
+      if (deptParam) { next.department = deptParam; next.taskId = ""; }
       if (severityParam) { next.severity = severityParam; next.taskId = ""; }
       if (fromDateParam) { next.fromDate = fromDateParam; }
       if (toDateParam) { next.toDate = toDateParam; }
@@ -1186,50 +1188,10 @@ const handleReworkConfirm = async (comment) => {
             onChange={(e) => setFilter({ ...filter, search: e.target.value, taskId: "" })}
           />
 
-          <div className="w-px h-6 bg-slate-200 mx-1 shrink-0" />
-
-          {/* Severity Select */}
-          <div className="shrink-0 relative">
-            <CustomSelect
-              options={[
-                { value: 'All', label: 'Severity: All' },
-                { value: 'HIGH', label: 'High' },
-                { value: 'MEDIUM', label: 'Medium' },
-                { value: 'LOW', label: 'Low' },
-              ]}
-              value={filter.severity}
-              onChange={(val) => setFilter({ ...filter, severity: val, taskId: "" })}
-              variant="borderless"
-              style={{ minWidth: '130px' }}
-            />
-          </div>
-
-          <div className="w-px h-6 bg-slate-200 mx-1 shrink-0" />
-
-          {/* Status Select */}
-          <div className="shrink-0 relative">
-            <CustomSelect
-              options={[
-                { value: 'All', label: 'Status: All' },
-                { value: 'ACTIVE', label: 'Active Tasks' },
-                { value: 'Overdue', label: 'Overdue' },
-                { value: 'NEW', label: 'Not Started' },
-                { value: 'IN_PROGRESS', label: 'In Progress' },
-                { value: 'SUBMITTED', label: 'Submitted' },
-                { value: 'APPROVED', label: 'Approved' },
-                { value: 'REWORK', label: 'Rework' },
-              ]}
-              value={filter.status}
-              onChange={(val) => setFilter({ ...filter, status: val, taskId: "" })}
-              variant="borderless"
-              style={{ minWidth: '140px' }}
-            />
-          </div>
-
           {/* Departments Filter - ONLY for CFO/Admin */}
           {isCFO && (
             <>
-              <div className="w-px h-6 bg-slate-200 mx-1 shrink-0" />
+              <div className="w-px h-6 bg-slate-200 mx-3 shrink-0" />
               <div className="shrink-0 relative">
                 <CustomSelect
                   options={[
@@ -1243,7 +1205,7 @@ const handleReworkConfirm = async (comment) => {
                   value={filter.department}
                   onChange={(val) => setFilter({ ...filter, department: val, taskId: "" })}
                   variant="borderless"
-                  style={{ minWidth: '120px' }}
+                  style={{ minWidth: '280px' }}
                 />
               </div>
             </>
@@ -1252,7 +1214,7 @@ const handleReworkConfirm = async (comment) => {
           {/* Employee Filter - for Manager in Team View */}
           {isManager && viewMode === 'team' && (
             <>
-              <div className="w-px h-6 bg-slate-200 mx-1 shrink-0" />
+              <div className="w-px h-6 bg-slate-200 mx-3 shrink-0" />
               <div className="shrink-0 relative">
                 <CustomSelect
                   options={[
@@ -1270,6 +1232,46 @@ const handleReworkConfirm = async (comment) => {
               </div>
             </>
           )}
+
+          <div className="w-px h-6 bg-slate-200 mx-3 shrink-0" />
+
+          {/* Status Select */}
+          <div className="shrink-0 relative">
+            <CustomSelect
+              options={[
+                { value: 'All', label: 'Status: All' },
+                { value: 'ACTIVE', label: 'Active Tasks' },
+                { value: 'Overdue', label: 'Overdue' },
+                { value: 'NEW', label: 'Not started' },
+                { value: 'IN_PROGRESS', label: 'In Progress' },
+                { value: 'SUBMITTED', label: 'Submitted' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'REWORK', label: 'Rework' },
+              ]}
+              value={filter.status}
+              onChange={(val) => setFilter({ ...filter, status: val, taskId: "" })}
+              variant="borderless"
+              style={{ minWidth: '140px' }}
+            />
+          </div>
+
+          <div className="w-px h-6 bg-slate-200 mx-3 shrink-0" />
+
+          {/* Severity Select */}
+          <div className="shrink-0 relative">
+            <CustomSelect
+              options={[
+                { value: 'All', label: 'Severity: All' },
+                { value: 'HIGH', label: 'High' },
+                { value: 'MEDIUM', label: 'Medium' },
+                { value: 'LOW', label: 'Low' },
+              ]}
+              value={filter.severity}
+              onChange={(val) => setFilter({ ...filter, severity: val, taskId: "" })}
+              variant="borderless"
+              style={{ minWidth: '130px' }}
+            />
+          </div>
         </div>
 
         {/* Date Range - Adjacent to unified bar */}

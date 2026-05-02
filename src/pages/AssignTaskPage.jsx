@@ -45,6 +45,11 @@ const AssignTaskPage = () => {
             const isAltRole = role === 'ADMIN' || role === 'CFO';
             
             try {
+                const taskEndpoint = isAltRole ? '/tasks' : '/tasks/team';
+                const taskParams = isAltRole 
+                    ? { scope: 'org', limit: 100, all_departments: true } 
+                    : { limit: 100, all_departments: true };
+
                 const [empRes, deptRes, tasksRes] = await Promise.all([
                     api.get(isAltRole ? '/employees' : '/employees/assignable')
                         .catch(() => api.get('/employees'))
@@ -54,15 +59,20 @@ const AssignTaskPage = () => {
                         .catch(() => api.get('/dashboard/cfo/departments'))
                         .catch(() => (role === 'ADMIN' ? api.get('/admin/departments') : Promise.reject()))
                         .catch(() => ({ data: [] })),
-                    api.get('/tasks')
+                    api.get(taskEndpoint, { params: taskParams })
+                        .catch(() => api.get('/tasks/team', { params: { limit: 100 } }))
+                        .catch(() => api.get('/tasks'))
                         .catch(() => ({ data: [] }))
                 ]);
+                
                 
                 const extract = (res) => {
                     const raw = res?.data;
                     if (Array.isArray(raw)) return raw;
                     if (Array.isArray(raw?.data)) return raw.data;
                     if (Array.isArray(raw?.items)) return raw.items;
+                    if (Array.isArray(raw?.tasks)) return raw.tasks;
+                    if (Array.isArray(raw?.data?.items)) return raw.data.items;
                     if (Array.isArray(raw?.results)) return raw.results;
                     if (Array.isArray(raw?.departments)) return raw.departments;
                     if (Array.isArray(raw?.rows)) return raw.rows;
@@ -102,17 +112,12 @@ const AssignTaskPage = () => {
                 // - CFO/ADMIN creates subtasks under top-level parent tasks (Level 0)
                 // - MANAGER creates subchild tasks under child tasks (Level 1)
                 const possibleParents = tasksData.filter(t => {
-                    const notTerminal = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
+                    const statusUpper = String(t.status || '').toUpperCase();
+                    const notTerminal = statusUpper !== 'COMPLETED' && statusUpper !== 'CANCELLED';
                     
-                    if (role === 'MANAGER') {
-                        const hasParent = !!t.parent_task_id && t.parent_task_id !== '-';
-                        const isLevel1 = hasParent && t.task_level !== 2;
-                        return isLevel1 && notTerminal;
-                    } else {
-                        const isTopLevel = !t.parent_task_id || t.parent_task_id === null || t.parent_task_id === '-';
-                        const isLevel0 = t.task_level === 0 || t.task_level === undefined;
-                        return isTopLevel && isLevel0 && notTerminal;
-                    }
+                    // Show all non-completed tasks that could logically be a parent
+                    // We'll trust the user to pick the right one, but filter for active ones.
+                    return notTerminal && (t.title || t.id);
                 });
                 setExistingParentTasks(possibleParents);
 
@@ -425,30 +430,32 @@ const AssignTaskPage = () => {
 
                     {/* Assignee + Priority (2-col) */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
-                                Assignee <span className="text-rose-500">*</span>
-                            </label>
-                            <select
-                                name="assignee"
-                                required
-                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
-                                value={formData.assignee}
-                                onChange={handleChange}
-                            >
-                                <option key="placeholder" value="">Select a team member</option>
-                                {loading ? (
-                                    <option key="loading" disabled>Loading...</option>
-                                ) : (
-                                    eligibleAssignees.map(p => (
-                                        <option key={p.emp_id} value={p.emp_id}>
-                                            {p.name} ({p.role}) - {p.department_id || p.department}
-                                        </option>
-                                    ))
-                                )}
-                            </select>
-                            {!isCFO && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
-                        </div>
+                        {formData.taskStructure !== 'SUBTASK' && (
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                                    Assignee <span className="text-rose-500">*</span>
+                                </label>
+                                <select
+                                    name="assignee"
+                                    required={formData.taskStructure !== 'SUBTASK'}
+                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
+                                    value={formData.assignee}
+                                    onChange={handleChange}
+                                >
+                                    <option key="placeholder" value="">Select a team member</option>
+                                    {loading ? (
+                                        <option key="loading" disabled>Loading...</option>
+                                    ) : (
+                                        eligibleAssignees.map(p => (
+                                            <option key={p.emp_id} value={p.emp_id}>
+                                                {p.name} ({p.role}) - {p.department_id || p.department}
+                                            </option>
+                                        ))
+                                    )}
+                                </select>
+                                {!isCFO && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Priority</label>
                             <select
@@ -599,44 +606,6 @@ const AssignTaskPage = () => {
 
                                     return (
                                         <div className="animate-fade-in space-y-4 p-5 bg-slate-50/80 rounded-2xl border border-slate-200">
-                                            {/* Manager: Select Parent Task with helper text and filter chips */}
-                                            {isManager && (
-                                                <div>
-                                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">
-                                                        Select Parent Task <span className="text-rose-500">*</span>
-                                                    </label>
-                                                    <select
-                                                        name="parentTaskId"
-                                                        required
-                                                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 font-medium transition-all text-[13px]"
-                                                        value={formData.parentTaskId}
-                                                        onChange={handleChange}
-                                                    >
-                                                        <option value="">Select a parent task</option>
-                                                        {existingParentTasks.map(t => (
-                                                            <option key={t.id || t.task_id} value={t.id || t.task_id}>
-                                                                {t.title}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <p className="text-[11px] text-slate-400 font-medium mt-1.5">
-                                                        Choose from tasks assigned to you by CFO or parent tasks created by you.
-                                                    </p>
-                                                    {/* Filter chips */}
-                                                    <div className="flex gap-2 mt-2">
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-[11px] font-bold text-indigo-600">
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                                                            CFO-assigned
-                                                        </span>
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-[11px] font-bold text-emerald-600">
-                                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                                                            My department task
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* CFO: Compact 2×2 grid: all 4 fields */}
                                             <div className="grid grid-cols-2 gap-3">
                                                 {/* Col 1 Row 1: Select Parent Task */}
                                                 <div>
@@ -657,6 +626,17 @@ const AssignTaskPage = () => {
                                                             </option>
                                                         ))}
                                                     </select>
+                                                    {isManager && (
+                                                        <>
+                                                            <p className="text-[10px] text-slate-400 font-medium mt-1">
+                                                                Tasks assigned to you or created by you.
+                                                            </p>
+                                                            <div className="flex gap-1.5 mt-1.5">
+                                                                <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[9px] font-bold text-indigo-600">CFO-assigned</span>
+                                                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[9px] font-bold text-emerald-600">Department</span>
+                                                            </div>
+                                                        </>
+                                                    )}
                                                     {existingParentTasks.length === 0 && !loading && (
                                                         <p className="text-[10px] text-rose-500 font-bold mt-1">No eligible parent tasks found.</p>
                                                     )}
@@ -671,21 +651,21 @@ const AssignTaskPage = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Col 1 Row 2: Assign Child To (Manager) — CFO only */}
-                                                {isCFORole && (
-                                                    <div>
-                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                                                            Assign Child To (Manager) <span className="text-rose-500">*</span>
-                                                        </label>
-                                                        <select
-                                                            name="managerId"
-                                                            required
-                                                            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[12px]"
-                                                            value={formData.managerId}
-                                                            onChange={handleChange}
-                                                        >
-                                                            <option value="">Select a Manager</option>
-                                                            {managers.length > 0
+                                                {/* Col 1 Row 2: Assign Child To (Manager/Employee) */}
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
+                                                        {isCFORole ? 'Assign Child To (Manager)' : 'Assign Subtask To'} <span className="text-rose-500">*</span>
+                                                    </label>
+                                                    <select
+                                                        name={isCFORole ? "managerId" : "assignee"}
+                                                        required
+                                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[12px]"
+                                                        value={isCFORole ? formData.managerId : formData.assignee}
+                                                        onChange={handleChange}
+                                                    >
+                                                        <option value="">Select an Assignee</option>
+                                                        {isCFORole ? (
+                                                            managers.length > 0
                                                                 ? managers.map(m => (
                                                                     <option key={m.emp_id} value={m.emp_id}>
                                                                         {m.name} {m.department_id ? `— ${m.department_name || m.department_id}` : ''}
@@ -696,10 +676,15 @@ const AssignTaskPage = () => {
                                                                         {m.name} ({m.role})
                                                                     </option>
                                                                 ))
-                                                            }
-                                                        </select>
-                                                    </div>
-                                                )}
+                                                        ) : (
+                                                            eligibleAssignees.map(e => (
+                                                                <option key={e.emp_id} value={e.emp_id}>
+                                                                    {e.name} ({e.role})
+                                                                </option>
+                                                            ))
+                                                        )}
+                                                    </select>
+                                                </div>
 
                                                 {/* Col 2 Row 2: Department — CFO only */}
                                                 {isCFORole && (

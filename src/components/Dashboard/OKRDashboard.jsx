@@ -28,7 +28,9 @@ const extractArr = (resData) => {
 };
 
 /* Small stat tile — CFO-style large gradient card */
-const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
+const Stat = ({ label, value, sub, icon: Icon, color = 'violet', tooltip }) => {
+    const [showTooltip, setShowTooltip] = React.useState(false);
+
     const c = {
         violet: {
             bg: 'bg-gradient-to-br from-[#7B51ED] via-[#8B64F1] to-[#6D43E0]',
@@ -74,9 +76,22 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
     };
 
     return (
-        <div className={`group animate-fade-in-up relative overflow-hidden rounded-[1.25rem] ${c.bg} ${c.shadow} p-4 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full`}>
+        <div 
+            className={`group animate-fade-in-up relative overflow-hidden rounded-[1.25rem] ${c.bg} ${c.shadow} p-4 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full`}
+            onMouseEnter={() => setShowTooltip(true)}
+            onMouseLeave={() => setShowTooltip(false)}
+        >
             {/* Background Ornaments */}
             <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full ${c.accent} blur-2xl opacity-50 group-hover:scale-125 transition-transform duration-700`} />
+
+            {/* Tooltip Overlay */}
+            {tooltip && showTooltip && (
+                <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center animate-fade-in text-center transition-all duration-300">
+                    <p className="text-[10px] font-bold text-white leading-relaxed uppercase tracking-widest px-2">
+                        {tooltip}
+                    </p>
+                </div>
+            )}
 
             <div className="relative z-10 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
@@ -84,6 +99,11 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet' }) => {
                         <span className="text-[10px] font-bold text-white/70 capitalize tracking-tight drop-shadow-sm whitespace-nowrap">
                             {label}
                         </span>
+                        {tooltip && (
+                            <div className="w-2.5 h-2.5 rounded-full border border-white/40 flex items-center justify-center text-[7px] text-white/40 font-black">
+                                ?
+                            </div>
+                        )}
                     </div>
                     <div className="text-2xl font-extrabold text-white tabular-nums tracking-tighter leading-none drop-shadow-md">
                         {value ?? '0'}
@@ -167,7 +187,7 @@ const OKRDashboard = () => {
                 if (kr.subCategory) depts.add(kr.subCategory);
             });
             const progress = o.progress ?? (totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0);
-            const deptsArray = depts.size > 0 ? Array.from(depts) : ['Corporate'];
+            const deptsArray = depts.size > 0 ? Array.from(depts) : ['Strategic'];
             return {
                 id: o.id,
                 objective_title: o.title || 'Strategic Objective',
@@ -192,9 +212,9 @@ const OKRDashboard = () => {
             { label: 'TOTAL OBJECTIVES', value: totalObjectives, color: 'indigo', icon: Target },
             { label: 'TOTAL SUBTASKS', value: totalSubtasks, color: 'blue', icon: TrendingUp },
             { label: 'COMPLETED TASKS', value: completedTasks, color: 'green', icon: CheckCircle2 },
-            { label: 'OVERALL PROGRESS', value: `${overallProgress}%`, color: 'amber', icon: TrendingUp },
+            { label: 'OVERALL PROGRESS', value: `${overallProgress}%`, color: 'amber', icon: TrendingUp, tooltip: '(Completed Tasks / Total Subtasks) * 100' },
             { label: 'AT RISK OBJECTIVES', value: atRisk, color: 'rose', icon: AlertTriangle },
-            { label: 'AVERAGE HEALTH SCORE', value: avgHealth, color: 'green', icon: ShieldCheck }
+            { label: 'AVERAGE HEALTH SCORE', value: `${avgHealth}%`, color: 'green', icon: ShieldCheck, tooltip: 'Average of scores of all objectives in the selected period' }
         ]);
 
         setTableData(mockObjs.map(o => {
@@ -213,7 +233,7 @@ const OKRDashboard = () => {
                 subTotal,
                 depts: o.department_count || o.deptsArray?.length || 1,
                 deptsCount: o.department_count || o.deptsArray?.length || 1,
-                deptNames: o.deptsArray || ['Corporate'],
+                deptNames: o.deptsArray || ['Strategic'],
                 daysTotal: 45,
                 daysRemaining: 15,
                 score: progress,
@@ -290,12 +310,55 @@ const OKRDashboard = () => {
             return [];
         };
 
-        const getDeptNameHelper = (item) => {
+        const getDeptNameHelper = (item, allDepts = []) => {
             if (!item) return null;
-            const candidates = [item.department_name, item.department, item.dept_name, item.dept, item.owner_dept, item.assigned_dept];
+            const candidates = [
+                item.department_name, item.department, item.dept_name, item.dept, 
+                item.owner_dept, item.assigned_dept, item.creator_department, item.owner_dept_name,
+                item.dept_id, item.department_id
+            ];
+            
+            const registryNames = allDepts.map(d => (d.name || d.department_name || '').trim()).filter(Boolean);
+
             for (const c of candidates) {
-                if (c && c !== 'N/A' && c !== 'undefined' && c !== 'null') return String(c).trim();
+                if (c && c !== 'N/A' && c !== 'undefined' && c !== 'null') {
+                    const val = String(c).trim();
+                    // If it's a numeric ID, try to find the name in our registry
+                    if (/^\d+$/.test(val) && allDepts.length > 0) {
+                        const found = allDepts.find(d => String(d.id || d.department_id) === val);
+                        if (found) return found.name || found.department_name;
+                        continue; 
+                    }
+                    // Validate against registry if possible
+                    if (registryNames.length > 0) {
+                        const match = registryNames.find(n => n.toLowerCase() === val.toLowerCase());
+                        if (match) return match;
+                    }
+                    return val;
+                }
             }
+
+            // Smart Title Matching against REAL registry names
+            const title = (item.title || item.task_name || item.objective_title || '').toLowerCase();
+            if (registryNames.length > 0) {
+                if (title.includes('audit')) {
+                    const match = registryNames.find(n => n.toLowerCase().includes('audit'));
+                    if (match) return match;
+                }
+                if (title.includes('closing') || title.includes('month-end')) {
+                    const match = registryNames.find(n => n.toLowerCase().includes('account') || n.toLowerCase().includes('finance'));
+                    if (match) return match;
+                }
+                if (title.includes('payables') || title.includes(' ap ')) {
+                    const match = registryNames.find(n => n.toLowerCase().includes('payable'));
+                    if (match) return match;
+                }
+                if (title.includes('receivables') || title.includes(' ar ')) {
+                    const match = registryNames.find(n => n.toLowerCase().includes('receivable'));
+                    if (match) return match;
+                }
+            }
+
             return null;
         };
 
@@ -387,7 +450,8 @@ const OKRDashboard = () => {
             ]);
 
             let data = res.data?.data || res.data || {};
-            const apiDeptNames = extractArr(deptsRes.data).map(d => d.name || d.department_name).filter(Boolean);
+            const allDeptsRegistry = extractArr(deptsRes.data);
+            const apiDeptNames = allDeptsRegistry.map(d => d.name || d.department_name).filter(Boolean);
 
             const rawCurrentList = extractArr(objListRes.data);
             const rawWideList = extractArr(wideObjListRes.data);
@@ -465,13 +529,13 @@ const OKRDashboard = () => {
                 }).length;
                 const progress = totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0;
                 const depts = new Set();
-                const pDept = getDeptNameHelper(p);
+                const pDept = getDeptNameHelper(p, allDeptsRegistry);
                 if (pDept) depts.add(pDept);
                 uniqueSubs.forEach(s => {
-                    const sDept = getDeptNameHelper(s);
+                    const sDept = getDeptNameHelper(s, allDeptsRegistry);
                     if (sDept) depts.add(sDept);
                 });
-                const deptsArray = depts.size > 0 ? Array.from(depts) : ['Corporate'];
+                const deptsArray = depts.size > 0 ? Array.from(depts) : [];
                 const isOverdue = p.due_date && new Date(p.due_date) < new Date() && !['APPROVED', 'COMPLETED'].includes((p.status || '').toUpperCase());
                 let riskLabel = 'Low';
                 if (isOverdue) riskLabel = progress < 40 ? 'High' : 'Medium';
@@ -523,7 +587,7 @@ const OKRDashboard = () => {
                         const done = Number(o.completed_subtasks ?? o.sub_comp ?? o.completed ?? o.completed_tasks ?? 0);
                         const progress = o.progress_pct ?? o.progress ?? (total > 0 ? Math.round((done / total) * 100) : 0);
                         const deptRaw = o.deptsArray || o.departments || o.department_name || o.department || o.dept_name;
-                        const deptsArray = Array.isArray(deptRaw) ? deptRaw : (deptRaw ? [String(deptRaw)] : ['Corporate']);
+                        const deptsArray = Array.isArray(deptRaw) ? deptRaw : (deptRaw ? [String(deptRaw)] : ['Strategic']);
                         serverObjs.push({
                             id: o.id || o.task_id || o.objective_id,
                             objective_title: o.objective_title || o.title || o.task_name || 'Strategic Objective',
@@ -590,7 +654,7 @@ const OKRDashboard = () => {
                         if (kr.subCategory) depts.add(kr.subCategory);
                     });
                     const progress = o.progress ?? (totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0);
-                    const deptsArray = depts.size > 0 ? Array.from(depts) : ['Corporate'];
+                    const deptsArray = depts.size > 0 ? Array.from(depts) : ['Strategic'];
                     return {
                         id: o.id,
                         objective_title: o.title || 'Strategic Objective',
@@ -629,8 +693,8 @@ const OKRDashboard = () => {
             };
             // Primary: aggregate from all tasks
             allTasks.forEach(t => {
-                const dName = getDeptFromTask(t) || 'General';
-                deptMap[dName] = (deptMap[dName] || 0) + 1;
+                const dName = getDeptNameHelper(t, allDeptsRegistry);
+                if (dName) deptMap[dName] = (deptMap[dName] || 0) + 1;
             });
             // Fallback: if no tasks available, aggregate from objectives' deptsArray
             if (Object.keys(deptMap).length <= 1 && serverObjs.length > 0) {
@@ -650,9 +714,9 @@ const OKRDashboard = () => {
                 { label: 'TOTAL OBJECTIVES', value: data.total_objectives, color: 'indigo', icon: Target },
                 { label: 'TOTAL SUBTASKS', value: data.total_subtasks, color: 'blue', icon: TrendingUp },
                 { label: 'COMPLETED TASKS', value: data.completed_tasks, color: 'green', icon: CheckCircle2 },
-                { label: 'OVERALL PROGRESS', value: `${data.overall_progress}%`, color: 'amber', icon: TrendingUp },
+                { label: 'OVERALL PROGRESS', value: `${data.overall_progress}%`, color: 'amber', icon: TrendingUp, tooltip: '(Completed Tasks / Total Subtasks) * 100' },
                 { label: 'AT RISK OBJECTIVES', value: data.at_risk, color: 'rose', icon: AlertTriangle },
-                { label: 'AVERAGE HEALTH SCORE', value: data.avg_health_score, color: 'green', icon: ShieldCheck }
+                { label: 'AVERAGE HEALTH SCORE', value: `${data.avg_health_score}%`, color: 'green', icon: ShieldCheck, tooltip: 'Average of scores of all objectives in the selected period' }
             ]);
 
             setTableData(serverObjs.map(o => {
@@ -687,7 +751,7 @@ const OKRDashboard = () => {
                     subTotal,
                     depts: o.department_count || o.deptsArray?.length || 1,
                     deptsCount: o.department_count || o.deptsArray?.length || 1,
-                    deptNames: o.deptsArray || ['Corporate'],
+                    deptNames: o.deptsArray || [],
                     daysTotal,
                     daysRemaining,
                     score: progress,
@@ -884,9 +948,9 @@ const OKRDashboard = () => {
             { label: 'TOTAL OBJECTIVES', value: finalTotalObjectives, color: 'indigo', icon: Target },
             { label: 'TOTAL SUBTASKS', value: totalSubs, color: 'blue', icon: TrendingUp },
             { label: 'COMPLETED TASKS', value: doneSubs, color: 'green', icon: CheckCircle2 },
-            { label: 'OVERALL PROGRESS', value: `${finalOverallProgress}%`, color: 'amber', icon: TrendingUp },
+            { label: 'OVERALL PROGRESS', value: `${finalOverallProgress}%`, color: 'amber', icon: TrendingUp, tooltip: '(Completed Tasks / Total Subtasks) * 100' },
             { label: 'AT RISK OBJECTIVES', value: riskImpactCount, color: 'rose', icon: AlertTriangle },
-            { label: 'AVERAGE HEALTH SCORE', value: avgCompletion, color: 'green', icon: ShieldCheck }
+            { label: 'AVERAGE HEALTH SCORE', value: `${avgCompletion}%`, color: 'green', icon: ShieldCheck, tooltip: 'Average of scores of all objectives in the selected period' }
         ];
     }, [displayedTableData, metrics, filters.department]);
 
@@ -987,6 +1051,7 @@ const OKRDashboard = () => {
                         value={m.value}
                         color={m.color}
                         icon={m.icon}
+                        tooltip={m.tooltip}
                     />
                 ))}
             </div>

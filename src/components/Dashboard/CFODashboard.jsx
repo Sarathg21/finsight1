@@ -229,30 +229,70 @@ const ExecutiveHealthPanel = ({ metrics, departments }) => {
 };
 
 const TaskTrendsChart = ({ data, fromDate, toDate }) => {
-    // Helper: Convert "YYYY-MM" -> "Feb"
-    const formatMonthName = (val) => {
-        if (!val || val === '—') return '—';
-        try {
-            if (/^\d{4}-\d{2}$/.test(val)) {
-                const [year, month] = val.split('-');
-                return new Date(year, parseInt(month) - 1).toLocaleString('en-US', { month: 'short' });
+    // Short/full month tables used by the normalizer
+    const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+
+    /**
+     * Convert any date-like string → "YYYY-MM" key.
+     * Handles: YYYY-MM-DD, YYYY-MM, YYYY-WNN, "February 2026", "Feb 2026",
+     *          "Feb", week ISO strings (2026-W06), etc.
+     */
+    const toYearMonthKey = (rawKey, monthRange) => {
+        if (!rawKey) return null;
+        const s = String(rawKey).trim();
+        
+        // 1. Flexible Date Match: YYYY-MM-DD, YY-MM-DD, DD-MM-YYYY, etc.
+        const dateMatch = s.match(/^(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})/);
+        if (dateMatch) {
+            let y = dateMatch[1], m = dateMatch[2];
+            if (y.length === 2 && parseInt(y) >= 20) y = '20' + y;
+            if (y.length === 2 && parseInt(y) <= 31 && s.length >= 8) {
+                const lastPart = s.match(/(\d{4})$/);
+                if (lastPart) { y = lastPart[1]; m = dateMatch[2]; }
             }
-            const d = new Date(`${val} 1, 2000`);
-            if (!isNaN(d.getTime())) return d.toLocaleString('en-US', { month: 'short' });
-            return val;
-        } catch (e) { return val; }
+            if (y.length === 4) return `${y}-${m.padStart(2, '0')}`;
+        }
+
+        if (/^\d{4}-\d{2}$/.test(s)) return s;
+
+        // "February 2026", "Feb 2026", "Feb"
+        const yearMatch = s.match(/\b(20\d{2})\b/);
+        const yr = yearMatch ? yearMatch[1] : null;
+        const sLower = s.toLowerCase();
+        let mIdx = -1;
+        for (let i = 0; i < MONTH_FULLS.length; i++) {
+            if (sLower.includes(MONTH_FULLS[i]) || sLower.startsWith(MONTH_SHORTS[i].toLowerCase())) { mIdx = i; break; }
+        }
+        if (mIdx >= 0 && yr)  return `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
+        if (mIdx >= 0) { const f = monthRange.find(m => m.label === MONTH_SHORTS[mIdx]); if (f) return f.key; }
+        // Last resort: native Date parse
+        try { 
+            const p = new Date(s); 
+            if (!isNaN(p.getTime())) {
+                let y = p.getFullYear();
+                if (y < 100) y += 2000;
+                return `${y}-${String(p.getMonth()+1).padStart(2,'0')}`; 
+            }
+        } catch (_) {}
+        return null;
     };
 
+
     const trends = useMemo(() => {
+        // Debug: see exactly what the backend sends
+        if (data && data.length > 0) {
+            console.log('[TaskTrendsChart] raw data sample:', JSON.stringify(data[0]), '| total rows:', data.length);
+        } else {
+            console.warn('[TaskTrendsChart] trends data is empty — no bars will render');
+        }
+
         // Build full month skeleton from fromDate → toDate
         const generateMonthRange = (from, to) => {
             if (!from || !to) return [];
             const months = [];
-            const start = new Date(from);
-            const end = new Date(to);
-            // clamp to first of month
-            start.setDate(1);
-            end.setDate(1);
+            const start = new Date(from); start.setDate(1);
+            const end   = new Date(to);   end.setDate(1);
             const cur = new Date(start);
             while (cur <= end) {
                 const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
@@ -264,45 +304,46 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
 
         const monthRange = generateMonthRange(fromDate, toDate);
 
-        // Build a lookup from backend data keyed by YYYY-MM or short month name
+        // Map backend rows → YYYY-MM keyed accumulator
         const backendMap = {};
         (data || []).forEach(d => {
             const rawKey = d.name || d.month || d.period || d.week || '';
-            // Try to extract YYYY-MM key from the raw value
-            let normKey = rawKey;
-            if (/^\d{4}-\d{2}$/.test(rawKey)) {
-                normKey = rawKey; // already YYYY-MM
-            } else {
-                // Try to match short month name to a year-month in range
-                const label = formatMonthName(rawKey);
-                const found = monthRange.find(m => m.label === label);
-                if (found) normKey = found.key;
-            }
+            const normKey = toYearMonthKey(rawKey, monthRange);
+            if (!normKey) return; // skip unmappable rows
+
             const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
-            backendMap[normKey] = {
-                new:     g(['new_tasks', 'new', 'Not Started', 'new_count']),
-                pending: g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'Pending', 'In Progress']),
-                overdue: g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count']),
-            };
+
+            if (!backendMap[normKey]) backendMap[normKey] = { new: 0, pending: 0, overdue: 0, completed: 0 };
+            backendMap[normKey].new       += g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']);
+            backendMap[normKey].pending   += g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending', 'In Progress', 'in_progress']);
+            backendMap[normKey].overdue   += g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']);
+            backendMap[normKey].completed += g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']);
         });
+
+        console.log('[TaskTrendsChart] backendMap keys:', Object.keys(backendMap), '| monthRange:', monthRange.map(m => m.key));
 
         if (monthRange.length > 0) {
             return monthRange.map(({ key, label }) => ({
-                name:    label,
-                new:     backendMap[key]?.new     ?? 0,
-                pending: backendMap[key]?.pending ?? 0,
-                overdue: backendMap[key]?.overdue ?? 0,
+                name:      label,
+                new:       backendMap[key]?.new       ?? 0,
+                pending:   backendMap[key]?.pending   ?? 0,
+                overdue:   backendMap[key]?.overdue   ?? 0,
+                completed: backendMap[key]?.completed ?? 0,
             }));
         }
 
-        // Fallback: just render backend data as-is
+        // Fallback: render backend data directly, best-effort label
         return (data || []).map(d => {
             const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
+            const rawKey = d.name || d.month || d.period || d.week || '';
+            const ymKey  = toYearMonthKey(rawKey, []);
+            const label  = ymKey ? new Date(ymKey + '-01').toLocaleString('en-US', { month: 'short' }) : rawKey;
             return {
-                name:    formatMonthName(d.name || d.month || d.period || d.week),
-                new:     g(['new_tasks', 'new', 'Not Started', 'new_count']),
-                pending: g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'Pending', 'In Progress']),
-                overdue: g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count']),
+                name:      label,
+                new:       g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']),
+                pending:   g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending', 'In Progress', 'in_progress']),
+                overdue:   g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']),
+                completed: g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']),
             };
         });
     }, [data, fromDate, toDate]);
@@ -319,16 +360,20 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
                         <p className="text-[10px] font-bold text-slate-400 capitalize tracking-[0.2em] mt-0.5">Dynamic Workload Trajectory</p>
                     </div>
                 </div>
-                <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
-                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Not Started</span>
+                <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm overflow-x-auto no-scrollbar">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></div>
+                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Approved</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
+                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Not started</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></div>
                         <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Pending</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div>
                         <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Overdue</span>
                     </div>
@@ -355,10 +400,18 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
                         <Tooltip
                             cursor={{ fill: '#F8FAFC', opacity: 0.4 }}
                             contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
+                            formatter={(value, name) => {
+                                if (name === 'completed') return [value, 'Approved'];
+                                if (name === 'new')       return [value, 'Not started'];
+                                if (name === 'pending')   return [value, 'Pending'];
+                                if (name === 'overdue')   return [value, 'Overdue'];
+                                return [value, name];
+                            }}
                         />
-                        <Bar dataKey="overdue" name="Overdue" stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
-                        <Bar dataKey="pending" name="Pending" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
-                        <Bar dataKey="new" name="Not Started" stackId="a" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={32} />
+                        <Bar dataKey="overdue"   name="Overdue"     stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
+                        <Bar dataKey="pending"   name="Pending"     stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
+                        <Bar dataKey="new"       name="Not started" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} barSize={32} />
+                        <Bar dataKey="completed" name="Approved"    stackId="a" fill="#10B981" radius={[6, 6, 0, 0]} barSize={32} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -555,6 +608,7 @@ const CFODashboard = () => {
     const [deptPerformance, setDeptPerformance] = useState([]);
     const [todayOrgTasks, setTodayOrgTasks] = useState([]);
     const [allOrgTasks, setAllOrgTasks] = useState([]);
+    const [allEmployees, setAllEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [employeeRiskData, setEmployeeRiskData] = useState([]);
     const todayTasksRef = useRef([]); // Protections against stale closures in setInterval
@@ -704,14 +758,20 @@ const CFODashboard = () => {
 
             const managerBase = '/dashboard/manager';
 
-            const [dataRes, todayRes, metricsRes, trendsRes, deptsRes, riskRes] = await Promise.all([
+            const [dataRes, todayRes, metricsRes, trendsRes, deptsRes, riskRes, empRes] = await Promise.all([
                 isAdmin ? Promise.resolve({ data: {} }) : api.get('/dashboard/cfo', { params: queryParams, signal }).catch(() => api.get(managerBase, { params: queryParams, signal }).catch(() => Promise.resolve({ data: {} }))),
                 isAdmin ? Promise.resolve({ data: {} }) : api.get('/dashboard/cfo/today', { params: queryParams, signal }).catch(() => api.get(`${managerBase}/today`, { params: queryParams, signal }).catch(() => Promise.resolve({ data: [] }))),
                 isAdmin ? Promise.resolve({ data: {} }) : api.get('/dashboard/cfo/org-metrics', { params: queryParams, signal }).catch(() => api.get(`${managerBase}/org-metrics`, { params: queryParams, signal }).catch(() => Promise.resolve({ data: {} }))),
                 isAdmin ? Promise.resolve({ data: {} }) : api.get('/dashboard/cfo/trends', { params: queryParams, signal }).catch(() => api.get(`${managerBase}/trends`, { params: queryParams, signal }).catch(() => Promise.resolve({ data: [] }))),
                 isAdmin ? Promise.resolve({ data: {} }) : api.get('/dashboard/cfo/departments', { params: queryParams, signal }).catch(() => api.get(`${managerBase}/departments`, { params: queryParams, signal }).catch(() => Promise.resolve({ data: [] }))),
-                Promise.resolve({ data: [] }) // Suppressed missing API to prevent 404s; fallback handles this
+                Promise.resolve({ data: [] }), // riskRes
+                api.get('/employees', { signal }).catch(() => Promise.resolve({ data: [] }))
             ]);
+            
+            if (empRes?.status === 'fulfilled' || empRes?.data) {
+                const ep = empRes.data?.data || empRes.data || [];
+                setAllEmployees(Array.isArray(ep) ? ep : []);
+            }
             // Employee risk — document section 5
             const riskPayload = riskRes?.data?.data || riskRes?.data || [];
             const riskRows = Array.isArray(riskPayload) ? riskPayload : [];
@@ -763,19 +823,25 @@ const CFODashboard = () => {
 
                     // Tracking for top performer
                     const empName = t.assigneeName || t.assigned_to_name || 'Unassigned';
-                    if (!dept.employees[empName]) dept.employees[empName] = { name: empName, completed: 0, total: 0 };
+                    if (!dept.employees[empName]) dept.employees[empName] = { name: empName, completed: 0, rework: 0, total: 0 };
                     dept.employees[empName].total++;
                     if (t.status === 'APPROVED') dept.employees[empName].completed++;
+                    if (t.status === 'REWORK' || t.status === 'CHANGES_REQUESTED') dept.employees[empName].rework++;
                 });
 
-                // Compute top performer for each dept
+                // Compute top performer for each dept using true Performance Score formula
                 Object.values(byDeptName).forEach(dept => {
-                    const sortedEmps = Object.values(dept.employees).sort((a, b) => (b.completed / b.total) - (a.completed / a.total) || b.total - a.total);
+                    const sortedEmps = Object.values(dept.employees).map(emp => {
+                        const pScore = emp.total > 0 ? Math.max(0, (((emp.completed * 5) - (emp.rework * 2)) / (emp.total * 5)) * 100) : 0;
+                        return { ...emp, performanceScore: pScore };
+                    }).sort((a, b) => b.performanceScore - a.performanceScore || b.total - a.total);
+                    
                     if (sortedEmps.length > 0) {
                         const top = sortedEmps[0];
+                        // Use empMap if available for better name resolution
                         dept.top_performer = {
                             name: top.name,
-                            score: Math.round((top.completed / top.total) * 100)
+                            score: Math.round(top.performanceScore)
                         };
                     }
                 });
@@ -826,7 +892,7 @@ const CFODashboard = () => {
                         rework_tasks: counts.rework_tasks ?? (d.rework_tasks ?? d.rework ?? 0),
                         approved_tasks: approvedComputed,
                         completion_pct: computedPct,
-                        top_performer: counts.top_performer
+                        top_performer: counts.top_performer || d.top_performer
                     };
                     enriched.status = deriveStatus(enriched);
                     return enriched;
@@ -945,6 +1011,56 @@ const CFODashboard = () => {
                 const taskDate = dateStr.split('T')[0];
                 return taskDate >= safeFrom && taskDate <= safeTo;
             });
+
+            // ── Compute monthly trends from raw tasks when API returns all-zero fields ──
+            // The /cfo/trends endpoint returns rows but with new_tasks=0, pending_submission=0,
+            // overdue_tasks=0 (backend bug). Detect this and fall back to client-side aggregation.
+            const apiTrendsPayload = Array.isArray(trendsPayload) ? trendsPayload : [];
+            const apiTrendsHaveData = apiTrendsPayload.some(t =>
+                (Number(t.new_tasks) || 0) + (Number(t.pending_submission) || 0) + (Number(t.overdue_tasks) || 0) > 0
+            );
+
+            if (!apiTrendsHaveData && allTasks.length > 0) {
+                // Build month skeleton
+                const monthMap = {};
+                const mStart = new Date(safeFrom); mStart.setDate(1);
+                const mEnd   = new Date(safeTo);   mEnd.setDate(1);
+                const mCur   = new Date(mStart);
+                while (mCur <= mEnd) {
+                    const k = `${mCur.getFullYear()}-${String(mCur.getMonth() + 1).padStart(2, '0')}`;
+                    monthMap[k] = { new_tasks: 0, pending_submission: 0, overdue_tasks: 0, completed_tasks: 0 };
+                    mCur.setMonth(mCur.getMonth() + 1);
+                }
+
+                const todayStr = new Date().toISOString().split('T')[0];
+                allTasks.forEach(t => {
+                    const dateStr = t.assigned_at || t.assigned_date || t.created_at || t.date;
+                    if (!dateStr) return;
+                    const monthKey = String(dateStr).substring(0, 7);
+                    if (!monthMap[monthKey]) return;
+
+                    const status = String(t.status || '').toUpperCase();
+                    if (['NEW', 'NOT_STARTED', 'CREATED', 'ASSIGNED'].includes(status) || !status) {
+                        monthMap[monthKey].new_tasks++;
+                    }
+                    if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL', 'IN_PROGRESS'].includes(status)) {
+                        monthMap[monthKey].pending_submission++;
+                    }
+                    if (due && due < todayStr && !['APPROVED', 'COMPLETED', 'CANCELLED'].includes(status)) {
+                        monthMap[monthKey].overdue_tasks++;
+                    }
+                    if (['APPROVED', 'COMPLETED'].includes(status)) {
+                        monthMap[monthKey].completed_tasks++;
+                    }
+                });
+
+                const computedTrends = Object.entries(monthMap).map(([month, vals]) => ({
+                    month,
+                    ...vals,
+                }));
+                console.log('[CFODashboard] API trends were all-zero — using computed trends:', computedTrends);
+                setTrendsData(computedTrends);
+            }
 
             // Pass 1: Build lookup map for ID -> Title
             const taskMap = {};
@@ -1070,13 +1186,41 @@ const CFODashboard = () => {
 
 
 
-    const { workloadData, orgStatusData, globalStats, kpis, topPerformers } = useMemo(() => {
+    const { workloadData, orgStatusData, globalStats, kpis, topPerformers, empMap } = useMemo(() => {
+        // Build a robust mapping of emp_id -> { name, dept } 
+        const eMap = {};
+        
+        // 1. Populate from complete employees list (Best source for Names)
+        allEmployees.forEach(e => {
+            const id = e.emp_id || e.id;
+            if (id) {
+                eMap[id] = {
+                    id,
+                    name: e.name || e.full_name || id,
+                    dept: e.department || e.department_name || e.role || 'Employee'
+                };
+            }
+        });
+
+        // 2. Supplement from tasks (Captures display names used in real-time)
+        allOrgTasks.forEach(t => {
+            const id = t.assigned_to || t.emp_id || t.assignee_id || t.assignee;
+            if (id && !eMap[id]) {
+                eMap[id] = {
+                    id,
+                    name: t.assigned_to_name || t.assigneeName || t.employee_name || id,
+                    dept: t.department || t.department_name || 'General'
+                };
+            }
+        });
+
         if (!dashboardData) return { 
             workloadData: [], 
             orgStatusData: [], 
             globalStats: { totalTasks: 0, completedTasks: 0, pendingTasks: 0, in_progress_tasks: 0, overallScore: 0 }, 
             kpis: { riskSummary: {} }, 
-            topPerformers: [] 
+            topPerformers: [],
+            empMap: eMap
         };
         const deptSource = dashboardData.department_stats || [];
 
@@ -1161,28 +1305,42 @@ const CFODashboard = () => {
                     // Join with employeeRiskData to derive department
                     const riskMatch = employeeRiskData.find(r => (r.emp_id && String(r.emp_id) === String(emp.emp_id)) || (r.name && r.name === emp.name)) || {};
                     
-                    // Fallback to searching allOrgTasks to find the employee name if missing
+                    // Fallback to searching allOrgTasks to find the real employee name
                     let taskMatchName = null;
-                    if (!emp.name && !emp.employee_name && !emp.emp_name && !emp.full_name && !emp.user_name && !riskMatch.name && emp.emp_id) {
-                        const taskMatch = allOrgTasks.find(t => String(t.assigned_to) === String(emp.emp_id) || String(t.emp_id) === String(emp.emp_id) || String(t.assignee_id) === String(emp.emp_id));
-                        if (taskMatch) {
-                            taskMatchName = taskMatch.assigned_to_name || taskMatch.assigneeName || taskMatch.assignee || taskMatch.employee_name;
-                        }
+                    const lookupId = emp.emp_id || emp.employee_id || emp.name;
+                    const resolvedEmp = eMap[lookupId] || Object.values(eMap).find(e => e.name === emp.name) || {};
+                    
+                    let finalName = resolvedEmp.name || emp.name;
+                    // If name still looks like an ID, use fallback
+                    if (!finalName || /^[A-Z_0-9]+$/.test(finalName)) {
+                        finalName = emp.employee_name || emp.emp_name || emp.full_name || emp.name || 'Unknown Employee';
                     }
 
-                    const finalName = emp.name || emp.employee_name || emp.emp_name || emp.full_name || emp.user_name || riskMatch.name || taskMatchName || (emp.emp_id ? emp.emp_id : (emp ? `Keys: ${Object.keys(emp).join(',')}` : 'Unknown Employee'));
+                    // Calculate true performance score from allOrgTasks to override incorrect API completion %
+                    let perfCompleted = 0, perfRework = 0, perfTotal = 0;
+                    allOrgTasks.forEach(t => {
+                        const tId = t.assigned_to || t.emp_id || t.assignee_id || t.assignee;
+                        if (String(tId) === String(lookupId)) {
+                            perfTotal++;
+                            if (t.status === 'APPROVED' || t.status === 'COMPLETED') perfCompleted++;
+                            if (t.status === 'REWORK' || t.status === 'CHANGES_REQUESTED') perfRework++;
+                        }
+                    });
+                    
+                    let truePerfScore = perfTotal > 0 
+                        ? Math.max(0, (((perfCompleted * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100)
+                        : (emp.performance_score ?? emp.score ?? 0);
 
                     return {
                         rank: i + 1,
                         name: finalName,
-                        role: emp.department || emp.department_name || emp.role || emp.designation || riskMatch.department || riskMatch.role || 'Employee',
-                        score: Math.round(emp.performance_score || emp.score || 0),
-                        completed: emp.approved_tasks || emp.completed || 0,
-                        total: emp.total_tasks || emp.total || 0,
+                        role: resolvedEmp.dept || emp.department || emp.department_name || 'Employee',
+                        score: Math.round(truePerfScore),
+                        completed: perfCompleted || emp.approved_tasks || 0,
+                        total: perfTotal || emp.total_tasks || 0,
                     };
                 });
             }
-
             return [];
         })();
 
@@ -1197,7 +1355,8 @@ const CFODashboard = () => {
                 overallScore: dashboardData.org_performance_index || 0,
             },
             kpis,
-            topPerformers
+            topPerformers,
+            empMap: eMap
         };
     }, [dashboardData, orgMetrics, todayOrgTasks, allOrgTasks, deptPerformance, employeeRiskData]);
 
@@ -1412,11 +1571,11 @@ const CFODashboard = () => {
                                     <button onClick={() => navigate('/performance-dashboard')} className="text-[11px] font-bold text-indigo-500 hover:text-indigo-600 transition-colors">View All</button>
                                 </div>
 
-                                <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-3 mb-2 px-1">
-                                    <div className="flex-1 min-w-0 pr-2">Employee</div>
-                                    <div className="w-[56px] text-center shrink-0">Active</div>
-                                    <div className="w-[44px] text-center shrink-0">Score</div>
-                                    <div className="w-[76px] text-right pr-2 shrink-0">Status</div>
+                                <div className="flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-50 pb-3 mb-2 px-1 text-center">
+                                    <div className="flex-1 min-w-0">Employee</div>
+                                    <div className="w-[56px] shrink-0">Active</div>
+                                    <div className="w-[60px] shrink-0">Score</div>
+                                    <div className="w-[76px] shrink-0">Status</div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-1">
                                     {(() => {
@@ -1429,32 +1588,63 @@ const CFODashboard = () => {
                                         };
 
                                         const items = employeeRiskData.length > 0
-                                            ? employeeRiskData.slice(0, 8).map(r => ({
-                                                name:        r.name,
-                                                role:        r.role || r.department || '',
-                                                activeTasks: r.active_tasks ?? 0,
-                                                score:       Math.round(r.performance_score ?? 0),
-                                                riskStatus:  String(r.risk_status || 'ON_TRACK').toUpperCase(),
-                                              }))
+                                            ? employeeRiskData.slice(0, 8).map(r => {
+                                                // Calculate true performance score from allOrgTasks
+                                                let perfCompleted = 0;
+                                                let perfRework = 0;
+                                                let perfTotal = 0;
+                                                const lookupId = r.emp_id || r.name;
+                                                if (lookupId) {
+                                                    allOrgTasks.forEach(t => {
+                                                        if (String(t.assigned_to) === String(lookupId) || 
+                                                            String(t.emp_id) === String(lookupId) || 
+                                                            String(t.assignee_id) === String(lookupId) ||
+                                                            String(t.assignee) === String(lookupId)) {
+                                                            perfTotal++;
+                                                            if (t.status === 'APPROVED') perfCompleted++;
+                                                            if (t.status === 'REWORK' || t.status === 'CHANGES_REQUESTED') perfRework++;
+                                                        }
+                                                    });
+                                                }
+                                                
+                                                let truePerfScore = 0;
+                                                if (perfTotal > 0) {
+                                                    truePerfScore = Math.max(0, (((perfCompleted * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100);
+                                                } else {
+                                                    truePerfScore = r.performance_score ?? r.score ?? 0;
+                                                }
+
+                                                return {
+                                                    name:        r.name,
+                                                    role:        r.role || r.department || '',
+                                                    activeTasks: r.active_tasks ?? 0,
+                                                    score:       Math.round(truePerfScore),
+                                                    riskStatus:  String(r.risk_status || 'ON_TRACK').toUpperCase(),
+                                                };
+                                            })
                                             : Object.values((() => {
                                                 // fallback: compute from loaded tasks
                                                 const byEmp = {};
                                                 const todayStr = new Date().toLocaleDateString('en-CA');
                                                 todayOrgTasks.forEach(t => {
                                                     const name = t.assigneeName || t.assigned_to_name || 'Unknown';
-                                                    if (!byEmp[name]) byEmp[name] = { name, overdue: 0, active: 0, completed: 0, total: 0 };
+                                                    if (!byEmp[name]) byEmp[name] = { name, overdue: 0, active: 0, completed: 0, rework: 0, total: 0 };
                                                     byEmp[name].total++;
                                                     if (['APPROVED','COMPLETED'].includes(t.status)) byEmp[name].completed++;
                                                     else byEmp[name].active++;
+                                                    if (['REWORK', 'CHANGES_REQUESTED'].includes(t.status)) byEmp[name].rework++;
                                                     const due = toDateKey(t.due_date);
                                                     if ((due && due < todayStr) && !['APPROVED','CANCELLED'].includes(t.status)) byEmp[name].overdue++;
                                                 });
                                                 return byEmp;
-                                              })()).map(e => ({
-                                                name: e.name, role: '', activeTasks: e.active,
-                                                score: e.total > 0 ? Math.round((e.completed/e.total)*100) : 0,
-                                                riskStatus: e.overdue === 0 ? 'ON_TRACK' : e.overdue === 1 ? 'WATCH' : e.overdue === 2 ? 'AT_RISK' : 'OFF_TRACK',
-                                              })).sort((a,b) => {
+                                              })()).map(e => {
+                                                const pScore = e.total > 0 ? Math.max(0, (((e.completed * 5) - (e.rework * 2)) / (e.total * 5)) * 100) : 0;
+                                                return {
+                                                    name: e.name, role: '', activeTasks: e.active,
+                                                    score: Math.round(pScore),
+                                                    riskStatus: e.overdue === 0 ? 'ON_TRACK' : e.overdue === 1 ? 'WATCH' : e.overdue === 2 ? 'AT_RISK' : 'OFF_TRACK',
+                                                };
+                                              }).sort((a,b) => {
                                                 const O={OFF_TRACK:0,AT_RISK:1,WATCH:2,ON_TRACK:3};
                                                 return (O[a.riskStatus]??4)-(O[b.riskStatus]??4);
                                               }).slice(0, 8);
@@ -1470,18 +1660,18 @@ const CFODashboard = () => {
                                             const cfg = RISK_STATUS_CONFIG[emp.riskStatus] || { label: emp.riskStatus, bg: 'bg-slate-100 text-slate-600' };
                                             return (
                                                 <div key={i} className="flex items-center gap-1 py-2 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 rounded-lg transition-all px-1">
-                                                    <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                                                    <div className="flex items-center justify-center gap-3 flex-1 min-w-0 px-2">
                                                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 shrink-0 overflow-hidden">
                                                             <span className="opacity-60">{emp.name.substring(0, 2).toUpperCase()}</span>
                                                         </div>
-                                                        <div className="grid">
+                                                        <div className="grid text-center">
                                                             <p className="text-[12px] font-semibold text-slate-800 leading-tight mb-0.5">{emp.name}</p>
                                                             {emp.role && <p className="text-[10px] text-slate-500 capitalize tracking-tight leading-none">{emp.role}</p>}
                                                         </div>
                                                     </div>
-                                                    <div className="w-[56px] text-center text-[12px] font-medium text-slate-700 tabular-nums shrink-0">{emp.activeTasks}</div>
-                                                    <div className="w-[44px] text-center text-[12px] font-medium text-slate-800 tabular-nums shrink-0">{emp.score}%</div>
-                                                    <div className="w-[76px] text-right pr-1 shrink-0">
+                                                    <div className="w-[56px] text-center text-[12px] font-medium text-slate-700 shrink-0">{emp.activeTasks}</div>
+                                                    <div className="w-[60px] text-center text-[12px] font-medium text-slate-800 shrink-0">{emp.score}%</div>
+                                                    <div className="w-[76px] text-center shrink-0">
                                                         <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap inline-block ${cfg.bg}`}>{cfg.label}</span>
                                                     </div>
                                                 </div>
@@ -1506,7 +1696,7 @@ const CFODashboard = () => {
                                     <table className="w-full text-left font-sans">
                                         <thead className="sticky top-0 bg-white z-10 border-b border-slate-100">
                                             <tr className="text-[11px] font-extrabold text-slate-400 capitalize tracking-tighter">
-                                                <th className="py-2 px-4 pl-6 whitespace-nowrap">Department</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">Department</th>
                                                 <th className="py-2 px-4 text-center whitespace-nowrap">Top Performer</th>
                                                 <th className="py-2 px-4 text-center whitespace-nowrap">Due Tasks</th>
                                                 <th className="py-2 px-4 text-center whitespace-nowrap">Approved</th>
@@ -1514,7 +1704,7 @@ const CFODashboard = () => {
                                                 <th className="py-2 px-4 text-center whitespace-nowrap">On-Time %</th>
                                                 <th className="py-2 px-4 text-center whitespace-nowrap">
                                                     <div className="flex items-center justify-center gap-1.5 cursor-help hover:text-slate-500 transition-colors relative group w-fit mx-auto">
-                                                        Performance Score % 
+                                                        Perf. Score % 
                                                         <Info size={13} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
                                                         
                                                         {/* Tooltip anchored to the right edge of the text/icon so it expands left */}
@@ -1527,8 +1717,8 @@ const CFODashboard = () => {
                                                         </div>
                                                     </div>
                                                 </th>
-                                                <th className="py-2 px-4 text-center whitespace-nowrap">Completion Rate %</th>
-                                                <th className="py-2 px-4 text-right whitespace-nowrap min-w-[80px] pr-6">Status</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap">Completion Rate</th>
+                                                <th className="py-2 px-4 text-center whitespace-nowrap min-w-[80px]">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50">
@@ -1545,32 +1735,39 @@ const CFODashboard = () => {
                                                 const fmt1 = (v) => v != null ? Number(v).toFixed(1) : '—';
                                                 return (
                                                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors group cursor-pointer" onClick={() => handleDeptSelect(dept.department_id || dept.id || dept.name)}>
-                                                        <td className="py-2 px-4 pl-6">
+                                                        <td className="py-2 px-4 text-center">
                                                             <span className="font-bold text-slate-700 text-[12.5px] whitespace-nowrap">{dept.department_name || dept.name}</span>
                                                         </td>
                                                         <td className="py-2 px-4 text-center">
                                                             {dept.top_performer ? (
-                                                                <div className="flex flex-col items-center whitespace-nowrap">
-                                                                    <span className="text-[10px] font-bold text-slate-800 tracking-tight">{dept.top_performer.name}</span>
-                                                                    <span className="text-[8px] text-indigo-500 font-black uppercase tracking-widest">{Math.round(dept.top_performer.score ?? dept.top_performer.completion_pct ?? 0)}%</span>
+                                                                <div className="flex flex-col items-center justify-center whitespace-nowrap">
+                                                                    <span className="text-[10px] font-bold text-slate-800 tracking-tight">
+                                                                        {/* Try to resolve name from empMap for better accuracy */}
+                                                                        {(() => {
+                                                                            const rawName = dept.top_performer.name;
+                                                                            const resolved = Object.values(empMap).find(e => e.name === rawName || String(e.id) === String(rawName));
+                                                                            return resolved?.name || rawName;
+                                                                        })()}
+                                                                    </span>
+                                                                    <span className="text-[8px] text-indigo-500 font-black uppercase">{Math.round(dept.top_performer.score ?? 0)}%</span>
                                                                 </div>
                                                             ) : <span className="text-slate-300 text-[8px] italic">—</span>}
                                                         </td>
-                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-slate-600 tabular-nums">{dept.due_task_count ?? dept.total_tasks ?? 0}</td>
-                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-emerald-600 tabular-nums">{dept.approved_tasks ?? 0}</td>
-                                                        <td className="py-2 px-4 text-center text-[10px] font-bold text-rose-500 tabular-nums">{dept.overdue_tasks ?? 0}</td>
-                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-sky-600 tabular-nums">{fmt1(dept.on_time_pct ?? dept.on_time ?? null)}%</td>
-                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-violet-600 tabular-nums" title="(Completion Score - Rework Penalty) / Ideal Total Score × 100">{fmt1(dept.performance_score ?? null)}%</td>
+                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-slate-600">{dept.due_task_count ?? dept.total_tasks ?? 0}</td>
+                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-emerald-600">{dept.approved_tasks ?? 0}</td>
+                                                        <td className="py-2 px-4 text-center text-[10px] font-bold text-rose-500">{dept.overdue_tasks ?? 0}</td>
+                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-sky-600">{fmt1(dept.on_time_pct ?? dept.on_time ?? null)}%</td>
+                                                        <td className="py-2 px-4 text-center text-[10px] font-semibold text-violet-600" title="(Completion Score - Rework Penalty) / Ideal Total Score × 100">{fmt1(dept.performance_score ?? null)}%</td>
                                                         <td className="py-2 px-4">
-                                                            <div className="flex flex-col gap-1 items-center">
+                                                            <div className="flex flex-col gap-1 items-center justify-center">
                                                                 <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden max-w-[48px]">
                                                                     <div className={`h-full rounded-full transition-all duration-700 ${rawStatus === 'ON_TRACK' ? 'bg-emerald-500' : rawStatus === 'AT_RISK' ? 'bg-amber-400' : 'bg-rose-500'}`}
                                                                         style={{ width: `${dept.completion_rate ?? dept.completion_pct ?? 0}%` }} />
                                                                 </div>
-                                                                <span className="text-[9px] font-black text-slate-400 tabular-nums">{fmt1(dept.completion_rate ?? dept.completion_pct ?? null)}%</span>
+                                                                <span className="text-[9px] font-black text-slate-400">{fmt1(dept.completion_rate ?? dept.completion_pct ?? null)}%</span>
                                                             </div>
                                                         </td>
-                                                        <td className="py-2 px-4 text-right pr-6">
+                                                        <td className="py-2 px-4 text-center">
                                                             <span className={`inline-block whitespace-nowrap text-[9px] font-semibold px-2 py-0.5 rounded-full capitalize tracking-tight border ${statusStyles[rawStatus] || statusStyles.NO_DATA}`}>
                                                                 {rawStatus.toLowerCase().replace(/_/g, ' ')}
                                                             </span>
@@ -1609,7 +1806,6 @@ const CFODashboard = () => {
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="text-[15px] font-bold text-slate-800 tabular-nums leading-tight">{Number(dept.score).toFixed(1)}%</div>
-                                                    <div className="text-[11px] font-medium text-slate-400 tabular-nums">{dept.completed || 0}/{dept.total || 0} Tasks</div>
                                                 </div>
                                             </div>
                                         )) : (

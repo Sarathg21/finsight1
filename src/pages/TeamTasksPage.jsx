@@ -430,7 +430,17 @@ const TeamTasksPage = () => {
 
                 // Manager employee dropdown filter (client-side fallback)
                 if (employeeFilterId) {
-                    return getTaskAssigneeId(t) === employeeFilterId;
+                    if (getTaskAssigneeId(t) !== employeeFilterId) return false;
+                }
+
+                // Status filter (client-side fallback)
+                if (filters.status && filters.status !== 'Overdue') {
+                    if ((t.status || '').toUpperCase() !== filters.status.toUpperCase()) return false;
+                }
+
+                // Severity filter (client-side fallback)
+                if (filters.severity) {
+                    if ((t.severity || '').toUpperCase() !== filters.severity.toUpperCase()) return false;
                 }
 
                 return true;
@@ -567,8 +577,43 @@ const TeamTasksPage = () => {
     const fetchMetrics = () => {};
 
     useEffect(() => {
-        api.get('/departments').then(res => setDepartments(res.data?.data || res.data || []));
-        api.get('/employees').then(res => setAllEmployees(res.data?.data || res.data || []));
+        const fetchMeta = async () => {
+            try {
+                const [deptRes, empRes] = await Promise.all([
+                    api.get('/departments')
+                        .catch(() => api.get('/dashboard/cfo/departments'))
+                        .catch(() => api.get('/admin/departments'))
+                        .catch(() => ({ data: [] })),
+                    api.get('/employees').catch(() => ({ data: [] }))
+                ]);
+                
+                const extract = (res) => {
+                    const d = res?.data;
+                    if (Array.isArray(d)) return d;
+                    if (Array.isArray(d?.data)) return d.data;
+                    if (Array.isArray(d?.items)) return d.items;
+                    if (Array.isArray(d?.departments)) return d.departments;
+                    return [];
+                };
+
+                const depts = extract(deptRes).map(d => {
+                    if (typeof d === 'string') return { id: d, department_id: d, name: d };
+                    const id = d.department_id || d.id || d.dept_id;
+                    return { ...d, id, department_id: id, name: d.name || d.department_name || id };
+                });
+                setDepartments(depts);
+                
+                const emps = extract(empRes).map(e => ({
+                    ...e,
+                    emp_id: e.emp_id || e.id || e.employee_id,
+                    name: e.name || e.full_name || 'Employee'
+                }));
+                setAllEmployees(emps);
+            } catch (err) {
+                console.warn("Failed to fetch metadata in TeamTasksPage", err);
+            }
+        };
+        fetchMeta();
     }, []);
 
     // Sync URL params → filters (e.g. when navigated from Dashboard KPI cards)
@@ -577,6 +622,7 @@ const TeamTasksPage = () => {
         const searchParam   = params.get('search');
         const taskIdParam   = params.get('task_id');
         const statusParam   = params.get('status');
+        const deptParam     = params.get('department_id') || params.get('department');
         const fromDateParam = params.get('from_date');
         const toDateParam   = params.get('to_date');
 
@@ -585,6 +631,7 @@ const TeamTasksPage = () => {
 
         if (searchParam)   filterUpdates.search    = decodeURIComponent(searchParam);
         if (statusParam !== null) filterUpdates.status = statusParam; // '' clears the filter (show all)
+        if (deptParam)     filterUpdates.department_id = deptParam;
         if (fromDateParam) filterUpdates.from_date  = fromDateParam;
         if (toDateParam)   filterUpdates.to_date    = toDateParam;
 
@@ -700,7 +747,7 @@ const TeamTasksPage = () => {
     const renderStatusBadge = useCallback((status) => {
         const s = (status || '').toUpperCase();
         const config = {
-            NEW: { color: 'bg-slate-100 text-slate-500', label: 'Not Started' },
+            NEW: { color: 'bg-slate-100 text-slate-500', label: 'Not started' },
             IN_PROGRESS: { color: 'bg-blue-100 text-blue-600', label: 'In Progress' },
             SUBMITTED: { color: 'bg-purple-100 text-purple-600', label: 'Submitted' },
             REWORK: { color: 'bg-orange-100 text-orange-600', label: 'Rework' },
@@ -808,22 +855,30 @@ const TeamTasksPage = () => {
 
             <div className="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-                    <div className="lg:col-span-3 relative group">
-                        <label className="text-[10px] font-medium text-slate-400 ml-1 mb-1.5 block">Search</label>
+                    <div className="lg:col-span-2 relative group">
+                        <label className="text-[10px] font-medium text-slate-400 ml-1 mb-1.5 block whitespace-nowrap">Search</label>
                         <div className="relative">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-violet-500" size={16} />
                             <input type="text" placeholder="Search tasks..." className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10 placeholder:text-slate-400 capitalize" value={filters.search} onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))} />
                         </div>
                     </div>
-                    <div className="lg:col-span-5 grid grid-cols-3 gap-3">
+                    <div className="lg:col-span-7 flex items-end gap-6">
                         {/* Department Filter for CFO/Admin */}
                         {(user?.role?.toUpperCase() === 'CFO' || user?.role?.toUpperCase() === 'ADMIN') && (
                             <div className="space-y-1.5 flex flex-col">
-                                <label className="text-[10px] font-bold text-slate-400 ml-1">Department</label>
+                                <label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">Department</label>
                                 <CustomSelect 
+                                    className="min-w-[260px]"
                                     value={filters.department_id} 
                                     onChange={(v) => setFilters(p => ({ ...p, department_id: v }))} 
-                                    options={[{ value: '', label: 'All Dept' }, ...departments.map(d => ({ value: d.department_id || d.id, label: d.name || d.department_id }))]} 
+                                    options={[
+                                        { value: '', label: 'All Dept' }, 
+                                        ...departments.map(d => {
+                                            const val = typeof d === 'string' ? d : (d.department_id || d.id || d.name);
+                                            const label = typeof d === 'string' ? d : (d.name || d.department_id || d.id);
+                                            return { value: String(val), label: String(label) };
+                                        })
+                                    ]} 
                                 />
                             </div>
                         )}
@@ -833,24 +888,25 @@ const TeamTasksPage = () => {
                             <div className="space-y-1.5 flex flex-col">
                                 <label className="text-[10px] font-bold text-slate-400 ml-1">Employee</label>
                                 <CustomSelect 
+                                    className="min-w-[180px]"
                                     value={filters.assigned_to_emp_id} 
                                     onChange={(v) => setFilters(p => ({ ...p, assigned_to_emp_id: v ? String(v) : '' }))} 
                                     options={[{ value: '', label: 'All Employees' }, ...allEmployees.map(e => ({ value: String(e.emp_id || e.id), label: e.name || 'Unknown' } ))]} 
                                 />
                             </div>
                         )}
-                        <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1">Status</label>
-                            <CustomSelect value={filters.status} onChange={(v) => setFilters(p => ({ ...p, status: v }))} options={[{ value: '', label: 'All Status' }, { value: 'NEW', label: 'Not Started' }, { value: 'IN_PROGRESS', label: 'In Progress' }, { value: 'SUBMITTED', label: 'Pending Approval' }, { value: 'REWORK', label: 'Rework' }, { value: 'APPROVED', label: 'Approved' }, { value: 'Overdue', label: 'Overdue' }, { value: 'CANCELLED', label: 'Cancelled' }]} />
+                        <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">Status</label>
+                            <CustomSelect value={filters.status} onChange={(v) => setFilters(p => ({ ...p, status: v }))} options={[{ value: '', label: 'All Status' }, { value: 'NEW', label: 'Not started' }, { value: 'IN_PROGRESS', label: 'In Progress' }, { value: 'SUBMITTED', label: 'Pending Approval' }, { value: 'REWORK', label: 'Rework' }, { value: 'APPROVED', label: 'Approved' }, { value: 'Overdue', label: 'Overdue' }, { value: 'CANCELLED', label: 'Cancelled' }]} />
                         </div>
-                        <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1">Severity</label>
+                        <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">Severity</label>
                             <CustomSelect value={filters.severity} onChange={(v) => setFilters(p => ({ ...p, severity: v }))} options={[{ value: '', label: 'All Severity' }, { value: 'HIGH', label: 'High' }, { value: 'MEDIUM', label: 'Medium' }, { value: 'LOW', label: 'Low' }]} />
                         </div>
                     </div>
-                    <div className="lg:col-span-4 grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 ml-1">From Date</label>
+                    <div className="lg:col-span-3 grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">From Date</label>
                             <input type="date" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10" value={filters.from_date} onChange={(e) => setFilters(p => ({ ...p, from_date: e.target.value }))} />
                         </div>
-                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 ml-1">To Date</label>
+                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">To Date</label>
                             <input type="date" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10" value={filters.to_date} onChange={(e) => setFilters(p => ({ ...p, to_date: e.target.value }))} />
                         </div>
                     </div>

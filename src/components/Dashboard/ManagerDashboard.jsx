@@ -261,6 +261,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const [riskFrom, setRiskFrom] = useState(getFirstDayOfMonth());
     const [riskTo, setRiskTo] = useState(getToday());
     const [riskLoading, setRiskLoading] = useState(false);
+    const [liveTasks, setLiveTasks] = useState([]);
     const [riskShowAll, setRiskShowAll] = useState(false);
 
     const formatTimeAgo = (dateStr) => {
@@ -299,44 +300,35 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         }
 
         try {
-            let fetchedTasks = [];
-            let dashPayload = {};
-
             console.log("ManagerDashboard - Fetching stats for dept:", currentDeptId);
             
-            // Fetch all metrics using standard endpoints
             const results = await Promise.allSettled([
                 api.get('/dashboard/manager', { params }),
-                api.get('/dashboard/manager/trends', { params }),
+                api.get('/dashboard/manager/trends', { params: { ...params, days: 30 } }),
                 api.get('/dashboard/manager/employee-risk', { params }),
                 api.get('/dashboard/manager/team-performance', { params }),
-                api.get('/dashboard/manager/department-metrics', { params }),
-                api.get('/dashboard/manager/analytics', { params })
+                api.get('/dashboard/manager/analytics', { params }),
+                api.get('/tasks', { params: { ...params, limit: 200, scope: currentDeptId && currentDeptId !== 'all' ? 'department' : 'org' } })
             ]);
 
             const [
-                managerDash, 
+                dashRes, 
                 trendsRes, 
                 riskRes, 
                 teamPerfRes,
-                metricsRes,
-                analyticsRes
+                analyticsRes,
+                tasksRes
             ] = results;
 
             let finalPayload = {};
 
-            if (managerDash.status === 'fulfilled') {
-                finalPayload = { ...finalPayload, ...(managerDash.value.data?.data || managerDash.value.data || {}) };
+            if (dashRes.status === 'fulfilled') {
+                finalPayload = { ...finalPayload, ...(dashRes.value.data?.data || dashRes.value.data || {}) };
             }
 
             if (analyticsRes?.status === 'fulfilled') {
                 const analyticsPayload = analyticsRes.value.data?.data || analyticsRes.value.data || {};
                 finalPayload = { ...finalPayload, ...analyticsPayload };
-            }
-
-            if (metricsRes.status === 'fulfilled') {
-                const mData = metricsRes.value.data?.data || metricsRes.value.data || {};
-                finalPayload = { ...finalPayload, ...mData };
             }
 
             setDashboardData(finalPayload);
@@ -353,6 +345,12 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 const perfData = teamPerfRes.value.data?.data || teamPerfRes.value.data || [];
                 if (perfData.length > 0) setReportTeam(perfData);
             }
+
+            if (tasksRes.status === 'fulfilled') {
+                const tList = tasksRes.value.data?.data || tasksRes.value.data || [];
+                setLiveTasks(tList);
+            }
+
         } catch (err) {
             console.error("Critical fail in manager dashboard:", err);
             setDashboardData({});
@@ -429,23 +427,64 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
     const metrics = useMemo(() => {
         if (!dashboardData) return null;
-        const total = dashboardData.total_tasks || dashboardData.team_tasks || dashboardData.total || 0;
-        const approved = dashboardData.approved_tasks || dashboardData.completed_tasks || dashboardData.approved || 0;
+        
+        // 1. Initial values from dashboardData
+        let total = dashboardData.total_tasks || dashboardData.team_tasks || dashboardData.total || 0;
+        let approved = dashboardData.approved_tasks || dashboardData.completed_tasks || dashboardData.approved || 0;
+        let pending = dashboardData.pending_approval || dashboardData.submitted_tasks || dashboardData.pending_review || dashboardData.pending_submission || 0;
+        let in_progress = dashboardData.in_progress_tasks || dashboardData.in_progress || 0;
+        let not_started = dashboardData.new_tasks || dashboardData.not_started || 0;
+        let reworks = dashboardData.rework_tasks || dashboardData.reworks || 0;
+        let overdue = dashboardData.overdue_tasks || dashboardData.overdue || 0;
+
+        // 2. Sync with liveTasks if available (Source of Truth)
+        if (Array.isArray(liveTasks) && liveTasks.length > 0) {
+            const today = new Date();
+            
+            // Filter liveTasks to ONLY those within the current fromDate/toDate range
+            const filteredTasks = liveTasks.filter(t => {
+                const ds = t.date || t.created_at || t.assigned_date || t.assigned_at;
+                if (!ds) return false;
+                const d = toDateKey(ds);
+                if (fromDate && d < fromDate) return false;
+                if (toDate && d > toDate) return false;
+                return true;
+            });
+
+            total = filteredTasks.length;
+            approved = filteredTasks.filter(t => ['APPROVED', 'COMPLETED'].includes((t.status || '').toUpperCase())).length;
+            pending = filteredTasks.filter(t => ['SUBMITTED', 'PENDING', 'PENDING_APPROVAL'].includes((t.status || '').toUpperCase())).length;
+            in_progress = filteredTasks.filter(t => ['IN_PROGRESS'].includes((t.status || '').toUpperCase())).length;
+            not_started = filteredTasks.filter(t => ['NEW', 'NOT_STARTED', 'CREATED'].includes((t.status || '').toUpperCase())).length;
+            reworks = filteredTasks.filter(t => ['REWORK'].includes((t.status || '').toUpperCase())).length;
+            overdue = filteredTasks.filter(t => {
+                const s = (t.status || '').toUpperCase();
+                const due = t.due_date ? new Date(t.due_date) : null;
+                return due && due < today && !['APPROVED', 'COMPLETED', 'CANCELLED'].includes(s);
+            }).length;
+        }
+
+        const activeCount = total - approved;
 
         return {
-            // Legacy task-based stats (kept for internal use)
-            score: dashboardData.team_performance_index || dashboardData.performance_score || dashboardData.performanceScore || 0,
+            total,
+            approved,
+            pending,
+            inProgress: in_progress,
+            notStarted: not_started,
+            reworks,
+            overdue,
+            totalActive: activeCount,
             completionRate: total > 0 ? Math.round((approved / total) * 100) : 0,
-            totalReworks: dashboardData.rework_tasks || dashboardData.reworks || 0,
-            pendingSubmission: dashboardData.pending_approval || dashboardData.submitted_tasks || dashboardData.pending_review || dashboardData.pending_submission || 0,
-            totalActive: total || 0,
+            score: dashboardData.team_performance_index || dashboardData.performance_score || dashboardData.performanceScore || 0,
+            
             // Backend-driven performance KPIs
             managerScore: dashboardData.manager_score_current ?? null,
             teamScore: dashboardData.team_score_current ?? null,
             managerPersonalScore: dashboardData.manager_personal_score_current ?? null,
             managerScoreDelta: dashboardData.manager_score_delta_percent ?? null,
         };
-    }, [dashboardData]);
+    }, [dashboardData, liveTasks, fromDate, toDate]);
 
     // Priority: use reportTeam (locally filtered) if available, otherwise fallback to global ranking
     const rankingSource = (() => {
@@ -496,6 +535,159 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         });
     }, [rankingSource, employeeRisk]);
 
+    // graphs.task_activity_trends — primary source for the trends bar chart
+    const trendsGraphSource = dashboardData?.graphs?.task_activity_trends;
+
+    // ── Task Trends Data Normalization ─────────────────────────────────────────
+    const finalTrendsData = useMemo(() => {
+        const source = (Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0) ? trendsGraphSource : (Array.isArray(trends) ? trends : []);
+        
+        // 1. Build full month skeleton from fromDate → toDate
+        const generateMonthRange = (from, to) => {
+            const startStr = toDateKey(from);
+            const endStr   = toDateKey(to);
+            if (!startStr || !endStr) return [];
+
+            const months = [];
+            const start = new Date(startStr + 'T00:00:00'); start.setDate(1);
+            const end   = new Date(endStr   + 'T00:00:00'); end.setDate(1);
+            const cur = new Date(start);
+            while (cur <= end) {
+                const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}`;
+                months.push({ key, label: cur.toLocaleString('en-US', { month: 'short' }) });
+                cur.setMonth(cur.getMonth() + 1);
+            }
+            return months;
+        };
+
+        const mRange = generateMonthRange(fromDate, toDate);
+
+        // 2. Normalize any key → YYYY-MM
+        const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+        
+        const toYMKey = (raw) => {
+            if (!raw) return null;
+            const s = String(raw).trim();
+            
+            // 1. Flexible Date Match: YYYY-MM-DD, YY-MM-DD, DD-MM-YYYY, etc.
+            const dateMatch = s.match(/^(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (dateMatch) {
+                let y = dateMatch[1], m = dateMatch[2];
+                // If the first part is 2 digits and appears to be a year (e.g. 25, 26)
+                if (y.length === 2 && parseInt(y) >= 20) y = '20' + y;
+                // If the first part is clearly a day (e.g. 01-12-2026), look at the last part
+                if (y.length === 2 && parseInt(y) <= 31 && s.length >= 8) {
+                    const lastPart = s.match(/(\d{4})$/);
+                    if (lastPart) { y = lastPart[1]; m = dateMatch[2]; }
+                }
+                if (y.length === 4) return `${y}-${m.padStart(2, '0')}`;
+            }
+
+            if (/^\d{4}-\d{2}$/.test(s)) return s;
+            
+            const sLower = s.toLowerCase();
+            let mIdx = -1;
+            for (let i = 0; i < MONTH_FULLS.length; i++) {
+                if (sLower.includes(MONTH_FULLS[i]) || sLower.startsWith(MONTH_SHORTS[i].toLowerCase())) { mIdx = i; break; }
+            }
+            const yrMatch = s.match(/\b(20\d{2})\b/);
+            const yr = yrMatch ? yrMatch[1] : null;
+            if (mIdx >= 0 && yr) return `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
+            if (mIdx >= 0) { const f = mRange.find(m => m.label === MONTH_SHORTS[mIdx]); if (f) return f.key; }
+            
+            try { 
+                const p = new Date(s); 
+                if (!isNaN(p.getTime())) {
+                    let y = p.getFullYear();
+                    // Fix for 2-digit years interpreted as 19XX or XX
+                    if (y < 100) y += 2000;
+                    return `${y}-${String(p.getMonth()+1).padStart(2,'0')}`; 
+                }
+            } catch (_) {}
+            return null;
+        };
+
+        const backendMap = {};
+        source.forEach(t => {
+            const k = toYMKey(t.period || t.name || t.week || t.month || '');
+            if (!k) return;
+            if (!backendMap[k]) backendMap[k] = { new: 0, pending: 0, overdue: 0, completed: 0 };
+            backendMap[k].new       += t.new_tasks ?? t.new ?? t.not_started ?? 0;
+            backendMap[k].pending   += t.pending_approval ?? t.pending ?? t.submitted ?? t.submitted_tasks ?? t.pending_tasks ?? 0;
+            backendMap[k].overdue   += t.overdue_tasks ?? t.overdue ?? 0;
+            backendMap[k].completed += t.completed_tasks ?? t.completed ?? t.approved ?? t.approved_tasks ?? t.completed_count ?? 0;
+        });
+
+        // 3. Supplemental Sync from liveTasks (The Ultimate Source of Truth)
+        if (Array.isArray(liveTasks) && liveTasks.length > 0) {
+            liveTasks.forEach(t => {
+                const dateStr = t.date || t.created_at || t.assigned_date || t.assigned_at;
+                const k = toYMKey(dateStr);
+                if (!k || !backendMap[k]) return;
+                const s = String(t.status || '').toUpperCase();
+                if (['APPROVED', 'COMPLETED'].includes(s)) {
+                    // We only "add" if it's missing or lower than reality
+                    // But to avoid double counting from trends API, we use a simple set/max strategy per month 
+                    // if the trends API was reporting 0
+                }
+            });
+            
+            // Refined strategy: If any month in backendMap has 0 completed but liveTasks has many, fix it
+            Object.keys(backendMap).forEach(k => {
+                const liveMonthCount = liveTasks.filter(t => {
+                    const ds = t.date || t.created_at || t.assigned_date || t.assigned_at;
+                    if (!ds) return false;
+                    const ym = toYMKey(ds);
+                    if (ym !== k) return false;
+                    
+                    // Also ensure it's within the global fromDate/toDate range for accuracy
+                    const d = toDateKey(ds);
+                    if (fromDate && d < fromDate) return false;
+                    if (toDate && d > toDate) return false;
+                    
+                    return ['APPROVED', 'COMPLETED'].includes(String(t.status || '').toUpperCase());
+                }).length;
+                backendMap[k].completed = Math.max(backendMap[k].completed, liveMonthCount);
+            });
+        }
+
+        if (mRange.length > 0) {
+            return mRange.map(({ key, label }) => {
+                const b = backendMap[key] || { new: 0, pending: 0, overdue: 0, completed: 0 };
+                
+                // If the user has selected exactly this month range, synchronize with summary metrics
+                // This acts as a 'Source of Truth' fallback if the trends API is incomplete.
+                let finalNew = b.new;
+                let finalPending = b.pending;
+                let finalOverdue = b.overdue;
+                let finalCompleted = b.completed;
+
+                if (mRange.length === 1 && metrics) {
+                    // Use correct field names from the new metrics object
+                    finalNew       = Math.max(0, finalNew,       (metrics.totalActive || 0) - (metrics.pending || 0)); 
+                    finalPending   = Math.max(0, finalPending,   metrics.pending || 0);
+                    finalCompleted = Math.max(0, finalCompleted, metrics.approved || 0);
+                    finalOverdue   = Math.max(0, finalOverdue,   metrics.overdue || 0);
+                }
+
+                return {
+                    name:      label,
+                    new:       finalNew,
+                    pending:   finalPending,
+                    overdue:   finalOverdue,
+                    completed: finalCompleted,
+                };
+            });
+        }
+
+        return Object.keys(backendMap).sort().map(k => ({
+            name:      k,
+            ...backendMap[k]
+        }));
+    }, [trendsGraphSource, trends, fromDate, toDate, metrics, dashboardData, liveTasks]);
+
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center p-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
@@ -508,7 +700,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const stats = metrics || { score: 0, completionRate: 0, totalReworks: 0, pendingSubmission: 0, totalActive: 0, managerScore: null, teamScore: null, managerPersonalScore: null, managerScoreDelta: null };
 
     const rawStatusData = dashboardData ? [
-        { name: 'Not Started', value: dashboardData.new_tasks || 0, fill: '#3b82f6' },
+        { name: 'Not started', value: dashboardData.new_tasks || 0, fill: '#3b82f6' },
         { name: 'In Progress', value: dashboardData.in_progress_tasks || 0, fill: '#8b5cf6' },
         { name: 'Submitted', value: dashboardData.submitted_tasks || 0, fill: '#f59e0b' },
         { name: 'Approved', value: dashboardData.approved_tasks || 0, fill: '#10b981' },
@@ -516,28 +708,6 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     ] : [];
 
 
-    // graphs.task_activity_trends — primary source for the trends bar chart
-    const trendsGraphSource = dashboardData?.graphs?.task_activity_trends;
-    const finalTrendsData = Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0
-        ? trendsGraphSource.map(t => ({
-            // period is the X-axis label (weekly bucket start date string)
-            name: t.period || t.name || t.week || '',
-            // field names per handoff spec
-            new: t.new_tasks ?? t.new ?? 0,
-            pending: t.pending_approval ?? t.pending ?? t.submitted ?? 0,
-            overdue: t.overdue_tasks ?? t.overdue ?? 0,
-            completed: t.completed_tasks ?? t.completed ?? t.approved ?? 0,
-          }))
-        // fall back to the /dashboard/manager/trends API response
-        : Array.isArray(trends) && trends.length > 0
-            ? trends.map(t => ({
-                name: t.period || t.name || t.week || '',
-                new: t.new_tasks ?? t.new ?? 0,
-                pending: t.pending_approval ?? t.pending ?? t.submitted ?? 0,
-                overdue: t.overdue_tasks ?? t.overdue ?? 0,
-                completed: t.completed_tasks ?? t.completed ?? t.approved ?? 0,
-              }))
-            : [];
 
     // graphs.workload_distribution_employee_wise — open_tasks per employee
     const workloadGraphSource = dashboardData?.graphs?.workload_distribution_employee_wise;
@@ -771,7 +941,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{dashboardData?.in_progress_tasks ?? 0}</div>
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.inProgress ?? 0}</div>
                         <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">In Progress</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Tasks in progress</div>
                     </div>
@@ -792,7 +962,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.pendingSubmission ?? 0}</div>
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.pending ?? 0}</div>
                         <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Pending Approval</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Awaiting approval</div>
                     </div>
@@ -813,7 +983,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{dashboardData?.overdue_tasks ?? 0}</div>
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.overdue ?? 0}</div>
                         <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Overdue Tasks</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Past due tasks</div>
                     </div>
@@ -889,18 +1059,22 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                 <p className="text-[10px] font-bold text-slate-400 capitalize  tracking-[0.2em] mt-0.5">Dynamic Workload Trajectory</p>
                             </div>
                         </div>
-                        <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm">
-                            <div className="flex items-center gap-2">
+                        <div className="bg-slate-50/80 border border-slate-100 rounded-full px-5 py-2.5 flex items-center gap-6 shadow-sm overflow-x-auto no-scrollbar">
+                            <div className="flex items-center gap-2 shrink-0">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#10B981]"></div>
+                                <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">Approved</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
-                                <span className="text-[10px] font-black text-slate-500 capitalize  tracking-widest">Not Started</span>
+                                <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">Not started</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]"></div>
-                                <span className="text-[10px] font-black text-slate-500 capitalize  tracking-widest">Pending</span>
+                                <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">Pending</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></div>
-                                <span className="text-[10px] font-black text-slate-500 capitalize  tracking-widest">Overdue</span>
+                                <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">Overdue</span>
                             </div>
                         </div>
                     </div>
@@ -924,10 +1098,18 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                 <Tooltip
                                     cursor={{ fill: '#F8FAFC', opacity: 0.4 }}
                                     contentStyle={{ borderRadius: '1.5rem', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px' }}
+                                    formatter={(value, name) => {
+                                        if (name === 'completed') return [value, 'Approved'];
+                                        if (name === 'new') return [value, 'Not started'];
+                                        if (name === 'pending') return [value, 'Pending'];
+                                        if (name === 'overdue') return [value, 'Overdue'];
+                                        return [value, name];
+                                    }}
                                 />
-                                <Bar dataKey="overdue" stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
-                                <Bar dataKey="pending" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
-                                <Bar dataKey="new" stackId="a" fill="#3B82F6" radius={[6, 6, 0, 0]} barSize={32} />
+                                <Bar dataKey="overdue"   name="Overdue"     stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
+                                <Bar dataKey="pending"   name="Pending"     stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
+                                <Bar dataKey="new"       name="Not started" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} barSize={32} />
+                                <Bar dataKey="completed" name="Approved"    stackId="a" fill="#10B981" radius={[6, 6, 0, 0]} barSize={32} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -940,14 +1122,13 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     <p className="text-[10px] font-bold text-slate-400 capitalize  tracking-[0.2em] mt-0.5">Department task health - Approved vs Pending vs Overdue</p>
                     {(() => {
                         const dd = dashboardData || {};
-                        const total = dd.total_tasks || dd.team_tasks || dd.total || 0;
-                        const approved = dd.approved_tasks || dd.completed_tasks || dd.approved || 0;
-                        const overdue = dd.overdue_tasks || dd.overdue_count || dd.overdue || 0;
-                        const inProg = dd.in_progress_tasks || dd.active_tasks || dd.active || dd.in_progress || 0;
-                        // Use same priority as KPI card — pending_approval first, then submitted_tasks
-                        const pending = dd.pending_approval || dd.submitted_tasks || dd.pending_review || dd.pending_tasks || dd.pending || 0;
-                        const notStarted = Math.max(0, total - approved - overdue - inProg - pending);
-                        const rate = total > 0 ? Math.round((approved / total) * 100) : 0;
+                        const total = stats.total ?? 0;
+                        const approved = stats.approved ?? 0;
+                        const overdue = stats.overdue ?? 0;
+                        const inProg = stats.inProgress ?? 0;
+                        const pending = stats.pending ?? 0;
+                        const notStarted = stats.notStarted ?? 0;
+                        const rate = stats.completionRate ?? 0;
 
                         // Donut: only include slices with real values (no 0.1 fakes)
                         const donutData = [

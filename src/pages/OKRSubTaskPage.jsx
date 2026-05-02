@@ -329,13 +329,27 @@ const OKRSubTaskPage = () => {
                 const taskLevel = st.task_level ?? (st.task_type === 'EMPLOYEE_TASK' ? 2 : 1);
                 const taskType  = st.task_type || (taskLevel === 2 ? 'EMPLOYEE_TASK' : 'MANAGER_TASK');
 
+                const rawDept = st.department_name || st.department || st.dept_name || st.dept;
+                let finalDept = (rawDept && rawDept !== '—') ? rawDept : null;
+
+                if (!finalDept) {
+                    const title = (st.subtask_title || st.title || '').toLowerCase();
+                    if (title.includes('audit')) finalDept = 'MIS Report and Internal Audit';
+                    else if (title.includes('closing') || title.includes('month-end')) {
+                        // try to find a match in any existing depts if we had them, but for now use most likely or null
+                        finalDept = null; 
+                    }
+                    else if (title.includes('payables')) finalDept = 'Accounts Payables';
+                    else if (title.includes('receivables')) finalDept = 'Accounts Receivables';
+                }
+
                 return {
                     ...st,
                     // normalise display fields
                     task_id:           st.task_id ?? st.id ?? (1000 + idx),
                     parent_task_id:    st.parent_task_id ?? st.parentTaskId ?? st.parent_id ?? st.parentId,
                     subtask_title:     st.subtask_title || st.title || st.task_name || st.name || '(untitled)',
-                    department_name:   st.department_name || st.department || st.dept_name || st.dept || '—',
+                    department_name:   finalDept || '—',
                     assigned_to_name:  st.assigned_to_name || st.assignee_name || st.employee_name || st.assigned_to || '—',
                     parent_task_title: st.parent_task_title || st.root_parent_task_title || '—',
                     due_date:          dueRaw ? String(dueRaw).slice(0, 10) : '—',
@@ -402,9 +416,11 @@ const OKRSubTaskPage = () => {
             if (depts.length === 0 && formattedSubtasks.length > 0) {
                 const deptMap = {};
                 formattedSubtasks.forEach(st => {
-                    const d = st.department_name !== '—' ? st.department_name : 'Corporate';
-                    if (!deptMap[d]) deptMap[d] = { department_name: d, total_subtasks: 0 };
-                    deptMap[d].total_subtasks++;
+                    const d = st.department_name;
+                    if (d && d !== '—') {
+                        if (!deptMap[d]) deptMap[d] = { department_name: d, total_subtasks: 0 };
+                        deptMap[d].total_subtasks++;
+                    }
                 });
                 depts = Object.values(deptMap);
             }
