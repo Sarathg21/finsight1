@@ -43,6 +43,7 @@ const AssignTaskPage = () => {
         const fetchMetadata = async () => {
             const role = String(user?.role || '').toUpperCase();
             const isAltRole = role === 'ADMIN' || role === 'CFO';
+            const isManagerRole = role === 'MANAGER';
             
             try {
                 const taskEndpoint = isAltRole ? '/tasks' : '/tasks/team';
@@ -50,7 +51,14 @@ const AssignTaskPage = () => {
                     ? { scope: 'org', limit: 100, all_departments: true } 
                     : { limit: 100, all_departments: true };
 
-                const [empRes, deptRes, tasksRes] = await Promise.all([
+                // For managers: also fetch tasks assigned TO the manager (scope=mine)
+                // so their own standalone tasks and CFO-assigned child tasks appear as parent options
+                const managerOwnTasksPromise = isManagerRole
+                    ? api.get('/tasks', { params: { scope: 'mine', limit: 100 } })
+                        .catch(() => ({ data: [] }))
+                    : Promise.resolve({ data: [] });
+
+                const [empRes, deptRes, tasksRes, managerOwnRes] = await Promise.all([
                     api.get(isAltRole ? '/employees' : '/employees/assignable')
                         .catch(() => api.get('/employees'))
                         .catch(() => api.get('/employees/assignable'))
@@ -62,7 +70,8 @@ const AssignTaskPage = () => {
                     api.get(taskEndpoint, { params: taskParams })
                         .catch(() => api.get('/tasks/team', { params: { limit: 100 } }))
                         .catch(() => api.get('/tasks'))
-                        .catch(() => ({ data: [] }))
+                        .catch(() => ({ data: [] })),
+                    managerOwnTasksPromise
                 ]);
                 
                 
@@ -106,14 +115,25 @@ const AssignTaskPage = () => {
 
                 const normalizedEmps = normalizeEmps(extract(empRes));
                 const normalizedDepts = normalizeDepts(extract(deptRes));
-                const tasksData = extract(tasksRes);
+                const teamTasksData = extract(tasksRes);
+                const managerOwnTasksData = extract(managerOwnRes);
+                
+                // Merge team tasks and manager's own tasks, deduplicating by ID
+                const allTasksMap = new Map();
+                [...teamTasksData, ...managerOwnTasksData].forEach(t => {
+                    const id = t.id || t.task_id;
+                    if (id && !allTasksMap.has(id)) {
+                        allTasksMap.set(id, t);
+                    }
+                });
+                const tasksData = Array.from(allTasksMap.values());
                 
                 // Filter possible parents based on role:
                 // - CFO/ADMIN creates subtasks under top-level parent tasks (Level 0)
                 // - MANAGER creates subchild tasks under child tasks (Level 1)
                 const possibleParents = tasksData.filter(t => {
                     const statusUpper = String(t.status || '').toUpperCase();
-                    const notTerminal = statusUpper !== 'COMPLETED' && statusUpper !== 'CANCELLED';
+                    const notTerminal = statusUpper !== 'COMPLETED' && statusUpper !== 'CANCELLED' && statusUpper !== 'APPROVED';
                     
                     // Show all non-completed tasks that could logically be a parent
                     // We'll trust the user to pick the right one, but filter for active ones.
@@ -645,7 +665,7 @@ const AssignTaskPage = () => {
                                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Parent Task Owner</label>
                                                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
                                                         <User2 size={13} className="text-slate-400 shrink-0" />
-                                                        <span className="truncate">{selectedParent?.assigned_to_name || selectedParent?.assigned_by_name || 'CFO User'}</span>
+                                                        <span className="truncate">{selectedParent?.assigned_to_name || selectedParent?.assigned_by_name || (isCFORole ? 'CFO User' : (user?.name || 'Manager'))}</span>
                                                     </div>
                                                 </div>
 

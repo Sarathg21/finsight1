@@ -69,7 +69,7 @@ const formatDisplayDate = (d) => {
 };
 
 const fetchEmployeeTasksFallback = async (params = {}) => {
-    const candidates = ['/tasks', '/tasks?scope=mine', '/tasks?scope=personal'];
+    const candidates = ['/tasks', '/tasks?scope=mine'];
     for (const path of candidates) {
         try {
             const res = await api.get(path, { params });
@@ -200,7 +200,7 @@ const EmployeeDashboard = () => {
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     };
 
-    const getToday = () => new Date().toISOString().split('T')[0];
+    const getToday = () => new Date().toLocaleDateString('en-CA');
 
     const [fromDate, setFromDate] = useState(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
     const [toDate, setToDate] = useState(() => {
@@ -248,7 +248,7 @@ const EmployeeDashboard = () => {
 
             const [dataRes, todayRes] = await Promise.all([
                 api.get('/dashboard/employee', { params }),
-                api.get('/dashboard/employee/today', { params })
+                api.get('/dashboard/employee/today').catch(() => ({ data: [] }))
             ]);
             const dashboardPayload = dataRes?.data?.data || dataRes?.data || {};
             setDashboardData(dashboardPayload);
@@ -256,8 +256,21 @@ const EmployeeDashboard = () => {
             const todayT = Array.isArray(todayPayload) ? todayPayload : [];
             
             // Fetch full task list to ensure accurate counts and "All" tab view
-            const rawTasks = await fetchEmployeeTasksFallback(params);
-            const allRaw = Array.isArray(rawTasks) ? rawTasks : [];
+            const fetchParams = { ...params, limit: 200 };
+            const rawTasks = await fetchEmployeeTasksFallback(fetchParams);
+            
+            // Explicitly fetch tasks due today, bypassing the creation date filters
+            // to ensure they are available for the TODAY tab and Due Today metrics.
+            const todayStr = getToday();
+            const rawTodayTasks = await fetchEmployeeTasksFallback({ due_date: todayStr, end_date: todayStr, limit: 200 });
+            
+            let allRaw = Array.isArray(rawTasks) ? rawTasks : [];
+            const allRawToday = Array.isArray(rawTodayTasks) ? rawTodayTasks : [];
+            
+            // Merge explicitly fetched today tasks into allRaw to guarantee they exist
+            const rawMap = new Map();
+            [...allRaw, ...allRawToday].forEach(t => rawMap.set(t.id || t.task_id, t));
+            allRaw = Array.from(rawMap.values());
 
             // Pass 1: Build lookup map for ID -> Title
             const taskMap = {};
@@ -357,7 +370,7 @@ const EmployeeDashboard = () => {
                 submitted_tasks: dashboardPayload?.submitted_tasks ?? counts.SUBMITTED,
                 pending_submission: dashboardPayload?.pending_submission_tasks ?? pendingSubmission, 
                 overdue_tasks: dashboardPayload?.overdue_tasks ?? overdue,
-                due_today_tasks: dashboardPayload?.due_today_tasks || dueTodayTasksCount,
+                due_today_tasks: dueTodayTasksCount, // Force local count to guarantee consistency with the table
                 in_progress_tasks: dashboardPayload?.in_progress_tasks ?? inProgress,
                 rework_tasks: dashboardPayload?.rework_tasks ?? counts.REWORK,
                 new_tasks: dashboardPayload?.new_tasks ?? counts.NEW,
@@ -626,11 +639,18 @@ const EmployeeDashboard = () => {
 
     // Derive tasks list from source (either specialized todayTasks or full allTasks)
     const filteredTasksSource = useMemo(() => {
-        const source = activeTab === "TODAY" ? allTasks.filter(t => {
+        let source;
+        if (activeTab === "TODAY") {
             const todayStr = getToday();
-            const isDueToday = toDateKey(t.due_date || t.end_date || t.dueDate) === todayStr;
-            return isDueToday;
-        }) : allTasks;
+            const fromAll = allTasks.filter(t => toDateKey(t.due_date || t.end_date || t.dueDate) === todayStr);
+            // Merge and deduplicate todayTasks (from API) and local allTasks filtered by today
+            const map = new Map();
+            [...todayTasks, ...fromAll].forEach(t => map.set(t.id, t));
+            source = Array.from(map.values());
+        } else {
+            source = allTasks;
+        }
+
         return source.filter(t => {
             const isCancelled = t.status === 'CANCELLED';
             const isApproved = t.status === 'APPROVED';
@@ -641,19 +661,25 @@ const EmployeeDashboard = () => {
             // In "ALL" tab, we show Approved tasks. In other tabs, we hide them.
             const shouldShowBasedOnStatus = activeTab === "ALL" || !isApproved;
 
-              const titleText = String(t.title || t.task_name || t.name || '');
-              const matchesSearch = !searchTerm ||
-                  titleText.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  String(t.id || t.task_id || '').toLowerCase().includes(searchTerm.toLowerCase());
+            const titleText = String(t.title || t.task_name || t.name || '');
+            const matchesSearch = !searchTerm ||
+                titleText.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                String(t.id || t.task_id || '').toLowerCase().includes(searchTerm.toLowerCase());
 
-              // For active tasks (NEW, PROG, REWORK), we should be more lenient with the toDate 
-              // so employees don't miss tasks assigned with future due dates or filtered by a stale 'today'.
-              const status = String(t.status || '').toUpperCase();
-              const isActiveCategory = ['NEW', 'IN_PROGRESS', 'STARTED', 'REWORK'].includes(status);
-              const taskDate = toDateKey(t.due_date || t.end_date || t.start_date || t.created_at);
-              
-              const matchesTo = !toDate || taskDate <= toDate || isActiveCategory;
-              const matchesFrom = !fromDate || taskDate >= fromDate;
+            // If it's the TODAY tab, we shouldn't hide tasks just because of the date filters!
+            // They are due today (or returned by the /today API), they should always be visible.
+            if (activeTab === "TODAY") {
+                return shouldShowBasedOnStatus && matchesSearch;
+            }
+
+            // For active tasks (NEW, PROG, REWORK), we should be more lenient with the toDate 
+            // so employees don't miss tasks assigned with future due dates or filtered by a stale 'today'.
+            const status = String(t.status || '').toUpperCase();
+            const isActiveCategory = ['NEW', 'IN_PROGRESS', 'STARTED', 'REWORK'].includes(status);
+            const taskDate = toDateKey(t.due_date || t.end_date || t.start_date || t.created_at);
+            
+            const matchesTo = !toDate || taskDate <= toDate || isActiveCategory;
+            const matchesFrom = !fromDate || taskDate >= fromDate;
 
             return shouldShowBasedOnStatus && matchesSearch && matchesFrom && matchesTo;
         });
