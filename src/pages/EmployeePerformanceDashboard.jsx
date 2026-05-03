@@ -168,12 +168,14 @@ const PerformanceDashboard = () => {
         const inProgress = tasks.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length;
         const pending = tasks.filter(t => ['SUBMITTED', 'PENDING', 'PENDING_APPROVAL'].includes((t.status || '').toUpperCase())).length;
         const overdueCount = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'COMPLETED', 'CANCELLED'].includes((t.status || '').toUpperCase())).length;
+        const reworkCount = tasks.filter(t => ['REWORK', 'CHANGES_REQUESTED'].includes((t.status || '').toUpperCase())).length;
         const metrics = {
             team_tasks: total,
             in_progress_tasks: inProgress,
             pending_approval: pending,
             overdue_tasks: overdueCount,
-            team_score_current: Math.round((done / (total || 1)) * 100)
+            // Weighted Performance Score formula: ((Approved*5) - (Rework*2)) / (Total*5) * 100
+            team_score_current: total > 0 ? Math.max(0, (((done * 5) - (reworkCount * 2)) / (total * 5)) * 100) : 0
         };
 
         // 1.1 Calculate Manager Personal Score for the selected department
@@ -188,9 +190,10 @@ const PerformanceDashboard = () => {
         if (targetManagerId) {
             const mTasks = tasks.filter(t => String(t.assigned_to || t.emp_id || t.id) === String(targetManagerId));
             const mDone = mTasks.filter(t => ['APPROVED', 'COMPLETED'].includes((t.status || '').toUpperCase())).length;
-            personalScore = mTasks.length > 0 ? Math.round((mDone / mTasks.length) * 100) : 0;
+            const mRework = mTasks.filter(t => ['REWORK', 'CHANGES_REQUESTED'].includes((t.status || '').toUpperCase())).length;
+            personalScore = mTasks.length > 0 ? Math.max(0, (((mDone * 5) - (mRework * 2)) / (mTasks.length * 5)) * 100) : 0;
             // Weighted: 70% Team + 30% Personal
-            managerOverall = Math.round((metrics.team_score_current * 0.7) + (personalScore * 0.3));
+            managerOverall = (metrics.team_score_current * 0.7) + (personalScore * 0.3);
         }
 
         console.log("FALLBACK SUCCESS - Calculated Summary:", metrics, "Manager Personal:", personalScore);
@@ -323,19 +326,20 @@ const PerformanceDashboard = () => {
                 }
             }
 
-            if (!empMap[name]) empMap[name] = { name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, department: t.department };
+            if (!empMap[name]) empMap[name] = { name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, rework: 0, department: t.department };
             empMap[name].tasks_assigned++;
             const s = (t.status || '').toUpperCase();
             if (s === 'IN_PROGRESS') empMap[name].in_progress++;
             if (['SUBMITTED', 'PENDING'].includes(s)) empMap[name].pending_review++;
             if (s === 'APPROVED' || s === 'COMPLETED') empMap[name].completed++;
-            if (t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'CANCELLED'].includes(s)) empMap[name].overdue++;
+            if (s === 'REWORK' || s === 'CHANGES_REQUESTED') empMap[name].rework++;
+            if (t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'COMPLETED', 'CANCELLED'].includes(s)) empMap[name].overdue++;
         });
         
         const perfData = Object.values(empMap).map(e => ({
             ...e,
             completion_rate: Math.round((e.completed / (e.tasks_assigned || 1)) * 100),
-            performance_score: Math.round((e.completed / (e.tasks_assigned || 1)) * 100)
+            performance_score: e.tasks_assigned > 0 ? Math.max(0, (((e.completed * 5) - (e.rework * 2)) / (e.tasks_assigned * 5)) * 100) : 0
         })).sort((a, b) => b.tasks_assigned - a.tasks_assigned);
         
         setTeamPerformance(perfData);
@@ -891,7 +895,7 @@ const PerformanceDashboard = () => {
             tks.forEach(t => {
                 const name = t.assigned_to_name || t.employee_name || t.assigneeName || t.assigned_to || 'Unassigned';
                 if (!empMap[name]) empMap[name] = { 
-                    name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, 
+                    name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, rework: 0,
                     department: t.department_name || t.department || 'Accounts',
                     role: t.role || (name.toLowerCase().includes('manager') ? 'Manager' : 'Employee')
                 };
@@ -900,13 +904,23 @@ const PerformanceDashboard = () => {
                 if (s === 'IN_PROGRESS') empMap[name].in_progress++;
                 if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL'].includes(s)) empMap[name].pending_review++;
                 if (s === 'APPROVED' || s === 'COMPLETED') empMap[name].completed++;
+                if (s === 'REWORK') empMap[name].rework++;
                 if (t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'CANCELLED'].includes(s)) empMap[name].overdue++;
             });
-            const perfData = Object.values(empMap).map(e => ({
-                ...e,
-                completion_rate: Math.round((e.completed / (e.tasks_assigned || 1)) * 100),
-                performance_score: Math.round((e.completed / (e.tasks_assigned || 1)) * 100)
-            })).sort((a,b) => b.tasks_assigned - a.tasks_assigned);
+            const safeNum = (v) => {
+                const n = parseFloat(v);
+                return isNaN(n) ? 0 : n;
+            };
+
+            const perfData = Object.values(empMap).map(e => {
+                const total = safeNum(e.tasks_assigned) || 1;
+                const perfScore = Math.max(0, (((safeNum(e.completed) * 5) - (safeNum(e.rework) * 2)) / (total * 5)) * 100);
+                return {
+                    ...e,
+                    completion_rate: Math.round((safeNum(e.completed) / total) * 100),
+                    performance_score: Math.round(perfScore)
+                };
+            }).sort((a,b) => b.tasks_assigned - a.tasks_assigned);
             setTeamPerformance(perfData);
         } catch (err) {
             console.warn('[PerformanceDashboard] team-performance fetch failed:', err?.message);
@@ -953,21 +967,31 @@ const PerformanceDashboard = () => {
             tks.forEach(t => {
                 const name = t.assigned_to_name || t.employee_name || t.assigneeName || t.assigned_to || 'Unassigned';
                 if (!empMap[name]) empMap[name] = { 
-                   name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, 
+                   name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, rework: 0,
                    department: t.department_name || t.department || 'Accounts'
                 };
                 empMap[name].tasks_assigned++;
                 const s = (t.status || '').toUpperCase();
                 if (s === 'APPROVED' || s === 'COMPLETED') empMap[name].completed++;
+                if (s === 'REWORK') empMap[name].rework++;
                 if (t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'CANCELLED'].includes(s)) empMap[name].overdue++;
             });
-            const riskData = Object.values(empMap).map(e => ({
-                name: e.name, department: e.department, 
-                active_tasks: e.tasks_assigned - e.completed, 
-                overdue_tasks: e.overdue, 
-                performance_score: Math.round((e.completed / (e.tasks_assigned || 1)) * 100),
-                risk_status: e.overdue > 2 ? 'OFF_TRACK' : e.overdue > 1 ? 'AT_RISK' : e.overdue === 1 ? 'WATCH' : 'ON_TRACK'
-            })).sort((a,b) => b.overdue_tasks - a.overdue_tasks);
+            const safeNum = (v) => {
+                const n = parseFloat(v);
+                return isNaN(n) ? 0 : n;
+            };
+
+            const riskData = Object.values(empMap).map(e => {
+                const total = safeNum(e.tasks_assigned) || 1;
+                const perfScore = Math.max(0, (((safeNum(e.completed) * 5) - (safeNum(e.rework) * 2)) / (total * 5)) * 100);
+                return {
+                    name: e.name, department: e.department, 
+                    active_tasks: safeNum(e.tasks_assigned) - safeNum(e.completed), 
+                    overdue_tasks: safeNum(e.overdue), 
+                    performance_score: Math.round(perfScore),
+                    risk_status: e.overdue > 2 ? 'OFF_TRACK' : e.overdue > 1 ? 'AT_RISK' : e.overdue === 1 ? 'WATCH' : 'ON_TRACK'
+                };
+            }).sort((a,b) => b.overdue_tasks - a.overdue_tasks);
             setEmployeeRisk(riskData);
         } catch (err) {
             console.warn('[PerformanceDashboard] employee-risk fetch failed:', err?.message);

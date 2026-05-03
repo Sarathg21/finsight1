@@ -257,8 +257,6 @@ const AssignTaskPage = () => {
                                 description: st.description,
                                 department_id: st.department_id,
                                 assigned_to_emp_id: st.assigned_to_emp_id,
-                                start_date: st.start_date || null,
-                                end_date: st.end_date || null,
                                 priority: st.priority,
                                 sequence_no: st.sequence_no
                             });
@@ -940,24 +938,6 @@ const AssignTaskPage = () => {
                                                                     <option key={p.emp_id} value={p.emp_id}>{p.name}</option>
                                                                 ))}
                                                             </select>
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Start Date</label>
-                                                            <input 
-                                                                type="date"
-                                                                className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
-                                                                value={st.start_date || ''}
-                                                                onChange={(e) => handleSubtaskChange(idx, 'start_date', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">End Date</label>
-                                                            <input 
-                                                                type="date"
-                                                                className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
-                                                                value={st.end_date || ''}
-                                                                onChange={(e) => handleSubtaskChange(idx, 'end_date', e.target.value)}
-                                                            />
                                                         </div>
                                                     </div>
                                                 </div>

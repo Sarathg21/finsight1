@@ -230,11 +230,14 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
 
                 <td className="py-2 px-4 text-center whitespace-nowrap">
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-tighter ${
-                        task.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-600' :
-                        task.status === 'REWORK' ? 'bg-amber-50 text-amber-600' :
+                        task.status === 'APPROVED'    ? 'bg-emerald-50 text-emerald-600' :
+                        task.status === 'REWORK'      ? 'bg-amber-50 text-amber-600' :
+                        task.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600' :
+                        task.status === 'SUBMITTED'   ? 'bg-purple-50 text-purple-600' :
+                        task.status === 'CANCELLED'   ? 'bg-slate-200 text-slate-500' :
                         'bg-slate-50 text-slate-500'
                     }`}>
-                        {task.status || 'NEW'}
+                        {formatStatus(task.status || 'NEW')}
                     </span>
                 </td>
 
