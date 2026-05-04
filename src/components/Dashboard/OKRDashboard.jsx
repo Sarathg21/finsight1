@@ -586,18 +586,19 @@ const OKRDashboard = () => {
                         const total = Number(o.total_subtasks ?? o.sub_total ?? o.total ?? o.total_tasks ?? 0);
                         const done = Number(o.completed_subtasks ?? o.sub_comp ?? o.completed ?? o.completed_tasks ?? 0);
                         const progress = o.progress_pct ?? o.progress ?? (total > 0 ? Math.round((done / total) * 100) : 0);
-                        const deptRaw = o.deptsArray || o.departments || o.department_name || o.department || o.dept_name;
-                        const deptsArray = Array.isArray(deptRaw) ? deptRaw : (deptRaw ? [String(deptRaw)] : ['Strategic']);
                         serverObjs.push({
                             id: o.id || o.task_id || o.objective_id,
                             objective_title: o.objective_title || o.title || o.task_name || 'Strategic Objective',
                             progress_pct: progress,
                             completed_subtasks: done,
                             total_subtasks: total,
-                            department_count: Math.max(1, deptsArray.length),
+                            // ── Backend department fields (use directly, no derivation) ──
+                            department_label: o.department_label ?? null,
+                            department_names: o.department_names ?? null,
+                            departments_involved: o.departments_involved ?? null,
+                            department_name: o.department_name ?? null,
                             health_score: progress,
-                            risk_rating: getRiskLabel(o.risk_rating || o.risk || o.rating),
-                            deptsArray
+                            risk_rating: getRiskLabel(o.risk_rating || o.risk || o.rating)
                         });
                     });
                 }
@@ -617,8 +618,11 @@ const OKRDashboard = () => {
                         obj.health_score = obj.progress_pct;
                     }
                     if (auth.risk_rating) obj.risk_rating = getRiskLabel(auth.risk_rating);
-                    if (auth.departments_involved) obj.department_count = auth.departments_involved;
-                    if (auth.deptsArray?.length > 0) obj.deptsArray = auth.deptsArray;
+                    // Always prefer backend department fields from the authoritative objectives list
+                    obj.department_label = auth.department_label ?? obj.department_label ?? null;
+                    obj.department_names = auth.department_names ?? obj.department_names ?? null;
+                    obj.departments_involved = auth.departments_involved ?? obj.departments_involved ?? null;
+                    obj.department_name = auth.department_name ?? obj.department_name ?? null;
                 });
             }
 
@@ -738,6 +742,12 @@ const OKRDashboard = () => {
                     daysRemaining = diff > 0 ? diff : 0;
                 }
 
+                // ── Use backend department fields directly ──
+                const deptLabel = o.department_label ?? null;
+                const deptNames = o.department_names ?? null;
+                const deptsInvolved = o.departments_involved ?? null;
+                const deptNameSingle = o.department_name ?? null;
+
                 return {
                     id: o.id || o.parent_task_id,
                     objective: o.objective_title || o.title,
@@ -749,9 +759,11 @@ const OKRDashboard = () => {
                     total: subTotal,
                     subComp,
                     subTotal,
-                    depts: o.department_count || o.deptsArray?.length || 1,
-                    deptsCount: o.department_count || o.deptsArray?.length || 1,
-                    deptNames: o.deptsArray || [],
+                    // Backend department fields — used directly in UI
+                    deptLabel,
+                    deptNames,
+                    deptsCount: deptsInvolved ?? 1,
+                    deptNameSingle,
                     daysTotal,
                     daysRemaining,
                     score: progress,
@@ -1250,9 +1262,12 @@ const OKRDashboard = () => {
                                                         <ArrowUpRight size={14} className="text-indigo-400" />
                                                     </span>
                                                 </div>
-                                                {row.deptNames?.[0] && (
-                                                    <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mt-1">
-                                                        {row.deptNames[0]}
+                                                {row.deptLabel && (
+                                                    <span
+                                                        className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mt-1 cursor-default"
+                                                        title={row.deptLabel === 'Multi Department' && row.deptNames ? row.deptNames : undefined}
+                                                    >
+                                                        {row.deptLabel}
                                                     </span>
                                                 )}
                                             </div>

@@ -33,7 +33,8 @@ const AssignTaskPage = () => {
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
         status: 'ACTIVE',
-        parentTaskId: ''
+        parentTaskId: '',
+        dueInDays: 0
     });
     const [subtasks, setSubtasks] = useState([]);
     const [normalSubtasks, setNormalSubtasks] = useState([]);
@@ -262,7 +263,8 @@ const AssignTaskPage = () => {
                     yearly_day: formData.recurringFrequency === 'YEARLY' ? parseInt(formData.yearlyDay) : null,
                     start_date: formData.startDate || new Date().toISOString().split('T')[0],
                     end_date: formData.endDate || null,
-                    status: formData.status
+                    status: formData.status,
+                    due_in_days: parseInt(formData.dueInDays, 10) || 0
                 };
 
                 const res = await api.post('/recurring-tasks', recurringPayload);
@@ -870,7 +872,7 @@ const AssignTaskPage = () => {
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
                                     <div>
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Start Date</label>
                                         <input 
@@ -887,6 +889,15 @@ const AssignTaskPage = () => {
                                             className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                             value={formData.endDate}
                                             onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1" title="Number of days from task generation until it is due">Due in Days</label>
+                                        <input 
+                                            type="number" min="0"
+                                            className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
+                                            value={formData.dueInDays}
+                                            onChange={(e) => setFormData({ ...formData, dueInDays: e.target.value })}
                                         />
                                     </div>
                                 </div>

@@ -21,7 +21,8 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
         assigned_to_emp_id: '',
         priority: 'MEDIUM',
         start_date: new Date().toISOString().slice(0, 10),
-        end_date: ''
+        end_date: '',
+        due_in_days: 0
     });
     const [subtasks, setSubtasks] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -45,7 +46,8 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 assigned_to_emp_id: template.assigned_to_emp_id || template.assigned_to || '',
                 priority: template.priority || 'MEDIUM',
                 start_date: template.start_date || new Date().toISOString().slice(0, 10),
-                end_date: template.end_date || ''
+                end_date: template.end_date || '',
+                due_in_days: template.due_in_days !== undefined ? template.due_in_days : 0
             });
             fetchSubtasks(rid);
             fetchMetadata();
@@ -363,6 +365,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 interval_days: 1,
                 start_date: formData.start_date || new Date().toISOString().slice(0, 10),
                 end_date: formData.end_date || null,
+                due_in_days: parseInt(formData.due_in_days, 10) || 0,
                 weekly_day: formData.frequency === 'WEEKLY' ? weeklyDayInt : null,
                 monthly_day: formData.frequency === 'MONTHLY' ? (parseInt(formData.monthly_day, 10) || 1) : null,
                 yearly_month: formData.frequency === 'YEARLY' ? (parseInt(formData.yearly_month, 10) || 1) : null,
@@ -590,6 +593,18 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.end_date}
                                     onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1" title="Number of days from task generation until it is due">Due in Days</label>
+                                <input 
+                                    type="number" min="0"
+                                    className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
+                                    value={formData.due_in_days}
+                                    onChange={(e) => setFormData({...formData, due_in_days: e.target.value})}
                                 />
                             </div>
                         </div>

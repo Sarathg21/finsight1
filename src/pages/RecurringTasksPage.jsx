@@ -604,6 +604,10 @@ const RecurringTasksPage = () => {
                                         <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Frequency</label>
                                         <p className="text-[15px] font-bold text-slate-700">{formatFrequency(selectedTemplate)}</p>
                                     </div>
+                                    <div className="grid grid-cols-1 gap-1">
+                                        <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Due In Days</label>
+                                        <p className="text-[15px] font-bold text-slate-700">{selectedTemplate.due_in_days !== undefined ? selectedTemplate.due_in_days : '0'}</p>
+                                    </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-3">
