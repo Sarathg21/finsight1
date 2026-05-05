@@ -1,14 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
-    X, ShieldOff, Mail,
-    Phone, Calendar, ChevronDown, Loader2, MoreHorizontal,
-    CheckCircle2, Shield
+    X, Mail, Phone, CheckCircle2, Shield
 } from 'lucide-react';
 
 // Removed OrgRowMenu as it's no longer needed for the single record view
 
 /* ── Main Modal ── */
-const EmployeeDetailModal = ({ employee, departments = [], allEmployees = [], onClose, onResetPassword, onToggleStatus }) => {
+const EmployeeDetailModal = ({ employee, departments = [], allEmployees = [], onClose, onEditClick, onResetPassword, onToggleStatus }) => {
     const [activeTab, setActiveTab] = useState('basic');
     const [openMenuId, setOpenMenuId] = useState(null);
 
@@ -36,9 +34,16 @@ const EmployeeDetailModal = ({ employee, departments = [], allEmployees = [], on
                 {/* ── HEADER ── */}
                 <div className="flex items-center justify-between px-8 pt-7 pb-5 border-b border-violet-50">
                     <h2 className="text-[20px] font-semibold text-[#1E1B4B]">Employee Detail</h2>
-                    <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-violet-50 text-slate-400 hover:text-violet-600 transition-colors">
-                        <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {onEditClick && (
+                            <button onClick={() => onEditClick(employee)} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-colors">
+                                Edit Profile
+                            </button>
+                        )}
+                        <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-violet-50 text-slate-400 hover:text-violet-600 transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── TABS ── */}
@@ -83,18 +88,9 @@ const EmployeeDetailModal = ({ employee, departments = [], allEmployees = [], on
                                     </div>
                                     <div className="flex items-center gap-2 text-[13px] text-slate-600">
                                         <Phone size={14} className="text-violet-400 shrink-0" />
-                                        {employee.phone || '+1 352-555-0167'}
+                                        {employee.phone || employee.phone_no || employee.contact_no || employee.phone_number || employee.mobile || '—'}
                                     </div>
-                                    <div className="flex items-center gap-2 text-[13px] text-slate-600">
-                                        <Calendar size={14} className="text-violet-400 shrink-0" />
-                                        Start:{' '}
-                                        {(() => {
-                                            const raw = employee.join_date || employee.joining_date || employee.start_date || employee.date_of_joining || employee.created_at;
-                                            if (!raw) return 'Not set';
-                                            const d = new Date(raw);
-                                            return isNaN(d.getTime()) ? raw : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                                        })()}
-                                    </div>
+
                                     <div className="flex items-center gap-2 text-[13px] text-slate-600">
                                         <span className="text-violet-400 text-[11px] font-semibold">DEPT</span>
                                         {employee.department_name || employee.department || employee.department_id || '—'}

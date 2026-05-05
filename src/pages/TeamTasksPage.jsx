@@ -28,7 +28,7 @@ import StatsCard from '../components/UI/StatsCard';
 
 // --- Components defined outside for performance and clarity ---
 
-const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTitles = {}, onViewDetails }) => {
+const SubtaskRow = ({ task, parentTask, renderStatusBadge, renderSeverityTag, isLast, taskTitles = {}, onViewDetails, onAction, onReassign, onRework, user }) => {
     if (!task) return null;
 
     const taskId = task?.task_id || task?.id || '???';
@@ -44,6 +44,20 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
     const indentClass = taskLevel >= 2 ? 'pl-20' : 'pl-12';
     const rootTitle = task?.root_parent_task_title;
     const parentTitle = task?.parent_task_title || task?.parent_task_name;
+
+    // RULE: Only the person who assigned this task can approve, rework, reassign, or cancel it.
+    // EXCEPTION: The owner of the parent task is also authorized to manage its subtasks.
+    const taskAssignedByEmpId =
+        task?.assigned_by_emp_id ?? task?.assigned_by_id ?? task?.created_by_emp_id ?? task?.created_by;
+    const isAssignedByCurrentUser =
+        String(taskAssignedByEmpId) === String(user?.emp_id || user?.id);
+
+    const parentTaskAssigneeId = 
+        parentTask?.assigned_to_emp_id ?? parentTask?.employee_id ?? parentTask?.assigned_to_id ?? parentTask?.assigned_to;
+    const isParentTaskOwner = 
+        parentTaskAssigneeId && String(parentTaskAssigneeId) === String(user?.emp_id || user?.id);
+
+    const canManageTask = isAssignedByCurrentUser || isParentTaskOwner;
 
     return (
         <tr
@@ -114,10 +128,69 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
             <td className="py-2.5 px-4 text-left">
                 {renderSeverityTag?.(severity)}
             </td>
-            <td className="py-2.5 px-4 text-right pr-4">
-                <button className="text-slate-300 hover:text-violet-500 transition-colors scale-110">
-                    <ChevronRight size={14} />
-                </button>
+            <td className="py-2.5 px-4 text-right pr-6">
+                <div className="flex justify-end gap-1.5">
+                    {!canManageTask ? (
+                        // Only the assigner can approve, reassign, or cancel — show lock for everyone else
+                        <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-2 text-slate-200 cursor-not-allowed"
+                            title="Only the person who assigned this task can approve, reassign, or cancel it"
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    ) : status === 'SUBMITTED' && String(task?.employee_id || task?.assigned_to_emp_id || task?.assigned_to_id) !== String(user?.id) ? (
+                        <>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAction?.(taskId, 'APPROVE');
+                                }}
+                                className="p-2 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-lg hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
+                                title="Approve"
+                            >
+                                <CheckCircle2 size={14} strokeWidth={3} />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onRework?.(task);
+                                }}
+                                className="p-2 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                title="Rework"
+                            >
+                                <RotateCcw size={14} strokeWidth={3} />
+                            </button>
+                        </>
+                    ) : (status === 'NEW' || status === 'IN_PROGRESS' || status === 'REWORK') ? (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onReassign?.(task);
+                                }}
+                                className="p-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-violet-600 hover:border-violet-200 transition-all shadow-sm"
+                                title="Reassign Task"
+                            >
+                                <User size={14} />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAction?.(taskId, 'CANCEL');
+                                }}
+                                className="p-2 bg-white border border-slate-200 text-slate-400 rounded-lg hover:text-rose-500 hover:border-rose-200 transition-all shadow-sm"
+                                title="Cancel"
+                            >
+                                <XCircle size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        <button className="p-2 text-slate-300 hover:text-violet-500 transition-colors scale-110">
+                            <ChevronRight size={14} />
+                        </button>
+                    )}
+                </div>
             </td>
         </tr>
     );
@@ -332,11 +405,16 @@ const TaskRow = ({
                 <SubtaskRow
                     key={sub?.task_id || sub?.id || idx}
                     task={sub}
+                    parentTask={task}
                     renderStatusBadge={renderStatusBadge}
                     renderSeverityTag={renderSeverityTag}
                     isLast={idx === subtasks.length - 1}
                     taskTitles={taskTitles}
                     onViewDetails={onViewDetails}
+                    onAction={onAction}
+                    onReassign={onReassign}
+                    onRework={onRework}
+                    user={user}
                 />
             ))}
         </>
@@ -576,105 +654,57 @@ const TeamTasksPage = () => {
                 total: Math.max(0, totalCount)
             });
 
-            // ── Compute KPI metrics via a background paginated fetch (limit=100, backend max).
-            // Collects ALL tasks across all pages so KPI cards always show accurate team-wide totals.
-            (() => {
-                const baseMetricParams = {};
-                if (filters.from_date)     baseMetricParams.from_date     = filters.from_date;
-                if (filters.to_date)       baseMetricParams.to_date       = filters.to_date;
-                if (filters.department_id) baseMetricParams.department_id = filters.department_id;
-                // No status filter — count ALL statuses for the global KPI picture
+            // ── Fetch accurate KPI metrics from specialized summary endpoints.
+            // Normalize dates: never send empty strings to the API to avoid 422/incorrect defaults.
+            const getFirstDayOfMonth = () => {
+                const now = new Date();
+                return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+            };
+            const getToday = () => new Date().toISOString().slice(0, 10);
 
-                const fetchAllPages = async () => {
-                    let allItems = [];
-                    let currentPage = 1;
-                    const PAGE_LIMIT = 100; // backend maximum allowed
-                    const SAFETY_CAP = 2000; // never fetch more than this
+            const safeFrom = (filters.from_date && filters.from_date.length === 10) ? filters.from_date : getFirstDayOfMonth();
+            const safeTo   = (filters.to_date   && filters.to_date.length   === 10) ? filters.to_date   : getToday();
 
-                    while (allItems.length < SAFETY_CAP) {
-                        const res = await api.get('/tasks/team', {
-                            params: { ...baseMetricParams, limit: PAGE_LIMIT, page: currentPage }
-                        });
-                        const raw = res.data?.data || res.data || {};
-                        let batch = Array.isArray(raw) ? raw : (raw.items || raw.data || []);
-                        
-                        if (user?.role?.toUpperCase() === 'MANAGER') {
-                            try {
-                                const deptRes = await api.get('/tasks', {
-                                    params: { ...baseMetricParams, scope: 'department', limit: PAGE_LIMIT, page: currentPage }
-                                });
-                                const deptRaw = deptRes.data?.data || deptRes.data || {};
-                                const deptBatch = Array.isArray(deptRaw) ? deptRaw : (deptRaw.items || deptRaw.data || []);
-                                
-                                const merged = [...batch, ...deptBatch];
-                                const uniqueMap = new Map();
-                                merged.forEach(t => {
-                                    const id = t.task_id || t.id;
-                                    if (id && !uniqueMap.has(id)) uniqueMap.set(id, t);
-                                });
-                                batch = Array.from(uniqueMap.values());
-                            } catch (e) {
-                                console.warn('Failed to fetch department tasks for metrics', e);
-                            }
-                        }
+            const metricParams = {
+                from_date: safeFrom,
+                to_date:   safeTo,
+                department_id: filters.department_id || user?.department || user?.department_id || user?.dept_id
+            };
 
-                        if (batch.length === 0) break;
-                        allItems = [...allItems, ...batch];
-                        if (batch.length < PAGE_LIMIT && !(user?.role?.toUpperCase() === 'MANAGER')) break; // last page
-                        // If it's a manager, we keep paginating until both endpoints return 0 items
-                        // For simplicity, we just check if batch size is less than PAGE_LIMIT to break.
-                        if (batch.length < PAGE_LIMIT) break;
-                        currentPage++;
-                    }
-                    return allItems;
-                };
-
-                fetchAllPages().then(metricItems => {
-                    const now3 = new Date();
-                    // Build parent-ID set for metric items to apply the same parent-retention logic
-                    const metricParentIds = new Set(
-                        metricItems.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
-                    );
-                    const allTeam = metricItems.filter(t => {
-                        const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
-                        const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
-                        const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
-                        if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) {
-                            const taskId = String(t.task_id || t.id);
-                            const isParentTask =
-                                t.task_type === 'PARENT' ||
-                                t.has_subtasks === true ||
-                                t.is_parent === true ||
-                                (t.subtask_count || 0) > 0 ||
-                                metricParentIds.has(taskId);
-                            // Only exclude if it is truly a standalone (non-parent) task
-                            if (!isParentTask) return false;
-                        }
-                        return !isCancelled;
-                    });
-                    setMetrics({
-                        activeTasks:       allTeam.filter(t => !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase())).length,
-                        inProgress:        allTeam.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length,
-                        pendingSubmission:  allTeam.filter(t => (t.status || '').toUpperCase() === 'SUBMITTED').length,
-                        overdue:           allTeam.filter(t => {
-                            const due = t.due_date ? new Date(t.due_date) : null;
-                            return due && due < now3 && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
-                        }).length
-                    });
-                }).catch(() => {
-                    // Fallback: count from the current page's enriched list if pagination fails
-                    const now3 = new Date();
-                    setMetrics({
-                        activeTasks:       enriched.filter(t => !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase())).length,
-                        inProgress:        enriched.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length,
-                        pendingSubmission:  enriched.filter(t => (t.status || '').toUpperCase() === 'SUBMITTED').length,
-                        overdue:           enriched.filter(t => {
-                            const due = t.due_date ? new Date(t.due_date) : null;
-                            return due && due < now3 && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
-                        }).length
-                    });
+            // Call both standard dashboard and department-specific metrics for maximum accuracy
+            Promise.allSettled([
+                api.get('/dashboard/manager', { params: metricParams }),
+                api.get('/dashboard/manager/department-metrics', { params: metricParams }),
+                api.get('/dashboard/manager/analytics', { params: metricParams })
+            ]).then(results => {
+                const dashData = results[0].status === 'fulfilled' ? (results[0].value.data?.data || results[0].value.data || {}) : {};
+                const deptData = results[1].status === 'fulfilled' ? (results[1].value.data?.data || results[1].value.data || {}) : {};
+                const anaData  = results[2].status === 'fulfilled' ? (results[2].value.data?.data || results[2].value.data || {}) : {};
+                
+                const kpis = dashData.top_kpis || {};
+                const tco  = anaData.task_completion_overview || {};
+                
+                // Prioritize "Department Metrics" contract as requested by the user
+                setMetrics({
+                    activeTasks:       deptData.total_tasks ?? kpis.total_team_tasks ?? dashData.total_tasks ?? 0,
+                    inProgress:        deptData.in_progress_tasks ?? tco.in_progress_tasks ?? kpis.in_progress_tasks ?? 0,
+                    pendingSubmission: deptData.pending_approval ?? deptData.submitted_tasks ?? tco.pending_tasks ?? kpis.pending_approval_tasks ?? 0,
+                    overdue:           deptData.overdue_tasks ?? tco.overdue_tasks ?? kpis.overdue_tasks ?? 0
                 });
-            })();
+            }).catch(err => {
+                console.warn('[TeamTasksPage] Metrics fetch failed:', err);
+                // Fallback to minimal computation from the current page if dashboard is unreachable
+                const now3 = new Date();
+                setMetrics({
+                    activeTasks:       enriched.length,
+                    inProgress:        enriched.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length,
+                    pendingSubmission: enriched.filter(t => (t.status || '').toUpperCase() === 'SUBMITTED').length,
+                    overdue:           enriched.filter(t => {
+                        const due = t.due_date ? new Date(t.due_date) : null;
+                        return due && due < now3 && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
+                    }).length
+                });
+            });
         } catch (err) {
             console.error("Fetch tasks error:", err);
             toast.error("Failed to load tasks");

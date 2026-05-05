@@ -768,10 +768,16 @@ const CFODashboard = () => {
                 api.get('/employees', { signal }).catch(() => Promise.resolve({ data: [] }))
             ]);
             
-            if (empRes?.status === 'fulfilled' || empRes?.data) {
-                const ep = empRes.data?.data || empRes.data || [];
-                setAllEmployees(Array.isArray(ep) ? ep : []);
-            }
+            // Build a fresh emp-id → name lookup synchronously so it can be used
+            // inside buildDeptStatusCounts before React re-renders allEmployees state.
+            const freshEmpList = Array.isArray(empRes?.data?.data) ? empRes.data.data
+                : Array.isArray(empRes?.data) ? empRes.data : [];
+            if (freshEmpList.length > 0) setAllEmployees(freshEmpList);
+            const empIdToName = {};
+            freshEmpList.forEach(e => {
+                const id = e.emp_id || e.id;
+                if (id) empIdToName[id] = e.name || id;
+            });
             // Employee risk — document section 5
             const riskPayload = riskRes?.data?.data || riskRes?.data || [];
             const riskRows = Array.isArray(riskPayload) ? riskPayload : [];
@@ -806,14 +812,16 @@ const CFODashboard = () => {
 
 
 
-            // Helper: compute per-dept status counts from a flat task array
-            const buildDeptStatusCounts = (normalizedTasks) => {
+            // Helper: compute per-dept status counts from a flat task array.
+            // empLookup maps emp_id → display name (from /employees API) so that
+            // when tasks lack assigned_to_name we still get a real name.
+            const buildDeptStatusCounts = (normalizedTasks, empLookup = {}) => {
                 const byDeptName = {};
                 normalizedTasks.forEach(t => {
                     const d = t.department;
                     if (!byDeptName[d]) byDeptName[d] = { total_computed: 0, new_tasks: 0, in_progress_tasks: 0, submitted_tasks: 0, rework_tasks: 0, approved_tasks_computed: 0, employees: {} };
                     const dept = byDeptName[d];
-                    
+
                     const s = String(t.status || '').toUpperCase();
                     dept.total_computed++;
                     if (s === 'APPROVED' || s === 'COMPLETED') dept.approved_tasks_computed++;
@@ -822,29 +830,31 @@ const CFODashboard = () => {
                     if (s === 'SUBMITTED') dept.submitted_tasks++;
                     if (s === 'REWORK' || s === 'CHANGES_REQUESTED') dept.rework_tasks++;
 
-                    // Tracking for top performer - group by ID to avoid data splits from name variations
+                    // Group by emp_id; resolve name from task fields, then fallback to empLookup
                     const empId = t.assigned_to || t.emp_id || t.assignee_id || t.assignee || 'Unassigned';
-                    const empName = t.assigneeName || t.assigned_to_name || 'Unassigned';
+                    const rawName = t.assigneeName || t.assigned_to_name || '';
+                    const empName = (rawName && rawName !== 'Unassigned') ? rawName
+                        : (empLookup[empId] || empId);
                     if (!dept.employees[empId]) dept.employees[empId] = { name: empName, completed: 0, rework: 0, total: 0 };
+                    // Keep the best resolved name (may improve across iterations)
+                    if (dept.employees[empId].name === empId || dept.employees[empId].name === 'Unassigned') {
+                        dept.employees[empId].name = empName;
+                    }
                     dept.employees[empId].total++;
                     if (s === 'APPROVED' || s === 'COMPLETED') dept.employees[empId].completed++;
                     if (s === 'REWORK' || s === 'CHANGES_REQUESTED') dept.employees[empId].rework++;
                 });
 
-                // Compute top performer for each dept using true Performance Score formula
+                // Compute top performer for each dept
                 Object.values(byDeptName).forEach(dept => {
                     const sortedEmps = Object.values(dept.employees).map(emp => {
                         const pScore = emp.total > 0 ? Math.max(0, (((emp.completed * 5) - (emp.rework * 2)) / (emp.total * 5)) * 100) : 0;
                         return { ...emp, performanceScore: pScore };
                     }).sort((a, b) => b.performanceScore - a.performanceScore || b.total - a.total);
-                    
+
                     if (sortedEmps.length > 0) {
                         const top = sortedEmps[0];
-                        // Use empMap if available for better name resolution
-                        dept.top_performer = {
-                            name: top.name,
-                            score: Math.round(top.performanceScore)
-                        };
+                        dept.top_performer = { name: top.name, score: Math.round(top.performanceScore) };
                     }
                 });
 
@@ -883,11 +893,20 @@ const CFODashboard = () => {
 
                 return depts.map(d => {
                     const dName = (d.department_name || d.name || '').toLowerCase();
-                    
-                    // Aggregate all keys that match this department name
+                    // Also match by department_id (e.g. "AR") — tasks often store only
+                    // the short ID as their department key when department_name is absent.
+                    const dId   = String(d.department_id || d.id || d.dept_id || '').toLowerCase();
+
+                    // Aggregate all keys that match this department name or ID
                     const matchedKeys = Object.keys(taskCounts).filter(k => {
                         const lk = k.toLowerCase();
-                        return lk === dName || dName.includes(lk) || lk.includes(dName);
+                        // name-based match (both directions, but guard against very short keys)
+                        const nameMatch = lk === dName
+                            || (lk.length > 2 && dName.includes(lk))
+                            || lk.includes(dName);
+                        // id-based match: "ar" === "ar"
+                        const idMatch   = dId && lk === dId;
+                        return nameMatch || idMatch;
                     });
 
                     const aggregated = {
@@ -938,27 +957,43 @@ const CFODashboard = () => {
                     
                     const apiPerfScore = safeNum(d.performance_score ?? d.performance_index);
 
-                    // 4. Determine Top Performer score
-                    let topScore = safeNum(d.top_performer?.score ?? d.top_performer?.performance_score ?? d.top_performer?.performance_index);
-                    let topName = d.top_performer?.name || (Object.values(aggregated.employees)[0]?.name) || 'N/A';
+                    // 4. Top Performer — API value is the source of truth.
+                    //    The backend's department_performance[].top_performer already contains
+                    //    the correct winner (e.g. AR Exec 5 / 33.33%).
+                    //    Only fall back to our computed value when the API provides no name.
+                    let apiTopName = '';
+                    let apiTopScore = 0;
+                    
+                    if (typeof d.top_performer === 'string') {
+                        const parts = d.top_performer.split('/');
+                        apiTopName = parts[0].trim();
+                        apiTopScore = parts.length > 1 ? safeNum(parts[1]) : 0;
+                    } else if (d.top_performer && typeof d.top_performer === 'object') {
+                        apiTopName = d.top_performer.name || '';
+                        apiTopScore = safeNum(d.top_performer.score ?? d.top_performer.performance_score ?? d.top_performer.performance_index);
+                    } else if (d.top_performer_name) {
+                        apiTopName = d.top_performer_name;
+                        apiTopScore = safeNum(d.top_performer_score ?? d.performance_score ?? 0);
+                    }
 
-                    if (Object.keys(aggregated.employees).length > 0) {
+                    let topName  = (apiTopName && apiTopName !== 'N/A') ? apiTopName : '';
+                    let topScore = apiTopScore;
+
+                    if (!topName && Object.keys(aggregated.employees).length > 0) {
+                        // Fallback: compute from task counts only when API has no top performer name
                         const sortedEmps = Object.values(aggregated.employees).map(emp => {
                             const total = safeNum(emp.total);
                             const pScore = total > 0 ? Math.max(0, (((safeNum(emp.completed) * 5) - (safeNum(emp.rework) * 2)) / (total * 5)) * 100) : 0;
                             return { ...emp, score: pScore };
                         }).sort((a, b) => b.score - a.score || b.total - a.total);
-                        
-                        if (sortedEmps.length > 0) {
-                            if (sortedEmps[0].score > topScore || topScore === 0) {
-                                topScore = sortedEmps[0].score;
-                                topName = sortedEmps[0].name;
-                            }
+
+                        if (sortedEmps.length > 0 && sortedEmps[0].score > 0) {
+                            topName  = sortedEmps[0].name;
+                            topScore = sortedEmps[0].score;
                         }
                     }
 
-                    const highPerfScore = topName ? (topScoresMap[topName.toLowerCase()] || 0) : 0;
-                    topScore = Math.max(topScore, highPerfScore);
+                    if (!topName) { topName = 'N/A'; topScore = 0; }
 
                     const enriched = {
                         ...d,
@@ -1023,9 +1058,12 @@ const CFODashboard = () => {
                 setDeptPerformance((rawDepts.length > 0 ? enrichDepts(rawDepts, buildDeptStatusCounts(normalized), dashboardPayload.top_5_employees || []) : deptArray).sort((a, b) => b.completion_pct - a.completion_pct));
                 setDashboardData({
                     ...dashboardPayload,
-                    total_tasks: totalActive,
+                    total_tasks: totalCount,
+                    active_tasks: totalActive,
                     approved_tasks: approvedCount,
-                    pending_tasks: totalActive,
+                    pending_tasks: counts.SUBMITTED,
+                    submitted_tasks: counts.SUBMITTED,
+                    cancelled_tasks: counts.CANCELLED,
                     rework_tasks: counts.REWORK,
                     in_progress_tasks: counts.IN_PROGRESS,
                     new_tasks: counts.NEW,
@@ -1118,6 +1156,7 @@ const CFODashboard = () => {
                     if (!monthMap[monthKey]) return;
 
                     const status = String(t.status || '').toUpperCase();
+                    const due = toDateKey(t.due_date || t.deadline || t.end_date);
                     if (['NEW', 'NOT_STARTED', 'CREATED', 'ASSIGNED'].includes(status) || !status) {
                         monthMap[monthKey].new_tasks++;
                     }
@@ -1208,7 +1247,7 @@ const CFODashboard = () => {
             };
 
             const allNormalized = allTasks.map(normalizeRow);
-            const taskCountsByDept = buildDeptStatusCounts(allNormalized);
+            const taskCountsByDept = buildDeptStatusCounts(allNormalized, empIdToName);
 
             if (hasDashboardStats) {
                 setDashboardData(dashboardPayload);
@@ -1216,7 +1255,7 @@ const CFODashboard = () => {
                 setTodayOrgTasks(tasksForToday.slice(0, 200));
                 setAllOrgTasks(allNormalized);
                 // Enrich rawDepts with computed per-status counts
-                setDeptPerformance(enrichDepts(rawDepts, allNormalized.length > 0 ? taskCountsByDept : buildDeptStatusCounts(tasksForToday), dashboardPayload.top_5_employees || []));
+                setDeptPerformance(enrichDepts(rawDepts, allNormalized.length > 0 ? taskCountsByDept : buildDeptStatusCounts(tasksForToday, empIdToName), dashboardPayload.top_5_employees || []));
                 return;
             }
 
@@ -1332,17 +1371,43 @@ const CFODashboard = () => {
         const riskSummary = dashboardData.risk_summary || {};
         const top5Emps    = dashboardData.top_5_employees || [];
 
+        const totalTasks = Number(dashboardData.total_tasks ?? dashboardData.total ?? 0);
+        const approvedTasks = Number(dashboardData.approved_tasks ?? dashboardData.completed_tasks ?? dashboardData.completed ?? 0);
+        const inferredActiveTasks = Number(
+            dashboardData.active_tasks
+            ?? (Number(dashboardData.in_progress_tasks ?? 0)
+                + Number(dashboardData.submitted_tasks ?? 0)
+                + Number(dashboardData.rework_tasks ?? 0))
+        );
+        const inferredCompletionRate = totalTasks > 0 ? (approvedTasks / totalTasks) * 100 : 0;
+        const inferredEmployeesAtRisk = (() => {
+            const byEmployee = {};
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            todayOrgTasks.forEach(t => {
+                const name = t.assigneeName || t.assigned_to_name || 'Unknown';
+                if (!byEmployee[name]) byEmployee[name] = { overdue: 0, rework: 0 };
+                const due = toDateKey(t.due_date);
+                const isTaskOverdue = (t.is_overdue || t.overdue || (due && due < todayStr)) && !['APPROVED', 'CANCELLED'].includes(t.status);
+                if (isTaskOverdue) byEmployee[name].overdue++;
+                if (t.status === 'REWORK' || t.status === 'CHANGES_REQUESTED') byEmployee[name].rework++;
+            });
+            return Object.values(byEmployee).filter(emp => {
+                const healthScore = Math.max(0, 100 - (emp.overdue * 15) - (emp.rework * 10));
+                return healthScore < 70;
+            }).length;
+        })();
+
         // Derived fallbacks so the dashboard still works even if backend returns flat keys
         const kpis = {
             // Top KPI values (document section 2 & 3)
             // Top KPI values
-            activeTasks:          topKpis.active_tasks ?? 0,
-            approvedTasks:        topKpis.approved_tasks ?? 0,
-            departmentsOnTrack:   topKpis.departments_on_track ?? 0,
-            employeesAtRisk:      topKpis.employees_at_risk ?? 0,
-            orgPerformanceScore:  orgHealth.org_performance_score ?? 0,
-            orgCompletionRate:    orgHealth.org_completion_rate ?? 0,
-            orgOnTimePct:         orgHealth.org_on_time_pct ?? 0,
+            activeTasks:          topKpis.active_tasks ?? inferredActiveTasks,
+            approvedTasks:        topKpis.approved_tasks ?? approvedTasks,
+            departmentsOnTrack:   topKpis.departments_on_track ?? departmentsOnTrack,
+            employeesAtRisk:      topKpis.employees_at_risk ?? dashboardData.employees_at_risk ?? inferredEmployeesAtRisk,
+            orgPerformanceScore:  orgHealth.org_performance_score ?? dashboardData.org_performance_index ?? 0,
+            orgCompletionRate:    orgHealth.org_completion_rate ?? dashboardData.org_completion_rate ?? inferredCompletionRate,
+            orgOnTimePct:         orgHealth.org_on_time_pct ?? dashboardData.org_on_time_pct ?? orgMetrics?.org_avg_on_time_pct ?? 0,
 
             // Delta values
             activeTasksDelta:        kpiDeltas.active_tasks_delta_pct,
@@ -1451,29 +1516,47 @@ const CFODashboard = () => {
     const syncedDeptPerformance = useMemo(() => {
         if (!topPerformers || topPerformers.length === 0) return deptPerformance;
 
-        // Build a quick name -> score map from the computed topPerformers
-        const computedScoreMap = {};
+        // Create a map of the best performer per department from the global topPerformers list
+        const bestPerDept = {};
         topPerformers.forEach(p => {
-            if (p.name) {
-                computedScoreMap[p.name.toLowerCase()] = p.score; // already Math.round'd
+            if (p.name && p.role) {
+                const deptKey = p.role.toLowerCase().trim();
+                if (!bestPerDept[deptKey] || p.score > bestPerDept[deptKey].score) {
+                    bestPerDept[deptKey] = p;
+                }
             }
         });
 
         return deptPerformance.map(dept => {
-            const tp = dept.top_performer;
-            if (!tp || !tp.name) return dept;
+            const deptNameKey = (dept.department || dept.department_name || dept.name || '').toLowerCase().trim();
+            const bestGlobalForDept = bestPerDept[deptNameKey];
+            
+            const currentTp = dept.top_performer || { name: '', score: 0 };
+            
+            // If the global top performers list has a better performer for this department,
+            // or if the current department top performer has no name, we completely replace it.
+            if (bestGlobalForDept && (bestGlobalForDept.score > (currentTp.score || 0) || !currentTp.name || currentTp.name === 'N/A' || currentTp.name === 'Unknown')) {
+                return {
+                    ...dept,
+                    top_performer: {
+                        name: bestGlobalForDept.name,
+                        score: bestGlobalForDept.score
+                    }
+                };
+            }
 
-            const computedScore = computedScoreMap[tp.name.toLowerCase()];
-            if (computedScore == null) return dept;
+            // Otherwise, we just sync the score if the names match
+            if (bestGlobalForDept && currentTp.name && bestGlobalForDept.name.toLowerCase() === currentTp.name.toLowerCase()) {
+                const finalScore = Math.max(currentTp.score ?? 0, bestGlobalForDept.score);
+                if (finalScore !== currentTp.score) {
+                    return {
+                        ...dept,
+                        top_performer: { ...currentTp, score: finalScore }
+                    };
+                }
+            }
 
-            // Use the higher of: local task calculation vs what the High Performers card shows
-            const finalScore = Math.max(tp.score ?? 0, computedScore);
-            if (finalScore === (tp.score ?? 0)) return dept; // no change needed
-
-            return {
-                ...dept,
-                top_performer: { ...tp, score: finalScore }
-            };
+            return dept;
         });
     }, [deptPerformance, topPerformers]);
 

@@ -55,8 +55,9 @@ const EmployeeFormModal = ({ onClose, onAdd, onEdit, managers, departments, init
   };
 
   // Normalize phone: backend may use different field names
-  const rawPhone = initialData?.phone || initialData?.phone_no || initialData?.contact_no ||
-                   initialData?.contact || initialData?.mobile || initialData?.mobile_no || "";
+  const rawPhone = initialData?.phone || initialData?.phone_number || initialData?.phone_no
+                || initialData?.contact_no || initialData?.contact
+                || initialData?.mobile || initialData?.mobile_no || "";
 
   const [formData, setFormData] = useState({
     name:           initialData?.name || "",
@@ -99,10 +100,11 @@ const EmployeeFormModal = ({ onClose, onAdd, onEdit, managers, departments, init
         department_id:  formData.department_id,
         manager_emp_id: formData.manager_emp_id || null,
         // Send phone under every possible field name the backend might accept
-        phone:      formData.phone,
-        phone_no:   formData.phone,
-        contact_no: formData.phone,
-        mobile:     formData.phone,
+        phone:        formData.phone,
+        phone_no:     formData.phone,
+        contact_no:   formData.phone,
+        mobile:       formData.phone,
+        phone_number: formData.phone,   // backend confirmed field name from PATCH response
       };
 
       if (isEdit) {

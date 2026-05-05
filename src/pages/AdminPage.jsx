@@ -136,6 +136,7 @@ const AdminPage = () => {
   const handleUpdateEmployee = async (data, originalId) => {
     const targetId = originalId || data.emp_id;
 
+    // PATCH — any error here is re-thrown so EmployeeFormModal shows the API error banner
     const res = await api.patch(`/employees/${targetId}`, data);
     const responseEmployee = res?.data?.data || res?.data || null;
 
@@ -144,32 +145,93 @@ const AdminPage = () => {
 
     toast.success("Profile updated successfully.");
 
-    // Merge: old state → what we sent → server-confirmed values
-    // Phone stays visible from form data even if backend doesn't store it
+    // Resolve department name locally so the table updates immediately
+    const updatedDept = departments.find(d =>
+      String(d.department_id || d.id || d.dept_id) === String(data.department_id)
+    );
+    const localDeptName = updatedDept
+      ? (updatedDept.name || updatedDept.department_name || updatedDept.dept_name)
+      : undefined;
+
+    const serverFields =
+      responseEmployee && (responseEmployee.emp_id || responseEmployee.id || responseEmployee.name)
+        ? responseEmployee
+        : {};
+
+    // Use server-confirmed emp_id (in case backend normalised it, e.g. EMP_AP01 → EMP_AP1)
+    const confirmedId = serverFields.emp_id || serverFields.id || targetId;
+
+    const userPhone = data.phone || data.phone_no || data.contact_no
+      || data.mobile || data.phone_number || '';
+
     setEmployees(prev => prev.map(emp => {
-      if (emp.emp_id !== targetId && emp.id !== targetId) return emp;
-      const serverFields =
-        responseEmployee && (responseEmployee.emp_id || responseEmployee.id || responseEmployee.name)
-          ? responseEmployee
-          : {};
-      return { ...emp, ...data, ...serverFields };
+      // Match on original targetId OR the server-confirmed ID
+      const isTarget = emp.emp_id === targetId || emp.id === targetId
+        || emp.emp_id === confirmedId || emp.id === confirmedId;
+      if (!isTarget) return emp;
+
+      return {
+        ...emp,
+        ...data,
+        ...(localDeptName ? { department_name: localDeptName } : {}),
+        ...serverFields,
+        // Always keep the phone the user typed — backend field name varies
+        phone:      userPhone || emp.phone || '',
+        phone_no:   userPhone || emp.phone_no || '',
+        contact_no: userPhone || emp.contact_no || '',
+      };
     }));
 
     setEditingEmployee(null);
 
-    // After refetch, re-merge to preserve local-only fields (e.g. phone) backend doesn't return
-    setTimeout(async () => {
-      const [empRes] = await Promise.all([
-        api.get('/employees').catch(() => ({ data: [] }))
-      ]);
-      const fresh = Array.isArray(empRes.data) ? empRes.data : [];
-      setEmployees(prev => prev.map(emp => {
-        const freshRecord = fresh.find(f => f.emp_id === emp.emp_id || f.id === emp.id);
-        if (!freshRecord) return emp;
-        // Preserve local fields that backend doesn't return (phone etc.)
-        return { ...emp, ...freshRecord };
-      }));
-    }, 2000);
+    // Background sync — deduplicate to prevent phantom duplicate rows
+    try {
+      const empRes = await api.get('/employees').catch(() => ({ data: [] }));
+      const rawFresh = Array.isArray(empRes.data) ? empRes.data : [];
+
+      // Deduplicate by emp_id so a misbehaving API can't inject duplicate rows
+      const seen = new Set();
+      const fresh = rawFresh.filter(f => {
+        const key = f.emp_id || f.id;
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (fresh.length > 0) {
+        setEmployees(prev => {
+          // Replace each existing record with its fresh counterpart (by ID)
+          const updated = prev.map(emp => {
+            const freshRecord = fresh.find(
+              f => f.emp_id === emp.emp_id || f.id === emp.id
+            );
+            if (!freshRecord) return emp;
+
+            const preservedPhone = emp.phone || emp.phone_no || emp.contact_no
+              || freshRecord.phone_number || freshRecord.phone || '';
+
+            return {
+              ...freshRecord,
+              phone:           preservedPhone,
+              phone_no:        preservedPhone,
+              contact_no:      preservedPhone,
+              department_name: freshRecord.department_name || emp.department_name,
+            };
+          });
+
+          // De-duplicate the final array just in case
+          const deduped = [];
+          const seenIds = new Set();
+          updated.forEach(e => {
+            const key = e.emp_id || e.id;
+            if (!key || seenIds.has(key)) return;
+            seenIds.add(key);
+            deduped.push(e);
+          });
+          return deduped;
+        });
+      }
+    } catch (_) { /* local state is already correct — background sync failed silently */ }
   };
 
 
@@ -219,6 +281,7 @@ const AdminPage = () => {
           departments={departments}
           allEmployees={employees}
           onClose={() => setSelectedEmployee(null)}
+          onEditClick={(emp) => { setSelectedEmployee(null); setEditingEmployee(emp); }}
           onResetPassword={handleResetPassword}
           onToggleStatus={(emp) => { handleToggleStatus(emp); setSelectedEmployee(null); }}
         />
@@ -334,7 +397,9 @@ const AdminPage = () => {
                                 <span className="text-[12px] font-black text-indigo-600/60 capitalize tracking-tighter group-hover:text-indigo-600 transition-colors">{(emp.department_name || emp.department_id || 'N/A').toLowerCase()}</span>
                             </td>
                             <td className="px-6 py-5">
-                                <span className="text-[12px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors capitalize tracking-tight">{manager?.name || '—'}</span>
+                                <span className="text-[12px] font-bold text-slate-500 group-hover:text-slate-800 transition-colors capitalize tracking-tight">
+                                  {manager?.name || emp.manager_emp_id || '—'}
+                                </span>
                             </td>
                             <td className="px-6 py-5">
                                 <div className="flex justify-center">

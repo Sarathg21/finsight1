@@ -34,6 +34,15 @@ const getInitials = (name) => {
     return firstPart[0].toUpperCase() + (firstPart[1] || '').toUpperCase();
 };
 
+const normalizeEmployeeKey = (value) => {
+    if (value == null) return '';
+    return String(value)
+        .toLowerCase()
+        .trim()
+        .replace(/\d+/g, (m) => String(parseInt(m, 10))) // "01" -> "1"
+        .replace(/[^a-z0-9]/g, '');
+};
+
 const PerformanceDashboard = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -281,7 +290,7 @@ const PerformanceDashboard = () => {
                 if (['NEW', 'NOT_STARTED', 'CREATED', 'ASSIGNED'].includes(status) || !status) {
                     trendMap[bucketKey].new++;
                 }
-                if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL', 'IN_PROGRESS'].includes(status)) {
+                if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL'].includes(status)) {
                     trendMap[bucketKey].pending++;
                 }
                 if (['APPROVED', 'COMPLETED'].includes(status)) {
@@ -344,7 +353,13 @@ const PerformanceDashboard = () => {
         
         setTeamPerformance(perfData);
         setEmployeeRisk(perfData.map(e => ({
-            name: e.name, department: e.department, active_tasks: e.tasks_assigned - e.completed, overdue_tasks: e.overdue, performance_score: e.completion_rate,
+            emp_id: e.emp_id || e.id || e.assigned_to || e.name,
+            name: e.name,
+            department: e.department,
+            // Keep "Active" consistent with Team Execution Monitor (IN_PROGRESS only)
+            active_tasks: e.in_progress || 0,
+            overdue_tasks: e.overdue,
+            performance_score: e.completion_rate,
             risk_status: e.overdue > 2 ? 'OFF_TRACK' : e.overdue > 1 ? 'AT_RISK' : e.overdue === 1 ? 'WATCH' : 'ON_TRACK'
         })));
 
@@ -628,25 +643,17 @@ const PerformanceDashboard = () => {
                 return {
                     emp_id: emp.emp_id || emp.id, name: emp.name, 
                     department: emp.department_name || emp.department || 'Accounts',
-                    active_tasks: risk.active_tasks || (p.tasks_assigned - (p.completed || 0)) || 0,
+                    // Keep "Active" consistent with Team Execution Monitor (IN_PROGRESS only)
+                    active_tasks: (p.in_progress ?? risk.active_tasks ?? 0),
                     overdue_tasks: risk.overdue_tasks || p.overdue || 0,
                     performance_score: risk.performance_score || p.completion_rate || 0,
                     risk_status: risk.risk_status || (p.overdue > 2 ? 'OFF_TRACK' : p.overdue > 1 ? 'AT_RISK' : p.overdue === 1 ? 'WATCH' : 'ON_TRACK')
                 };
             }).sort((a,b) => b.overdue_tasks - a.overdue_tasks));
 
-            // 4. Final Fallback - trigger if we have tasks but API metrics are missing/zero
-            // USE LOCAL VARIABLES for fresh checking (state is async)
-            const sumData = summaryResults[0].status === 'fulfilled' ? (summaryResults[0].value.data?.data || summaryResults[0].value.data || {}) : {};
-            const localHasSummary = Number(sumData.team_tasks || sumData.total_tasks || sumData.total || 0) > 0;
-            const trendPayload = summaryResults[2].status === 'fulfilled' ? (summaryResults[2].value.data?.data || summaryResults[2].value.data || []) : [];
-            
-            // localHasTrends is false if empty OR if it's full of zeros while we have tasks
-            const totalApprovedInTrends = trendPayload.reduce((sum, t) => sum + (t.completed ?? t.approved ?? t.completed_tasks ?? 0), 0);
-            const localHasTrends = trendPayload.length > 0 && totalApprovedInTrends > 0;
-            const localHasTeam = (perfResults[0].status === 'fulfilled' && (perfResults[0].value.data?.data || perfResults[0].value.data || []).length > 0) || mergedPerf.length > 0;
-
-            if (tasks.length > 0 && (!localHasSummary || !localHasTrends || !localHasTeam)) {
+            // 4. Canonical mapping: always derive count-based widgets from filtered task rows.
+            // This keeps KPI cards, trends, and pie/table counters aligned after refresh.
+            if (tasks.length > 0) {
                 const deptsToUse = summaryResults[1].status === 'fulfilled' ? (summaryResults[1].value.data?.data || summaryResults[1].value.data || []) : [];
                 aggregateFallbackData(tasks, allEmpBase, deptsToUse);
             }
@@ -853,74 +860,48 @@ const PerformanceDashboard = () => {
         if (st < sf) return;
 
         const hasDept = !!(selectedDept && selectedDept !== 'all' && selectedDept !== 'undefined');
+        
+        // Prevent CFO from querying manager endpoint without a department
+        if (isCFO && !hasDept) {
+            setTeamPerformance([]);
+            setTeamPerfLoading(false);
+            return;
+        }
+
         setTeamPerfLoading(true);
         try {
-            // ALWAYS use task-based aggregation to ensure dates are HONORED (some backend summary eps lack date-filter support)
+            // Use the backend aggregation endpoint directly — avoids field mismatches from raw-task recomputation
             const params = {
                 from_date: sf, to_date: st,
-                limit: 200,
-                ...(hasDept ? { 
-                    department_id: selectedDept, 
-                    dept_id: selectedDept, 
-                    dep_id: selectedDept, 
-                    scope: 'department' 
-                } : { scope: 'org' })
+                start_date: sf, end_date: st,
+                department_id: selectedDept
             };
-            const res = await api.get('/tasks', { params });
-            const rawTks = res.data?.data || res.data || [];
-            
-            const deptObj = departments.find(d => String(d.department_id || d.id) === String(selectedDept));
-            const deptName = (deptObj?.name || deptObj?.department_name || '').toLowerCase();
+            const res = await api.get('/dashboard/manager/team-performance', { params });
+            const raw = res.data?.data || res.data || [];
+            if (!Array.isArray(raw) || raw.length === 0) return;
 
-            // Client-side Filter Safeguard
-            const tks = rawTks.filter(t => {
-                const creationDate = t.assigned_at || t.assigned_date || t.created_at || t.date || t.day;
-                const dueDate = t.due_date || t.end_date;
-                const cKey = creationDate ? String(creationDate).slice(0, 10) : null;
-                const dKey = dueDate ? String(dueDate).slice(0, 10) : null;
+            const safeNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
-                const isWithinRange = (k) => k && k >= sf && k <= st;
-                if (!isWithinRange(cKey) && !isWithinRange(dKey)) return false;
-
-                if (hasDept) {
-                    const tDeptId = String(t.department_id || '');
-                    const tDeptName = (t.department_name || t.department || '').toLowerCase();
-                    if (tDeptId && tDeptId !== String(selectedDept)) return false;
-                    if (!tDeptId && deptName && tDeptName && !tDeptName.includes(deptName) && !deptName.includes(tDeptName)) return false;
-                }
-                return true;
-            });
-            
-            const empMap = {};
-            tks.forEach(t => {
-                const name = t.assigned_to_name || t.employee_name || t.assigneeName || t.assigned_to || 'Unassigned';
-                if (!empMap[name]) empMap[name] = { 
-                    name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, rework: 0,
-                    department: t.department_name || t.department || 'Accounts',
-                    role: t.role || (name.toLowerCase().includes('manager') ? 'Manager' : 'Employee')
-                };
-                empMap[name].tasks_assigned++;
-                const s = (t.status || '').toUpperCase();
-                if (s === 'IN_PROGRESS') empMap[name].in_progress++;
-                if (['SUBMITTED', 'PENDING', 'PENDING_APPROVAL'].includes(s)) empMap[name].pending_review++;
-                if (s === 'APPROVED' || s === 'COMPLETED') empMap[name].completed++;
-                if (s === 'REWORK') empMap[name].rework++;
-                if (t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'CANCELLED'].includes(s)) empMap[name].overdue++;
-            });
-            const safeNum = (v) => {
-                const n = parseFloat(v);
-                return isNaN(n) ? 0 : n;
-            };
-
-            const perfData = Object.values(empMap).map(e => {
-                const total = safeNum(e.tasks_assigned) || 1;
-                const perfScore = Math.max(0, (((safeNum(e.completed) * 5) - (safeNum(e.rework) * 2)) / (total * 5)) * 100);
+            const perfData = raw.map(e => {
+                const total = safeNum(e.tasks_assigned ?? e.total_tasks ?? e.total ?? 0);
+                const completed = safeNum(e.approved_tasks ?? e.completed_tasks ?? e.completed ?? 0);
+                const compRate = safeNum(e.completion_rate ?? (total > 0 ? (completed / total) * 100 : 0));
+                const perfScore = safeNum(e.performance_score ?? e.score ?? compRate);
                 return {
-                    ...e,
-                    completion_rate: Math.round((safeNum(e.completed) / total) * 100),
-                    performance_score: Math.round(perfScore)
+                    emp_id:          e.emp_id || e.id,
+                    name:            e.name || e.employee_name || e.emp_name || `Emp #${e.emp_id || e.id}`,
+                    role:            e.role || e.designation || 'Employee',
+                    department:      e.department_name || e.department || '',
+                    // Execution Monitor column fields
+                    tasks_assigned:  total,
+                    in_progress:     safeNum(e.in_progress_tasks ?? e.in_progress ?? e.active_tasks ?? e.active ?? 0),
+                    pending_review:  safeNum(e.pending_review ?? e.submitted_tasks ?? e.pending_tasks ?? e.pending ?? 0),
+                    overdue:         safeNum(e.overdue_tasks ?? e.overdue_count ?? e.overdue ?? 0),
+                    completion_rate: Math.round(compRate),
+                    performance_score: Math.round(perfScore),
                 };
-            }).sort((a,b) => b.tasks_assigned - a.tasks_assigned);
+            }).sort((a, b) => b.tasks_assigned - a.tasks_assigned);
+
             setTeamPerformance(perfData);
         } catch (err) {
             console.warn('[PerformanceDashboard] team-performance fetch failed:', err?.message);
@@ -936,62 +917,45 @@ const PerformanceDashboard = () => {
         if (st < sf) return;
 
         const hasDept = !!(selectedDept && selectedDept !== 'all' && selectedDept !== 'undefined');
+        
+        // Prevent CFO from querying manager endpoint without a department
+        if (isCFO && !hasDept) {
+            setEmployeeRisk([]);
+            setRiskLoading(false);
+            return;
+        }
+
         setRiskLoading(true);
         try {
-            // ALWAYS use task-based aggregation to ensure dates are HONORED (some backend summary eps lack date-filter support)
+            // Use the backend aggregation endpoint directly — avoids formula mismatches
             const params = {
                 from_date: sf, to_date: st,
-                limit: 200,
-                ...(hasDept ? { 
-                    department_id: selectedDept, 
-                    dept_id: selectedDept, 
-                    dep_id: selectedDept, 
-                    scope: 'department' 
-                } : { scope: 'org' })
+                start_date: sf, end_date: st,
+                department_id: selectedDept
             };
-            const res = await api.get('/tasks', { params });
-            const rawTks = res.data?.data || res.data || [];
-            
-            // Client-side Filter Safeguard
-            const tks = rawTks.filter(t => {
-                const creationDate = t.assigned_at || t.assigned_date || t.created_at || t.date || t.day;
-                const dueDate = t.due_date || t.end_date;
-                const cKey = creationDate ? String(creationDate).slice(0, 10) : null;
-                const dKey = dueDate ? String(dueDate).slice(0, 10) : null;
+            const res = await api.get('/dashboard/manager/employee-risk', { params });
+            const raw = res.data?.data || res.data || [];
+            if (!Array.isArray(raw) || raw.length === 0) return;
 
-                const isWithinRange = (k) => k && k >= sf && k <= st;
-                return isWithinRange(cKey) || isWithinRange(dKey);
-            });
-            
-            const empMap = {};
-            tks.forEach(t => {
-                const name = t.assigned_to_name || t.employee_name || t.assigneeName || t.assigned_to || 'Unassigned';
-                if (!empMap[name]) empMap[name] = { 
-                   name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, rework: 0,
-                   department: t.department_name || t.department || 'Accounts'
-                };
-                empMap[name].tasks_assigned++;
-                const s = (t.status || '').toUpperCase();
-                if (s === 'APPROVED' || s === 'COMPLETED') empMap[name].completed++;
-                if (s === 'REWORK') empMap[name].rework++;
-                if (t.due_date && new Date(t.due_date) < new Date() && !['APPROVED', 'CANCELLED'].includes(s)) empMap[name].overdue++;
-            });
-            const safeNum = (v) => {
-                const n = parseFloat(v);
-                return isNaN(n) ? 0 : n;
-            };
+            const safeNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
-            const riskData = Object.values(empMap).map(e => {
-                const total = safeNum(e.tasks_assigned) || 1;
-                const perfScore = Math.max(0, (((safeNum(e.completed) * 5) - (safeNum(e.rework) * 2)) / (total * 5)) * 100);
+            const riskData = raw.map(e => {
+                const overdue = safeNum(e.overdue_tasks ?? e.overdue_count ?? e.overdue ?? 0);
+                const score   = safeNum(e.performance_score ?? e.execution_score ?? e.score ?? 0);
+                const status  = e.risk_status
+                    || (overdue >= 3 ? 'OFF_TRACK' : overdue === 2 ? 'AT_RISK' : overdue === 1 ? 'WATCH' : 'ON_TRACK');
                 return {
-                    name: e.name, department: e.department, 
-                    active_tasks: safeNum(e.tasks_assigned) - safeNum(e.completed), 
-                    overdue_tasks: safeNum(e.overdue), 
-                    performance_score: Math.round(perfScore),
-                    risk_status: e.overdue > 2 ? 'OFF_TRACK' : e.overdue > 1 ? 'AT_RISK' : e.overdue === 1 ? 'WATCH' : 'ON_TRACK'
+                    emp_id:           e.emp_id || e.id,
+                    name:             e.name || e.employee_name || e.emp_name || `Emp #${e.emp_id || e.id}`,
+                    department:       e.department_name || e.department || '',
+                    // Sync Active mapping exactly with Team Execution Monitor (in_progress)
+                    active_tasks:     safeNum(e.in_progress_tasks ?? e.in_progress ?? e.active_tasks ?? e.active ?? e.open_tasks ?? 0),
+                    overdue_tasks:    overdue,
+                    performance_score: Math.round(score),
+                    risk_status:      status,
                 };
-            }).sort((a,b) => b.overdue_tasks - a.overdue_tasks);
+            }).sort((a, b) => b.overdue_tasks - a.overdue_tasks);
+
             setEmployeeRisk(riskData);
         } catch (err) {
             console.warn('[PerformanceDashboard] employee-risk fetch failed:', err?.message);
@@ -1653,6 +1617,14 @@ const PerformanceDashboard = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-50 font-medium">
                                 {employeeRisk.map((emp, i) => {
+                                    // Guarantee perfect parity with Team Execution Monitor
+                                    const empKey = normalizeEmployeeKey(emp.name);
+                                    const teamPerfMatch = teamPerformance.find(t =>
+                                        String(t.emp_id) === String(emp.emp_id) ||
+                                        normalizeEmployeeKey(t.name) === empKey
+                                    );
+                                    const exactActiveCount = teamPerfMatch ? teamPerfMatch.in_progress : (emp.active_tasks ?? 0);
+
                                     const riskConfig = {
                                         ON_TRACK:  { label: 'On Track',  bg: 'bg-emerald-50',  text: 'text-emerald-700',  dot: 'bg-emerald-500' },
                                         WATCH:     { label: 'Watch',     bg: 'bg-blue-50',     text: 'text-blue-700',     dot: 'bg-blue-500'    },
@@ -1674,7 +1646,7 @@ const PerformanceDashboard = () => {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-center tabular-nums text-slate-600 font-bold text-sm">
-                                                {emp.active_tasks ?? 0}
+                                                {exactActiveCount}
                                             </td>
                                             <td className="px-4 py-3 text-center tabular-nums">
                                                 <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[11px] font-black ${emp.overdue_tasks > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>
