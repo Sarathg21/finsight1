@@ -71,6 +71,7 @@ const StatusCell = ({ task }) => {
 /* ========================================================= */
 
 const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRework, onReassign, onCancel, onViewDetails }) => {
+  const { user } = useAuth();
   // Cache of taskId -> assigned_at date string fetched from detail endpoint
   const [assignedDates, setAssignedDates] = useState({});
   const fetchingRef = useRef(new Set());
@@ -144,12 +145,15 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
             // Match by emp_id or id
             const assignee = users?.find(u => u.emp_id === assigneeId || u.id === assigneeId);
 
-            const taskKey = typeof task.id === 'object' ? (task.id.$oid || JSON.stringify(task.id)) : (task.id || `task-${idx}`);
+            const displayId = typeof task.id === 'object' ? (task.id.$oid || '...') : (task.id || idx);
+            const displayParentId = task.parent_task_id && typeof task.parent_task_id === 'object' 
+                ? (task.parent_task_id.$oid || '...') 
+                : (task.parent_task_id || '-');
 
             return (
-              <tr key={taskKey} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => onViewDetails(task)}>
-                <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[10px]">#{task.id}</td>
-                <td className="py-2 px-4 text-slate-400 font-medium text-[10px]">{task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}</td>
+              <tr key={displayId} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => onViewDetails(task)}>
+                <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[10px]">#{displayId}</td>
+                <td className="py-2 px-4 text-slate-400 font-medium text-[10px]">{task.parent_task_id && task.parent_task_id !== '-' ? `#${displayParentId}` : '-'}</td>
                 <td className="py-2 px-4 text-slate-500 font-bold truncate max-w-[100px] text-[10px] uppercase tracking-tighter" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
 
                 <td className="py-2 px-4">
@@ -323,7 +327,6 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
 const ActionTaskTable = ({
   tasks,
   users,
-  user,
   onStatusChange,
   onReassign,
   onCancel,
@@ -331,6 +334,7 @@ const ActionTaskTable = ({
   onRework,
   viewMode = "team",
 }) => {
+  const { user } = useAuth();
   if (!tasks || tasks.length === 0) {
     return (
       <div className="p-8 text-center text-slate-500">
@@ -358,14 +362,18 @@ const ActionTaskTable = ({
         </thead>
 
         <tbody className="divide-y divide-slate-50 text-[15px] text-slate-700">
-          {tasks.map((task) => {
+          {tasks.map((task, idx) => {
+            const displayId = typeof task.id === 'object' ? (task.id.$oid || '...') : (task.id || idx);
+            const displayParentId = task.parent_task_id && typeof task.parent_task_id === 'object' 
+                ? (task.parent_task_id.$oid || '...') 
+                : (task.parent_task_id || '-');
             const assigneeName = task.assigneeName || task.employee_id;
             const assignerName = task.assignerName || task.assigned_by || "System";
 
             return (
-              <tr key={task.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => onViewDetails(task)}>
-                <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[12px]">#{task.id}</td>
-                <td className="py-2 px-4 text-slate-400 font-medium text-[11px] font-black">{task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}</td>
+              <tr key={displayId} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => onViewDetails(task)}>
+                <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[12px]">#{displayId}</td>
+                <td className="py-2 px-4 text-slate-400 font-medium text-[11px] font-black">{task.parent_task_id && task.parent_task_id !== '-' ? `#${displayParentId}` : '-'}</td>
                 <td className="py-2 px-4 text-slate-500 font-medium truncate max-w-[150px] text-[11px]" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
                 <td className="py-2 px-4 min-w-0">
                   <div className="flex flex-col gap-0.5">
@@ -1387,7 +1395,6 @@ const handleReworkConfirm = async (comment) => {
             <ActionTaskTable
               tasks={paginatedTasks}
               users={users}
-              user={user}
               onStatusChange={(id, action) => handleStatusChange(id, action)}
               onReassign={openReassignModal}
               onCancel={handleCancel}

@@ -214,7 +214,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     // Determine current user state
     const isActuallyCFO = user?.role?.toUpperCase() === 'CFO';
     // Determine current department for context (locked to manager's own department)
-    const currentDeptId = overriddenDept?.department_id || overriddenDept?.id || overriddenDept?.dept_id || user?.department || user?.department_id || user?.dept_id;
+    const currentDeptId = overriddenDept?.department_id || overriddenDept?.id || overriddenDept?.dept_id || user?.department_id || user?.dept_id || user?.department || localStorage.getItem('dashboard_department');
     const currentDeptName = overriddenDept?.department_name || overriddenDept?.name || user?.department_name || user?.department || 'Department';
 
     const getFirstDayOfMonth = () => {
@@ -307,6 +307,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         // Apply department override if provided
         if (currentDeptId && currentDeptId !== 'all') {
             params.department_id = currentDeptId;
+            params.dept_id = currentDeptId;
+            params.dep_id = currentDeptId;
+            params.scope = 'department';
         }
 
         try {
@@ -317,7 +320,6 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 api.get('/dashboard/manager/trends', { params: { ...params, days: 30 } }),
                 api.get('/dashboard/manager/employee-risk', { params }),
                 api.get('/dashboard/manager/team-performance', { params }),
-                api.get('/dashboard/manager/analytics', { params }),
                 api.get('/tasks/team', { params: { limit: 100, page: 1 } })
             ]);
 
@@ -326,21 +328,17 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 trendsRes, 
                 riskRes, 
                 teamPerfRes,
-                analyticsRes,
                 tasksRes
             ] = results;
 
             let finalPayload = {};
 
+            // Single source of truth: /dashboard/manager only
             if (dashRes.status === 'fulfilled') {
-                finalPayload = { ...finalPayload, ...(dashRes.value.data?.data || dashRes.value.data || {}) };
+                finalPayload = { ...(dashRes.value.data?.data || dashRes.value.data || {}) };
             }
 
-            if (analyticsRes?.status === 'fulfilled') {
-                const analyticsPayload = analyticsRes.value.data?.data || analyticsRes.value.data || {};
-                finalPayload = { ...finalPayload, ...analyticsPayload };
-            }
-
+            console.log("[ManagerDashboard] API Response finalPayload:", finalPayload);
             setDashboardData(finalPayload);
 
             if (trendsRes.status === 'fulfilled') {
@@ -417,7 +415,12 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             const params = {};
             if (from) { params.from_date = from; params.start_date = from; }
             if (to)   { params.to_date   = to;   params.end_date   = to;   }
-            if (currentDeptId && currentDeptId !== 'all') params.department_id = currentDeptId;
+            if (currentDeptId && currentDeptId !== 'all') {
+                params.department_id = currentDeptId;
+                params.dept_id = currentDeptId;
+                params.dep_id = currentDeptId;
+                params.scope = 'department';
+            }
 
             const res = await api.get('/dashboard/manager/team-performance', { params });
             const data = res.data?.data || res.data || [];
@@ -440,7 +443,12 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             const params = {};
             if (from) { params.from_date = from; params.start_date = from; }
             if (to)   { params.to_date   = to;   params.end_date   = to;   }
-            if (currentDeptId && currentDeptId !== 'all') params.department_id = currentDeptId;
+            if (currentDeptId && currentDeptId !== 'all') {
+                params.department_id = currentDeptId;
+                params.dept_id = currentDeptId;
+                params.dep_id = currentDeptId;
+                params.scope = 'department';
+            }
 
             const res = await api.get('/dashboard/manager/employee-risk', { params });
             const data = res.data?.data || res.data || [];
@@ -554,35 +562,34 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const metrics = useMemo(() => {
         if (!dashboardData) return null;
 
-        // Use top_kpis as the primary source of truth (direct from /dashboard/manager)
+        // Single source of truth: /dashboard/manager response
         const kpis = dashboardData.top_kpis || {};
         const tco  = dashboardData.task_completion_overview || {};
         const tsb  = dashboardData.team_status_bifurcation || {};
         const st   = tsb.statuses || {};
 
         return {
-            // Top KPI cards
-            total:        kpis.total_team_tasks         ?? dashboardData.total_tasks    ?? 0,
-            inProgress:   kpis.in_progress_tasks        ?? dashboardData.in_progress_tasks ?? 0,
-            pending:      kpis.pending_approval_tasks   ?? dashboardData.submitted_tasks   ?? 0,
-            overdue:      kpis.overdue_tasks            ?? dashboardData.overdue_tasks     ?? 0,
-            managerScore:         kpis.manager_score          ?? dashboardData.manager_score_current ?? null,
-            teamScore:            kpis.team_score             ?? dashboardData.team_score_current    ?? null,
-            managerPersonalScore: kpis.manager_personal_score ?? dashboardData.manager_personal_score_current ?? null,
-            managerScoreDelta:    dashboardData.manager_score_delta_percent ?? null,
+            // ── Top KPI Cards ──────────────────────────────────────────
+            total:               kpis.total_team_tasks,        // top_kpis.total_team_tasks
+            inProgress:          kpis.in_progress_tasks,       // top_kpis.in_progress_tasks
+            pending:             kpis.pending_approval_tasks,  // top_kpis.pending_approval_tasks
+            overdue:             kpis.overdue_tasks,           // top_kpis.overdue_tasks
+            managerScore:        kpis.manager_score        ?? null,  // top_kpis.manager_score
+            teamScore:           kpis.team_score           ?? null,  // top_kpis.team_score
+            managerPersonalScore:kpis.manager_personal_score ?? null,// top_kpis.manager_personal_score
+            managerScoreDelta:   dashboardData.manager_score_delta_percent ?? null,
 
-            // Completion Overview — from task_completion_overview
-            completionRate: tco.completion_rate ?? dashboardData.completion_rate ?? 0,
-            approved:       tco.approved_tasks  ?? dashboardData.approved_tasks  ?? 0,
-            completionTotal: tco.total_tasks    ?? kpis.total_team_tasks         ?? 0,
-            completionPending:   tco.pending_tasks    ?? kpis.pending_approval_tasks ?? 0,
-            completionOverdue:   tco.overdue_tasks    ?? kpis.overdue_tasks          ?? 0,
-            completionInProgress: tco.in_progress_tasks ?? kpis.in_progress_tasks   ?? 0,
-            notStarted:     st.NEW?.count ?? dashboardData.new_tasks ?? 0,
+            // ── Completion Overview ─────────────────────────────────────
+            completionRate:       tco.completion_rate,     // task_completion_overview.completion_rate
+            completionTotal:      tco.total_tasks,         // task_completion_overview.total_tasks
+            approved:             tco.approved_tasks,      // task_completion_overview.approved_tasks
+            completionPending:    tco.pending_tasks,       // task_completion_overview.pending_tasks
+            completionOverdue:    tco.overdue_tasks,       // task_completion_overview.overdue_tasks
+            completionInProgress: tco.in_progress_tasks,  // task_completion_overview.in_progress_tasks
+            notStarted:           st.NEW?.count ?? 0,      // team_status_bifurcation.statuses.NEW.count
 
-            // Legacy aliases kept for other sections
-            totalActive:   kpis.total_team_tasks ?? dashboardData.total_tasks ?? 0,
-            reworks:       dashboardData.rework_tasks ?? 0,
+            // ── Legacy aliases ──────────────────────────────────────────
+            totalActive:   kpis.total_team_tasks ?? 0,
             score:         kpis.team_score ?? 0,
         };
     }, [dashboardData]);
@@ -1102,8 +1109,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                 </div>
 
+                {/* 5. Manager Score */}
                 <div
-                    title="Manager Score = 70% × Team Score + 30% × Personal Score. Reflects overall dept health weighted by the manager's own execution."
+                    title="Manager Score (top_kpis.manager_score): Composite score = 70% Team Score + 30% Personal Score. Reflects overall department health weighted by the manager's own execution contribution."
                     className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 shadow-lg shadow-emerald-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
                 >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
@@ -1122,7 +1130,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
                 {/* 6. Team Score */}
                 <div
-                    title="Team Score: Average performance score of all team members (excl. manager's own tasks). Measures collective execution quality."
+                    title="Team Score (top_kpis.team_score): Average performance score of all team members' tasks — excludes the manager's own personal tasks. Measures collective execution quality of the department."
                     className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white p-4 shadow-lg shadow-violet-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
                 >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
@@ -1134,13 +1142,13 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     <div className="relative z-10 mt-2">
                         <div className="text-[28px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${Number(stats.teamScore).toFixed(2)}%` : '-'}</div>
                         <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Team Score</div>
-                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Team members' avg performance</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Avg score of team members only</div>
                     </div>
                 </div>
 
-                {/* 7. Manager Personal Score */}
+                {/* 7. Personal Score */}
                 <div
-                    title="Personal Score: Manager's own task execution score — only tasks directly assigned to the manager are counted here, independent of team performance."
+                    title="Personal Score (top_kpis.manager_personal_score): Manager's own individual task execution score — calculated only from tasks directly assigned to the manager. Independent of team performance."
                     className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white p-4 shadow-lg shadow-fuchsia-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
                 >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
@@ -1308,23 +1316,22 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </h3>
                     <p className="text-[10px] font-semibold text-slate-400 capitalize  tracking-widest mb-4">Breakdown of department tasks by current status</p>
                     {(() => {
-                        // Use team_status_bifurcation.statuses as the primary source (backend confirmed)
+                        // Source of truth: team_status_bifurcation.statuses directly from /dashboard/manager
                         const tsb = dashboardData?.team_status_bifurcation || {};
                         const st  = tsb.statuses || {};
-                        const getCount = (key, flat) => st[key]?.count ?? st[key] ?? flat ?? 0;
-                        const getPct   = (key, flat) => st[key]?.pct   ?? flat ?? 0;
+                        // Use API-provided total (tsb.total_tasks); do NOT sum counts client-side
+                        const apiTotal = tsb.total_tasks ?? 0;
 
                         const rows = [
-                            { label: 'Not Started', value: getCount('NEW',         dashboardData?.new_tasks),         pct: getPct('NEW'),         fill: '#3b82f6' },
-                            { label: 'In Progress', value: getCount('IN_PROGRESS', dashboardData?.in_progress_tasks), pct: getPct('IN_PROGRESS'), fill: '#8b5cf6' },
-                            { label: 'Submitted',   value: getCount('SUBMITTED',   dashboardData?.submitted_tasks),   pct: getPct('SUBMITTED'),   fill: '#f59e0b' },
-                            { label: 'Approved',    value: getCount('APPROVED',    dashboardData?.approved_tasks),    pct: getPct('APPROVED'),    fill: '#10b981' },
-                            { label: 'Rework',      value: getCount('REWORK',      dashboardData?.rework_tasks),      pct: getPct('REWORK'),      fill: '#ef4444' },
-                            { label: 'Cancelled',   value: getCount('CANCELLED',   dashboardData?.cancelled_tasks),   pct: getPct('CANCELLED'),   fill: '#9ca3af' },
+                            { label: 'Not Started', value: st.NEW?.count         ?? 0, pct: st.NEW?.pct         ?? 0, fill: '#3b82f6' },
+                            { label: 'In Progress', value: st.IN_PROGRESS?.count ?? 0, pct: st.IN_PROGRESS?.pct ?? 0, fill: '#8b5cf6' },
+                            { label: 'Submitted',   value: st.SUBMITTED?.count   ?? 0, pct: st.SUBMITTED?.pct   ?? 0, fill: '#f59e0b' },
+                            { label: 'Approved',    value: st.APPROVED?.count    ?? 0, pct: st.APPROVED?.pct    ?? 0, fill: '#10b981' },
+                            { label: 'Rework',      value: st.REWORK?.count      ?? 0, pct: st.REWORK?.pct      ?? 0, fill: '#ef4444' },
+                            { label: 'Cancelled',   value: st.CANCELLED?.count   ?? 0, pct: st.CANCELLED?.pct   ?? 0, fill: '#9ca3af' },
                         ];
 
-                        const total = rows.reduce((s, r) => s + r.value, 0) || 1;
-                        rows.forEach(r => { r.pct = Math.round((r.value / total) * 100); });
+                        const total = apiTotal || rows.reduce((s, r) => s + r.value, 0) || 1;
                         const donutD = rows.filter(r => r.value > 0).map(r => ({ name: r.label, value: r.value, fill: r.fill }));
                         return (
                             <div className="flex items-center gap-6">
@@ -1372,8 +1379,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                         </PieChart>
                                     </ResponsiveContainer>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                        <span className="text-xl font-black text-slate-800">{total}</span>
-                                        <span className="text-[9px] text-slate-400 font-bold capitalize ">Total</span>
+                                        <span className="text-xl font-black text-slate-800">{apiTotal || total}</span>
+                                        <span className="text-[9px] text-slate-400 font-bold capitalize">Total</span>
                                     </div>
                                 </div>
                             </div>
@@ -1391,14 +1398,15 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     {(() => {
                         const dd = dashboardData || {};
                         const tas = dd.team_action_snapshot || {};
+                        // Source of truth: team_action_snapshot from /dashboard/manager
                         const snap = [
-                            { label: 'Active Tasks',     sub: 'Not approved or cancelled',  value: tas.active_tasks          ?? dd.in_progress_tasks ?? 0,                           icon: Activity,      bg: 'bg-blue-50',    iconC: 'text-blue-500',    border: 'border-blue-100'    },
-                            { label: 'Pending Approval', sub: 'Awaiting review',             value: tas.pending_approval_tasks ?? dd.submitted_tasks ?? stats.pendingSubmission ?? 0, icon: Clock,         bg: 'bg-amber-50',   iconC: 'text-amber-500',   border: 'border-amber-100'   },
-                            { label: 'Overdue Tasks',    sub: 'Past due, not closed',        value: tas.overdue_tasks          ?? dd.overdue_tasks ?? 0,                              icon: AlertTriangle, bg: 'bg-rose-50',    iconC: 'text-rose-500',    border: 'border-rose-100'    },
-                            { label: 'Due Today',        sub: 'Due today, pending action',   value: tas.due_today_tasks        ?? dd.due_today ?? 0,                                  icon: Calendar,      bg: 'bg-orange-50',  iconC: 'text-orange-500',  border: 'border-orange-100'  },
-                            { label: 'Completed Tasks',  sub: 'Approved tasks',              value: tas.completed_tasks        ?? dd.approved_tasks ?? 0,                             icon: CheckCircle,   bg: 'bg-emerald-50', iconC: 'text-emerald-500', border: 'border-emerald-100' },
-                            { label: 'Cancelled Tasks',  sub: 'Cancelled tasks',             value: tas.cancelled_tasks        ?? dd.cancelled_tasks ?? 0,                            icon: XCircle,       bg: 'bg-slate-50',   iconC: 'text-slate-400',   border: 'border-slate-100'   },
-                        ];
+                            { label: 'Active Tasks',     sub: 'Not approved or cancelled',  value: tas.active_tasks,           icon: Activity,      bg: 'bg-blue-50',    iconC: 'text-blue-500',    border: 'border-blue-100'    },
+                            { label: 'Pending Approval', sub: 'Awaiting review',             value: tas.pending_approval_tasks, icon: Clock,         bg: 'bg-amber-50',   iconC: 'text-amber-500',   border: 'border-amber-100'   },
+                            { label: 'Overdue Tasks',    sub: 'Past due, not closed',        value: tas.overdue_tasks,          icon: AlertTriangle, bg: 'bg-rose-50',    iconC: 'text-rose-500',    border: 'border-rose-100'    },
+                            { label: 'Due Today',        sub: 'Due today, pending action',   value: tas.due_today_tasks,        icon: Calendar,      bg: 'bg-orange-50',  iconC: 'text-orange-500',  border: 'border-orange-100'  },
+                            { label: 'Completed Tasks',  sub: 'Approved tasks',              value: tas.completed_tasks,        icon: CheckCircle,   bg: 'bg-emerald-50', iconC: 'text-emerald-500', border: 'border-emerald-100' },
+                            { label: 'Cancelled Tasks',  sub: 'Cancelled tasks',             value: tas.cancelled_tasks,        icon: XCircle,       bg: 'bg-slate-50',   iconC: 'text-slate-400',   border: 'border-slate-100'   },
+                        ].map(s => ({ ...s, value: s.value ?? 0 }));
                         return (
                             <div className="grid grid-cols-3 gap-3">
                                 {snap.map(s => (

@@ -50,16 +50,18 @@ const AssignTaskPage = () => {
                 const taskEndpoint = isAltRole ? '/tasks' : '/tasks/team';
                 const taskParams = isAltRole 
                     ? { scope: 'org', limit: 100, all_departments: true } 
-                    : { limit: 100, all_departments: true };
+                    : { limit: 100 };
 
-                // For managers: also fetch tasks assigned TO the manager (scope=mine)
-                // so their own standalone tasks and CFO-assigned child tasks appear as parent options
-                const managerOwnTasksPromise = isManagerRole
+                // For managers: fetch BOTH directions —
+                // A) tasks/team → tasks the manager assigned OUT to their team
+                // B) tasks/my   → tasks the CFO assigned TO the manager (like #162, #163)
+                // Both are needed because a manager can create subtasks for tasks assigned to them.
+                const myTasksPromise = isManagerRole
                     ? api.get('/tasks', { params: { scope: 'mine', limit: 100 } })
                         .catch(() => ({ data: [] }))
                     : Promise.resolve({ data: [] });
 
-                const [empRes, deptRes, tasksRes, managerOwnRes] = await Promise.all([
+                const [empRes, deptRes, tasksRes, myTasksRes] = await Promise.all([
                     api.get(isAltRole ? '/employees' : '/employees/assignable')
                         .catch(() => api.get('/employees'))
                         .catch(() => api.get('/employees/assignable'))
@@ -70,9 +72,8 @@ const AssignTaskPage = () => {
                         .catch(() => ({ data: [] })),
                     api.get(taskEndpoint, { params: taskParams })
                         .catch(() => api.get('/tasks/team', { params: { limit: 100 } }))
-                        .catch(() => api.get('/tasks'))
                         .catch(() => ({ data: [] })),
-                    managerOwnTasksPromise
+                    myTasksPromise
                 ]);
                 
                 
@@ -116,30 +117,40 @@ const AssignTaskPage = () => {
 
                 const normalizedEmps = normalizeEmps(extract(empRes));
                 const normalizedDepts = normalizeDepts(extract(deptRes));
-                const teamTasksData = extract(tasksRes);
-                const managerOwnTasksData = extract(managerOwnRes);
-                
-                // Merge team tasks and manager's own tasks, deduplicating by ID
+                const teamTasksData = extract(tasksRes);        // tasks manager assigned to employees
+                const myTasksData   = extract(myTasksRes);      // tasks assigned TO the manager (from CFO)
+
+                console.log('[AssignTask] /tasks/team count:', teamTasksData.length, teamTasksData.map(t => t.id || t.task_id));
+                console.log('[AssignTask] /tasks/my count:', myTasksData.length, myTasksData.map(t => t.id || t.task_id));
+
+                // Normalize each task so id/title are always accessible
+                const normalizeTasks = (list) => list.map(t => ({
+                    ...t,
+                    id:    t.id    || t.task_id   || null,
+                    title: t.title || t.task_title || t.task_name || t.name || null,
+                }));
+
+                // Merge both sources, deduplicate by string ID
                 const allTasksMap = new Map();
-                [...teamTasksData, ...managerOwnTasksData].forEach(t => {
-                    const id = t.id || t.task_id;
-                    if (id && !allTasksMap.has(id)) {
-                        allTasksMap.set(id, t);
-                    }
+                [...normalizeTasks(teamTasksData), ...normalizeTasks(myTasksData)].forEach(t => {
+                    if (t.id != null) allTasksMap.set(String(t.id), t);
                 });
                 const tasksData = Array.from(allTasksMap.values());
+                console.log('[AssignTask] Merged unique tasks:', tasksData.length, tasksData.map(t => `#${t.id} ${t.title}`));
                 
-                // Filter possible parents based on role:
-                // - CFO/ADMIN creates subtasks under top-level parent tasks (Level 0)
-                // - MANAGER creates subchild tasks under child tasks (Level 1)
-                const possibleParents = tasksData.filter(t => {
+                // For MANAGERS: only tasks they assigned to their team (Level 2) are valid parents.
+                // Tasks from /tasks/my are CFO-assigned Level 1 parents — managers cannot subchild under those.
+                // For CFO/ADMIN: all non-terminal tasks are valid parents.
+                const validParentSource = isManagerRole
+                    ? normalizeTasks(teamTasksData)   // only team tasks (Level 2)
+                    : Array.from(allTasksMap.values()); // all tasks
+
+                const possibleParents = validParentSource.filter(t => {
                     const statusUpper = String(t.status || '').toUpperCase();
-                    const notTerminal = statusUpper !== 'COMPLETED' && statusUpper !== 'CANCELLED' && statusUpper !== 'APPROVED';
-                    
-                    // Show all non-completed tasks that could logically be a parent
-                    // We'll trust the user to pick the right one, but filter for active ones.
-                    return notTerminal && (t.title || t.id);
+                    const notTerminal = !['COMPLETED', 'CANCELLED', 'APPROVED'].includes(statusUpper);
+                    return notTerminal && t.id != null && t.title;
                 });
+                console.log('[AssignTask] possibleParents:', possibleParents.length, possibleParents.map(t => `#${t.id} ${t.title}`));
                 setExistingParentTasks(possibleParents);
 
                 const deptFromEmployees = normalizedEmps.map(e => {
@@ -320,8 +331,19 @@ const AssignTaskPage = () => {
                         department_id: managerDeptId || resolvedDepartmentId,
                         due_date: formData.dueDate
                     };
-                    const taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
-                    newTaskId = taskRes.data.id || taskRes.data.subtask_id || taskRes.data.data?.id;
+                    // Manager creates a subchild under a Level 2 team task via /tasks/{id}/subtasks
+                    // CFO creates a child task under a Level 1 parent via /tasks with parent_task_id
+                    let taskRes;
+                    if (isCFOSubtaskFlow) {
+                        taskRes = await api.post('/tasks', {
+                            ...payload,
+                            parent_task_id: formData.parentTaskId,
+                            task_type: 'TASK'
+                        });
+                    } else {
+                        taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
+                    }
+                    newTaskId = taskRes.data.id || taskRes.data.subtask_id || taskRes.data.data?.id || taskRes.data.task_id;
                 } else {
                     const payload = {
                         title: formData.title,
@@ -640,11 +662,15 @@ const AssignTaskPage = () => {
                                                         onChange={handleChange}
                                                     >
                                                         <option value="">Select a parent task</option>
-                                                        {existingParentTasks.map(t => (
-                                                            <option key={t.id || t.task_id} value={t.id || t.task_id}>
-                                                                {t.title}
-                                                            </option>
-                                                        ))}
+                                                        {existingParentTasks.map(t => {
+                                                            const taskId = t.id || t.task_id;
+                                                            const rawTitle = t.title || t.task_title || t.task_name || '(Untitled)';
+                                                            return (
+                                                                <option key={taskId} value={taskId}>
+                                                                    #{taskId} — {rawTitle}
+                                                                </option>
+                                                            );
+                                                        })}
                                                     </select>
                                                     {isManager && (
                                                         <>

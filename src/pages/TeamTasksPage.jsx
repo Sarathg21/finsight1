@@ -640,19 +640,16 @@ const TeamTasksPage = () => {
                 });
                 return currentExpanded; // no-op
             });
-            // Adjust total count if client-side filters removed items
-            let totalCount = rawData.total || items.length;
-            if (!rawData.total || items.length >= rawData.total) {
-                totalCount = enriched.length;
-            } else {
-                totalCount = rawData.total - (items.length - enriched.length);
-            }
-            
-            setPagination({
-                page: rawData.page || page,
-                limit: rawData.limit || pagination.limit,
-                total: Math.max(0, totalCount)
-            });
+            // Do NOT derive total count from the raw task list page — it reflects only the
+            // current page of results and will be wrong when filters apply or when the
+            // API paginates. The authoritative total comes from the metrics endpoints below.
+            // Set a temporary pagination state (page/limit only) — total will be updated
+            // by the Promise.allSettled block below once the metrics arrive.
+            setPagination(prev => ({
+                ...prev,
+                page:  rawData.page  || page,
+                limit: rawData.limit || prev.limit,
+            }));
 
             // ── Fetch accurate KPI metrics from specialized summary endpoints.
             // Normalize dates: never send empty strings to the API to avoid 422/incorrect defaults.
@@ -668,29 +665,62 @@ const TeamTasksPage = () => {
             const metricParams = {
                 from_date: safeFrom,
                 to_date:   safeTo,
-                department_id: filters.department_id || user?.department || user?.department_id || user?.dept_id
+                department_id: (filters.department_id && filters.department_id !== 'all') 
+                    ? filters.department_id 
+                    : (user?.department_id || user?.dept_id || user?.department)
             };
 
-            // Call both standard dashboard and department-specific metrics for maximum accuracy
+            // department-metrics is the SOLE source of truth for all KPI counters.
+            // manager dashboard is only a fallback; analytics is used for scores only.
             Promise.allSettled([
-                api.get('/dashboard/manager', { params: metricParams }),
                 api.get('/dashboard/manager/department-metrics', { params: metricParams }),
+                api.get('/dashboard/manager', { params: metricParams }),
                 api.get('/dashboard/manager/analytics', { params: metricParams })
             ]).then(results => {
-                const dashData = results[0].status === 'fulfilled' ? (results[0].value.data?.data || results[0].value.data || {}) : {};
-                const deptData = results[1].status === 'fulfilled' ? (results[1].value.data?.data || results[1].value.data || {}) : {};
+                const deptData = results[0].status === 'fulfilled' ? (results[0].value.data?.data || results[0].value.data || {}) : {};
+                const dashData = results[1].status === 'fulfilled' ? (results[1].value.data?.data || results[1].value.data || {}) : {};
                 const anaData  = results[2].status === 'fulfilled' ? (results[2].value.data?.data || results[2].value.data || {}) : {};
-                
+
+                console.log("[TeamTasksPage] metricParams sent:", metricParams);
+                console.log("[TeamTasksPage] deptData response:", deptData);
+                console.log("[TeamTasksPage] dashData response:", dashData);
+                console.log("[TeamTasksPage] dashData.top_kpis:", dashData.top_kpis);
+
                 const kpis = dashData.top_kpis || {};
                 const tco  = anaData.task_completion_overview || {};
-                
-                // Prioritize "Department Metrics" contract as requested by the user
+
+                // ── Source of truth: manager dashboard (131 total, 12 pending etc.)
+                // Only fall back to department-metrics if manager dashboard call failed.
+                const totalCountOfficial =
+                    (kpis.total_team_tasks     != null ? kpis.total_team_tasks     : null) ??
+                    (deptData.total_tasks      != null ? deptData.total_tasks      : null) ??
+                    (dashData.total_tasks      != null ? dashData.total_tasks      : null) ??
+                    enriched.length; // last resort: current page count
+
+                const inProgressOfficial =
+                    (kpis.in_progress_tasks     != null ? kpis.in_progress_tasks     : null) ??
+                    (deptData.in_progress_tasks != null ? deptData.in_progress_tasks : null) ??
+                    tco.in_progress_tasks ?? 0;
+
+                const pendingOfficial =
+                    (kpis.pending_approval_tasks != null ? kpis.pending_approval_tasks : null) ??
+                    (deptData.pending_approval  != null ? deptData.pending_approval  : null) ??
+                    tco.pending_tasks ?? 0;
+
+                const overdueOfficial =
+                    (kpis.overdue_tasks         != null ? kpis.overdue_tasks         : null) ??
+                    (deptData.overdue_tasks     != null ? deptData.overdue_tasks     : null) ??
+                    tco.overdue_tasks ?? 0;
+
                 setMetrics({
-                    activeTasks:       deptData.total_tasks ?? kpis.total_team_tasks ?? dashData.total_tasks ?? 0,
-                    inProgress:        deptData.in_progress_tasks ?? tco.in_progress_tasks ?? kpis.in_progress_tasks ?? 0,
-                    pendingSubmission: deptData.pending_approval ?? deptData.submitted_tasks ?? tco.pending_tasks ?? kpis.pending_approval_tasks ?? 0,
-                    overdue:           deptData.overdue_tasks ?? tco.overdue_tasks ?? kpis.overdue_tasks ?? 0
+                    activeTasks:       totalCountOfficial,
+                    inProgress:        inProgressOfficial,
+                    pendingSubmission:  pendingOfficial,
+                    overdue:           overdueOfficial,
                 });
+
+                // Now set the authoritative pagination total
+                setPagination(prev => ({ ...prev, total: totalCountOfficial }));
             }).catch(err => {
                 console.warn('[TeamTasksPage] Metrics fetch failed:', err);
                 // Fallback to minimal computation from the current page if dashboard is unreachable
@@ -956,7 +986,7 @@ const TeamTasksPage = () => {
                                 Team tasks
                                 <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
                                     <Users size={16} className="text-white" />
-                                    <span className="text-[12px] font-black text-white">{pagination.total} Live</span>
+                                    <span className="text-[12px] font-black text-white">{metrics.activeTasks || pagination.total} Live</span>
                                 </div>
                             </h1>
                             <p className="text-[11px] font-bold text-white/40 uppercase tracking-[0.15em] mt-1 ml-0.5 whitespace-nowrap">
@@ -1102,7 +1132,7 @@ const TeamTasksPage = () => {
                     </table>
                 </div>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4 bg-slate-50/50 px-8 border-t border-slate-100 text-left">
-                    <div className="text-[12px] font-bold text-slate-500">Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.total)}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} tasks</div>
+                    <div className="text-[12px] font-bold text-slate-500">Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.total)}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {metrics.activeTasks || pagination.total} tasks</div>
                     <div className="flex items-center gap-2">
                         <button onClick={() => fetchTasks(pagination.page - 1)} disabled={pagination.page <= 1} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[12px] font-black text-slate-500 hover:text-violet-600 disabled:opacity-50 transition-all shadow-sm">Prev</button>
                         {Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.limit)) }).map((_, i) => (
