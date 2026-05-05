@@ -43,36 +43,38 @@ const AssignTaskPage = () => {
     useEffect(() => {
         const fetchMetadata = async () => {
             const role = String(user?.role || '').toUpperCase();
-            const isAltRole = role === 'ADMIN' || role === 'CFO';
+            const isAdminRole   = role === 'ADMIN';
+            const isCFORole     = role === 'CFO';
             const isManagerRole = role === 'MANAGER';
-            
+
             try {
-                const taskEndpoint = isAltRole ? '/tasks' : '/tasks/team';
-                const taskParams = isAltRole 
-                    ? { scope: 'org', limit: 100, all_departments: true } 
+                // Admins have no task creation/edit rights — only fetch employees & departments
+                const taskEndpoint = isCFORole ? '/tasks' : '/tasks/team';
+                const taskParams   = isCFORole
+                    ? { scope: 'org', limit: 200, all_departments: true }
                     : { limit: 100 };
 
-                // For managers: fetch BOTH directions —
-                // A) tasks/team → tasks the manager assigned OUT to their team
-                // B) tasks/my   → tasks the CFO assigned TO the manager (like #162, #163)
-                // Both are needed because a manager can create subtasks for tasks assigned to them.
+                // Manager: also fetch tasks assigned TO them (CFO-assigned Level-1 & Level-0 parents)
                 const myTasksPromise = isManagerRole
                     ? api.get('/tasks', { params: { scope: 'mine', limit: 100 } })
                         .catch(() => ({ data: [] }))
                     : Promise.resolve({ data: [] });
 
                 const [empRes, deptRes, tasksRes, myTasksRes] = await Promise.all([
-                    api.get(isAltRole ? '/employees' : '/employees/assignable')
+                    api.get(isCFORole ? '/employees' : '/employees/assignable')
                         .catch(() => api.get('/employees'))
                         .catch(() => api.get('/employees/assignable'))
                         .catch(() => ({ data: [] })),
                     api.get('/departments')
                         .catch(() => api.get('/dashboard/cfo/departments'))
-                        .catch(() => (role === 'ADMIN' ? api.get('/admin/departments') : Promise.reject()))
+                        .catch(() => (isAdminRole ? api.get('/admin/departments') : Promise.reject()))
                         .catch(() => ({ data: [] })),
-                    api.get(taskEndpoint, { params: taskParams })
-                        .catch(() => api.get('/tasks/team', { params: { limit: 100 } }))
-                        .catch(() => ({ data: [] })),
+                    // Admin skips task fetch — pass empty result
+                    isAdminRole
+                        ? Promise.resolve({ data: [] })
+                        : api.get(taskEndpoint, { params: taskParams })
+                            .catch(() => api.get('/tasks/team', { params: { limit: 100 } }))
+                            .catch(() => ({ data: [] })),
                     myTasksPromise
                 ]);
                 
@@ -117,40 +119,56 @@ const AssignTaskPage = () => {
 
                 const normalizedEmps = normalizeEmps(extract(empRes));
                 const normalizedDepts = normalizeDepts(extract(deptRes));
-                const teamTasksData = extract(tasksRes);        // tasks manager assigned to employees
-                const myTasksData   = extract(myTasksRes);      // tasks assigned TO the manager (from CFO)
+                const teamTasksData = extract(tasksRes);    // tasks manager assigned out / CFO org tasks
+                const myTasksData   = extract(myTasksRes);  // tasks assigned TO the manager (CFO→Manager)
 
-                console.log('[AssignTask] /tasks/team count:', teamTasksData.length, teamTasksData.map(t => t.id || t.task_id));
-                console.log('[AssignTask] /tasks/my count:', myTasksData.length, myTasksData.map(t => t.id || t.task_id));
+                console.log('[AssignTask] teamTasks count:', teamTasksData.length);
+                console.log('[AssignTask] myTasks count:', myTasksData.length);
 
                 // Normalize each task so id/title are always accessible
                 const normalizeTasks = (list) => list.map(t => ({
                     ...t,
-                    id:    t.id    || t.task_id   || null,
-                    title: t.title || t.task_title || t.task_name || t.name || null,
+                    id:        t.id        || t.task_id   || null,
+                    title:     t.title     || t.task_title || t.task_name || t.name || null,
+                    task_type: (t.task_type || '').toUpperCase(),
                 }));
 
-                // Merge both sources, deduplicate by string ID
-                const allTasksMap = new Map();
-                [...normalizeTasks(teamTasksData), ...normalizeTasks(myTasksData)].forEach(t => {
-                    if (t.id != null) allTasksMap.set(String(t.id), t);
-                });
-                const tasksData = Array.from(allTasksMap.values());
-                console.log('[AssignTask] Merged unique tasks:', tasksData.length, tasksData.map(t => `#${t.id} ${t.title}`));
-                
-                // For MANAGERS: only tasks they assigned to their team (Level 2) are valid parents.
-                // Tasks from /tasks/my are CFO-assigned Level 1 parents — managers cannot subchild under those.
-                // For CFO/ADMIN: all non-terminal tasks are valid parents.
-                const validParentSource = isManagerRole
-                    ? normalizeTasks(teamTasksData)   // only team tasks (Level 2)
-                    : Array.from(allTasksMap.values()); // all tasks
+                const isParentTask = (t) =>
+                    t.task_type === 'PARENT' || t.is_parent === true || (t.subtask_count > 0);
+
+                // ── Parent dropdown rules ─────────────────────────────────────────────
+                // MANAGER: can create employee subtasks under:
+                //   • CFO-assigned Level-1 manager tasks   (from myTasksData)
+                //   • Manager-owned Level-0 standalone parent tasks (from teamTasksData where is_parent/PARENT)
+                // CFO: parent dropdown = Level-0 standalone parent tasks only (task_type === 'PARENT')
+                // ADMIN: no task creation, empty list
+                let validParentSource = [];
+                if (isManagerRole) {
+                    const normalizedTeam = normalizeTasks(teamTasksData);
+                    const normalizedMine = normalizeTasks(myTasksData);
+                    // Level-1 CFO-assigned tasks assigned to this manager
+                    const cfoAssigned = normalizedMine;
+                    // Level-0 manager-owned standalone parent tasks
+                    const ownedParents = normalizedTeam.filter(isParentTask);
+                    // Deduplicate by id
+                    const parentMap = new Map();
+                    [...cfoAssigned, ...ownedParents].forEach(t => {
+                        if (t.id != null) parentMap.set(String(t.id), t);
+                    });
+                    validParentSource = Array.from(parentMap.values());
+                } else if (isCFORole) {
+                    // CFO sees only Level-0 standalone parent tasks
+                    const allNorm = normalizeTasks(teamTasksData);
+                    validParentSource = allNorm.filter(isParentTask);
+                }
+                // isAdminRole → validParentSource stays []
 
                 const possibleParents = validParentSource.filter(t => {
                     const statusUpper = String(t.status || '').toUpperCase();
                     const notTerminal = !['COMPLETED', 'CANCELLED', 'APPROVED'].includes(statusUpper);
                     return notTerminal && t.id != null && t.title;
                 });
-                console.log('[AssignTask] possibleParents:', possibleParents.length, possibleParents.map(t => `#${t.id} ${t.title}`));
+                console.log('[AssignTask] possibleParents:', possibleParents.length, possibleParents.map(t => `#${t.id} ${t.title} [${t.task_type}]`));
                 setExistingParentTasks(possibleParents);
 
                 const deptFromEmployees = normalizedEmps.map(e => {
@@ -307,10 +325,22 @@ const AssignTaskPage = () => {
                     setSubmitting(false);
                     return;
                 }
-                // CFO SUBTASK flow: must have a manager selected
-                const isCFOSubtaskFlow = (String(user?.role || '').toUpperCase() === 'CFO' || String(user?.role || '').toUpperCase() === 'ADMIN') && formData.taskStructure === 'SUBTASK';
-                if (isCFOSubtaskFlow && !formData.managerId) {
-                    toast.error("Please select a manager to assign this subtask to.");
+                // Determine role context for submission
+                const submitRole = String(user?.role || '').toUpperCase();
+                const isSubmitAdmin   = submitRole === 'ADMIN';
+                const isSubmitCFO     = submitRole === 'CFO';
+                const isSubmitManager = submitRole === 'MANAGER';
+
+                // Admin cannot create or edit tasks
+                if (isSubmitAdmin) {
+                    toast.error('Admins do not have task creation permissions.');
+                    setSubmitting(false);
+                    return;
+                }
+
+                // CFO subtask flow requires a manager to be selected
+                if (isSubmitCFO && formData.taskStructure === 'SUBTASK' && !formData.managerId) {
+                    toast.error('Please select a manager to assign this child task to.');
                     setSubmitting(false);
                     return;
                 }
@@ -318,29 +348,33 @@ const AssignTaskPage = () => {
                 let newTaskId;
 
                 if (formData.taskStructure === 'SUBTASK') {
-                    // For CFO flow: use managerId; otherwise fall back to general assignee
-                    const subtaskAssigneeId = isCFOSubtaskFlow ? formData.managerId : formData.assignee;
-                    const selectedManager = eligibleAssignees.find(e => String(e.emp_id) === String(formData.managerId));
-                    const managerDeptId = selectedManager?.department_id || selectedManager?.department || resolvedDepartmentId;
+                    // MANAGER: create employee subtask under a Level-1 or Level-0 parent
+                    //   → POST /tasks/{parentId}/subtasks
+                    // CFO: create manager child task under a Level-0 standalone parent
+                    //   → POST /tasks with parent_task_id
+                    const subtaskAssigneeId = isSubmitCFO ? formData.managerId : formData.assignee;
+                    const selectedAssigneeObj = eligibleAssignees.find(e => String(e.emp_id) === String(subtaskAssigneeId));
+                    const assigneeDeptId = selectedAssigneeObj?.department_id || selectedAssigneeObj?.department || resolvedDepartmentId;
 
                     const payload = {
-                        title: formData.title,
-                        description: formData.description,
-                        priority: formData.priority,
-                        assigned_to_emp_id: subtaskAssigneeId,
-                        department_id: managerDeptId || resolvedDepartmentId,
-                        due_date: formData.dueDate
+                        title:               formData.title,
+                        description:         formData.description,
+                        priority:            formData.priority,
+                        assigned_to_emp_id:  subtaskAssigneeId,
+                        department_id:       assigneeDeptId || resolvedDepartmentId,
+                        due_date:            formData.dueDate
                     };
-                    // Manager creates a subchild under a Level 2 team task via /tasks/{id}/subtasks
-                    // CFO creates a child task under a Level 1 parent via /tasks with parent_task_id
+
                     let taskRes;
-                    if (isCFOSubtaskFlow) {
+                    if (isSubmitCFO) {
+                        // CFO creates a manager-level child under a Level-0 parent task
                         taskRes = await api.post('/tasks', {
                             ...payload,
                             parent_task_id: formData.parentTaskId,
                             task_type: 'TASK'
                         });
                     } else {
+                        // Manager creates an employee subtask under Level-1 (CFO-assigned) or Level-0 (own parent)
                         taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
                     }
                     newTaskId = taskRes.data.id || taskRes.data.subtask_id || taskRes.data.data?.id || taskRes.data.task_id;
@@ -383,8 +417,11 @@ const AssignTaskPage = () => {
         }
     };
 
-    const isCFO = ['CFO', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
-    const isManager = String(user?.role || '').toUpperCase() === 'MANAGER';
+    const isCFORole   = String(user?.role || '').toUpperCase() === 'CFO';
+    const isAdminRole = String(user?.role || '').toUpperCase() === 'ADMIN';
+    const isManager   = String(user?.role || '').toUpperCase() === 'MANAGER';
+    // Admin has read-only access — no task creation or editing allowed
+    const canCreateTasks = !isAdminRole;
 
     return (
         <div className="max-w-2xl mx-auto space-y-6 animate-fade-in mt-4">
@@ -401,6 +438,16 @@ const AssignTaskPage = () => {
                 </div>
             </div>
 
+            {/* Admin cannot create or edit tasks */}
+            {isAdminRole && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center">
+                    <div className="text-3xl mb-2">🔒</div>
+                    <h2 className="text-[15px] font-black text-rose-700">Access Restricted</h2>
+                    <p className="text-[12px] text-rose-500 font-medium mt-1">Admins have read-only access. Task creation and editing is reserved for Managers and CFO.</p>
+                    <button onClick={() => navigate(-1)} className="mt-4 px-5 py-2 bg-rose-600 text-white text-[12px] font-bold rounded-xl hover:bg-rose-700 transition">Go Back</button>
+                </div>
+            )}
+
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Row: Task Title + Task Type toggle */}
@@ -414,7 +461,7 @@ const AssignTaskPage = () => {
                                 name="title"
                                 required
                                 className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 text-[14px]"
-                                placeholder={isCFO ? 'e.g. Q3 Performance Review' : 'e.g. Prepare Q2 variance analysis'}
+                                placeholder={isCFORole ? 'e.g. Q3 Performance Review' : 'e.g. Prepare Q2 variance analysis'}
                                 value={formData.title}
                                 onChange={handleChange}
                             />
@@ -495,7 +542,7 @@ const AssignTaskPage = () => {
                                         ))
                                     )}
                                 </select>
-                                {!isCFO && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
+                                {!isCFORole && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
                             </div>
                         )}
                         <div>
@@ -532,7 +579,7 @@ const AssignTaskPage = () => {
 
                     {/* Task Type card — only for CFO (Manager has inline toggle above) */}
                     <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-4">
-                        {isCFO && (
+                        {isCFORole && (
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
@@ -638,7 +685,7 @@ const AssignTaskPage = () => {
 
                                 {/* Subtask parent + manager selector */}
                                 {formData.taskStructure === 'SUBTASK' && (() => {
-                                    const isCFORole = ['CFO', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
+                                    const isCFORole = String(user?.role || '').toUpperCase() === 'CFO';
                                     const managers = eligibleAssignees.filter(e =>
                                         (e.role || '').toUpperCase() === 'MANAGER'
                                     );
@@ -675,11 +722,11 @@ const AssignTaskPage = () => {
                                                     {isManager && (
                                                         <>
                                                             <p className="text-[10px] text-slate-400 font-medium mt-1">
-                                                                Tasks assigned to you or created by you.
+                                                                CFO-assigned tasks &amp; your own parent tasks.
                                                             </p>
                                                             <div className="flex gap-1.5 mt-1.5">
-                                                                <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[9px] font-bold text-indigo-600">CFO-assigned</span>
-                                                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[9px] font-bold text-emerald-600">Department</span>
+                                                                <span className="px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-[9px] font-bold text-indigo-600">CFO-assigned Level-1</span>
+                                                                <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-[9px] font-bold text-emerald-600">Your Level-0 Parents</span>
                                                             </div>
                                                         </>
                                                     )}
