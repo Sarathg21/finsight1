@@ -244,48 +244,67 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
                 <td className="py-2 px-4 text-right pr-6">
                   <div className="flex justify-end gap-1 flex-nowrap items-center">
 
-                    {/* SUBMITTED → Approve / Rework */}
-                    {task.status === 'SUBMITTED' && (
-                      <>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onApprove(task.id); }}
-                          className="px-3 py-1.5 bg-[#10B981] text-white text-[11px] font-bold rounded-lg hover:bg-emerald-600 transition shadow-sm flex items-center gap-1"
-                        >
-                          <Check size={12} /> Approve
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onRework(task); }}
-                          className="px-3 py-1.5 bg-[#F59E0B] text-white text-[11px] font-bold rounded-lg hover:bg-amber-600 transition shadow-sm flex items-center gap-1"
-                        >
-                          <RotateCcw size={12} /> Rework
-                        </button>
-                      </>
-                    )}
+                    {/* RULE: only the task's assigner can approve/rework/reassign/cancel */}
+                    {(() => {
+                      const taskAssignedBy = task.assigned_by || task.assigned_by_emp_id;
+                      const isAssigner = String(taskAssignedBy) === String(user?.id);
 
-                    {/* Reassign */}
-                    {!['APPROVED', 'CANCELLED'].includes(task.status) && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onReassign(task); }}
-                        className="px-3 py-1.5 bg-[#4285F4] text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition shadow-sm flex items-center gap-1"
-                      >
-                        <ArrowLeftRight size={12} /> Reassign
-                      </button>
-                    )}
+                      if (!isAssigner) {
+                        return (
+                          <span
+                            className="text-[11px] text-slate-300 italic cursor-not-allowed"
+                            title="Only the person who assigned this task can approve, reassign, or cancel it"
+                          >locked</span>
+                        );
+                      }
 
-                    {/* Cancel */}
-                    {!['APPROVED', 'CANCELLED'].includes(task.status) && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onCancel(task.id); }}
-                        className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm flex items-center gap-1"
-                      >
-                        <X size={12} /> Cancel
-                      </button>
-                    )}
+                      return (
+                        <>
+                          {/* SUBMITTED → Approve / Rework */}
+                          {task.status === 'SUBMITTED' && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onApprove(task.id); }}
+                                className="px-3 py-1.5 bg-[#10B981] text-white text-[11px] font-bold rounded-lg hover:bg-emerald-600 transition shadow-sm flex items-center gap-1"
+                              >
+                                <Check size={12} /> Approve
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onRework(task); }}
+                                className="px-3 py-1.5 bg-[#F59E0B] text-white text-[11px] font-bold rounded-lg hover:bg-amber-600 transition shadow-sm flex items-center gap-1"
+                              >
+                                <RotateCcw size={12} /> Rework
+                              </button>
+                            </>
+                          )}
 
-                    {/* Terminal states */}
-                    {['APPROVED', 'CANCELLED'].includes(task.status) && (
-                      <span className="text-[11px] text-slate-300 italic">-</span>
-                    )}
+                          {/* Reassign */}
+                          {!['APPROVED', 'CANCELLED'].includes(task.status) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onReassign(task); }}
+                              className="px-3 py-1.5 bg-[#4285F4] text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition shadow-sm flex items-center gap-1"
+                            >
+                              <ArrowLeftRight size={12} /> Reassign
+                            </button>
+                          )}
+
+                          {/* Cancel */}
+                          {!['APPROVED', 'CANCELLED'].includes(task.status) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onCancel(task.id); }}
+                              className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm flex items-center gap-1"
+                            >
+                              <X size={12} /> Cancel
+                            </button>
+                          )}
+
+                          {/* Terminal states */}
+                          {['APPROVED', 'CANCELLED'].includes(task.status) && (
+                            <span className="text-[11px] text-slate-300 italic">-</span>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </td>
               </tr>
@@ -454,43 +473,57 @@ const ActionTaskTable = ({
                     )}
 
                     {/* ── MANAGER REVIEWER ACTIONS: APPROVE / REWORK / REASSIGN / CANCEL
-                        Team view: APPROVE/REWORK only for tasks NOT assigned to the manager themselves */}
-                    {user?.role?.toUpperCase() === "MANAGER" && viewMode === "team" && (
-                      <>
-                        {task.status === "SUBMITTED" && String(task.employee_id) !== String(user?.id) && (
-                          <>
+                        RULE: only the task's assigner can act — role alone is not enough */}
+                    {user?.role?.toUpperCase() === "MANAGER" && viewMode === "team" && (() => {
+                      const taskAssignedBy = task.assigned_by || task.assigned_by_emp_id;
+                      const isAssigner = String(taskAssignedBy) === String(user?.id);
+
+                      if (!isAssigner) {
+                        return (
+                          <span
+                            className="text-[11px] text-slate-300 italic cursor-not-allowed"
+                            title="Only the person who assigned this task can approve, reassign, or cancel it"
+                          >locked</span>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {task.status === "SUBMITTED" && String(task.employee_id) !== String(user?.id) && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "APPROVE"); }}
+                                className="px-3 py-1.5 bg-[#10B981] text-white text-[11px] font-bold rounded-lg hover:bg-emerald-600 transition shadow-sm flex items-center gap-1"
+                              >
+                                <Check size={12} /> Approve
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onRework(task); }}
+                                className="px-3 py-1.5 bg-[#F59E0B] text-white text-[11px] font-bold rounded-lg hover:bg-amber-600 transition shadow-sm flex items-center gap-1"
+                              >
+                                <RotateCcw size={12} /> Rework
+                              </button>
+                            </>
+                          )}
+                          {!['APPROVED', 'CANCELLED'].includes(task.status) && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onStatusChange(task.id, "APPROVE"); }}
-                              className="px-3 py-1.5 bg-[#10B981] text-white text-[11px] font-bold rounded-lg hover:bg-emerald-600 transition shadow-sm flex items-center gap-1"
+                              onClick={(e) => { e.stopPropagation(); onReassign(task); }}
+                              className="px-3 py-1.5 bg-[#4285F4] text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition shadow-sm flex items-center gap-1"
                             >
-                              <Check size={12} /> Approve
+                              <ArrowLeftRight size={12} /> Reassign
                             </button>
+                          )}
+                          {!["APPROVED", "CANCELLED"].includes(task.status) && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); onRework(task); }}
-                              className="px-3 py-1.5 bg-[#F59E0B] text-white text-[11px] font-bold rounded-lg hover:bg-amber-600 transition shadow-sm flex items-center gap-1"
+                              onClick={(e) => { e.stopPropagation(); onCancel(task.id); }}
+                              className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm flex items-center gap-1"
                             >
-                              <RotateCcw size={12} /> Rework
+                              <X size={12} /> Cancel
                             </button>
-                          </>
-                        )}
-                        {!['APPROVED', 'CANCELLED'].includes(task.status) && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onReassign(task); }}
-                            className="px-3 py-1.5 bg-[#4285F4] text-white text-[11px] font-bold rounded-lg hover:bg-blue-600 transition shadow-sm flex items-center gap-1"
-                          >
-                            <ArrowLeftRight size={12} /> Reassign
-                          </button>
-                        )}
-                        {!["APPROVED", "CANCELLED"].includes(task.status) && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onCancel(task.id); }}
-                            className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded-lg hover:bg-rose-600 transition shadow-sm flex items-center gap-1"
-                          >
-                            <X size={12} /> Cancel
-                          </button>
-                        )}
-                      </>
-                    )}
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </td>
               </tr>

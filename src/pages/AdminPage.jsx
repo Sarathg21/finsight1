@@ -134,17 +134,45 @@ const AdminPage = () => {
   };
 
   const handleUpdateEmployee = async (data, originalId) => {
-    try {
-      const targetId = originalId || data.emp_id;
-      await api.patch(`/employees/${targetId}`, data);
-      toast.success("Profile updated.");
-      fetchInitialData();
-      setEditingEmployee(null);
-    } catch (err) {
-      console.error("Update failed", err);
-      toast.error(err.response?.data?.message || err.response?.data?.detail || "Update failed.");
-    }
+    const targetId = originalId || data.emp_id;
+
+    const res = await api.patch(`/employees/${targetId}`, data);
+    const responseEmployee = res?.data?.data || res?.data || null;
+
+    console.log('[AdminPage] PATCH payload sent:', data);
+    console.log('[AdminPage] PATCH response from server:', responseEmployee);
+
+    toast.success("Profile updated successfully.");
+
+    // Merge: old state → what we sent → server-confirmed values
+    // Phone stays visible from form data even if backend doesn't store it
+    setEmployees(prev => prev.map(emp => {
+      if (emp.emp_id !== targetId && emp.id !== targetId) return emp;
+      const serverFields =
+        responseEmployee && (responseEmployee.emp_id || responseEmployee.id || responseEmployee.name)
+          ? responseEmployee
+          : {};
+      return { ...emp, ...data, ...serverFields };
+    }));
+
+    setEditingEmployee(null);
+
+    // After refetch, re-merge to preserve local-only fields (e.g. phone) backend doesn't return
+    setTimeout(async () => {
+      const [empRes] = await Promise.all([
+        api.get('/employees').catch(() => ({ data: [] }))
+      ]);
+      const fresh = Array.isArray(empRes.data) ? empRes.data : [];
+      setEmployees(prev => prev.map(emp => {
+        const freshRecord = fresh.find(f => f.emp_id === emp.emp_id || f.id === emp.id);
+        if (!freshRecord) return emp;
+        // Preserve local fields that backend doesn't return (phone etc.)
+        return { ...emp, ...freshRecord };
+      }));
+    }, 2000);
   };
+
+
 
   const handleAddEmployee = async (data) => {
     try {
@@ -175,7 +203,7 @@ const AdminPage = () => {
                 <EmployeeFormModal
                   onClose={() => { setShowAddModal(false); setEditingEmployee(null); }}
                   onAdd={handleAddEmployee}
-                  onEdit={(data) => handleUpdateEmployee(data, editingEmployee?.emp_id || editingEmployee?.id)}
+                  onEdit={(data, originalId) => handleUpdateEmployee(data, originalId || editingEmployee?.emp_id || editingEmployee?.id)}
                   initialData={editingEmployee}
                   managers={employees.filter(e => ['ADMIN', 'CFO', 'MANAGER'].includes(String(e.role || '').toUpperCase()))}
                   departments={departments}

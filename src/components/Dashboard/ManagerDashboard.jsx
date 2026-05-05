@@ -262,6 +262,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const [riskTo, setRiskTo] = useState(getToday());
     const [riskLoading, setRiskLoading] = useState(false);
     const [liveTasks, setLiveTasks] = useState([]);
+    const [bifurcationTasks, setBifurcationTasks] = useState([]);
     const [riskShowAll, setRiskShowAll] = useState(false);
 
     const formatTimeAgo = (dateStr) => {
@@ -308,7 +309,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 api.get('/dashboard/manager/employee-risk', { params }),
                 api.get('/dashboard/manager/team-performance', { params }),
                 api.get('/dashboard/manager/analytics', { params }),
-                api.get('/tasks', { params: { ...params, limit: 200, scope: currentDeptId && currentDeptId !== 'all' ? 'department' : 'org' } })
+                api.get('/tasks/team', { params: { limit: 100, page: 1 } })
             ]);
 
             const [
@@ -347,8 +348,45 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             }
 
             if (tasksRes.status === 'fulfilled') {
-                const tList = tasksRes.value.data?.data || tasksRes.value.data || [];
-                setLiveTasks(tList);
+                // Read the raw envelope BEFORE narrowing to the data array,
+                // so we can still read `total` for pagination.
+                const envelope = tasksRes.value.data || {};
+                // Support: { data:[...], total:N } OR flat array response
+                const firstPage = Array.isArray(envelope)
+                    ? envelope
+                    : Array.isArray(envelope.data)
+                        ? envelope.data
+                        : (envelope.items || []);
+                // Pull total from envelope (works for both nested and flat shapes)
+                const totalCount = (!Array.isArray(envelope) && envelope.total)
+                    ? envelope.total
+                    : firstPage.length;
+
+                if (totalCount > firstPage.length) {
+                    // Paginate to collect ALL team tasks — mirrors TeamTasksPage behaviour
+                    const allItems = [...firstPage];
+                    const totalPages = Math.ceil(totalCount / 100);
+                    const pagePromises = [];
+                    for (let p = 2; p <= Math.min(totalPages, 20); p++) {
+                        pagePromises.push(
+                            api.get('/tasks/team', { params: { limit: 100, page: p } })
+                               .then(r => {
+                                   const env = r.data || {};
+                                   return Array.isArray(env)
+                                       ? env
+                                       : Array.isArray(env.data)
+                                           ? env.data
+                                           : (env.items || []);
+                               })
+                               .catch(() => [])
+                        );
+                    }
+                    const extra = await Promise.all(pagePromises);
+                    extra.forEach(batch => allItems.push(...batch));
+                    setLiveTasks(allItems);
+                } else {
+                    setLiveTasks(firstPage);
+                }
             }
 
         } catch (err) {
@@ -406,6 +444,85 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     };
 
 
+    // ── Fetch ALL team tasks using the same sequential-page pattern as TeamTasksPage
+    //    This is the source of truth for the Bifurcation chart, guaranteeing the
+    //    total matches the "X Live" count on the Team Tasks page.
+    const fetchBifurcationTasks = async () => {
+        try {
+            let allItems = [];
+            let currentPage = 1;
+            const PAGE_LIMIT = 100;
+            const SAFETY_CAP = 2000;
+
+            while (allItems.length < SAFETY_CAP) {
+                const res = await api.get('/tasks/team', {
+                    params: { limit: PAGE_LIMIT, page: currentPage }
+                });
+                const raw = res.data?.data || res.data || {};
+                const batch = Array.isArray(raw) ? raw : (raw.items || raw.data || []);
+                if (batch.length === 0) break;
+                allItems = [...allItems, ...batch];
+                if (batch.length < PAGE_LIMIT) break; // last page reached
+                currentPage++;
+            }
+
+            // Mirror TeamTasksPage: also fetch department-scoped tasks to catch
+            // CFO-assigned tasks that /tasks/team may not return for this manager.
+            try {
+                const deptRes = await api.get('/tasks', {
+                    params: { scope: 'department', limit: 200 }
+                });
+                const deptRaw = deptRes.data?.data || deptRes.data || {};
+                const deptItems = Array.isArray(deptRaw) ? deptRaw : (deptRaw.items || deptRaw.data || []);
+
+                // Deduplicate by task ID
+                const merged = [...allItems, ...deptItems];
+                const uniqueMap = new Map();
+                merged.forEach(t => {
+                    const id = t.task_id || t.id;
+                    if (id && !uniqueMap.has(id)) uniqueMap.set(id, t);
+                });
+                allItems = Array.from(uniqueMap.values());
+            } catch (e) {
+                console.warn('[ManagerDashboard] Department fallback fetch failed:', e);
+            }
+
+            // Mirror TeamTasksPage exactly: exclude manager's own standalone tasks
+            const metricParentIds = new Set(
+                allItems.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
+            );
+            
+            const filteredItems = allItems.filter(t => {
+                const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
+                const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
+                
+                if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) {
+                    const taskId = String(t.task_id || t.id);
+                    const isParentTask =
+                        t.task_type === 'PARENT' ||
+                        t.has_subtasks === true ||
+                        t.is_parent === true ||
+                        (t.subtask_count || 0) > 0 ||
+                        metricParentIds.has(taskId);
+                    
+                    if (!isParentTask) return false; // Exclude standalone self-tasks
+                }
+                return true;
+            });
+
+            setBifurcationTasks(filteredItems);
+        } catch (err) {
+            console.warn('[ManagerDashboard] bifurcation fetch failed:', err);
+        }
+    };
+
+
+    useEffect(() => {
+        if (user?.id) {
+            fetchBifurcationTasks();
+        }
+    }, [user?.id, currentDeptId]);
+
     useEffect(() => {
         if (user?.id) {
             fetchDashboardData();
@@ -441,13 +558,14 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         if (Array.isArray(liveTasks) && liveTasks.length > 0) {
             const today = new Date();
             
-            // Filter liveTasks to ONLY those within the current fromDate/toDate range
+            // liveTasks contains ALL team tasks (no date filter).
+            // Apply date range client-side so the KPI cards respect the dashboard date picker.
             const filteredTasks = liveTasks.filter(t => {
                 const ds = t.date || t.created_at || t.assigned_date || t.assigned_at;
-                if (!ds) return false;
+                if (!ds) return true; // no date info → include
                 const d = toDateKey(ds);
                 if (fromDate && d < fromDate) return false;
-                if (toDate && d > toDate) return false;
+                if (toDate   && d > toDate)   return false;
                 return true;
             });
 
@@ -1198,19 +1316,39 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     <p className="text-[10px] font-semibold text-slate-400 capitalize  tracking-widest mb-4">Breakdown of department tasks by current status</p>
                     {(() => {
                         const dd = dashboardData || {};
-                        const tsb = dd.team_status_bifurcation || {};
-                        const st  = tsb.statuses || {};
-                        const getCount = (key, flatFallback) =>
-                            st[key]?.count ?? st[key] ?? flatFallback ?? 0;
-                        const rows = [
-                            { label: 'Not Started', value: getCount('NEW',        dd.new_tasks),        fill: '#3b82f6', pct: 0 },
-                            { label: 'In Progress',value: getCount('IN_PROGRESS', dd.in_progress_tasks),fill: '#8b5cf6', pct: 0 },
-                            { label: 'Submitted',  value: getCount('SUBMITTED',   dd.submitted_tasks),  fill: '#f59e0b', pct: 0 },
-                            { label: 'Approved',   value: getCount('APPROVED',    dd.approved_tasks),   fill: '#10b981', pct: 0 },
-                            { label: 'Rework',     value: getCount('REWORK',      dd.rework_tasks),     fill: '#ef4444', pct: 0 },
-                            { label: 'Cancelled',  value: getCount('CANCELLED',   dd.cancelled_tasks),  fill: '#94a3b8', pct: 0 },
-                        ];
-                        const total = (tsb.total_tasks ?? rows.reduce((s, r) => s + r.value, 0)) || 1;
+
+                        // ── bifurcationTasks is fetched fresh from /tasks/team with full
+                        //    sequential pagination — same approach as TeamTasksPage metrics.
+                        //    CANCELLED tasks are already excluded in fetchBifurcationTasks.
+                        let rows;
+                        if (bifurcationTasks.length > 0) {
+                            const countBy = (s) =>
+                                bifurcationTasks.filter(t => (t.status || '').toUpperCase() === s).length;
+                            rows = [
+                                { label: 'Not Started', value: countBy('NEW') + countBy('NOT_STARTED'), fill: '#3b82f6', pct: 0 },
+                                { label: 'In Progress', value: countBy('IN_PROGRESS'),                  fill: '#8b5cf6', pct: 0 },
+                                { label: 'Submitted',   value: countBy('SUBMITTED'),                    fill: '#f59e0b', pct: 0 },
+                                { label: 'Approved',    value: countBy('APPROVED'),                     fill: '#10b981', pct: 0 },
+                                { label: 'Rework',      value: countBy('REWORK'),                       fill: '#ef4444', pct: 0 },
+                                { label: 'Cancelled',   value: countBy('CANCELLED'),                    fill: '#9ca3af', pct: 0 },
+                            ];
+                        } else {
+                            // Fallback: backend aggregate while bifurcationTasks is loading
+                            const tsb = dd.team_status_bifurcation || {};
+                            const st  = tsb.statuses || {};
+                            const getCount = (key, flatFallback) =>
+                                st[key]?.count ?? st[key] ?? flatFallback ?? 0;
+                            rows = [
+                                { label: 'Not Started', value: getCount('NEW',         dd.new_tasks),         fill: '#3b82f6', pct: 0 },
+                                { label: 'In Progress', value: getCount('IN_PROGRESS', dd.in_progress_tasks), fill: '#8b5cf6', pct: 0 },
+                                { label: 'Submitted',   value: getCount('SUBMITTED',   dd.submitted_tasks),   fill: '#f59e0b', pct: 0 },
+                                { label: 'Approved',    value: getCount('APPROVED',    dd.approved_tasks),    fill: '#10b981', pct: 0 },
+                                { label: 'Rework',      value: getCount('REWORK',      dd.rework_tasks),      fill: '#ef4444', pct: 0 },
+                                { label: 'Cancelled',   value: getCount('CANCELLED',   dd.cancelled_tasks),   fill: '#9ca3af', pct: 0 },
+                            ];
+                        }
+
+                        const total = rows.reduce((s, r) => s + r.value, 0) || 1;
                         rows.forEach(r => { r.pct = Math.round((r.value / total) * 100); });
                         const donutD = rows.filter(r => r.value > 0).map(r => ({ name: r.label, value: r.value, fill: r.fill }));
                         return (

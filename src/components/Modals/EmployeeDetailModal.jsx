@@ -88,13 +88,16 @@ const EmployeeDetailModal = ({ employee, departments = [], allEmployees = [], on
                                     <div className="flex items-center gap-2 text-[13px] text-slate-600">
                                         <Calendar size={14} className="text-violet-400 shrink-0" />
                                         Start:{' '}
-                                        {employee.created_at
-                                            ? new Date(employee.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                            : 'April 20, 2024'}
+                                        {(() => {
+                                            const raw = employee.join_date || employee.joining_date || employee.start_date || employee.date_of_joining || employee.created_at;
+                                            if (!raw) return 'Not set';
+                                            const d = new Date(raw);
+                                            return isNaN(d.getTime()) ? raw : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                                        })()}
                                     </div>
                                     <div className="flex items-center gap-2 text-[13px] text-slate-600">
                                         <span className="text-violet-400 text-[11px] font-semibold">DEPT</span>
-                                        {employee.department_id || employee.department || '—'}
+                                        {employee.department_name || employee.department || employee.department_id || '—'}
                                     </div>
                                     <div className="flex items-center gap-2 text-[13px] text-slate-600">
                                         <span className="text-violet-400 text-[11px] font-semibold">MANAGER</span>
@@ -131,7 +134,7 @@ const EmployeeDetailModal = ({ employee, departments = [], allEmployees = [], on
                                 </div>
                                 <div className="space-y-1.5">
                                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Department</p>
-                                    <p className="text-[15px] font-bold text-slate-700">{employee.department_id || employee.department || '—'}</p>
+                                    <p className="text-[15px] font-bold text-slate-700">{employee.department_name || employee.department || employee.department_id || '—'}</p>
                                 </div>
                                 <div className="space-y-1.5">
                                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Reporting Manager</p>

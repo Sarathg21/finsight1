@@ -34,9 +34,10 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
     const taskId = task?.task_id || task?.id || '???';
     const title = task?.task_title || task?.title || 'Untitled Subtask';
     const assignedTo = task?.assigned_to_name || 'Unassigned';
-    const rawDueDate = task?.due_date || '';
-    const dueDate = rawDueDate ? fmtDate(new Date(rawDueDate), 'MMM d, yyyy') : 'N/A';
     const status = task?.status || 'N/A';
+    const rawDueDate = task?.due_date || '';
+    const dueDateShort = rawDueDate ? fmtDate(new Date(rawDueDate), 'yy-MM-dd') : 'N/A';
+    const isOverdue = dueDateShort !== 'N/A' && new Date(rawDueDate) < new Date() && !['APPROVED', 'CANCELLED'].includes(status);
     const severity = task?.severity || 'LOW';
     const taskLevel = task?.task_level ?? 1;
     // indent based on level: level 1 = pl-12, level 2 = pl-20
@@ -92,21 +93,20 @@ const SubtaskRow = ({ task, renderStatusBadge, renderSeverityTag, isLast, taskTi
             <td className="py-2.5 px-4 text-left">
                 <span className="text-slate-400 text-[10px] font-medium italic">-</span>
             </td>
-            <td className="py-2.5 px-4 text-left">
-                <span className="text-slate-400 text-[10.5px] font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden">
+            <td className="py-2.5 px-4 text-left whitespace-nowrap">
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                     {task.assigned_at || task.assigned_date || task.created_at
-                        ? fmtDate(
-                            new Date(task.assigned_at || task.assigned_date || task.created_at),
-                            'yyyy-MM-dd'
-                        )
+                        ? fmtDate(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
                         : '-'}
                 </span>
             </td>
             <td className="py-2.5 px-4 text-left">
-                <span className="text-[12.5px] font-bold text-slate-600 truncate max-w-[120px] inline-block">{assignedTo}</span>
+                <span className="text-[11px] font-black text-indigo-600 truncate max-w-[100px] block tracking-tighter">{assignedTo}</span>
             </td>
-            <td className="py-2.5 px-4 text-left">
-                <span className="text-[10.5px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap overflow-hidden">{dueDate}</span>
+            <td className="py-2.5 px-4 text-left whitespace-nowrap">
+                <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${isOverdue ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
+                    <span className="text-[9px] font-black tracking-tighter uppercase">{dueDateShort}</span>
+                </div>
             </td>
             <td className="py-2.5 px-4 text-center">
                 {renderStatusBadge?.(status)}
@@ -161,13 +161,13 @@ const TaskRow = ({
     const isOverdue = dueDate !== 'N/A' && new Date(rawDueDateMain) < new Date() && !['APPROVED', 'CANCELLED'].includes(status);
     const parentTitle = task.parent_task_title || task.parent_task_name || task.parent_directive_title || (task.parent_task_id && task.parent_task_id !== '-' ? taskTitles[task.parent_task_id] : '');
 
-    // Managers can only act on tasks THEY assigned. CFO/Admin can act on all tasks.
-    const isManager = user?.role?.toUpperCase() === 'MANAGER';
+    // RULE: Only the person who assigned this task can approve, rework, reassign, or cancel it.
+    // No role-based override — CFO cannot act on tasks assigned by a Manager (and vice versa).
     const taskAssignedByEmpId =
         task?.assigned_by_emp_id ?? task?.assigned_by_id ?? task?.created_by_emp_id ?? task?.created_by;
     const isAssignedByCurrentUser =
         String(taskAssignedByEmpId) === String(user?.emp_id || user?.id);
-    const canManageTask = !isManager || isAssignedByCurrentUser;
+    const canManageTask = isAssignedByCurrentUser;
 
     const handleRowClick = () => {
         if (!onViewDetails) return;
@@ -263,11 +263,11 @@ const TaskRow = ({
                 <td className="py-1 px-4 text-right pr-6">
                     <div className="flex justify-end gap-1.5">
                         {!canManageTask ? (
-                            // Manager viewing a task assigned by CFO/other role — no actions allowed
+                            // Only the assigner can approve, reassign, or cancel — show lock for everyone else
                             <button
                                 onClick={(e) => e.stopPropagation()}
                                 className="p-2 text-slate-200 cursor-not-allowed"
-                                title="Assigned by another manager/CFO — no actions available"
+                                title="Only the person who assigned this task can approve, reassign, or cancel it"
                             >
                                 <ChevronRight size={14} />
                             </button>
@@ -397,7 +397,27 @@ const TeamTasksPage = () => {
             });
             const res = await api.get('/tasks/team', { params });
             const rawData = res.data?.data || res.data || {};
-            const items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
+            let items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
+
+            // For managers, also fetch from /tasks with scope 'department' to get CFO-assigned team tasks
+            if (user?.role?.toUpperCase() === 'MANAGER') {
+                try {
+                    const deptParams = { ...params, scope: 'department', limit: 100 };
+                    const deptRes = await api.get('/tasks', { params: deptParams });
+                    const deptRaw = deptRes.data?.data || deptRes.data || {};
+                    const deptItems = Array.isArray(deptRaw) ? deptRaw : (deptRaw.items || deptRaw.data || []);
+                    
+                    const merged = [...items, ...deptItems];
+                    const uniqueMap = new Map();
+                    merged.forEach(t => {
+                        const id = t.task_id || t.id;
+                        if (id && !uniqueMap.has(id)) uniqueMap.set(id, t);
+                    });
+                    items = Array.from(uniqueMap.values());
+                } catch (e) {
+                    console.warn('Failed to fetch department tasks fallback', e);
+                }
+            }
 
             const employeeFilterId = String(filters.assigned_to_emp_id || '').trim();
             const getTaskAssigneeId = (t) =>
@@ -412,12 +432,32 @@ const TeamTasksPage = () => {
 
             // Exclude CANCELLED tasks and MANAGER's own tasks from the team view
             const now = new Date();
+
+            // Build set of parent IDs so we know which tasks have child tasks in this response
+            const parentIdsInResponse = new Set(
+                items.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
+            );
+
             const filteredItems = items.filter(t => {
                 const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
                 // Only compare actual assignee fields — never fall back to task.id
                 const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
                 const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
-                if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) return false;
+
+                // Exclude a manager's own task from Team Tasks ONLY if it is a standalone
+                // leaf task (no subtasks). If the task is a parent whose children are
+                // assigned to team members it must remain visible so the hierarchy renders.
+                if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) {
+                    const taskId = String(t.task_id || t.id);
+                    const isParentTask =
+                        t.task_type === 'PARENT' ||
+                        t.has_subtasks === true ||
+                        t.is_parent === true ||
+                        (t.subtask_count || 0) > 0 ||
+                        parentIdsInResponse.has(taskId);
+                    // Keep parent tasks so their subtasks (assigned to team) remain visible
+                    if (!isParentTask) return false;
+                }
 
                 if (isCancelled) return false;
 
@@ -467,6 +507,37 @@ const TeamTasksPage = () => {
             }));
 
             setTasks(enriched);
+
+            // Eagerly fetch subtasks for all tasks in the current view
+            // This ensures the "expand" button appears even if the backend misses the flag,
+            // and it makes the subtasks immediately visible.
+            enriched.forEach(task => {
+                const taskId = task.task_id || task.id;
+                if (!taskId) return;
+                api.get(`/tasks/${taskId}/subtasks`).then(res => {
+                    const subs = res.data?.data || res.data || [];
+                    const subsArray = Array.isArray(subs) ? subs : [];
+                    if (subsArray.length > 0) {
+                        setSubtasksMap(p => ({
+                            ...p,
+                            [taskId]: subsArray.map(s => ({
+                                ...s,
+                                parent_task_id: s.parent_task_id ?? taskId,
+                                parent_task_title: s.parent_task_title || task.task_title || task.title || ''
+                            }))
+                        }));
+                        setTasks(currentTasks => currentTasks.map(t => 
+                            String(t.task_id || t.id) === String(taskId) ? { ...t, has_subtasks: true } : t
+                        ));
+                        // Optionally auto-expand to ensure they are immediately seen by the user
+                        setExpandedTasks(prev => {
+                            const next = new Set(prev);
+                            next.add(taskId);
+                            return next;
+                        });
+                    }
+                }).catch(() => {});
+            });
 
             // Re-fetch subtasks for any currently-expanded parents so newly added
             // subtasks (e.g. assigned to EMP_AP2, EMP_AP3) are immediately visible.
@@ -525,10 +596,34 @@ const TeamTasksPage = () => {
                             params: { ...baseMetricParams, limit: PAGE_LIMIT, page: currentPage }
                         });
                         const raw = res.data?.data || res.data || {};
-                        const batch = Array.isArray(raw) ? raw : (raw.items || raw.data || []);
+                        let batch = Array.isArray(raw) ? raw : (raw.items || raw.data || []);
+                        
+                        if (user?.role?.toUpperCase() === 'MANAGER') {
+                            try {
+                                const deptRes = await api.get('/tasks', {
+                                    params: { ...baseMetricParams, scope: 'department', limit: PAGE_LIMIT, page: currentPage }
+                                });
+                                const deptRaw = deptRes.data?.data || deptRes.data || {};
+                                const deptBatch = Array.isArray(deptRaw) ? deptRaw : (deptRaw.items || deptRaw.data || []);
+                                
+                                const merged = [...batch, ...deptBatch];
+                                const uniqueMap = new Map();
+                                merged.forEach(t => {
+                                    const id = t.task_id || t.id;
+                                    if (id && !uniqueMap.has(id)) uniqueMap.set(id, t);
+                                });
+                                batch = Array.from(uniqueMap.values());
+                            } catch (e) {
+                                console.warn('Failed to fetch department tasks for metrics', e);
+                            }
+                        }
+
                         if (batch.length === 0) break;
                         allItems = [...allItems, ...batch];
-                        if (batch.length < PAGE_LIMIT) break; // last page
+                        if (batch.length < PAGE_LIMIT && !(user?.role?.toUpperCase() === 'MANAGER')) break; // last page
+                        // If it's a manager, we keep paginating until both endpoints return 0 items
+                        // For simplicity, we just check if batch size is less than PAGE_LIMIT to break.
+                        if (batch.length < PAGE_LIMIT) break;
                         currentPage++;
                     }
                     return allItems;
@@ -536,11 +631,25 @@ const TeamTasksPage = () => {
 
                 fetchAllPages().then(metricItems => {
                     const now3 = new Date();
+                    // Build parent-ID set for metric items to apply the same parent-retention logic
+                    const metricParentIds = new Set(
+                        metricItems.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
+                    );
                     const allTeam = metricItems.filter(t => {
                         const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
                         const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
                         const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
-                        if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) return false;
+                        if (user?.role?.toUpperCase() === 'MANAGER' && isSelf) {
+                            const taskId = String(t.task_id || t.id);
+                            const isParentTask =
+                                t.task_type === 'PARENT' ||
+                                t.has_subtasks === true ||
+                                t.is_parent === true ||
+                                (t.subtask_count || 0) > 0 ||
+                                metricParentIds.has(taskId);
+                            // Only exclude if it is truly a standalone (non-parent) task
+                            if (!isParentTask) return false;
+                        }
                         return !isCancelled;
                     });
                     setMetrics({
@@ -939,9 +1048,9 @@ const TeamTasksPage = () => {
                                 <TaskRow
                                     key={task?.task_id || task?.id || idx}
                                     task={task}
-                                    expanded={expandedTasks.has(task?.task_id)}
-                                    subtasks={subtasksMap[task?.task_id] || []}
-                                    onToggle={() => toggleExpand(task?.task_id)}
+                                    expanded={expandedTasks.has(task?.task_id || task?.id)}
+                                    subtasks={subtasksMap[task?.task_id || task?.id] || []}
+                                    onToggle={() => toggleExpand(task?.task_id || task?.id)}
                                     renderStatusBadge={renderStatusBadge}
                                     renderSeverityTag={renderSeverityTag}
                                     onAction={handleAction}
