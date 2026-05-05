@@ -82,7 +82,7 @@ const StatsCard = ({
       <div className="relative z-10 flex items-center justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-bold text-white/70 uppercase tracking-[0.1em] drop-shadow-sm truncate">
+            <span className="text-[11px] font-bold text-white/70 uppercase tracking-[0.1em] drop-shadow-sm line-clamp-2 leading-tight break-words">
               {displayTitle}
             </span>
             {(trendValue !== undefined || trend !== undefined) && (

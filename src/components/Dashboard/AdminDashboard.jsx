@@ -134,7 +134,7 @@ const AdminDashboard = () => {
                 <Icon size={20} />
             </div>
             <div className="flex flex-col min-w-0">
-                <span className="text-slate-400 font-black text-[9px] sm:text-[10px] uppercase tracking-[0.12em] whitespace-nowrap mb-1">
+                <span className="text-slate-400 font-black text-[9px] sm:text-[10px] uppercase tracking-wider leading-tight break-words mb-1">
                     {title}
                 </span>
                 <div className="flex items-baseline gap-2">

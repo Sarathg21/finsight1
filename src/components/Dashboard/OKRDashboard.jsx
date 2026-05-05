@@ -96,7 +96,7 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet', tooltip }) => {
             <div className="relative z-10 flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold text-white/70 capitalize tracking-tight drop-shadow-sm whitespace-nowrap">
+                        <span className="text-[10px] font-bold text-white/70 capitalize tracking-tight drop-shadow-sm line-clamp-2 leading-tight break-words">
                             {label}
                         </span>
                         {tooltip && (
