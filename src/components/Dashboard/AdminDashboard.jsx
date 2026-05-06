@@ -244,13 +244,13 @@ const AdminDashboard = () => {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-indigo-50/30 text-[11px] font-black text-indigo-300 uppercase tracking-widest border-b border-indigo-50/50">
                             <tr>
-                                <th className="px-10 py-5">Name</th>
-                                <th className="px-8 py-5">Department</th>
-                                <th className="px-8 py-5">Email</th>
-                                <th className="px-8 py-5">Role</th>
-                                <th className="px-8 py-5">Status</th>
-                                <th className="px-10 py-5">Date Added</th>
-                                <th className="px-10 py-5 text-right"></th>
+                                <th className="px-4 py-4 pl-6">Name</th>
+                                <th className="px-4 py-4">Department</th>
+                                <th className="px-4 py-4">Email</th>
+                                <th className="px-4 py-4">Role</th>
+                                <th className="px-4 py-4">Status</th>
+                                <th className="px-4 py-4">Date Added</th>
+                                <th className="px-4 py-4 text-right pr-6"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-indigo-50/40">
@@ -267,34 +267,34 @@ const AdminDashboard = () => {
                             ) : (
                                 summary.recent_employees.map((emp) => (
                                     <tr key={emp.emp_id} className="group hover:bg-white transition-all duration-300">
-                                        <td className="px-10 py-4">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center text-indigo-500 font-black text-sm group-hover:scale-110 transition-transform">
+                                        <td className="px-4 py-3 pl-6">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full border-2 border-white shadow-lg overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center text-indigo-500 font-black text-sm group-hover:scale-110 transition-transform shrink-0">
                                                     <span>{emp.name?.charAt(0).toUpperCase()}</span>
                                                 </div>
-                                                <span className="text-[14px] font-black text-slate-700 tracking-tight capitalize">{emp.name?.toLowerCase()}</span>
+                                                <span className="text-[13px] font-black text-slate-700 tracking-tight capitalize">{emp.name?.toLowerCase()}</span>
                                             </div>
                                         </td>
-                                        <td className="px-8 py-4">
-                                            <span className="text-[13px] font-bold text-slate-500 capitalize">{(emp.department_name || emp.department_id || '—').toLowerCase()}</span>
+                                        <td className="px-4 py-3">
+                                            <span className="text-[12px] font-bold text-slate-500 capitalize">{(emp.department_name || emp.department_id || '—').toLowerCase()}</span>
                                         </td>
-                                         <td className="px-8 py-4 text-[13px] text-slate-400 font-medium lowercase italic">{emp.email || (emp.emp_id ? `${String(emp.emp_id).toLowerCase()}@fjgroup.com` : 'n/a')}</td>
-                                        <td className="px-8 py-4">
-                                            <span className="text-[12px] font-black text-slate-400 tracking-tighter capitalize">{emp.role?.toLowerCase()}</span>
+                                        <td className="px-4 py-3 text-[12px] text-slate-400 font-medium lowercase italic">{emp.email || (emp.emp_id ? `${String(emp.emp_id).toLowerCase()}@fjgroup.com` : 'n/a')}</td>
+                                        <td className="px-4 py-3">
+                                            <span className="text-[11px] font-black text-slate-400 tracking-tighter capitalize">{emp.role?.toLowerCase()}</span>
                                         </td>
-                                        <td className="px-8 py-4">
-                                            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100`}>
-                                                <CheckSquare size={13} className="animate-pulse" />
+                                        <td className="px-4 py-3">
+                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-sm bg-emerald-50 text-emerald-600 border-emerald-100`}>
+                                                <CheckSquare size={11} className="animate-pulse" />
                                                 Active
                                             </span>
                                         </td>
-                                        <td className="px-10 py-4 text-[13px] font-bold text-slate-400">
-                                            <div className="flex items-center gap-2">
-                                                <Calendar size={14} className="opacity-50" />
+                                        <td className="px-4 py-3 text-[12px] font-bold text-slate-400">
+                                            <div className="flex items-center gap-1.5">
+                                                <Calendar size={13} className="opacity-50" />
                                                 {emp.created_at ? formatUAEDate(emp.created_at) : 'Apr 15, 2024'}
                                             </div>
                                         </td>
-                                        <td className="px-10 py-4 text-right relative">
+                                        <td className="px-4 py-3 text-right pr-4 relative">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button 
                                                     onClick={() => handleResetPassword(emp)}

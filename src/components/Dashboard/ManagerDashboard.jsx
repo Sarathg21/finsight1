@@ -277,9 +277,14 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const formatTimeAgo = (dateStr) => {
         if (!dateStr) return 'Just now';
         try {
-            const date = new Date(dateStr);
+            let parsedString = String(dateStr).replace(' ', 'T');
+            if (!parsedString.endsWith('Z') && !parsedString.includes('+') && parsedString.includes('T')) {
+                parsedString += 'Z';
+            }
+            const date = new Date(parsedString);
             const now = new Date();
-            const diffInSeconds = Math.floor((now - date) / 1000);
+            let diffInSeconds = Math.floor((now - date) / 1000);
+            if (diffInSeconds < 0) diffInSeconds = 0;
             if (diffInSeconds < 60) return `${Math.max(0, diffInSeconds)}s ago`;
             const diffInMinutes = Math.floor(diffInSeconds / 60);
             if (diffInMinutes < 60) return `${diffInMinutes}m ago`;

@@ -42,12 +42,6 @@ const LoginPage = () => {
         }
     };
 
-    const demoRoles = [
-        { role: 'Admin', id: 'ADMIN001', color: 'text-rose-600' },
-        { role: 'Manager', id: 'MGR_AP', color: 'text-violet-600' },
-        { role: 'Employee', id: 'EMP_AP1', color: 'text-emerald-600' },
-        { role: 'CFO', id: 'CFO001', color: 'text-blue-600' },
-    ];
 
     return (
         <div className="min-h-screen flex relative overflow-auto bg-gradient-to-br from-[#4c00d4] via-[#6d28d9] to-[#a855f7] select-none">
@@ -172,25 +166,6 @@ const LoginPage = () => {
                         </button>
                     </form>
 
-                    {/* Demo Credentials Box */}
-                    <div className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 mt-5 sm:mt-8">
-                        <div className="text-[10px] font-medium text-slate-400 capitalize tracking-widest mb-3 flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
-                            Demo Accounts (Click to Autofill)
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {demoRoles.map(role => (
-                                <div
-                                    key={role.id}
-                                    onClick={() => setFormData({ ...formData, id: role.id, password: 'Perfmetric@123' })}
-                                    className="cursor-pointer p-2 bg-white border border-slate-100 rounded-xl hover:border-indigo-500 hover:shadow-sm transition-all text-center group"
-                                >
-                                    <div className={`text-[10px] font-medium capitalize tracking-tighter ${role.color}`}>{role.role}</div>
-                                    <div className="text-xs font-bold text-slate-700 group-hover:text-indigo-600">{role.id}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
 
                     <div className="mt-6 text-center text-[11px] font-medium text-slate-400">
                         Helpline; support@fjgroup.com | <button className="text-indigo-500 hover:underline">Contact</button>

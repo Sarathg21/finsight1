@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Briefcase, Shield, ChevronDown, ChevronRight, ChevronLeft, Network, Mail, Loader2 } from 'lucide-react';
+import { User, Briefcase, Shield, ChevronDown, ChevronRight, ChevronLeft, Network, Mail, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -106,6 +106,10 @@ const ProfilePage = () => {
     const [pwdError, setPwdError] = useState('');
     const [pwdSuccess, setPwdSuccess] = useState('');
 
+    const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+    const [showNewPwd, setShowNewPwd] = useState(false);
+    const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+
     if (!user) return null;
 
     const empId = user.id;
@@ -117,6 +121,10 @@ const ProfilePage = () => {
 
         if (!currentPassword || !newPassword || !confirmPassword) {
             setPwdError('All password fields are required.');
+            return;
+        }
+        if (newPassword.length < 8) {
+            setPwdError('New password must be at least 8 characters long.');
             return;
         }
         if (newPassword !== confirmPassword) {
@@ -135,10 +143,16 @@ const ProfilePage = () => {
             setNewPassword('');
             setConfirmPassword('');
         } catch (err) {
-            const msg =
-                err.response?.data?.detail ||
-                err.response?.data?.message ||
-                'Failed to change password.';
+            let msg = err.response?.data?.detail || err.response?.data?.message || 'Failed to change password.';
+            if (Array.isArray(msg)) {
+                // Handle Pydantic validation errors
+                msg = msg.map(m => {
+                    const field = m.loc ? m.loc[m.loc.length - 1] : 'Field';
+                    return `${field}: ${m.msg}`;
+                }).join(', ');
+            } else if (typeof msg === 'object') {
+                msg = JSON.stringify(msg);
+            }
             setPwdError(msg);
         } finally {
             setChangingPwd(false);
@@ -302,36 +316,81 @@ const ProfilePage = () => {
                     <form className="p-6 grid grid-cols-1 md:grid-cols-1 gap-6 max-w-xl" onSubmit={handleChangePassword}>
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 capitalize tracking-widest pl-1">Current Password</label>
-                            <input
-                                type="password"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all bg-slate-50/30"
-                                value={currentPassword}
-                                onChange={(e) => setCurrentPassword(e.target.value)}
-                                autoComplete="current-password"
-                                placeholder="Enter current password"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showCurrentPwd ? "text" : "password"}
+                                    className="w-full px-4 pr-12 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all bg-slate-50/30"
+                                    value={currentPassword}
+                                    onChange={(e) => setCurrentPassword(e.target.value)}
+                                    autoComplete="current-password"
+                                    placeholder="Enter current password"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600 transition-colors"
+                                    onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                                >
+                                    {showCurrentPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
                         </div>
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 capitalize tracking-widest pl-1">New Password</label>
-                            <input
-                                type="password"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all bg-slate-50/30"
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                autoComplete="new-password"
-                                placeholder="Min. 8 characters"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showNewPwd ? "text" : "password"}
+                                    className={`w-full px-4 pr-12 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all bg-slate-50/30 ${
+                                        newPassword && newPassword.length < 8 
+                                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/10' 
+                                            : 'border-slate-200 focus:border-violet-500 focus:ring-violet-500/20'
+                                    }`}
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    placeholder="Min. 8 characters"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600 transition-colors"
+                                    onClick={() => setShowNewPwd(!showNewPwd)}
+                                >
+                                    {showNewPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                            {newPassword && newPassword.length < 8 && (
+                                <p className="text-[10px] font-bold text-rose-500 mt-1.5 pl-1 tracking-wide animate-fade-in-up">
+                                    New password must be at least 8 characters long
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 capitalize tracking-widest pl-1">Confirm New Password</label>
-                            <input
-                                type="password"
-                                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all bg-slate-50/30"
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                autoComplete="new-password"
-                                placeholder="Repeat new password"
-                            />
+                            <div className="relative">
+                                <input
+                                    type={showConfirmPwd ? "text" : "password"}
+                                    className={`w-full px-4 pr-12 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 transition-all bg-slate-50/30 ${
+                                        confirmPassword && confirmPassword !== newPassword
+                                            ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/10'
+                                            : 'border-slate-200 focus:border-violet-500 focus:ring-violet-500/20'
+                                    }`}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    autoComplete="new-password"
+                                    placeholder="Repeat new password"
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-violet-600 transition-colors"
+                                    onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+                                >
+                                    {showConfirmPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
+                            {confirmPassword && confirmPassword !== newPassword && (
+                                <p className="text-[10px] font-bold text-rose-500 mt-1.5 pl-1 tracking-wide animate-fade-in-up">
+                                    Passwords do not match
+                                </p>
+                            )}
                         </div>
                         
                         <div className="flex flex-col gap-3 pt-2">

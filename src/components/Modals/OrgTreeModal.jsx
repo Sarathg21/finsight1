@@ -273,17 +273,27 @@ const OrgTreeModal = ({ isOpen, onClose, onAddNode, users = [] }) => {
 
     // Dynamically calculate counts if backend doesn't provide them accurately
     const getOrgStats = (node) => {
-        if (!node) return { total: 0, managers: 0, employees: 0 };
+        if (!node) return { total: 0, cfo: 0, admin: 0, managers: 0, employees: 0 };
 
-        let stats = { total: 1, managers: 0, employees: 0 };
-        const role = (node.user?.role || node.role || '').toUpperCase();
+        const u = node.user || node || {};
+        if (u.active === false || String(u.status).toUpperCase() === 'INACTIVE') {
+            return { total: 0, cfo: 0, admin: 0, managers: 0, employees: 0 };
+        }
 
-        if (role === 'MANAGER') stats.managers += 1;
-        if (role === 'EMPLOYEE') stats.employees += 1;
+        let stats = { total: 1, cfo: 0, admin: 0, managers: 0, employees: 0 };
+        const role = (u.role || '').toUpperCase();
+
+        if (role === 'CFO') stats.cfo += 1;
+        else if (role === 'ADMIN') stats.admin += 1;
+        else if (role === 'MANAGER') stats.managers += 1;
+        else if (role === 'EMPLOYEE') stats.employees += 1;
+        else stats.employees += 1;
 
         (node.children || []).forEach(child => {
             const childStats = getOrgStats(child);
             stats.total += childStats.total;
+            stats.cfo += childStats.cfo;
+            stats.admin += childStats.admin;
             stats.managers += childStats.managers;
             stats.employees += childStats.employees;
         });
@@ -291,19 +301,36 @@ const OrgTreeModal = ({ isOpen, onClose, onAddNode, users = [] }) => {
         return stats;
     };
 
-    let calculatedManagers = treeData?.total_managers || 0;
-    let calculatedEmployees = treeData?.total_employees || 0;
+    let calculatedCFOs = 0;
+    let calculatedAdmins = 0;
+    let calculatedManagers = 0;
+    let calculatedEmployees = 0;
 
-    if (treeData && (treeData.root || treeData.cfo) && (!treeData.total_managers && !treeData.total_employees)) {
-        const stats = getOrgStats(treeData.root || treeData.cfo);
+    if (treeData) {
+        const stats = getOrgStats(treeData.root || treeData.cfo || treeData);
 
         // Add orphans to stats
-        if (treeData.orphan_managers) stats.managers += treeData.orphan_managers.length;
-        if (treeData.orphan_employees) stats.employees += treeData.orphan_employees.length;
+        if (treeData.orphan_managers) {
+            treeData.orphan_managers.forEach(m => {
+                const os = getOrgStats(m);
+                stats.cfo += os.cfo; stats.admin += os.admin; stats.managers += os.managers; stats.employees += os.employees;
+            });
+        }
+        if (treeData.orphan_employees) {
+            treeData.orphan_employees.forEach(e => {
+                const os = getOrgStats(e);
+                stats.cfo += os.cfo; stats.admin += os.admin; stats.managers += os.managers; stats.employees += os.employees;
+            });
+        }
 
+        calculatedCFOs = stats.cfo;
+        calculatedAdmins = stats.admin;
         calculatedManagers = stats.managers;
         calculatedEmployees = stats.employees;
     }
+
+    const activeUsers = users.filter(u => u.active !== false && String(u.status).toUpperCase() !== 'INACTIVE');
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -395,10 +422,12 @@ const OrgTreeModal = ({ isOpen, onClose, onAddNode, users = [] }) => {
                         <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-emerald-200 inline-block" /> Employee</span>
                     </div>
                     <div className="flex gap-4 items-center">
+                        <span className="text-slate-500">CFO: <strong className="text-slate-800">{calculatedCFOs}</strong></span>
+                        <span className="text-slate-500">Admin: <strong className="text-slate-800">{calculatedAdmins}</strong></span>
                         <span className="text-slate-500">Managers: <strong className="text-slate-800">{calculatedManagers}</strong></span>
                         <span className="text-slate-500">Employees: <strong className="text-slate-800">{calculatedEmployees}</strong></span>
                         <div className="w-px h-4 bg-slate-200" />
-                        <span className="text-slate-400 font-semibold uppercase tracking-tighter">Total Staff: {users.length}</span>
+                        <span className="text-slate-400 font-semibold uppercase tracking-tighter">Total Staff: {activeUsers.length > 0 ? activeUsers.length : (calculatedCFOs + calculatedAdmins + calculatedManagers + calculatedEmployees)}</span>
                     </div>
                 </div>
 

@@ -40,6 +40,10 @@ const AssignTaskPage = () => {
     const [normalSubtasks, setNormalSubtasks] = useState([]);
     const [attachment, setAttachment] = useState(null);
 
+    // Component-level helper — used both in useEffect (data filtering) and in JSX (render logic)
+    const isParentTask = (t) =>
+        (t?.task_type || '').toUpperCase() === 'PARENT' || t?.is_parent === true || (t?.subtask_count > 0);
+
     useEffect(() => {
         const fetchMetadata = async () => {
             const role = String(user?.role || '').toUpperCase();
@@ -133,8 +137,7 @@ const AssignTaskPage = () => {
                     task_type: (t.task_type || '').toUpperCase(),
                 }));
 
-                const isParentTask = (t) =>
-                    t.task_type === 'PARENT' || t.is_parent === true || (t.subtask_count > 0);
+
 
                 // ── Parent dropdown rules ─────────────────────────────────────────────
                 // MANAGER: can create employee subtasks under:
@@ -157,9 +160,23 @@ const AssignTaskPage = () => {
                     });
                     validParentSource = Array.from(parentMap.values());
                 } else if (isCFORole) {
-                    // CFO sees only Level-0 standalone parent tasks
                     const allNorm = normalizeTasks(teamTasksData);
-                    validParentSource = allNorm.filter(isParentTask);
+                    // CFO parent dropdown:
+                    //   Level-0: PARENT-type tasks (CFO creates manager child under these)
+                    //   Level-1: tasks already assigned to managers (CFO creates employee subtask under these)
+                    // We include all non-terminal, non-standalone tasks that have an assignee.
+                    validParentSource = allNorm.filter(t => {
+                        const isParent = isParentTask(t);
+                        const hasAssignee = !!(t.assigned_to_emp_id || t.assigned_to_name || t.assigned_to);
+                        const level = t.task_level ?? t.level ?? (isParent ? 0 : null);
+                        // Include Level-0 PARENT tasks
+                        if (isParent) return true;
+                        // Include Level-1 tasks (manager-assigned by CFO, not themselves parents)
+                        if (hasAssignee && level === 1) return true;
+                        // Also include tasks with no explicit level but have an assignee and aren't standalone leaf tasks
+                        if (hasAssignee && level == null && !isParent) return true;
+                        return false;
+                    });
                 }
                 // isAdminRole → validParentSource stays []
 
@@ -356,6 +373,11 @@ const AssignTaskPage = () => {
                     const selectedAssigneeObj = eligibleAssignees.find(e => String(e.emp_id) === String(subtaskAssigneeId));
                     const assigneeDeptId = selectedAssigneeObj?.department_id || selectedAssigneeObj?.department || resolvedDepartmentId;
 
+                    // Determine if CFO is creating under a Level-0 parent or Level-1 manager task
+                    const selectedParentTask = existingParentTasks.find(t => String(t.id || t.task_id) === String(formData.parentTaskId));
+                    const parentLevel = selectedParentTask?.task_level ?? selectedParentTask?.level;
+                    const parentIsLevel0 = parentLevel === 0 || (selectedParentTask?.task_type || '').toUpperCase() === 'PARENT' || (selectedParentTask?.subtask_count > 0);
+
                     const payload = {
                         title:               formData.title,
                         description:         formData.description,
@@ -367,12 +389,17 @@ const AssignTaskPage = () => {
 
                     let taskRes;
                     if (isSubmitCFO) {
-                        // CFO creates a manager-level child under a Level-0 parent task
-                        taskRes = await api.post('/tasks', {
-                            ...payload,
-                            parent_task_id: formData.parentTaskId,
-                            task_type: 'TASK'
-                        });
+                        if (parentIsLevel0) {
+                            // CFO → Level-0 parent: creates a Level-1 manager child task
+                            taskRes = await api.post('/tasks', {
+                                ...payload,
+                                parent_task_id: formData.parentTaskId,
+                                task_type: 'TASK'
+                            });
+                        } else {
+                            // CFO → Level-1 manager task: creates an employee-level subtask
+                            taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
+                        }
                     } else {
                         // Manager creates an employee subtask under Level-1 (CFO-assigned) or Level-0 (own parent)
                         taskRes = await api.post(`/tasks/${formData.parentTaskId}/subtasks`, payload);
@@ -740,14 +767,19 @@ const AssignTaskPage = () => {
                                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Parent Task Owner</label>
                                                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
                                                         <User2 size={13} className="text-slate-400 shrink-0" />
-                                                        <span className="truncate">{selectedParent?.assigned_to_name || selectedParent?.assigned_by_name || (isCFORole ? 'CFO User' : (user?.name || 'Manager'))}</span>
+                                                        <span className="truncate">{selectedParent?.assigned_to_name || selectedParent?.assigned_by_name || (isCFORole ? '—' : (user?.name || 'Manager'))}</span>
                                                     </div>
                                                 </div>
 
                                                 {/* Col 1 Row 2: Assign Child To (Manager/Employee) */}
                                                 <div>
                                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
-                                                        {isCFORole ? 'Assign Child To (Manager)' : 'Assign Subtask To'} <span className="text-rose-500">*</span>
+                                                        {(() => {
+                                                            if (!isCFORole) return 'Assign Subtask To';
+                                                            const parentLevel = selectedParent?.task_level ?? selectedParent?.level;
+                                                            const parentIsLevel0 = parentLevel === 0 || isParentTask(selectedParent || {});
+                                                            return parentIsLevel0 ? 'Assign To (Manager or Employee)' : 'Assign To (Employee only)';
+                                                        })()} <span className="text-rose-500">*</span>
                                                     </label>
                                                     <select
                                                         name={isCFORole ? "managerId" : "assignee"}
@@ -757,19 +789,20 @@ const AssignTaskPage = () => {
                                                         onChange={handleChange}
                                                     >
                                                         <option value="">Select an Assignee</option>
-                                                        {isCFORole ? (
-                                                            managers.length > 0
-                                                                ? managers.map(m => (
+                                                        {isCFORole ? (() => {
+                                                            const parentLevel = selectedParent?.task_level ?? selectedParent?.level;
+                                                            const parentIsLevel0 = parentLevel === 0 || isParentTask(selectedParent || {});
+                                                            const managers  = eligibleAssignees.filter(e => (e.role || '').toUpperCase() === 'MANAGER');
+                                                            const employees = eligibleAssignees.filter(e => (e.role || '').toUpperCase() !== 'MANAGER' && (e.role || '').toUpperCase() !== 'CFO' && (e.role || '').toUpperCase() !== 'ADMIN');
+                                                            const list = parentIsLevel0 ? [...managers, ...employees] : employees;
+                                                            return list.length > 0
+                                                                ? list.map(m => (
                                                                     <option key={m.emp_id} value={m.emp_id}>
-                                                                        {m.name} {m.department_id ? `— ${m.department_name || m.department_id}` : ''}
+                                                                        {m.name} ({m.role || 'Employee'}){m.department_name || m.department_id ? ` — ${m.department_name || m.department_id}` : ''}
                                                                     </option>
                                                                 ))
-                                                                : eligibleAssignees.map(m => (
-                                                                    <option key={m.emp_id} value={m.emp_id}>
-                                                                        {m.name} ({m.role})
-                                                                    </option>
-                                                                ))
-                                                        ) : (
+                                                                : <option disabled>No eligible assignees</option>;
+                                                        })() : (
                                                             eligibleAssignees.map(e => (
                                                                 <option key={e.emp_id} value={e.emp_id}>
                                                                     {e.name} ({e.role})

@@ -18,17 +18,24 @@ import {
 } from 'recharts';
 
 const formatTimeAgo = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-    if (diffInSeconds < 60) return 'just now';
-    const diffInMinutes = Math.floor(diffInSeconds / 60);
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays}d ago`;
+    if (!dateString) return 'just now';
+    try {
+        let parsedString = String(dateString).replace(' ', 'T');
+        if (!parsedString.endsWith('Z') && !parsedString.includes('+') && parsedString.includes('T')) {
+            parsedString += 'Z';
+        }
+        const date = new Date(parsedString);
+        const now = new Date();
+        let diffInSeconds = Math.floor((now - date) / 1000);
+        if (diffInSeconds < 0) diffInSeconds = 0;
+        if (diffInSeconds < 60) return 'just now';
+        const diffInMinutes = Math.floor(diffInSeconds / 60);
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        const diffInHours = Math.floor(diffInMinutes / 60);
+        if (diffInHours < 24) return `${diffInHours}h ago`;
+        const diffInDays = Math.floor(diffInHours / 24);
+        return `${diffInDays}d ago`;
+    } catch (e) { return 'just now'; }
 };
 
 /* ─── Helpers ─────────────────────────────────────────────── */

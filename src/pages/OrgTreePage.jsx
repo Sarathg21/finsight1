@@ -138,14 +138,7 @@ const OrgNode = ({ node, departments, onAddNode, isRoot = false }) => {
                 {/* Profile Avatar */}
                 <div className="relative shrink-0">
                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-indigo-200 overflow-hidden">
-                       {/* Actual employee image if available, otherwise pravatar fallback */}
-                       <img 
-                          src={u.profile_pic || u.profile_picture || u.avatar_url || `https://i.pravatar.cc/150?u=${emp_id}`} 
-                          alt={name} 
-                          className="w-full h-full object-cover opacity-90" 
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                       />
-                       <span className="absolute inset-0 flex items-center justify-center pointer-events-none">{initials}</span>
+                       <span>{initials}</span>
                    </div>
                    {/* Online status indicator */}
                    <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
@@ -261,7 +254,8 @@ const OrgTreePage = () => {
             // Extract employees first for fallback
             const empRes = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
             const emps = Array.isArray(empRes.data) ? empRes.data : [];
-            setTotalEmployees(emps.length);
+            const activeEmps = emps.filter(e => e.active !== false && String(e.status).toUpperCase() !== 'INACTIVE');
+            setTotalEmployees(activeEmps.length);
             
             // Extract departments with multiple fallbacks
             let deptRes = results[1].status === 'fulfilled' ? results[1].value : { data: [] };
@@ -382,27 +376,57 @@ const OrgTreePage = () => {
 
     // Dynamically calculate counts
     const getOrgStats = (node) => {
-        if (!node) return { total: 0, managers: 0, employees: 0 };
-        let stats = { total: 1, managers: 0, employees: 0 };
-        const role = (node.user?.role || node.role || '').toUpperCase();
-        if (role === 'MANAGER') stats.managers += 1;
-        if (role === 'EMPLOYEE') stats.employees += 1;
+        if (!node) return { total: 0, cfo: 0, admin: 0, managers: 0, employees: 0 };
+        
+        const u = node.user || node || {};
+        // Skip inactive employees completely
+        if (u.active === false || String(u.status).toUpperCase() === 'INACTIVE') {
+            return { total: 0, cfo: 0, admin: 0, managers: 0, employees: 0 };
+        }
+
+        let stats = { total: 1, cfo: 0, admin: 0, managers: 0, employees: 0 };
+        const role = (u.role || '').toUpperCase();
+        
+        if (role === 'CFO') stats.cfo += 1;
+        else if (role === 'ADMIN') stats.admin += 1;
+        else if (role === 'MANAGER') stats.managers += 1;
+        else if (role === 'EMPLOYEE') stats.employees += 1;
+        else stats.employees += 1; // Default fallback
+
         (node.children || []).forEach(child => {
             const childStats = getOrgStats(child);
             stats.total += childStats.total;
+            stats.cfo += childStats.cfo;
+            stats.admin += childStats.admin;
             stats.managers += childStats.managers;
             stats.employees += childStats.employees;
         });
         return stats;
     };
 
-    let calculatedManagers = treeData?.total_managers || 0;
-    let calculatedEmployees = treeData?.total_employees || 0;
+    let calculatedCFOs = 0;
+    let calculatedAdmins = 0;
+    let calculatedManagers = 0;
+    let calculatedEmployees = 0;
 
-    if (treeData && (treeData.root || treeData.cfo) && (!treeData.total_managers && !treeData.total_employees)) {
-        const stats = getOrgStats(treeData.root || treeData.cfo);
-        if (treeData.orphan_managers) stats.managers += treeData.orphan_managers.length;
-        if (treeData.orphan_employees) stats.employees += treeData.orphan_employees.length;
+    if (treeData) {
+        const stats = getOrgStats(treeData.root || treeData.cfo || treeData);
+        
+        if (treeData.orphan_managers) {
+            treeData.orphan_managers.forEach(m => {
+                const os = getOrgStats(m);
+                stats.cfo += os.cfo; stats.admin += os.admin; stats.managers += os.managers; stats.employees += os.employees;
+            });
+        }
+        if (treeData.orphan_employees) {
+            treeData.orphan_employees.forEach(e => {
+                const os = getOrgStats(e);
+                stats.cfo += os.cfo; stats.admin += os.admin; stats.managers += os.managers; stats.employees += os.employees;
+            });
+        }
+        
+        calculatedCFOs = stats.cfo;
+        calculatedAdmins = stats.admin;
         calculatedManagers = stats.managers;
         calculatedEmployees = stats.employees;
     }
@@ -480,6 +504,16 @@ const OrgTreePage = () => {
 
                 <div className="flex gap-3 items-center">
                     <div className="flex gap-4 items-center bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm">
+                        <div className="text-center">
+                            <p className="text-[10px] font-black text-slate-400 capitalize tracking-[0.2em] mb-0.5">CFO</p>
+                            <p className="text-sm font-black text-slate-800 tabular-nums">{calculatedCFOs}</p>
+                        </div>
+                        <div className="w-px h-8 bg-slate-100" />
+                        <div className="text-center">
+                            <p className="text-[10px] font-black text-slate-400 capitalize tracking-[0.2em] mb-0.5">Admin</p>
+                            <p className="text-sm font-black text-slate-800 tabular-nums">{calculatedAdmins}</p>
+                        </div>
+                        <div className="w-px h-8 bg-slate-100" />
                         <div className="text-center">
                             <p className="text-[10px] font-black text-slate-400 capitalize tracking-[0.2em] mb-0.5">Managers</p>
                             <p className="text-sm font-black text-slate-800 tabular-nums">{calculatedManagers}</p>
