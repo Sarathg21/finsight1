@@ -247,15 +247,16 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                             style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                         >
                             {(() => {
-                                if (roleUpper === 'CFO') {
-                                    if (location.pathname === '/reports') return 'CFO Reports';
-                                    if (location.pathname === '/task/team' || location.pathname === '/tasks/team') return 'CFO Team Tasks';
-                                    return 'CFO Dashboard';
+                                if (isDashboard) {
+                                    if (roleUpper === 'CFO') return 'CFO Dashboard';
+                                    if (roleUpper === 'ADMIN') return 'Admin Dashboard';
+                                    if (roleUpper === 'MANAGER') return 'Manager Dashboard';
+                                    return 'Employee Dashboard';
                                 }
-                                if (roleUpper === 'ADMIN') return 'Admin Control';
-                                if (roleUpper === 'MANAGER') return 'Manager Hub';
-                                if (isDashboard) return 'Employee Dashboard';
-                                return pageInfo.title || 'My Task';
+                                if (roleUpper === 'CFO' && location.pathname.includes('/tasks')) {
+                                    return 'Task Directory';
+                                }
+                                return pageInfo.title || 'Workspace';
                             })()}
                         </h1>
                         {subtitle && !(roleUpper === 'CFO' && isDashboard) && (

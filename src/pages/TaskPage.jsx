@@ -154,7 +154,7 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
               <tr key={displayId} className="hover:bg-slate-50/50 transition-colors cursor-pointer group" onClick={() => onViewDetails(task)}>
                 <td className="py-2 px-4 pl-6 font-bold text-violet-600 text-[10px]">#{displayId}</td>
                 <td className="py-2 px-4 text-slate-400 font-medium text-[10px]">{task.parent_task_id && task.parent_task_id !== '-' ? `#${displayParentId}` : '-'}</td>
-                <td className="py-2 px-4 text-slate-500 font-bold truncate max-w-[100px] text-[10px] uppercase tracking-tighter" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
+                <td className="py-2 px-4 text-slate-500 font-bold truncate max-w-[100px] text-[10px] tracking-tight" title={task.parent_task_title}>{task.parent_task_title || '-'}</td>
 
                 <td className="py-2 px-4">
                     <span className="truncate font-bold text-[11px] text-slate-800 tracking-tight max-w-[80px] block">{task.assigneeName || task.employee_id}</span>
@@ -1220,7 +1220,7 @@ const handleReworkConfirm = async (comment) => {
 
       {/* Filters & Search — Premium Spacing */}
       {/* ── UNIFIED SEARCH & FILTERS ── */}
-      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex flex-row flex-nowrap items-center gap-2 max-w-full px-4 mx-auto overflow-visible relative">
+      <div className="bg-white p-2 rounded-2xl shadow-sm border border-slate-200 flex flex-row flex-wrap items-center gap-2 max-w-full px-4 mx-auto overflow-visible relative">
 
         {/* Unified Search Bar Group */}
         <div className="flex-1 flex items-center bg-slate-50 rounded-xl border border-slate-100 focus-within:bg-white focus-within:ring-2 focus-within:ring-violet-400/20 transition-all shrink-0 min-w-[300px]">

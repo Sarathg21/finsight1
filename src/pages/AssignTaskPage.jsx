@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Clock, Plus, Trash2, FolderOpen, GitBranch, Info, ChevronRight, User2, Users2 } from 'lucide-react';
+import SearchableSelect from '../components/UI/SearchableSelect';
 
 const AssignTaskPage = () => {
     const { user } = useAuth();
@@ -171,10 +172,8 @@ const AssignTaskPage = () => {
                         const level = t.task_level ?? t.level ?? (isParent ? 0 : null);
                         // Include Level-0 PARENT tasks
                         if (isParent) return true;
-                        // Include Level-1 tasks (manager-assigned by CFO, not themselves parents)
-                        if (hasAssignee && level === 1) return true;
-                        // Also include tasks with no explicit level but have an assignee and aren't standalone leaf tasks
-                        if (hasAssignee && level == null && !isParent) return true;
+                        // Include tasks assigned to managers/employees (as long as they aren't explicitly level 2 leaf subtasks)
+                        if (hasAssignee && level !== 2) return true;
                         return false;
                     });
                 }
@@ -728,24 +727,18 @@ const AssignTaskPage = () => {
                                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">
                                                         Select Parent Task <span className="text-rose-500">*</span>
                                                     </label>
-                                                    <select
+                                                    <SearchableSelect
                                                         name="parentTaskId"
                                                         required={formData.taskStructure === 'SUBTASK'}
-                                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 font-medium transition-all text-[12px]"
                                                         value={formData.parentTaskId}
-                                                        onChange={handleChange}
-                                                    >
-                                                        <option value="">Select a parent task</option>
-                                                        {existingParentTasks.map(t => {
+                                                        onChange={(val) => handleChange({ target: { name: 'parentTaskId', value: val } })}
+                                                        options={existingParentTasks.map(t => {
                                                             const taskId = t.id || t.task_id;
                                                             const rawTitle = t.title || t.task_title || t.task_name || '(Untitled)';
-                                                            return (
-                                                                <option key={taskId} value={taskId}>
-                                                                    #{taskId} — {rawTitle}
-                                                                </option>
-                                                            );
+                                                            return { value: taskId, label: `#${taskId} — ${rawTitle}` };
                                                         })}
-                                                    </select>
+                                                        placeholder="Select a parent task"
+                                                    />
                                                     {isManager && (
                                                         <>
                                                             <p className="text-[10px] text-slate-400 font-medium mt-1">
@@ -802,13 +795,24 @@ const AssignTaskPage = () => {
                                                                     </option>
                                                                 ))
                                                                 : <option disabled>No eligible assignees</option>;
-                                                        })() : (
-                                                            eligibleAssignees.map(e => (
-                                                                <option key={e.emp_id} value={e.emp_id}>
-                                                                    {e.name} ({e.role})
-                                                                </option>
-                                                            ))
-                                                        )}
+                                                        })() : (() => {
+                                                            // Manager: only show employees from the same department
+                                                            const managerDeptId = String(user?.department_id || user?.dept_id || user?.department || '').toLowerCase();
+                                                            const deptFilteredEmployees = eligibleAssignees.filter(e => {
+                                                                const role = (e.role || '').toUpperCase();
+                                                                if (role === 'MANAGER' || role === 'CFO' || role === 'ADMIN') return false;
+                                                                if (!managerDeptId) return true;
+                                                                const empDept = String(e.department_id || e.dept_id || e.department || '').toLowerCase();
+                                                                return empDept === managerDeptId;
+                                                            });
+                                                            return deptFilteredEmployees.length > 0
+                                                                ? deptFilteredEmployees.map(e => (
+                                                                    <option key={e.emp_id} value={e.emp_id}>
+                                                                        {e.name}{e.department_name ? ` — ${e.department_name}` : ''}
+                                                                    </option>
+                                                                ))
+                                                                : <option disabled>No employees in your department</option>;
+                                                        })()}
                                                     </select>
                                                 </div>
 
