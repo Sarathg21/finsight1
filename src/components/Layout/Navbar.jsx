@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Bell, Search, CheckCircle, AlertCircle, ChevronRight, Menu, X } from 'lucide-react';
 import api from '../../services/api';
+import { formatUAEDate } from '../../utils/timezone';
 
 const PAGE_TITLES = {
     '/dashboard':    { title: 'Dashboard',      subtitle: null },
@@ -387,7 +388,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between mb-0.5">
                                                             <span className="text-[10px] font-[700] text-slate-400">{n.title || n.subject || 'Notification'}</span>
-                                                            <span className="text-[9px] text-slate-400">{n.time || (n.created_at ? new Date(n.created_at).toLocaleDateString() : 'Just now')}</span>
+                                                            <span className="text-[9px] text-slate-400">{n.time || (n.created_at ? formatUAEDate(n.created_at) : 'Just now')}</span>
                                                         </div>
                                                         <p className={`text-[11.5px] leading-snug ${!isRead ? 'text-slate-800 font-[650]' : 'text-slate-500 font-[500]'}`}>
                                                             {n.message || 'Notification received'}

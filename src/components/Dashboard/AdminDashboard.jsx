@@ -17,6 +17,7 @@ import {
     Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { formatUAEDate } from '../../utils/timezone';
 
 const AdminDashboard = () => {
     const { user } = useAuth();
@@ -290,7 +291,7 @@ const AdminDashboard = () => {
                                         <td className="px-10 py-4 text-[13px] font-bold text-slate-400">
                                             <div className="flex items-center gap-2">
                                                 <Calendar size={14} className="opacity-50" />
-                                                {emp.created_at ? new Date(emp.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Apr 15, 2024'}
+                                                {emp.created_at ? formatUAEDate(emp.created_at) : 'Apr 15, 2024'}
                                             </div>
                                         </td>
                                         <td className="px-10 py-4 text-right relative">

@@ -70,18 +70,18 @@ const SubtaskRow = ({ task, parentTask, renderStatusBadge, renderSeverityTag, is
                 if (e.key === 'Enter' || e.key === ' ') onViewDetails(task);
             }}
         >
-            <td className={`py-2.5 px-4 ${indentClass} relative text-left`}>
+            <td className={`py-1.5 px-2 ${indentClass} relative text-left`}>
                 <div className={`absolute left-${taskLevel >= 2 ? '20' : '14'} top-0 bottom-0 w-[2.5px] bg-slate-100`}></div>
                 <div className={`absolute left-${taskLevel >= 2 ? '20' : '14'} ${isLast ? 'h-6' : 'h-full'} w-[12px] border-l-[2.5px] border-b-[2.5px] border-slate-100 rounded-bl-xl`}></div>
-                <div className="flex items-center gap-2 ml-6 relative z-10">
-                    <span className="text-[16px] font-bold text-slate-400">↳</span>
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest bg-white/80 px-1.5 py-0.5 rounded border border-slate-100 shadow-sm">#Sub-{taskId}</span>
+                <div className="flex items-center gap-1 ml-4 relative z-10">
+                    <span className="text-[14px] font-bold text-slate-400">↳</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-white/80 px-1 py-0.5 rounded border border-slate-100 shadow-sm">#Sub-{taskId}</span>
                 </div>
             </td>
-            <td className="py-2.5 px-4 text-left text-slate-400 font-medium text-[11px]">
+            <td className="py-1.5 px-2 text-left text-slate-400 font-medium text-[10px]">
                 {task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}
             </td>
-            <td className="py-2.5 px-4 pl-6 text-left">
+            <td className="py-1.5 px-2 pl-4 text-left">
                 <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-violet-600">T-{task.task_id}</span>
                     <span className="text-[14px] font-bold text-slate-700 tracking-tight leading-tight">{title}</span>
@@ -104,31 +104,31 @@ const SubtaskRow = ({ task, parentTask, renderStatusBadge, renderSeverityTag, is
                 )}
             </td>
 
-            <td className="py-2.5 px-4 text-left">
+            <td className="py-1.5 px-2 text-left">
                 <span className="text-slate-400 text-[10px] font-medium italic">-</span>
             </td>
-            <td className="py-2.5 px-4 text-left whitespace-nowrap">
+            <td className="py-1.5 px-2 text-left whitespace-nowrap">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                     {task.assigned_at || task.assigned_date || task.created_at
                         ? fmtDate(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
                         : '-'}
                 </span>
             </td>
-            <td className="py-2.5 px-4 text-left">
+            <td className="py-1.5 px-2 text-left">
                 <span className="text-[11px] font-black text-indigo-600 truncate max-w-[100px] block tracking-tighter">{assignedTo}</span>
             </td>
-            <td className="py-2.5 px-4 text-left whitespace-nowrap">
+            <td className="py-1.5 px-2 text-left whitespace-nowrap">
                 <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border ${isOverdue ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                     <span className="text-[9px] font-black tracking-tighter uppercase">{dueDateShort}</span>
                 </div>
             </td>
-            <td className="py-2.5 px-4 text-center">
+            <td className="py-1.5 px-2 text-center">
                 {renderStatusBadge?.(status)}
             </td>
-            <td className="py-2.5 px-4 text-left">
+            <td className="py-1.5 px-2 text-left">
                 {renderSeverityTag?.(severity)}
             </td>
-            <td className="py-2.5 px-4 text-right pr-6">
+            <td className="py-1.5 px-2 text-right pr-3">
                 <div className="flex justify-end gap-1.5">
                     {!canManageTask ? (
                         // Only the assigner can approve, reassign, or cancel — show lock for everyone else
@@ -264,8 +264,8 @@ const TaskRow = ({
                     if (e.key === 'Enter' || e.key === ' ') handleRowClick();
                 }}
             >
-                <td className="py-1 px-4 pl-6 font-black">
-                    <div className="flex items-center gap-1.5">
+                <td className="py-1 px-2 pl-3 font-black">
+                    <div className="flex items-center gap-1">
                         {isParent ? (
                             <button
                                 onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
@@ -279,10 +279,10 @@ const TaskRow = ({
                         <span className="text-[9px] font-black text-violet-600 tracking-tighter uppercase">#{taskId}</span>
                     </div>
                 </td>
-                <td className="py-1 px-4 text-left text-slate-400 font-medium text-[9px] hidden sm:table-cell">
+                <td className="py-1 px-2 text-left text-slate-400 font-medium text-[9px] hidden sm:table-cell">
                     {task.parent_task_id && task.parent_task_id !== '-' ? `#${task.parent_task_id}` : '-'}
                 </td>
-                <td className="py-1 px-4 text-left">
+                <td className="py-1 px-2 text-left">
                     <div className="flex flex-col gap-0">
                         <div className="flex items-center gap-1.5">
                             <h4 className="font-bold text-[#1E1B4B] text-[11px] tracking-tight truncate max-w-[150px]">
@@ -307,33 +307,33 @@ const TaskRow = ({
                     </div>
                 </td>
 
-                <td className="py-1 px-4 text-left">
+                <td className="py-1 px-2 text-left">
                     <span className="text-[10px] font-bold text-slate-700 truncate max-w-[80px] block">
                         {assignedBy || 'Sys'}
                     </span>
                 </td>
-                <td className="py-1 px-4 text-left whitespace-nowrap">
+                <td className="py-1 px-2 text-left whitespace-nowrap">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">
                         {task.assigned_at || task.assigned_date || task.created_at
                             ? fmtDate(new Date(task.assigned_at || task.assigned_date || task.created_at), 'yy-MM-dd')
                             : '-'}
                     </span>
                 </td>
-                <td className="py-1 px-4 text-left">
+                <td className="py-1 px-2 text-left">
                     <span className="text-[11px] font-black text-indigo-600 truncate max-w-[100px] block tracking-tighter">{assignedTo}</span>
                 </td>
-                <td className="py-1 px-4 text-left whitespace-nowrap">
+                <td className="py-1 px-2 text-left whitespace-nowrap">
                     <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${isOverdue ? 'bg-rose-50 border-rose-100 text-rose-600' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
                         <span className="text-[9px] font-black tracking-tighter uppercase">{dueDateShort}</span>
                     </div>
                 </td>
-                <td className="py-1 px-4 text-center whitespace-nowrap">
+                <td className="py-1 px-2 text-center whitespace-nowrap">
                     {renderStatusBadge?.(status)}
                 </td>
-                <td className="py-1 px-4 text-left whitespace-nowrap">
+                <td className="py-1 px-2 text-left whitespace-nowrap">
                     {renderSeverityTag?.(severity)}
                 </td>
-                <td className="py-1 px-4 text-right pr-6">
+                <td className="py-1 px-2 text-right pr-3">
                     <div className="flex justify-end gap-1.5">
                         {!canManageTask ? (
                             // Only the assigner can approve, reassign, or cancel — show lock for everyone else
@@ -569,13 +569,23 @@ const TeamTasksPage = () => {
                 return dateB - dateA;
             });
 
-            // Cross-reference: mark a task as has_subtasks if any other task in the same
-            // response has parent_task_id pointing to it. This ensures the expand button
-            // appears even when the backend omits subtask_count / has_subtasks.
-            const childParentIds = new Set(
-                sorted.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
-            );
-            const enriched = sorted.map(t => ({
+            // ── Separate top-level tasks from inline subtasks ────────────────────────
+            // The backend often returns both parent tasks AND their subtasks as flat rows.
+            // We partition them here so subtasks only appear when the parent is expanded.
+            const flatSubtasks = sorted.filter(t => !!t.parent_task_id);
+            const rootTasks    = sorted.filter(t => !t.parent_task_id);
+
+            // Build the subtasksMap from inline flat subtasks
+            const inlineSubMap = {};
+            flatSubtasks.forEach(s => {
+                const pid = String(s.parent_task_id);
+                if (!inlineSubMap[pid]) inlineSubMap[pid] = [];
+                inlineSubMap[pid].push(s);
+            });
+
+            // Mark root tasks as has_subtasks if inline map has children for them
+            const childParentIds = new Set(flatSubtasks.map(t => String(t.parent_task_id)));
+            const enriched = rootTasks.map(t => ({
                 ...t,
                 has_subtasks:
                     t.has_subtasks ||
@@ -586,12 +596,29 @@ const TeamTasksPage = () => {
 
             setTasks(enriched);
 
-            // Eagerly fetch subtasks for all tasks in the current view
-            // This ensures the "expand" button appears even if the backend misses the flag,
-            // and it makes the subtasks immediately visible.
+            // Seed subtasksMap with inline subtasks (instant expand, no extra API call needed
+            // for parents already covered by the flat response).
+            const coveredParentIds = new Set(Object.keys(inlineSubMap));
+            setSubtasksMap(prev => {
+                const next = { ...prev };
+                Object.entries(inlineSubMap).forEach(([pid, subs]) => {
+                    // Enrich each inline subtask with parent title for breadcrumb display
+                    const parentTask = enriched.find(t => String(t.task_id || t.id) === pid);
+                    next[pid] = subs.map(s => ({
+                        ...s,
+                        parent_task_id: s.parent_task_id ?? pid,
+                        parent_task_title: s.parent_task_title || parentTask?.task_title || parentTask?.title || ''
+                    }));
+                });
+                return next;
+            });
+
+            // For parents that had NO inline subtasks but are flagged as parents,
+            // do a background fetch so the expand button works when clicked.
             enriched.forEach(task => {
                 const taskId = task.task_id || task.id;
-                if (!taskId) return;
+                if (!taskId || coveredParentIds.has(String(taskId))) return;
+                if (!task.has_subtasks) return; // skip leaf tasks
                 api.get(`/tasks/${taskId}/subtasks`).then(res => {
                     const subs = res.data?.data || res.data || [];
                     const subsArray = Array.isArray(subs) ? subs : [];
@@ -604,15 +631,10 @@ const TeamTasksPage = () => {
                                 parent_task_title: s.parent_task_title || task.task_title || task.title || ''
                             }))
                         }));
-                        setTasks(currentTasks => currentTasks.map(t => 
+                        setTasks(currentTasks => currentTasks.map(t =>
                             String(t.task_id || t.id) === String(taskId) ? { ...t, has_subtasks: true } : t
                         ));
-                        // Optionally auto-expand to ensure they are immediately seen by the user
-                        setExpandedTasks(prev => {
-                            const next = new Set(prev);
-                            next.add(taskId);
-                            return next;
-                        });
+                        // Collapsed by default — user clicks chevron to expand
                     }
                 }).catch(() => {});
             });
@@ -651,7 +673,7 @@ const TeamTasksPage = () => {
                 limit: rawData.limit || prev.limit,
             }));
 
-            // ── Fetch accurate KPI metrics from specialized summary endpoints.
+            // ── Fetch accurate KPI metrics from role-aware endpoints.
             // Normalize dates: never send empty strings to the API to avoid 422/incorrect defaults.
             const getFirstDayOfMonth = () => {
                 const now = new Date();
@@ -662,68 +684,102 @@ const TeamTasksPage = () => {
             const safeFrom = (filters.from_date && filters.from_date.length === 10) ? filters.from_date : getFirstDayOfMonth();
             const safeTo   = (filters.to_date   && filters.to_date.length   === 10) ? filters.to_date   : getToday();
 
+            const isCFO = (user?.role || '').toUpperCase() === 'CFO';
+
+            // CFO has no department_id — omit it so the API returns org-wide data.
+            // Manager scopes to their own department unless a filter overrides it.
             const metricParams = {
                 from_date: safeFrom,
                 to_date:   safeTo,
-                department_id: (filters.department_id && filters.department_id !== 'all') 
-                    ? filters.department_id 
-                    : (user?.department_id || user?.dept_id || user?.department)
+                ...(!isCFO && {
+                    department_id: (filters.department_id && filters.department_id !== 'all')
+                        ? filters.department_id
+                        : (user?.department_id || user?.dept_id || user?.department)
+                }),
+                ...(isCFO && filters.department_id && filters.department_id !== 'all' && {
+                    department_id: filters.department_id
+                })
             };
 
-            // department-metrics is the SOLE source of truth for all KPI counters.
-            // manager dashboard is only a fallback; analytics is used for scores only.
+            // Role-aware endpoint selection:
+            //   CFO  → /dashboard/cfo (top_kpis) + /dashboard/cfo/org-metrics (totals)
+            //   Manager → /dashboard/manager/department-metrics + /dashboard/manager
+            const [ep1, ep2, ep3] = isCFO
+                ? [
+                    '/dashboard/cfo/org-metrics',
+                    '/dashboard/cfo',
+                    '/dashboard/cfo/trends'
+                  ]
+                : [
+                    '/dashboard/manager/department-metrics',
+                    '/dashboard/manager',
+                    '/dashboard/manager/analytics'
+                  ];
+
             Promise.allSettled([
-                api.get('/dashboard/manager/department-metrics', { params: metricParams }),
-                api.get('/dashboard/manager', { params: metricParams }),
-                api.get('/dashboard/manager/analytics', { params: metricParams })
+                api.get(ep1, { params: metricParams }),
+                api.get(ep2, { params: metricParams }),
+                api.get(ep3, { params: metricParams })
             ]).then(results => {
-                const deptData = results[0].status === 'fulfilled' ? (results[0].value.data?.data || results[0].value.data || {}) : {};
-                const dashData = results[1].status === 'fulfilled' ? (results[1].value.data?.data || results[1].value.data || {}) : {};
-                const anaData  = results[2].status === 'fulfilled' ? (results[2].value.data?.data || results[2].value.data || {}) : {};
+                const r0 = results[0].status === 'fulfilled' ? (results[0].value.data?.data || results[0].value.data || {}) : {};
+                const r1 = results[1].status === 'fulfilled' ? (results[1].value.data?.data || results[1].value.data || {}) : {};
+                const r2 = results[2].status === 'fulfilled' ? (results[2].value.data?.data || results[2].value.data || {}) : {};
 
-                console.log("[TeamTasksPage] metricParams sent:", metricParams);
-                console.log("[TeamTasksPage] deptData response:", deptData);
-                console.log("[TeamTasksPage] dashData response:", dashData);
-                console.log("[TeamTasksPage] dashData.top_kpis:", dashData.top_kpis);
+                console.log("[TeamTasksPage] role:", user?.role, "| metricParams:", metricParams);
+                console.log("[TeamTasksPage] r0 (dept/org-metrics):", r0);
+                console.log("[TeamTasksPage] r1 (dash/cfo):", r1);
 
-                const kpis = dashData.top_kpis || {};
-                const tco  = anaData.task_completion_overview || {};
+                // For CFO: top_kpis lives inside /dashboard/cfo response
+                // For Manager: top_kpis lives inside /dashboard/manager response
+                const kpis = r1.top_kpis || {};
+                const tco  = isCFO ? (r1.task_completion_overview || r0) : (r2.task_completion_overview || {});
 
-                // ── Source of truth: manager dashboard (131 total, 12 pending etc.)
-                // Only fall back to department-metrics if manager dashboard call failed.
-                const totalCountOfficial =
-                    (kpis.total_team_tasks     != null ? kpis.total_team_tasks     : null) ??
-                    (deptData.total_tasks      != null ? deptData.total_tasks      : null) ??
-                    (dashData.total_tasks      != null ? dashData.total_tasks      : null) ??
-                    enriched.length; // last resort: current page count
+                // ── org-metrics (CFO) or department-metrics (Manager) is primary source of truth.
+                // Fallback chain: org-metrics → top_kpis → dashboard totals → page count.
+                const totalCountOfficial = Math.max(
+                    (r0.total_tasks           != null ? Number(r0.total_tasks)           : 0),
+                    (kpis.total_team_tasks     != null ? Number(kpis.total_team_tasks)     : 0),
+                    (r1.total_tasks            != null ? Number(r1.total_tasks)            : 0),
+                    enriched.length  // always at least as many as we loaded
+                );
 
                 const inProgressOfficial =
+                    (r0.in_progress_tasks      != null ? r0.in_progress_tasks      : null) ??
                     (kpis.in_progress_tasks     != null ? kpis.in_progress_tasks     : null) ??
-                    (deptData.in_progress_tasks != null ? deptData.in_progress_tasks : null) ??
-                    tco.in_progress_tasks ?? 0;
+                    (tco.in_progress_tasks      != null ? tco.in_progress_tasks      : null) ??
+                    enriched.filter(t => (t.status || '').toUpperCase() === 'IN_PROGRESS').length;
 
                 const pendingOfficial =
+                    (r0.pending_approval        != null ? r0.pending_approval        : null) ??
+                    (r0.submitted_tasks         != null ? r0.submitted_tasks         : null) ??
                     (kpis.pending_approval_tasks != null ? kpis.pending_approval_tasks : null) ??
-                    (deptData.pending_approval  != null ? deptData.pending_approval  : null) ??
-                    tco.pending_tasks ?? 0;
+                    (tco.pending_tasks           != null ? tco.pending_tasks           : null) ??
+                    enriched.filter(t => (t.status || '').toUpperCase() === 'SUBMITTED').length;
 
                 const overdueOfficial =
-                    (kpis.overdue_tasks         != null ? kpis.overdue_tasks         : null) ??
-                    (deptData.overdue_tasks     != null ? deptData.overdue_tasks     : null) ??
-                    tco.overdue_tasks ?? 0;
+                    (r0.overdue_tasks           != null ? r0.overdue_tasks           : null) ??
+                    (kpis.overdue_tasks          != null ? kpis.overdue_tasks          : null) ??
+                    (tco.overdue_tasks           != null ? tco.overdue_tasks           : null) ??
+                    (() => {
+                        const now3 = new Date();
+                        return enriched.filter(t => {
+                            const due = t.due_date ? new Date(t.due_date) : null;
+                            return due && due < now3 && !['APPROVED', 'CANCELLED', 'COMPLETED'].includes((t.status || '').toUpperCase());
+                        }).length;
+                    })();
 
                 setMetrics({
-                    activeTasks:       totalCountOfficial,
-                    inProgress:        inProgressOfficial,
-                    pendingSubmission:  pendingOfficial,
-                    overdue:           overdueOfficial,
+                    activeTasks:      totalCountOfficial,
+                    inProgress:       inProgressOfficial,
+                    pendingSubmission: pendingOfficial,
+                    overdue:          overdueOfficial,
                 });
 
                 // Now set the authoritative pagination total
                 setPagination(prev => ({ ...prev, total: totalCountOfficial }));
             }).catch(err => {
                 console.warn('[TeamTasksPage] Metrics fetch failed:', err);
-                // Fallback to minimal computation from the current page if dashboard is unreachable
+                // Fallback to page-count computation if dashboard is unreachable
                 const now3 = new Date();
                 setMetrics({
                     activeTasks:       enriched.length,
@@ -1087,16 +1143,16 @@ const TeamTasksPage = () => {
                     <table className="w-full text-left capitalize">
                         <thead>
                             <tr className="text-[9px] font-black text-slate-400 uppercase tracking-tighter border-b border-slate-100 bg-slate-50/30">
-                                <th className="py-2 px-4 pl-6">ID</th>
-                                <th className="py-2 px-4 font-bold text-[9px] hidden sm:table-cell">PID</th>
-                                <th className="py-2 px-4">Task</th>
-                                <th className="py-2 px-4">From</th>
-                                <th className="py-2 px-4">Date</th>
-                                <th className="py-2 px-4 text-indigo-500">To</th>
-                                <th className="py-2 px-4">Due</th>
-                                <th className="py-2 px-4 text-center">Status</th>
-                                <th className="py-2 px-4">Severity</th>
-                                <th className="py-2 px-4 text-right pr-6">Actions</th>
+                                <th className="py-2 px-2 pl-3">ID</th>
+                                <th className="py-2 px-2 font-bold text-[9px] hidden sm:table-cell">PID</th>
+                                <th className="py-2 px-2">Task</th>
+                                <th className="py-2 px-2">From</th>
+                                <th className="py-2 px-2">Date</th>
+                                <th className="py-2 px-2 text-indigo-500">To</th>
+                                <th className="py-2 px-2">Due</th>
+                                <th className="py-2 px-2 text-center">Status</th>
+                                <th className="py-2 px-2">Severity</th>
+                                <th className="py-2 px-2 text-right pr-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -1132,14 +1188,45 @@ const TeamTasksPage = () => {
                     </table>
                 </div>
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4 bg-slate-50/50 px-8 border-t border-slate-100 text-left">
-                    <div className="text-[12px] font-bold text-slate-500">Showing {Math.min((pagination.page - 1) * pagination.limit + 1, pagination.total)}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {metrics.activeTasks || pagination.total} tasks</div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => fetchTasks(pagination.page - 1)} disabled={pagination.page <= 1} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[12px] font-black text-slate-500 hover:text-violet-600 disabled:opacity-50 transition-all shadow-sm">Prev</button>
-                        {Array.from({ length: Math.min(5, Math.ceil(pagination.total / pagination.limit)) }).map((_, i) => (
-                            <button key={i + 1} onClick={() => fetchTasks(i + 1)} className={`w-10 h-10 rounded-xl text-[12px] font-black transition-all ${pagination.page === i + 1 ? 'bg-violet-600 text-white shadow-lg shadow-violet-200 scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:text-violet-600'}`}>{i + 1}</button>
-                        ))}
-                        <button onClick={() => fetchTasks(pagination.page + 1)} disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)} className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[12px] font-black text-slate-500 hover:text-violet-600 disabled:opacity-50 transition-all shadow-sm">Next</button>
-                    </div>
+                    {/* Use tasks.length as a floor so the count is never 0 while tasks are visible */}
+                    {(() => {
+                        const effectiveTotal = Math.max(metrics.activeTasks || 0, pagination.total, tasks.length);
+                        const effectivePage  = pagination.page || 1;
+                        const effectiveLimit = pagination.limit || 20;
+                        const totalPages     = Math.max(1, Math.ceil(effectiveTotal / effectiveLimit));
+                        const rangeStart     = effectiveTotal === 0 ? 0 : (effectivePage - 1) * effectiveLimit + 1;
+                        const rangeEnd       = Math.min(effectivePage * effectiveLimit, effectiveTotal || tasks.length);
+                        return (
+                            <>
+                                <div className="text-[12px] font-bold text-slate-500">
+                                    Showing {rangeStart}–{rangeEnd} of {effectiveTotal} tasks
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => fetchTasks(effectivePage - 1)}
+                                        disabled={effectivePage <= 1}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[12px] font-black text-slate-500 hover:text-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+                                    >Prev</button>
+                                    {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => (
+                                        <button
+                                            key={i + 1}
+                                            onClick={() => fetchTasks(i + 1)}
+                                            className={`w-10 h-10 rounded-xl text-[12px] font-black transition-all ${
+                                                effectivePage === i + 1
+                                                    ? 'bg-violet-600 text-white shadow-lg shadow-violet-200 scale-110'
+                                                    : 'bg-white border border-slate-200 text-slate-500 hover:text-violet-600'
+                                            }`}
+                                        >{i + 1}</button>
+                                    ))}
+                                    <button
+                                        onClick={() => fetchTasks(effectivePage + 1)}
+                                        disabled={effectivePage >= totalPages}
+                                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-[12px] font-black text-slate-500 hover:text-violet-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+                                    >Next</button>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
 

@@ -6,6 +6,7 @@ import {
 import api from '../../services/api';
 import Badge from '../UI/Badge';
 import toast from 'react-hot-toast';
+import { formatUAEDateTime, formatUAEDate, formatUAETime } from '../../utils/timezone';
 
 const getHistoryLabel = (entry) => {
     const oldStatus = entry.old_status;
@@ -357,7 +358,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Assigned Date</p>
                             <p className="text-sm font-semibold text-slate-700">
                                 {fullTask.assigned_at 
-                                    ? new Date(fullTask.assigned_at).toISOString().split('T')[0] 
+                                    ? formatUAEDate(fullTask.assigned_at)
                                     : (fullTask.assigned_date || "-")}
                             </p>
                         </div>
@@ -435,7 +436,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                                         <div className="min-w-0">
                                                             <p className="text-[14px] font-black text-slate-700 truncate tracking-tight">{name}</p>
                                                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                                                                {new Date(time).toLocaleDateString()} · {new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · By {by}
+                                                                {formatUAEDate(time)} · {formatUAETime(time)} · By {by}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -499,12 +500,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                                             {getHistoryLabel(entry)}
                                                         </span>
                                                         <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mt-1">
-                                                            {entry.changed_at || entry.timestamp
-                                                                ? new Date(entry.changed_at || entry.timestamp).toLocaleString(undefined, {
-                                                                    dateStyle: 'medium',
-                                                                    timeStyle: 'short'
-                                                                })
-                                                                : ''}
+                                                            {formatUAEDateTime(entry.changed_at || entry.timestamp)}
                                                         </p>
                                                     </div>
                                                     {(entry.changed_by_emp_id || entry.changed_by) && (
