@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { OKRS } from '../../data/mockData';
+
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
     PieChart, Pie, AreaChart, Area, LabelList
@@ -172,121 +172,7 @@ const OKRDashboard = () => {
         window.dispatchEvent(new Event('dashboard-filter-change'));
     }, [filters.from_date, filters.to_date, filters.department]);
 
-    const applyMockData = () => {
-        const mockObjs = (OKRS || []).map(o => {
-            const krs = Array.isArray(o.keyResults) ? o.keyResults : [];
-            let totalSub = 0;
-            let completedSub = 0;
-            const depts = new Set();
-            krs.forEach(kr => {
-                const t = Number(kr.totalTasks ?? kr.tasks ?? 1);
-                const doneGuess = Number(kr.completedTasks ?? Math.round(((kr.progress ?? 0) / 100) * t));
-                totalSub += t;
-                completedSub += Math.min(doneGuess, t);
-                if (kr.category) depts.add(kr.category);
-                if (kr.subCategory) depts.add(kr.subCategory);
-            });
-            const progress = o.progress ?? (totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0);
-            const deptsArray = depts.size > 0 ? Array.from(depts) : ['Strategic'];
-            return {
-                id: o.id,
-                objective_title: o.title || 'Strategic Objective',
-                progress_pct: progress,
-                completed_subtasks: completedSub,
-                total_subtasks: totalSub || 1,
-                department_count: Math.max(1, deptsArray.length),
-                health_score: progress,
-                risk_rating: progress < 40 ? 'High' : (progress < 80 ? 'Medium' : 'Low'),
-                deptsArray
-            };
-        });
 
-        const totalObjectives = mockObjs.length;
-        const totalSubtasks = mockObjs.reduce((acc, o) => acc + (o.total_subtasks || 0), 0);
-        const completedTasks = mockObjs.reduce((acc, o) => acc + (o.completed_subtasks || 0), 0);
-        const overallProgress = totalSubtasks > 0 ? Math.round((completedTasks / totalSubtasks) * 100) : 0;
-        const atRisk = mockObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length;
-        const avgHealth = totalObjectives > 0 ? Math.round(mockObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / totalObjectives) : 0;
-
-        setMetrics([
-            { label: 'TOTAL OBJECTIVES', value: totalObjectives, color: 'indigo', icon: Target },
-            { label: 'TOTAL SUBTASKS', value: totalSubtasks, color: 'blue', icon: TrendingUp },
-            { label: 'COMPLETED TASKS', value: completedTasks, color: 'green', icon: CheckCircle2 },
-            { label: 'OVERALL PROGRESS', value: `${overallProgress}%`, color: 'amber', icon: TrendingUp, tooltip: '(Completed Tasks / Total Subtasks) * 100' },
-            { label: 'AT RISK OBJECTIVES', value: atRisk, color: 'rose', icon: AlertTriangle },
-            { label: 'AVERAGE HEALTH SCORE', value: `${avgHealth}%`, color: 'green', icon: ShieldCheck, tooltip: 'Average of scores of all objectives in the selected period' }
-        ]);
-
-        setTableData(mockObjs.map(o => {
-            const subTotal = o.total_subtasks || 0;
-            const subComp = o.completed_subtasks || 0;
-            const progress = o.progress_pct !== undefined ? o.progress_pct : (subTotal > 0 ? Math.round((subComp / subTotal) * 100) : 0);
-            const rating = o.risk_rating || (progress < 40 ? 'High' : (progress < 80 ? 'Medium' : 'Low'));
-            return {
-                id: o.id,
-                objective: o.objective_title,
-                title: o.objective_title,
-                progress,
-                completed: subComp,
-                total: subTotal,
-                subComp,
-                subTotal,
-                depts: o.department_count || o.deptsArray?.length || 1,
-                deptsCount: o.department_count || o.deptsArray?.length || 1,
-                deptNames: o.deptsArray || ['Strategic'],
-                daysTotal: 45,
-                daysRemaining: 15,
-                score: progress,
-                rating,
-                risk: rating
-            };
-        }));
-
-        const objCompletion = mockObjs.map(o => ({
-            name: o.objective_title || 'Objective',
-            value: o.progress_pct ?? 0,
-            color: (o.progress_pct ?? 0) >= 80 ? '#10b981' : (o.progress_pct ?? 0) >= 50 ? '#3b82f6' : '#ef4444'
-        }));
-        setObjCompletionData(objCompletion);
-
-        const deptColors = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6', '#F97316'];
-        const deptMap = {};
-        mockObjs.forEach(o => {
-            (o.deptsArray || ['General']).forEach(d => {
-                const dName = String(d || 'General').trim();
-                deptMap[dName] = (deptMap[dName] || 0) + (o.total_subtasks || 1);
-            });
-        });
-        const deptData = Object.entries(deptMap).map(([name, count], idx) => ({
-            name,
-            value: count,
-            fill: deptColors[idx % deptColors.length]
-        }));
-        setDeptContributionData(deptData);
-
-        const riskItems = mockObjs.map(o => ({
-            label: o.objective_title || 'Objective',
-            status: getRiskLabel(o.risk_rating),
-            score: o.progress_pct ?? 0,
-            color: getRiskLabel(o.risk_rating) === 'High'
-                ? 'bg-rose-500 text-white shadow-lg'
-                : getRiskLabel(o.risk_rating) === 'Medium'
-                    ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                    : 'bg-emerald-500 text-white shadow-md'
-        }));
-        setRiskOverview(riskItems);
-
-        setAvailableDepts(Array.from(new Set(mockObjs.flatMap(o => o.deptsArray || []))).filter(Boolean));
-        setTrendData([
-            { name: 'Month 1', value: 20 },
-            { name: 'Month 2', value: 35 },
-            { name: 'Month 3', value: 50 },
-            { name: 'Month 4', value: 60 },
-            { name: 'Month 5', value: 72 },
-            { name: 'Month 6', value: 80 }
-        ]);
-        setOverdueTasks([]);
-    };
 
     const fetchDashboardData = async () => {
         setLoading(true);
@@ -638,39 +524,7 @@ const OKRDashboard = () => {
                 });
             }
 
-            // FINAL Fallback: use mock OKRs if API returns nothing at all
-            if (serverObjs.length === 0 && objectivesList.length === 0 && (!allTasks || allTasks.length === 0)) {
-                const mockObjs = (OKRS || []).map(o => {
-                    const krs = Array.isArray(o.keyResults) ? o.keyResults : [];
-                    let totalSub = 0;
-                    let completedSub = 0;
-                    const depts = new Set();
-                    krs.forEach(kr => {
-                        const t = Number(kr.totalTasks ?? kr.tasks ?? 1);
-                        const doneGuess = Number(kr.completedTasks ?? Math.round(((kr.progress ?? 0) / 100) * t));
-                        totalSub += t;
-                        completedSub += Math.min(doneGuess, t);
-                        if (kr.category) depts.add(kr.category);
-                        if (kr.subCategory) depts.add(kr.subCategory);
-                    });
-                    const progress = o.progress ?? (totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0);
-                    const deptsArray = depts.size > 0 ? Array.from(depts) : ['Strategic'];
-                    return {
-                        id: o.id,
-                        objective_title: o.title || 'Strategic Objective',
-                        progress_pct: progress,
-                        completed_subtasks: completedSub,
-                        total_subtasks: totalSub || 1,
-                        department_count: Math.max(1, deptsArray.length),
-                        health_score: progress,
-                        risk_rating: progress < 40 ? 'High' : (progress < 80 ? 'Medium' : 'Low'),
-                        deptsArray
-                    };
-                });
-                if (mockObjs.length > 0) {
-                    serverObjs = mockObjs;
-                }
-            }
+
 
             // Sync metrics (Priority: summaryData > calculation)
             data.total_objectives = summaryData.total_objectives || serverObjs.length || 0;
@@ -910,7 +764,21 @@ const OKRDashboard = () => {
 
         } catch (error) {
             console.error('Error fetching OKR data:', error);
-            applyMockData();
+            // On error, show empty state — never fall back to mock data
+            setMetrics([
+                { label: 'TOTAL OBJECTIVES', value: 0, color: 'indigo', icon: Target },
+                { label: 'TOTAL SUBTASKS', value: 0, color: 'blue', icon: TrendingUp },
+                { label: 'COMPLETED TASKS', value: 0, color: 'green', icon: CheckCircle2 },
+                { label: 'OVERALL PROGRESS', value: '0%', color: 'amber', icon: TrendingUp },
+                { label: 'AT RISK OBJECTIVES', value: 0, color: 'rose', icon: AlertTriangle },
+                { label: 'AVERAGE HEALTH SCORE', value: '0%', color: 'green', icon: ShieldCheck },
+            ]);
+            setTableData([]);
+            setObjCompletionData([]);
+            setDeptContributionData([]);
+            setRiskOverview([]);
+            setTrendData([]);
+            setOverdueTasks([]);
         } finally {
             setLoading(false);
         }

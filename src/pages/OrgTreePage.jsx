@@ -240,6 +240,7 @@ const OrgTreePage = () => {
     const [departments, setDepartments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [totalEmployees, setTotalEmployees] = useState(0);
+    const [allEmployees, setAllEmployees] = useState([]);
     const [zoom, setZoom] = useState(0.85);
 
     const fetchTree = async () => {
@@ -253,9 +254,10 @@ const OrgTreePage = () => {
             
             // Extract employees first for fallback
             const empRes = results[2].status === 'fulfilled' ? results[2].value : { data: [] };
-            const emps = Array.isArray(empRes.data) ? empRes.data : [];
+            const emps = Array.isArray(empRes.data) ? empRes.data : (Array.isArray(empRes.data?.data) ? empRes.data.data : []);
             const activeEmps = emps.filter(e => e.active !== false && String(e.status).toUpperCase() !== 'INACTIVE');
             setTotalEmployees(activeEmps.length);
+            setAllEmployees(activeEmps);
             
             // Extract departments with multiple fallbacks
             let deptRes = results[1].status === 'fulfilled' ? results[1].value : { data: [] };
@@ -409,7 +411,18 @@ const OrgTreePage = () => {
     let calculatedManagers = 0;
     let calculatedEmployees = 0;
 
-    if (treeData) {
+    if (allEmployees.length > 0) {
+        // Primary: count directly from the flat employees list — the most reliable source.
+        // This catches Admin users who are not linked into the org tree hierarchy.
+        allEmployees.forEach(e => {
+            const role = (e.role || '').toUpperCase();
+            if (role === 'CFO') calculatedCFOs += 1;
+            else if (role === 'ADMIN') calculatedAdmins += 1;
+            else if (role === 'MANAGER') calculatedManagers += 1;
+            else calculatedEmployees += 1;
+        });
+    } else if (treeData) {
+        // Fallback: traverse the tree if the employees list is empty
         const stats = getOrgStats(treeData.root || treeData.cfo || treeData);
         
         if (treeData.orphan_managers) {

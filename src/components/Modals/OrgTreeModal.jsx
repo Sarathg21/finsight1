@@ -242,18 +242,28 @@ const OrgTreeModal = ({ isOpen, onClose, onAddNode, users = [] }) => {
     const [treeData, setTreeData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [departments, setDepartments] = useState([]);
+    const [allEmployees, setAllEmployees] = useState([]);
 
     const fetchTree = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/org/tree');
+            const [treeRes, deptRes, empRes] = await Promise.allSettled([
+                api.get('/org/tree'),
+                api.get('/departments'),
+                api.get('/employees'),
+            ]);
             // Backend returns { root: { ... }, total_employees: X, ... } or { cfo: { ... } }
-            // Let's be compatible with both
-            setTreeData(res.data);
+            if (treeRes.status === 'fulfilled') setTreeData(treeRes.value.data);
+            if (deptRes.status === 'fulfilled') setDepartments(deptRes.value.data);
 
-            // Still need to fetch departments for the add form
-            const deptRes = await api.get('/departments');
-            setDepartments(deptRes.data);
+            // Store flat employee list for accurate role-count computation
+            if (empRes.status === 'fulfilled') {
+                const emps = Array.isArray(empRes.value.data)
+                    ? empRes.value.data
+                    : (Array.isArray(empRes.value.data?.data) ? empRes.value.data.data : []);
+                const active = emps.filter(e => e.active !== false && String(e.status).toUpperCase() !== 'INACTIVE');
+                setAllEmployees(active);
+            }
         } catch (err) {
             console.error("Failed to build org tree", err);
         } finally {
@@ -306,7 +316,16 @@ const OrgTreeModal = ({ isOpen, onClose, onAddNode, users = [] }) => {
     let calculatedManagers = 0;
     let calculatedEmployees = 0;
 
-    if (treeData) {
+    if (allEmployees.length > 0) {
+        // Primary: count directly from the flat employees list — catches Admin users not in the tree.
+        allEmployees.forEach(e => {
+            const role = (e.role || '').toUpperCase();
+            if (role === 'CFO') calculatedCFOs += 1;
+            else if (role === 'ADMIN') calculatedAdmins += 1;
+            else if (role === 'MANAGER') calculatedManagers += 1;
+            else calculatedEmployees += 1;
+        });
+    } else if (treeData) {
         const stats = getOrgStats(treeData.root || treeData.cfo || treeData);
 
         // Add orphans to stats
