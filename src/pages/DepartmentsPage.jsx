@@ -202,7 +202,7 @@ const DepartmentsPage = () => {
                     </div>
                     <div>
                         <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight flex items-center gap-4 capitalize">
-                            Global Departments
+                            Departments
                             <div className="hidden sm:flex items-center justify-center p-3 bg-indigo-600 text-white rounded-2xl shadow-xl shadow-indigo-100">
                                 <Building2 size={28} />
                             </div>

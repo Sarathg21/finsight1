@@ -875,7 +875,7 @@ const EmployeeDashboard = () => {
                                     <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400">Parent</th>
                                     <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400">Assigned</th>
                                     <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400">Due</th>
-                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400 text-center">Prio</th>
+                                    <th className="py-2.5 px-3 font-bold whitespace-nowrap text-slate-400 text-center">Priority</th>
                                     <th className="py-2.5 px-3 font-bold whitespace-nowrap text-center text-slate-400">Status</th>
                                     <th className="py-2.5 px-3 font-bold whitespace-nowrap text-right text-slate-400 pr-6">Actions</th>
                                 </tr>

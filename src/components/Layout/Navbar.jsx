@@ -267,9 +267,9 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                     </div>
                 </div>
 
-                {/* ── Center: Search (non-CFO) or Date filters (CFO dashboard) ── */}
+                {/* ── Center: Search (non-CFO only) ── */}
                 <div className="flex-1 flex items-center justify-center gap-3 max-w-2xl navbar-search-hide-mobile">
-                    {roleUpper !== 'CFO' && roleUpper !== 'ADMIN' && location.pathname !== '/departments' ? (
+                    {roleUpper !== 'CFO' && roleUpper !== 'ADMIN' && location.pathname !== '/departments' && (
                         <div className="w-full relative group">
                             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
                                 <Search size={16} className="text-slate-400 group-focus-within:text-indigo-500 transition-colors" strokeWidth={2.5} />
@@ -283,28 +283,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                 onKeyDown={handleSearch}
                             />
                         </div>
-                    ) : isDashboard && roleUpper === 'CFO' ? (
-                        <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-[650] text-slate-400 uppercase tracking-wider whitespace-nowrap">Filter</span>
-                            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-                                <input
-                                    type="date"
-                                    value={fromDate}
-                                    onChange={e => handleDateChange('from', e.target.value)}
-                                    className="bg-transparent border-none outline-none text-[12px] font-[600] text-slate-600 cursor-pointer"
-                                />
-                            </div>
-                            <ChevronRight size={12} className="text-slate-300" />
-                            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-                                <input
-                                    type="date"
-                                    value={toDate}
-                                    onChange={e => handleDateChange('to', e.target.value)}
-                                    className="bg-transparent border-none outline-none text-[12px] font-[600] text-slate-600 cursor-pointer"
-                                />
-                            </div>
-                        </div>
-                    ) : null}
+                    )}
                 </div>
 
                 {/* ── Right: Search icon (mobile) + Notifications + Profile ── */}

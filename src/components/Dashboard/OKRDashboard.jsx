@@ -77,19 +77,19 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet', tooltip }) => {
 
     return (
         <div 
-            className={`group animate-fade-in-up relative overflow-hidden rounded-[1.25rem] ${c.bg} ${c.shadow} p-4 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full`}
+            className={`group animate-fade-in-up relative rounded-[1.25rem] ${c.bg} ${c.shadow} p-4 transition-all duration-500 hover:scale-[1.03] hover:shadow-2xl border border-white/10 h-full overflow-visible`}
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
         >
             {/* Background Ornaments */}
-            <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full ${c.accent} blur-2xl opacity-50 group-hover:scale-125 transition-transform duration-700`} />
+            <div className={`absolute -top-4 -right-4 w-24 h-24 rounded-full ${c.accent} blur-2xl opacity-50 group-hover:scale-125 transition-transform duration-700 pointer-events-none`} />
 
-            {/* Tooltip Overlay */}
+            {/* Floating tooltip above the card */}
             {tooltip && showTooltip && (
-                <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-sm p-4 flex items-center justify-center animate-fade-in text-center transition-all duration-300">
-                    <p className="text-[10px] font-bold text-white leading-relaxed uppercase tracking-widest px-2">
-                        {tooltip}
-                    </p>
+                <div className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 z-50 w-max max-w-[200px] bg-slate-900 text-white text-[10px] font-semibold rounded-xl px-3 py-2 shadow-xl leading-relaxed text-center pointer-events-none">
+                    {tooltip}
+                    {/* Arrow */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900" />
                 </div>
             )}
 
@@ -100,8 +100,8 @@ const Stat = ({ label, value, sub, icon: Icon, color = 'violet', tooltip }) => {
                             {label}
                         </span>
                         {tooltip && (
-                            <div className="w-2.5 h-2.5 rounded-full border border-white/40 flex items-center justify-center text-[7px] text-white/40 font-black">
-                                ?
+                            <div className="w-3 h-3 rounded-full border border-white/50 flex items-center justify-center text-[8px] text-white/60 font-black flex-shrink-0 cursor-default">
+                                i
                             </div>
                         )}
                     </div>
@@ -393,61 +393,57 @@ const OKRDashboard = () => {
 
             const wideParams = { from_date: `${new Date().getFullYear()}-01-01`, to_date: today };
 
-            const baseCandidates = [
-                { ep: isCFO ? '/dashboard/cfo' : '/dashboard/manager', p: currentParams },
-                { ep: '/reports/cfo/okr/overview', p: currentParams }
-            ];
-            // Only add manager fallback if we have a department or NOT a CFO
-            if (!isCFO || (deptVal && deptVal.toLowerCase() !== 'all' && deptVal.toLowerCase() !== 'undefined')) {
-                baseCandidates.push({ ep: '/dashboard/manager', p: currentParams });
-            }
-
-            let summaryData = {};
-            for (const cand of baseCandidates) {
-                try {
-                    const sRes = await api.get(cand.ep, { params: cand.p });
-                    const sData = sRes.data?.data || sRes.data || {};
-                    if (sData.total_tasks || sData.total_objectives || sData.team_tasks) {
-                        summaryData = sData;
-                        break;
-                    }
-                } catch (err) { }
-            }
-
-            const taskCandidates = [
-                { url: '/tasks', p: { ...currentParams, limit: 200, scope: isCFO ? 'org' : 'department', _t: Date.now() } },
-                { url: '/tasks', p: { ...currentParams, limit: 200, _t: Date.now() } },
-                { url: '/tasks', p: { limit: 100, scope: isCFO ? 'org' : 'department' } }
-            ];
-
-            let rawTasks = [];
-            for (const cand of taskCandidates) {
-                try {
-                    const tRes = await api.get(cand.url, { params: cand.p });
-                    const rows = extractArr(tRes.data);
-                    if (rows.length > 0) {
-                        rawTasks = rows;
-                        break;
-                    }
-                } catch (e) { }
-            }
-
-            // FINAL FALLBACK: If still no tasks, fetch a broader set without date/dept restrictions to ensure "filled" state
-            if (rawTasks.length === 0) {
-                try {
-                    const wideRes = await api.get('/tasks', { params: { limit: 100, scope: isCFO ? 'org' : 'department' } });
-                    rawTasks = extractArr(wideRes.data);
-                } catch (e) { }
-            }
-
-            const [res, trendsRes, todayRes, objListRes, wideObjListRes, deptsRes] = await Promise.all([
-                api.get('/reports/cfo/okr/overview', { params: currentParams }).catch(() => ({ data: {} })),
-                api.get(isCFO ? '/dashboard/cfo/trends' : '/dashboard/manager/trends', { params: currentParams }).catch(() => api.get('/dashboard/cfo/trends')).catch(() => ({ data: {} })),
-                api.get(isCFO ? '/dashboard/cfo/today' : '/dashboard/manager/today').catch(() => ({ data: {} })),
-                api.get('/reports/cfo/okr/objectives', { params: currentParams }).catch(() => ({ data: [] })),
-                api.get('/reports/cfo/okr/objectives', { params: wideParams }).catch(() => ({ data: [] })),
-                api.get('/departments').catch(() => api.get('/admin/departments')).catch(() => ({ data: [] }))
+            // ── FIRE ALL REQUESTS IN PARALLEL ──────────────────────────────────────
+            // Previously up to 7 sequential awaits (each blocking up to 30s).
+            // Now everything fires at once — total wait = slowest single request.
+            const [
+                summaryDashRes, summaryOkrRes, summaryMgrRes,
+                tasks1Res, tasks2Res, tasks3Res, tasks4Res,
+                okrOverviewRes, trendsSettled, todaySettled,
+                objListSettled, wideObjListSettled, deptsSettled,
+            ] = await Promise.allSettled([
+                api.get(isCFO ? '/dashboard/cfo' : '/dashboard/manager', { params: currentParams }),
+                api.get('/reports/cfo/okr/overview', { params: currentParams }),
+                (!isCFO || (deptVal && deptVal.toLowerCase() !== 'all'))
+                    ? api.get('/dashboard/manager', { params: currentParams })
+                    : Promise.resolve({ data: {} }),
+                api.get('/tasks', { params: { ...currentParams, limit: 200, scope: isCFO ? 'org' : 'department', _t: Date.now() } }),
+                api.get('/tasks', { params: { ...currentParams, limit: 200, _t: Date.now() } }),
+                api.get('/tasks', { params: { limit: 100, scope: isCFO ? 'org' : 'department' } }),
+                api.get('/tasks', { params: { limit: 100 } }),
+                api.get('/reports/cfo/okr/overview', { params: currentParams }),
+                api.get(isCFO ? '/dashboard/cfo/trends' : '/dashboard/manager/trends', { params: currentParams }).catch(() => api.get('/dashboard/cfo/trends')),
+                api.get(isCFO ? '/dashboard/cfo/today' : '/dashboard/manager/today'),
+                api.get('/reports/cfo/okr/objectives', { params: currentParams }),
+                api.get('/reports/cfo/okr/objectives', { params: wideParams }),
+                api.get('/departments').catch(() => api.get('/admin/departments')),
             ]);
+
+            // Pick first summary candidate that returned useful data
+            let summaryData = {};
+            for (const r of [summaryDashRes, summaryOkrRes, summaryMgrRes]) {
+                if (r.status === 'fulfilled' && r.value?.data) {
+                    const d = r.value.data?.data || r.value.data || {};
+                    if (d.total_tasks || d.total_objectives || d.team_tasks) { summaryData = d; break; }
+                }
+            }
+
+            // Pick first task candidate that returned rows
+            let rawTasks = [];
+            for (const r of [tasks1Res, tasks2Res, tasks3Res, tasks4Res]) {
+                if (r.status === 'fulfilled' && r.value?.data) {
+                    const rows = extractArr(r.value.data);
+                    if (rows.length > 0) { rawTasks = rows; break; }
+                }
+            }
+
+            // Unwrap remaining settled results
+            const res         = okrOverviewRes.status === 'fulfilled'    ? okrOverviewRes.value    : { data: {} };
+            const trendsRes   = trendsSettled.status === 'fulfilled'     ? trendsSettled.value     : { data: {} };
+            const todayRes    = todaySettled.status === 'fulfilled'      ? todaySettled.value      : { data: {} };
+            const objListRes  = objListSettled.status === 'fulfilled'    ? objListSettled.value    : { data: [] };
+            const wideObjListRes = wideObjListSettled.status === 'fulfilled' ? wideObjListSettled.value : { data: [] };
+            const deptsRes    = deptsSettled.status === 'fulfilled'     ? deptsSettled.value      : { data: [] };
 
             let data = res.data?.data || res.data || {};
             const allDeptsRegistry = extractArr(deptsRes.data);
@@ -637,7 +633,7 @@ const OKRDashboard = () => {
                     completed_subtasks: completed,
                     total_subtasks: allTasks.length,
                     risk_rating: progress < 50 ? 'High' : (progress < 80 ? 'Medium' : 'Low'),
-                    deptsArray: [filters.department !== 'All' ? filters.department : 'General Operations'],
+                    deptsArray: filters.department && filters.department !== 'All' ? [filters.department] : [],
                     health_score: progress
                 });
             }
@@ -703,8 +699,10 @@ const OKRDashboard = () => {
             // Fallback: if no tasks available, aggregate from objectives' deptsArray
             if (Object.keys(deptMap).length <= 1 && serverObjs.length > 0) {
                 serverObjs.forEach(o => {
-                    (o.deptsArray || ['General']).forEach(d => {
-                        const dName = String(d || 'General').trim();
+                    (o.deptsArray || []).forEach(d => {
+                        if (!d) return; // skip blank entries
+                        const dName = String(d).trim();
+                        if (!dName || dName.toLowerCase() === 'general') return; // skip placeholder
                         deptMap[dName] = (deptMap[dName] || 0) + (o.total_subtasks || 1);
                     });
                 });

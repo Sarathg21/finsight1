@@ -1482,8 +1482,8 @@ const CFODashboard = () => {
                     };
                     
                     let truePerfScore = perfTotal > 0 
-                        ? Math.max(0, (((perfCompleted * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100)
-                        : safeVal(emp.performance_score ?? emp.score ?? emp.performance_index);
+                        ? Math.min(100, Math.max(0, (((Math.min(perfCompleted, perfTotal) * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100))
+                        : Math.min(100, safeVal(emp.performance_score ?? emp.score ?? emp.performance_index));
 
                     return {
                         rank: i + 1,
@@ -1814,7 +1814,7 @@ const CFODashboard = () => {
                                                 
                                                 let truePerfScore = 0;
                                                 if (perfTotal > 0) {
-                                                    truePerfScore = Math.max(0, (((perfCompleted * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100);
+                                                    truePerfScore = Math.min(100, Math.max(0, (((Math.min(perfCompleted, perfTotal) * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100));
                                                 } else {
                                                     truePerfScore = r.performance_score ?? r.score ?? 0;
                                                 }

@@ -131,7 +131,7 @@ const CFOTaskTable = ({ tasks, users, onStatusChange, onAssign, onApprove, onRew
             <th className="py-2.5 px-4 font-bold text-[10px]">By</th>
             <th className="py-2.5 px-4 font-bold text-[10px]">Start</th>
             <th className="py-2.5 px-4 font-bold text-[10px]">Due</th>
-            <th className="py-2.5 px-4 text-center font-bold text-[10px]">Prio</th>
+            <th className="py-2.5 px-4 text-center font-bold text-[10px]">Priority</th>
             <th className="py-2.5 px-4 text-center font-bold text-[10px]">Status</th>
             <th className="py-2.5 px-4 text-right pr-6 font-bold text-[10px]">Act</th>
           </tr>
@@ -355,7 +355,7 @@ const ActionTaskTable = ({
             {viewMode !== 'personal' && <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">Assignee</th>}
             <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">By</th>
             <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-center">Status</th>
-            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-center">Prio</th>
+            <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-center">Priority</th>
             <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px]">Due</th>
             <th className="py-2.5 px-4 text-slate-400 font-bold capitalize tracking-widest text-[10px] text-right pr-6">Actions</th>
           </tr>

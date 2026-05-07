@@ -167,11 +167,7 @@ const LoginPage = () => {
                     </form>
 
 
-                    <div className="mt-6 text-center text-[11px] font-medium text-slate-400">
-                        Helpline; support@fjgroup.com | <button className="text-indigo-500 hover:underline">Contact</button>
-                    </div>
-
-                    <p className="mt-3 text-center text-[10px] text-white/50 lg:hidden">
+                    <p className="mt-6 text-center text-[10px] text-white/50 lg:hidden">
                         © 2026 Zenith Data Intelligence, LLC.
                     </p>
                 </div>
