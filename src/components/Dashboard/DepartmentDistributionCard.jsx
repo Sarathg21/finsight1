@@ -1,12 +1,13 @@
 import React from 'react';
 import { 
-    PieChart, Pie, Cell, ResponsiveContainer 
+    PieChart, Pie, Cell, ResponsiveContainer, Tooltip
 } from 'recharts';
 import { 
     ListTodo, Calendar, Users2, Folder, Building2 
 } from 'lucide-react';
 
 const DepartmentDistributionCard = ({ 
+    departmentData = null,
     departmentName = "Accounts Payables",
     totalSubtasks = 5,
     completedSubtasks = 0,
@@ -16,12 +17,26 @@ const DepartmentDistributionCard = ({
     completionPct = 100 // This seems to be a label in the image, maybe distribution?
 }) => {
     // Data for the doughnut chart
-    const chartData = [
-        { name: 'Contribution', value: completionPct },
-        { name: 'Others', value: Math.max(0, 100 - completionPct) },
-    ];
+    const chartData = departmentData && departmentData.length > 0
+        ? departmentData
+        : [
+            { name: 'Contribution', value: completionPct, fill: '#3B82F6' },
+            { name: 'Others', value: Math.max(0, 100 - completionPct), fill: '#F1F5F9' },
+        ];
 
     const COLORS = ['#3B82F6', '#F1F5F9'];
+
+    const CustomTooltip = ({ active, payload }) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-slate-100 text-[11px] font-bold text-slate-700 z-50">
+                    <span className="mr-2">{payload[0].name}:</span>
+                    <span style={{ color: payload[0].payload.fill || '#3B82F6' }}>{payload[0].value}%</span>
+                </div>
+            );
+        }
+        return null;
+    };
 
     return (
         <div className="bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 w-full overflow-hidden">
@@ -38,14 +53,15 @@ const DepartmentDistributionCard = ({
                                 cy="50%"
                                 innerRadius={75}
                                 outerRadius={100}
-                                paddingAngle={0}
+                                paddingAngle={departmentData?.length > 1 ? 2 : 0}
                                 dataKey="value"
                                 stroke="none"
                             >
                                 {chartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    <Cell key={`cell-${index}`} fill={entry.fill || COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
+                            <Tooltip content={<CustomTooltip />} />
                         </PieChart>
                     </ResponsiveContainer>
                     

@@ -336,10 +336,10 @@ const OKRSubTaskPage = () => {
                     const title = (st.subtask_title || st.title || '').toLowerCase();
                     if (title.includes('audit')) finalDept = 'MIS Report and Internal Audit';
                     else if (title.includes('closing') || title.includes('month-end')) {
-                        // try to find a match in any existing depts if we had them, but for now use most likely or null
                         finalDept = null; 
                     }
-                    else if (title.includes('payables')) finalDept = 'Accounts Payables';
+                    else if (title.includes('ap_inv') || title.includes('ap-inv') || title.includes('ap - inv') || title.includes('invoice')) finalDept = 'Accounts Payables - Invoices';
+                    else if (title.includes('ap_pay') || title.includes('ap-pay') || title.includes('ap - pay') || title.includes('payment') || title.includes('payables')) finalDept = 'Accounts Payables - Payments';
                     else if (title.includes('receivables')) finalDept = 'Accounts Receivables';
                 }
 
@@ -753,8 +753,18 @@ const OKRSubTaskPage = () => {
                             const overallTotal = Math.max(subtasks.length, 1);
                             const distributionPct = Math.round((deptTotal / overallTotal) * 100);
 
+                            const formattedDeptDist = deptStats.map((d, i) => {
+                                const pct = Math.round((d.total_subtasks / overallTotal) * 100);
+                                return {
+                                    name: d.department_name || '—',
+                                    value: pct,
+                                    fill: CHART_COLORS[i % CHART_COLORS.length]
+                                };
+                            });
+
                             return (
                                 <DepartmentDistributionCard 
+                                    departmentData={formattedDeptDist}
                                     departmentName={mainDept}
                                     totalSubtasks={selectedOKR?.total_subtasks ?? subtasks.length}
                                     completedSubtasks={selectedOKR?.completed_subtasks ?? 0}
