@@ -1609,22 +1609,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                 </div>
                 <div className="px-6 py-4 bg-white">
-                    <div className="flex items-center gap-1.5 flex-nowrap mb-4">
-                        {[
-                            { label: 'On Track', desc: 'No overdue',   dot: 'bg-emerald-500', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-                            { label: 'Watch',    desc: '1 overdue',     dot: 'bg-blue-500',    bg: 'bg-blue-50',    text: 'text-blue-700' },
-                            { label: 'At Risk',   desc: '2 overdue',    dot: 'bg-orange-500',  bg: 'bg-amber-50',   text: 'text-orange-700' },
-                            { label: 'Off Track', desc: '3+ overdue',   dot: 'bg-rose-500',    bg: 'bg-rose-50',    text: 'text-rose-700' },
-                        ].map(s => (
-                            <div key={s.label} className={`${s.bg} rounded-full px-2.5 py-1 flex items-center gap-1.5 border border-white/60 shadow-sm shrink-0`}>
-                                <div className={`w-1.5 h-1.5 rounded-full ${s.dot} shadow-sm`} />
-                                <div className="flex flex-col leading-[1]">
-                                    <span className={`text-[9px] font-black ${s.text} whitespace-nowrap`}>{s.label}</span>
-                                    <span className="text-[7.5px] font-bold text-slate-400/80 whitespace-nowrap">{s.desc}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+
                     <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-left border-separate border-spacing-0">
                         <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold capitalize  tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">

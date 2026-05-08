@@ -1624,22 +1624,7 @@ const PerformanceDashboard = () => {
                         {showRiskModal ? 'Show Less' : 'View All'}
                     </button>
                 </div>
-                <div className="px-8 flex items-center justify-end gap-2 flex-wrap pb-4 mt-4">
-                    {[
-                        { label: 'On Track',  desc: 'No overdue tasks',     dot: 'bg-emerald-500', bg: 'bg-emerald-50',  text: 'text-emerald-700'  },
-                        { label: 'Watch',     desc: '1 overdue task',        dot: 'bg-blue-500',    bg: 'bg-blue-50',     text: 'text-blue-700'     },
-                        { label: 'At Risk',   desc: '2 overdue tasks',       dot: 'bg-amber-500',   bg: 'bg-amber-50',    text: 'text-amber-700'    },
-                        { label: 'Off Track', desc: '3+ overdue tasks',      dot: 'bg-rose-500',    bg: 'bg-rose-50',     text: 'text-rose-700'     },
-                    ].map(({ label, desc, dot, bg, text }) => (
-                        <div key={label} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/60 ${bg}`}>
-                            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot}`} />
-                            <div>
-                                <p className={`text-[11px] font-black leading-none ${text}`}>{label}</p>
-                                <p className="text-[9px] text-slate-400 font-medium mt-0.5 leading-none">{desc}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+
                 <div className={`overflow-x-auto overflow-y-auto ${showRiskModal ? '' : 'max-h-[500px]'} flex-1`}>
                     {employeeRisk.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-slate-400">
