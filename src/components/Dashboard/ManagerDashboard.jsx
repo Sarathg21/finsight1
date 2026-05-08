@@ -585,39 +585,80 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
 
     const metrics = useMemo(() => {
-        if (!dashboardData) return null;
+        // ── Compute live counts from bifurcationTasks (matches Team Tasks page exactly) ──
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        const useLive = Array.isArray(bifurcationTasks) && bifurcationTasks.length > 0;
 
-        // Single source of truth: /dashboard/manager response
-        const kpis = dashboardData.top_kpis || {};
-        const tco  = dashboardData.task_completion_overview || {};
-        const tsb  = dashboardData.team_status_bifurcation || {};
+        let liveTotal = 0, liveApproved = 0, liveInProgress = 0, livePending = 0,
+            liveOverdue = 0, liveNew = 0;
+
+        if (useLive) {
+            bifurcationTasks.forEach(t => {
+                const binDate = t.due_date || t.date || t.created_at || t.assigned_date || t.assigned_at;
+                const d = toDateKey(binDate);
+                // Respect selected date range
+                if (fromDate && d && d < fromDate) return;
+                if (toDate && d && d > toDate) return;
+
+                const s = String(t.status || '').toUpperCase();
+                // Always exclude CANCELLED from all counts
+                if (s === 'CANCELLED') return;
+
+                liveTotal++;
+
+                if (s === 'APPROVED' || s === 'COMPLETED') {
+                    liveApproved++;
+                } else if (s === 'SUBMITTED' || s === 'PENDING_APPROVAL') {
+                    livePending++;
+                } else if (s === 'IN_PROGRESS' || s === 'REWORK' || s === 'CHANGES_REQUESTED') {
+                    const due = toDateKey(t.due_date);
+                    if (due && due < todayStr) liveOverdue++;
+                    else liveInProgress++;
+                } else if (s === 'NEW' || s === 'NOT_STARTED') {
+                    const due = toDateKey(t.due_date);
+                    if (due && due < todayStr) liveOverdue++;
+                    else liveNew++;
+                }
+            });
+        }
+
+        const liveCompletionRate = liveTotal > 0 ? (liveApproved / liveTotal) * 100 : 0;
+
+        if (!dashboardData && !useLive) return null;
+
+        // API fallback values
+        const kpis = dashboardData?.top_kpis || {};
+        const tco  = dashboardData?.task_completion_overview || {};
+        const tsb  = dashboardData?.team_status_bifurcation || {};
         const st   = tsb.statuses || {};
 
         return {
-            // ── Top KPI Cards ──────────────────────────────────────────
-            total:               kpis.total_team_tasks,        // top_kpis.total_team_tasks
-            inProgress:          kpis.in_progress_tasks,       // top_kpis.in_progress_tasks
-            pending:             kpis.pending_approval_tasks,  // top_kpis.pending_approval_tasks
-            overdue:             kpis.overdue_tasks,           // top_kpis.overdue_tasks
-            managerScore:        kpis.manager_score        ?? null,  // top_kpis.manager_score
-            teamScore:           kpis.team_score           ?? null,  // top_kpis.team_score
-            managerPersonalScore:kpis.manager_personal_score ?? null,// top_kpis.manager_personal_score
-            managerScoreDelta:   dashboardData.manager_score_delta_percent ?? null,
+            // ── Top KPI Cards (live counts override backend when available) ──
+            total:               useLive ? liveTotal      : kpis.total_team_tasks,
+            inProgress:          useLive ? liveInProgress : kpis.in_progress_tasks,
+            pending:             useLive ? livePending    : kpis.pending_approval_tasks,
+            overdue:             useLive ? liveOverdue    : kpis.overdue_tasks,
 
-            // ── Completion Overview ─────────────────────────────────────
-            completionRate:       tco.completion_rate,     // task_completion_overview.completion_rate
-            completionTotal:      tco.total_tasks,         // task_completion_overview.total_tasks
-            approved:             tco.approved_tasks,      // task_completion_overview.approved_tasks
-            completionPending:    tco.pending_tasks,       // task_completion_overview.pending_tasks
-            completionOverdue:    tco.overdue_tasks,       // task_completion_overview.overdue_tasks
-            completionInProgress: tco.in_progress_tasks,  // task_completion_overview.in_progress_tasks
-            notStarted:           st.NEW?.count ?? 0,      // team_status_bifurcation.statuses.NEW.count
+            // Scores always come from backend (not derivable from task list)
+            managerScore:         kpis.manager_score         ?? null,
+            teamScore:            kpis.team_score            ?? null,
+            managerPersonalScore: kpis.manager_personal_score ?? null,
+            managerScoreDelta:    dashboardData?.manager_score_delta_percent ?? null,
 
-            // ── Legacy aliases ──────────────────────────────────────────
-            totalActive:   kpis.total_team_tasks ?? 0,
-            score:         kpis.team_score ?? 0,
+            // ── Completion Overview (live counts override backend when available) ──
+            completionRate:       useLive ? liveCompletionRate : tco.completion_rate,
+            completionTotal:      useLive ? liveTotal          : tco.total_tasks,
+            approved:             useLive ? liveApproved       : tco.approved_tasks,
+            completionPending:    useLive ? livePending        : tco.pending_tasks,
+            completionOverdue:    useLive ? liveOverdue        : tco.overdue_tasks,
+            completionInProgress: useLive ? liveInProgress     : tco.in_progress_tasks,
+            notStarted:           useLive ? liveNew            : (st.NEW?.count ?? 0),
+
+            // ── Legacy aliases ──
+            totalActive: useLive ? liveTotal : (kpis.total_team_tasks ?? 0),
+            score:       kpis.team_score ?? 0,
         };
-    }, [dashboardData]);
+    }, [dashboardData, bifurcationTasks, fromDate, toDate]);
 
     // Priority: use reportTeam (locally filtered) if available, otherwise fallback to global ranking
     const rankingSource = (() => {
@@ -697,14 +738,11 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
     // ── Task Trends Data Normalization ─────────────────────────────────────────
     const finalTrendsData = useMemo(() => {
-        const source = (Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0) ? trendsGraphSource : (Array.isArray(trends) ? trends : []);
-        
-        // 1. Build full month skeleton from fromDate → toDate
+        // Build full month skeleton from fromDate → toDate
         const generateMonthRange = (from, to) => {
             const startStr = toDateKey(from);
             const endStr   = toDateKey(to);
             if (!startStr || !endStr) return [];
-
             const months = [];
             const start = new Date(startStr + 'T00:00:00'); start.setDate(1);
             const end   = new Date(endStr   + 'T00:00:00'); end.setDate(1);
@@ -719,130 +757,119 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
         const mRange = generateMonthRange(fromDate, toDate);
 
-        // 2. Normalize any key → YYYY-MM
-        const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
-        
-        const toYMKey = (raw) => {
-            if (!raw) return null;
-            const s = String(raw).trim();
-            
-            // 1. Flexible Date Match: YYYY-MM-DD, YY-MM-DD, DD-MM-YYYY, etc.
-            const dateMatch = s.match(/^(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})/);
-            if (dateMatch) {
-                let y = dateMatch[1], m = dateMatch[2];
-                // If the first part is 2 digits and appears to be a year (e.g. 25, 26)
-                if (y.length === 2 && parseInt(y) >= 20) y = '20' + y;
-                // If the first part is clearly a day (e.g. 01-12-2026), look at the last part
-                if (y.length === 2 && parseInt(y) <= 31 && s.length >= 8) {
-                    const lastPart = s.match(/(\d{4})$/);
-                    if (lastPart) { y = lastPart[1]; m = dateMatch[2]; }
-                }
-                if (y.length === 4) return `${y}-${m.padStart(2, '0')}`;
-            }
+        // ── Primary source: bifurcationTasks (matches Team Tasks page exactly) ──
+        // Use due_date to bin tasks into months; fall back to created_at only if due_date is missing.
+        const tasksToBin = Array.isArray(bifurcationTasks) && bifurcationTasks.length > 0
+            ? bifurcationTasks
+            : (Array.isArray(liveTasks) ? liveTasks : []);
 
-            if (/^\d{4}-\d{2}$/.test(s)) return s;
-            
-            const sLower = s.toLowerCase();
-            let mIdx = -1;
-            for (let i = 0; i < MONTH_FULLS.length; i++) {
-                if (sLower.includes(MONTH_FULLS[i]) || sLower.startsWith(MONTH_SHORTS[i].toLowerCase())) { mIdx = i; break; }
-            }
-            const yrMatch = s.match(/\b(20\d{2})\b/);
-            const yr = yrMatch ? yrMatch[1] : null;
-            if (mIdx >= 0 && yr) return `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
-            if (mIdx >= 0) { const f = mRange.find(m => m.label === MONTH_SHORTS[mIdx]); if (f) return f.key; }
-            
-            try { 
-                const p = new Date(s); 
-                if (!isNaN(p.getTime())) {
-                    let y = p.getFullYear();
-                    // Fix for 2-digit years interpreted as 19XX or XX
-                    if (y < 100) y += 2000;
-                    return `${y}-${String(p.getMonth()+1).padStart(2,'0')}`; 
-                }
-            } catch (_) {}
-            return null;
+        const toYM = (raw) => {
+            if (!raw) return null;
+            const d = toDateKey(raw); // normalises to YYYY-MM-DD
+            if (!d) return null;
+            return d.slice(0, 7); // YYYY-MM
         };
 
-        const backendMap = {};
-        source.forEach(t => {
-            const k = toYMKey(t.period || t.name || t.week || t.month || '');
-            if (!k) return;
-            if (!backendMap[k]) backendMap[k] = { new: 0, pending: 0, overdue: 0, completed: 0 };
-            backendMap[k].new       += t.new_tasks ?? t.new ?? t.not_started ?? 0;
-            backendMap[k].pending   += t.pending_approval ?? t.pending ?? t.submitted ?? t.submitted_tasks ?? t.pending_tasks ?? 0;
-            backendMap[k].overdue   += t.overdue_tasks ?? t.overdue ?? 0;
-            backendMap[k].completed += t.completed_tasks ?? t.completed ?? t.approved ?? t.approved_tasks ?? t.completed_count ?? 0;
+        // Build per-month counts from tasks
+        const taskBinMap = {};
+        mRange.forEach(({ key }) => {
+            taskBinMap[key] = { new: 0, pending: 0, overdue: 0, completed: 0 };
         });
 
-        // 3. Supplemental Sync from liveTasks (The Ultimate Source of Truth)
-        if (Array.isArray(liveTasks) && liveTasks.length > 0) {
-            liveTasks.forEach(t => {
-                const dateStr = t.date || t.created_at || t.assigned_date || t.assigned_at;
-                const k = toYMKey(dateStr);
-                if (!k || !backendMap[k]) return;
-                const s = String(t.status || '').toUpperCase();
-                if (['APPROVED', 'COMPLETED'].includes(s)) {
-                    // We only "add" if it's missing or lower than reality
-                    // But to avoid double counting from trends API, we use a simple set/max strategy per month 
-                    // if the trends API was reporting 0
+        const todayStr = new Date().toLocaleDateString('en-CA');
+
+        tasksToBin.forEach(t => {
+            // Prefer due_date for binning (shows when work is expected)
+            const binDate = t.due_date || t.date || t.created_at || t.assigned_date || t.assigned_at;
+            const ym = toYM(binDate);
+            if (!ym || !taskBinMap[ym]) return;
+
+            // Respect the selected date range using the bin date
+            const d = toDateKey(binDate);
+            if (fromDate && d < fromDate) return;
+            if (toDate && d > toDate) return;
+
+            const s = String(t.status || '').toUpperCase();
+
+            // Exclude CANCELLED tasks from all counts
+            if (s === 'CANCELLED') return;
+
+            if (s === 'APPROVED' || s === 'COMPLETED') {
+                taskBinMap[ym].completed++;
+            } else if (s === 'SUBMITTED' || s === 'PENDING_APPROVAL') {
+                taskBinMap[ym].pending++;
+            } else if (s === 'NEW' || s === 'NOT_STARTED') {
+                // Check overdue
+                const due = toDateKey(t.due_date);
+                if (due && due < todayStr) {
+                    taskBinMap[ym].overdue++;
+                } else {
+                    taskBinMap[ym].new++;
                 }
-            });
-            
-            // Refined strategy: If any month in backendMap has 0 completed but liveTasks has many, fix it
-            Object.keys(backendMap).forEach(k => {
-                const liveMonthCount = liveTasks.filter(t => {
-                    const ds = t.date || t.created_at || t.assigned_date || t.assigned_at;
-                    if (!ds) return false;
-                    const ym = toYMKey(ds);
-                    if (ym !== k) return false;
-                    
-                    // Also ensure it's within the global fromDate/toDate range for accuracy
-                    const d = toDateKey(ds);
-                    if (fromDate && d < fromDate) return false;
-                    if (toDate && d > toDate) return false;
-                    
-                    return ['APPROVED', 'COMPLETED'].includes(String(t.status || '').toUpperCase());
-                }).length;
-                backendMap[k].completed = Math.max(backendMap[k].completed, liveMonthCount);
+            } else if (s === 'IN_PROGRESS' || s === 'REWORK' || s === 'CHANGES_REQUESTED') {
+                const due = toDateKey(t.due_date);
+                if (due && due < todayStr) {
+                    taskBinMap[ym].overdue++;
+                } else {
+                    taskBinMap[ym].new++;
+                }
+            }
+        });
+
+        // If we have no tasks to bin from (e.g. initial load), fall back to backend trends API
+        const hasBinnedTasks = tasksToBin.length > 0;
+        if (!hasBinnedTasks) {
+            // Fallback: use the trends API response
+            const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+            const source = (Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0)
+                ? trendsGraphSource
+                : (Array.isArray(trends) ? trends : []);
+
+            const toYMKey = (raw) => {
+                if (!raw) return null;
+                const s = String(raw).trim();
+                const dateMatch = s.match(/^(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})/);
+                if (dateMatch) {
+                    let y = dateMatch[1], m = dateMatch[2];
+                    if (y.length === 2 && parseInt(y) >= 20) y = '20' + y;
+                    if (y.length === 4) return `${y}-${m.padStart(2, '0')}`;
+                }
+                if (/^\d{4}-\d{2}$/.test(s)) return s;
+                const sLower = s.toLowerCase();
+                let mIdx = -1;
+                for (let i = 0; i < MONTH_FULLS.length; i++) {
+                    if (sLower.includes(MONTH_FULLS[i]) || sLower.startsWith(MONTH_SHORTS[i].toLowerCase())) { mIdx = i; break; }
+                }
+                const yrMatch = s.match(/\b(20\d{2})\b/);
+                const yr = yrMatch ? yrMatch[1] : null;
+                if (mIdx >= 0 && yr) return `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
+                return null;
+            };
+
+            source.forEach(t => {
+                const k = toYMKey(t.period || t.name || t.week || t.month || '');
+                if (!k || !taskBinMap[k]) return;
+                taskBinMap[k].new       += t.new_tasks ?? t.new ?? t.not_started ?? 0;
+                taskBinMap[k].pending   += t.pending_approval ?? t.pending ?? t.submitted ?? t.submitted_tasks ?? t.pending_tasks ?? 0;
+                taskBinMap[k].overdue   += t.overdue_tasks ?? t.overdue ?? 0;
+                taskBinMap[k].completed += t.completed_tasks ?? t.completed ?? t.approved ?? t.approved_tasks ?? t.completed_count ?? 0;
             });
         }
 
-        if (mRange.length > 0) {
-            return mRange.map(({ key, label }) => {
-                const b = backendMap[key] || { new: 0, pending: 0, overdue: 0, completed: 0 };
-                
-                // If the user has selected exactly this month range, synchronize with summary metrics
-                // This acts as a 'Source of Truth' fallback if the trends API is incomplete.
-                let finalNew = b.new;
-                let finalPending = b.pending;
-                let finalOverdue = b.overdue;
-                let finalCompleted = b.completed;
+        return mRange.map(({ key, label }) => {
+            const b = taskBinMap[key] || { new: 0, pending: 0, overdue: 0, completed: 0 };
+            return {
+                name:      label,
+                new:       b.new,
+                pending:   b.pending,
+                overdue:   b.overdue,
+                completed: b.completed,
+            };
+        });
+    }, [trendsGraphSource, trends, fromDate, toDate, bifurcationTasks, liveTasks]);
 
-                if (mRange.length === 1 && metrics) {
-                    // Use correct field names from the new metrics object
-                    finalNew       = Math.max(0, finalNew,       (metrics.totalActive || 0) - (metrics.pending || 0)); 
-                    finalPending   = Math.max(0, finalPending,   metrics.pending || 0);
-                    finalCompleted = Math.max(0, finalCompleted, metrics.approved || 0);
-                    finalOverdue   = Math.max(0, finalOverdue,   metrics.overdue || 0);
-                }
 
-                return {
-                    name:      label,
-                    new:       finalNew,
-                    pending:   finalPending,
-                    overdue:   finalOverdue,
-                    completed: finalCompleted,
-                };
-            });
-        }
-
-        return Object.keys(backendMap).sort().map(k => ({
-            name:      k,
-            ...backendMap[k]
-        }));
-    }, [trendsGraphSource, trends, fromDate, toDate, metrics, dashboardData, liveTasks]);
 
 
     if (loading) {

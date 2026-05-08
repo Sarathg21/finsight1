@@ -1481,9 +1481,17 @@ const CFODashboard = () => {
 
                     // Calculate true performance score from allOrgTasks to override incorrect API completion %
                     let perfCompleted = 0, perfRework = 0, perfTotal = 0;
+                    const lookupIdForTasks = String(resolvedEmp.id || emp.emp_id || emp.employee_id || '').toLowerCase().trim();
+                    const lookupNameForTasks = String(finalName || emp.name || '').toLowerCase().trim();
+                    
                     allOrgTasks.forEach(t => {
-                        const tId = t.assigned_to || t.emp_id || t.assignee_id || t.assignee;
-                        if (String(tId) === String(lookupId)) {
+                        const tId = String(t.assigned_to || t.emp_id || t.assignee_id || t.assignee || '').toLowerCase().trim();
+                        const tName = String(t.assigneeName || t.assigned_to_name || t.employee_name || '').toLowerCase().trim();
+                        
+                        const matchById = lookupIdForTasks && (tId === lookupIdForTasks || tId === lookupNameForTasks);
+                        const matchByName = lookupNameForTasks && (tName === lookupNameForTasks || tName === lookupIdForTasks);
+                        
+                        if (matchById || matchByName) {
                             perfTotal++;
                             const s = String(t.status || '').toUpperCase();
                             if (s === 'APPROVED' || s === 'COMPLETED') perfCompleted++;
@@ -1501,14 +1509,16 @@ const CFODashboard = () => {
                         : Math.min(100, safeVal(emp.performance_score ?? emp.score ?? emp.performance_index));
 
                     return {
-                        rank: i + 1,
                         name: finalName,
                         role: resolvedEmp.dept || emp.department || emp.department_name || 'Employee',
                         score: Math.round(truePerfScore),
                         completed: perfCompleted || emp.approved_tasks || 0,
                         total: perfTotal || emp.total_tasks || 0,
                     };
-                });
+                }).sort((a, b) => b.score - a.score).map((emp, idx) => ({
+                    ...emp,
+                    rank: idx + 1
+                }));
             }
             return [];
         })();
@@ -1536,13 +1546,39 @@ const CFODashboard = () => {
     const syncedDeptPerformance = useMemo(() => {
         if (!topPerformers || topPerformers.length === 0) return deptPerformance;
 
+        // Create a mapping of explicit API department assignments to prevent cross-pollination
+        const apiDeptMapping = {};
+        deptPerformance.forEach(dept => {
+            if (dept.top_performer && dept.top_performer.name && dept.top_performer.name !== 'N/A' && dept.top_performer.name !== 'Unknown') {
+                let resolvedName = dept.top_performer.name;
+                const rEmp = Object.values(empMap).find(e => e.name === resolvedName || String(e.id) === String(resolvedName));
+                resolvedName = rEmp?.name || resolvedName;
+                const nameKey = resolvedName.toLowerCase().trim();
+                const dKey = (dept.department || dept.department_name || dept.name || '').toLowerCase().trim();
+                apiDeptMapping[nameKey] = dKey;
+            }
+        });
+
         // Create a map of the best performer per department from the global topPerformers list
         const bestPerDept = {};
+        const empScoreMap = {};
+        
         topPerformers.forEach(p => {
             if (p.name && p.role) {
                 const deptKey = p.role.toLowerCase().trim();
-                if (!bestPerDept[deptKey] || p.score > bestPerDept[deptKey].score) {
-                    bestPerDept[deptKey] = p;
+                const nameKey = p.name.toLowerCase().trim();
+                
+                // Only consider this person as the best for this department if they aren't explicitly assigned to a DIFFERENT department
+                if (!apiDeptMapping[nameKey] || apiDeptMapping[nameKey] === deptKey) {
+                    if (!bestPerDept[deptKey] || p.score > bestPerDept[deptKey].score) {
+                        bestPerDept[deptKey] = p;
+                    }
+                }
+            }
+            if (p.name) {
+                const nameKey = p.name.toLowerCase().trim();
+                if (!empScoreMap[nameKey] || p.score > empScoreMap[nameKey].score) {
+                    empScoreMap[nameKey] = p;
                 }
             }
         });
@@ -1552,33 +1588,38 @@ const CFODashboard = () => {
             const bestGlobalForDept = bestPerDept[deptNameKey];
             
             const currentTp = dept.top_performer || { name: '', score: 0 };
+            let updatedTp = { ...currentTp };
+
+            // Resolve name from ID if necessary before looking up in empScoreMap
+            let resolvedName = currentTp.name;
+            if (currentTp.name) {
+                const resolvedEmp = Object.values(empMap).find(e => e.name === currentTp.name || String(e.id) === String(currentTp.name));
+                resolvedName = resolvedEmp?.name || currentTp.name;
+            }
+
+            // First, if the current top performer is in the global list, ALWAYS sync their score
+            if (resolvedName) {
+                const nameKey = resolvedName.toLowerCase().trim();
+                const globalEmp = empScoreMap[nameKey];
+                if (globalEmp) {
+                    updatedTp.score = Math.max(currentTp.score ?? 0, globalEmp.score);
+                }
+            }
             
-            // If the global top performers list has a better performer for this department,
-            // or if the current department top performer has no name, we completely replace it.
-            if (bestGlobalForDept && (bestGlobalForDept.score > (currentTp.score || 0) || !currentTp.name || currentTp.name === 'N/A' || currentTp.name === 'Unknown')) {
-                return {
-                    ...dept,
-                    top_performer: {
-                        name: bestGlobalForDept.name,
-                        score: bestGlobalForDept.score
-                    }
+            // Then check if there's a better global performer explicitly for this department row
+            if (bestGlobalForDept && (bestGlobalForDept.score > (updatedTp.score || 0) || !updatedTp.name || updatedTp.name === 'N/A' || updatedTp.name === 'Unknown')) {
+                updatedTp = {
+                    name: bestGlobalForDept.name,
+                    score: bestGlobalForDept.score
                 };
             }
 
-            // Otherwise, we just sync the score if the names match
-            if (bestGlobalForDept && currentTp.name && bestGlobalForDept.name.toLowerCase() === currentTp.name.toLowerCase()) {
-                const finalScore = Math.max(currentTp.score ?? 0, bestGlobalForDept.score);
-                if (finalScore !== currentTp.score) {
-                    return {
-                        ...dept,
-                        top_performer: { ...currentTp, score: finalScore }
-                    };
-                }
-            }
-
-            return dept;
+            return {
+                ...dept,
+                top_performer: updatedTp
+            };
         });
-    }, [deptPerformance, topPerformers]);
+    }, [deptPerformance, topPerformers, empMap]);
 
     if (loading) return (
         <div className="flex flex-col items-center justify-center p-10 bg-white/50 backdrop-blur-xl rounded-2xl border border-slate-100 shadow-sm animate-pulse">
