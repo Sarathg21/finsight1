@@ -293,8 +293,8 @@ const OKRDashboard = () => {
                 (!isCFO || (deptVal && deptVal.toLowerCase() !== 'all'))
                     ? api.get('/dashboard/manager', { params: currentParams })
                     : Promise.resolve({ data: {} }),
-                api.get('/tasks', { params: { ...currentParams, limit: 200, scope: isCFO ? 'org' : 'department', _t: Date.now() } }),
-                api.get('/tasks', { params: { ...currentParams, limit: 200, _t: Date.now() } }),
+                api.get('/tasks', { params: { ...currentParams, limit: 100, scope: isCFO ? 'org' : 'department', _t: Date.now() } }),
+                api.get('/tasks', { params: { ...currentParams, limit: 100, _t: Date.now() } }),
                 api.get('/tasks', { params: { limit: 100, scope: isCFO ? 'org' : 'department' } }),
                 api.get('/tasks', { params: { limit: 100 } }),
                 api.get('/reports/cfo/okr/overview', { params: currentParams }),

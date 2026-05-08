@@ -89,7 +89,7 @@ const EmployeePersonalReport = () => {
             // 1. Fetch own dashboard summary, own tasks, AND department top performer — all in parallel
             const [dashRes, myTasksRes, topPerformerRes] = await Promise.allSettled([
                 api.get('/dashboard/employee', { params: { ...dateParams, scope: 'mine' } }),
-                api.get('/tasks', { params: { ...dateParams, limit: 200 } }),
+                api.get('/tasks', { params: { ...dateParams, limit: 100 } }),
                 api.get('/reports/employee/department-top-performer', { params: { ...dateParams } }),
             ]);
 

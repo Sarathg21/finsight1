@@ -1084,10 +1084,10 @@ const CFODashboard = () => {
             // Uses a short 12s timeout so slow requests fail fast rather than blocking for 60s
             const fetchOrgTasks = async (signal) => {
                 const scopes = [
-                    { ...queryParams, scope: 'org', limit: 200 },
-                    { ...queryParams, limit: 200 },
-                    { ...queryParams, scope: 'department', limit: 200 },
-                    { ...queryParams, scope: 'mine', limit: 200 }
+                    { ...queryParams, scope: 'org', limit: 100 },
+                    { ...queryParams, limit: 100 },
+                    { ...queryParams, scope: 'department', limit: 100 },
+                    { ...queryParams, scope: 'mine', limit: 100 }
                 ];
 
                 try {
@@ -1154,11 +1154,26 @@ const CFODashboard = () => {
                 }
 
                 const todayStr = new Date().toISOString().split('T')[0];
+                // Identity of the currently logged-in CFO — used to skip their self-assigned tasks
+                const cfoEmpId   = String(user?.emp_id || user?.id || '').trim();
+                const cfoName    = String(user?.name || user?.full_name || '').trim().toLowerCase();
+                const isCFOAssignee = (t) => {
+                    const role = String(t.assigned_to_role || t.assignee_role || '').toUpperCase();
+                    if (role.includes('CFO') || role.includes('ADMIN')) return true;
+                    const assigneeId   = String(t.assigned_to || t.assignee_id || t.emp_id || '').trim();
+                    const assigneeName = String(t.assigneeName || t.assigned_to_name || '').trim().toLowerCase();
+                    if (cfoEmpId && assigneeId === cfoEmpId) return true;
+                    if (cfoName && assigneeName === cfoName) return true;
+                    return false;
+                };
                 allTasks.forEach(t => {
                     const dateStr = t.assigned_at || t.assigned_date || t.created_at || t.date;
                     if (!dateStr) return;
                     const monthKey = String(dateStr).substring(0, 7);
                     if (!monthMap[monthKey]) return;
+
+                    // Skip tasks assigned to the CFO (their personal tasks don't belong in team trends)
+                    if (isCFOAssignee(t)) return;
 
                     const status = String(t.status || '').toUpperCase();
                     const due = toDateKey(t.due_date || t.deadline || t.end_date);
@@ -1792,8 +1807,23 @@ const CFODashboard = () => {
                                             OFF_TRACK: { label: 'Off Track', bg: 'bg-rose-50 text-rose-600' },
                                         };
 
-                                        const items = employeeRiskData.length > 0
-                                            ? employeeRiskData.slice(0, 8).map(r => {
+                                        // Exclude CFO/ADMIN entries from the Employee Risk Monitor
+                                        // Match by role field AND by the current user's identity (name/emp_id)
+                        const cfoIdForRisk   = String(user?.emp_id || user?.id || '').trim();
+                        const cfoNameForRisk = String(user?.name || user?.full_name || '').trim().toLowerCase();
+                        const isCFORiskEntry = (r) => {
+                            const role = String(r.role || r.designation || r.department || '').toUpperCase();
+                            if (role.includes('CFO') || role.includes('ADMIN')) return true;
+                            const entryId   = String(r.emp_id || r.id || '').trim();
+                            const entryName = String(r.name || '').trim().toLowerCase();
+                            if (cfoIdForRisk && entryId === cfoIdForRisk) return true;
+                            if (cfoNameForRisk && entryName === cfoNameForRisk) return true;
+                            return false;
+                        };
+                        const filteredRiskData = employeeRiskData.filter(r => !isCFORiskEntry(r));
+
+                        const items = filteredRiskData.length > 0
+                                            ? filteredRiskData.slice(0, 8).map(r => {
                                                 // Calculate true performance score from allOrgTasks
                                                 let perfCompleted = 0;
                                                 let perfRework = 0;
@@ -1829,9 +1859,22 @@ const CFODashboard = () => {
                                             })
                                             : Object.values((() => {
                                                 // fallback: compute from loaded tasks
+                                                // Exclude the currently logged-in CFO by identity (name + emp_id)
                                                 const byEmp = {};
                                                 const todayStr = new Date().toLocaleDateString('en-CA');
+                                                const cfId   = String(user?.emp_id || user?.id || '').trim();
+                                                const cfName = String(user?.name || user?.full_name || '').trim().toLowerCase();
+                                                const isCFOAssigneeFallback = (t) => {
+                                                    const role = String(t.assigned_to_role || t.assignee_role || '').toUpperCase();
+                                                    if (role.includes('CFO') || role.includes('ADMIN')) return true;
+                                                    const tId   = String(t.assigned_to || t.emp_id || t.assignee_id || '').trim();
+                                                    const tName = String(t.assigneeName || t.assigned_to_name || '').trim().toLowerCase();
+                                                    if (cfId && tId === cfId) return true;
+                                                    if (cfName && tName === cfName) return true;
+                                                    return false;
+                                                };
                                                 todayOrgTasks.forEach(t => {
+                                                    if (isCFOAssigneeFallback(t)) return; // skip CFO's own tasks
                                                     const name = t.assigneeName || t.assigned_to_name || 'Unknown';
                                                     if (!byEmp[name]) byEmp[name] = { name, overdue: 0, active: 0, completed: 0, rework: 0, total: 0 };
                                                     byEmp[name].total++;

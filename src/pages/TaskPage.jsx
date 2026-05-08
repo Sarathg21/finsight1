@@ -651,7 +651,7 @@ const TaskPage = () => {
       // Build parameters for server-side filtering
       const params = {
         scope: scopeParam,
-        limit: 200,
+        limit: 100,
         offset: 0
       };
 

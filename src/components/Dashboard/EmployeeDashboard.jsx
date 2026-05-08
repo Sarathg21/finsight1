@@ -263,13 +263,13 @@ const EmployeeDashboard = () => {
             const todayT = Array.isArray(todayPayload) ? todayPayload : [];
             
             // Fetch full task list to ensure accurate counts and "All" tab view
-            const fetchParams = { ...params, limit: 200 };
+            const fetchParams = { ...params, limit: 100 };
             const rawTasks = await fetchEmployeeTasksFallback(fetchParams);
             
             // Explicitly fetch tasks due today, bypassing the creation date filters
             // to ensure they are available for the TODAY tab and Due Today metrics.
             const todayStr = getToday();
-            const rawTodayTasks = await fetchEmployeeTasksFallback({ due_date: todayStr, end_date: todayStr, limit: 200 });
+            const rawTodayTasks = await fetchEmployeeTasksFallback({ due_date: todayStr, end_date: todayStr, limit: 100 });
             
             let allRaw = Array.isArray(rawTasks) ? rawTasks : [];
             const allRawToday = Array.isArray(rawTodayTasks) ? rawTodayTasks : [];

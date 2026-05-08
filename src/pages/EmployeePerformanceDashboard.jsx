@@ -267,6 +267,14 @@ const PerformanceDashboard = () => {
         }
         
         tasks.forEach(t => {
+            // ── Exclude tasks created by CFO for themselves from the trend ──
+            const creatorRole = (t.created_by_role || t.creator_role || t.assigned_by_role || '').toUpperCase();
+            const assigneeRole2 = (t.assigned_to_role || t.assignee_role || '').toUpperCase();
+            if (
+                (creatorRole.includes('CFO') || creatorRole.includes('ADMIN')) &&
+                (assigneeRole2.includes('CFO') || assigneeRole2.includes('ADMIN') || !assigneeRole2)
+            ) return;
+
             const rawDate = t.created_at || t.assigned_date || t.createdAt || t.assignedAt || t.date || t.due_date;
             if (!rawDate) return;
             const dOb = new Date(rawDate);
@@ -304,8 +312,15 @@ const PerformanceDashboard = () => {
         const sortedTrends = Object.values(trendMap).sort((a, b) => a.sortKey - b.sortKey);
         setTrends(sortedTrends);
 
+        const isCFORole = (role) => {
+            const r = (role || '').toUpperCase();
+            return r.includes('CFO') || r.includes('ADMIN');
+        };
+
         const empMap = {};
         baseRegistry.forEach(emp => {
+            // Exclude CFO/Admin from employee performance lists
+            if (isCFORole(emp.role)) return;
             const name = emp.name;
             empMap[name] = { 
                 name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0,
@@ -322,6 +337,10 @@ const PerformanceDashboard = () => {
         tasks.forEach(t => {
             const name = t.assigned_to_name || t.employee_name || t.assigneeName || t.assigned_to || 'Unassigned';
             
+            // ── Exclude tasks assigned to CFO/Admin from employee metrics ──
+            const assigneeRole = (t.assigned_to_role || t.assignee_role || t.role || '').toUpperCase();
+            if (isCFORole(assigneeRole)) return;
+
             // ── Client-side Department Safeguard for Fallback ──
             if (targetDeptId) {
                 const tDeptId = String(t.department_id || '');
@@ -509,7 +528,7 @@ const PerformanceDashboard = () => {
             const dateParams = {
                 from_date:  safeFrom,
                 to_date:    safeTo,
-                limit:      200,
+                limit: 100,
             };
 
             let tasks = [];
@@ -612,8 +631,16 @@ const PerformanceDashboard = () => {
             const deptObj = departments.find(d => String(d.department_id || d.id) === String(currentDept));
             const deptName = (deptObj?.name || deptObj?.department_name || '').toLowerCase();
 
+            // Helper: check if a role string belongs to a CFO or Admin
+            const isCFOorAdmin = (role) => {
+                const r = (role || '').toUpperCase();
+                return r.includes('CFO') || r.includes('ADMIN');
+            };
+
             const unionTeam = Array.from(idMap.values()).filter(e => {
                 if (!e.emp_id && !e.id) return false;
+                // Never show CFO/Admin users in subordinate monitoring panels
+                if (isCFOorAdmin(e.role)) return false;
                 if (!currentDept) return true;
                 
                 const eDeptId = String(e.department_id || '');
@@ -882,7 +909,14 @@ const PerformanceDashboard = () => {
 
             const safeNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
-            const perfData = raw.map(e => {
+            const isCFOTeamEntry = (e) => {
+                const r = (e.role || e.designation || '').toUpperCase();
+                return r.includes('CFO') || r.includes('ADMIN');
+            };
+
+            const perfData = raw
+                .filter(e => !isCFOTeamEntry(e))
+                .map(e => {
                 const total = safeNum(e.tasks_assigned ?? e.total_tasks ?? e.total ?? 0);
                 const completed = safeNum(e.approved_tasks ?? e.completed_tasks ?? e.completed ?? 0);
                 const compRate = safeNum(e.completion_rate ?? (total > 0 ? (completed / total) * 100 : 0));
@@ -939,7 +973,15 @@ const PerformanceDashboard = () => {
 
             const safeNum = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
 
-            const riskData = raw.map(e => {
+            // Filter out CFO/Admin roles that backend may still return
+            const isCFOEntry = (e) => {
+                const r = (e.role || e.designation || '').toUpperCase();
+                return r.includes('CFO') || r.includes('ADMIN');
+            };
+
+            const riskData = raw
+                .filter(e => !isCFOEntry(e))
+                .map(e => {
                 const overdue = safeNum(e.overdue_tasks ?? e.overdue_count ?? e.overdue ?? 0);
                 const score   = safeNum(e.performance_score ?? e.execution_score ?? e.score ?? 0);
                 const status  = e.risk_status

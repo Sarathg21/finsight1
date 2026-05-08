@@ -56,7 +56,7 @@ const AssignTaskPage = () => {
                 // Admins have no task creation/edit rights — only fetch employees & departments
                 const taskEndpoint = isCFORole ? '/tasks' : '/tasks/team';
                 const taskParams   = isCFORole
-                    ? { scope: 'org', limit: 200, all_departments: true }
+                    ? { scope: 'org', limit: 100, all_departments: true }
                     : { limit: 100 };
 
                 // Manager: also fetch tasks assigned TO them (CFO-assigned Level-1 & Level-0 parents)

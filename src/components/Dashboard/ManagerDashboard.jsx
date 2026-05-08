@@ -351,7 +351,17 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             }
 
             if (riskRes.status === 'fulfilled') {
-                setEmployeeRisk(riskRes.value.data?.data || riskRes.value.data || []);
+                const riskRaw = riskRes.value.data?.data || riskRes.value.data || [];
+                const selfId   = String(user?.emp_id || user?.id || '').trim();
+                const selfName = String(user?.name || user?.full_name || '').trim().toLowerCase();
+                const filtered = (Array.isArray(riskRaw) ? riskRaw : []).filter(r => {
+                    const rId   = String(r.emp_id || r.id || r.employee_id || '').trim();
+                    const rName = String(r.name || r.employee_name || r.emp_name || '').trim().toLowerCase();
+                    if (selfId && rId === selfId) return false;
+                    if (selfName && rName === selfName) return false;
+                    return true;
+                });
+                setEmployeeRisk(filtered);
             }
 
             if (teamPerfRes.status === 'fulfilled') {
@@ -457,7 +467,17 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
             const res = await api.get('/dashboard/manager/employee-risk', { params });
             const data = res.data?.data || res.data || [];
-            if (Array.isArray(data)) setEmployeeRisk(data);
+            if (Array.isArray(data)) {
+                const selfId   = String(user?.emp_id || user?.id || '').trim();
+                const selfName = String(user?.name || user?.full_name || '').trim().toLowerCase();
+                setEmployeeRisk(data.filter(r => {
+                    const rId   = String(r.emp_id || r.id || r.employee_id || '').trim();
+                    const rName = String(r.name || r.employee_name || r.emp_name || '').trim().toLowerCase();
+                    if (selfId && rId === selfId) return false;
+                    if (selfName && rName === selfName) return false;
+                    return true;
+                }));
+            }
         } catch (err) {
             console.warn('employee-risk fetch failed:', err);
         } finally {
@@ -492,7 +512,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             // CFO-assigned tasks that /tasks/team may not return for this manager.
             try {
                 const deptRes = await api.get('/tasks', {
-                    params: { scope: 'department', limit: 200 }
+                    params: { scope: 'department', limit: 100 }
                 });
                 const deptRaw = deptRes.data?.data || deptRes.data || {};
                 const deptItems = Array.isArray(deptRaw) ? deptRaw : (deptRaw.items || deptRaw.data || []);
@@ -615,7 +635,19 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             });
         }
 
-        return source.map((m, idx) => {
+        // Exclude the currently logged-in user (manager/CFO) from the table
+        const selfId   = String(user?.emp_id || user?.id || '').trim();
+        const selfName = String(user?.name || user?.full_name || '').trim().toLowerCase();
+
+        return source
+            .filter(m => {
+                const mId   = String(m.emp_id || m.id || m.employee_id || '').trim();
+                const mName = String(m.name || m.employee_name || m.emp_name || m.full_name || '').trim().toLowerCase();
+                if (selfId && mId === selfId) return false;
+                if (selfName && mName === selfName) return false;
+                return true;
+            })
+            .map((m, idx) => {
             const id = String(m.emp_id || m.id || m.employee_id || '');
             const riskItem = riskMap[id] || {};
             
@@ -646,7 +678,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             if (idA > idB) return 1;
             return 0;
         });
-    }, [rankingSource, employeeRisk]);
+    }, [rankingSource, employeeRisk, user]);
 
     const executionActiveByKey = useMemo(() => {
         const map = new Map();

@@ -85,16 +85,16 @@ const RecurringTasksPage = () => {
         try {
             // Single call with large limit — avoids sending redundant parallel requests
             const endpointCalls = [
-                api.get('/recurring-tasks', { params: { limit: 200 } }), // Standard (Personal or Default)
+                api.get('/recurring-tasks', { params: { limit: 100 } }), // Standard (Personal or Default)
             ];
 
             if (isAdminOrCFO) {
                 // Try scope=org (standard for Admin/CFO in this backend)
-                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'org', limit: 200 } }).catch(() => ({ data: [] })));
-                endpointCalls.push(api.get('/recurring-tasks', { params: { limit: 200 } }).catch(() => ({ data: [] })));
+                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'org', limit: 100 } }).catch(() => ({ data: [] })));
+                endpointCalls.push(api.get('/recurring-tasks', { params: { limit: 100 } }).catch(() => ({ data: [] })));
             } else if (user?.role?.toUpperCase() === 'MANAGER') {
                 // Try department scope for managers
-                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'department', limit: 200 } }).catch(() => ({ data: [] })));
+                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'department', limit: 100 } }).catch(() => ({ data: [] })));
             }
 
             const results = await Promise.allSettled(endpointCalls);

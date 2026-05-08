@@ -477,24 +477,79 @@ const TeamTasksPage = () => {
             const rawData = res.data?.data || res.data || {};
             let items = Array.isArray(rawData) ? rawData : (rawData.items || rawData.data || []);
 
-            // For managers, also fetch from /tasks with scope 'department' to get CFO-assigned team tasks
+            // ── Manager: comprehensive multi-pass fetch ──────────────────────────
+            // /tasks/team only returns direct-team tasks. Subtasks that the manager
+            // created under a CFO-assigned parent task are missed. We fix this with
+            // three additional fetches that are merged and deduplicated.
             if (user?.role?.toUpperCase() === 'MANAGER') {
-                try {
-                    const deptParams = { ...params, scope: 'department', limit: 100 };
-                    const deptRes = await api.get('/tasks', { params: deptParams });
-                    const deptRaw = deptRes.data?.data || deptRes.data || {};
-                    const deptItems = Array.isArray(deptRaw) ? deptRaw : (deptRaw.items || deptRaw.data || []);
-                    
-                    const merged = [...items, ...deptItems];
-                    const uniqueMap = new Map();
-                    merged.forEach(t => {
-                        const id = t.task_id || t.id;
-                        if (id && !uniqueMap.has(id)) uniqueMap.set(id, t);
+                const managerEmpId = user?.emp_id || user?.id;
+                const baseDate = {};
+                if (filters.from_date) baseDate.from_date = filters.from_date;
+                if (filters.to_date)   baseDate.to_date   = filters.to_date;
+
+                const supplementalFetches = await Promise.allSettled([
+                    // Pass 1: All department-scoped tasks (wider net, max 100)
+                    api.get('/tasks', { params: { ...baseDate, scope: 'department', limit: 100 } }),
+                    // Pass 2: All tasks assigned BY this manager (catches subtasks under CFO parents)
+                    api.get('/tasks', { params: { ...baseDate, assigned_by_emp_id: managerEmpId, limit: 100 } }),
+                    // Pass 3: /tasks/team without date filters (catches tasks outside date window)
+                    api.get('/tasks/team', { params: { limit: 100 } }),
+                    // Pass 4: The manager's own tasks (catches parent tasks assigned to them by CFO)
+                    api.get('/tasks', { params: { ...baseDate, scope: 'mine', limit: 100 } }),
+                ]);
+
+                const extraItems = [];
+                supplementalFetches.forEach(r => {
+                    if (r.status !== 'fulfilled') return;
+                    const raw = r.value?.data?.data || r.value?.data || {};
+                    const rows = Array.isArray(raw) ? raw : (raw.items || raw.data || []);
+                    extraItems.push(...rows);
+                });
+
+                // Also fetch subtasks for every parent_task_id seen in current items
+                // so we never miss a child task of any visible parent.
+                const parentIdsToFetch = new Set(
+                    [...items, ...extraItems]
+                        .filter(t => t.parent_task_id)
+                        .map(t => String(t.parent_task_id))
+                );
+                const parentSubtaskResults = await Promise.allSettled(
+                    Array.from(parentIdsToFetch).map(pid =>
+                        api.get(`/tasks/${pid}/subtasks`).then(r => r.data?.data || r.data || [])
+                    )
+                );
+                parentSubtaskResults.forEach(r => {
+                    if (r.status === 'fulfilled' && Array.isArray(r.value)) {
+                        extraItems.push(...r.value);
+                    }
+                });
+
+                // Crucial: Fetch the actual parent task objects if they are missing from our list.
+                // Otherwise, the subtasks become orphaned and the hierarchy breaks.
+                const existingTaskIds = new Set([...items, ...extraItems].map(t => String(t.task_id || t.id)));
+                const missingParentIds = Array.from(parentIdsToFetch).filter(pid => !existingTaskIds.has(pid));
+                
+                if (missingParentIds.length > 0) {
+                    const missingParentsResults = await Promise.allSettled(
+                        missingParentIds.map(pid =>
+                            api.get(`/tasks/${pid}`).then(r => r.data?.data || r.data || null)
+                        )
+                    );
+                    missingParentsResults.forEach(r => {
+                        if (r.status === 'fulfilled' && r.value) {
+                            extraItems.push(r.value);
+                        }
                     });
-                    items = Array.from(uniqueMap.values());
-                } catch (e) {
-                    console.warn('Failed to fetch department tasks fallback', e);
                 }
+
+                // Merge and deduplicate everything
+                const merged = [...items, ...extraItems];
+                const uniqueMap = new Map();
+                merged.forEach(t => {
+                    const id = t.task_id || t.id;
+                    if (id && !uniqueMap.has(String(id))) uniqueMap.set(String(id), t);
+                });
+                items = Array.from(uniqueMap.values());
             }
 
             const employeeFilterId = String(filters.assigned_to_emp_id || '').trim();
@@ -511,16 +566,20 @@ const TeamTasksPage = () => {
             // Exclude CANCELLED tasks and MANAGER's own tasks from the team view
             const now = new Date();
 
-            // Build set of parent IDs so we know which tasks have child tasks in this response
+            // Build set of parent IDs AFTER supplemental merge so CFO-assigned parent tasks
+            // (which are assigned to the manager) are kept if they have child tasks in the list.
             const parentIdsInResponse = new Set(
                 items.filter(t => t.parent_task_id).map(t => String(t.parent_task_id))
             );
 
             const filteredItems = items.filter(t => {
                 const isCancelled = (t.status || '').toUpperCase() === 'CANCELLED';
-                // Only compare actual assignee fields — never fall back to task.id
+                // Compare against both emp_id and numeric id to handle mixed API formats
                 const assigneeEmpId = t.assigned_to_emp_id || t.employee_id || t.assigned_to_id;
-                const isSelf = assigneeEmpId && String(assigneeEmpId) === String(user?.id);
+                const isSelf = assigneeEmpId && (
+                    String(assigneeEmpId) === String(user?.emp_id) ||
+                    String(assigneeEmpId) === String(user?.id)
+                );
 
                 // Exclude a manager's own task from Team Tasks ONLY if it is a standalone
                 // leaf task (no subtasks). If the task is a parent whose children are
@@ -572,12 +631,22 @@ const TeamTasksPage = () => {
             // ── Separate top-level tasks from inline subtasks ────────────────────────
             // The backend often returns both parent tasks AND their subtasks as flat rows.
             // We partition them here so subtasks only appear when the parent is expanded.
+            const allRootIds = new Set(sorted.map(t => String(t.task_id || t.id)));
             const flatSubtasks = sorted.filter(t => !!t.parent_task_id);
-            const rootTasks    = sorted.filter(t => !t.parent_task_id);
+
+            // Subtasks whose parent is NOT in the current response are promoted to root level
+            // so they are always visible (manager assigned these to team members).
+            const orphanedSubtasks = flatSubtasks.filter(t => !allRootIds.has(String(t.parent_task_id)));
+            const inlineSubtasks   = flatSubtasks.filter(t =>  allRootIds.has(String(t.parent_task_id)));
+
+            const rootTasks = [
+                ...sorted.filter(t => !t.parent_task_id),
+                ...orphanedSubtasks,  // show orphaned subtasks as standalone rows
+            ];
 
             // Build the subtasksMap from inline flat subtasks
             const inlineSubMap = {};
-            flatSubtasks.forEach(s => {
+            inlineSubtasks.forEach(s => {
                 const pid = String(s.parent_task_id);
                 if (!inlineSubMap[pid]) inlineSubMap[pid] = [];
                 inlineSubMap[pid].push(s);
