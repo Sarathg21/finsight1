@@ -585,80 +585,43 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
 
     const metrics = useMemo(() => {
-        // ── Compute live counts from bifurcationTasks (matches Team Tasks page exactly) ──
-        const todayStr = new Date().toLocaleDateString('en-CA');
-        const useLive = Array.isArray(bifurcationTasks) && bifurcationTasks.length > 0;
+        if (!dashboardData) return null;
 
-        let liveTotal = 0, liveApproved = 0, liveInProgress = 0, livePending = 0,
-            liveOverdue = 0, liveNew = 0;
-
-        if (useLive) {
-            bifurcationTasks.forEach(t => {
-                const binDate = t.due_date || t.date || t.created_at || t.assigned_date || t.assigned_at;
-                const d = toDateKey(binDate);
-                // Respect selected date range
-                if (fromDate && d && d < fromDate) return;
-                if (toDate && d && d > toDate) return;
-
-                const s = String(t.status || '').toUpperCase();
-                // Always exclude CANCELLED from all counts
-                if (s === 'CANCELLED') return;
-
-                liveTotal++;
-
-                if (s === 'APPROVED' || s === 'COMPLETED') {
-                    liveApproved++;
-                } else if (s === 'SUBMITTED' || s === 'PENDING_APPROVAL') {
-                    livePending++;
-                } else if (s === 'IN_PROGRESS' || s === 'REWORK' || s === 'CHANGES_REQUESTED') {
-                    const due = toDateKey(t.due_date);
-                    if (due && due < todayStr) liveOverdue++;
-                    else liveInProgress++;
-                } else if (s === 'NEW' || s === 'NOT_STARTED') {
-                    const due = toDateKey(t.due_date);
-                    if (due && due < todayStr) liveOverdue++;
-                    else liveNew++;
-                }
-            });
-        }
-
-        const liveCompletionRate = liveTotal > 0 ? (liveApproved / liveTotal) * 100 : 0;
-
-        if (!dashboardData && !useLive) return null;
-
-        // API fallback values
-        const kpis = dashboardData?.top_kpis || {};
-        const tco  = dashboardData?.task_completion_overview || {};
-        const tsb  = dashboardData?.team_status_bifurcation || {};
+        // Read directly from backend — team_status_bifurcation is confirmed accurate
+        const kpis = dashboardData.top_kpis || {};
+        const tco  = dashboardData.task_completion_overview || {};
+        const tsb  = dashboardData.team_status_bifurcation || {};
         const st   = tsb.statuses || {};
 
+        // Use team_status_bifurcation for per-status counts (more reliable than top_kpis)
+        const tsbApproved   = st.APPROVED?.count   ?? tco.approved_tasks   ?? 0;
+        const tsbNew        = st.NEW?.count         ?? 0;
+        const tsbInProgress = st.IN_PROGRESS?.count ?? tco.in_progress_tasks ?? kpis.in_progress_tasks ?? 0;
+        const tsbPending    = st.SUBMITTED?.count   ?? tco.pending_tasks    ?? kpis.pending_approval_tasks ?? 0;
+        const tsbTotal      = tsb.total_tasks       ?? kpis.total_team_tasks ?? 0;
+        const tsbOverdue    = tco.overdue_tasks     ?? kpis.overdue_tasks   ?? 0;
+        const tsbRate       = tsbTotal > 0 ? (tsbApproved / tsbTotal) * 100 : (tco.completion_rate ?? 0);
+
         return {
-            // ── Top KPI Cards (live counts override backend when available) ──
-            total:               useLive ? liveTotal      : kpis.total_team_tasks,
-            inProgress:          useLive ? liveInProgress : kpis.in_progress_tasks,
-            pending:             useLive ? livePending    : kpis.pending_approval_tasks,
-            overdue:             useLive ? liveOverdue    : kpis.overdue_tasks,
-
-            // Scores always come from backend (not derivable from task list)
-            managerScore:         kpis.manager_score         ?? null,
-            teamScore:            kpis.team_score            ?? null,
+            total:               tsbTotal,
+            inProgress:          tsbInProgress,
+            pending:             tsbPending,
+            overdue:             tsbOverdue,
+            managerScore:         kpis.manager_score          ?? null,
+            teamScore:            kpis.team_score             ?? null,
             managerPersonalScore: kpis.manager_personal_score ?? null,
-            managerScoreDelta:    dashboardData?.manager_score_delta_percent ?? null,
-
-            // ── Completion Overview (live counts override backend when available) ──
-            completionRate:       useLive ? liveCompletionRate : tco.completion_rate,
-            completionTotal:      useLive ? liveTotal          : tco.total_tasks,
-            approved:             useLive ? liveApproved       : tco.approved_tasks,
-            completionPending:    useLive ? livePending        : tco.pending_tasks,
-            completionOverdue:    useLive ? liveOverdue        : tco.overdue_tasks,
-            completionInProgress: useLive ? liveInProgress     : tco.in_progress_tasks,
-            notStarted:           useLive ? liveNew            : (st.NEW?.count ?? 0),
-
-            // ── Legacy aliases ──
-            totalActive: useLive ? liveTotal : (kpis.total_team_tasks ?? 0),
-            score:       kpis.team_score ?? 0,
+            managerScoreDelta:    dashboardData.manager_score_delta_percent ?? null,
+            completionRate:       tsbRate,
+            completionTotal:      tsbTotal,
+            approved:             tsbApproved,
+            completionPending:    tsbPending,
+            completionOverdue:    tsbOverdue,
+            completionInProgress: tsbInProgress,
+            notStarted:           tsbNew,
+            totalActive:          tsbTotal,
+            score:                kpis.team_score ?? 0,
         };
-    }, [dashboardData, bifurcationTasks, fromDate, toDate]);
+    }, [dashboardData]);
 
     // Priority: use reportTeam (locally filtered) if available, otherwise fallback to global ranking
     const rankingSource = (() => {
@@ -783,11 +746,6 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             const binDate = t.due_date || t.date || t.created_at || t.assigned_date || t.assigned_at;
             const ym = toYM(binDate);
             if (!ym || !taskBinMap[ym]) return;
-
-            // Respect the selected date range using the bin date
-            const d = toDateKey(binDate);
-            if (fromDate && d < fromDate) return;
-            if (toDate && d > toDate) return;
 
             const s = String(t.status || '').toUpperCase();
 
@@ -1344,7 +1302,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                         </PieChart>
                                     </ResponsiveContainer>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pt-1">
-                                        <span className="text-[34px] font-black text-[#1e293b] leading-none tracking-tight">{rate}%</span>
+                                        <span className="text-[34px] font-black text-[#1e293b] leading-none tracking-tight">{Number(rate).toFixed(1)}%</span>
                                         <span className="text-[11px] font-bold text-slate-400 capitalize  tracking-[0.15em] mt-2">Completion Rate</span>
                                     </div>
                                 </div>
@@ -1539,7 +1497,26 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                         } />
                                     </span>
                                 </th>
-                                <th className="py-3 px-2.5 text-center">Score %</th>
+                                <th className="py-3 px-2.5 text-center">
+                                    <span className="inline-flex items-center justify-center gap-0.5 cursor-help">
+                                        Score %
+                                        <InfoTooltip content={
+                                            <div className="bg-slate-900 text-white text-[10px] font-semibold rounded-xl px-4 py-3 shadow-2xl leading-relaxed text-left border border-white/10 w-[260px]">
+                                                <p className="text-slate-300 mb-2">Performance Score is calculated based on tasks due in the selected period.</p>
+                                                <p className="font-bold text-white mb-1">Scoring basis:</p>
+                                                <ul className="text-slate-300 space-y-1 mb-2">
+                                                    <li>• On-time submitted/approved task = 100 points</li>
+                                                    <li>• Submitted within 2 days after due date = 60 points</li>
+                                                    <li>• Submitted more than 2 days late = 0 points</li>
+                                                    <li>• Each rework reduces 10 points</li>
+                                                </ul>
+                                                <p className="text-slate-300 border-t border-white/10 pt-2 mt-2">
+                                                    <span className="font-bold text-white">Final score =</span> Earned points ÷ Ideal points for all due tasks
+                                                </p>
+                                            </div>
+                                        } />
+                                    </span>
+                                </th>
                                 <th className="py-3 px-2.5 text-right pr-6">Action</th>
                             </tr>
                         </thead>

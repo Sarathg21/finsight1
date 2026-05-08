@@ -594,7 +594,16 @@ const EmployeePersonalReport = () => {
                             <CheckSquare size={18} className="text-teal-500" />
                         </div>
                         <div>
-                            <p className="text-[11px] font-bold text-teal-500 capitalize tracking-wide">On-Time Achievement %</p>
+                            <div className="relative group w-max">
+                                <div className="flex items-center gap-1 cursor-help">
+                                    <p className="text-[11px] font-bold text-teal-500 capitalize tracking-wide mb-0.5">On-Time Achievement %</p>
+                                    <Info size={12} className="text-teal-500 mb-0.5" />
+                                </div>
+                                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max opacity-0 transition-opacity group-hover:opacity-100 z-50 bg-[#1E1B4B] text-white shadow-xl rounded-xl p-3 text-center whitespace-nowrap">
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-[#1E1B4B]"></div>
+                                    <p className="text-[11px] font-semibold text-slate-200">on-time completed tasks / Total tasks</p>
+                                </div>
+                            </div>
                             <p className="text-[26px] font-bold text-teal-600 leading-none my-1">{metrics.onTimePct}%</p>
                             <p className="text-[10px] text-slate-400">Due tasks completed on time</p>
                         </div>
