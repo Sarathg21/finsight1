@@ -83,6 +83,8 @@ const PerformanceDashboard = () => {
 
     const [fromDate, setFromDate] = useState(_savedFrom);
     const [toDate,   setToDate]   = useState(_savedTo >= _savedFrom ? _savedTo : getToday());
+    const [tempFrom, setTempFrom] = useState(fromDate);
+    const [tempTo,   setTempTo]   = useState(toDate);
 
     // Data
     const [summary, setSummary] = useState({
@@ -120,10 +122,14 @@ const PerformanceDashboard = () => {
     // ── Independent date filters for sub-sections ────────────────────────────
     const [teamPerfFrom,    setTeamPerfFrom]    = useState(getFirstDayOfMonth());
     const [teamPerfTo,      setTeamPerfTo]      = useState(getToday());
+    const [tempTPFrom,      setTempTPFrom]      = useState(teamPerfFrom);
+    const [tempTPTo,        setTempTPTo]        = useState(teamPerfTo);
     const [teamPerfLoading, setTeamPerfLoading] = useState(false);
 
     const [riskFrom,    setRiskFrom]    = useState(getFirstDayOfMonth());
     const [riskTo,      setRiskTo]      = useState(getToday());
+    const [tempRFFrom,  setTempRFFrom]  = useState(riskFrom);
+    const [tempRFTo,    setTempRFTo]    = useState(riskTo);
     const [riskLoading, setRiskLoading] = useState(false);
 
     /* Synchronize with global filter — guard against inverted range */
@@ -135,6 +141,7 @@ const PerformanceDashboard = () => {
 
             if (storedFrom) {
                 setFromDate(storedFrom);
+                setTempFrom(storedFrom);
                 setTeamPerfFrom(storedFrom);
                 setRiskFrom(storedFrom);
             }
@@ -142,6 +149,7 @@ const PerformanceDashboard = () => {
                 const effectiveFrom = storedFrom || fromDate;
                 const safeTo = storedTo >= effectiveFrom ? storedTo : getToday();
                 setToDate(safeTo);
+                setTempTo(safeTo);
                 setTeamPerfTo(safeTo);
                 setRiskTo(safeTo);
             }
@@ -155,8 +163,18 @@ const PerformanceDashboard = () => {
 
     // Also sync local states if fromDate/toDate change by other means
     useEffect(() => {
-        if (fromDate) { setTeamPerfFrom(fromDate); setRiskFrom(fromDate); }
-        if (toDate) { setTeamPerfTo(toDate); setRiskTo(toDate); }
+        if (fromDate) { 
+            setTeamPerfFrom(fromDate); 
+            setRiskFrom(fromDate); 
+            setTempTPFrom(fromDate);
+            setTempRFFrom(fromDate);
+        }
+        if (toDate) { 
+            setTeamPerfTo(toDate); 
+            setRiskTo(toDate); 
+            setTempTPTo(toDate);
+            setTempRFTo(toDate);
+        }
     }, [fromDate, toDate]);
 
     // Handle hash navigation
@@ -337,9 +355,16 @@ const PerformanceDashboard = () => {
         tasks.forEach(t => {
             const name = t.assigned_to_name || t.employee_name || t.assigneeName || t.assigned_to || 'Unassigned';
             
-            // ── Exclude tasks assigned to CFO/Admin from employee metrics ──
+            // ── Exclude tasks assigned to CFO/Admin or the viewing executive from employee metrics ──
             const assigneeRole = (t.assigned_to_role || t.assignee_role || t.role || '').toUpperCase();
+            const eId = String(t.assigned_to_id || t.emp_id || t.id || '').trim();
+            const selfId = String(user?.emp_id || user?.id || '').trim();
+            const eKey = normalizeEmployeeKey(name);
+            const selfKey = normalizeEmployeeKey(user?.name || user?.full_name);
+
             if (isCFORole(assigneeRole)) return;
+            if (selfId && eId === selfId) return;
+            if (selfKey && eKey && eKey === selfKey) return;
 
             // ── Client-side Department Safeguard for Fallback ──
             if (targetDeptId) {
@@ -348,10 +373,7 @@ const PerformanceDashboard = () => {
                 const matched = (tDeptId && tDeptId === targetDeptId) || 
                                 (targetDeptName && tDeptName && (tDeptName.includes(targetDeptName) || targetDeptName.includes(tDeptName)));
                 
-                if (!matched) {
-                    // If it doesn't match the selected department, skip this task in the employee counts
-                    return;
-                }
+                if (!matched) return;
             }
 
             if (!empMap[name]) empMap[name] = { name, tasks_assigned: 0, in_progress: 0, pending_review: 0, overdue: 0, completed: 0, rework: 0, department: t.department };
@@ -670,7 +692,7 @@ const PerformanceDashboard = () => {
                 return {
                     emp_id: emp.emp_id || emp.id, name: emp.name, 
                     department: emp.department_name || emp.department || 'Accounts',
-                    // Keep "Active" consistent with Team Execution Monitor (IN_PROGRESS only)
+                    // Keep "Active" consistent with Team Execution Monitor (in_progress)
                     active_tasks: (p.in_progress ?? risk.active_tasks ?? 0),
                     overdue_tasks: risk.overdue_tasks || p.overdue || 0,
                     performance_score: risk.performance_score || p.completion_rate || 0,
@@ -880,6 +902,14 @@ const PerformanceDashboard = () => {
 
     useEffect(() => { fetchDashData(); }, [fetchDashData]);
 
+    const handleApplyDates = () => {
+        setFromDate(tempFrom);
+        setToDate(tempTo);
+        localStorage.setItem('dashboard_from_date', tempFrom);
+        localStorage.setItem('dashboard_to_date', tempTo);
+        window.dispatchEvent(new Event('dashboard-filter-change'));
+    };
+
     // ── Fetch team performance with its own date range ────────────────────────────────
     const fetchTeamPerf = useCallback(async (from, to) => {
         const sf = (from && from.length === 10) ? from : getFirstDayOfMonth();
@@ -911,7 +941,15 @@ const PerformanceDashboard = () => {
 
             const isCFOTeamEntry = (e) => {
                 const r = (e.role || e.designation || '').toUpperCase();
-                return r.includes('CFO') || r.includes('ADMIN');
+                const eId = String(e.emp_id || e.id || '').trim();
+                const selfId = String(user?.emp_id || user?.id || '').trim();
+                const eKey = normalizeEmployeeKey(e.name || e.employee_name || e.emp_name);
+                const selfKey = normalizeEmployeeKey(user?.name || user?.full_name);
+                
+                if (r.includes('CFO') || r.includes('ADMIN')) return true;
+                if (selfId && eId === selfId) return true;
+                if (selfKey && eKey && eKey === selfKey) return true;
+                return false;
             };
 
             const perfData = raw
@@ -942,7 +980,7 @@ const PerformanceDashboard = () => {
         } finally {
             setTeamPerfLoading(false);
         }
-    }, [isCFO, selectedDept]);
+    }, [isCFO, selectedDept, user]);
 
     // ── Fetch employee risk with its own date range ────────────────────────────────
     const fetchRiskData = useCallback(async (from, to) => {
@@ -976,7 +1014,15 @@ const PerformanceDashboard = () => {
             // Filter out CFO/Admin roles that backend may still return
             const isCFOEntry = (e) => {
                 const r = (e.role || e.designation || '').toUpperCase();
-                return r.includes('CFO') || r.includes('ADMIN');
+                const eId = String(e.emp_id || e.id || '').trim();
+                const selfId = String(user?.emp_id || user?.id || '').trim();
+                const eKey = normalizeEmployeeKey(e.name || e.employee_name || e.emp_name);
+                const selfKey = normalizeEmployeeKey(user?.name || user?.full_name);
+
+                if (r.includes('CFO') || r.includes('ADMIN')) return true;
+                if (selfId && eId === selfId) return true;
+                if (selfKey && eKey && eKey === selfKey) return true;
+                return false;
             };
 
             const riskData = raw
@@ -1004,7 +1050,7 @@ const PerformanceDashboard = () => {
         } finally {
             setRiskLoading(false);
         }
-    }, [isCFO, selectedDept]);
+    }, [isCFO, selectedDept, user]);
 
     useEffect(() => { fetchTeamPerf(teamPerfFrom, teamPerfTo); }, [teamPerfFrom, teamPerfTo, fetchTeamPerf]);
     useEffect(() => { fetchRiskData(riskFrom, riskTo); },       [riskFrom, riskTo, fetchRiskData]);
@@ -1033,26 +1079,10 @@ const PerformanceDashboard = () => {
 
     const handleDateChange = (type, value) => {
         if (type === 'from') {
-            setFromDate(value);
-            setTeamPerfFrom(value);
-            setRiskFrom(value);
-            localStorage.setItem('dashboard_from_date', value);
-            if (value > toDate) {
-                const today = getToday();
-                setToDate(today);
-                setTeamPerfTo(today);
-                setRiskTo(today);
-                localStorage.setItem('dashboard_to_date', today);
-            }
+            setTempFrom(value);
         } else {
-            if (value >= fromDate) {
-                setToDate(value);
-                setTeamPerfTo(value);
-                setRiskTo(value);
-                localStorage.setItem('dashboard_to_date', value);
-            }
+            setTempTo(value);
         }
-        window.dispatchEvent(new Event('dashboard-filter-change'));
     };
 
     const handleDeptChange = (val) => {
@@ -1162,7 +1192,7 @@ const PerformanceDashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-[#F8FAFF] p-4 md:p-8 animate-in fade-in duration-700">
+        <div className="flex flex-col min-h-screen bg-[#F8FAFF] p-4 md:p-8 animate-fade-in">
             {/* HEADER */}
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-12 px-4 relative z-50">
                 <div className="flex-1">
@@ -1202,7 +1232,7 @@ const PerformanceDashboard = () => {
                             <span className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Period starts</span>
                             <div className="flex items-center gap-2 bg-slate-100/50 px-3 py-1.5 rounded-xl border border-slate-200/50">
                                 <Calendar size={14} className="text-slate-400" />
-                                <input type="date" className="bg-transparent border-none text-[11px] font-medium focus:ring-0 p-0" value={fromDate} onChange={(e) => handleDateChange('from', e.target.value)} />
+                                <input type="date" className="bg-transparent border-none text-[11px] font-medium focus:ring-0 p-0" value={tempFrom} onChange={(e) => handleDateChange('from', e.target.value)} />
                             </div>
                         </div>
                         <ChevronRight size={14} className="mt-5 text-slate-300" />
@@ -1210,9 +1240,10 @@ const PerformanceDashboard = () => {
                             <span className="text-[9px] font-medium text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Period ends</span>
                             <div className="flex items-center gap-2 bg-slate-100/50 px-3 py-1.5 rounded-xl border border-slate-200/50">
                                 <Calendar size={14} className="text-slate-400" />
-                                <input type="date" className="bg-transparent border-none text-[11px] font-medium focus:ring-0 p-0" value={toDate} onChange={(e) => handleDateChange('to', e.target.value)} />
+                                <input type="date" className="bg-transparent border-none text-[11px] font-medium focus:ring-0 p-0" value={tempTo} onChange={(e) => handleDateChange('to', e.target.value)} />
                             </div>
                         </div>
+                        <button onClick={handleApplyDates} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[11px] font-bold tracking-wider uppercase hover:bg-indigo-700">Apply</button>
                     </div>
                     <div className="h-10 w-px bg-slate-200 hidden md:block" />
                     <div className="flex items-center gap-2 pr-2">
@@ -1463,9 +1494,9 @@ const PerformanceDashboard = () => {
                             <Calendar size={12} className="text-indigo-400 shrink-0" />
                             <input
                                 type="date"
-                                value={teamPerfFrom}
-                                max={teamPerfTo}
-                                onChange={e => setTeamPerfFrom(e.target.value)}
+                                value={tempTPFrom}
+                                max={tempTPTo}
+                                onChange={e => setTempTPFrom(e.target.value)}
                                 className="text-[11px] font-semibold text-indigo-700 bg-transparent border-none outline-none cursor-pointer w-[110px]"
                             />
                         </div>
@@ -1474,12 +1505,21 @@ const PerformanceDashboard = () => {
                             <Calendar size={12} className="text-indigo-400 shrink-0" />
                             <input
                                 type="date"
-                                value={teamPerfTo}
-                                min={teamPerfFrom}
-                                onChange={e => setTeamPerfTo(e.target.value)}
+                                value={tempTPTo}
+                                min={tempTPFrom}
+                                onChange={e => setTempTPTo(e.target.value)}
                                 className="text-[11px] font-semibold text-indigo-700 bg-transparent border-none outline-none cursor-pointer w-[110px]"
                             />
                         </div>
+                        <button 
+                            onClick={() => {
+                                setTeamPerfFrom(tempTPFrom);
+                                setTeamPerfTo(tempTPTo);
+                            }}
+                            className="bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all ml-1"
+                        >
+                            Apply
+                        </button>
                         {teamPerfLoading && <Loader2 size={14} className="text-indigo-400 animate-spin" />}
                     </div>
                     <div className="flex items-center gap-6">
@@ -1509,7 +1549,15 @@ const PerformanceDashboard = () => {
                         </div>
                     </div>
                 </div>
-                <div className="overflow-x-auto overflow-y-auto max-h-[600px] flex-1">
+                <div className="overflow-x-auto overflow-y-auto max-h-[600px] flex-1 relative">
+                    {teamPerfLoading && (
+                        <div className="absolute inset-0 z-20 bg-white/40 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">
+                            <div className="flex flex-col items-center gap-3">
+                                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Updating Team Data...</span>
+                            </div>
+                        </div>
+                    )}
                     <table className="w-full text-left">
                         <thead className="bg-slate-50 text-[10px] uppercase font-black tracking-widest text-slate-400 sticky top-0 z-10">
                             <tr>
@@ -1598,9 +1646,9 @@ const PerformanceDashboard = () => {
                             <Calendar size={12} className="text-rose-400 shrink-0" />
                             <input
                                 type="date"
-                                value={riskFrom}
-                                max={riskTo}
-                                onChange={e => setRiskFrom(e.target.value)}
+                                value={tempRFFrom}
+                                max={tempRFTo}
+                                onChange={e => setTempRFFrom(e.target.value)}
                                 className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[110px]"
                             />
                         </div>
@@ -1609,12 +1657,21 @@ const PerformanceDashboard = () => {
                             <Calendar size={12} className="text-rose-400 shrink-0" />
                             <input
                                 type="date"
-                                value={riskTo}
-                                min={riskFrom}
-                                onChange={e => setRiskTo(e.target.value)}
+                                value={tempRFTo}
+                                min={tempRFFrom}
+                                onChange={e => setTempRFTo(e.target.value)}
                                 className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[110px]"
                             />
                         </div>
+                        <button 
+                            onClick={() => {
+                                setRiskFrom(tempRFFrom);
+                                setRiskTo(tempRFTo);
+                            }}
+                            className="bg-rose-600 text-white px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider hover:bg-rose-700 transition-all ml-1"
+                        >
+                            Apply
+                        </button>
                         {riskLoading && <Loader2 size={14} className="text-rose-400 animate-spin" />}
                     </div>
                     <button 
@@ -1625,7 +1682,15 @@ const PerformanceDashboard = () => {
                     </button>
                 </div>
 
-                <div className={`overflow-x-auto overflow-y-auto ${showRiskModal ? '' : 'max-h-[500px]'} flex-1`}>
+                <div className={`overflow-x-auto overflow-y-auto ${showRiskModal ? '' : 'max-h-[500px]'} flex-1 relative`}>
+                    {riskLoading && (
+                        <div className="absolute inset-0 z-20 bg-white/40 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">
+                            <div className="flex flex-col items-center gap-3">
+                                <Loader2 className="w-8 h-8 text-rose-600 animate-spin" />
+                                <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Analyzing Risk...</span>
+                            </div>
+                        </div>
+                    )}
                     {employeeRisk.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                             <svg className="w-10 h-10 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>

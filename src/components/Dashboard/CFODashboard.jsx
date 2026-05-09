@@ -690,12 +690,17 @@ const CFODashboard = () => {
     // Priority: 1. localStorage (Global sync), 2. Defaults
     const [fromDate, setFromDate] = useState(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
     const [toDate, setToDate] = useState(localStorage.getItem('dashboard_to_date') || getToday());
+    const [tempFrom, setTempFrom] = useState(fromDate);
+    const [tempTo,   setTempTo]   = useState(toDate);
 
     useEffect(() => {
         const handleFilterChange = () => {
-            // Dashboard still syncs via event hub, but won't be 'stuck' across refreshes
-            setFromDate(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
-            setToDate(localStorage.getItem('dashboard_to_date') || getToday());
+            const f = localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth();
+            const t = localStorage.getItem('dashboard_to_date') || getToday();
+            setFromDate(f);
+            setToDate(t);
+            setTempFrom(f);
+            setTempTo(t);
         };
 
         window.addEventListener('dashboard-filter-change', handleFilterChange);
@@ -784,7 +789,8 @@ const CFODashboard = () => {
                 if (id) empIdToName[id] = e.name || id;
             });
             // Employee risk — document section 5
-            const riskPayload = riskRes?.data?.data || riskRes?.data || [];
+            const dashPayloadForRisk = dataRes?.data?.data || dataRes?.data || {};
+            const riskPayload = dashPayloadForRisk.employee_risk_monitor || riskRes?.data?.data || riskRes?.data || [];
             const riskRows = Array.isArray(riskPayload) ? riskPayload : [];
             const RISK_ORDER = { OFF_TRACK: 0, AT_RISK: 1, WATCH: 2, ON_TRACK: 3 };
             setEmployeeRiskData(
@@ -1009,7 +1015,7 @@ const CFODashboard = () => {
                         performance_score: Math.min(100, Math.max(computedPerfScore, apiPerfScore)),
                         top_performer: {
                             name: topName,
-                            score: Math.round(topScore)
+                            score: Math.min(100, Math.round(topScore))
                         }
                     };
                     enriched.status = deriveStatus(enriched);
@@ -1425,7 +1431,7 @@ const CFODashboard = () => {
             approvedTasks:        topKpis.approved_tasks ?? approvedTasks,
             departmentsOnTrack:   topKpis.departments_on_track ?? departmentsOnTrack,
             employeesAtRisk:      topKpis.employees_at_risk ?? dashboardData.employees_at_risk ?? inferredEmployeesAtRisk,
-            orgPerformanceScore:  orgHealth.org_performance_score ?? dashboardData.org_performance_index ?? 0,
+            orgPerformanceScore:  Math.min(100, orgHealth.org_performance_score ?? dashboardData.org_performance_index ?? 0),
             orgCompletionRate:    orgHealth.org_completion_rate ?? dashboardData.org_completion_rate ?? inferredCompletionRate,
             orgOnTimePct:         orgHealth.org_on_time_pct ?? dashboardData.org_on_time_pct ?? orgMetrics?.org_avg_on_time_pct ?? 0,
 
@@ -1439,7 +1445,7 @@ const CFODashboard = () => {
             orgOnTimePctDelta:       kpiDeltas.org_on_time_pct_delta_pp,
 
             // Organization Health Card (section 7)
-            healthOrgPerformanceScore: orgHealth.org_performance_score ?? 0,
+            healthOrgPerformanceScore: Math.min(100, orgHealth.org_performance_score ?? 0),
             healthOrgCompletionRate:   orgHealth.org_completion_rate ?? 0,
             healthOrgOnTimePct:        orgHealth.org_on_time_pct ?? 0,
 
@@ -1535,7 +1541,7 @@ const CFODashboard = () => {
                 completedTasks: dashboardData.approved_tasks || 0,
                 pendingTasks: dashboardData.pending_tasks || 0,
                 in_progress_tasks: dashboardData.in_progress_tasks || 0,
-                overallScore: dashboardData.org_performance_index || 0,
+                overallScore: Math.min(100, dashboardData.org_performance_index || 0),
             },
             kpis,
             topPerformers,
@@ -1548,11 +1554,17 @@ const CFODashboard = () => {
     // deptPerformance.top_performer.score came from enrichDepts which used raw API scores.
     // This memo patches the dept table to always match the High Performers card scores.
     const syncedDeptPerformance = useMemo(() => {
-        if (!topPerformers || topPerformers.length === 0) return deptPerformance;
+        // Filter out the 'Executive' department from the performance table as requested
+        const filteredDepts = (deptPerformance || []).filter(dept => {
+            const name = (dept.department || dept.department_name || dept.name || '').toLowerCase().trim();
+            return name !== 'executive';
+        });
+
+        if (!topPerformers || topPerformers.length === 0) return filteredDepts;
 
         // Create a mapping of explicit API department assignments to prevent cross-pollination
         const apiDeptMapping = {};
-        deptPerformance.forEach(dept => {
+        filteredDepts.forEach(dept => {
             if (dept.top_performer && dept.top_performer.name && dept.top_performer.name !== 'N/A' && dept.top_performer.name !== 'Unknown') {
                 let resolvedName = dept.top_performer.name;
                 const rEmp = Object.values(empMap).find(e => e.name === resolvedName || String(e.id) === String(resolvedName));
@@ -1587,7 +1599,7 @@ const CFODashboard = () => {
             }
         });
 
-        return deptPerformance.map(dept => {
+        return filteredDepts.map(dept => {
             const deptNameKey = (dept.department || dept.department_name || dept.name || '').toLowerCase().trim();
             const bestGlobalForDept = bestPerDept[deptNameKey];
             
@@ -1677,11 +1689,32 @@ const CFODashboard = () => {
                                  <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-slate-300 transition-colors">
                                      <Calendar size={16} className="text-slate-400" />
                                      <div className="flex items-center gap-1.5 text-[13px] font-medium text-slate-700">
-                                         <input type="date" className="bg-transparent border-none p-0 focus:ring-0 w-[105px] text-center" value={fromDate} onChange={(e) => handleDateChange('from', e.target.value)} />
+                                         <input 
+                                            type="date" 
+                                            className="bg-transparent border-none p-0 focus:ring-0 w-[105px] text-center" 
+                                            value={tempFrom} 
+                                            onChange={(e) => setTempFrom(e.target.value)} 
+                                         />
                                          <span className="text-slate-400">-</span>
-                                         <input type="date" className="bg-transparent border-none p-0 focus:ring-0 w-[105px] text-center" value={toDate} onChange={(e) => handleDateChange('to', e.target.value)} />
+                                         <input 
+                                            type="date" 
+                                            className="bg-transparent border-none p-0 focus:ring-0 w-[105px] text-center" 
+                                            value={tempTo} 
+                                            onChange={(e) => setTempTo(e.target.value)} 
+                                         />
                                      </div>
-                                     <ChevronDown size={14} className="text-slate-400 ml-2" />
+                                     <button 
+                                        onClick={() => {
+                                            setFromDate(tempFrom);
+                                            setToDate(tempTo);
+                                            localStorage.setItem('dashboard_from_date', tempFrom);
+                                            localStorage.setItem('dashboard_to_date', tempTo);
+                                            window.dispatchEvent(new Event('dashboard-filter-change'));
+                                        }}
+                                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all ml-1 shadow-sm"
+                                     >
+                                        Apply
+                                     </button>
                                  </div>
                              </div>
                         </div>
@@ -1887,7 +1920,10 @@ const CFODashboard = () => {
                                                     });
                                                 }
                                                 
-                                                const explicitScore = r.performance_score ?? r.score;
+                                                const tNameKey = String(r.name || '').toLowerCase().trim();
+                                                const globalTp = topPerformers?.find(p => p.name && p.name.toLowerCase().trim() === tNameKey);
+                                                
+                                                const explicitScore = globalTp?.score ?? r.performance_score ?? r.score;
                                                 let truePerfScore = explicitScore !== undefined && explicitScore !== null
                                                     ? Math.min(100, Math.max(0, parseFloat(explicitScore) || 0))
                                                     : (perfTotal > 0

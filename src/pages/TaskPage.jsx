@@ -567,6 +567,8 @@ const TaskPage = () => {
     employeeId: "All",
     taskId: "",
   });
+  const [tempFrom, setTempFrom] = useState(filter.fromDate);
+  const [tempTo,   setTempTo]   = useState(filter.toDate);
   const role = (user.role || '').toUpperCase();
   const isCFO = role === 'CFO' || role === 'ADMIN';
   const isEmployee = role === 'EMPLOYEE';
@@ -618,8 +620,14 @@ const TaskPage = () => {
       }
       if (deptParam) { next.department = deptParam; next.taskId = ""; }
       if (severityParam) { next.severity = severityParam; next.taskId = ""; }
-      if (fromDateParam) { next.fromDate = fromDateParam; }
-      if (toDateParam) { next.toDate = toDateParam; }
+      if (fromDateParam) { 
+        next.fromDate = fromDateParam;
+        setTempFrom(fromDateParam);
+      }
+      if (toDateParam) { 
+        next.toDate = toDateParam;
+        setTempTo(toDateParam);
+      }
       return next;
     });
   }, [location.search]);
@@ -1325,8 +1333,8 @@ const handleReworkConfirm = async (comment) => {
             <input
               type="date"
               className="bg-transparent text-[10px] font-bold outline-none cursor-pointer text-slate-600"
-              value={filter.fromDate}
-              onChange={(e) => setFilter({ ...filter, fromDate: e.target.value, taskId: "" })}
+              value={tempFrom}
+              onChange={(e) => setTempFrom(e.target.value)}
             />
           </div>
           <div className="w-px h-6 bg-slate-200 mx-2" />
@@ -1335,10 +1343,16 @@ const handleReworkConfirm = async (comment) => {
             <input
               type="date"
               className="bg-transparent text-[10px] font-bold outline-none cursor-pointer text-slate-600"
-              value={filter.toDate}
-              onChange={(e) => setFilter({ ...filter, toDate: e.target.value, taskId: "" })}
+              value={tempTo}
+              onChange={(e) => setTempTo(e.target.value)}
             />
           </div>
+          <button 
+            onClick={() => setFilter({ ...filter, fromDate: tempFrom, toDate: tempTo, taskId: "" })}
+            className="bg-violet-100 text-violet-600 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider hover:bg-violet-600 hover:text-white transition-all ml-1 shadow-sm border border-violet-200"
+          >
+            Apply
+          </button>
         </div>
 
         {/* Sync Data Button */}
@@ -1353,16 +1367,20 @@ const handleReworkConfirm = async (comment) => {
         {/* Reset Button */}
         {(filter.search || filter.fromDate || filter.toDate || filter.status !== 'All' || filter.severity !== 'All' || (isCFO && filter.department !== 'All')) && (
           <button
-            onClick={() => setFilter({
-              status: "All",
-              severity: "All",
-              department: "All",
-              search: "",
-              fromDate: "",
-              toDate: "",
-              employeeId: "All",
-              taskId: (new URLSearchParams(location.search)).get('taskId') || "",
-            })}
+            onClick={() => {
+              setFilter({
+                status: "All",
+                severity: "All",
+                department: "All",
+                search: "",
+                fromDate: "",
+                toDate: "",
+                employeeId: "All",
+                taskId: (new URLSearchParams(location.search)).get('taskId') || "",
+              });
+              setTempFrom("");
+              setTempTo("");
+            }}
             className="p-3 bg-rose-50 text-rose-500 hover:bg-rose-100 rounded-xl transition-all border border-rose-100 shrink-0 shadow-sm"
             title="Clear all filters"
           >

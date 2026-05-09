@@ -9,7 +9,7 @@ export default defineConfig({
       // All /api/* requests are forwarded to the backend server-side,
       // which completely bypasses browser CORS restrictions.
       '/api': {
-        target: 'http://65.2.177.80:8000',
+        target: 'https://tascade.fjtco.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

@@ -441,6 +441,8 @@ const TeamTasksPage = () => {
         assigned_to_emp_id: '',
         task_id: ''
     });
+    const [tempFrom, setTempFrom] = useState(filters.from_date);
+    const [tempTo,   setTempTo]   = useState(filters.to_date);
     const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0 });
     const [metrics, setMetrics] = useState({ activeTasks: 0, inProgress: 0, pendingSubmission: 0, overdue: 0 });
     const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
@@ -926,8 +928,14 @@ const TeamTasksPage = () => {
         if (searchParam)   filterUpdates.search    = decodeURIComponent(searchParam);
         if (statusParam !== null) filterUpdates.status = statusParam; // '' clears the filter (show all)
         if (deptParam)     filterUpdates.department_id = deptParam;
-        if (fromDateParam) filterUpdates.from_date  = fromDateParam;
-        if (toDateParam)   filterUpdates.to_date    = toDateParam;
+        if (fromDateParam) { 
+            filterUpdates.from_date  = fromDateParam;
+            setTempFrom(fromDateParam);
+        }
+        if (toDateParam) { 
+            filterUpdates.to_date    = toDateParam;
+            setTempTo(toDateParam);
+        }
 
         if (Object.keys(filterUpdates).length > 0) {
             setFilters(prev => ({ ...prev, ...filterUpdates }));
@@ -1197,12 +1205,20 @@ const TeamTasksPage = () => {
                         </div>
                     </div>
                     <div className="lg:col-span-3 grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">From Date</label>
-                            <input type="date" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10" value={filters.from_date} onChange={(e) => setFilters(p => ({ ...p, from_date: e.target.value }))} />
+                        <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">From Date</label>
+                            <input type="date" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10" value={tempFrom} onChange={(e) => setTempFrom(e.target.value)} />
                         </div>
-                        <div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">To Date</label>
-                            <input type="date" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10" value={filters.to_date} onChange={(e) => setFilters(p => ({ ...p, to_date: e.target.value }))} />
+                        <div className="space-y-1.5 flex flex-col"><label className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">To Date</label>
+                            <input type="date" className="w-full px-3 py-2 bg-slate-50 border-none rounded-xl text-[12px] font-bold focus:ring-2 focus:ring-violet-500/10" value={tempTo} onChange={(e) => setTempTo(e.target.value)} />
                         </div>
+                        <button 
+                            onClick={() => {
+                                setFilters(prev => ({ ...prev, from_date: tempFrom, to_date: tempTo }));
+                            }}
+                            className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100"
+                        >
+                            Apply
+                        </button>
                     </div>
                 </div>
             </div>

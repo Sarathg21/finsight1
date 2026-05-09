@@ -145,7 +145,10 @@ const OKRDashboard = () => {
     });
 
     const [filters, setFilters] = useState(getStoredFilters());
+    const [tempFrom, setTempFrom] = useState(filters.from_date);
+    const [tempTo, setTempTo] = useState(filters.to_date);
     const [availableDepts, setAvailableDepts] = useState([]);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     const { user } = useAuth();
 
@@ -155,6 +158,8 @@ const OKRDashboard = () => {
             const next = getStoredFilters();
             setFilters(prev => {
                 if (prev.from_date === next.from_date && prev.to_date === next.to_date && prev.department === next.department) return prev;
+                setTempFrom(next.from_date);
+                setTempTo(next.to_date);
                 return next;
             });
         };
@@ -760,7 +765,7 @@ const OKRDashboard = () => {
                 okrOverdue = (todayRes.data.data.items || []).filter(t => t.due_date && new Date(t.due_date) < new Date()).map(t => ({ title: t.title, days_late: 1 }));
             }
             setOverdueTasks(okrOverdue);
-
+            setIsInitialLoad(false);
         } catch (error) {
             console.error('Error fetching OKR data:', error);
             // On error, show empty state — never fall back to mock data
@@ -863,7 +868,7 @@ const OKRDashboard = () => {
         }];
     }, [displayedTableData, deptContributionData, filters.department]);
 
-    if (loading) {
+    if (loading && isInitialLoad) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[600px] bg-[#f8fafc] gap-4">
                 <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
@@ -873,7 +878,7 @@ const OKRDashboard = () => {
     }
 
     return (
-        <div className="flex flex-col gap-4 bg-[#f1f5f9] min-h-screen p-4 sm:p-6 text-slate-800 font-sans">
+        <div className={`flex flex-col gap-4 bg-[#f1f5f9] min-h-screen p-4 sm:p-6 text-slate-800 font-sans animate-fade-in ${loading ? 'opacity-60 pointer-events-none' : ''} transition-opacity duration-300`}>
             {/* ── HEADER and EXECUTION BAR ── */}
             <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -896,8 +901,8 @@ const OKRDashboard = () => {
                                     min="2020-01-01"
                                     max="2030-12-31"
                                     onFocus={(e) => e.target.showPicker?.()}
-                                    value={filters.from_date}
-                                    onChange={(e) => setFilters({ ...filters, from_date: e.target.value })}
+                                    value={tempFrom}
+                                    onChange={(e) => setTempFrom(e.target.value)}
                                 />
                             </div>
                             <div className="w-px h-4 bg-white/20 mx-2"></div>
@@ -910,10 +915,17 @@ const OKRDashboard = () => {
                                     min="2020-01-01"
                                     max="2030-12-31"
                                     onFocus={(e) => e.target.showPicker?.()}
-                                    value={filters.to_date}
-                                    onChange={(e) => setFilters({ ...filters, to_date: e.target.value })}
+                                    value={tempTo}
+                                    onChange={(e) => setTempTo(e.target.value)}
                                 />
                             </div>
+                            <div className="w-px h-4 bg-white/20 mx-2"></div>
+                            <button 
+                                onClick={() => setFilters(prev => ({ ...prev, from_date: tempFrom, to_date: tempTo }))}
+                                className="bg-white text-blue-700 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all active:scale-95"
+                            >
+                                Apply
+                            </button>
                         </div>
                     </div>
                 </div>

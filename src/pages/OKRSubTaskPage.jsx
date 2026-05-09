@@ -121,13 +121,20 @@ const OKRSubTaskPage = () => {
     useEffect(() => {
         const handle = () => {
             const n = { from_date: localStorage.getItem('dashboard_from_date') || firstOfMonth, to_date: localStorage.getItem('dashboard_to_date') || today };
-            setFilters(prev => (prev.from_date === n.from_date && prev.to_date === n.to_date ? prev : { ...prev, ...n }));
+            setFilters(prev => {
+                if (prev.from_date === n.from_date && prev.to_date === n.to_date) return prev;
+                setTempFrom(n.from_date);
+                setTempTo(n.to_date);
+                return { ...prev, ...n };
+            });
         };
         window.addEventListener('dashboard-filter-change', handle);
         return () => window.removeEventListener('dashboard-filter-change', handle);
     }, []);
 
     /* state */
+    const [tempFrom, setTempFrom]         = useState(filters.from_date);
+    const [tempTo,   setTempTo]           = useState(filters.to_date);
     const [loading, setLoading]           = useState(true);
     const [globalOverview, setGlobalOverview] = useState(null);
     const [objectivesList, setObjectivesList] = useState([]);
@@ -435,7 +442,7 @@ const OKRSubTaskPage = () => {
     }, [objectivesList, filters.from_date, filters.to_date]);
 
     /* effects */
-    useEffect(() => { fetchInitialData(); }, [filters.from_date, filters.to_date]);
+    useEffect(() => { fetchInitialData(); }, []); // Only on mount. Updates via handleApply.
 
     useEffect(() => {
         if (!filters.currentOkrId) return;
@@ -446,11 +453,16 @@ const OKRSubTaskPage = () => {
     }, [filters.currentOkrId]);
 
     const handleApply = async () => {
-        localStorage.setItem('dashboard_from_date', filters.from_date);
-        localStorage.setItem('dashboard_to_date', filters.to_date);
+        setFilters(prev => ({ ...prev, from_date: tempFrom, to_date: tempTo }));
+        localStorage.setItem('dashboard_from_date', tempFrom);
+        localStorage.setItem('dashboard_to_date', tempTo);
         window.dispatchEvent(new Event('dashboard-filter-change'));
-        await fetchInitialData();
-        if (filters.currentOkrId) await fetchDrilldown(filters.currentOkrId);
+        // fetchInitialData and fetchDrilldown will be triggered by useEffect or called directly here
+        // But since we want immediate feedback:
+        setTimeout(() => {
+            fetchInitialData();
+            if (filters.currentOkrId) fetchDrilldown(filters.currentOkrId);
+        }, 0);
     };
 
     /* derived display vars */
@@ -588,10 +600,10 @@ const OKRSubTaskPage = () => {
                 <div className="flex items-center gap-3">
                     <label className="text-slate-400 text-[10px] font-bold uppercase tracking-tight">From:</label>
                     <input type="date" className="bg-slate-50 border-2 border-slate-100 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-100 outline-none"
-                        value={filters.from_date} onChange={e => setFilters(prev => ({ ...prev, from_date: e.target.value }))} />
+                        value={tempFrom} onChange={e => setTempFrom(e.target.value)} />
                     <label className="text-slate-400 text-[10px] font-bold uppercase tracking-tight">To:</label>
                     <input type="date" className="bg-slate-50 border-2 border-slate-100 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 focus:ring-4 focus:ring-blue-100 outline-none"
-                        value={filters.to_date} onChange={e => setFilters(prev => ({ ...prev, to_date: e.target.value }))} />
+                        value={tempTo} onChange={e => setTempTo(e.target.value)} />
                     <button onClick={handleApply}
                         className="bg-[#1e40af] text-white px-6 py-2 rounded-xl font-black text-[11px] uppercase tracking-widest shadow hover:bg-blue-800 active:scale-95 transition-all">
                         Apply

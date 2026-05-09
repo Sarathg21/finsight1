@@ -235,6 +235,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         const saved = localStorage.getItem('dashboard_to_date');
         return (saved && saved.length === 10) ? saved : getToday();
     });
+    const [tempFrom, setTempFrom] = useState(fromDate);
+    const [tempTo,   setTempTo]   = useState(toDate);
 
     // Persist initial dates to localStorage so TaskPage reads the same range on first load
     useEffect(() => {
@@ -248,8 +250,12 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
     useEffect(() => {
         const handleFilterChange = () => {
-            setFromDate(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
-            setToDate(localStorage.getItem('dashboard_to_date') || getToday());
+            const f = localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth();
+            const t = localStorage.getItem('dashboard_to_date') || getToday();
+            setFromDate(f);
+            setToDate(t);
+            setTempFrom(f);
+            setTempTo(t);
         };
         window.addEventListener('dashboard-filter-change', handleFilterChange);
         return () => window.removeEventListener('dashboard-filter-change', handleFilterChange);
@@ -265,10 +271,14 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     // ── Independent date filters for sub-sections ────────────────────────────
     const [teamPerfFrom, setTeamPerfFrom] = useState(getFirstDayOfMonth());
     const [teamPerfTo, setTeamPerfTo] = useState(getToday());
+    const [tempTPFrom, setTempTPFrom] = useState(teamPerfFrom);
+    const [tempTPTo, setTempTPTo] = useState(teamPerfTo);
     const [teamPerfLoading, setTeamPerfLoading] = useState(false);
 
     const [riskFrom, setRiskFrom] = useState(getFirstDayOfMonth());
     const [riskTo, setRiskTo] = useState(getToday());
+    const [tempRFFrom, setTempRFFrom] = useState(riskFrom);
+    const [tempRFTo, setTempRFTo] = useState(riskTo);
     const [riskLoading, setRiskLoading] = useState(false);
     const [liveTasks, setLiveTasks] = useState([]);
     const [bifurcationTasks, setBifurcationTasks] = useState([]);
@@ -350,8 +360,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 setTrends(trendsRes.value.data?.data || trendsRes.value.data || []);
             }
 
-            if (riskRes.status === 'fulfilled') {
-                const riskRaw = riskRes.value.data?.data || riskRes.value.data || [];
+            if (riskRes.status === 'fulfilled' || finalPayload.employee_risk_monitor) {
+                const riskRaw = finalPayload.employee_risk_monitor || riskRes.value?.data?.data || riskRes.value?.data || [];
                 const selfId   = String(user?.emp_id || user?.id || '').trim();
                 const selfName = String(user?.name || user?.full_name || '').trim().toLowerCase();
                 const filtered = (Array.isArray(riskRaw) ? riskRaw : []).filter(r => {
@@ -563,7 +573,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         if (user?.id) {
             fetchBifurcationTasks();
         }
-    }, [user?.id, currentDeptId]);
+    }, [user?.id, currentDeptId, fromDate, toDate]); // Added dates so it refreshes when Apply is clicked
 
     useEffect(() => {
         if (user?.id) {
@@ -607,9 +617,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             inProgress:          tsbInProgress,
             pending:             tsbPending,
             overdue:             tsbOverdue,
-            managerScore:         kpis.manager_score          ?? null,
-            teamScore:            kpis.team_score             ?? null,
-            managerPersonalScore: kpis.manager_personal_score ?? null,
+            managerScore:         kpis.manager_score != null ? Math.min(100, kpis.manager_score) : null,
+            teamScore:            kpis.team_score != null ? Math.min(100, kpis.team_score) : null,
+            managerPersonalScore: kpis.manager_personal_score != null ? Math.min(100, kpis.manager_personal_score) : null,
             managerScoreDelta:    dashboardData.manager_score_delta_percent ?? null,
             completionRate:       tsbRate,
             completionTotal:      tsbTotal,
@@ -646,9 +656,11 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         return source
             .filter(m => {
                 const mId   = String(m.emp_id || m.id || m.employee_id || '').trim();
-                const mName = String(m.name || m.employee_name || m.emp_name || m.full_name || '').trim().toLowerCase();
+                const mKey  = normalizeEmployeeKey(m.name || m.employee_name || m.emp_name || m.full_name);
+                const selfKey = normalizeEmployeeKey(user?.name || user?.full_name);
+                
                 if (selfId && mId === selfId) return false;
-                if (selfName && mName === selfName) return false;
+                if (selfKey && mKey && mKey === selfKey) return false;
                 return true;
             })
             .map((m, idx) => {
@@ -832,9 +844,11 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center p-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                <Loader2 className="w-10 h-10 text-violet-500 animate-spin mb-4" />
-                <p className="text-slate-500 font-medium text-lg">Loading {currentDeptName} dashboard...</p>
+            <div className="flex flex-col gap-6 p-4 md:p-6 bg-slate-50/30 min-h-screen animate-fade-in">
+                <div className="flex flex-col items-center justify-center p-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <Loader2 className="w-10 h-10 text-violet-500 animate-spin mb-4" />
+                    <p className="text-slate-500 font-medium text-lg">Loading {currentDeptName} dashboard...</p>
+                </div>
             </div>
         );
     }
@@ -998,7 +1012,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     };
 
     return (
-        <div className="space-y-5 pb-10">
+        <div className="space-y-5 pb-10 animate-fade-in">
 
             {/* ── PAGE HEADER ─────────────────────────────────────────── */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1012,27 +1026,29 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         <Calendar size={13} className="text-slate-400 shrink-0" />
                         <input 
                             type="date" 
-                            value={fromDate} 
-                            onChange={e => {
-                                const val = e.target.value;
-                                setFromDate(val);
-                                localStorage.setItem('dashboard_from_date', val);
-                                window.dispatchEvent(new Event('dashboard-filter-change'));
-                            }}
+                            value={tempFrom} 
+                            onChange={e => setTempFrom(e.target.value)}
                             className="text-[11px] font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer w-[100px]" 
                         />
                         <span className="text-slate-300 font-bold">-</span>
                         <input 
                             type="date" 
-                            value={toDate} 
-                            onChange={e => {
-                                const val = e.target.value;
-                                setToDate(val);
-                                localStorage.setItem('dashboard_to_date', val);
-                                window.dispatchEvent(new Event('dashboard-filter-change'));
-                            }}
+                            value={tempTo} 
+                            onChange={e => setTempTo(e.target.value)}
                             className="text-[11px] font-semibold text-slate-700 bg-transparent border-none outline-none cursor-pointer w-[100px]" 
                         />
+                        <button 
+                            onClick={() => {
+                                setFromDate(tempFrom);
+                                setToDate(tempTo);
+                                localStorage.setItem('dashboard_from_date', tempFrom);
+                                localStorage.setItem('dashboard_to_date', tempTo);
+                                window.dispatchEvent(new Event('dashboard-filter-change'));
+                            }}
+                            className="bg-violet-600 text-white px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-violet-700 ml-1 transition-all"
+                        >
+                            Apply
+                        </button>
                     </div>
                     <button onClick={() => handleExport('pdf')} className="flex items-center gap-1.5 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-2 rounded-xl shadow-sm hover:bg-slate-50 transition-all">
                         <span>📄</span> PDF
@@ -1464,19 +1480,36 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center gap-1 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
                             <Calendar size={12} className="text-violet-400 shrink-0" />
-                            <input type="date" value={teamPerfFrom} max={teamPerfTo} onChange={e => setTeamPerfFrom(e.target.value)} className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]" />
+                            <input type="date" value={tempTPFrom} max={tempTPTo} onChange={e => setTempTPFrom(e.target.value)} className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]" />
                         </div>
                         <span className="text-[11px] text-slate-400 font-bold">→</span>
                         <div className="flex items-center gap-1 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
                             <Calendar size={12} className="text-violet-400 shrink-0" />
-                            <input type="date" value={teamPerfTo} min={teamPerfFrom} onChange={e => setTeamPerfTo(e.target.value)} className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]" />
+                            <input type="date" value={tempTPTo} min={tempTPFrom} onChange={e => setTempTPTo(e.target.value)} className="text-[11px] font-semibold text-violet-700 bg-transparent border-none outline-none cursor-pointer w-[110px]" />
                         </div>
+                        <button 
+                            onClick={() => {
+                                setTeamPerfFrom(tempTPFrom);
+                                setTeamPerfTo(tempTPTo);
+                            }}
+                            className="bg-indigo-600 text-white px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all ml-1"
+                        >
+                            Apply
+                        </button>
                         <button onClick={() => navigate('/tasks/team')} className="ml-2 px-4 py-1.5 border border-violet-200 text-violet-600 text-[11px] font-bold rounded-lg hover:bg-violet-50 transition-all flex items-center gap-1.5">
                             <Eye size={13} /> View Details
                         </button>
                     </div>
                 </div>
-                <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+                <div className="max-h-[420px] overflow-y-auto custom-scrollbar relative">
+                    {teamPerfLoading && (
+                        <div className="absolute inset-0 z-20 bg-white/40 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">
+                            <div className="flex flex-col items-center gap-3">
+                                <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
+                                <span className="text-[10px] font-bold text-violet-600 uppercase tracking-widest">Updating Team Metrics...</span>
+                            </div>
+                        </div>
+                    )}
                     <table className="w-full text-left border-separate border-spacing-0">
                         <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold capitalize  tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
                             <tr>
@@ -1603,19 +1636,36 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     <div className="flex items-center gap-3 flex-wrap">
                         <div className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5">
                             <Calendar size={11} className="text-rose-400 shrink-0" />
-                            <input type="date" value={riskFrom} max={riskTo} onChange={e => setRiskFrom(e.target.value)} className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]" />
+                            <input type="date" value={tempRFFrom} max={tempRFTo} onChange={e => setTempRFFrom(e.target.value)} className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]" />
                         </div>
                         <span className="text-[10px] text-slate-400 font-bold">→</span>
                         <div className="flex items-center gap-1 bg-rose-50 border border-rose-100 rounded-lg px-2.5 py-1.5">
                             <Calendar size={11} className="text-rose-400 shrink-0" />
-                            <input type="date" value={riskTo} min={riskFrom} onChange={e => setRiskTo(e.target.value)} className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]" />
+                            <input type="date" value={tempRFTo} min={tempRFFrom} onChange={e => setTempRFTo(e.target.value)} className="text-[11px] font-semibold text-rose-700 bg-transparent border-none outline-none cursor-pointer w-[105px]" />
                         </div>
+                        <button 
+                            onClick={() => {
+                                setRiskFrom(tempRFFrom);
+                                setRiskTo(tempRFTo);
+                            }}
+                            className="bg-rose-600 text-white px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider hover:bg-rose-700 transition-all ml-1"
+                        >
+                            Apply
+                        </button>
                     </div>
                 </div>
                 <div className="px-6 py-4 bg-white">
 
-                    <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
-                    <table className="w-full text-left border-separate border-spacing-0">
+                    <div className="max-h-[420px] overflow-y-auto custom-scrollbar relative">
+                        {riskLoading && (
+                            <div className="absolute inset-0 z-20 bg-white/40 backdrop-blur-[1px] flex items-center justify-center animate-fade-in">
+                                <div className="flex flex-col items-center gap-3">
+                                    <Loader2 className="w-8 h-8 text-rose-600 animate-spin" />
+                                    <span className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Recalculating Risk...</span>
+                                </div>
+                            </div>
+                        )}
+                        <table className="w-full text-left border-separate border-spacing-0">
                         <thead className="bg-[#F8F9FF] text-slate-500 text-[10px] font-bold capitalize  tracking-tight border-b border-slate-100 sticky top-0 z-10 shadow-sm">
                             <tr>
                                 <th className="py-3 px-2 pl-6">Employee</th>

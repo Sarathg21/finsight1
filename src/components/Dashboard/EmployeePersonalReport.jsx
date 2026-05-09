@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import {
     Calendar, Download, FileSpreadsheet, Activity, AlertTriangle, 
     CheckSquare, ClipboardList, Play, ArrowUpRight, BarChart2,
-    TrendingUp, Users, ChevronDown, RefreshCw, Info
+    TrendingUp, Users, ChevronDown, RefreshCw, Info, Loader2
 } from 'lucide-react';
 import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -51,16 +51,23 @@ const EmployeePersonalReport = () => {
 
     const [fromDate, setFromDate] = useState(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
     const [toDate, setToDate] = useState(localStorage.getItem('dashboard_to_date') || getToday());
+    const [tempFrom, setTempFrom] = useState(fromDate);
+    const [tempTo, setTempTo] = useState(toDate);
     const [loading, setLoading] = useState(true);
 
     const [tasks, setTasks] = useState([]);
     const [summary, setSummary] = useState({});
     const [topPerformers, setTopPerformers] = useState([]);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
     useEffect(() => {
         const handleFilterChange = () => {
-            setFromDate(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
-            setToDate(localStorage.getItem('dashboard_to_date') || getToday());
+            const f = localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth();
+            const t = localStorage.getItem('dashboard_to_date') || getToday();
+            setFromDate(f);
+            setToDate(t);
+            setTempFrom(f);
+            setTempTo(t);
         };
         window.addEventListener('dashboard-filter-change', handleFilterChange);
         return () => window.removeEventListener('dashboard-filter-change', handleFilterChange);
@@ -157,6 +164,7 @@ const EmployeePersonalReport = () => {
 
             console.log('[TopPerformer] Final ranked list:', JSON.stringify(ranked));
             setTopPerformers(ranked);
+            setIsInitialLoad(false);
         } catch (err) {
             console.error('Failed to fetch employee report data', err);
         } finally {
@@ -296,8 +304,8 @@ const EmployeePersonalReport = () => {
             onTimePct: summary.on_time_pct !== undefined && summary.on_time_pct !== null ? Math.round(Number(summary.on_time_pct)) : 0,
             efficiency: Math.min(100, Math.round(summary.performance_score ?? performanceIndex)),
             performanceScore: Math.min(100, Math.round(summary.performance_score ?? performanceIndex)),
-            deptAvg: Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0),
-            vsDeptAvg: Math.round(summary.score_vs_department_avg ?? 0)
+            deptAvg: Math.min(100, Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0)),
+            vsDeptAvg: Math.min(100, Math.round(summary.performance_score ?? performanceIndex)) - Math.min(100, Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0))
         };
     }, [tasks, summary, fromDate, toDate]);
 
@@ -404,8 +412,23 @@ const EmployeePersonalReport = () => {
         }
     }
 
+    if (loading && isInitialLoad) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFF] gap-4">
+                <Loader2 className="w-10 h-10 text-[#1E1B4B] animate-spin" />
+                <p className="text-slate-500 font-bold capitalize tracking-widest text-xs">Syncing performance data…</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-[#F8FAFF] p-4 lg:p-8 space-y-6 font-sans">
+        <div className={`min-h-screen bg-[#F8FAFF] p-4 lg:p-8 space-y-6 font-sans animate-fade-in transition-all duration-500 ${loading ? 'opacity-60 pointer-events-none' : ''}`}>
+            {loading && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-white border border-slate-200 px-4 py-2 rounded-full shadow-lg flex items-center gap-3 animate-fade-in">
+                    <Loader2 size={16} className="text-[#1E1B4B] animate-spin" />
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-widest">Refreshing Data...</span>
+                </div>
+            )}
             
             {/* ── Page Header ─────────────────────────────── */}
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
@@ -421,27 +444,28 @@ const EmployeePersonalReport = () => {
                         <input
                             type="date"
                             className="border-none text-[12px] font-semibold text-slate-700 bg-transparent p-0 focus:ring-0 cursor-pointer"
-                            value={fromDate}
-                            onChange={e => {
-                                const val = e.target.value;
-                                setFromDate(val);
-                                localStorage.setItem('dashboard_from_date', val);
-                                window.dispatchEvent(new Event('dashboard-filter-change'));
-                            }}
+                            value={tempFrom}
+                            onChange={e => setTempFrom(e.target.value)}
                         />
                         <span className="text-slate-300 text-[12px]">-</span>
                         <input
                             type="date"
                             className="border-none text-[12px] font-semibold text-slate-700 bg-transparent p-0 focus:ring-0 cursor-pointer"
-                            value={toDate}
-                            onChange={e => {
-                                const val = e.target.value;
-                                setToDate(val);
-                                localStorage.setItem('dashboard_to_date', val);
+                            value={tempTo}
+                            onChange={e => setTempTo(e.target.value)}
+                        />
+                        <button 
+                            onClick={() => {
+                                setFromDate(tempFrom);
+                                setToDate(tempTo);
+                                localStorage.setItem('dashboard_from_date', tempFrom);
+                                localStorage.setItem('dashboard_to_date', tempTo);
                                 window.dispatchEvent(new Event('dashboard-filter-change'));
                             }}
-                        />
-                        <ChevronDown size={14} className="text-slate-400 flex-shrink-0" />
+                            className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all ml-1"
+                        >
+                            Apply
+                        </button>
                     </div>
 
                     {/* PDF button */}

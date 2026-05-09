@@ -213,10 +213,11 @@ const EmployeeDashboard = () => {
     const [toDate, setToDate] = useState(() => {
         const saved = localStorage.getItem('dashboard_to_date');
         const today = new Date().toISOString().split('T')[0];
-        // If saved date is in the past, reset to today so new tasks aren't hidden
         if (saved && saved < today) return today;
         return saved || today;
     });
+    const [tempFrom, setTempFrom] = useState(fromDate);
+    const [tempTo,   setTempTo]   = useState(toDate);
     const [searchTerm, setSearchTerm] = useState('');
 
     const [dashboardData, setDashboardData] = useState(null);
@@ -231,8 +232,12 @@ const EmployeeDashboard = () => {
 
     useEffect(() => {
         const handleFilterChange = () => {
-            setFromDate(localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth());
-            setToDate(localStorage.getItem('dashboard_to_date') || getToday());
+            const f = localStorage.getItem('dashboard_from_date') || getFirstDayOfMonth();
+            const t = localStorage.getItem('dashboard_to_date') || getToday();
+            setFromDate(f);
+            setToDate(t);
+            setTempFrom(f);
+            setTempTo(t);
         };
         window.addEventListener('dashboard-filter-change', handleFilterChange);
         return () => window.removeEventListener('dashboard-filter-change', handleFilterChange);
@@ -367,7 +372,7 @@ const EmployeeDashboard = () => {
             // Use performance_score explicitly from backend payload
             const backendScore = dashboardPayload?.performance_score ?? dashboardPayload?.performance_index ?? dashboardPayload?.performanceScore ?? 0;
             const localScore = totalCount > 0 ? Math.round((approvedCount / totalCount) * 100) : 0;
-            const finalScore = backendScore > 0 || dashboardPayload?.performance_score !== undefined ? backendScore : localScore;
+            const finalScore = Math.min(100, backendScore > 0 || dashboardPayload?.performance_score !== undefined ? backendScore : localScore);
 
             setDashboardData({
                 ...dashboardPayload,
@@ -597,9 +602,9 @@ const EmployeeDashboard = () => {
     const metrics = useMemo(() => {
         if (!dashboardData) return null;
 
-        const currentScore = Math.round(dashboardData.performance_score ?? dashboardData.performance_index ?? 0);
-        const deptAvg = Math.round(dashboardData.department_avg_score ?? dashboardData.dept_avg_score ?? 0);
-        const vsDeptAvg = Math.round(dashboardData.score_vs_department_avg ?? 0);
+        const currentScore = Math.min(100, Math.round(dashboardData.performance_score ?? dashboardData.performance_index ?? 0));
+        const deptAvg = Math.min(100, Math.round(dashboardData.department_avg_score ?? dashboardData.dept_avg_score ?? 0));
+        const vsDeptAvg = currentScore - deptAvg;
 
         // Mock status distribution based on dashboard summary
         let statusDistribution = [
@@ -749,13 +754,8 @@ const EmployeeDashboard = () => {
                         <input 
                             type="date" 
                             className="bg-transparent border-none text-[12px] font-bold text-slate-700 p-0 focus:ring-0 cursor-pointer"
-                            value={fromDate}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setFromDate(val);
-                                localStorage.setItem('dashboard_from_date', val);
-                                window.dispatchEvent(new Event('dashboard-filter-change'));
-                            }}
+                            value={tempFrom}
+                            onChange={(e) => setTempFrom(e.target.value)}
                         />
                     </div>
                     <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-inner">
@@ -763,15 +763,22 @@ const EmployeeDashboard = () => {
                         <input 
                             type="date" 
                             className="bg-transparent border-none text-[12px] font-bold text-slate-700 p-0 focus:ring-0 cursor-pointer"
-                            value={toDate}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setToDate(val);
-                                localStorage.setItem('dashboard_to_date', val);
-                                window.dispatchEvent(new Event('dashboard-filter-change'));
-                            }}
+                            value={tempTo}
+                            onChange={(e) => setTempTo(e.target.value)}
                         />
                     </div>
+                    <button 
+                        onClick={() => {
+                            setFromDate(tempFrom);
+                            setToDate(tempTo);
+                            localStorage.setItem('dashboard_from_date', tempFrom);
+                            localStorage.setItem('dashboard_to_date', tempTo);
+                            window.dispatchEvent(new Event('dashboard-filter-change'));
+                        }}
+                        className="bg-indigo-600 text-white px-5 py-2 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all active:scale-95"
+                    >
+                        Apply
+                    </button>
                     <button 
                         onClick={() => { 
                             const from = getFirstDayOfMonth();
