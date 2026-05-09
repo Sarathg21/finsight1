@@ -458,7 +458,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                 <select 
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.department_id}
-                                    onChange={(e) => setFormData({...formData, department_id: e.target.value})}
+                                    onChange={(e) => setFormData({...formData, department_id: e.target.value, assigned_to_emp_id: ''})}
                                 >
                                     <option value="">Select Department</option>
                                     {departments.map((d, dik) => (
@@ -474,9 +474,16 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                     onChange={(e) => setFormData({...formData, assigned_to_emp_id: e.target.value})}
                                 >
                                     <option value="">Select Manager</option>
-                                    {employees.map((e, eik) => (
-                                        <option key={e.emp_id || `emp-${eik}`} value={e.emp_id}>{e.name}</option>
-                                    ))}
+                                    {employees
+                                        .filter(e => {
+                                            if (!formData.department_id) return true;
+                                            const empDeptId = String(e.department_id || e.dept_id || '');
+                                            return empDeptId === String(formData.department_id);
+                                        })
+                                        .map((e, eik) => (
+                                            <option key={e.emp_id || `emp-${eik}`} value={e.emp_id}>{e.name}</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
                         </div>
@@ -714,7 +721,17 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                     <select 
                                                                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                                                         value={st.department_id || st.dept_id || ''}
-                                                                        onChange={(e) => handleUpdateSubtask(subtaskId, { department_id: e.target.value })}
+                                                                        onChange={(e) => {
+                                                                            // When dept changes, also clear the assignee
+                                                                            setSubtasks(prev => prev.map(s => {
+                                                                                const sid = getSubtaskId(s);
+                                                                                const tid = getSubtaskId(st);
+                                                                                return String(sid) === String(tid)
+                                                                                    ? { ...s, department_id: e.target.value, assigned_to_emp_id: '' }
+                                                                                    : s;
+                                                                            }));
+                                                                            handleUpdateSubtask(subtaskId, { department_id: e.target.value, assigned_to_emp_id: null });
+                                                                        }}
                                                                     >
                                                                         <option value="">Select Dept</option>
                                                                         {departments.map((d, dk) => {
@@ -727,11 +744,18 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Assignee</label>
                                                                 <select 
                                                                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                                    value={st.assigned_to_emp_id}
+                                                                    value={st.assigned_to_emp_id || ''}
                                                                     onChange={(e) => handleUpdateSubtask(subtaskId, { assigned_to_emp_id: e.target.value })}
                                                                 >
                                                                     <option value="">Select Owner</option>
-                                                                    {employees.map((e, ek) => <option key={e.emp_id || `st-emp-${ek}`} value={e.emp_id}>{e.name}</option>)}
+                                                                    {employees
+                                                                        .filter(e => {
+                                                                            const stDeptId = String(st.department_id || st.dept_id || '');
+                                                                            if (!stDeptId) return true;
+                                                                            return String(e.department_id || e.dept_id || '') === stDeptId;
+                                                                        })
+                                                                        .map((e, ek) => <option key={e.emp_id || `st-emp-${ek}`} value={e.emp_id}>{e.name}</option>)
+                                                                    }
                                                                 </select>
                                                             </div>
                                                             <div className="space-y-1">

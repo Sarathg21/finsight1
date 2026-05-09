@@ -1059,7 +1059,12 @@ const AssignTaskPage = () => {
                                                             <select 
                                                                 className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
                                                                 value={st.department_id}
-                                                                onChange={(e) => handleSubtaskChange(idx, 'department_id', e.target.value)}
+                                                                onChange={(e) => {
+                                                                    // Reset assignee when department changes
+                                                                    const newList = [...subtasks];
+                                                                    newList[idx] = { ...newList[idx], department_id: e.target.value, assigned_to_emp_id: '' };
+                                                                    setSubtasks(newList);
+                                                                }}
                                                             >
                                                                 <option value="">Select Dept</option>
                                                                 {departments.map(d => (
@@ -1075,9 +1080,16 @@ const AssignTaskPage = () => {
                                                                 onChange={(e) => handleSubtaskChange(idx, 'assigned_to_emp_id', e.target.value)}
                                                             >
                                                                 <option value="">Select Assignee</option>
-                                                                {eligibleAssignees.map(p => (
-                                                                    <option key={p.emp_id} value={p.emp_id}>{p.name}</option>
-                                                                ))}
+                                                                {eligibleAssignees
+                                                                    .filter(p => {
+                                                                        if (!st.department_id) return true;
+                                                                        const empDeptId = String(p.department_id || p.dept_id || '');
+                                                                        return empDeptId === String(st.department_id);
+                                                                    })
+                                                                    .map(p => (
+                                                                        <option key={p.emp_id} value={p.emp_id}>{p.name}</option>
+                                                                    ))
+                                                                }
                                                             </select>
                                                         </div>
                                                     </div>

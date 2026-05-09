@@ -616,6 +616,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             total:               tsbTotal,
             inProgress:          tsbInProgress,
             pending:             tsbPending,
+            pendingMyApproval:   kpis.pending_my_approval_tasks ?? null,
             overdue:             tsbOverdue,
             managerScore:         kpis.manager_score != null ? Math.min(100, kpis.manager_score) : null,
             teamScore:            kpis.team_score != null ? Math.min(100, kpis.team_score) : null,
@@ -1062,7 +1063,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
 
 
             {/* ── KPI ROW ────────────────────────────────────────────────── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
                 {/* 1. Team Tasks */}
                 <div
                     className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-4 shadow-lg shadow-cyan-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
@@ -1126,7 +1127,28 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                 </div>
 
-                {/* 4. Overdue Tasks */}
+                {/* 4. Pending My Approval */}
+                <div
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-4 shadow-lg shadow-indigo-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    onClick={() => navigate(`/tasks/team?status=SUBMITTED&assigned_by_emp_id=${user?.emp_id || user?.id}&from_date=${fromDate}&to_date=${toDate}`)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/tasks/team?status=SUBMITTED&assigned_by_emp_id=${user?.emp_id || user?.id}&from_date=${fromDate}&to_date=${toDate}`); }}
+                >
+                    <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="flex items-center gap-2 relative z-10">
+                        <div className="w-8 h-8 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                            <CheckSquare size={15} className="text-white" />
+                        </div>
+                    </div>
+                    <div className="relative z-10 mt-2">
+                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.pendingMyApproval ?? '-'}</div>
+                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Pending My Approval</div>
+                        <div className="text-[8px] opacity-60 font-medium mt-0.5">Awaiting your approval</div>
+                    </div>
+                </div>
+
+                {/* 5. Overdue Tasks */}
                 <div
                     className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white p-4 shadow-lg shadow-rose-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
                     onClick={() => navigate(`/tasks/team?status=Overdue&from_date=${fromDate}&to_date=${toDate}`)}

@@ -439,6 +439,7 @@ const TeamTasksPage = () => {
         from_date: '',
         to_date: '',
         assigned_to_emp_id: '',
+        assigned_by_emp_id: '',
         task_id: ''
     });
     const [tempFrom, setTempFrom] = useState(filters.from_date);
@@ -620,6 +621,19 @@ const TeamTasksPage = () => {
                 // Severity filter (client-side fallback)
                 if (filters.severity) {
                     if ((t.severity || '').toUpperCase() !== filters.severity.toUpperCase()) return false;
+                }
+
+                // assigned_by_emp_id filter — "Pending My Approval" view
+                // Only show tasks that were assigned BY the specified manager
+                if (filters.assigned_by_emp_id) {
+                    const assignerEmpId = String(
+                        t?.assigned_by_emp_id ??
+                        t?.assigned_by ??
+                        t?.assigner_id ??
+                        t?.created_by ??
+                        ''
+                    ).trim();
+                    if (assignerEmpId !== String(filters.assigned_by_emp_id).trim()) return false;
                 }
 
                 return true;
@@ -915,19 +929,21 @@ const TeamTasksPage = () => {
     // Sync URL params → filters (e.g. when navigated from Dashboard KPI cards)
     useEffect(() => {
         const params = new URLSearchParams(location.search);
-        const searchParam   = params.get('search');
-        const taskIdParam   = params.get('task_id');
-        const statusParam   = params.get('status');
-        const deptParam     = params.get('department_id') || params.get('department');
-        const fromDateParam = params.get('from_date');
-        const toDateParam   = params.get('to_date');
+        const searchParam         = params.get('search');
+        const taskIdParam         = params.get('task_id');
+        const statusParam         = params.get('status');
+        const deptParam           = params.get('department_id') || params.get('department');
+        const fromDateParam       = params.get('from_date');
+        const toDateParam         = params.get('to_date');
+        const assignedByParam     = params.get('assigned_by_emp_id');
 
         // Build a single batched filter update to avoid multiple re-renders
         const filterUpdates = {};
 
-        if (searchParam)   filterUpdates.search    = decodeURIComponent(searchParam);
-        if (statusParam !== null) filterUpdates.status = statusParam; // '' clears the filter (show all)
-        if (deptParam)     filterUpdates.department_id = deptParam;
+        if (searchParam)          filterUpdates.search             = decodeURIComponent(searchParam);
+        if (statusParam !== null) filterUpdates.status             = statusParam;
+        if (deptParam)            filterUpdates.department_id      = deptParam;
+        if (assignedByParam)      filterUpdates.assigned_by_emp_id = assignedByParam;
         if (fromDateParam) { 
             filterUpdates.from_date  = fromDateParam;
             setTempFrom(fromDateParam);
