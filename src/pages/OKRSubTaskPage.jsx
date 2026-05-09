@@ -288,7 +288,8 @@ const OKRSubTaskPage = () => {
             ]);
 
             let summaryData = summaryRes.data?.data || summaryRes.data || {};
-            let subList     = extractArr(subtasksRes.data);
+            let rawSubList  = extractArr(subtasksRes.data);
+            let subList     = rawSubList.filter(s => String(s.status || s.task_status || s.status_name || '').toUpperCase() !== 'CANCELLED');
             let depts       = extractArr(deptsRes.data);
 
             console.log('[OKR-Sub] drilldown okrId:', okrId, '| subtasks from report endpoint:', subList.length, '| depts:', depts.length);
@@ -298,7 +299,7 @@ const OKRSubTaskPage = () => {
                 console.log('[OKR-Sub] Report subtasks empty — falling back to /tasks/{id}/subtasks');
                 try {
                     const fallbackRes = await api.get(`/tasks/${okrId}/subtasks`);
-                    const fallbackList = extractArr(fallbackRes.data);
+                    const fallbackList = extractArr(fallbackRes.data).filter(s => String(s.status || s.task_status || s.status_name || '').toUpperCase() !== 'CANCELLED');
                     console.log('[OKR-Sub] Fallback /tasks subtasks:', fallbackList.length);
                     if (fallbackList.length > 0) subList = fallbackList;
                 } catch (fe) {

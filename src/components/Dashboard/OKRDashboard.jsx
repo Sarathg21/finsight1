@@ -438,22 +438,21 @@ const OKRDashboard = () => {
 
             let serverObjs = Array.isArray(data.objective_completion) ? [...data.objective_completion] : [];
 
-            manualObjs.forEach(mObj => {
-                const existing = serverObjs.find(s => String(s.parent_task_id || s.id) === String(mObj.id));
-                if (!existing) {
+            // Only fallback to manual computation if the server gave us nothing
+            if (serverObjs.length === 0) {
+                manualObjs.forEach(mObj => {
                     serverObjs.push(mObj);
-                } else {
-                    existing.objective_title = mObj.objective_title;
-                    const sTotal = existing.total_subtasks || existing.sub_total || 0;
-                    const sDone = existing.completed_subtasks || existing.sub_comp || 0;
-                    existing.total_subtasks = Math.max(mObj.total_subtasks, sTotal);
-                    existing.completed_subtasks = Math.max(mObj.completed_subtasks, sDone);
-                    existing.progress_pct = existing.total_subtasks > 0 ? Math.round((existing.completed_subtasks / existing.total_subtasks) * 100) : mObj.progress_pct;
-                    existing.health_score = existing.progress_pct;
-                    existing.risk_rating = existing.risk_rating || mObj.risk_rating;
-                    existing.deptsArray = mObj.deptsArray;
-                }
-            });
+                });
+            } else {
+                // Just map any missing risk_rating or deptsArray from manualObjs without altering totals
+                manualObjs.forEach(mObj => {
+                    const existing = serverObjs.find(s => String(s.parent_task_id || s.id) === String(mObj.id));
+                    if (existing) {
+                        existing.risk_rating = existing.risk_rating || mObj.risk_rating;
+                        existing.deptsArray = existing.deptsArray || mObj.deptsArray;
+                    }
+                });
+            }
 
             if (objectivesList.length > 0) {
                 const getIds = (e) => {
@@ -527,12 +526,12 @@ const OKRDashboard = () => {
 
 
             // Sync metrics (Priority: summaryData > calculation)
-            data.total_objectives = summaryData.total_objectives || serverObjs.length || 0;
-            data.completed_tasks = summaryData.completed_tasks || serverObjs.reduce((acc, o) => acc + (o.completed_subtasks || 0), 0) || 0;
-            data.total_subtasks = summaryData.total_subtasks || serverObjs.reduce((acc, o) => acc + (o.total_subtasks || 0), 0) || 0;
-            data.overall_progress = summaryData.overall_progress || (data.total_subtasks > 0 ? Math.round((data.completed_tasks / data.total_subtasks) * 100) : 0);
-            data.at_risk = summaryData.at_risk || serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length || 0;
-            data.avg_health_score = summaryData.avg_health || (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
+            data.total_objectives = summaryData.total_objectives ?? serverObjs.length ?? 0;
+            data.completed_tasks = summaryData.completed_tasks ?? serverObjs.reduce((acc, o) => acc + (o.completed_subtasks || 0), 0) ?? 0;
+            data.total_subtasks = summaryData.total_subtasks ?? serverObjs.reduce((acc, o) => acc + (o.total_subtasks || 0), 0) ?? 0;
+            data.overall_progress = summaryData.overall_progress ?? (data.total_subtasks > 0 ? Math.round((data.completed_tasks / data.total_subtasks) * 100) : 0);
+            data.at_risk = summaryData.at_risk ?? serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length ?? 0;
+            data.avg_health_score = summaryData.avg_health_score ?? summaryData.avg_health ?? (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
 
             // Build department contribution from ALL individual tasks (not just parent objectives)
             // so every department that has tasks appears in the DEPARTMENTAL LOAD pie chart.
@@ -561,7 +560,7 @@ const OKRDashboard = () => {
                     });
                 });
             }
-            data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
+            data.department_contribution = data.department_contribution ?? Object.entries(deptMap).map(([name, count]) => ({
                 department_name: name,
                 subtask_count: count
             }));

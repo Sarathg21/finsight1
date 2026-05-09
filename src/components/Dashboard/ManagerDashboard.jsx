@@ -1537,9 +1537,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                         ? Math.round(member.completion_rate)
                                         : (totalTasks > 0 ? Math.round((completed / totalTasks) * 100) : 0);
                                     // performance_score from backend (net earned ÷ ideal × 100)
-                                    const perfScore  = member.performance_score != null
+                                    const perfScore  = Math.min(100, member.performance_score != null
                                         ? Math.round(member.performance_score)
-                                        : compRate;
+                                        : compRate);
                                     const dept = member.department_name ?? member.department ?? currentDeptName;
                                     return (
                                         <tr key={member.id} className={`hover:bg-slate-50/50 transition-colors ${isManager ? 'bg-violet-50/30' : ''}`}>
@@ -1694,7 +1694,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                         ?? (risk.active_tasks ?? risk.in_progress_tasks ?? risk.active ?? risk.in_progress ?? 0);
                                     const totalTasks  = risk.total_tasks ?? risk.tasks_assigned ?? risk.total ?? 0;
                                     const overdue     = risk.overdue_tasks ?? risk.overdue_count ?? risk.overdue ?? 0;
-                                    const execScore   = risk.performance_score ?? risk.execution_score ?? 0;
+                                    const execScore   = Math.min(100, Math.round(risk.performance_score ?? risk.execution_score ?? 0));
                                     return (
                                         <tr key={risk.emp_id ?? i} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="py-3 px-2 pl-6">

@@ -128,9 +128,9 @@ const EmployeePersonalReport = () => {
                     if (tp && tp.name && !tp.detail) {
                         ranked.push({
                             name: tp.name,
-                            score: typeof tp.score === 'number'
+                            score: Math.min(100, typeof tp.score === 'number'
                                 ? Math.round(tp.score)
-                                : Math.round(Number(tp.score || tp.performance_score || tp.performance_index || 0)),
+                                : Math.round(Number(tp.score || tp.performance_score || tp.performance_index || 0))),
                             total: tp.total_tasks || tp.total || 0,
                             completed: tp.approved_tasks || tp.completed_tasks || tp.completed || 0,
                             department: tpData.department_name || tp.department_name || tp.department || myDept,
@@ -294,8 +294,8 @@ const EmployeePersonalReport = () => {
             newTasks,
             cancelled,
             onTimePct: summary.on_time_pct !== undefined && summary.on_time_pct !== null ? Math.round(Number(summary.on_time_pct)) : 0,
-            efficiency: Math.round(summary.performance_score ?? performanceIndex),
-            performanceScore: Math.round(summary.performance_score ?? performanceIndex),
+            efficiency: Math.min(100, Math.round(summary.performance_score ?? performanceIndex)),
+            performanceScore: Math.min(100, Math.round(summary.performance_score ?? performanceIndex)),
             deptAvg: Math.round(summary.department_avg_score ?? summary.dept_avg_score ?? 0),
             vsDeptAvg: Math.round(summary.score_vs_department_avg ?? 0)
         };
@@ -344,7 +344,7 @@ const EmployeePersonalReport = () => {
                 return {
                     name: nameStr,
                     approved: pt.approved_tasks ?? pt.approved ?? (localMatch ? localMatch.approved : 0),
-                    score: pt.score ?? pt.performance_score ?? 0
+                    score: Math.min(100, Math.round(pt.score ?? pt.performance_score ?? 0))
                 };
             });
         }

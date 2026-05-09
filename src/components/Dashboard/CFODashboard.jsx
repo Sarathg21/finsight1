@@ -1006,7 +1006,7 @@ const CFODashboard = () => {
                         approved_tasks: finalApproved,
                         rework_tasks: finalRework,
                         completion_pct: finalTotal > 0 ? Math.round((finalApproved / finalTotal) * 100) : (d.completion_pct ?? 0),
-                        performance_score: Math.max(computedPerfScore, apiPerfScore),
+                        performance_score: Math.min(100, Math.max(computedPerfScore, apiPerfScore)),
                         top_performer: {
                             name: topName,
                             score: Math.round(topScore)
@@ -1504,9 +1504,13 @@ const CFODashboard = () => {
                         return isNaN(n) ? 0 : n;
                     };
                     
-                    let truePerfScore = perfTotal > 0 
-                        ? Math.min(100, Math.max(0, (((Math.min(perfCompleted, perfTotal) * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100))
-                        : Math.min(100, safeVal(emp.performance_score ?? emp.score ?? emp.performance_index));
+                    // Prioritize explicit score over client-side recalculation to ensure data parity
+                    const explicitScore = riskMatch.performance_score ?? emp.performance_score ?? emp.score ?? emp.performance_index;
+                    let truePerfScore = explicitScore !== undefined && explicitScore !== null
+                        ? Math.min(100, Math.max(0, safeVal(explicitScore)))
+                        : (perfTotal > 0 
+                            ? Math.min(100, Math.max(0, (((Math.min(perfCompleted, perfTotal) * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100))
+                            : 0);
 
                     return {
                         name: finalName,
@@ -1883,12 +1887,12 @@ const CFODashboard = () => {
                                                     });
                                                 }
                                                 
-                                                let truePerfScore = 0;
-                                                if (perfTotal > 0) {
-                                                    truePerfScore = Math.min(100, Math.max(0, (((Math.min(perfCompleted, perfTotal) * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100));
-                                                } else {
-                                                    truePerfScore = r.performance_score ?? r.score ?? 0;
-                                                }
+                                                const explicitScore = r.performance_score ?? r.score;
+                                                let truePerfScore = explicitScore !== undefined && explicitScore !== null
+                                                    ? Math.min(100, Math.max(0, parseFloat(explicitScore) || 0))
+                                                    : (perfTotal > 0
+                                                        ? Math.min(100, Math.max(0, (((Math.min(perfCompleted, perfTotal) * 5) - (perfRework * 2)) / (perfTotal * 5)) * 100))
+                                                        : 0);
 
                                                 return {
                                                     name:        r.name,
