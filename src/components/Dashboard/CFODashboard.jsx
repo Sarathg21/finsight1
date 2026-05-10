@@ -298,30 +298,59 @@ const TaskTrendsChart = ({ data, fromDate, toDate, dashboardData }) => {
         const monthRange = generateMonthRange(fromDate, toDate);
         if (monthRange.length === 0) return [];
 
-        // ── PRIMARY SOURCE: dashboardData flat fields (same source as KPI cards) ──
-        // Use these when the date range is a single month — guaranteed accuracy.
-        if (dashboardData && monthRange.length === 1) {
+        // ── PRIMARY SOURCE: hybrid — approved from top_kpis, breakdown from trendsData ──
+        // top_kpis only provides approved_tasks + active_tasks (total, not broken down by status).
+        // The per-status breakdown (new/in_progress/pending/overdue) comes from trendsData,
+        // which is computed from raw tasks when the trends API returns zeros.
+        const tk = dashboardData?.top_kpis || {};
+        const authApproved = dashboardData
+            ? Number(tk.approved_tasks ?? dashboardData.approved_tasks ?? dashboardData.completed_tasks ?? 0)
+            : null;
+
+        // Helper: extract a value from a trends row by trying multiple key names
+        const gVal = (keys, src) => {
+            if (!src) return 0;
+            for (const k of keys) { if (src[k] !== undefined && src[k] !== null) return Number(src[k]); }
+            return 0;
+        };
+
+        // Find the current-month entry in trendsData (data prop)
+        const findTrendEntry = (ymKey) => {
+            for (const d of (data || [])) {
+                const rawKey = d.name || d.month || d.period || d.week || '';
+                const normKey = toYearMonthKey(rawKey, monthRange);
+                if (normKey === ymKey) return d;
+            }
+            return null;
+        };
+
+        if (monthRange.length === 1) {
+            const entry = findTrendEntry(monthRange[0].key);
             return [{
                 name:        monthRange[0].label,
-                completed:   Number(dashboardData.approved_tasks   ?? dashboardData.completed_tasks ?? 0),
-                new:         Number(dashboardData.new_tasks        ?? 0),
-                in_progress: Number(dashboardData.in_progress_tasks ?? 0),
-                pending:     Number(dashboardData.submitted_tasks   ?? dashboardData.pending_tasks  ?? 0),
-                overdue:     Number(dashboardData.overdue_tasks     ?? 0),
+                // Approved: always from top_kpis (authoritative, matches KPI card)
+                completed:   authApproved !== null ? authApproved
+                             : gVal(['completed_tasks', 'completed', 'approved', 'approved_tasks'], entry),
+                // Status breakdown: from computed trendsData
+                new:         gVal(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created'], entry),
+                in_progress: gVal(['in_progress_tasks', 'in_progress', 'In Progress', 'active', 'active_tasks'], entry),
+                pending:     gVal(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending'], entry),
+                overdue:     gVal(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count'], entry),
             }];
         }
 
-        // ── MULTI-MONTH: Use trends API data mapped by YYYY-MM key ──
+        // ── MULTI-MONTH: trends API rows for history, hybrid for last month ──
         const backendMap = {};
-        // For multi-month ranges, inject dashboardData into the LAST month
-        if (dashboardData && monthRange.length > 1) {
-            const lastKey = monthRange[monthRange.length - 1].key;
+        const lastKey = monthRange[monthRange.length - 1].key;
+        if (dashboardData) {
+            const lastEntry = findTrendEntry(lastKey);
             backendMap[lastKey] = {
-                new:         Number(dashboardData.new_tasks         ?? 0),
-                in_progress: Number(dashboardData.in_progress_tasks ?? 0),
-                pending:     Number(dashboardData.submitted_tasks   ?? dashboardData.pending_tasks ?? 0),
-                overdue:     Number(dashboardData.overdue_tasks     ?? 0),
-                completed:   Number(dashboardData.approved_tasks    ?? dashboardData.completed_tasks ?? 0),
+                completed:   authApproved !== null ? authApproved
+                             : gVal(['completed_tasks', 'completed', 'approved', 'approved_tasks'], lastEntry),
+                new:         gVal(['new_tasks', 'new', 'not_started', 'new_count', 'created'], lastEntry),
+                in_progress: gVal(['in_progress_tasks', 'in_progress', 'active', 'active_tasks'], lastEntry),
+                pending:     gVal(['pending_submission', 'pending', 'submitted', 'submitted_tasks'], lastEntry),
+                overdue:     gVal(['overdue_tasks', 'overdue', 'overdue_count'], lastEntry),
             };
         }
 
