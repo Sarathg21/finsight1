@@ -228,7 +228,7 @@ const ExecutiveHealthPanel = ({ metrics, departments }) => {
     );
 };
 
-const TaskTrendsChart = ({ data, fromDate, toDate }) => {
+const TaskTrendsChart = ({ data, fromDate, toDate, dashboardData }) => {
     // Short/full month tables used by the normalizer
     const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
@@ -280,13 +280,6 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
 
 
     const trends = useMemo(() => {
-        // Debug: see exactly what the backend sends
-        if (data && data.length > 0) {
-            console.log('[TaskTrendsChart] raw data sample:', JSON.stringify(data[0]), '| total rows:', data.length);
-        } else {
-            console.warn('[TaskTrendsChart] trends data is empty — no bars will render');
-        }
-
         // Build full month skeleton from fromDate → toDate
         const generateMonthRange = (from, to) => {
             if (!from || !to) return [];
@@ -303,53 +296,62 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
         };
 
         const monthRange = generateMonthRange(fromDate, toDate);
+        if (monthRange.length === 0) return [];
 
-        // Map backend rows → YYYY-MM keyed accumulator
+        // ── PRIMARY SOURCE: dashboardData flat fields (same source as KPI cards) ──
+        // Use these when the date range is a single month — guaranteed accuracy.
+        if (dashboardData && monthRange.length === 1) {
+            return [{
+                name:        monthRange[0].label,
+                completed:   Number(dashboardData.approved_tasks   ?? dashboardData.completed_tasks ?? 0),
+                new:         Number(dashboardData.new_tasks        ?? 0),
+                in_progress: Number(dashboardData.in_progress_tasks ?? 0),
+                pending:     Number(dashboardData.submitted_tasks   ?? dashboardData.pending_tasks  ?? 0),
+                overdue:     Number(dashboardData.overdue_tasks     ?? 0),
+            }];
+        }
+
+        // ── MULTI-MONTH: Use trends API data mapped by YYYY-MM key ──
         const backendMap = {};
+        // For multi-month ranges, inject dashboardData into the LAST month
+        if (dashboardData && monthRange.length > 1) {
+            const lastKey = monthRange[monthRange.length - 1].key;
+            backendMap[lastKey] = {
+                new:         Number(dashboardData.new_tasks         ?? 0),
+                in_progress: Number(dashboardData.in_progress_tasks ?? 0),
+                pending:     Number(dashboardData.submitted_tasks   ?? dashboardData.pending_tasks ?? 0),
+                overdue:     Number(dashboardData.overdue_tasks     ?? 0),
+                completed:   Number(dashboardData.approved_tasks    ?? dashboardData.completed_tasks ?? 0),
+            };
+        }
+
         (data || []).forEach(d => {
             const rawKey = d.name || d.month || d.period || d.week || '';
             const normKey = toYearMonthKey(rawKey, monthRange);
-            if (!normKey) return; // skip unmappable rows
+            if (!normKey) return;
+            // Don't overwrite the last month — dashboardData is authoritative for it
+            const lastKey = monthRange[monthRange.length - 1].key;
+            if (normKey === lastKey && dashboardData) return;
 
             const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
 
             if (!backendMap[normKey]) backendMap[normKey] = { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
-            backendMap[normKey].new       += g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']);
+            backendMap[normKey].new         += g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']);
             backendMap[normKey].in_progress += g(['in_progress_tasks', 'in_progress', 'In Progress', 'active', 'active_tasks']);
-            backendMap[normKey].pending   += g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending']);
-            backendMap[normKey].overdue   += g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']);
-            backendMap[normKey].completed += g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']);
+            backendMap[normKey].pending     += g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending']);
+            backendMap[normKey].overdue     += g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']);
+            backendMap[normKey].completed   += g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']);
         });
 
-        console.log('[TaskTrendsChart] backendMap keys:', Object.keys(backendMap), '| monthRange:', monthRange.map(m => m.key));
-
-        if (monthRange.length > 0) {
-            return monthRange.map(({ key, label }) => ({
-                name:        label,
-                new:         backendMap[key]?.new         ?? 0,
-                in_progress: backendMap[key]?.in_progress ?? 0,
-                pending:     backendMap[key]?.pending     ?? 0,
-                overdue:     backendMap[key]?.overdue     ?? 0,
-                completed:   backendMap[key]?.completed   ?? 0,
-            }));
-        }
-
-        // Fallback: render backend data directly, best-effort label
-        return (data || []).map(d => {
-            const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
-            const rawKey = d.name || d.month || d.period || d.week || '';
-            const ymKey  = toYearMonthKey(rawKey, []);
-            const label  = ymKey ? new Date(ymKey + '-01').toLocaleString('en-US', { month: 'short' }) : rawKey;
-            return {
-                name:        label,
-                new:         g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']),
-                in_progress: g(['in_progress_tasks', 'in_progress', 'In Progress', 'active', 'active_tasks']),
-                pending:     g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending']),
-                overdue:     g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']),
-                completed:   g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']),
-            };
-        });
-    }, [data, fromDate, toDate]);
+        return monthRange.map(({ key, label }) => ({
+            name:        label,
+            new:         backendMap[key]?.new         ?? 0,
+            in_progress: backendMap[key]?.in_progress ?? 0,
+            pending:     backendMap[key]?.pending     ?? 0,
+            overdue:     backendMap[key]?.overdue     ?? 0,
+            completed:   backendMap[key]?.completed   ?? 0,
+        }));
+    }, [data, fromDate, toDate, dashboardData]);
 
     return (
         <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-6 flex flex-col h-[520px]">
@@ -1868,7 +1870,7 @@ const CFODashboard = () => {
 
                         {/* ── ROW 2: Trends + Risk Monitor ── */}
                         <div className="flex flex-col lg:grid lg:grid-cols-[1fr_340px] xl:grid-cols-[1fr_360px] gap-4">
-                            <TaskTrendsChart data={trendsData} fromDate={fromDate} toDate={toDate} />
+                            <TaskTrendsChart data={trendsData} fromDate={fromDate} toDate={toDate} dashboardData={dashboardData} />
                             
                             <div id="employee-risk-monitor" className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col h-[520px] scroll-mt-6">
                                 <div className="flex items-center justify-between mb-6">
