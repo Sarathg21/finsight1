@@ -713,6 +713,9 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
     const trendsGraphSource = dashboardData?.graphs?.task_activity_trends;
 
     // ── Task Trends Data Normalization ─────────────────────────────────────────
+    // PRIMARY SOURCE: team_status_bifurcation from /dashboard/manager
+    // This is the EXACT same data used by the Task Completion Overview panel,
+    // so the bar chart will always show numbers that match the overview.
     const finalTrendsData = useMemo(() => {
         // Build full month skeleton from fromDate → toDate
         const generateMonthRange = (from, to) => {
@@ -732,68 +735,40 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         };
 
         const mRange = generateMonthRange(fromDate, toDate);
+        if (mRange.length === 0) return [];
 
-        // ── Primary source: bifurcationTasks (matches Team Tasks page exactly) ──
-        // Use due_date to bin tasks into months; fall back to created_at only if due_date is missing.
-        const tasksToBin = Array.isArray(bifurcationTasks) && bifurcationTasks.length > 0
-            ? bifurcationTasks
-            : (Array.isArray(liveTasks) ? liveTasks : []);
+        // ── Step 1: Try team_status_bifurcation (authoritative, matches overview) ──
+        const tsb = dashboardData?.team_status_bifurcation;
+        const tco = dashboardData?.task_completion_overview || {};
 
-        const toYM = (raw) => {
-            if (!raw) return null;
-            const d = toDateKey(raw); // normalises to YYYY-MM-DD
-            if (!d) return null;
-            return d.slice(0, 7); // YYYY-MM
-        };
+        if (tsb?.statuses) {
+            const st = tsb.statuses;
+            const approved    = st.APPROVED?.count    ?? tco.approved_tasks    ?? 0;
+            const notStarted  = st.NEW?.count          ?? 0;
+            const inProgress  = st.IN_PROGRESS?.count  ?? tco.in_progress_tasks ?? 0;
+            const pending     = st.SUBMITTED?.count    ?? tco.pending_tasks     ?? 0;
+            const overdue     = tco.overdue_tasks       ?? 0;
 
-        // Build per-month counts from tasks
-        const taskBinMap = {};
-        mRange.forEach(({ key }) => {
-            taskBinMap[key] = { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
-        });
-
-        const todayStr = new Date().toLocaleDateString('en-CA');
-
-        tasksToBin.forEach(t => {
-            // Prefer due_date for binning (shows when work is expected)
-            const binDate = t.due_date || t.date || t.created_at || t.assigned_date || t.assigned_at;
-            const ym = toYM(binDate);
-            if (!ym || !taskBinMap[ym]) return;
-
-            const s = String(t.status || '').toUpperCase();
-
-            // Exclude CANCELLED tasks from all counts
-            if (s === 'CANCELLED') return;
-
-            if (s === 'APPROVED' || s === 'COMPLETED') {
-                taskBinMap[ym].completed++;
-            } else if (s === 'SUBMITTED' || s === 'PENDING_APPROVAL') {
-                taskBinMap[ym].pending++;
-            } else if (s === 'NEW' || s === 'NOT_STARTED') {
-                // Check overdue
-                const due = toDateKey(t.due_date);
-                if (due && due < todayStr) {
-                    taskBinMap[ym].overdue++;
-                } else {
-                    taskBinMap[ym].new++;
-                }
-            } else if (s === 'IN_PROGRESS' || s === 'REWORK' || s === 'CHANGES_REQUESTED') {
-                const due = toDateKey(t.due_date);
-                if (due && due < todayStr) {
-                    taskBinMap[ym].overdue++;
-                } else {
-                    taskBinMap[ym].in_progress++;
-                }
+            if (mRange.length === 1) {
+                // Single-month: inject TSB directly — guaranteed match with overview
+                return [{ name: mRange[0].label, completed: approved, new: notStarted, in_progress: inProgress, pending, overdue }];
             }
-        });
 
-        // If we have no tasks to bin from (e.g. initial load), fall back to backend trends API
-        const hasBinnedTasks = tasksToBin.length > 0;
-        if (!hasBinnedTasks) {
-            // Fallback: use the trends API response
+            // Multi-month: put TSB into the LAST month bin (current period),
+            // and populate historical months from the trends API.
+            const taskBinMap = {};
+            mRange.forEach(({ key }) => {
+                taskBinMap[key] = { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
+            });
+
+            // Inject TSB into last (current) month
+            const lastKey = mRange[mRange.length - 1].key;
+            taskBinMap[lastKey] = { completed: approved, new: notStarted, in_progress: inProgress, pending, overdue };
+
+            // Fill historical months from trends API if available
             const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
-            const source = (Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0)
+            const apiSource = (Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0)
                 ? trendsGraphSource
                 : (Array.isArray(trends) ? trends : []);
 
@@ -818,29 +793,73 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 return null;
             };
 
-            source.forEach(t => {
+            apiSource.forEach(t => {
+                const k = toYMKey(t.period || t.name || t.week || t.month || '');
+                // Don't overwrite the last month — TSB is authoritative for it
+                if (!k || !taskBinMap[k] || k === lastKey) return;
+                taskBinMap[k].new         += t.new_tasks          ?? t.new          ?? t.not_started  ?? 0;
+                taskBinMap[k].in_progress += t.in_progress_tasks  ?? t.in_progress  ?? t.active       ?? 0;
+                taskBinMap[k].pending     += t.pending_approval   ?? t.pending       ?? t.submitted    ?? t.submitted_tasks ?? 0;
+                taskBinMap[k].overdue     += t.overdue_tasks      ?? t.overdue       ?? 0;
+                taskBinMap[k].completed   += t.completed_tasks    ?? t.completed     ?? t.approved     ?? t.approved_tasks  ?? 0;
+            });
+
+            return mRange.map(({ key, label }) => {
+                const b = taskBinMap[key];
+                return { name: label, completed: b.completed, new: b.new, in_progress: b.in_progress, pending: b.pending, overdue: b.overdue };
+            });
+        }
+
+        // ── Step 2: Fallback — trends API (when dashboardData has no TSB) ──
+        const MONTH_SHORTS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const MONTH_FULLS  = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+        const apiSource = (Array.isArray(trendsGraphSource) && trendsGraphSource.length > 0)
+            ? trendsGraphSource
+            : (Array.isArray(trends) ? trends : []);
+
+        const taskBinMap = {};
+        mRange.forEach(({ key }) => {
+            taskBinMap[key] = { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
+        });
+
+        const toYMKey = (raw) => {
+            if (!raw) return null;
+            const s = String(raw).trim();
+            const dateMatch = s.match(/^(\d{2,4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (dateMatch) {
+                let y = dateMatch[1], m = dateMatch[2];
+                if (y.length === 2 && parseInt(y) >= 20) y = '20' + y;
+                if (y.length === 4) return `${y}-${m.padStart(2, '0')}`;
+            }
+            if (/^\d{4}-\d{2}$/.test(s)) return s;
+            const sLower = s.toLowerCase();
+            let mIdx = -1;
+            for (let i = 0; i < MONTH_FULLS.length; i++) {
+                if (sLower.includes(MONTH_FULLS[i]) || sLower.startsWith(MONTH_SHORTS[i].toLowerCase())) { mIdx = i; break; }
+            }
+            const yrMatch = s.match(/\b(20\d{2})\b/);
+            const yr = yrMatch ? yrMatch[1] : null;
+            if (mIdx >= 0 && yr) return `${yr}-${String(mIdx + 1).padStart(2, '0')}`;
+            return null;
+        };
+
+        if (apiSource.length > 0) {
+            apiSource.forEach(t => {
                 const k = toYMKey(t.period || t.name || t.week || t.month || '');
                 if (!k || !taskBinMap[k]) return;
-                taskBinMap[k].new       += t.new_tasks ?? t.new ?? t.not_started ?? 0;
-                taskBinMap[k].in_progress += t.in_progress_tasks ?? t.in_progress ?? t.active ?? t.active_tasks ?? 0;
-                taskBinMap[k].pending   += t.pending_approval ?? t.pending ?? t.submitted ?? t.submitted_tasks ?? t.pending_tasks ?? 0;
-                taskBinMap[k].overdue   += t.overdue_tasks ?? t.overdue ?? 0;
-                taskBinMap[k].completed += t.completed_tasks ?? t.completed ?? t.approved ?? t.approved_tasks ?? t.completed_count ?? 0;
+                taskBinMap[k].new         += t.new_tasks         ?? t.new         ?? t.not_started ?? 0;
+                taskBinMap[k].in_progress += t.in_progress_tasks ?? t.in_progress ?? t.active      ?? 0;
+                taskBinMap[k].pending     += t.pending_approval  ?? t.pending      ?? t.submitted   ?? t.submitted_tasks ?? 0;
+                taskBinMap[k].overdue     += t.overdue_tasks     ?? t.overdue      ?? 0;
+                taskBinMap[k].completed   += t.completed_tasks   ?? t.completed    ?? t.approved    ?? t.approved_tasks  ?? 0;
             });
         }
 
         return mRange.map(({ key, label }) => {
             const b = taskBinMap[key] || { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
-            return {
-                name:        label,
-                new:         b.new,
-                in_progress: b.in_progress,
-                pending:     b.pending,
-                overdue:     b.overdue,
-                completed:   b.completed,
-            };
+            return { name: label, completed: b.completed, new: b.new, in_progress: b.in_progress, pending: b.pending, overdue: b.overdue };
         });
-    }, [trendsGraphSource, trends, fromDate, toDate, bifurcationTasks, liveTasks]);
+    }, [dashboardData, trendsGraphSource, trends, fromDate, toDate]);
 
 
 

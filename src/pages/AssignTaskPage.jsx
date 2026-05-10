@@ -681,16 +681,14 @@ const AssignTaskPage = () => {
                                                     />
                                                 </div>
 
-                                                {/* Col 2 Row 2: Department — CFO only */}
-                                                
-                                                    <div>
-                                                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Department</label>
-                                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
-                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                                                            <span className="truncate">{managerDept || <span className="text-slate-300 italic text-[11px]">Auto-filled</span>}</span>
-                                                        </div>
+                                                {/* Col 2 Row 2: Department */}
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Department</label>
+                                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                                        <span className="truncate">{managerDept || <span className="text-slate-300 italic text-[11px]">Auto-filled</span>}</span>
                                                     </div>
-                                                )}
+                                                </div>
                                             </div>
 
                                             {/* Manager: Root Parent + Direct Parent info cards */}
