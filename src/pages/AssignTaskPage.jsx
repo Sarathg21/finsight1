@@ -413,7 +413,7 @@ const AssignTaskPage = () => {
                         department_id: resolvedDepartmentId,
                         due_date: formData.dueDate,
                         parent_task_id: null,
-                        task_type: formData.taskStructure === 'PARENT' ? 'PARENT' : 'TASK'
+                        task_type: formData.taskStructure === 'SINGLE' ? 'PARENT' : 'TASK'
                     };
 
                     const taskRes = await api.post('/tasks', payload);
