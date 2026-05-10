@@ -1114,10 +1114,11 @@ const PerformanceDashboard = () => {
         // 0. Pre-normalize trends to ensure all expected fields exist
         const normalized = trends.map(t => ({
             ...t,
-            new:       t.new ?? t.new_tasks ?? 0,
-            pending:   t.pending ?? t.pending_approval ?? t.submitted ?? t.submitted_tasks ?? 0,
-            overdue:   t.overdue ?? t.overdue_tasks ?? 0,
-            completed: t.completed ?? t.completed_tasks ?? t.approved ?? t.approved_tasks ?? 0
+            new:         t.new ?? t.new_tasks ?? t.not_started ?? 0,
+            in_progress: t.in_progress ?? t.in_progress_tasks ?? t.active ?? t.active_tasks ?? 0,
+            pending:     t.pending ?? t.pending_approval ?? t.submitted ?? t.submitted_tasks ?? 0,
+            overdue:     t.overdue ?? t.overdue_tasks ?? 0,
+            completed:   t.completed ?? t.completed_tasks ?? t.approved ?? t.approved_tasks ?? 0
         }));
 
         // 1. Daily View (Short periods: <= 45 days)
@@ -1139,13 +1140,14 @@ const PerformanceDashboard = () => {
                 mName = mName || 'Unknown';
                 
                 if (!monthMap[mName]) {
-                    monthMap[mName] = { name: mName, new: 0, pending: 0, overdue: 0, completed: 0 };
+                    monthMap[mName] = { name: mName, new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
                     months.push(monthMap[mName]);
                 }
-                monthMap[mName].new       += t.new;
-                monthMap[mName].pending   += t.pending;
-                monthMap[mName].overdue   += t.overdue;
-                monthMap[mName].completed += t.completed;
+                monthMap[mName].new         += t.new;
+                monthMap[mName].in_progress += t.in_progress;
+                monthMap[mName].pending     += t.pending;
+                monthMap[mName].overdue     += t.overdue;
+                monthMap[mName].completed   += t.completed;
 
                 // Sync with Source of Truth if only one month/period is shown
                 if (months.length === 1 && deptMetrics?.completed_tasks != null) {
@@ -1170,10 +1172,11 @@ const PerformanceDashboard = () => {
             const finalCompleted = chunk.reduce((s, it) => s + it.completed, 0);
 
             weeks.push({
-                name:      weekName,
-                new:       chunk.reduce((s, it) => s + it.new, 0),
-                pending:   chunk.reduce((s, it) => s + it.pending, 0),
-                overdue:   chunk.reduce((s, it) => s + it.overdue, 0),
+                name:        weekName,
+                new:         chunk.reduce((s, it) => s + it.new, 0),
+                in_progress: chunk.reduce((s, it) => s + it.in_progress, 0),
+                pending:     chunk.reduce((s, it) => s + it.pending, 0),
+                overdue:     chunk.reduce((s, it) => s + it.overdue, 0),
                 completed: (weeks.length === 0 && weeks.length + 7 >= normalized.length && deptMetrics?.completed_tasks != null) 
                             ? Math.max(finalCompleted, deptMetrics.completed_tasks) 
                             : finalCompleted
@@ -1370,6 +1373,10 @@ const PerformanceDashboard = () => {
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Approved</span>
                             </div>
                             <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">In Progress</span>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
                                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Not started</span>
                             </div>
@@ -1413,14 +1420,16 @@ const PerformanceDashboard = () => {
                                     formatter={(value, name) => {
                                         if (name === 'completed') return [value, 'Approved'];
                                         if (name === 'new')       return [value, 'Not started'];
+                                        if (name === 'in_progress') return [value, 'In Progress'];
                                         if (name === 'pending')   return [value, 'Pending'];
                                         if (name === 'overdue')   return [value, 'Overdue'];
                                         return [value, name];
                                     }}
                                 />
-                                {/* Order from bottom to top: Overdue -> Pending -> New -> Approved */}
+                                {/* Order from bottom to top: Overdue -> Pending -> In Progress -> New -> Approved */}
                                 <Bar dataKey="overdue"   name="Overdue"     stackId="a" fill="#ef4444" barSize={32} />
                                 <Bar dataKey="pending"   name="Pending"     stackId="a" fill="#f59e0b" />
+                                <Bar dataKey="in_progress" name="In Progress" stackId="a" fill="#8b5cf6" />
                                 <Bar dataKey="new"       name="Not started" stackId="a" fill="#3b82f6" />
                                 <Bar dataKey="completed" name="Approved"    stackId="a" fill="#10b981" radius={[6, 6, 0, 0]} />
                             </BarChart>

@@ -476,136 +476,10 @@ const AssignTaskPage = () => {
 
             <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 p-8">
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Row: Task Title + Task Type toggle */}
-                    <div className="flex items-start gap-4">
-                        <div className="flex-1">
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
-                                Task Title <span className="text-rose-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="title"
-                                required
-                                className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 text-[14px]"
-                                placeholder={isCFORole ? 'e.g. Q3 Performance Review' : 'e.g. Prepare Q2 variance analysis'}
-                                value={formData.title}
-                                onChange={handleChange}
-                            />
-                        </div>
-                        <div className="shrink-0 pt-0.5">
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Task Type</label>
-                            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, isRecurring: false })}
-                                    className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${!formData.isRecurring ? 'bg-violet-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
-                                >Normal</button>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, isRecurring: true })}
-                                    className={`px-5 py-2 rounded-lg text-[12px] font-bold transition-all ${formData.isRecurring ? 'bg-violet-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
-                                >Recurring</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Description</label>
-                        <textarea
-                            name="description"
-                            rows="4"
-                            className="w-full p-5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 resize-y text-[14px]"
-                            placeholder="Provide a clear description of the task..."
-                            value={formData.description}
-                            onChange={handleChange}
-                        />
-                    </div>
-
-                    {/* Attachment — styled drag-drop box */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Attachment</label>
-                        <label className="flex flex-col items-center justify-center gap-2 w-full px-5 py-4 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-violet-300 transition-all cursor-pointer group">
-                            <div className="flex items-center gap-2.5">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-500 shrink-0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                                <span className="text-[13px] font-bold text-violet-600 group-hover:text-violet-700">Choose file</span>
-                                <span className="text-[13px] text-slate-400 font-medium">or drag and drop here</span>
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-medium">Supports .pdf, .docx, .xlsx, .png or .jpg (Max 10MB)</p>
-                            <input
-                                type="file"
-                                name="attachment"
-                                className="hidden"
-                                onChange={(e) => setAttachment(e.target.files[0])}
-                            />
-                        </label>
-                        {attachment && (
-                            <p className="text-[11px] text-violet-600 font-bold mt-1.5 ml-1">📎 {attachment.name}</p>
-                        )}
-                    </div>
-
-                    {/* Assignee + Priority (2-col) */}
-                    <div className="grid grid-cols-2 gap-4">
-                        {formData.taskStructure !== 'SUBTASK' && (
-                            <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
-                                    Assignee <span className="text-rose-500">*</span>
-                                </label>
-                                <select
-                                    name="assignee"
-                                    required={formData.taskStructure !== 'SUBTASK'}
-                                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
-                                    value={formData.assignee}
-                                    onChange={handleChange}
-                                >
-                                    <option key="placeholder" value="">Select a team member</option>
-                                    {loading ? (
-                                        <option key="loading" disabled>Loading...</option>
-                                    ) : (
-                                        eligibleAssignees.map(p => (
-                                            <option key={p.emp_id} value={p.emp_id}>
-                                                {p.name} ({p.role}) - {p.department_id || p.department}
-                                            </option>
-                                        ))
-                                    )}
-                                </select>
-                                {!isCFORole && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
-                            </div>
-                        )}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Priority</label>
-                            <select
-                                name="priority"
-                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
-                                value={formData.priority}
-                                onChange={handleChange}
-                            >
-                                <option key="low" value="LOW">Low</option>
-                                <option key="medium" value="MEDIUM">Medium</option>
-                                <option key="high" value="HIGH">High</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Due Date — full width */}
-                    <div>
-                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
-                            Due Date <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                            type="date"
-                            name="dueDate"
-                            required={!formData.isRecurring}
-                            disabled={formData.isRecurring}
-                            className={`w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[14px] ${formData.isRecurring ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            value={formData.dueDate}
-                            onChange={handleChange}
-                        />
-                        {formData.isRecurring && <p className="text-[11px] text-violet-500 font-bold mt-1 ml-1 uppercase tracking-wide">Dynamic date will be used for recurring tasks</p>}
-                    </div>
-
-                    {/* Task Type card — only for CFO (Manager has inline toggle above) */}
+                    {/* Task Configuration Block */}
+                    {/* Task Configuration Block */}
                     <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-4">
-                        {isCFORole && (
+                        
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
@@ -626,10 +500,7 @@ const AssignTaskPage = () => {
                                         type="button"
                                         onClick={() => setFormData({ ...formData, isRecurring: true })}
                                         className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                    >Recurring</button>
-                                </div>
-                            </div>
-                        )}
+                                    >Recurring</button></div></div>
 
                         {!formData.isRecurring && (
                             <div className="animate-fade-in space-y-5 pt-4 border-t border-indigo-100">
@@ -774,50 +645,44 @@ const AssignTaskPage = () => {
                                                             return parentIsLevel0 ? 'Assign To (Manager or Employee)' : 'Assign To (Employee only)';
                                                         })()} <span className="text-rose-500">*</span>
                                                     </label>
-                                                    <select
+                                                    <SearchableSelect
                                                         name={isCFORole ? "managerId" : "assignee"}
-                                                        required
-                                                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[12px]"
+                                                        required={true}
                                                         value={isCFORole ? formData.managerId : formData.assignee}
-                                                        onChange={handleChange}
-                                                    >
-                                                        <option value="">Select an Assignee</option>
-                                                        {isCFORole ? (() => {
-                                                            const parentLevel = selectedParent?.task_level ?? selectedParent?.level;
-                                                            const parentIsLevel0 = parentLevel === 0 || isParentTask(selectedParent || {});
-                                                            const managers  = eligibleAssignees.filter(e => (e.role || '').toUpperCase() === 'MANAGER');
-                                                            const employees = eligibleAssignees.filter(e => (e.role || '').toUpperCase() !== 'MANAGER' && (e.role || '').toUpperCase() !== 'CFO' && (e.role || '').toUpperCase() !== 'ADMIN');
-                                                            const list = parentIsLevel0 ? [...managers, ...employees] : employees;
-                                                            return list.length > 0
-                                                                ? list.map(m => (
-                                                                    <option key={m.emp_id} value={m.emp_id}>
-                                                                        {m.name} ({m.role || 'Employee'}){m.department_name || m.department_id ? ` — ${m.department_name || m.department_id}` : ''}
-                                                                    </option>
-                                                                ))
-                                                                : <option disabled>No eligible assignees</option>;
-                                                        })() : (() => {
-                                                            // Manager: only show employees from the same department
-                                                            const managerDeptId = String(user?.department_id || user?.dept_id || user?.department || '').toLowerCase();
-                                                            const deptFilteredEmployees = eligibleAssignees.filter(e => {
-                                                                const role = (e.role || '').toUpperCase();
-                                                                if (role === 'MANAGER' || role === 'CFO' || role === 'ADMIN') return false;
-                                                                if (!managerDeptId) return true;
-                                                                const empDept = String(e.department_id || e.dept_id || e.department || '').toLowerCase();
-                                                                return empDept === managerDeptId;
-                                                            });
-                                                            return deptFilteredEmployees.length > 0
-                                                                ? deptFilteredEmployees.map(e => (
-                                                                    <option key={e.emp_id} value={e.emp_id}>
-                                                                        {e.name}{e.department_name ? ` — ${e.department_name}` : ''}
-                                                                    </option>
-                                                                ))
-                                                                : <option disabled>No employees in your department</option>;
+                                                        onChange={(val) => handleChange({ target: { name: isCFORole ? 'managerId' : 'assignee', value: val } })}
+                                                        options={(() => {
+                                                            if (isCFORole) {
+                                                                const parentLevel = selectedParent?.task_level ?? selectedParent?.level;
+                                                                const parentIsLevel0 = parentLevel === 0 || isParentTask(selectedParent || {});
+                                                                const managers  = eligibleAssignees.filter(e => (e.role || '').toUpperCase() === 'MANAGER');
+                                                                const employees = eligibleAssignees.filter(e => (e.role || '').toUpperCase() !== 'MANAGER' && (e.role || '').toUpperCase() !== 'CFO' && (e.role || '').toUpperCase() !== 'ADMIN');
+                                                                const list = parentIsLevel0 ? [...managers, ...employees] : employees;
+                                                                return list.map(m => ({
+                                                                    value: m.emp_id,
+                                                                    label: `${m.name} (${m.role || 'Employee'})${m.department_name || m.department_id ? ` — ${m.department_name || m.department_id}` : ''}`
+                                                                }));
+                                                            } else {
+                                                                // Manager: only show employees from the same department
+                                                                const managerDeptId = String(user?.department_id || user?.dept_id || user?.department || '').toLowerCase();
+                                                                const deptFilteredEmployees = eligibleAssignees.filter(e => {
+                                                                    const role = (e.role || '').toUpperCase();
+                                                                    if (role === 'MANAGER' || role === 'CFO' || role === 'ADMIN') return false;
+                                                                    if (!managerDeptId) return true;
+                                                                    const empDept = String(e.department_id || e.dept_id || e.department || '').toLowerCase();
+                                                                    return empDept === managerDeptId;
+                                                                });
+                                                                return deptFilteredEmployees.map(e => ({
+                                                                    value: e.emp_id,
+                                                                    label: `${e.name}${e.department_name ? ` — ${e.department_name}` : ''}`
+                                                                }));
+                                                            }
                                                         })()}
-                                                    </select>
+                                                        placeholder="Select an Assignee"
+                                                    />
                                                 </div>
 
                                                 {/* Col 2 Row 2: Department — CFO only */}
-                                                {isCFORole && (
+                                                
                                                     <div>
                                                         <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Department</label>
                                                         <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
@@ -1101,6 +966,111 @@ const AssignTaskPage = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Task Title */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                            Task Title <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="title"
+                            required
+                            className="w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 text-[14px]"
+                            placeholder={isCFORole ? 'e.g. Q3 Performance Review' : 'e.g. Prepare Q2 variance analysis'}
+                            value={formData.title}
+                            onChange={handleChange}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Description</label>
+                        <textarea
+                            name="description"
+                            rows="4"
+                            className="w-full p-5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all placeholder:text-slate-400 resize-y text-[14px]"
+                            placeholder="Provide a clear description of the task..."
+                            value={formData.description}
+                            onChange={handleChange}
+                        />
+                    </div>
+
+                    {/* Attachment — styled drag-drop box */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Attachment</label>
+                        <label className="flex flex-col items-center justify-center gap-2 w-full px-5 py-4 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-violet-300 transition-all cursor-pointer group">
+                            <div className="flex items-center gap-2.5">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-500 shrink-0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                <span className="text-[13px] font-bold text-violet-600 group-hover:text-violet-700">Choose file</span>
+                                <span className="text-[13px] text-slate-400 font-medium">or drag and drop here</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium">Supports .pdf, .docx, .xlsx, .png or .jpg (Max 10MB)</p>
+                            <input
+                                type="file"
+                                name="attachment"
+                                className="hidden"
+                                onChange={(e) => setAttachment(e.target.files[0])}
+                            />
+                        </label>
+                        {attachment && (
+                            <p className="text-[11px] text-violet-600 font-bold mt-1.5 ml-1">📎 {attachment.name}</p>
+                        )}
+                    </div>
+
+                    {/* Assignee + Priority (2-col) */}
+                    <div className="grid grid-cols-2 gap-4">
+                        {formData.taskStructure !== 'SUBTASK' && (
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                                    Assignee <span className="text-rose-500">*</span>
+                                </label>
+                                <SearchableSelect
+                                    name="assignee"
+                                    required={formData.taskStructure !== 'SUBTASK'}
+                                    value={formData.assignee}
+                                    onChange={(val) => handleChange({ target: { name: 'assignee', value: val } })}
+                                    options={eligibleAssignees.map(p => ({
+                                        value: p.emp_id,
+                                        label: `${p.name} (${p.role}) - ${p.department_name || p.department_id || p.department}`
+                                    }))}
+                                    placeholder={loading ? 'Loading...' : 'Select a team member'}
+                                />
+                                {!isCFORole && <p className="text-[11px] text-slate-400 font-medium mt-1 ml-1">Assign to a member of your team.</p>}
+                            </div>
+                        )}
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Priority</label>
+                            <select
+                                name="priority"
+                                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[13px]"
+                                value={formData.priority}
+                                onChange={handleChange}
+                            >
+                                <option key="low" value="LOW">Low</option>
+                                <option key="medium" value="MEDIUM">Medium</option>
+                                <option key="high" value="HIGH">High</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Due Date — full width */}
+                    <div>
+                        <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">
+                            Due Date <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            name="dueDate"
+                            required={!formData.isRecurring}
+                            disabled={formData.isRecurring}
+                            className={`w-full px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-400/30 focus:border-violet-300 font-medium transition-all text-[14px] ${formData.isRecurring ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            value={formData.dueDate}
+                            onChange={handleChange}
+                        />
+                        {formData.isRecurring && <p className="text-[11px] text-violet-500 font-bold mt-1 ml-1 uppercase tracking-wide">Dynamic date will be used for recurring tasks</p>}
+                    </div>
+
+                    
 
                     <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 mt-8">
                         <button

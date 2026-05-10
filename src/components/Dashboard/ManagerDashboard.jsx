@@ -749,7 +749,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         // Build per-month counts from tasks
         const taskBinMap = {};
         mRange.forEach(({ key }) => {
-            taskBinMap[key] = { new: 0, pending: 0, overdue: 0, completed: 0 };
+            taskBinMap[key] = { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
         });
 
         const todayStr = new Date().toLocaleDateString('en-CA');
@@ -782,7 +782,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 if (due && due < todayStr) {
                     taskBinMap[ym].overdue++;
                 } else {
-                    taskBinMap[ym].new++;
+                    taskBinMap[ym].in_progress++;
                 }
             }
         });
@@ -822,6 +822,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 const k = toYMKey(t.period || t.name || t.week || t.month || '');
                 if (!k || !taskBinMap[k]) return;
                 taskBinMap[k].new       += t.new_tasks ?? t.new ?? t.not_started ?? 0;
+                taskBinMap[k].in_progress += t.in_progress_tasks ?? t.in_progress ?? t.active ?? t.active_tasks ?? 0;
                 taskBinMap[k].pending   += t.pending_approval ?? t.pending ?? t.submitted ?? t.submitted_tasks ?? t.pending_tasks ?? 0;
                 taskBinMap[k].overdue   += t.overdue_tasks ?? t.overdue ?? 0;
                 taskBinMap[k].completed += t.completed_tasks ?? t.completed ?? t.approved ?? t.approved_tasks ?? t.completed_count ?? 0;
@@ -829,13 +830,14 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
         }
 
         return mRange.map(({ key, label }) => {
-            const b = taskBinMap[key] || { new: 0, pending: 0, overdue: 0, completed: 0 };
+            const b = taskBinMap[key] || { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
             return {
-                name:      label,
-                new:       b.new,
-                pending:   b.pending,
-                overdue:   b.overdue,
-                completed: b.completed,
+                name:        label,
+                new:         b.new,
+                in_progress: b.in_progress,
+                pending:     b.pending,
+                overdue:     b.overdue,
+                completed:   b.completed,
             };
         });
     }, [trendsGraphSource, trends, fromDate, toDate, bifurcationTasks, liveTasks]);
@@ -1066,7 +1068,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
             <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
                 {/* 1. Team Tasks */}
                 <div
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-4 shadow-lg shadow-cyan-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white p-4 shadow-lg shadow-cyan-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
                     onClick={() => navigate(`/tasks/team?status=&from_date=${fromDate}&to_date=${toDate}`)}
                     role="button"
                     tabIndex={0}
@@ -1079,15 +1081,15 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.total ?? 0}</div>
-                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Team Tasks</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.total ?? 0}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Team Tasks</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Total assigned tasks</div>
                     </div>
                 </div>
 
                 {/* 2. In Progress */}
                 <div
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 shadow-lg shadow-blue-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white p-4 shadow-lg shadow-blue-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
                     onClick={() => navigate(`/tasks/team?status=IN_PROGRESS&from_date=${fromDate}&to_date=${toDate}`)}
                     role="button"
                     tabIndex={0}
@@ -1100,15 +1102,15 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.inProgress ?? 0}</div>
-                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">In Progress</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.inProgress ?? 0}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">In Progress</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Tasks in progress</div>
                     </div>
                 </div>
 
                 {/* 3. Pending Approval */}
                 <div
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white p-4 shadow-lg shadow-amber-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white p-4 shadow-lg shadow-amber-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
                     onClick={() => navigate(`/tasks/team?status=SUBMITTED&from_date=${fromDate}&to_date=${toDate}`)}
                     role="button"
                     tabIndex={0}
@@ -1121,15 +1123,15 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.pending ?? 0}</div>
-                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Pending Approval</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.pending ?? 0}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Pending Approval</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Awaiting approval</div>
                     </div>
                 </div>
 
                 {/* 4. Pending My Approval */}
                 <div
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-4 shadow-lg shadow-indigo-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white p-4 shadow-lg shadow-indigo-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
                     onClick={() => navigate(`/tasks/team?status=SUBMITTED&assigned_by_emp_id=${user?.emp_id || user?.id}&from_date=${fromDate}&to_date=${toDate}`)}
                     role="button"
                     tabIndex={0}
@@ -1142,15 +1144,15 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.pendingMyApproval ?? '-'}</div>
-                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Pending My Approval</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.pendingMyApproval ?? '-'}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Pending My Approval</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Awaiting your approval</div>
                     </div>
                 </div>
 
                 {/* 5. Overdue Tasks */}
                 <div
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white p-4 shadow-lg shadow-rose-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-rose-500 to-red-600 text-white p-4 shadow-lg shadow-rose-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-pointer ring-2 ring-white/0 hover:ring-white/30"
                     onClick={() => navigate(`/tasks/team?status=Overdue&from_date=${fromDate}&to_date=${toDate}`)}
                     role="button"
                     tabIndex={0}
@@ -1163,8 +1165,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.overdue ?? 0}</div>
-                        <div className="text-[9px] font-bold capitalize  tracking-widest opacity-80 mt-1">Overdue Tasks</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.overdue ?? 0}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Overdue Tasks</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Past due tasks</div>
                     </div>
                 </div>
@@ -1172,7 +1174,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 {/* 5. Manager Score */}
                 <div
                     title="Manager Score (top_kpis.manager_score): Composite score = 70% Team Score + 30% Personal Score. Reflects overall department health weighted by the manager's own execution contribution."
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 shadow-lg shadow-emerald-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white p-4 shadow-lg shadow-emerald-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-help"
                 >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
@@ -1182,8 +1184,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         {(() => { const d = stats.managerScoreDelta; return d != null ? <span className="text-[9px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full ml-auto">{d >= 0 ? '▲' : '▼'} {Math.abs(d)}%</span> : null; })()}
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.managerScore != null ? `${Number(stats.managerScore).toFixed(2)}%` : '-'}</div>
-                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Manager Score</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.managerScore != null ? `${Number(stats.managerScore).toFixed(2)}%` : '-'}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Manager Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">70% Team + 30% Personal</div>
                     </div>
                 </div>
@@ -1191,7 +1193,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 {/* 6. Team Score */}
                 <div
                     title="Team Score (top_kpis.team_score): Average performance score of all team members' tasks — excludes the manager's own personal tasks. Measures collective execution quality of the department."
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white p-4 shadow-lg shadow-violet-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white p-4 shadow-lg shadow-violet-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-help"
                 >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
@@ -1200,8 +1202,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${Number(stats.teamScore).toFixed(2)}%` : '-'}</div>
-                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Team Score</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.teamScore != null ? `${Number(stats.teamScore).toFixed(2)}%` : '-'}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Team Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Avg score of team members only</div>
                     </div>
                 </div>
@@ -1209,7 +1211,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                 {/* 7. Personal Score */}
                 <div
                     title="Personal Score (top_kpis.manager_personal_score): Manager's own individual task execution score — calculated only from tasks directly assigned to the manager. Independent of team performance."
-                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white p-4 shadow-lg shadow-fuchsia-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[110px] cursor-help"
+                    className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-600 text-white p-4 shadow-lg shadow-fuchsia-200/40 hover:scale-[1.03] transition-all border border-white/10 flex flex-col justify-between min-h-[116px] cursor-help"
                 >
                     <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-white/10 blur-xl" />
                     <div className="flex items-center gap-2 relative z-10">
@@ -1218,8 +1220,8 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                         </div>
                     </div>
                     <div className="relative z-10 mt-2">
-                        <div className="text-[28px] font-black leading-none tabular-nums">{stats.managerPersonalScore != null ? `${Number(stats.managerPersonalScore).toFixed(2)}%` : '-'}</div>
-                        <div className="text-[9px] font-bold capitalize tracking-widest opacity-80 mt-1">Personal Score</div>
+                        <div className="text-[24px] font-black leading-none tabular-nums">{stats.managerPersonalScore != null ? `${Number(stats.managerPersonalScore).toFixed(2)}%` : '-'}</div>
+                        <div className="text-[10px] font-bold tracking-wide opacity-90 mt-1.5">Personal Score</div>
                         <div className="text-[8px] opacity-60 font-medium mt-0.5">Manager's own tasks only</div>
                     </div>
                 </div>
@@ -1245,6 +1247,10 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                 <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">Approved</span>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                                <div className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]"></div>
+                                <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">In Progress</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
                                 <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
                                 <span className="text-[10px] font-black text-slate-500 capitalize tracking-wider">Not started</span>
                             </div>
@@ -1260,7 +1266,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     </div>
                     <div className="h-[280px]">
                         <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
-                            <BarChart data={finalTrendsData.length ? finalTrendsData : [{ name: 'No Data', new: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <BarChart data={finalTrendsData.length ? finalTrendsData : [{ name: 'No Data', new: 0, in_progress: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                                 <XAxis 
                                     dataKey="name" 
@@ -1281,6 +1287,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                     formatter={(value, name) => {
                                         if (name === 'completed') return [value, 'Approved'];
                                         if (name === 'new') return [value, 'Not started'];
+                                        if (name === 'in_progress') return [value, 'In Progress'];
                                         if (name === 'pending') return [value, 'Pending'];
                                         if (name === 'overdue') return [value, 'Overdue'];
                                         return [value, name];
@@ -1288,6 +1295,7 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                                 />
                                 <Bar dataKey="overdue"   name="Overdue"     stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
                                 <Bar dataKey="pending"   name="Pending"     stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
+                                <Bar dataKey="in_progress" name="In Progress" stackId="a" fill="#8B5CF6" radius={[0, 0, 0, 0]} barSize={32} />
                                 <Bar dataKey="new"       name="Not started" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} barSize={32} />
                                 <Bar dataKey="completed" name="Approved"    stackId="a" fill="#10B981" radius={[6, 6, 0, 0]} barSize={32} />
                             </BarChart>

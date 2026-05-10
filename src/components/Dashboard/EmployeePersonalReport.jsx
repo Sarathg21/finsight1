@@ -57,6 +57,7 @@ const EmployeePersonalReport = () => {
 
     const [tasks, setTasks] = useState([]);
     const [summary, setSummary] = useState({});
+    const [globalSummary, setGlobalSummary] = useState({});
     const [topPerformers, setTopPerformers] = useState([]);
     const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -94,10 +95,11 @@ const EmployeePersonalReport = () => {
             };
 
             // 1. Fetch own dashboard summary, own tasks, AND department top performer — all in parallel
-            const [dashRes, myTasksRes, topPerformerRes] = await Promise.allSettled([
+            const [dashRes, myTasksRes, topPerformerRes, globalDashRes] = await Promise.allSettled([
                 api.get('/dashboard/employee', { params: { ...dateParams, scope: 'mine' } }),
                 api.get('/tasks', { params: { ...dateParams, limit: 100 } }),
                 api.get('/reports/employee/department-top-performer', { params: { ...dateParams } }),
+                api.get('/dashboard/employee', { params: { scope: 'mine' } })
             ]);
 
             // 2. Process own dashboard summary
@@ -105,6 +107,11 @@ const EmployeePersonalReport = () => {
                 ? (dashRes.value?.data?.data || dashRes.value?.data || {})
                 : {};
             setSummary(dashData);
+
+            const globalDashData = globalDashRes.status === 'fulfilled'
+                ? (globalDashRes.value?.data?.data || globalDashRes.value?.data || {})
+                : {};
+            setGlobalSummary(globalDashData);
 
             // 3. Process own tasks
             const rawTasks = myTasksRes.status === 'fulfilled'
@@ -291,12 +298,12 @@ const EmployeePersonalReport = () => {
 
         return {
             total: summary.total_tasks ?? total,
-            active: summary.active_tasks ?? active,
+            active: globalSummary.active_tasks ?? summary.active_tasks ?? active,
             completed: summary.approved_tasks ?? completed,
             inProgress,
-            overdue: summary.overdue_tasks ?? overdue,
-            dueToday: summary.due_today_tasks || dueToday,
-            pending: summary.pending_submission_tasks ?? (newTasks + reworks),
+            overdue: globalSummary.overdue_tasks ?? summary.overdue_tasks ?? overdue,
+            dueToday: globalSummary.due_today_tasks || summary.due_today_tasks || dueToday,
+            pending: globalSummary.pending_submission_tasks ?? summary.pending_submission_tasks ?? (newTasks + reworks),
             reworks,
             submitted,
             newTasks,

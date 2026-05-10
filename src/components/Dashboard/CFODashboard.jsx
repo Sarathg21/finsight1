@@ -313,9 +313,10 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
 
             const g = (keys) => { for (const k of keys) { if (d[k] !== undefined && d[k] !== null) return Number(d[k]); } return 0; };
 
-            if (!backendMap[normKey]) backendMap[normKey] = { new: 0, pending: 0, overdue: 0, completed: 0 };
+            if (!backendMap[normKey]) backendMap[normKey] = { new: 0, in_progress: 0, pending: 0, overdue: 0, completed: 0 };
             backendMap[normKey].new       += g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']);
-            backendMap[normKey].pending   += g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending', 'In Progress', 'in_progress']);
+            backendMap[normKey].in_progress += g(['in_progress_tasks', 'in_progress', 'In Progress', 'active', 'active_tasks']);
+            backendMap[normKey].pending   += g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending']);
             backendMap[normKey].overdue   += g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']);
             backendMap[normKey].completed += g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']);
         });
@@ -324,11 +325,12 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
 
         if (monthRange.length > 0) {
             return monthRange.map(({ key, label }) => ({
-                name:      label,
-                new:       backendMap[key]?.new       ?? 0,
-                pending:   backendMap[key]?.pending   ?? 0,
-                overdue:   backendMap[key]?.overdue   ?? 0,
-                completed: backendMap[key]?.completed ?? 0,
+                name:        label,
+                new:         backendMap[key]?.new         ?? 0,
+                in_progress: backendMap[key]?.in_progress ?? 0,
+                pending:     backendMap[key]?.pending     ?? 0,
+                overdue:     backendMap[key]?.overdue     ?? 0,
+                completed:   backendMap[key]?.completed   ?? 0,
             }));
         }
 
@@ -339,11 +341,12 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
             const ymKey  = toYearMonthKey(rawKey, []);
             const label  = ymKey ? new Date(ymKey + '-01').toLocaleString('en-US', { month: 'short' }) : rawKey;
             return {
-                name:      label,
-                new:       g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']),
-                pending:   g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending', 'In Progress', 'in_progress']),
-                overdue:   g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']),
-                completed: g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']),
+                name:        label,
+                new:         g(['new_tasks', 'new', 'not_started', 'Not Started', 'new_count', 'created']),
+                in_progress: g(['in_progress_tasks', 'in_progress', 'In Progress', 'active', 'active_tasks']),
+                pending:     g(['pending_submission', 'pending', 'submitted', 'submitted_tasks', 'pending_tasks', 'Pending']),
+                overdue:     g(['overdue_tasks', 'overdue', 'Overdue', 'overdue_count', 'is_overdue']),
+                completed:   g(['completed_tasks', 'completed', 'Completed', 'approved', 'Approved', 'completed_count', 'approved_tasks']),
             };
         });
     }, [data, fromDate, toDate]);
@@ -366,6 +369,10 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
                         <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Approved</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#8B5CF6]"></div>
+                        <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">In Progress</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#3B82F6]"></div>
                         <span className="text-[10px] font-black text-slate-500 capitalize tracking-widest">Not started</span>
                     </div>
@@ -382,7 +389,7 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
 
             <div className="flex-1 w-full min-h-0">
                 <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
-                    <BarChart data={trends.length ? trends : [{ name: 'No Data', new: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart data={trends.length ? trends : [{ name: 'No Data', new: 0, in_progress: 0, pending: 0, overdue: 0 }]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                         <XAxis 
                             dataKey="name" 
@@ -403,6 +410,7 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
                             formatter={(value, name) => {
                                 if (name === 'completed') return [value, 'Approved'];
                                 if (name === 'new')       return [value, 'Not started'];
+                                if (name === 'in_progress') return [value, 'In Progress'];
                                 if (name === 'pending')   return [value, 'Pending'];
                                 if (name === 'overdue')   return [value, 'Overdue'];
                                 return [value, name];
@@ -410,6 +418,7 @@ const TaskTrendsChart = ({ data, fromDate, toDate }) => {
                         />
                         <Bar dataKey="overdue"   name="Overdue"     stackId="a" fill="#EF4444" radius={[0, 0, 0, 0]} barSize={32} />
                         <Bar dataKey="pending"   name="Pending"     stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} barSize={32} />
+                        <Bar dataKey="in_progress" name="In Progress" stackId="a" fill="#8B5CF6" radius={[0, 0, 0, 0]} barSize={32} />
                         <Bar dataKey="new"       name="Not started" stackId="a" fill="#3B82F6" radius={[0, 0, 0, 0]} barSize={32} />
                         <Bar dataKey="completed" name="Approved"    stackId="a" fill="#10B981" radius={[6, 6, 0, 0]} barSize={32} />
                     </BarChart>
@@ -1805,7 +1814,7 @@ const CFODashboard = () => {
 
                                     <div className="flex items-end justify-between">
                                         <div>
-                                            <div className="text-[32px] font-bold tabular-nums tracking-tight leading-none mb-2">
+                                            <div className="text-[26px] font-bold tabular-nums tracking-tight leading-none mb-2">
                                                 {item.value}
                                             </div>
                                             <div className="text-[11px] font-medium text-white/90 flex items-center gap-1">

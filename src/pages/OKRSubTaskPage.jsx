@@ -75,15 +75,17 @@ const StatusBadge = ({ status }) => {
 
 /* ─── KPI card ──────────────────────────────────────────────────────────────── */
 const KpiCard = ({ label, value, sub, gradient, Icon }) => (
-    <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-4 rounded-2xl shadow-lg flex flex-col transition-all hover:scale-[1.03] group h-full`}>
+    <div className={`relative overflow-hidden bg-gradient-to-br ${gradient} p-4 rounded-2xl shadow-lg flex flex-col justify-between transition-all hover:scale-[1.03] group h-full min-h-[120px]`}>
         <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-700" />
-        <div className="flex items-start justify-between relative z-10 w-full mb-1">
+        <div className="flex items-start justify-between relative z-10 w-full mb-2">
             <span className="text-[10px] font-black text-white/80 uppercase tracking-[0.1em] drop-shadow-sm leading-tight pr-2">{label}</span>
-            {Icon && <Icon size={16} className="text-white/40 group-hover:text-white/80 transition-colors shrink-0 ml-1" />}
+            {Icon && <Icon size={16} className="text-white/40 group-hover:text-white/80 transition-colors shrink-0 ml-1 mt-0.5" />}
         </div>
-        <div className="relative z-10 flex flex-col">
+        <div className="relative z-10 flex flex-col mt-auto">
             <span className="text-2xl font-black text-white tabular-nums tracking-tighter drop-shadow-md">{value}</span>
-            {sub && <span className="text-[11px] font-black text-white/90 drop-shadow-sm mt-0.5">{sub}</span>}
+            <div className="h-4 mt-0.5">
+                {sub && <span className="text-[11px] font-black text-white/90 drop-shadow-sm block">{sub}</span>}
+            </div>
         </div>
     </div>
 );
@@ -504,8 +506,8 @@ const OKRSubTaskPage = () => {
     const topMetrics = [
         { label: 'Total Objectives',        value: dTotal,                           gradient: 'from-[#4285F4] to-[#2563EB]',   Icon: Target       },
         { label: 'Team Performance Score',  value: `${dScore}%`,                     gradient: 'from-[#7C3AED] to-[#5B21B6]',   Icon: TrendingUp   },
-        { label: 'Total Subtasks Completed',value: `${dDone} / ${dTotalSub}`,        sub: `${dSubPct}%`, gradient: 'from-[#10B981] to-[#059669]',   Icon: CheckCircle2 },
-        { label: 'Total Subtasks Submitted',value: `${dSubmit} / ${dTotalSub}`,      sub: `${dSumPct}%`, gradient: 'from-[#F59E0B] to-[#D97706]',   Icon: ShieldCheck  },
+        { label: 'Total Subtasks Completed',value: `${dDone} `,        sub: `${dSubPct}%`, gradient: 'from-[#10B981] to-[#059669]',   Icon: CheckCircle2 },
+        { label: 'Awaiting Approval',       value: dSubmit,                          sub: `${dSumPct}%`, gradient: 'from-[#F59E0B] to-[#D97706]',   Icon: ShieldCheck  },
         { label: 'At Risk',                 value: dAtRisk,                           gradient: 'from-[#F43F5E] to-[#E11D48]',   Icon: AlertTriangle },
         { label: 'Avg Completion Rate',     value: `${dAvgRate}%`,                   gradient: 'from-[#06B6D4] to-[#0891B2]',   Icon: CheckCircle  },
         { label: 'Overall Progress',        value: `${dProgress}%`,                  gradient: 'from-[#4F46E5] to-[#4338CA]',   Icon: TrendingUp   },

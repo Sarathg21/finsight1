@@ -615,7 +615,13 @@ const TeamTasksPage = () => {
 
                 // Status filter (client-side fallback)
                 if (filters.status && filters.status !== 'Overdue') {
-                    if ((t.status || '').toUpperCase() !== filters.status.toUpperCase()) return false;
+                    const filterStatus = filters.status.toUpperCase();
+                    const taskStatus = (t.status || '').toUpperCase();
+                    if (filterStatus === 'NEW') {
+                        if (taskStatus !== 'NEW' && taskStatus !== 'NOT_STARTED') return false;
+                    } else {
+                        if (taskStatus !== filterStatus) return false;
+                    }
                 }
 
                 // Severity filter (client-side fallback)
@@ -1066,6 +1072,7 @@ const TeamTasksPage = () => {
         const s = (status || '').toUpperCase();
         const config = {
             NEW: { color: 'bg-slate-100 text-slate-500', label: 'Not started' },
+            NOT_STARTED: { color: 'bg-slate-100 text-slate-500', label: 'Not started' },
             IN_PROGRESS: { color: 'bg-blue-100 text-blue-600', label: 'In Progress' },
             SUBMITTED: { color: 'bg-purple-100 text-purple-600', label: 'Submitted' },
             REWORK: { color: 'bg-orange-100 text-orange-600', label: 'Rework' },
