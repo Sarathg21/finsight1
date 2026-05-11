@@ -613,14 +613,9 @@ const RecurringTasksPage = () => {
                                 <div className="grid grid-cols-1 gap-3">
                                     <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Description</label>
                                     {selectedTemplate.description ? (
-                                        <ul className="space-y-3">
-                                            {selectedTemplate.description.split('\n').filter(l => l.trim()).map((line, i) => (
-                                                <li key={i} className="flex gap-3 text-slate-600 text-[14px] leading-relaxed group">
-                                                    <CheckCircle2 size={16} className="text-indigo-400 shrink-0 mt-0.5 group-hover:text-indigo-600 transition-colors" />
-                                                    {line.trim()}
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <p className="text-[14px] text-slate-600 leading-relaxed whitespace-pre-line">
+                                            {selectedTemplate.description}
+                                        </p>
                                     ) : (
                                         <p className="text-[14px] text-slate-400 italic">No detailed description provided for this automation.</p>
                                     )}
