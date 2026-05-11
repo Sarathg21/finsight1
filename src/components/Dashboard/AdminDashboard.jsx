@@ -51,7 +51,7 @@ const AdminDashboard = () => {
         fetchSummary();
     }, []);
 
-    // Look up correct email from full employees list (summary API returns emp_id-based emails)
+    // /admin/summary does not return email in recent_employees[] — cross-reference from /employees
     const getCorrectEmail = (emp) => {
         const match = allEmployees.find(e => e.emp_id === emp.emp_id || e.id === emp.emp_id);
         return match?.email || emp.email || '—';
