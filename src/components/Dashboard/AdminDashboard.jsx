@@ -48,7 +48,7 @@ const AdminDashboard = () => {
 
     const handleResetPassword = async (emp) => {
         try {
-            const pwd = "Perfmetric@123";
+            const pwd = "Tascade@123";
             await api.post(`/employees/${emp.emp_id}/reset-password`, { new_password: pwd });
             toast.success(`Password reset to: ${pwd} for ${emp.name}`, { duration: 6000 });
         } catch (err) {
@@ -278,7 +278,7 @@ const AdminDashboard = () => {
                                         <td className="px-4 py-3">
                                             <span className="text-[12px] font-bold text-slate-500 capitalize">{(emp.department_name || emp.department_id || '—').toLowerCase()}</span>
                                         </td>
-                                        <td className="px-4 py-3 text-[12px] text-slate-400 font-medium lowercase italic">{emp.email || (emp.emp_id ? `${String(emp.emp_id).toLowerCase()}@fjgroup.com` : 'n/a')}</td>
+                                        <td className="px-4 py-3 text-[12px] text-slate-400 font-medium lowercase italic">{emp.email || '—'}</td>
                                         <td className="px-4 py-3">
                                             <span className="text-[11px] font-black text-slate-400 tracking-tighter capitalize">{emp.role?.toLowerCase()}</span>
                                         </td>

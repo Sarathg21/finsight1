@@ -124,7 +124,7 @@ const AdminPage = () => {
   };
 
   const handleResetPassword = async (emp, manual) => {
-    const pwd = manual || "Perfmetric@123";
+    const pwd = manual || "Tascade@123";
     try {
       await api.post(`/employees/${emp.emp_id}/reset-password`, { new_password: pwd });
       toast.success(`Password reset to: ${pwd} for ${emp.name}`, { duration: 6000 });

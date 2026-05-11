@@ -1485,9 +1485,14 @@ const ManagerDashboard = ({ overriddenDept = null }) => {
                     {(() => {
                         const dd = dashboardData || {};
                         const tas = dd.team_action_snapshot || {};
+                        const kpis = dd.top_kpis || {};
+                        const st = dd.team_status_bifurcation?.statuses || {};
+                        const inferredActive = (st.NEW?.count ?? 0) + (st.IN_PROGRESS?.count ?? kpis.in_progress_tasks ?? 0) + (st.SUBMITTED?.count ?? kpis.pending_approval_tasks ?? 0) + (st.REWORK?.count ?? 0);
+                        const activeVal = (tas.active_tasks && tas.active_tasks > 0) ? tas.active_tasks : Math.max(tas.active_tasks ?? 0, inferredActive);
+                        
                         // Source of truth: team_action_snapshot from /dashboard/manager
                         const snap = [
-                            { label: 'Active Tasks',     sub: 'Not approved or cancelled',  value: tas.active_tasks,           icon: Activity,      bg: 'bg-blue-50',    iconC: 'text-blue-500',    border: 'border-blue-100'    },
+                            { label: 'Active Tasks',     sub: 'Not approved or cancelled',  value: activeVal,           icon: Activity,      bg: 'bg-blue-50',    iconC: 'text-blue-500',    border: 'border-blue-100'    },
                             { label: 'Pending Approval', sub: 'Awaiting review',             value: tas.pending_approval_tasks, icon: Clock,         bg: 'bg-amber-50',   iconC: 'text-amber-500',   border: 'border-amber-100'   },
                             { label: 'Overdue Tasks',    sub: 'Past due, not closed',        value: tas.overdue_tasks,          icon: AlertTriangle, bg: 'bg-rose-50',    iconC: 'text-rose-500',    border: 'border-rose-100'    },
                             { label: 'Due Today',        sub: 'Due today, pending action',   value: tas.due_today_tasks,        icon: Calendar,      bg: 'bg-orange-50',  iconC: 'text-orange-500',  border: 'border-orange-100'  },

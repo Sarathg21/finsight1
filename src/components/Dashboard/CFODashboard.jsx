@@ -1439,12 +1439,14 @@ const CFODashboard = () => {
 
         const totalTasks = Number(dashboardData.total_tasks ?? dashboardData.total ?? 0);
         const approvedTasks = Number(dashboardData.approved_tasks ?? dashboardData.completed_tasks ?? dashboardData.completed ?? 0);
-        const inferredActiveTasks = Number(
-            dashboardData.active_tasks
-            ?? (Number(dashboardData.in_progress_tasks ?? 0)
-                + Number(dashboardData.submitted_tasks ?? 0)
-                + Number(dashboardData.rework_tasks ?? 0))
-        );
+        const activeSum = (Number(dashboardData.in_progress_tasks ?? 0)
+            + Number(dashboardData.submitted_tasks ?? 0)
+            + Number(dashboardData.rework_tasks ?? 0)
+            + Number(dashboardData.new_tasks ?? 0));
+
+        const inferredActiveTasks = (dashboardData.active_tasks !== undefined && dashboardData.active_tasks !== null)
+            ? Math.max(Number(dashboardData.active_tasks), activeSum)
+            : activeSum;
         const inferredCompletionRate = totalTasks > 0 ? (approvedTasks / totalTasks) * 100 : 0;
         const inferredEmployeesAtRisk = (() => {
             const byEmployee = {};
@@ -1467,7 +1469,7 @@ const CFODashboard = () => {
         const kpis = {
             // Top KPI values (document section 2 & 3)
             // Top KPI values
-            activeTasks:          topKpis.active_tasks ?? inferredActiveTasks,
+            activeTasks:          (topKpis.active_tasks && topKpis.active_tasks > 0) ? topKpis.active_tasks : inferredActiveTasks,
             approvedTasks:        topKpis.approved_tasks ?? approvedTasks,
             departmentsOnTrack:   topKpis.departments_on_track ?? departmentsOnTrack,
             employeesAtRisk:      topKpis.employees_at_risk ?? dashboardData.employees_at_risk ?? inferredEmployeesAtRisk,

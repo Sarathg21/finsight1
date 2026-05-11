@@ -343,7 +343,7 @@ const EmployeeFormModal = ({ onClose, onAdd, onEdit, managers, departments, init
           <p className="text-[10px] text-slate-400 font-black capitalize tracking-widest hidden sm:block">
             {isEdit
               ? "Changes are saved immediately to the database"
-              : <><span className="font-normal">Default password: </span><span className="font-mono font-bold text-violet-600 bg-violet-50 px-3 py-1 rounded-lg border border-violet-100 ml-2">Perfmetric@123</span></>
+              : <><span className="font-normal">Default password: </span><span className="font-mono font-bold text-violet-600 bg-violet-50 px-3 py-1 rounded-lg border border-violet-100 ml-2">Tascade@123</span></>
             }
           </p>
 
