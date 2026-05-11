@@ -175,6 +175,10 @@ const AdminPage = () => {
         ...data,
         ...(localDeptName ? { department_name: localDeptName } : {}),
         ...serverFields,
+        // Ensure user-entered values always win — server may return blank fields
+        name:       serverFields.name       || data.name       || emp.name,
+        email:      serverFields.email      || data.email      || emp.email,
+        emp_id:     serverFields.emp_id     || data.emp_id     || emp.emp_id,
         // Always keep the phone the user typed — backend field name varies
         phone:      userPhone || emp.phone || '',
         phone_no:   userPhone || emp.phone_no || '',
@@ -212,6 +216,9 @@ const AdminPage = () => {
 
             return {
               ...freshRecord,
+              // If backend sync returns blank name/email, keep the locally-saved values
+              name:            freshRecord.name  || emp.name,
+              email:           freshRecord.email || emp.email,
               phone:           preservedPhone,
               phone_no:        preservedPhone,
               contact_no:      preservedPhone,

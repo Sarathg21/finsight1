@@ -23,6 +23,7 @@ const AdminDashboard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [summary, setSummary] = useState(null);
+    const [allEmployees, setAllEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [openActionMenuId, setOpenActionMenuId] = useState(null);
@@ -32,8 +33,12 @@ const AdminDashboard = () => {
     const fetchSummary = async () => {
         setLoading(true);
         try {
-            const res = await api.get('/admin/summary');
-            setSummary(res.data);
+            const [summaryRes, empRes] = await Promise.all([
+                api.get('/admin/summary'),
+                api.get('/employees').catch(() => ({ data: [] }))
+            ]);
+            setSummary(summaryRes.data);
+            setAllEmployees(Array.isArray(empRes.data) ? empRes.data : []);
         } catch (err) {
             console.error("Failed to fetch admin summary:", err);
             toast.error("Failed to sync dashboard data.");
@@ -45,6 +50,12 @@ const AdminDashboard = () => {
     useEffect(() => {
         fetchSummary();
     }, []);
+
+    // Look up correct email from full employees list (summary API returns emp_id-based emails)
+    const getCorrectEmail = (emp) => {
+        const match = allEmployees.find(e => e.emp_id === emp.emp_id || e.id === emp.emp_id);
+        return match?.email || emp.email || '—';
+    };
 
     const handleResetPassword = async (emp) => {
         try {
@@ -278,7 +289,7 @@ const AdminDashboard = () => {
                                         <td className="px-4 py-3">
                                             <span className="text-[12px] font-bold text-slate-500 capitalize">{(emp.department_name || emp.department_id || '—').toLowerCase()}</span>
                                         </td>
-                                        <td className="px-4 py-3 text-[12px] text-slate-400 font-medium lowercase italic">{emp.email || '—'}</td>
+                                        <td className="px-4 py-3 text-[12px] text-slate-400 font-medium lowercase italic">{getCorrectEmail(emp)}</td>
                                         <td className="px-4 py-3">
                                             <span className="text-[11px] font-black text-slate-400 tracking-tighter capitalize">{emp.role?.toLowerCase()}</span>
                                         </td>
