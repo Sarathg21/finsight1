@@ -162,18 +162,33 @@ const AssignTaskPage = () => {
                     validParentSource = Array.from(parentMap.values());
                 } else if (isCFORole) {
                     const allNorm = normalizeTasks(teamTasksData);
-                    // CFO parent dropdown:
-                    //   Level-0: PARENT-type tasks (CFO creates manager child under these)
-                    //   Level-1: tasks already assigned to managers (CFO creates employee subtask under these)
-                    // We include all non-terminal, non-standalone tasks that have an assignee.
+                    // CFO parent dropdown rule:
+                    // Only show parent tasks assigned by CFO to self and managers.
                     validParentSource = allNorm.filter(t => {
                         const isParent = isParentTask(t);
-                        const hasAssignee = !!(t.assigned_to_emp_id || t.assigned_to_name || t.assigned_to);
                         const level = t.task_level ?? t.level ?? (isParent ? 0 : null);
-                        // Include Level-0 PARENT tasks
-                        if (isParent) return true;
-                        // Include tasks assigned to managers/employees (as long as they aren't explicitly level 2 leaf subtasks)
-                        if (hasAssignee && level !== 2) return true;
+                        
+                        // Rule 1: Must be assigned by CFO
+                        const byRole = String(t.assigned_by_role || t.created_by_role || '').toUpperCase();
+                        const byMe   = String(t.assigned_by_emp_id || t.created_by || t.assigned_by || '') === String(user?.emp_id || user?.id);
+                        const isByCFO = byRole === 'CFO' || byMe;
+
+                        // Rule 2: Assigned to Self (CFO) or a Manager
+                        const toRole = String(t.assigned_to_role || t.role || '').toUpperCase();
+                        const isToSelfOrManager = toRole === 'CFO' || toRole === 'MANAGER';
+                        const isUnassignedParent = isParent && level === 0 && !(t.assigned_to_emp_id || t.assigned_to_name || t.assigned_to);
+
+                        if (!isByCFO) return false;
+
+                        // Include Level-0 Standalone Parents (even if unassigned)
+                        if (level === 0) return true;
+                        
+                        // Include Level-1 tasks assigned to Managers or Self
+                        if (level === 1 && isToSelfOrManager) return true;
+
+                        // Fallback for tasks with ambiguous levels
+                        if (isToSelfOrManager) return true;
+
                         return false;
                     });
                 }
