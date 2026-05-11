@@ -13,7 +13,7 @@ import {
    formatStatus: "IN_PROGRESS" → "In Progress"
 ─────────────────────────────────────────────────── */
 const formatStatus = (status) =>
-    status
+    (status || "")
         .replace(/_/g, " ")
         .toLowerCase()
         .replace(/\b\w/g, (c) => c.toUpperCase());

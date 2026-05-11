@@ -281,7 +281,7 @@ const AdminDashboard = () => {
                                         <td className="px-4 py-3 pl-6">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full border-2 border-white shadow-lg overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center text-indigo-500 font-black text-sm group-hover:scale-110 transition-transform shrink-0">
-                                                    <span>{emp.name?.charAt(0).toUpperCase()}</span>
+                                                    <span>{(emp.name || '?').charAt(0).toUpperCase()}</span>
                                                 </div>
                                                 <span className="text-[13px] font-black text-slate-700 tracking-tight capitalize">{emp.name?.toLowerCase()}</span>
                                             </div>

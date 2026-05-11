@@ -392,7 +392,7 @@ const AdminPage = () => {
                             <td className="px-6 py-5">
                                 <div className="flex items-center gap-4">
                                     <div className="w-11 h-11 rounded-full border-[3px] border-white shadow-lg shadow-indigo-100/50 overflow-hidden bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center text-indigo-500 font-[900] text-base group-hover:scale-110 transition-transform duration-500">
-                                        <span>{emp.name?.charAt(0).toUpperCase()}</span>
+                                        <span>{(emp.name || '?').charAt(0).toUpperCase()}</span>
                                     </div>
                                     <span className="text-[14px] font-black text-slate-700 group-hover:text-indigo-600 transition-colors capitalize tracking-tight">{emp.name}</span>
                                 </div>
