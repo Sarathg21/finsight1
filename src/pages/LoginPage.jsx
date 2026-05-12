@@ -149,9 +149,7 @@ const LoginPage = () => {
                             <button
                                 type="button"
                                 className="text-indigo-600 text-xs font-semibold capitalize tracking-wider hover:text-indigo-800"
-                                onClick={() => {
-                                    alert(`If you forgot your password, please contact the Admin.\nYour password can be reset by Admin, and you will be asked to change it after login.\nContact: admin@company.com`);
-                                }}
+                                onClick={() => navigate('/forgot-password')}
                             >
                                 Forgot password?
                             </button>

@@ -7,6 +7,8 @@ import { Toaster } from 'react-hot-toast';
 // Pages
 // Pages
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import TaskPage from './pages/TaskPage';
 import AssignTaskPage from './pages/AssignTaskPage';
@@ -28,6 +30,8 @@ function App() {
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
