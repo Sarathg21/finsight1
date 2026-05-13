@@ -25,9 +25,22 @@ export const AuthProvider = ({ children }) => {
         gender: u.gender || 'male',    // Default to 'male' if not provided
     });
 
+    // Public routes — skip session restoration to avoid any API-triggered redirects
+    const PUBLIC_PATHS = ['/reset-password', '/forgot-password', '/login'];
+    // Evaluated as a function so it always reads the live pathname at execution time.
+    const checkIsPublicPage = () =>
+        PUBLIC_PATHS.some(p => window.location.pathname === p || window.location.pathname.startsWith(p + '?') || window.location.pathname.startsWith(p + '/'));
+
     // Restore and validate session from localStorage on app start
     useEffect(() => {
         const init = async () => {
+            // On public pages (reset-password, forgot-password, login) we never need
+            // to restore a session — just mark loading done and let the page render.
+            if (checkIsPublicPage()) {
+                setLoading(false);
+                return;
+            }
+
             const token = localStorage.getItem('pms_token');
             const savedUser = localStorage.getItem('pms_user');
             if (token && savedUser) {
@@ -44,7 +57,7 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         };
         init();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
     const login = async (empId, password) => {

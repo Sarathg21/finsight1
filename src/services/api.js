@@ -70,6 +70,11 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Public routes that must never be redirected to /login by the interceptor
+const PUBLIC_PATHS = ['/reset-password', '/forgot-password', '/login'];
+const isOnPublicPage = () =>
+    PUBLIC_PATHS.some(p => window.location.pathname.startsWith(p));
+
 // Response interceptor for global error handling
 api.interceptors.response.use(
     (response) => response,
@@ -81,8 +86,10 @@ api.interceptors.response.use(
         const isBlob = error.config?.responseType === 'blob';
 
         if (status === 401) {
-            // Skip the redirect for auth endpoints (login, etc.) — let the caller handle it
-            if (!url.includes('/auth/')) {
+            // Never redirect away from public pages or auth endpoints themselves
+            const skipRedirect = isOnPublicPage() || url.includes('/auth/') || url.includes('reset-password');
+
+            if (!skipRedirect) {
                 localStorage.removeItem('pms_token');
                 localStorage.removeItem('pms_user');
                 window.location.href = '/login';
@@ -106,7 +113,7 @@ api.interceptors.response.use(
             try {
                 const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
                 const isGet = error.config?.method?.toLowerCase() === 'get';
-                
+
                 // We should NOT mock data for blob/binary requests (like downloads) 
                 // as it would return a corrupted file (the dummy JSON as a blob).
                 if (savedUser?.role && isGet && !isBlob) {
@@ -115,8 +122,8 @@ api.interceptors.response.use(
                 }
             } catch (e) { /* ignore */ }
 
-            // Not authenticated or not a GET request — failure
-            if (!localStorage.getItem('pms_token')) {
+            // Not authenticated or not a GET request — redirect only if NOT on a public page
+            if (!localStorage.getItem('pms_token') && !isOnPublicPage()) {
                 window.location.href = '/login';
             }
         }
