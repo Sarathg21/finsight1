@@ -117,6 +117,7 @@ const LoginPage = () => {
                                     className="w-full pl-11 pr-4 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold"
                                     value={formData.id}
                                     onChange={handleChange}
+                                    autoComplete="username"
                                     required
                                 />
                             </div>
@@ -133,6 +134,7 @@ const LoginPage = () => {
                                     className="w-full pl-11 pr-12 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold"
                                     value={formData.password}
                                     onChange={handleChange}
+                                    autoComplete="current-password"
                                     required
                                 />
                                 <button

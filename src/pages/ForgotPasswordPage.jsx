@@ -114,7 +114,7 @@ const ForgotPasswordPage = () => {
                         <>
                             <h1 className="text-2xl sm:text-3xl font-bold text-[#1e1b4b] mb-2 text-center tracking-tight">Forgot Password</h1>
                             <p className="text-[0.85rem] text-slate-400 text-center mb-6 leading-[1.7]">
-                                Enter your registered email and we'll send you a reset link.
+                                Enter your registered email and we'll send you a password reset link.
                             </p>
 
                             {error && (
