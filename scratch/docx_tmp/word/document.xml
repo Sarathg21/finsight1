@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr><w:r><w:t>OKR Action Tracking — Features & Implementation</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="Subtitle"/></w:pPr><w:r><w:t>Tascade • Specification (CFO + Manager) • Date: 13 May 2026</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>1. Purpose</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Action Tracking provides operational visibility into the lowest-level executable work items (“actions”) decomposed under OKRs. The page is reused for both CFO and Manager views with role-based visibility and filter locking.</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>2. Role Behavior</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• CFO/Admin: organization-wide visibility (scope=org).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Manager: department-only visibility (scope=department). Department filter is locked to the manager’s own department; Manager filter is hidden/locked to self.</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>3. Key Features</w:t></w:r></w:p>
+    <w:p><w:r><w:t>3.1 KPI strip (top cards)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Total Actions</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• In Progress</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Pending Approval</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Overdue</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Completed</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Completion %</w:t></w:r></w:p>
+
+    <w:p><w:r><w:t>3.2 Filters</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Primary filters cover OKR hierarchy and operational slicing:</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Objective</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Key Result</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Parent Task</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Subtask</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Department (locked for Manager)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Assigned To</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Status (grouped to match backend statuses)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Priority</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• From Date / To Date</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Search (free text across key columns)</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>4. Main Table</w:t></w:r></w:p>
+    <w:p><w:r><w:t>The listing is action-level by default, showing the lowest-level executable tasks/actions.</w:t></w:r></w:p>
+
+    <w:tbl>
+      <w:tblPr><w:tblW w:w="0" w:type="auto"/></w:tblPr>
+      <w:tblGrid>
+        <w:gridCol w:w="2400"/>
+        <w:gridCol w:w="6960"/>
+      </w:tblGrid>
+      <w:tr>
+        <w:tc><w:p><w:r><w:t>Column</w:t></w:r></w:p></w:tc>
+        <w:tc><w:p><w:r><w:t>Description</w:t></w:r></w:p></w:tc>
+      </w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Action ID</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Unique identifier for the action task.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Objective</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Top OKR objective title derived from root/parent task lineage.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Key Result</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Key result title derived from OKR hierarchy lineage.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Parent Task</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Parent task immediately above the action’s subtask.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Subtask</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Subtask under which the action is executed.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Action Title</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Action task title.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Department</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Department associated with the action (used for manager locking and filtering).</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Assigned By / To</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Assigner and assignee display names.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Approver</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Approver name when available (fallback “—” when not present).</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Assigned / Due</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Assigned date and due date.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Status</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Status badge driven by backend task statuses (grouped for filtering).</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Priority</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>LOW / MEDIUM / HIGH.</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Days Left / Overdue</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Derived from due date (e.g., “5d left”, “2d overdue”, “Due today”).</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Actions</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Basic row actions such as Copy Action ID (extendable to View / Transition).</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>5. Backend Integration</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Data is sourced from the backend via task listing endpoints and normalized in the frontend.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Primary data fetch: GET /tasks with params: scope (org/department), from_date, to_date, and task_level=3 (action-level).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Secondary fetch: GET /tasks (broader list) used to build dropdown option sets and fallbacks.</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>6. Status Alignment (Backend → UI)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Status filter groups multiple backend statuses into operational buckets:</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Not Started: NEW, PENDING, NOT_STARTED</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• In Progress: IN_PROGRESS, STARTED</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Pending Approval: SUBMITTED, PENDING_APPROVAL, REVIEW</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Completed: COMPLETED, APPROVED, DONE, FINISHED, SUCCESS</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Overdue: OVERDUE (frontend-derived when due date is past and not completed)</w:t></w:r></w:p>
+
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>7. Implementation Notes (Frontend)</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Implementation is in src/pages/OKRActionsPage.jsx and is shared by both routes (/cfo/okr-actions and /manager/okr-actions).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>Key behaviors:</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Role-based scope selection (org vs department).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Filter locking for Manager view (department + manager).</w:t></w:r></w:p>
+    <w:p><w:r><w:t>• Normalization layer maps backend task payload variants into a consistent action row schema.</w:t></w:r></w:p>
+
+    <w:p><w:r><w:t>Document ends.</w:t></w:r></w:p>
+
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>

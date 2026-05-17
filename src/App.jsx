@@ -20,6 +20,7 @@ import DeptHealthMatrixPage from './pages/DeptHealthMatrixPage';
 import OKRDashboardPage from './pages/OKRDashboardPage';
 import OKRSubTaskPage from './pages/OKRSubTaskPage';
 import RecurringTasksPage from './pages/RecurringTasksPage';
+import OKRActionsPage from './pages/OKRActionsPage';
 import EmployeePerformanceDashboard from './pages/EmployeePerformanceDashboard';
 import DepartmentsPage from './pages/DepartmentsPage';
 import AccessDeniedPage from './pages/AccessDeniedPage';
@@ -118,6 +119,33 @@ function App() {
           />
 
           <Route
+            path="okr-actions"
+            element={
+              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Admin']}>
+                <OKRActionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="cfo/okr-actions"
+            element={
+              <ProtectedRoute allowedRoles={['CFO', 'Admin']}>
+                <OKRActionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="manager/okr-actions"
+            element={
+              <ProtectedRoute allowedRoles={['Manager', 'Admin']}>
+                <OKRActionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="okr-subtask/:okrId"
             element={
               <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Employee', 'Admin']}>
@@ -138,6 +166,15 @@ function App() {
             path="recurring-tasks"
             element={
               <ProtectedRoute allowedRoles={['CFO', 'Admin']}>
+                <RecurringTasksPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="manager/recurring-tasks"
+            element={
+              <ProtectedRoute allowedRoles={['Manager', 'Admin']}>
                 <RecurringTasksPage />
               </ProtectedRoute>
             }

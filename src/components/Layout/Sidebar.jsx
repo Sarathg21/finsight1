@@ -15,6 +15,7 @@ import {
     TrendingUp,
     X,
     Building2,
+    Activity,
 } from 'lucide-react';
 
 const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar }) => {
@@ -138,6 +139,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                         <SectionLabel label="Strategic OKRs" />
                         <NavItem to="/okr-dashboard"   icon={Target}     label="OKR Dashboard" />
                         <NavItem to="/okr-subtask"     icon={Layers}     label="Sub-task Tracking" />
+                        <NavItem to="/okr-actions"     icon={Activity}   label="Action Tracking" />
                         <NavItem to="/recurring-tasks"  icon={RefreshCw} label="Automated Tasks" />
                     </>
                 )}
@@ -151,7 +153,11 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                         {userRole === 'MANAGER' && (
                             <>
                                 <SectionLabel label="Team Management" />
-                                <NavItem to="/tasks/team" icon={Users}    label="Team Tasks" />
+                                <NavItem to="/tasks/team"   icon={Users}     label="Team Tasks" />
+                                <SectionLabel label="Strategic OKRs" />
+                                <NavItem to="/okr-dashboard" icon={Target}   label="OKR Dashboard" />
+                                <NavItem to="/okr-subtask"   icon={Layers}   label="Sub-task Tracking" />
+                                <NavItem to="/okr-actions"   icon={Activity} label="Action Tracking" />
                             </>
                         )}
 
