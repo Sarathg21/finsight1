@@ -154,6 +154,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                             <>
                                 <SectionLabel label="Team Management" />
                                 <NavItem to="/tasks/team"   icon={Users}     label="Team Tasks" />
+                                <NavItem to="/manager/recurring-tasks" icon={RefreshCw} label="Recurring Tasks" />
                                 <SectionLabel label="Strategic OKRs" />
                                 <NavItem to="/okr-dashboard" icon={Target}   label="OKR Dashboard" />
                                 <NavItem to="/okr-subtask"   icon={Layers}   label="Sub-task Tracking" />

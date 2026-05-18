@@ -16,6 +16,7 @@ const PAGE_TITLES = {
     '/okr-dashboard':{ title: 'OKR Dashboard',  subtitle: 'Objectives & key results overview' },
     '/okr-subtask':  { title: 'Sub-task Tracking', subtitle: 'OKR decomposition & progress' },
     '/recurring-tasks':{ title: 'Automated Tasks', subtitle: 'Scheduled & recurring tasks' },
+    '/manager/recurring-tasks': { title: 'Manager Recurring Tasks', subtitle: 'Manage employee recurring action templates under your assigned recurring task branches' },
     '/profile':      { title: 'Profile',        subtitle: 'Account settings & preferences' },
 };
 

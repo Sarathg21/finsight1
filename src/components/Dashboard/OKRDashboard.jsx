@@ -257,6 +257,8 @@ const OKRDashboard = () => {
             const role = (user?.role || '').toUpperCase();
             // Use .includes to handle composite role strings like "CFO- EXEC"
             const isCFO = role.includes('CFO') || role.includes('ADMIN');
+            const cfoReportFallback = { data: {} };
+            const cfoReportListFallback = { data: [] };
 
             const toDateKey = (val) => {
                 if (!val) return null;
@@ -294,7 +296,7 @@ const OKRDashboard = () => {
                 objListSettled, wideObjListSettled, deptsSettled,
             ] = await Promise.allSettled([
                 api.get(isCFO ? '/dashboard/cfo' : '/dashboard/manager', { params: currentParams }),
-                api.get('/reports/cfo/okr/overview', { params: currentParams }),
+                isCFO ? api.get('/reports/cfo/okr/overview', { params: currentParams }) : Promise.resolve(cfoReportFallback),
                 (!isCFO || (deptVal && deptVal.toLowerCase() !== 'all'))
                     ? api.get('/dashboard/manager', { params: currentParams })
                     : Promise.resolve({ data: {} }),
@@ -302,11 +304,11 @@ const OKRDashboard = () => {
                 api.get('/tasks', { params: { ...currentParams, limit: 100, _t: Date.now() } }),
                 api.get('/tasks', { params: { limit: 100, scope: isCFO ? 'org' : 'department' } }),
                 api.get('/tasks', { params: { limit: 100 } }),
-                api.get('/reports/cfo/okr/overview', { params: currentParams }),
+                isCFO ? api.get('/reports/cfo/okr/overview', { params: currentParams }) : Promise.resolve(cfoReportFallback),
                 api.get(isCFO ? '/dashboard/cfo/trends' : '/dashboard/manager/trends', { params: currentParams }).catch(() => api.get('/dashboard/cfo/trends')),
                 api.get(isCFO ? '/dashboard/cfo/today' : '/dashboard/manager/today'),
-                api.get('/reports/cfo/okr/objectives', { params: currentParams }),
-                api.get('/reports/cfo/okr/objectives', { params: wideParams }),
+                isCFO ? api.get('/reports/cfo/okr/objectives', { params: currentParams }) : Promise.resolve(cfoReportListFallback),
+                isCFO ? api.get('/reports/cfo/okr/objectives', { params: wideParams }) : Promise.resolve(cfoReportListFallback),
                 api.get('/departments').catch(() => api.get('/admin/departments')),
             ]);
 

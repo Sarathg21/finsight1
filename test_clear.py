@@ -1,0 +1,1 @@
+from google import genai; print("1. New SDK Initialized..."); client = genai.Client(api_key="AIzaSy_YOUR_ACTUAL_SECRET_KEY_GOES_HERE"); print("2. Sending fresh request..."); response = client.models.generate_content(model="gemini-2.5-flash", contents="Hello. Reply with Success."); print("3. Response:", response.text)

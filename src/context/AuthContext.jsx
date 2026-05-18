@@ -16,10 +16,13 @@ export const AuthProvider = ({ children }) => {
 
     const normalizeUser = (u) => ({
         id: u.emp_id || u.id,           // backend uses emp_id
+        emp_id: u.emp_id || u.id,
         name: u.name,
         email: u.email || '',
         role: normalizeRole(u.role),
-        department: u.department_id || u.department || '',
+        department_id: u.department_id || u.dept_id || '',
+        department: u.department || u.department_name || u.department_id || u.dept_id || '',
+        department_name: u.department_name || u.department || '',
         manager_id: u.manager_emp_id || u.manager_id || null,
         active: u.active,
         gender: u.gender || 'male',    // Default to 'male' if not provided

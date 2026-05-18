@@ -96,6 +96,7 @@ const OKRSubTaskPage = () => {
     const { user } = useAuth();
     const userRole = (user?.role || '').toUpperCase();
     const isAdmin = userRole === 'ADMIN';
+    const canUseCfoReports = userRole.includes('CFO') || userRole.includes('ADMIN');
     const navigate = useNavigate();
 
     const today = new Date().toISOString().slice(0, 10);
@@ -156,11 +157,13 @@ const OKRSubTaskPage = () => {
             const wideParams = { from_date: '2026-01-01', to_date: today };
 
             const [overviewRes, listRes, summaryRes, wideListRes, tasksRes] = await Promise.all([
-                api.get('/reports/cfo/okr/overview', { params }).catch(() => ({ data: {} })),
-                api.get('/reports/cfo/okr/objectives', { params }).catch(() => ({ data: [] })),
-                api.get('/dashboard/cfo', { params }).catch(() => ({ data: {} })),
+                canUseCfoReports ? api.get('/reports/cfo/okr/overview', { params }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+                canUseCfoReports ? api.get('/reports/cfo/okr/objectives', { params }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+                canUseCfoReports
+                    ? api.get('/dashboard/cfo', { params }).catch(() => ({ data: {} }))
+                    : (userRole === 'MANAGER' ? api.get('/dashboard/manager', { params }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })),
                 // Fallback for the dropdown list – always get at least something if db has it
-                api.get('/reports/cfo/okr/objectives', { params: wideParams }).catch(() => ({ data: [] })),
+                canUseCfoReports ? api.get('/reports/cfo/okr/objectives', { params: wideParams }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
                 api.get('/tasks', { params: { limit: 150, scope: (userRole === 'CFO' || userRole === 'ADMIN') ? 'org' : 'department' } }).catch(() => ({ data: [] }))
             ]);
 
@@ -280,7 +283,7 @@ const OKRSubTaskPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [isAdmin, filters.from_date, filters.to_date, filters.currentOkrId, today]);
+    }, [isAdmin, canUseCfoReports, userRole, filters.from_date, filters.to_date, filters.currentOkrId, today]);
 
     /* ── fetch drilldown (subtasks + summary + depts) ──────────────────────── */
     const fetchDrilldown = useCallback(async (okrId) => {
@@ -291,9 +294,9 @@ const OKRSubTaskPage = () => {
             const params = { from_date: filters.from_date, to_date: filters.to_date };
 
             const [summaryRes, subtasksRes, deptsRes] = await Promise.all([
-                api.get(`/reports/cfo/okr/objectives/${okrId}/summary`,     { params }).catch(() => ({ data: {} })),
-                api.get(`/reports/cfo/okr/objectives/${okrId}/subtasks`,    { params }).catch(() => ({ data: [] })),
-                api.get(`/reports/cfo/okr/objectives/${okrId}/departments`, { params }).catch(() => ({ data: [] })),
+                canUseCfoReports ? api.get(`/reports/cfo/okr/objectives/${okrId}/summary`,     { params }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+                canUseCfoReports ? api.get(`/reports/cfo/okr/objectives/${okrId}/subtasks`,    { params }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
+                canUseCfoReports ? api.get(`/reports/cfo/okr/objectives/${okrId}/departments`, { params }).catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
             ]);
 
             let summaryData = summaryRes.data?.data || summaryRes.data || {};
@@ -441,7 +444,7 @@ const OKRSubTaskPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [objectivesList, filters.from_date, filters.to_date]);
+    }, [canUseCfoReports, objectivesList, filters.from_date, filters.to_date]);
 
     /* effects */
     useEffect(() => { fetchInitialData(); }, []); // Only on mount. Updates via handleApply.

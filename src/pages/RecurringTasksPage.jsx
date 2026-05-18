@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { 
@@ -83,21 +83,10 @@ const RecurringTasksPage = () => {
         
         setLoading(true);
         try {
-            // Single call with large limit — avoids sending redundant parallel requests
-            const endpointCalls = [
-                api.get('/recurring-tasks', { params: { limit: 100 } }), // Standard (Personal or Default)
-            ];
-
-            if (isAdminOrCFO) {
-                // Try scope=org (standard for Admin/CFO in this backend)
-                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'org', limit: 100 } }).catch(() => ({ data: [] })));
-                endpointCalls.push(api.get('/recurring-tasks', { params: { limit: 100 } }).catch(() => ({ data: [] })));
-            } else if (user?.role?.toUpperCase() === 'MANAGER') {
-                // Try department scope for managers
-                endpointCalls.push(api.get('/recurring-tasks', { params: { scope: 'department', limit: 100 } }).catch(() => ({ data: [] })));
-            }
-
-            const results = await Promise.allSettled(endpointCalls);
+            // /recurring-tasks does not support a `scope` query param; RBAC is handled by the backend.
+            const results = await Promise.allSettled([
+                api.get('/recurring-tasks')
+            ]);
 
             // Helper to extract array from any response shape
             const extractList = (res) => {
@@ -257,6 +246,64 @@ const RecurringTasksPage = () => {
         // Numeric values like '1' stored by backend — treat as Weekly
         if (/^\d+$/.test(freq)) return 'Weekly';
         return freq || 'Daily';
+    };
+    const getAssignedByLabel = (template) => {
+        const explicitName =
+            template?.assigned_by_name ||
+            template?.assigner_name ||
+            template?.created_by_name ||
+            template?.creator_name ||
+            '';
+        const assignedByRole = String(
+            template?.assigned_by_role ||
+            template?.created_by_role ||
+            template?.creator_role ||
+            ''
+        ).toUpperCase();
+        const assignedById = String(
+            template?.assigned_by_emp_id ||
+            template?.assigned_by_id ||
+            template?.created_by_emp_id ||
+            template?.created_by ||
+            ''
+        ).trim();
+        const assignedToRole = String(
+            template?.assigned_to_role ||
+            template?.assignee_role ||
+            template?.executor_role ||
+            ''
+        ).toUpperCase();
+        const assignedToId = String(
+            template?.assigned_to_emp_id ||
+            template?.assigned_to_id ||
+            template?.assigned_to ||
+            template?.assignee_emp_id ||
+            template?.assignee_id ||
+            ''
+        ).trim();
+        const assignedToName = String(
+            template?.assigned_to_name ||
+            template?.assignee_name ||
+            template?.executor_name ||
+            ''
+        ).trim();
+        const currentUserId = String(user?.emp_id || user?.id || '');
+        const currentUserRole = String(user?.role || '').toUpperCase();
+        const genericSystemLabel = !explicitName || /^system\s+admin$/i.test(explicitName);
+
+        const isCfoOwned =
+            assignedByRole === 'CFO' ||
+            assignedById.toUpperCase().startsWith('CFO') ||
+            assignedToRole === 'CFO' ||
+            assignedToId.toUpperCase().startsWith('CFO') ||
+            /\bCFO\b/i.test(assignedToName) ||
+            (
+                currentUserRole === 'CFO' &&
+                (!assignedById || assignedById === currentUserId || assignedToId === currentUserId)
+            );
+
+        if (isCfoOwned && genericSystemLabel) return 'CFO';
+        return explicitName || (currentUserRole === 'CFO' ? 'CFO' : 'System Admin');
     };
 
     // Removed: old handleRunRecurringTasks – replaced by RunForDateModal
@@ -433,7 +480,7 @@ const RecurringTasksPage = () => {
                                                 </td>
                                                 <td className="px-4 py-5">
                                                     <div className="flex flex-col">
-                                                        <span className="text-[13px] font-bold text-slate-700">{t.assigned_by_name || 'System Admin'}</span>
+                                                        <span className="text-[13px] font-bold text-slate-700">{getAssignedByLabel(t)}</span>
                                                         <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-0.5">Executor</span>
                                                     </div>
                                                 </td>
@@ -534,6 +581,17 @@ const RecurringTasksPage = () => {
                                                                                             {st.description}
                                                                                         </p>
                                                                                     )}
+                                                                                    {(() => {
+                                                                                        const parentRid = t.id || t.recurring_id;
+                                                                                        const subId = st.id || st.subtask_template_id || st.subtask_id;
+                                                                                        if (!parentRid || !subId || !(st.assigned_to_emp_id || st.assigned_to)) return null;
+                                                                                        const managerBranchUrl = `/manager/recurring-tasks?recurring_id=${encodeURIComponent(parentRid)}&subtask_template_id=${encodeURIComponent(subId)}&parent_title=${encodeURIComponent(t.title || '')}&child_title=${encodeURIComponent(st.title || '')}&frequency=${encodeURIComponent(t.frequency || '')}`;
+                                                                                        return (
+                                                                                            <Link to={managerBranchUrl} className="mt-2 inline-block text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-wider">
+                                                                                                Open manager recurring page →
+                                                                                            </Link>
+                                                                                        );
+                                                                                    })()}
                                                                                 </div>
                                                                                 <span className="ml-auto shrink-0 text-[9px] font-black text-slate-300 uppercase tracking-widest self-center">{st.priority}</span>
                                                                             </div>

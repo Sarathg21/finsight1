@@ -20,6 +20,7 @@ import DeptHealthMatrixPage from './pages/DeptHealthMatrixPage';
 import OKRDashboardPage from './pages/OKRDashboardPage';
 import OKRSubTaskPage from './pages/OKRSubTaskPage';
 import RecurringTasksPage from './pages/RecurringTasksPage';
+import ManagerRecurringTasksPage from './pages/ManagerRecurringTasksPage';
 import OKRActionsPage from './pages/OKRActionsPage';
 import EmployeePerformanceDashboard from './pages/EmployeePerformanceDashboard';
 import DepartmentsPage from './pages/DepartmentsPage';
@@ -27,9 +28,10 @@ import AccessDeniedPage from './pages/AccessDeniedPage';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-      <Routes>
+    <AuthProvider>
+      <BrowserRouter>
+        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+        <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -175,7 +177,7 @@ function App() {
             path="manager/recurring-tasks"
             element={
               <ProtectedRoute allowedRoles={['Manager', 'Admin']}>
-                <RecurringTasksPage />
+                <ManagerRecurringTasksPage />
               </ProtectedRoute>
             }
           />
@@ -200,8 +202,9 @@ function App() {
 
         <Route path="/access-denied" element={<AccessDeniedPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

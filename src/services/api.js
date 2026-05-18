@@ -96,7 +96,8 @@ api.interceptors.response.use(
             }
         } else if (status === 422) {
             // Blob requests handle their own error display — skip global toast
-            if (!isBlob) {
+            const skipToast = error.config?.skipErrorToast === true;
+            if (!isBlob && !skipToast) {
                 const detail = error.response?.data?.detail;
                 const msg = Array.isArray(detail)
                     ? detail.map(d => d.msg).join(', ')
@@ -110,13 +111,15 @@ api.interceptors.response.use(
             // Gracefully resolve 403s ONLY for GET requests for authenticated users.
             // State-changing actions (POST, PUT, DELETE) must fail explicitly so users 
             // know their action (like approval or deletion) was not performed.
+            // Callers can set skip403Graceful: true to receive the real 403 (e.g. manager recurring).
             try {
                 const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
                 const isGet = error.config?.method?.toLowerCase() === 'get';
+                const skipGraceful = error.config?.skip403Graceful === true;
 
                 // We should NOT mock data for blob/binary requests (like downloads) 
                 // as it would return a corrupted file (the dummy JSON as a blob).
-                if (savedUser?.role && isGet && !isBlob) {
+                if (savedUser?.role && isGet && !isBlob && !skipGraceful) {
                     console.warn(`[API] 403 Forbidden on ${url} for role ${savedUser.role}. Resolving gracefully.`);
                     return Promise.resolve({ data: { data: [], notifications: [], items: [], status: 'success' } });
                 }

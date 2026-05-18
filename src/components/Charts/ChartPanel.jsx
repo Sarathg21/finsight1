@@ -9,8 +9,8 @@ const ChartPanel = ({ title, children, height = 220, compact = true, titleClassN
             <h3 className={`font-bold tracking-tight text-slate-800 capitalize ${titleClassName || (compact ? 'text-xs mb-3' : 'text-sm mb-6')}`}>
                 {title}
             </h3>
-            <div className="relative z-10">
-                <ResponsiveContainer width="100%" height={height} minWidth={150} minHeight={height}>
+            <div className="relative z-10 w-full" style={{ minHeight: height }}>
+                <ResponsiveContainer width="100%" height={height} minWidth={1} minHeight={height}>
                     {children}
                 </ResponsiveContainer>
             </div>

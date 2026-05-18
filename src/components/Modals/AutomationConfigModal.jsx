@@ -7,23 +7,25 @@ import {
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
+const getInitialFormData = () => ({
+    title: '',
+    description: '',
+    frequency: 'WEEKLY',
+    weekly_day: 1,
+    monthly_day: 1,
+    yearly_month: 1,
+    yearly_day: 1,
+    status: 'ACTIVE',
+    department_id: '',
+    assigned_to_emp_id: '',
+    priority: 'MEDIUM',
+    start_date: new Date().toISOString().slice(0, 10),
+    end_date: '',
+    due_in_days: 0
+});
+
 const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
-    const [formData, setFormData] = useState({
-        title: '',
-        description: '',
-        frequency: 'WEEKLY',
-        weekly_day: 1,
-        monthly_day: 1,
-        yearly_month: 1,
-        yearly_day: 1,
-        status: 'ACTIVE',
-        department_id: '',
-        assigned_to_emp_id: '',
-        priority: 'MEDIUM',
-        start_date: new Date().toISOString().slice(0, 10),
-        end_date: '',
-        due_in_days: 0
-    });
+    const [formData, setFormData] = useState(getInitialFormData);
     const [subtasks, setSubtasks] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [employees, setEmployees] = useState([]);
@@ -52,6 +54,10 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             fetchSubtasks(rid);
             fetchMetadata();
         } else if (isOpen) {
+            setFormData(getInitialFormData());
+            setSubtasks([]);
+            setLoadingSubtasks(false);
+            setSubmitting(false);
             fetchMetadata();
         }
     }, [template, isOpen]);
