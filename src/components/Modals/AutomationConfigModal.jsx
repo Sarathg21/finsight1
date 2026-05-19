@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-    X, RefreshCw, Calendar, Clock, User, 
+    X, RefreshCw, Calendar, User, 
     Building2, AlertCircle, Loader2, Save,
     Plus, Trash2
 } from 'lucide-react';
@@ -23,6 +23,11 @@ const getInitialFormData = () => ({
     end_date: '',
     due_in_days: 0
 });
+
+const toNonNegativeDayCount = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
 
 const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
     const [formData, setFormData] = useState(getInitialFormData);
@@ -190,7 +195,8 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             department_id: defaultDept || null, // Double field for compatibility
             assigned_to_emp_id: defaultEmp || null,
             priority: 'MEDIUM',
-            sequence_no: maxSeq + 1
+            sequence_no: maxSeq + 1,
+            due_in_days: toNonNegativeDayCount(formData.due_in_days)
         };
 
         if (!rid) {
@@ -240,13 +246,27 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
     const handleUpdateSubtask = async (targetId, updates) => {
         const rid = template?.id || template?.recurring_id;
         const isLocal = String(targetId).startsWith('local-');
+        const existingSubtask = subtasks.find(st => String(getSubtaskId(st)) === String(targetId));
+        const normalizedUpdates = { ...updates };
+        if (!Object.prototype.hasOwnProperty.call(normalizedUpdates, 'due_in_days')) {
+            normalizedUpdates.due_in_days = toNonNegativeDayCount(existingSubtask?.due_in_days);
+        }
+        if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'due_in_days')) {
+            const parentDueInDays = toNonNegativeDayCount(formData.due_in_days);
+            const childDueInDays = toNonNegativeDayCount(normalizedUpdates.due_in_days);
+            if (childDueInDays > parentDueInDays) {
+                toast.error(`Child template due days must be less than or equal to parent due days (${parentDueInDays}).`);
+                return;
+            }
+            normalizedUpdates.due_in_days = childDueInDays;
+        }
 
         // ✅ LOCAL → no API call
         if (isLocal) {
             setSubtasks(prev =>
                 prev.map(st => {
                     const sid = getSubtaskId(st);
-                    return String(sid) === String(targetId) ? { ...st, ...updates } : st;
+                    return String(sid) === String(targetId) ? { ...st, ...normalizedUpdates } : st;
                 })
             );
             return;
@@ -258,7 +278,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
         }
 
         try {
-            const sanitizedUpdates = { ...updates };
+            const sanitizedUpdates = { ...normalizedUpdates };
             // Standardize field names for backend compatibility
             if (sanitizedUpdates.dept_id) {
                 sanitizedUpdates.department_id = sanitizedUpdates.dept_id;
@@ -282,7 +302,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 prev.map(st => {
                     const sid = getSubtaskId(st);
                     return String(sid) === String(targetId)
-                        ? { ...st, ...updates }
+                        ? { ...st, ...normalizedUpdates }
                         : st;
                 })
             );
@@ -346,6 +366,13 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             return;
         }
 
+        const parentDueInDays = toNonNegativeDayCount(formData.due_in_days);
+        const invalidSubtask = subtasks.find(st => toNonNegativeDayCount(st.due_in_days) > parentDueInDays);
+        if (invalidSubtask) {
+            toast.error(`Child template due days must be less than or equal to parent due days (${parentDueInDays}).`);
+            return;
+        }
+
         const rid = template?.id || template?.recurring_id;
         setSubmitting(true);
         try {
@@ -371,7 +398,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 interval_days: 1,
                 start_date: formData.start_date || new Date().toISOString().slice(0, 10),
                 end_date: formData.end_date || null,
-                due_in_days: parseInt(formData.due_in_days, 10) || 0,
+                due_in_days: parentDueInDays,
                 weekly_day: formData.frequency === 'WEEKLY' ? weeklyDayInt : null,
                 monthly_day: formData.frequency === 'MONTHLY' ? (parseInt(formData.monthly_day, 10) || 1) : null,
                 yearly_month: formData.frequency === 'YEARLY' ? (parseInt(formData.yearly_month, 10) || 1) : null,
@@ -391,6 +418,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                     for (const st of subtasks) {
                         try {
                             const { id, ...stPayload } = st; 
+                            stPayload.due_in_days = toNonNegativeDayCount(stPayload.due_in_days);
                             await api.post(`/recurring-tasks/${newRid}/subtasks`, stPayload);
                         } catch (stErr) {
                             console.error("Failed to save local subtask", stErr);
@@ -777,11 +805,25 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                 </select>
                                                             </div>
                                                             <div className="space-y-1">
-                                                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Timeline</label>
-                                                                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                                                                    <Clock size={12} className="text-slate-400" />
-                                                                    <span className="text-[11px] font-bold text-slate-500 italic">Rules Based</span>
-                                                                </div>
+                                                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Due In Days</label>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max={toNonNegativeDayCount(formData.due_in_days)}
+                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                                    value={st.due_in_days ?? 0}
+                                                                    onChange={(e) => {
+                                                                        const nextDueInDays = toNonNegativeDayCount(e.target.value);
+                                                                        setSubtasks(prev => prev.map(s => {
+                                                                            const sid = getSubtaskId(s);
+                                                                            const tid = getSubtaskId(st);
+                                                                            return String(sid) === String(tid) ? { ...s, due_in_days: nextDueInDays } : s;
+                                                                        }));
+                                                                    }}
+                                                                    onBlur={(e) => handleUpdateSubtask(subtaskId, { due_in_days: e.target.value })}
+                                                                    title="Must be less than or equal to the parent template due days"
+                                                                />
+                                                                <p className="mt-1 text-[9px] font-semibold text-slate-400">Must be within parent due timeline</p>
                                                             </div>
                                                         </div>
                                                     </div>

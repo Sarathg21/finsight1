@@ -27,6 +27,11 @@ const unwrapList = (res) => {
 
 const TEMPLATE_PAGE_SIZE = 10;
 
+const toNonNegativeDayCount = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
+
 const buildBranchRecord = ({
     recurring_id,
     subtask_template_id,
@@ -138,6 +143,7 @@ const ManagerRecurringTasksPage = () => {
         assigned_to_emp_id: '',
         priority: 'MEDIUM',
         sequence_no: 1,
+        due_in_days: 0,
         is_active: true,
     });
     const [editingTemplateId, setEditingTemplateId] = useState(null);
@@ -324,6 +330,7 @@ const ManagerRecurringTasksPage = () => {
                     assigned_to_name: item.assigned_to_name || item.assignee_name || item.employee_name || '',
                     priority: item.priority || item.severity || 'MEDIUM',
                     sequence_no: (item.sequence_no ?? item.sequence) || 1,
+                    due_in_days: item.due_in_days ?? item.dueDays ?? item.due_in_days_count ?? 0,
                     is_active: item.is_active ?? item.active ?? true,
                     created_by_emp_id: item.created_by_emp_id || item.approver_emp_id || item.created_by || '',
                 }))
@@ -345,6 +352,7 @@ const ManagerRecurringTasksPage = () => {
             assigned_to_emp_id: '',
             priority: 'MEDIUM',
             sequence_no: 1,
+            due_in_days: 0,
             is_active: true,
         });
         setEditingTemplateId(null);
@@ -382,6 +390,7 @@ const ManagerRecurringTasksPage = () => {
             assigned_to_emp_id: template.assigned_to_emp_id || '',
             priority: template.priority || 'MEDIUM',
             sequence_no: template.sequence_no ?? 1,
+            due_in_days: template.due_in_days ?? 0,
             is_active: template.is_active ?? true,
         });
     };
@@ -417,6 +426,13 @@ const ManagerRecurringTasksPage = () => {
             return;
         }
 
+        const childDueInDays = toNonNegativeDayCount(branch.due_in_days);
+        const actionDueInDays = toNonNegativeDayCount(formData.due_in_days);
+        if (actionDueInDays > childDueInDays) {
+            toast.error(`Action template due days must be less than or equal to child template due days (${childDueInDays}).`);
+            return;
+        }
+
         const payload = {
             title: formData.title.trim(),
             description: formData.description.trim(),
@@ -424,6 +440,7 @@ const ManagerRecurringTasksPage = () => {
             assigned_to_emp_id: formData.assigned_to_emp_id,
             priority: formData.priority,
             sequence_no: Number(formData.sequence_no),
+            due_in_days: actionDueInDays,
         };
 
         if (formMode === 'edit') {

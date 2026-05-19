@@ -128,6 +128,19 @@ const EmployeeActionFormPanel = ({
                             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                         />
                     </div>
+                    <div>
+                        <label className="mb-1 block text-xs font-semibold text-slate-600">Due In Days <span className="text-rose-500">*</span></label>
+                        <input
+                            type="number"
+                            min={0}
+                            max={Number(selectedBranch?.due_in_days) || 0}
+                            value={formData.due_in_days}
+                            onChange={e => setFormData(p => ({ ...p, due_in_days: Number(e.target.value) }))}
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                            placeholder={`Max ${Number(selectedBranch?.due_in_days) || 0} days`}
+                        />
+                        <p className="mt-1 text-xs text-slate-400">Must be within child due timeline</p>
+                    </div>
                     <div className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                         <span className="text-sm font-medium text-slate-700">Status</span>
                         <div className="flex items-center gap-2">

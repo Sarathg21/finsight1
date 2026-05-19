@@ -6,6 +6,11 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Clock, Plus, Trash2, FolderOpen, GitBranch, Info, ChevronRight, User2, Users2 } from 'lucide-react';
 import SearchableSelect from '../components/UI/SearchableSelect';
 
+const toNonNegativeDayCount = (value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
+
 const AssignTaskPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -243,7 +248,8 @@ const AssignTaskPage = () => {
             start_date: '',
             end_date: '',
             priority: 'MEDIUM',
-            sequence_no: subtasks.length + 1
+            sequence_no: subtasks.length + 1,
+            due_in_days: toNonNegativeDayCount(formData.dueInDays)
         }]);
     };
 
@@ -286,6 +292,14 @@ const AssignTaskPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (formData.isRecurring) {
+            const parentDueInDays = toNonNegativeDayCount(formData.dueInDays);
+            const invalidSubtask = subtasks.find(st => toNonNegativeDayCount(st.due_in_days) > parentDueInDays);
+            if (invalidSubtask) {
+                toast.error(`Child template due days must be less than or equal to parent due days (${parentDueInDays}).`);
+                return;
+            }
+        }
         const typeLabel = formData.isRecurring ? "recurring task" : "task";
         const confirmed = window.confirm(`Are you sure you want to assign this ${typeLabel}?`);
         if (!confirmed) return;
@@ -324,7 +338,7 @@ const AssignTaskPage = () => {
                     start_date: formData.startDate || new Date().toISOString().split('T')[0],
                     end_date: formData.endDate || null,
                     status: formData.status,
-                    due_in_days: parseInt(formData.dueInDays, 10) || 0
+                    due_in_days: toNonNegativeDayCount(formData.dueInDays)
                 };
 
                 const res = await api.post('/recurring-tasks', recurringPayload);
@@ -340,7 +354,8 @@ const AssignTaskPage = () => {
                                 department_id: st.department_id,
                                 assigned_to_emp_id: st.assigned_to_emp_id,
                                 priority: st.priority,
-                                sequence_no: st.sequence_no
+                                sequence_no: st.sequence_no,
+                                due_in_days: toNonNegativeDayCount(st.due_in_days)
                             });
                         } catch (stErr) {
                             console.error("Subtask post failed", stErr);
@@ -969,6 +984,19 @@ const AssignTaskPage = () => {
                                                                     ))
                                                                 }
                                                             </select>
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Due In Days</label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max={toNonNegativeDayCount(formData.dueInDays)}
+                                                                className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
+                                                                value={st.due_in_days ?? 0}
+                                                                onChange={(e) => handleSubtaskChange(idx, 'due_in_days', toNonNegativeDayCount(e.target.value))}
+                                                                title="Must be less than or equal to parent due days"
+                                                            />
+                                                            <p className="mt-1 text-[9px] font-semibold text-slate-400">Must be within parent due timeline</p>
                                                         </div>
                                                     </div>
                                                 </div>
