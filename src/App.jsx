@@ -176,7 +176,7 @@ function App() {
           <Route
             path="manager/recurring-tasks"
             element={
-              <ProtectedRoute allowedRoles={['Manager', 'Admin']}>
+              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Admin']}>
                 <ManagerRecurringTasksPage />
               </ProtectedRoute>
             }
