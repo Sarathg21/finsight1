@@ -315,11 +315,13 @@ const OKRActionsPage = () => {
     <div className="min-h-screen bg-[#f5f6fa] p-4 sm:p-6 font-sans text-slate-800">
       <div className="mb-5">
         <h1 className="text-2xl font-black text-[#3730a3] tracking-tight">OKR Actions</h1>
-        <nav className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-          <span className="hover:text-indigo-600 cursor-pointer" onClick={() => navigate('/okr-dashboard')}>OKR Dashboard</span>
-          <span>→</span>
-          <span className="text-indigo-600">Actions</span>
-        </nav>
+        {isCfoRole && (
+          <nav className="flex items-center gap-1.5 mt-1 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+            <span className="hover:text-indigo-600 cursor-pointer" onClick={() => navigate('/okr-dashboard')}>OKR Dashboard</span>
+            <span>→</span>
+            <span className="text-indigo-600">Actions</span>
+          </nav>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">

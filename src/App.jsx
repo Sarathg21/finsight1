@@ -105,7 +105,7 @@ function App() {
           <Route
             path="okr-dashboard"
             element={
-              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Employee', 'Admin']}>
+              <ProtectedRoute allowedRoles={['CFO', 'Employee', 'Admin']}>
                 <OKRDashboardPage />
               </ProtectedRoute>
             }
@@ -114,7 +114,7 @@ function App() {
           <Route
             path="okr-subtask"
             element={
-              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Employee', 'Admin']}>
+              <ProtectedRoute allowedRoles={['CFO', 'Employee', 'Admin']}>
                 <OKRSubTaskPage />
               </ProtectedRoute>
             }
@@ -150,7 +150,7 @@ function App() {
           <Route
             path="okr-subtask/:okrId"
             element={
-              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Employee', 'Admin']}>
+              <ProtectedRoute allowedRoles={['CFO', 'Employee', 'Admin']}>
                 <OKRSubTaskPage />
               </ProtectedRoute>
             }
