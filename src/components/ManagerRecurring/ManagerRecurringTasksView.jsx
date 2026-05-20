@@ -307,7 +307,7 @@ const ManagerRecurringTasksView = ({
                         </button>
                     </div>
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[700px] text-sm text-left">
+                        <table className="w-full min-w-[780px] text-sm text-left">
                             <thead className="bg-slate-50 text-[11px] font-semibold uppercase text-slate-500">
                                 <tr>
                                     <th className="w-10 px-3 py-3">#</th>
@@ -316,17 +316,18 @@ const ManagerRecurringTasksView = ({
                                     <th className="px-3 py-3">Department</th>
                                     <th className="px-3 py-3">Priority</th>
                                     <th className="px-3 py-3">Sequence</th>
+                                    <th className="px-3 py-3">Due In Days</th>
                                     <th className="px-3 py-3">Status</th>
                                     <th className="px-3 py-3 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {templateLoading ? (
-                                    <tr><td colSpan={8} className="py-14 text-center"><Loader2 className="mx-auto animate-spin text-slate-400" size={22} /></td></tr>
+                                    <tr><td colSpan={9} className="py-14 text-center"><Loader2 className="mx-auto animate-spin text-slate-400" size={22} /></td></tr>
                                 ) : !selectedBranch ? (
-                                    <tr><td colSpan={8} className="py-14 text-center text-slate-500 text-sm">Select a recurring branch to load employee action templates.</td></tr>
+                                    <tr><td colSpan={9} className="py-14 text-center text-slate-500 text-sm">Select a recurring branch to load employee action templates.</td></tr>
                                 ) : templates.length === 0 ? (
-                                    <tr><td colSpan={8} className="py-14 text-center text-slate-500 text-sm">No employee templates yet. Use the sidebar or &quot;Add New&quot; to create one.</td></tr>
+                                    <tr><td colSpan={9} className="py-14 text-center text-slate-500 text-sm">No employee templates yet. Use the sidebar or &quot;Add New&quot; to create one.</td></tr>
                                 ) : paginatedTemplates.map((template, idx) => (
                                     <tr key={template.action_template_id || template.id} className="hover:bg-slate-50">
                                         <td className="px-3 py-3 text-slate-500">{templateRangeStart + idx}</td>
@@ -335,6 +336,7 @@ const ManagerRecurringTasksView = ({
                                         <td className="px-3 py-3 text-slate-600">{template.department_id}</td>
                                         <td className="px-3 py-3"><PriorityBadge priority={template.priority} styles={PRIORITY_STYLES} /></td>
                                         <td className="px-3 py-3 text-slate-600">{template.sequence_no}</td>
+                                        <td className="px-3 py-3 text-slate-600">{template.due_in_days ?? 0}</td>
                                         <td className="px-3 py-3"><StatusBadge active={template.is_active} /></td>
                                         <td className="px-3 py-3">
                                             <div className="flex items-center justify-center gap-1">
