@@ -477,8 +477,7 @@ const OrgTreePage = () => {
 
         const selfMatch =
             (empDeptId   && (empDeptId === filterUp   || validIds.includes(empDeptId)))   ||
-            (empDeptName && (empDeptName === filterUp || validNames.includes(empDeptName))) ||
-            empDeptId.includes(filterUp) || empDeptName.includes(filterUp);
+            (empDeptName && (empDeptName === filterUp || validNames.includes(empDeptName)));
         
         // Recursively filter children
         const filteredChildren = (node.children || [])
