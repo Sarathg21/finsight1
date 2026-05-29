@@ -1,293 +1,592 @@
-import { useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
-import { ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
-import { useFilters } from '../context/FilterContext';
-import FilterBar from '../components/FilterBar';
-import { MONTHLY_PL, MONTHLY_REVENUE, DIVISION_PERFORMANCE } from '../data/masterData';
 
-/* ── comparison multipliers ──────────────────────────────────────── */
-const COMP_MULT = { vs_py: 0.88, vs_budget: 0.94, vs_pm: 0.93, ytd_vs_bgt: 0.96 };
-const COMP_COLOR = { vs_py: '#f59e0b', vs_budget: '#ec4899', vs_pm: '#0ea5e9', ytd_vs_bgt: '#10b981' };
+/* ─── Color Palette ────────────────────────────────────────────── */
+const C = {
+  navy:    '#1a3a6b',
+  blue:    '#2563eb',
+  blue2:   '#3b82f6',
+  green:   '#16a34a',
+  green2:  '#22c55e',
+  orange:  '#f59e0b',
+  purple:  '#7c3aed',
+  cyan:    '#0891b2',
+  rose:    '#e11d48',
+  teal:    '#0d9488',
+  slate:   '#64748b',
+  muted:   '#94a3b8',
+  bg:      '#f1f5fb',
+  surface: '#ffffff',
+  border:  '#e2e8f0',
+};
 
-export default function PLAnalytics() {
-  const { filters, meta } = useFilters();
-  const { activeMonthIndices, comparison, division, currency } = filters;
-  const { activeMonthLabel, comparisonLabel } = meta;
+/* ─── Sparkline data ───────────────────────────────────────────── */
+const SP_REV    = [85,90,95,100,105,108,112,118,120,123,126,125.75];
+const SP_GP     = [20,22,24,25,26,27,27.5,28,28.2,28.3,28.4,28.35];
+const SP_EBITDA = [14,15,16,17,17.5,18,18.1,18.3,18.4,18.4,18.42,18.42];
+const SP_NP     = [8,8.5,9,9.5,9.8,10,10.1,10.2,10.24,10.25,10.25,10.25];
+const SP_NPM    = [6,6.5,7,7.5,7.8,8,8.1,8.12,8.14,8.15,8.15,8.15];
+const SP_EBITM  = [12,13,13.5,14,14.2,14.4,14.5,14.6,14.64,14.65,14.66,14.66];
 
-  const [expandRow, setExpandRow] = useState(null);
+/* ─── KPI Infolet config ───────────────────────────────────────── */
+const KPI_CARDS = [
+  {
+    id: 'total-rev', label: 'Total Revenue (MTD)',
+    value: '₹ 125.75 Cr', change: '18.86% vs Mar 2024', up: true,
+    iconBg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)', icon: '📈',
+    spark: SP_REV, sparkColor: C.blue,
+  },
+  {
+    id: 'gross-profit', label: 'Gross Profit (MTD)',
+    value: '₹ 28.35 Cr', change: '17.11% vs Mar 2024', up: true,
+    iconBg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)', icon: '💰',
+    spark: SP_GP, sparkColor: C.green,
+  },
+  {
+    id: 'ebitda', label: 'EBITDA (MTD)',
+    value: '₹ 18.42 Cr', change: '15.46% vs Mar 2024', up: true,
+    iconBg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)', icon: '📊',
+    spark: SP_EBITDA, sparkColor: C.purple,
+  },
+  {
+    id: 'net-profit', label: 'Net Profit (MTD)',
+    value: '₹ 10.25 Cr', change: '23.11% vs Mar 2024', up: true,
+    iconBg: 'linear-gradient(135deg,#fff7ed,#fed7aa)', icon: '🏆',
+    spark: SP_NP, sparkColor: C.orange,
+  },
+  {
+    id: 'np-margin', label: 'Net Profit Margin (MTD)',
+    value: '8.15%', change: '0.79% vs Mar 2024', up: true,
+    iconBg: 'linear-gradient(135deg,#e0f2fe,#bae6fd)', icon: '📉',
+    spark: SP_NPM, sparkColor: C.cyan,
+  },
+  {
+    id: 'ebitda-margin', label: 'EBITDA Margin (MTD)',
+    value: '14.66%', change: '0.62% vs Mar 2024', up: true,
+    iconBg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)', icon: '⏰',
+    spark: SP_EBITM, sparkColor: '#e879a0',
+  },
+];
 
-  /* ── slice & aggregate ─────────────────────────────────────────── */
-  const slicedPL  = useMemo(() => MONTHLY_PL.filter((_, i) => activeMonthIndices.includes(i)), [activeMonthIndices]);
-  const slicedRev = useMemo(() => MONTHLY_REVENUE.filter((_, i) => activeMonthIndices.includes(i)), [activeMonthIndices]);
+/* ─── P&L Trend chart ──────────────────────────────────────────── */
+const PL_TREND = [
+  { month: 'Nov', Revenue: 95,  'Gross Profit': 22, 'Net Profit': 8  },
+  { month: 'Dec', Revenue: 132, 'Gross Profit': 29, 'Net Profit': 12 },
+  { month: 'Jan', Revenue: 88,  'Gross Profit': 20, 'Net Profit': 7  },
+  { month: 'Feb', Revenue: 142, 'Gross Profit': 31, 'Net Profit': 13 },
+  { month: 'Mar', Revenue: 118, 'Gross Profit': 26, 'Net Profit': 10 },
+  { month: 'Apr', Revenue: 126, 'Gross Profit': 28, 'Net Profit': 10 },
+];
 
-  const totals = useMemo(() => {
-    const rev  = slicedRev.reduce((s, m) => s + m.actual,      0);
-    const bgt  = slicedRev.reduce((s, m) => s + m.budget,      0);
-    const py   = slicedRev.reduce((s, m) => s + m.py,          0);
-    const gp   = slicedPL.reduce((s, m)  => s + m.grossProfit, 0);
-    const ebit = slicedPL.reduce((s, m)  => s + m.ebit,        0);
-    const net  = slicedPL.reduce((s, m)  => s + m.netProfit,   0);
-    const mult = COMP_MULT[comparison] || 0.89;
-    return {
-      rev, bgt, py, gp, ebit, net,
-      revCmp:  +(rev * mult).toFixed(1),
-      gpCmp:   +(gp  * mult).toFixed(1),
-      netCmp:  +(net * mult).toFixed(1),
-      gpMarg:  +((gp / rev) * 100).toFixed(1),
-      netMarg: +((net/ rev) * 100).toFixed(1),
-    };
-  }, [slicedPL, slicedRev, comparison]);
+/* ─── P&L Comparison chart ─────────────────────────────────────── */
+const PL_COMP = [
+  { label: 'Revenue',      apr24: 126, mar24: 112, apr23: 95  },
+  { label: 'Gross Profit', apr24: 28,  mar24: 27,  apr23: 22  },
+  { label: 'EBITDA',       apr24: 18,  mar24: 15,  apr23: 12  },
+  { label: 'Net Profit',   apr24: 10,  mar24: 10,  apr23: 8   },
+];
 
-  /* ── chart: actual vs comparison line ─────────────────────────── */
-  const chartData = useMemo(() => {
-    const mult = COMP_MULT[comparison] || 0.89;
-    return slicedPL.map(m => ({
-      month: m.month,
-      Revenue:    m.revenue,
-      [comparisonLabel]: +(m.revenue * mult).toFixed(1),
-      'Gross Profit': m.grossProfit,
-      'Net Profit':   m.netProfit,
-    }));
-  }, [slicedPL, comparison, comparisonLabel]);
+/* ─── Expense Breakdown donut ──────────────────────────────────── */
+const EXPENSE_PIE = [
+  { name: 'Employee Cost',    value: 36.80, pct: '34.2%', color: '#1a3a6b' },
+  { name: 'Sales & Marketing',value: 20.00, pct: '18.6%', color: '#2563eb' },
+  { name: 'Admin Expenses',   value: 13.35, pct: '12.4%', color: '#7c3aed' },
+  { name: 'Finance Cost',     value: 10.55, pct: '9.8%',  color: '#0891b2' },
+  { name: 'Depreciation',     value: 8.05,  pct: '7.5%',  color: '#0d9488' },
+  { name: 'Others',           value: 18.87, pct: '17.5%', color: '#e11d48' },
+];
 
-  /* ── variance % helper ─────────────────────────────────────────── */
-  function varPct(actual, cmp) {
-    return (((actual / cmp) - 1) * 100).toFixed(1);
-  }
+/* ─── P&L Statement rows ───────────────────────────────────────── */
+const PL_STATEMENT = {
+  income: {
+    label: 'INCOME',
+    rows: [
+      { label: 'Total Revenue',    curr: 125.75, prev: 112.40, varAmt: 13.35, varPct: 11.88,  ytd: 1215.60, ytdPY: 1045.32, ytdVar: 16.29 },
+      { label: 'Other Income',     curr: 3.25,   prev: 2.76,   varAmt: 0.49,  varPct: 17.75,  ytd: 32.40,   ytdPY: 28.30,   ytdVar: 14.49 },
+    ],
+    total: { label: 'Total Income', curr: 129.00, prev: 115.16, varAmt: 13.84, varPct: 12.01, ytd: 1248.00, ytdPY: 1073.62, ytdVar: 16.24 },
+  },
+  cogs: {
+    label: 'COST OF GOODS SOLD',
+    rows: [
+      { label: 'Cost of Goods Sold', curr: 100.65, prev: 88.21, varAmt: 12.44, varPct: 14.11, ytd: 976.40, ytdPY: 831.50, ytdVar: 17.43 },
+    ],
+    total: { label: 'Gross Profit', curr: 28.35, prev: 26.95, varAmt: 1.40, varPct: 5.20, ytd: 271.60, ytdPY: 242.12, ytdVar: 12.18 },
+    pctRow: { label: 'Gross Profit %', curr: '22.57%', prev: '23.40%', varAmt: '-0.83%', varPct: null, ytd: '21.74%', ytdPY: '23.19%', ytdVar: null },
+  },
+  expenses: {
+    label: 'EXPENSES',
+    rows: [
+      { label: 'Employee Cost',        curr: 36.80, prev: 33.10, varAmt: 3.70,  varPct: 11.18, ytd: 359.20, ytdPY: 305.40, ytdVar: 17.63 },
+      { label: 'Sales & Marketing',    curr: 20.00, prev: 17.90, varAmt: 2.10,  varPct: 11.73, ytd: 198.40, ytdPY: 162.80, ytdVar: 21.88 },
+      { label: 'Administrative Expenses',curr:13.35,prev: 11.80, varAmt: 1.55,  varPct: 13.14, ytd: 125.60, ytdPY: 108.30, ytdVar: 15.98 },
+      { label: 'Finance Cost',         curr: 10.55, prev: 9.85,  varAmt: 0.70,  varPct: 7.11,  ytd: 98.20,  ytdPY: 88.90,  ytdVar: 10.46 },
+      { label: 'Depreciation',         curr: 8.05,  prev: 7.60,  varAmt: 0.45,  varPct: 5.92,  ytd: 76.40,  ytdPY: 68.00,  ytdVar: 12.35 },
+      { label: 'Other Expenses',       curr: 18.87, prev: 16.42, varAmt: 2.45,  varPct: 14.92, ytd: 176.20, ytdPY: 155.10, ytdVar: 13.60 },
+    ],
+    total: { label: 'Total Expenses', curr: 107.62, prev: 96.67, varAmt: 10.95, varPct: 11.32, ytd: 1033.60, ytdPY: 888.50, ytdVar: 16.34 },
+    ebitda: { label: 'EBITDA', curr: 18.42, prev: 19.48, varAmt: -1.06, varPct: -5.44, ytd: 214.00, ytdPY: 185.12, ytdVar: 15.61 },
+    ebitdaPct: { label: 'EBITDA %', curr: '14.66%', prev: '16.91%', varAmt: '-2.25%', varPct: null, ytd: '17.15%', ytdPY: '17.24%', ytdVar: null },
+  },
+  bottom: {
+    rows: [
+      { label: 'Net Profit Before Tax', curr: 12.65, prev: 13.15, varAmt: -0.50, varPct: -3.80, ytd: 148.20, ytdPY: 127.80, ytdVar: 15.97 },
+      { label: 'Tax Expense',           curr: 2.40,  prev: 2.68,  varAmt: -0.28, varPct: -10.45,ytd: 28.00,  ytdPY: 24.60,  ytdVar: 13.82 },
+    ],
+    total: { label: 'Net Profit', curr: 10.25, prev: 10.47, varAmt: -0.22, varPct: -2.10, ytd: 120.20, ytdPY: 103.20, ytdVar: 16.48 },
+  },
+};
 
-  /* ── currency rate (illustrative) */ 
-  const fxRate = { AED: 3.67, SAR: 3.75, QAR: 3.64, OMR: 0.39, INR: 83.1, USD: 1 };
-  const rate = fxRate[currency] || 1;
-  const fmtM = v => `${(v * rate).toFixed(1)}M`;
+/* ─── Animated Counter Hook ─────────────────────────────────────── */
+function useCounter(target, duration = 1000) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (typeof target !== 'number') return;
+    let start = 0;
+    const step = target / (duration / 16);
+    const timer = setInterval(() => {
+      start += step;
+      if (start >= target) { setCount(target); clearInterval(timer); }
+      else setCount(start);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [target, duration]);
+  return count;
+}
 
-  /* ── division filter ───────────────────────────────────────────── */
-  const filteredDivs = useMemo(() =>
-    division === 'all' ? DIVISION_PERFORMANCE
-      : DIVISION_PERFORMANCE.filter(d => d.division.toLowerCase().includes(division.toLowerCase())),
-  [division]);
+/* ─── Mini Sparkline ─────────────────────────────────────────────── */
+function Sparkline({ data, color, height = 38 }) {
+  if (!data) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const w = 100, h = height;
+  const xs = data.map((_, i) => (i / (data.length - 1)) * w);
+  const ys = data.map(v => h - ((v - min) / (max - min || 1)) * h * 0.82 - h * 0.09);
+  const pts = xs.map((x, i) => `${x},${ys[i]}`).join(' ');
+  const area = `0,${h} ${pts} ${w},${h}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height, display: 'block', overflow: 'visible' }}>
+      <defs>
+        <linearGradient id={`spg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill={`url(#spg-${color.replace('#','')})`} />
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={xs[xs.length-1]} cy={ys[ys.length-1]} r="2.8" fill={color} />
+    </svg>
+  );
+}
 
-  const cmpColor = COMP_COLOR[comparison] || '#f59e0b';
+/* ─── KPI Infolet Card (matches reference image style) ─────────── */
+function KPICard({ id, label, value, change, up, icon, iconBg, spark, sparkColor }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      id={`kpi-${id}`}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: '#fff',
+        borderRadius: 12,
+        border: `1px solid ${hover ? '#c7d7f7' : C.border}`,
+        padding: '14px 14px 10px',
+        boxShadow: hover ? '0 8px 28px rgba(37,99,235,0.12)' : '0 2px 6px rgba(0,0,0,0.05)',
+        transition: 'all 0.22s ease',
+        transform: hover ? 'translateY(-2px)' : 'none',
+        display: 'flex', flexDirection: 'column', gap: 4,
+        overflow: 'hidden', position: 'relative',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {label}
+          </div>
+          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: C.navy, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {value}
+          </div>
+        </div>
+        <div style={{
+          width: 34, height: 34, borderRadius: 10,
+          background: iconBg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '1rem', flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+      </div>
+      {spark && (
+        <div style={{ margin: '2px -2px 0' }}>
+          <Sparkline data={spark} color={sparkColor} height={34} />
+        </div>
+      )}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        fontSize: '0.6rem', fontWeight: 700,
+        color: up ? C.green : C.rose,
+        background: up ? '#f0fdf4' : '#fff1f2',
+        borderRadius: 100, padding: '2px 7px',
+        width: 'fit-content',
+      }}>
+        <span>{up ? '▲' : '▼'}</span>
+        <span>{change}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Shared filter dropdown style ──────────────────────────────── */
+const selStyle = {
+  appearance: 'none', padding: '5px 24px 5px 9px',
+  fontSize: '0.75rem', fontWeight: 500, color: '#334155',
+  background: '#fff', border: `1px solid ${C.border}`,
+  borderRadius: 7, cursor: 'pointer', outline: 'none', width: '100%',
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat', backgroundPosition: 'right 7px center',
+};
+const dateStyle = { ...selStyle, paddingRight: 9, backgroundImage: 'none' };
+
+function FilterField({ label, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 100, flex: '1 1 auto' }}>
+      <span style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/* ─── Custom tooltip ─────────────────────────────────────────────── */
+const ChartTip = ({ active, payload, label, unit = '₹', suffix = ' Cr' }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '0.73rem' }}>
+      <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6 }}>{label}</div>
+      {payload.map((p, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block' }} />
+          <span style={{ color: C.slate }}>{p.name}:</span>
+          <span style={{ fontWeight: 700, color: C.navy }}>{unit}{p.value}{suffix}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ─── P&L Statement Table helpers ───────────────────────────────── */
+function fmt(v) {
+  if (v === null || v === undefined || v === '-') return '-';
+  if (typeof v === 'string') return v;
+  return v.toFixed(2);
+}
+function VarCell({ v, pct }) {
+  if (v === null || v === undefined) return <td style={TD_NUM}>-</td>;
+  if (typeof v === 'string') return <td style={{ ...TD_NUM, color: C.slate }}>{v}</td>;
+  const pos = v >= 0;
+  return (
+    <td style={{ ...TD_NUM, color: pos ? C.green : C.rose, fontWeight: 700 }}>
+      {pos ? '▲' : '▼'} {Math.abs(v).toFixed(2)}{pct ? '%' : ''}
+    </td>
+  );
+}
+
+const TH = { padding: '9px 10px', textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: '#fff', borderBottom: `1px solid #1e3a6e`, whiteSpace: 'nowrap' };
+const TH_L = { ...TH, textAlign: 'left' };
+const TD = { padding: '7px 10px', textAlign: 'right', fontSize: '0.76rem', color: '#334155', borderBottom: `1px solid #f1f5f9` };
+const TD_L = { ...TD, textAlign: 'left', color: C.navy };
+const TD_NUM = { ...TD };
+
+/* ─── Section rows render ────────────────────────────────────────── */
+function PLRow({ row, indent = false, isTotal = false, isBold = false, isGreen = false, isGray = false }) {
+  const bgStyle = isTotal ? { background: '#e8f0fe', fontWeight: 700 }
+    : isGray ? { background: '#f8fafc', color: C.muted }
+    : { background: 'transparent' };
+  const labelColor = isGreen ? C.green : isTotal ? C.navy : '#334155';
 
   return (
-    <div className="animate-in">
-      <div style={{ marginBottom: 4 }}>
-        <h1 className="page-header-title" style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b' }}>
-          Profit &amp; Loss Analytics
-        </h1>
-        <p style={{ fontSize: '0.72rem', color: '#64748b', margin: '2px 0 0' }}>
-          {activeMonthLabel} · {comparisonLabel} · Interactive drill-through by entity, division &amp; month
-        </p>
+    <tr style={{ ...bgStyle, transition: 'background 0.12s' }}
+      onMouseEnter={e => !isTotal && (e.currentTarget.style.background = '#f0f6ff')}
+      onMouseLeave={e => !isTotal && (e.currentTarget.style.background = bgStyle.background || 'transparent')}
+    >
+      <td style={{ ...TD_L, paddingLeft: indent ? 24 : 10, fontWeight: isTotal || isBold ? 700 : 400, color: labelColor, fontSize: isTotal ? '0.77rem' : '0.76rem' }}>
+        {row.label}
+      </td>
+      <td style={{ ...TD, fontWeight: isTotal ? 700 : 400 }}>{fmt(row.curr)}</td>
+      <td style={{ ...TD, color: C.slate }}>{fmt(row.prev)}</td>
+      {row.varAmt !== undefined ? (
+        <VarCell v={typeof row.varAmt === 'string' ? row.varAmt : row.varAmt} />
+      ) : <td style={TD}>-</td>}
+      {row.varPct !== undefined && row.varPct !== null ? (
+        <VarCell v={row.varPct} pct />
+      ) : <td style={TD}>-</td>}
+      <td style={{ ...TD, fontWeight: isTotal ? 700 : 400 }}>{fmt(row.ytd)}</td>
+      <td style={{ ...TD, color: C.slate }}>{fmt(row.ytdPY)}</td>
+      {row.ytdVar !== undefined && row.ytdVar !== null ? (
+        <VarCell v={row.ytdVar} pct />
+      ) : <td style={TD}>-</td>}
+    </tr>
+  );
+}
+
+/* ─── Section header row ─────────────────────────────────────────── */
+function SectionHeader({ label, expanded, onToggle }) {
+  return (
+    <tr style={{ background: '#1a3a6b', cursor: 'pointer' }} onClick={onToggle}>
+      <td colSpan={8} style={{ padding: '7px 10px', fontSize: '0.72rem', fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>
+        <span style={{ marginRight: 6, fontSize: '0.65rem', display: 'inline-block', transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+/* ─── Main Component ─────────────────────────────────────────────── */
+export default function PLAnalytics() {
+  const [legalGroup,   setLegalGroup]   = useState('FJ Group (Consolidated)');
+  const [legalEntity,  setLegalEntity]  = useState('All');
+  const [parentDiv,    setParentDiv]    = useState('All');
+  const [subDiv,       setSubDiv]       = useState('All');
+  const [businessUnit, setBusinessUnit] = useState('All');
+  const [period,       setPeriod]       = useState('2024-04');
+  const [compareWith,  setCompareWith]  = useState('2024-03');
+
+  const [secIncome,   setSecIncome]   = useState(true);
+  const [secCOGS,     setSecCOGS]     = useState(true);
+  const [secExpenses, setSecExpenses] = useState(true);
+
+  return (
+    <div className="animate-in" style={{ padding: '20px 24px 32px', fontFamily: "'Inter', system-ui, sans-serif", background: C.bg, minHeight: '100%' }}>
+
+      {/* ── Page Header ── */}
+      <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+        <div>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.navy, margin: 0 }}>
+            Profit &amp; Loss Account
+          </h1>
+          <p style={{ fontSize: '0.76rem', color: C.slate, margin: '3px 0 0' }}>
+            Analyze profitability and track financial performance
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button id="btn-export-pl" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: C.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+            ⬇ Export <span style={{ fontSize: '0.6rem', opacity: 0.8 }}>▼</span>
+          </button>
+          <button id="btn-schedule-pl" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
+            📅 Schedule
+          </button>
+          <button id="btn-filters-pl" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
+            🔽 More Filters
+          </button>
+        </div>
       </div>
 
       {/* ── Filter Bar ── */}
-      <FilterBar />
-
-      {/* ── KPI Infolets ─────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 28 }}>
-        <PLKPICard
-          label="Revenue"
-          value={`${currency} ${fmtM(totals.rev)}`}
-          varPct={varPct(totals.rev, totals.revCmp)}
-          sub={comparisonLabel}
-          cmpValue={`${currency} ${fmtM(totals.revCmp)}`}
-          color="#7c3aed"
-        />
-        <PLKPICard
-          label="Gross Profit"
-          value={`${currency} ${fmtM(totals.gp)}`}
-          varPct={varPct(totals.gp, totals.gpCmp)}
-          sub={comparisonLabel}
-          cmpValue={`${currency} ${fmtM(totals.gpCmp)}`}
-          extra={`GP Margin: ${totals.gpMarg}%`}
-          color="#0ea5e9"
-        />
-        <PLKPICard
-          label="EBIT"
-          value={`${currency} ${fmtM(totals.ebit)}`}
-          varPct={varPct(totals.ebit, totals.ebit * (COMP_MULT[comparison]||0.89))}
-          sub={comparisonLabel}
-          cmpValue={`${currency} ${fmtM(totals.ebit * (COMP_MULT[comparison]||0.89))}`}
-          color="#10b981"
-        />
-        <PLKPICard
-          label="Net Profit"
-          value={`${currency} ${fmtM(totals.net)}`}
-          varPct={varPct(totals.net, totals.netCmp)}
-          sub={comparisonLabel}
-          cmpValue={`${currency} ${fmtM(totals.netCmp)}`}
-          extra={`Net Margin: ${totals.netMarg}%`}
-          color="#ec4899"
-        />
+      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+        <FilterField label="Legal Group">
+          <select id="filter-pl-legal-group" style={selStyle} value={legalGroup} onChange={e => setLegalGroup(e.target.value)}>
+            {['FJ Group (Consolidated)', 'Group A', 'Group B'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Legal Entity">
+          <select id="filter-pl-legal-entity" style={selStyle} value={legalEntity} onChange={e => setLegalEntity(e.target.value)}>
+            {['All', 'Alpine Coils', 'DC Serve', 'Filter Fan', 'Alpine Gears'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Parent Division">
+          <select id="filter-pl-parent-div" style={selStyle} value={parentDiv} onChange={e => setParentDiv(e.target.value)}>
+            {['All', 'Alpine', 'DC Serve', 'Alpine Gears', 'Others'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Sub-Division">
+          <select id="filter-pl-sub-div" style={selStyle} value={subDiv} onChange={e => setSubDiv(e.target.value)}>
+            {['All', 'Alpine Coils', 'DC Serve Equip.', 'Filter Fan - UAE', 'CT KSA'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Business Unit">
+          <select id="filter-pl-bu" style={selStyle} value={businessUnit} onChange={e => setBusinessUnit(e.target.value)}>
+            {['All', 'Coils BU', 'Service BU', 'Fans BU', 'Gears BU', 'Valves BU', 'CT BU'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FilterField>
+        <FilterField label="Period">
+          <input id="filter-pl-period" type="month" value={period} onChange={e => setPeriod(e.target.value)} style={dateStyle} />
+        </FilterField>
+        <FilterField label="Compare With">
+          <input id="filter-pl-compare" type="month" value={compareWith} onChange={e => setCompareWith(e.target.value)} style={dateStyle} />
+        </FilterField>
+        <button id="btn-pl-apply" style={{ padding: '6px 18px', background: C.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-end' }}>Apply</button>
+        <button id="btn-pl-reset" style={{ background: 'none', border: 'none', color: C.slate, fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer', alignSelf: 'flex-end', padding: '6px 4px' }}>Reset</button>
       </div>
 
-      {/* ── Charts row ───────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>
+      {/* ── KPI Infolets (6 columns) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
+        {KPI_CARDS.map(kpi => <KPICard key={kpi.id} {...kpi} />)}
+      </div>
 
-        {/* Monthly P&L trend — Actual vs Comparison */}
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+      {/* ── Charts Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+
+        {/* P&L Trend */}
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div>
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Monthly P&amp;L Trend</h3>
-              <p style={{ fontSize: '0.68rem', color: '#94a3b8', margin: '2px 0 0' }}>Actual vs {comparisonLabel}</p>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Trend (₹ Cr) ⓘ</div>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <LegendDot color="#7c3aed" label="Revenue" />
-              <LegendDot color={cmpColor} label={comparisonLabel} dashed />
-              <LegendDot color="#0ea5e9" label="GP" />
-              <LegendDot color="#ec4899" label="Net Profit" />
-            </div>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} width={36} />
-              <Tooltip
-                contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 11 }}
-                formatter={(v) => [`${currency} ${v}M`]}
-              />
-              <Line type="monotone" dataKey="Revenue"       stroke="#7c3aed" strokeWidth={2.5} dot={{ r: 3, fill: '#7c3aed' }} />
-              <Line type="monotone" dataKey={comparisonLabel} stroke={cmpColor} strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
-              <Line type="monotone" dataKey="Gross Profit"  stroke="#0ea5e9" strokeWidth={2.5} dot={{ r: 3, fill: '#0ea5e9' }} />
-              <Line type="monotone" dataKey="Net Profit"    stroke="#ec4899" strokeWidth={2.5} dot={{ r: 3, fill: '#ec4899' }} />
+          <ResponsiveContainer width="100%" height={190}>
+            <LineChart data={PL_TREND} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+              <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTip />} />
+              <Line dataKey="Revenue"      name="Revenue"      stroke={C.navy}   strokeWidth={2.2} dot={{ r: 3, fill: C.navy }}   activeDot={{ r: 5 }} />
+              <Line dataKey="Gross Profit" name="Gross Profit" stroke={C.green}  strokeWidth={2.2} dot={{ r: 3, fill: C.green }}  activeDot={{ r: 5 }} />
+              <Line dataKey="Net Profit"   name="Net Profit"   stroke={C.orange} strokeWidth={2.2} dot={{ r: 3, fill: C.orange }} activeDot={{ r: 5 }} />
             </LineChart>
           </ResponsiveContainer>
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 6 }}>
+            {[['Revenue', C.navy], ['Gross Profit', C.green], ['Net Profit', C.orange]].map(([l, c]) => (
+              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 18, height: 2.5, background: c, display: 'inline-block', borderRadius: 1 }} />
+                <span style={{ fontSize: '0.6rem', color: C.slate, fontWeight: 500 }}>{l}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Variance bar chart — actual vs budget */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#1e293b', margin: '0 0 4px' }}>
-            Revenue Variance
-          </h3>
-          <p style={{ fontSize: '0.68rem', color: '#94a3b8', margin: '0 0 16px' }}>Actual vs {comparisonLabel} by month</p>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData.map(d => ({
-              month: d.month,
-              Variance: +(d.Revenue - d[comparisonLabel]).toFixed(1),
-            }))}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} width={36} />
-              <ReferenceLine y={0} stroke="#e2e8f0" />
-              <Tooltip
-                contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 11 }}
-                formatter={(v) => [`${currency} ${v}M variance`]}
-              />
-              <Bar dataKey="Variance" radius={[3,3,0,0]} barSize={16}
-                fill="#7c3aed"
-                label={false}
-              />
+        {/* P&L Comparison */}
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Comparison (₹ Cr)</div>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
+          </div>
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={PL_COMP} margin={{ top: 8, right: 6, left: -22, bottom: 0 }} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+              <XAxis dataKey="label" tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
+              <Tooltip content={<ChartTip />} />
+              <Bar dataKey="apr24" name="Apr 2024" fill={C.blue}   radius={[3,3,0,0]} barSize={14} />
+              <Bar dataKey="mar24" name="Mar 2024" fill="#93c5fd"  radius={[3,3,0,0]} barSize={14} />
+              <Bar dataKey="apr23" name="Apr 2023" fill="#cbd5e1"  radius={[3,3,0,0]} barSize={14} />
             </BarChart>
           </ResponsiveContainer>
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 6 }}>
+            {[['Apr 2024', C.blue], ['Mar 2024', '#93c5fd'], ['Apr 2023', '#cbd5e1']].map(([l, c]) => (
+              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 10, height: 10, background: c, display: 'inline-block', borderRadius: 2 }} />
+                <span style={{ fontSize: '0.6rem', color: C.slate, fontWeight: 500 }}>{l}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* ── P&L by Division detail table ─────────────────────────────── */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #f1f5f9' }}>
-          <h3 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>P&amp;L by Division</h3>
-          <p style={{ fontSize: '0.68rem', color: '#94a3b8', margin: '2px 0 0' }}>
-            {filteredDivs.length} divisions · click row to expand detail
-          </p>
-        </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-          <thead>
-            <tr style={{ background: '#f8fafc' }}>
-              {['Division', `Revenue (${currency})`, 'Gross Profit', 'GP %', `${comparisonLabel} Rev`, 'Variance', 'YoY'].map(h => (
-                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0' }}>
-                  {h}
-                </th>
+        {/* Expense Breakdown donut */}
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 8 }}>Expense Breakdown (MTD)</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: '0 0 140px' }}>
+              <ResponsiveContainer width="100%" height={140}>
+                <PieChart>
+                  <Pie data={EXPENSE_PIE} cx="50%" cy="50%" innerRadius={42} outerRadius={64} dataKey="value" startAngle={90} endAngle={-270} stroke="none" labelLine={false}>
+                    {EXPENSE_PIE.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v, n) => [`₹${v} Cr`, n]} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ textAlign: 'center', marginTop: -4 }}>
+                <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 600 }}>Total Expenses</div>
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: C.navy }}>₹ 107.62 Cr</div>
+              </div>
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {EXPENSE_PIE.map(e => (
+                <div key={e.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: e.color, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.65rem', color: '#475569' }}>{e.name}</span>
+                  </div>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: C.navy }}>{e.pct}</span>
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredDivs.map((d, i) => {
-              const actual  = d.revenue * rate;
-              const cmpRev  = d.revenue * rate * (COMP_MULT[comparison] || 0.89);
-              const varAmt  = (actual - cmpRev).toFixed(1);
-              const varPctV = (((actual / cmpRev) - 1) * 100).toFixed(1);
-              const isPos   = parseFloat(varAmt) >= 0;
-              return (
-                <>
-                  <tr key={d.division}
-                    onClick={() => setExpandRow(expandRow === i ? null : i)}
-                    style={{ borderBottom: '1px solid #f8fafc', cursor: 'pointer', background: i % 2 === 0 ? '#fff' : '#fdfcff' }}>
-                    <td style={{ padding: '11px 16px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ color: '#a78bfa', transition: 'transform 0.2s', display:'inline-block', transform: expandRow===i ? 'rotate(90deg)' : 'none' }}>
-                        <ChevronRight size={13} />
-                      </span>
-                      {d.division}
-                    </td>
-                    <td style={{ padding: '11px 16px', fontWeight: 600, color: '#475569' }}>{currency} {actual.toFixed(1)}M</td>
-                    <td style={{ padding: '11px 16px', color: '#475569' }}>{currency} {(d.gp * rate).toFixed(1)}M</td>
-                    <td style={{ padding: '11px 16px', color: '#475569' }}>{d.gpPct}</td>
-                    <td style={{ padding: '11px 16px', color: '#94a3b8' }}>{currency} {cmpRev.toFixed(1)}M</td>
-                    <td style={{ padding: '11px 16px' }}>
-                      <span style={{ color: isPos ? '#10b981' : '#f43f5e', fontWeight: 700 }}>
-                        {isPos ? '+' : ''}{varAmt}M ({isPos ? '+' : ''}{varPctV}%)
-                      </span>
-                    </td>
-                    <td style={{ padding: '11px 16px' }}>
-                      <span style={{ color: d.yoy.startsWith('+') ? '#10b981' : '#f43f5e', fontWeight: 700 }}>{d.yoy}</span>
-                    </td>
-                  </tr>
-                  {expandRow === i && (
-                    <tr key={`${d.division}-exp`}>
-                      <td colSpan={7} style={{ padding: '0 16px 16px 44px', background: '#fdfcff' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, paddingTop: 12 }}>
-                          {['Salesman Revenue', 'Customer Exposure', 'AR Outstanding', 'Overdue %'].map((lbl, j) => (
-                            <div key={lbl} style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                              <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>{lbl}</div>
-                              <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>
-                                {j === 3 ? `${Math.round(Math.random()*20+5)}%` : `${currency} ${(actual * [0.6, 0.25, 0.18, 0.04][j]).toFixed(1)}M`}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-/* ── Sub-components ──────────────────────────────────────────────── */
-function PLKPICard({ label, value, varPct, sub, cmpValue, extra, color }) {
-  const positive = parseFloat(varPct) >= 0;
-  return (
-    <div className="card" style={{ padding: '20px 22px', position: 'relative', overflow: 'hidden', borderTop: `3px solid ${color}` }}>
-      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1e293b', letterSpacing: '-0.02em', marginBottom: 4 }}>{value}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.72rem', fontWeight: 700 }}>
-        {positive ? <ArrowUp size={12} style={{ color: '#10b981' }} /> : <ArrowDown size={12} style={{ color: '#f43f5e' }} />}
-        <span style={{ color: positive ? '#10b981' : '#f43f5e' }}>{Math.abs(varPct)}%</span>
-        <span style={{ color: '#94a3b8', fontWeight: 400 }}>{sub}</span>
-      </div>
-      {cmpValue && (
-        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #f1f5f9', fontSize: '0.68rem', color: '#94a3b8' }}>
-          {sub}: <span style={{ fontWeight: 700, color: '#64748b' }}>{cmpValue}</span>
+            </div>
+          </div>
         </div>
-      )}
-      {extra && <div style={{ marginTop: 4, fontSize: '0.68rem', color: '#94a3b8' }}>{extra}</div>}
-    </div>
-  );
-}
+      </div>
 
-function LegendDot({ color, label, dashed }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      <div style={{ width: dashed ? 16 : 8, height: 2, background: dashed ? 'transparent' : color, borderTop: dashed ? `2px dashed ${color}` : 'none', borderRadius: 2 }} />
-      {!dashed && <div style={{ display: 'none' }} />}
-      <span style={{ fontSize: '0.6rem', fontWeight: 600, color: '#64748b' }}>{label}</span>
+      {/* ── P&L Statement Table ── */}
+      <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: 8 }}>
+        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>📋 Profit &amp; Loss Statement (₹ Cr)</span>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+            <thead>
+              <tr style={{ background: '#1a3a6b' }}>
+                <th style={{ ...TH_L, width: '24%' }}>Particulars</th>
+                <th style={TH}>Current Month<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>Apr 2024</span></th>
+                <th style={TH}>Previous Month<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>Mar 2024</span></th>
+                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(₹ Cr)</span></th>
+                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(%)</span></th>
+                <th style={TH}>YTD (Apr 2024)</th>
+                <th style={TH}>YTD (Apr 2023)</th>
+                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(%)</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* INCOME */}
+              <SectionHeader label="INCOME" expanded={secIncome} onToggle={() => setSecIncome(p => !p)} />
+              {secIncome && <>
+                {PL_STATEMENT.income.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+                <PLRow row={PL_STATEMENT.income.total} isTotal />
+              </>}
+
+              {/* COST OF GOODS SOLD */}
+              <SectionHeader label="COST OF GOODS SOLD" expanded={secCOGS} onToggle={() => setSecCOGS(p => !p)} />
+              {secCOGS && <>
+                {PL_STATEMENT.cogs.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+                <PLRow row={PL_STATEMENT.cogs.total} isTotal isGreen />
+                <PLRow row={PL_STATEMENT.cogs.pctRow} isGray />
+              </>}
+
+              {/* EXPENSES */}
+              <SectionHeader label="EXPENSES" expanded={secExpenses} onToggle={() => setSecExpenses(p => !p)} />
+              {secExpenses && <>
+                {PL_STATEMENT.expenses.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+                <PLRow row={PL_STATEMENT.expenses.total} isTotal />
+                <PLRow row={PL_STATEMENT.expenses.ebitda} isBold isGreen />
+                <PLRow row={PL_STATEMENT.expenses.ebitdaPct} isGray />
+              </>}
+
+              {/* Bottom rows */}
+              {PL_STATEMENT.bottom.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+
+              {/* Net Profit */}
+              <tr style={{ background: '#16a34a', fontWeight: 800 }}>
+                <td style={{ ...TD_L, color: '#fff', fontWeight: 800, fontSize: '0.82rem' }}>Net Profit</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(PL_STATEMENT.bottom.total.curr)}</td>
+                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(PL_STATEMENT.bottom.total.prev)}</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(PL_STATEMENT.bottom.total.varAmt).toFixed(2)}</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(PL_STATEMENT.bottom.total.varPct).toFixed(2)}%</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(PL_STATEMENT.bottom.total.ytd)}</td>
+                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(PL_STATEMENT.bottom.total.ytdPY)}</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▲ {PL_STATEMENT.bottom.total.ytdVar.toFixed(2)}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Footer ── */}
+      <div style={{ fontSize: '0.65rem', color: C.muted, display: 'flex', justifyContent: 'space-between', paddingTop: 8, flexWrap: 'wrap', gap: 4 }}>
+        <span>All values are in INR (₹ Cr) &nbsp;|&nbsp; Data as on 30 Apr 2024</span>
+        <span>☁️ Source: Oracle Fusion Cloud</span>
+      </div>
+
     </div>
   );
 }
