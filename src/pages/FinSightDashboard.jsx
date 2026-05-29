@@ -53,13 +53,25 @@ const FIN_SUMMARY = [
 
 /* ─── KPI Cards data ─────────────────────────────────────────────── */
 const KPI_CARDS = [
-  { label: 'Total Revenue',   value: '₹ 125.75 Cr', change: '18.6% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
-  { label: 'Gross Profit',    value: '₹ 28.35 Cr',  change: '17.1% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
-  { label: 'EBITDA',          value: '₹ 18.42 Cr',  change: '15.4% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
-  { label: 'Net Profit',      value: '₹ 10.25 Cr',  change: '23.1% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
-  { label: 'Working Capital', value: '₹ 45.80 Cr',  change: '2.1% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#fff7ed' },
-  { label: 'Current Ratio',   value: '1.86',         change: '0.12 vs Apr 2023',  up: true,  icon: '⚖️', iconBg: '#f0f9ff' },
+  { label: 'Total Revenue',   value: '₹ 125.75 Cr', change: '16.86% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
+  { label: 'Gross Profit',    value: '₹ 28.35 Cr',  change: '17.11% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
+  { label: 'EBITDA',          value: '₹ 18.42 Cr',  change: '15.45% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
+  { label: 'Net Profit',      value: '₹ 10.25 Cr',  change: '23.11% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
+  { label: 'Working Capital', value: '₹ 45.80 Cr',  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#e0f2fe' },
+  { label: 'Current Ratio',   value: '1.86',         change: '0.12 vs Apr 2023',  up: true,  icon: '⚖️', iconBg: '#fce7f3' },
 ];
+
+/* ─── Row 2 KPI Cards data ────────────────────────────────────────── */
+const KPI_CARDS_ROW_2 = [
+  { label: 'Total Receivables',       value: '₹ 62.35 Cr', change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10, 15, 12, 18, 14, 20], color: '#f59e0b' },
+  { label: 'Overdue Receivables',     value: '₹ 18.75 Cr', change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18, 14, 16, 12, 15, 10], color: '#f43f5e' },
+  { label: 'Cash Collection (MTD)',   value: '₹ 21.40 Cr', change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5, 8, 12, 9, 15, 18], color: '#3b82f6' },
+  { label: 'Bank Facility Utilization', value: '42.75%',     change: '3.56% vs Apr 2023',  up: false, icon: '🏦', iconBg: '#e0f2fe', data: [40, 42, 45, 41, 44, 43], color: '#0ea5e9' },
+];
+
+/* ─── Collection Efficiency Data ─────────────────────────────────── */
+const COLLECTION_EFFICIENCY = 87.45;
+
 
 export default function FinSightDashboard() {
   const [legalGroup,   setLegalGroup]   = useState('All');
@@ -131,15 +143,24 @@ export default function FinSightDashboard() {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(6, 1fr)',
-        gap: 12, marginBottom: 16,
+        gap: 12, marginBottom: 12,
       }}>
         {KPI_CARDS.map(kpi => <KPICard key={kpi.label} {...kpi} />)}
+      </div>
+
+      {/* ── KPI CARDS ROW 2 ── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: 12, marginBottom: 16,
+      }}>
+        {KPI_CARDS_ROW_2.map(kpi => <SparklineKPICard key={kpi.label} {...kpi} />)}
       </div>
 
       {/* ── CHARTS ROW ── */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
+        gridTemplateColumns: '1.2fr 1fr 1fr 0.8fr',
         gap: 14, marginBottom: 16,
       }}>
         {/* Revenue Trend */}
@@ -215,6 +236,36 @@ export default function FinSightDashboard() {
                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#1a3a6b' }}>{g.value}%</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </ChartCard>
+
+        {/* Collection Efficiency */}
+        <ChartCard title="Collection Efficiency (%)">
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', paddingTop: 10 }}>
+            <ResponsiveContainer width={180} height={120}>
+              <PieChart>
+                <Pie
+                  data={[{ value: COLLECTION_EFFICIENCY }, { value: 100 - COLLECTION_EFFICIENCY }]}
+                  cx="50%" cy="100%"
+                  startAngle={180} endAngle={0}
+                  innerRadius={60} outerRadius={80}
+                  paddingAngle={0}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  <Cell fill="#16a34a" />
+                  <Cell fill="#f1f5f9" />
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ position: 'absolute', bottom: 30, textAlign: 'center' }}>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a3a6b' }}>{COLLECTION_EFFICIENCY}%</div>
+              <div style={{ fontSize: '0.6rem', color: '#64748b' }}>Collection Efficiency</div>
+            </div>
+            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', padding: '0 20px', fontSize: '0.6rem', color: '#94a3b8', marginTop: -20 }}>
+              <span>0%</span>
+              <span>100%</span>
             </div>
           </div>
         </ChartCard>
@@ -341,6 +392,56 @@ function KPICard({ label, value, change, up, icon, iconBg }) {
       <div style={{ fontSize: '0.62rem', fontWeight: 700, color: up ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
         <span>{up ? '↑' : '↓'}</span>
         <span>{change}</span>
+      </div>
+    </div>
+  );
+}
+
+function SparklineKPICard({ label, value, change, up, icon, iconBg, data, color }) {
+  const [hover, setHover] = useState(false);
+  const chartData = data.map((v, i) => ({ name: i, value: v }));
+  
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: '#fff', borderRadius: 10,
+        border: '1px solid #e2e8f0',
+        padding: '14px 14px 12px',
+        boxShadow: hover ? '0 4px 16px rgba(26,58,107,0.10)' : '0 1px 3px rgba(0,0,0,0.05)',
+        transition: 'box-shadow 0.2s, transform 0.2s',
+        transform: hover ? 'translateY(-1px)' : 'none',
+        position: 'relative', overflow: 'hidden',
+        display: 'flex', flexDirection: 'column', gap: 6,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{
+            width: 34, height: 34, borderRadius: 8,
+            background: iconBg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '1rem', marginBottom: 8,
+          }}>{icon}</div>
+          <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>{label}</div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a3a6b', marginTop: 4 }}>{value}</div>
+        </div>
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: up ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
+          <span>{up ? '▲' : '▼'}</span>
+          <span>{change}</span>
+        </div>
+        
+        <div style={{ width: 60, height: 25 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
