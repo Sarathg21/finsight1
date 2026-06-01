@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -135,6 +135,7 @@ const ManagerRecurringTasksPage = () => {
     const [employeeLoading, setEmployeeLoading] = useState(true);
     const [templates, setTemplates] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const employeesRef = useRef([]);
     const [formMode, setFormMode] = useState('create');
     const [formData, setFormData] = useState({
         title: '',
@@ -207,6 +208,17 @@ const ManagerRecurringTasksPage = () => {
         }
         setTemplatePage(1);
     }, [selectedBranch]);
+
+    // Re-resolve names when employees list loads after templates
+    useEffect(() => {
+        if (employees.length === 0) return;
+        setTemplates(prev => prev.map(t => {
+            if (t.assigned_to_name) return t; // already resolved
+            const matched = employees.find(e => String(e.id).trim() === String(t.assigned_to_emp_id).trim());
+            return matched ? { ...t, assigned_to_name: matched.name } : t;
+        }));
+    }, [employees]);
+
 
     const fetchProfile = async () => {
         try {
@@ -296,6 +308,7 @@ const ManagerRecurringTasksPage = () => {
                     name: emp.name || emp.full_name || emp.employee_name || 'Unknown',
                     department_id: emp.department_id || emp.dept_id || emp.department || departmentId,
                 }));
+            employeesRef.current = filtered;
             setEmployees(filtered);
         } catch (err) {
             console.warn('Failed to fetch employees', err);
@@ -320,20 +333,31 @@ const ManagerRecurringTasksPage = () => {
                 },
             });
             const items = normalizeArray(res.data?.items || res.data);
+            const empList = employeesRef.current;
             setTemplates(
-                items.map(item => ({
-                    action_template_id: item.action_template_id || item.id || item.template_id,
-                    title: item.title || item.name || 'Untitled',
-                    description: item.description || item.summary || '',
-                    department_id: item.department_id || item.dept_id || departmentId,
-                    assigned_to_emp_id: item.assigned_to_emp_id || item.assignee_emp_id || item.assigned_to || '',
-                    assigned_to_name: item.assigned_to_name || item.assignee_name || item.employee_name || '',
-                    priority: item.priority || item.severity || 'MEDIUM',
-                    sequence_no: (item.sequence_no ?? item.sequence) || 1,
-                    due_in_days: item.due_in_days ?? item.dueDays ?? item.due_in_days_count ?? 0,
-                    is_active: item.is_active ?? item.active ?? true,
-                    created_by_emp_id: item.created_by_emp_id || item.approver_emp_id || item.created_by || '',
-                }))
+                items.map(item => {
+                    const empId = String(item.assigned_to_emp_id || item.assignee_emp_id || item.assigned_to || '').trim();
+                    const matchedEmp = empList.find(e => String(e.id).trim() === empId);
+                    const resolvedName =
+                        item.assigned_to_name ||
+                        item.assignee_name ||
+                        item.employee_name ||
+                        matchedEmp?.name ||
+                        '';
+                    return {
+                        action_template_id: item.action_template_id || item.id || item.template_id,
+                        title: item.title || item.name || 'Untitled',
+                        description: item.description || item.summary || '',
+                        department_id: item.department_id || item.dept_id || departmentId,
+                        assigned_to_emp_id: empId,
+                        assigned_to_name: resolvedName,
+                        priority: item.priority || item.severity || 'MEDIUM',
+                        sequence_no: (item.sequence_no ?? item.sequence) || 1,
+                        due_in_days: item.due_in_days ?? item.dueDays ?? item.due_in_days_count ?? 0,
+                        is_active: item.is_active ?? item.active ?? true,
+                        created_by_emp_id: item.created_by_emp_id || item.approver_emp_id || item.created_by || '',
+                    };
+                })
             );
         } catch (err) {
             console.error('Failed to load recurring employee templates', err);

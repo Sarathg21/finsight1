@@ -46,12 +46,38 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
     const [loading, setLoading] = useState(false);
     const [newSubtask, setNewSubtask] = useState({ title: '', description: '', due_date: '' });
     const [uploading, setUploading] = useState(false);
+    const [empNameMap, setEmpNameMap] = useState({});
 
     useEffect(() => {
         if (isOpen && task) {
             fetchDetails();
+            fetchEmpNames();
         }
     }, [isOpen, task, activeTab]);
+
+    const fetchEmpNames = async () => {
+        try {
+            const res = await api.get('/employees', { params: { limit: 500 } });
+            const list = Array.isArray(res.data)
+                ? res.data
+                : (res.data?.data || res.data?.items || res.data?.results || []);
+            const map = {};
+            list.forEach(emp => {
+                const id = String(emp.emp_id || emp.id || emp.employee_id || '').trim();
+                const name = emp.name || emp.full_name || emp.employee_name || '';
+                if (id && name) map[id] = name;
+            });
+            setEmpNameMap(map);
+        } catch {
+            // Silently ignore — history will fall back to IDs
+        }
+    };
+
+    const resolveEmpName = (empId) => {
+        const id = String(empId || '').trim();
+        if (!id) return null;
+        return empNameMap[id] ? `${empNameMap[id]}` : id;
+    };
 
     const fetchDetails = async () => {
         setLoading(true);
@@ -507,7 +533,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                                         <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
                                                             <User size={10} className="text-slate-400" />
                                                             <span className="text-[10px] font-bold text-slate-600">
-                                                                {entry.changed_by_emp_id || entry.changed_by}
+                                                                {resolveEmpName(entry.changed_by_emp_id || entry.changed_by)}
                                                             </span>
                                                         </div>
                                                     )}

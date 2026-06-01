@@ -71,14 +71,7 @@ const DepartmentDistributionCard = ({
                             <Folder size={56} className="text-[#FFD700] fill-[#FFD700]" />
                             <Building2 size={22} className="absolute text-[#1E293B] top-[20px]" />
                         </div>
-                        <div className="text-center px-6">
-                            <p className="text-[12px] font-bold text-[#1E293B] leading-tight mb-0.5">
-                                {departmentName}
-                            </p>
-                            <p className="text-[22px] font-black text-[#1E293B]">
-                                {completionPct}%
-                            </p>
-                        </div>
+
                     </div>
                 </div>
 
