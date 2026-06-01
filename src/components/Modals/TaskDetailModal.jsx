@@ -67,16 +67,23 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                 const name = emp.name || emp.full_name || emp.employee_name || '';
                 if (id && name) map[id] = name;
             });
+            // Also add the current user so their own actions show their name
+            if (currentUser) {
+                const selfId = String(currentUser.emp_id || currentUser.id || '').trim();
+                const selfName = currentUser.name || currentUser.full_name || currentUser.username || '';
+                if (selfId && selfName && !map[selfId]) map[selfId] = selfName;
+            }
             setEmpNameMap(map);
         } catch {
-            // Silently ignore — history will fall back to IDs
+            // Silently ignore — history will fall back gracefully
         }
     };
 
     const resolveEmpName = (empId) => {
         const id = String(empId || '').trim();
         if (!id) return null;
-        return empNameMap[id] ? `${empNameMap[id]}` : id;
+        // Return name from map, or null if not found (caller decides fallback)
+        return empNameMap[id] || null;
     };
 
     const fetchDetails = async () => {
@@ -95,8 +102,10 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                         id: taskData.task_id || taskData.id || baseTask.id,
                         department: taskData.department_name || taskData.department || baseTask.department,
                         severity: taskData.priority || taskData.severity || baseTask.severity,
-                        employee_id: taskData.assigned_to_name || taskData.employee_name || taskData.employee?.name || taskData.assignee_name || taskData.assigned_to_emp_id || baseTask.assigneeName || baseTask.employee_id,
+                        employee_id: taskData.assigned_to_name || taskData.employee_name || taskData.employee?.name || taskData.assignee_name || baseTask.assigneeName || baseTask.employee_id,
+                        assigned_to_emp_id_raw: taskData.assigned_to_emp_id || baseTask.assigned_to_emp_id,
                         assigned_by: taskData.assigned_by_name || taskData.assigned_by_emp_id || baseTask.assignerName || baseTask.assigned_by,
+                        assigned_by_emp_id_raw: taskData.assigned_by_emp_id || baseTask.assigned_by_emp_id,
                         title: taskData.title || taskData.task_title || taskData.name || baseTask.title,
                         description: taskData.description || taskData.task_description || baseTask.description
                     };
@@ -367,9 +376,16 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                         <div className="space-y-1">
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Assignee</p>
                             <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                <User size={14} className="text-violet-400" /> {fullTask.employee_id}
+                                <User size={14} className="text-violet-400" /> {(() => {
+                                    const raw = fullTask.employee_id || fullTask.assigned_to_emp_id_raw;
+                                    if (!raw) return '—';
+                                    // If it looks like a raw emp ID (e.g. E001977), try to resolve it
+                                    const resolved = resolveEmpName(raw);
+                                    return resolved || raw;
+                                })()}
                             </p>
                         </div>
+
                         <div className="space-y-1">
                             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Due Date</p>
                             <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
@@ -530,10 +546,14 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                                         </p>
                                                     </div>
                                                     {(entry.changed_by_emp_id || entry.changed_by) && (
-                                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
-                                                            <User size={10} className="text-slate-400" />
-                                                            <span className="text-[10px] font-bold text-slate-600">
-                                                                {resolveEmpName(entry.changed_by_emp_id || entry.changed_by)}
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 rounded-lg border border-amber-100">
+                                                            <User size={10} className="text-amber-500" />
+                                                            <span className="text-[10px] font-bold text-amber-700">
+                                                                {(() => {
+                                                                    const empId = entry.changed_by_emp_id || entry.changed_by;
+                                                                    const resolved = resolveEmpName(empId);
+                                                                    return entry.changed_by_name || resolved || 'System';
+                                                                })()}
                                                             </span>
                                                         </div>
                                                     )}
