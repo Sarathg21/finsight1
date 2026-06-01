@@ -12,7 +12,7 @@ import { ShieldOff } from 'lucide-react';
  *   element  – the JSX element to render if allowed
  */
 export default function ProtectedRoute({ pageKey, element }) {
-  const { user, canAccess } = useAuth();
+  const { user, canAccess, loading } = useAuth();
   const { log } = useAudit();
   const location = useLocation();
 
@@ -28,7 +28,12 @@ export default function ProtectedRoute({ pageKey, element }) {
     }
   }, [pageKey, location.pathname]); // eslint-disable-line
 
-  if (!user) return <Navigate to="/login" replace />;
+  // Wait for session restore from localStorage before deciding to redirect.
+  // Without this guard, a page refresh briefly sees user=null and wrongly
+  // navigates to /login, breaking both refresh and browser-back.
+  if (loading) return null;
+
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
 
   if (!allowed) {
     return (

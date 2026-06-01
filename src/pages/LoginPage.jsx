@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DEMO_USERS } from '../context/AuthContext';
 import { Shield, Eye, EyeOff, ChevronDown, Smartphone, RefreshCw } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 export default function LoginPage() {
   const { user, verifyCredentials, completeLogin, auditLog } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Page to return to after login (set by ProtectedRoute when redirecting unauthenticated users)
+  const from = location.state?.from?.pathname || null;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -21,8 +24,9 @@ export default function LoginPage() {
   const [mfaUser, setMfaUser]   = useState(null);     // pending user object
 
   useEffect(() => {
-    // Redirect only when session is set AND we're not mid-MFA flow
-    if (user && !mfaStep) navigate(user.defaultPage || '/dashboard');
+    // Redirect only when session is set AND we're not mid-MFA flow.
+    // Prefer returning to the original page the user was trying to reach.
+    if (user && !mfaStep) navigate(from || user.defaultPage || '/dashboard', { replace: true });
   }, [user, mfaStep, navigate]);
 
   function generateMfaCode() {
@@ -52,7 +56,8 @@ export default function LoginPage() {
       // MFA passed — NOW create the session
       completeLogin(mfaUser);
       auditLog?.('login_mfa', { userId: mfaUser?.id, userName: mfaUser?.name, userRole: mfaUser?.role });
-      navigate(mfaUser?.defaultPage || '/dashboard');
+      // Return to the page the user was originally trying to visit, or their default page
+      navigate(from || mfaUser?.defaultPage || '/dashboard', { replace: true });
     } else {
       auditLog?.('mfa_failed', { userId: mfaUser?.id, userName: mfaUser?.name });
       setError('Incorrect verification code. Please try again.');
