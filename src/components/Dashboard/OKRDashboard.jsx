@@ -540,34 +540,91 @@ const OKRDashboard = () => {
             data.at_risk = summaryData.at_risk ?? serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length ?? 0;
             data.avg_health_score = summaryData.avg_health_score ?? summaryData.avg_health ?? (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
 
-            // Build department contribution from ALL individual tasks (not just parent objectives)
-            // so every department that has tasks appears in the DEPARTMENTAL LOAD pie chart.
-            const deptMap = {};
-            const getDeptFromTask = (t) => {
+            // ── Build department contribution for the DEPARTMENTAL LOAD donut chart ──
+            // Strategy:
+            //   1. Build an ID→name lookup from the departments registry
+            //   2. Try every possible dept field on each task (name or numeric ID)
+            //   3. Always use the computed map (never let a stale API value block this)
+            //   4. Fallback chains: tasks → objectives.deptsArray → objective titles
+
+            // Step 1 — Build a robust dept ID-to-name map
+            const deptIdToName = {};
+            allDeptsRegistry.forEach(d => {
+                const id = String(d.id || d.department_id || '').trim();
+                const name = (d.name || d.department_name || '').trim();
+                if (id && name) deptIdToName[id] = name;
+            });
+
+            // Step 2 — Resolve dept name for a single task, trying every field
+            const resolveDeptName = (t) => {
                 if (!t) return null;
-                const candidates = [t.department_name, t.department, t.dept_name, t.dept, t.owner_dept, t.assigned_dept];
-                for (const c of candidates) {
-                    if (c && c !== 'N/A' && c !== 'undefined' && c !== 'null') return String(c).trim();
+                // Direct name fields first
+                const nameFields = [
+                    t.department_name, t.department, t.dept_name, t.dept,
+                    t.owner_dept, t.assigned_dept, t.creator_department,
+                    t.owner_dept_name, t.assignee_department, t.assigned_to_dept
+                ];
+                for (const c of nameFields) {
+                    if (c && c !== 'N/A' && c !== 'undefined' && c !== 'null') {
+                        const val = String(c).trim();
+                        // If it looks like a numeric ID, resolve it
+                        if (/^\d+$/.test(val)) {
+                            const resolved = deptIdToName[val];
+                            if (resolved) return resolved;
+                            // Don't return a bare numeric string
+                        } else {
+                            return val;
+                        }
+                    }
+                }
+                // ID-only fields — resolve via registry
+                const idFields = [
+                    t.department_id, t.dept_id, t.owner_dept_id,
+                    t.assignee_dept_id, t.assigned_dept_id
+                ];
+                for (const id of idFields) {
+                    if (id) {
+                        const resolved = deptIdToName[String(id).trim()];
+                        if (resolved) return resolved;
+                    }
                 }
                 return null;
             };
-            // Primary: aggregate from all tasks
+
+            // Step 3 — Aggregate task counts by department
+            const deptMap = {};
             allTasks.forEach(t => {
-                const dName = getDeptNameHelper(t, allDeptsRegistry);
+                const dName = resolveDeptName(t);
                 if (dName) deptMap[dName] = (deptMap[dName] || 0) + 1;
             });
-            // Fallback: if no tasks available, aggregate from objectives' deptsArray
+
+            // Step 4a — Fallback: use objectives' deptsArray if task resolution gave <= 1 bucket
             if (Object.keys(deptMap).length <= 1 && serverObjs.length > 0) {
                 serverObjs.forEach(o => {
                     (o.deptsArray || []).forEach(d => {
-                        if (!d) return; // skip blank entries
+                        if (!d) return;
                         const dName = String(d).trim();
-                        if (!dName || dName.toLowerCase() === 'general') return; // skip placeholder
+                        if (!dName || dName.toLowerCase() === 'general') return;
                         deptMap[dName] = (deptMap[dName] || 0) + (o.total_subtasks || 1);
                     });
                 });
             }
-            data.department_contribution = data.department_contribution ?? Object.entries(deptMap).map(([name, count]) => ({
+
+            // Step 4b — Fallback: distribute by parent objective title if still <= 1 bucket
+            if (Object.keys(deptMap).length <= 1 && serverObjs.length > 1) {
+                // Clear any single-bucket entry that might be misleading
+                Object.keys(deptMap).forEach(k => delete deptMap[k]);
+                serverObjs.forEach(o => {
+                    const label = (o.objective_title || o.title || 'Objective').trim();
+                    // Shorten to first ~20 chars for legend readability
+                    const short = label.length > 22 ? label.slice(0, 20) + '…' : label;
+                    const count = o.total_subtasks || 1;
+                    deptMap[short] = (deptMap[short] || 0) + count;
+                });
+            }
+
+            // Always use the computed map — never let a stale API field suppress it
+            data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
                 department_name: name,
                 subtask_count: count
             }));
@@ -631,7 +688,7 @@ const OKRDashboard = () => {
             }));
 
             const rowDepts = serverObjs.flatMap(o => o.deptsArray || []).filter(Boolean);
-            const taskDepts = allTasks.map(t => getDeptFromTask(t)).filter(Boolean);
+            const taskDepts = allTasks.map(t => resolveDeptName(t)).filter(Boolean);
             setAvailableDepts(Array.from(new Set([...apiDeptNames, ...rowDepts, ...taskDepts])).filter(n => n && n !== 'Corporate' && n !== 'General'));
 
             const objCompletion = serverObjs.map(o => ({
