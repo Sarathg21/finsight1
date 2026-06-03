@@ -5,7 +5,8 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
 export default function Layout() {
-  const { user, loading } = useAuth();
+  const auth = useAuth();
+  const { user, loading } = auth || { user: null, loading: true };
   const [collapsed, setCollapsed] = useState(false);
 
   if (loading) {

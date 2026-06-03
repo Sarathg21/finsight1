@@ -47,7 +47,9 @@ function getPresetMonthIndices(presetKey) {
 }
 
 export function FilterProvider({ children }) {
-  const { user, getScopedEntities, getScopedCountries, auditLog } = useAuth();
+  const auth = useAuth();
+  // Guard against HMR re-render before AuthProvider is in tree
+  const { user, getScopedEntities, getScopedCountries, auditLog } = auth || {};
 
   // ── scoped dimension lists ──────────────────────────────────────────────
   const scopedEntities  = useMemo(() => getScopedEntities?.() || LEGAL_ENTITIES, [user?.id]);

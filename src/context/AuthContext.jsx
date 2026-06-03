@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { loginWithBackend as _apiLogin, logoutFromBackend } from '../services/authApi';
 
 // ── Auth Context ────────────────────────────────────────────────────
 // Manages login state, RBAC roles, and data-scope enforcement for Finsight
@@ -232,6 +233,49 @@ export function AuthProvider({ children }) {
     _auditWrite('logout');
     setUser(null);
     localStorage.removeItem('finsight_user');
+    logoutFromBackend(); // also clears finsight_token
+  }
+
+  // ── Real backend login ────────────────────────────────────────────
+  // Calls the backend, obtains a JWT, then maps backend user info to
+  // the local session shape. Falls back to DEMO_USERS for RBAC fields
+  // (role, allowedPages, scope, etc.) when the backend does not return
+  // a full user profile.
+  async function loginWithBackend(email, password) {
+    const { raw } = await _apiLogin(email, password);
+    // raw = the full backend response body
+    // Try to match a DEMO_USER for RBAC metadata (role, scope, pages).
+    // If the backend returns its own user object, prefer that.
+    const backendUser = raw?.user || raw?.user_info || null;
+    const trimmedEmail = (email || '').trim().toLowerCase();
+
+    const demoMatch = DEMO_USERS.find(
+      u => u.email.toLowerCase() === trimmedEmail
+    );
+
+    // Build the session object: backend fields take precedence, RBAC from demo map
+    const session = {
+      // Identity — from backend if available, else demo
+      id:          backendUser?.id   || demoMatch?.id   || `backend-${Date.now()}`,
+      name:        backendUser?.name || backendUser?.full_name || demoMatch?.name || email,
+      email:       backendUser?.email || email,
+      // RBAC — from DEMO_USERS map (backend doesn't return RBAC config)
+      role:        backendUser?.role || demoMatch?.role || 'accountant',
+      roleLabel:   backendUser?.roleLabel || demoMatch?.roleLabel || 'User',
+      layer:       demoMatch?.layer ?? 5,
+      avatar:      demoMatch?.avatar || (email.slice(0, 2).toUpperCase()),
+      scope:       demoMatch?.scope || { countries: 'all', entities: 'all', divisions: 'all' },
+      exportRights:   demoMatch?.exportRights || 'controlled',
+      canManageUsers: demoMatch?.canManageUsers ?? false,
+      defaultPage:    demoMatch?.defaultPage || '/dashboard',
+      allowedPages:   demoMatch?.allowedPages || ['dashboard', 'revenue'],
+    };
+
+    // NOTE: Do NOT call completeLogin here.
+    // The LoginPage holds this as a "pending" mfaUser and only calls
+    // completeLogin after the MFA code is verified — same flow as demo logins.
+    _auditWrite('login_backend_pending', { userEmail: email });
+    return session;
   }
 
   function canAccess(page) {
@@ -291,6 +335,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, login, logout, canAccess, hasExportRight, loading,
       verifyCredentials, completeLogin,
+      loginWithBackend,
       getScopedEntities, getScopedCountries, getScopedSalesperson,
       hasSensitiveAccess, auditLog,
     }}>
