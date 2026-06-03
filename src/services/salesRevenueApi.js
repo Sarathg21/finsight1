@@ -145,6 +145,54 @@ const MOCK_DETAILS = {
   }
 };
 
+const MOCK_TOP_CUSTOMERS = {
+  data: [
+    { name: 'Al Futtaim Carillion', value: 3450000, pct: 24.21 },
+    { name: 'Emaar Properties PJSC', value: 2890000, pct: 20.28 },
+    { name: 'Damac Properties', value: 1850000, pct: 12.98 },
+    { name: 'Arabtec Construction', value: 1650000, pct: 11.58 },
+    { name: 'Sobha Realty', value: 1200000, pct: 8.42 },
+    { name: 'Al Naboodah Contracting', value: 980000, pct: 6.88 },
+    { name: 'Shapoorji Pallonji M.E.', value: 850000, pct: 5.96 },
+    { name: 'Drake & Scull Int\'l', value: 600000, pct: 4.21 },
+    { name: 'Habtoor Leighton Group', value: 450000, pct: 3.16 },
+    { name: 'China State Construction', value: 330000, pct: 2.32 }
+  ],
+  total: 14250000
+};
+
+const MOCK_BY_SALESMAN = {
+  data: [
+    { name: 'Hassan Al Nuaimi', value: 4550000, target: 5000000, pct: 31.93 },
+    { name: 'John Doe', value: 3890000, target: 4000000, pct: 27.30 },
+    { name: 'Sarah Connor', value: 3100000, target: 3000000, pct: 21.75 },
+    { name: 'Mike Ross', value: 1850000, target: 2000000, pct: 12.98 },
+    { name: 'Rachel Zane', value: 860000, target: 1000000, pct: 6.04 }
+  ],
+  total: 14250000
+};
+
+const MOCK_GROSS_MARGIN = {
+  gross_profit_mtd: 4987500,
+  gross_margin_mtd_pct: 35.00,
+  gross_profit_ytd: 59115000,
+  gross_margin_ytd_pct: 35.00,
+  prev_gross_profit_mtd: 4454000,
+  prev_gross_margin_mtd_pct: 34.00,
+  prev_gross_profit_ytd: 52360000,
+  prev_gross_margin_ytd_pct: 34.00,
+  mtd_change_pct: 11.98,
+  ytd_change_pct: 12.90,
+  trend: [
+    { period: 'Jan', gross_profit: 4200000, gross_margin_pct: 35.0 },
+    { period: 'Feb', gross_profit: 4725000, gross_margin_pct: 35.0 },
+    { period: 'Mar', gross_profit: 4970000, gross_margin_pct: 35.0 },
+    { period: 'Apr', gross_profit: 5285000, gross_margin_pct: 35.0 },
+    { period: 'May', gross_profit: 5670000, gross_margin_pct: 35.0 },
+    { period: 'Jun', gross_profit: 6125000, gross_margin_pct: 35.0 }
+  ]
+};
+
 function getMockDataForPath(path) {
   if (path.includes('/filters')) return MOCK_FILTERS;
   if (path.includes('/summary')) return MOCK_SUMMARY;
@@ -153,6 +201,9 @@ function getMockDataForPath(path) {
   if (path.includes('/parent-division')) return MOCK_PARENT_DIVISION;
   if (path.includes('/subdivision')) return MOCK_SUBDIVISION;
   if (path.includes('/details')) return MOCK_DETAILS;
+  if (path.includes('/top-customers')) return MOCK_TOP_CUSTOMERS;
+  if (path.includes('/by-salesman')) return MOCK_BY_SALESMAN;
+  if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
   return {};
 }
 
@@ -378,4 +429,28 @@ export async function fetchSubDivision(filters) {
  */
 export async function fetchDetails(filters) {
   return apiCall('/api/sales-revenue/details', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/top-customers
+ * Returns top 10 customers.
+ */
+export async function fetchTopCustomers(filters) {
+  return apiCall('/api/sales-revenue/top-customers', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/by-salesman
+ * Returns sales by salesman.
+ */
+export async function fetchBySalesman(filters) {
+  return apiCall('/api/sales-revenue/by-salesman', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/gross-margin
+ * Returns gross profit / margin info.
+ */
+export async function fetchGrossMargin(filters) {
+  return apiCall('/api/sales-revenue/gross-margin', buildParams(filters));
 }

@@ -13,6 +13,9 @@ import {
   fetchParentDivision,
   fetchSubDivision,
   fetchDetails,
+  fetchTopCustomers,
+  fetchBySalesman,
+  fetchGrossMargin,
 } from '../services/salesRevenueApi';
 
 /* ─── Color Palette ─────────────────────────────────────────────── */
@@ -622,11 +625,11 @@ const TH = {
 };
 const TD = { padding: '7px 10px', fontSize: '0.73rem', color: '#334155' };
 const TH_LG = {
-  padding: '10px 14px', fontSize: '0.63rem', fontWeight: 700, color: C.slate,
-  textTransform: 'uppercase', letterSpacing: '0.04em',
+  padding: '6px 10px', fontSize: '0.58rem', fontWeight: 700, color: C.slate,
+  textTransform: 'uppercase', letterSpacing: '0.03em',
   borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap',
 };
-const TD_LG = { padding: '9px 14px', fontSize: '0.78rem', color: '#334155' };
+const TD_LG = { padding: '5px 10px', fontSize: '0.70rem', color: '#334155' };
 
 /* ═══════════════════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                                  */
@@ -649,18 +652,22 @@ export default function SalesRevenueReport() {
   });
 
   /* ── Data state ───────────────────────────────────────────────── */
-  const [summary,        setSummary]        = useState(null);
-  const [trendData,      setTrendData]      = useState([]);
-  const [legalEntData,   setLegalEntData]   = useState([]);
-  const [parentDivData,  setParentDivData]  = useState([]);
-  const [subDivData,     setSubDivData]     = useState([]);
-  const [detailData,     setDetailData]     = useState({ rows: [], totals: {} });
-  const [activeTab,      setActiveTab]      = useState('all');
+  const [summary,          setSummary]          = useState(null);
+  const [trendData,        setTrendData]        = useState([]);
+  const [legalEntData,     setLegalEntData]     = useState([]);
+  const [parentDivData,    setParentDivData]    = useState([]);
+  const [subDivData,       setSubDivData]       = useState([]);
+  const [detailData,       setDetailData]       = useState({ rows: [], totals: {} });
+  const [topCustomersData, setTopCustomersData] = useState([]);
+  const [bySalesmanData,   setBySalesmanData]   = useState([]);
+  const [grossMarginData,  setGrossMarginData]  = useState(null);
+  const [activeTab,        setActiveTab]        = useState('all');
 
   /* ── Loading flags ────────────────────────────────────────────── */
   const [loading, setLoading] = useState({
     filters: true, summary: true, trend: true,
     legalEnt: true, parentDiv: true, subDiv: true, details: true,
+    topCustomers: true, bySalesman: true, grossMargin: true,
   });
 
   /* ── Error state ──────────────────────────────────────────────── */
@@ -682,6 +689,7 @@ export default function SalesRevenueReport() {
 
   const fmtCurrency = (v) => v !== null && v !== undefined ? `AED ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
   const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
+  const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
 
   const handleViewTrendDetails = () => {
     const headers = ['Period', 'Current Year', 'Previous Year', 'Target', 'Variance to Target', 'Growth vs PY'];
@@ -735,6 +743,28 @@ export default function SalesRevenueReport() {
     setModalConfig({ title: 'Revenue by Sub-Division Breakdown', headers, rows });
   };
 
+  const handleViewTopCustomersDetails = () => {
+    const headers = ['Customer Name', 'Revenue', 'Contribution (%)'];
+    const rows = topCustomersData.map(row => [
+      row.name,
+      fmtCurrency(row.value),
+      fmtPct(row.pct)
+    ]);
+    setModalConfig({ title: 'Top 10 Customers detailed Breakdown', headers, rows });
+  };
+
+  const handleViewBySalesmanDetails = () => {
+    const headers = ['Salesman Name', 'Actual Revenue', 'Sales Target', 'Achievement (%)', 'Contribution (%)'];
+    const rows = bySalesmanData.map(row => [
+      row.name,
+      fmtCurrency(row.value),
+      fmtCurrency(row.target),
+      row.target ? fmtPct((row.value / row.target) * 100) : '—',
+      fmtPct(row.pct)
+    ]);
+    setModalConfig({ title: 'Revenue by Salesman detailed Breakdown', headers, rows });
+  };
+
   /* ── Auth redirect helper ─────────────────────────────────────── */
   const handle401 = useCallback((err) => {
     // Redirect to login on auth failures: 401, 403, or missing token flag
@@ -764,7 +794,10 @@ export default function SalesRevenueReport() {
 
   /* ── Fetch all data sections when applied filters change ────────── */
   const fetchAll = useCallback((f) => {
-    setLoading({ filters: false, summary: true, trend: true, legalEnt: true, parentDiv: true, subDiv: true, details: true });
+    setLoading({
+      filters: false, summary: true, trend: true, legalEnt: true, parentDiv: true, subDiv: true, details: true,
+      topCustomers: true, bySalesman: true, grossMargin: true
+    });
     setErrors({});
 
     const guard = (key, promise) =>
@@ -823,6 +856,18 @@ export default function SalesRevenueReport() {
         totals: d.totals || {},
       });
     });
+
+    guard('topCustomers', fetchTopCustomers(f)).then(d => {
+      if (d) setTopCustomersData(d.data || []);
+    });
+
+    guard('bySalesman', fetchBySalesman(f)).then(d => {
+      if (d) setBySalesmanData(d.data || []);
+    });
+
+    guard('grossMargin', fetchGrossMargin(f)).then(d => {
+      if (d) setGrossMarginData(d);
+    });
   }, [handle401]);
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
@@ -843,6 +888,9 @@ export default function SalesRevenueReport() {
   const topLE         = summary?.top_legal_entity;
   const topPD         = summary?.top_parent_division;
   const dataAsOf      = summary?.data_as_of ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : appliedFilters.toDate;
+  const topSalesmanRecord = bySalesmanData && bySalesmanData.length > 0
+    ? [...bySalesmanData].sort((a, b) => b.value - a.value)[0]
+    : null;
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
@@ -1058,44 +1106,38 @@ export default function SalesRevenueReport() {
             error={errors.summary}
           />
 
-          {/* CFO Pending KPI: Gross Profit */}
-          <KPIPendingCard
+          {/* Live KPI 5: Gross Profit (MTD) */}
+          <KPICard
             label="Gross Profit (MTD)"
+            numericValue={grossMarginData?.gross_profit_mtd ?? null}
+            changePct={grossMarginData?.mtd_change_pct ?? null}
+            changeLabel={grossMarginData ? `vs Prev MTD (Margin: ${Number(grossMarginData.gross_margin_mtd_pct).toFixed(1)}%)` : ''}
+            up={grossMarginData?.mtd_change_pct !== null && grossMarginData?.mtd_change_pct !== undefined ? grossMarginData.mtd_change_pct >= 0 : null}
             icon="📊"
             iconBg="linear-gradient(135deg,#ede9fe,#ddd6fe)"
+            sparkData={grossMarginData?.trend?.map(t => t.gross_profit) || null}
+            sparkColor={C.purple}
+            loading={loading.grossMargin}
+            error={errors.grossMargin}
           />
 
-          {/* CFO Pending KPI: Top Salesman */}
-          <KPIPendingCard
+          {/* Live KPI 6: Top Salesman */}
+          <KPICard
             label="Top Salesman"
+            numericValue={null}
+            textValue={topSalesmanRecord?.name || '—'}
+            changePct={null}
+            changeLabel={topSalesmanRecord ? `AED ${Number(topSalesmanRecord.value).toLocaleString('en-US', { maximumFractionDigits: 0 })} (${Number((topSalesmanRecord.value / (topSalesmanRecord.target || 1)) * 100).toFixed(1)}% Target)` : undefined}
+            up={topSalesmanRecord ? (topSalesmanRecord.value >= topSalesmanRecord.target) : null}
             icon="👤"
             iconBg="linear-gradient(135deg,#fce7f3,#fbcfe8)"
+            sparkData={null}
+            sparkColor={C.purple}
+            loading={loading.bySalesman}
+            error={errors.bySalesman}
           />
         </div>
 
-        {/* ── CFO Pending Banner for Target vs Actual & Gross Margin ── */}
-        <div style={{
-          background: 'linear-gradient(90deg,#fffbeb,#fefce8)',
-          border: '1px dashed #fde68a', borderRadius: 12,
-          padding: '12px 18px', marginBottom: 16,
-          display: 'flex', alignItems: 'center', gap: 12,
-          flexWrap: 'wrap',
-        }}>
-          <span style={{ fontSize: '1.1rem' }}>⚠️</span>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#92400e' }}>
-              CFO Data Sources Pending
-            </div>
-            <div style={{ fontSize: '0.72rem', color: '#b45309', marginTop: 2 }}>
-              The following widgets are awaiting data integration:&nbsp;
-              <strong>Target vs Actual Revenue</strong>,&nbsp;
-              <strong>Gross Profit</strong>,&nbsp;
-              <strong>Gross Margin</strong>,&nbsp;
-              <strong>Top 10 Customers</strong>,&nbsp;
-              <strong>Top Salesman</strong>
-            </div>
-          </div>
-        </div>
 
         {/* ── Charts Row 1: Trend | Legal Entity Donut | Parent Division Bar ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1.15fr', gap: 14, marginBottom: 14 }}>
@@ -1252,29 +1294,97 @@ export default function SalesRevenueReport() {
             )}
           </ChartCard>
 
-          {/* Top 10 Customers — CFO Pending Placeholder */}
-          <PendingCard
-            title="Top 10 Customers by Sales"
-            icon="👥"
+          {/* Top 10 Customers */}
+          <ChartCard
+            title="Top 10 Customers by Sales (AED)"
             minHeight={290}
-          />
+            loading={loading.topCustomers}
+            error={errors.topCustomers}
+            onRetry={() => fetchAll(appliedFilters)}
+            action={<ViewAllButton onClick={handleViewTopCustomersDetails} />}
+          >
+            {topCustomersData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220} minWidth={0}>
+                <BarChart data={topCustomersData} layout="vertical" margin={{ top: 8, right: 12, left: 16, bottom: 0 }} barSize={10}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4ff" />
+                  <XAxis type="number" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 8 }} axisLine={false} tickLine={false} width={80} />
+                  <Tooltip
+                    formatter={v => [`AED ${Number(v).toFixed(2)}`]}
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
+                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
+                  />
+                  <Bar dataKey="value" name="Revenue" radius={[0, 4, 4, 0]}>
+                    {topCustomersData.map((_, i) => (
+                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
+            )}
+          </ChartCard>
 
-          {/* Top Salesman — CFO Pending Placeholder */}
-          <PendingCard
-            title="Revenue by Salesman"
-            icon="🏆"
+          {/* Revenue by Salesman */}
+          <ChartCard
+            title="Revenue vs Target by Salesman (AED)"
             minHeight={290}
-          />
+            loading={loading.bySalesman}
+            error={errors.bySalesman}
+            onRetry={() => fetchAll(appliedFilters)}
+            action={<ViewAllButton onClick={handleViewBySalesmanDetails} />}
+          >
+            {bySalesmanData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220} minWidth={0}>
+                <BarChart data={bySalesmanData} margin={{ top: 8, right: 4, left: -16, bottom: 0 }} barSize={12}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                  <XAxis dataKey="name" tick={{ fill: C.slate, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'value' ? 'Actual Revenue' : 'Sales Target']}
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
+                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
+                  />
+                  <Legend verticalAlign="top" height={28} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="value" name="Actual Revenue" fill={C.blue} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="target" name="Sales Target" fill={C.orange} radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
+            )}
+          </ChartCard>
         </div>
 
-        {/* ── CFO Pending: Target vs Actual Revenue ── */}
-        <div style={{ marginBottom: 14 }}>
-          <PendingCard
-            title="Target vs Actual Revenue"
-            icon="🎯"
-            minHeight={160}
-          />
-        </div>
+          {/* Target vs Actual Revenue */}
+          <ChartCard
+            title="Target vs Actual Revenue Trend (AED)"
+            minHeight={200}
+            loading={loading.trend}
+            error={errors.trend}
+            onRetry={() => fetchAll(appliedFilters)}
+          >
+            {trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={140} minWidth={0}>
+                <BarChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barSize={16}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                  <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'currentYear' ? 'Actual Revenue' : 'Target Revenue']}
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
+                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
+                  />
+                  <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="currentYear" name="Actual Revenue" fill={C.green} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="target" name="Target Revenue" fill={C.orange} radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 30 }}>No data available</div>
+            )}
+          </ChartCard>
 
         {/* ── Detailed View Table ── */}
         <div style={{
@@ -1321,15 +1431,15 @@ export default function SalesRevenueReport() {
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
                   {[
-                    ['Legal Entity',              'left'],
-                    ['Parent Division',            'left'],
+                    ['Entity',                     'left'],
+                    ['Parent Div',                 'left'],
                     ['Sub-Division',               'left'],
-                    ['Revenue (MTD) AED',          'right'],
-                    ['Revenue (Prev MTD) AED',     'right'],
-                    ['Revenue (YTD) AED',          'right'],
-                    ['Revenue (YTD PY) AED',       'right'],
-                    ['Variance % (MTD)',            'right'],
-                    ['Variance % (YTD)',            'right'],
+                    ['MTD Revenue',                'right'],
+                    ['Prev MTD',                   'right'],
+                    ['YTD Revenue',                'right'],
+                    ['YTD PY',                     'right'],
+                    ['Var % (MTD)',                'right'],
+                    ['Var % (YTD)',                'right'],
                   ].map(([h, align]) => {
                     // Filter columns based on active tab
                     if (activeTab === 'mtd' && (h.includes('YTD'))) return null;
@@ -1367,12 +1477,12 @@ export default function SalesRevenueReport() {
                           <td style={TD_LG}>{row.sub_division || '—'}</td></>
                         )}
                         {(activeTab === 'all' || activeTab === 'mtd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{Number(row.mtd_revenue || 0).toFixed(2)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{Number(row.prev_mtd_revenue || 0).toFixed(2)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{fmtTableNum(row.mtd_revenue)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(row.prev_mtd_revenue)}</td>
                         </>}
                         {(activeTab === 'all' || activeTab === 'ytd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{Number(row.ytd_revenue || 0).toFixed(2)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{Number(row.ytd_py_revenue || 0).toFixed(2)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{fmtTableNum(row.ytd_revenue)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(row.ytd_py_revenue)}</td>
                         </>}
                         {(activeTab === 'all' || activeTab === 'mtd') && (
                           <td style={{ ...TD_LG, textAlign: 'right' }}><VarBadge val={row.variance_mtd_pct} /></td>
@@ -1387,12 +1497,12 @@ export default function SalesRevenueReport() {
                       <tr style={{ background: 'linear-gradient(90deg,#eff6ff,#f0fdf4)', fontWeight: 800, borderTop: `2px solid #e0eeff` }}>
                         <td colSpan={3} style={{ ...TD_LG, color: C.navy, fontWeight: 800 }}>Total</td>
                         {(activeTab === 'all' || activeTab === 'mtd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.navy }}>{Number(detailData.totals.mtd_revenue || 0).toFixed(2)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{Number(detailData.totals.prev_mtd_revenue || 0).toFixed(2)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', color: C.navy }}>{fmtTableNum(detailData.totals.mtd_revenue)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(detailData.totals.prev_mtd_revenue)}</td>
                         </>}
                         {(activeTab === 'all' || activeTab === 'ytd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.navy }}>{Number(detailData.totals.ytd_revenue || 0).toFixed(2)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{Number(detailData.totals.ytd_py_revenue || 0).toFixed(2)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', color: C.navy }}>{fmtTableNum(detailData.totals.ytd_revenue)}</td>
+                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(detailData.totals.ytd_py_revenue)}</td>
                         </>}
                         {(activeTab === 'all' || activeTab === 'mtd') && (
                           <td style={{ ...TD_LG, textAlign: 'right' }}><VarBadge val={detailData.totals.variance_mtd_pct} /></td>
