@@ -68,6 +68,200 @@ function Skeleton({ h = 20, w = '100%', radius = 6 }) {
   );
 }
 
+/* ─── Chart Details Modal & Buttons ─────────────────────────────── */
+
+function ViewAllButton({ onClick }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: hover ? 'rgba(37, 99, 235, 0.06)' : 'none',
+        border: 'none',
+        color: C.blue,
+        fontSize: '0.72rem',
+        fontWeight: 700,
+        cursor: 'pointer',
+        padding: '4px 8px',
+        borderRadius: 6,
+        transition: 'all 0.18s',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 3,
+        outline: 'none',
+      }}
+    >
+      🔎 View All
+    </button>
+  );
+}
+
+function ModalCloseButton({ onClick }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: hover ? '#f1f5f9' : 'none',
+        border: 'none',
+        fontSize: '0.85rem',
+        color: C.slate,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        transition: 'all 0.15s',
+        outline: 'none',
+      }}
+      title="Close"
+    >
+      ✕
+    </button>
+  );
+}
+
+function DetailModal({ isOpen, onClose, title, headers, rows, searchPlaceholder = "Search detailed breakdown..." }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  if (!isOpen) return null;
+
+  // Filter rows based on search term (across all cell values)
+  const filteredRows = rows.filter(row =>
+    row.some(val =>
+      String(val).toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const handleExport = () => {
+    // Generate CSV content
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(','), ...filteredRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${title.replace(/\s+/g, '_').toLowerCase()}_export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(15, 23, 42, 0.3)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 1000, animation: 'fadeIn 0.2s ease',
+    }}>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      `}</style>
+      <div style={{
+        background: '#fff', borderRadius: 16, width: '90%', maxWidth: 750,
+        maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+        animation: 'scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        overflow: 'hidden', border: '1px solid #e2e8f0',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '16px 20px', borderBottom: '1px solid #f1f5f9',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: '#f8fafc',
+        }}>
+          <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>{title}</h3>
+          <ModalCloseButton onClick={onClose} />
+        </div>
+
+        {/* Search & Actions Bar */}
+        <div style={{
+          padding: '12px 20px', borderBottom: '1px solid #f1f5f9',
+          display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap',
+        }}>
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{
+              padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
+              fontSize: '0.78rem', width: 220, outline: 'none',
+              transition: 'border-color 0.15s',
+            }}
+          />
+          <button onClick={handleExport} style={{
+            padding: '6px 14px', background: C.blue, color: '#fff', border: 'none',
+            borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 2px 4px rgba(37,99,235,0.1)',
+            transition: 'opacity 0.15s',
+          }}>
+            📥 Export CSV
+          </button>
+        </div>
+
+        {/* Table Body */}
+        <div style={{ padding: '0 20px 16px', overflowY: 'auto', flex: 1 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+            <thead>
+              <tr>
+                {headers.map((h, i) => (
+                  <th key={i} style={{
+                    ...TH, padding: '10px 8px', position: 'sticky', top: 0, background: '#fff',
+                    textAlign: i === 0 ? 'left' : 'right', borderBottom: '2px solid #e2e8f0',
+                    zIndex: 2,
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.length > 0 ? (
+                filteredRows.map((row, idx) => (
+                  <tr key={idx} style={{
+                    borderBottom: '1px solid #f1f5f9',
+                    background: idx % 2 === 0 ? '#fff' : '#f8fafc',
+                  }}>
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx} style={{
+                        ...TD, padding: '10px 8px',
+                        textAlign: cIdx === 0 ? 'left' : 'right',
+                        fontWeight: cIdx === 0 ? 600 : 'normal',
+                      }}>{cell}</td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={headers.length} style={{
+                    textAlign: 'center', padding: '32px 0', color: C.muted, fontSize: '0.8rem'
+                  }}>No matching records found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: '12px 20px', borderTop: '1px solid #f1f5f9',
+          display: 'flex', justifyContent: 'flex-end', background: '#f8fafc',
+        }}>
+          <button onClick={onClose} style={{
+            padding: '6px 16px', background: '#e2e8f0', color: C.slate, border: 'none',
+            borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+          }}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Error Banner ──────────────────────────────────────────────── */
 function ErrorBanner({ message, onRetry }) {
   return (
@@ -483,6 +677,64 @@ export default function SalesRevenueReport() {
     }
   }, [errors, publicIp]);
 
+  /* ── Detail Modal state & handlers ────────────────────────────── */
+  const [modalConfig, setModalConfig] = useState(null); // { title, headers, rows }
+
+  const fmtCurrency = (v) => v !== null && v !== undefined ? `AED ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
+  const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
+
+  const handleViewTrendDetails = () => {
+    const headers = ['Period', 'Current Year', 'Previous Year', 'Target', 'Variance to Target', 'Growth vs PY'];
+    const rows = trendData.map(row => {
+      const variance = row.currentYear !== null && row.target !== null ? row.currentYear - row.target : null;
+      const variancePct = row.target ? (variance / row.target) * 100 : null;
+      const growth = row.currentYear !== null && row.previousYear !== null ? row.currentYear - row.previousYear : null;
+      const growthPct = row.previousYear ? (growth / row.previousYear) * 100 : null;
+
+      return [
+        row.period,
+        fmtCurrency(row.currentYear),
+        fmtCurrency(row.previousYear),
+        fmtCurrency(row.target),
+        variance !== null ? `${variance >= 0 ? '+' : ''}${fmtCurrency(variance)} (${variancePct >= 0 ? '+' : ''}${fmtPct(variancePct)})` : '—',
+        growth !== null ? `${growth >= 0 ? '+' : ''}${fmtCurrency(growth)} (${growthPct >= 0 ? '+' : ''}${fmtPct(growthPct)})` : '—'
+      ];
+    });
+    setModalConfig({ title: 'Revenue Trend Detailed Breakdown', headers, rows });
+  };
+
+  const handleViewLegalEntityDetails = () => {
+    const headers = ['Legal Entity', 'Revenue', 'Contribution (%)'];
+    const rows = legalEntData.map(row => [
+      row.name,
+      fmtCurrency(row.value),
+      fmtPct(row.pct)
+    ]);
+    setModalConfig({ title: 'Revenue by Legal Entity Breakdown', headers, rows });
+  };
+
+  const handleViewParentDivisionDetails = () => {
+    const headers = ['Parent Division', 'Revenue', 'Contribution (%)'];
+    const totalVal = parentDivData.reduce((acc, r) => acc + r.value, 0);
+    const rows = parentDivData.map(row => [
+      row.name,
+      fmtCurrency(row.value),
+      fmtPct(totalVal ? (row.value / totalVal) * 100 : 0)
+    ]);
+    setModalConfig({ title: 'Revenue by Parent Division Breakdown', headers, rows });
+  };
+
+  const handleViewSubDivisionDetails = () => {
+    const headers = ['Sub-Division', 'Revenue', 'Contribution (%)'];
+    const totalVal = subDivData.reduce((acc, r) => acc + r.value, 0);
+    const rows = subDivData.map(row => [
+      row.name.replace(/\n/g, ' '),
+      fmtCurrency(row.value),
+      fmtPct(totalVal ? (row.value / totalVal) * 100 : 0)
+    ]);
+    setModalConfig({ title: 'Revenue by Sub-Division Breakdown', headers, rows });
+  };
+
   /* ── Auth redirect helper ─────────────────────────────────────── */
   const handle401 = useCallback((err) => {
     // Redirect to login on auth failures: 401, 403, or missing token flag
@@ -855,6 +1107,7 @@ export default function SalesRevenueReport() {
             loading={loading.trend}
             error={errors.trend}
             onRetry={() => fetchAll(appliedFilters)}
+            action={<ViewAllButton onClick={handleViewTrendDetails} />}
           >
             <ResponsiveContainer width="100%" height={180} minWidth={0}>
               <LineChart data={trendData} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
@@ -881,6 +1134,7 @@ export default function SalesRevenueReport() {
             loading={loading.legalEnt}
             error={errors.legalEnt}
             onRetry={() => fetchAll(appliedFilters)}
+            action={<ViewAllButton onClick={handleViewLegalEntityDetails} />}
           >
             {legalEntData.length > 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -932,6 +1186,7 @@ export default function SalesRevenueReport() {
             loading={loading.parentDiv}
             error={errors.parentDiv}
             onRetry={() => fetchAll(appliedFilters)}
+            action={<ViewAllButton onClick={handleViewParentDivisionDetails} />}
           >
             {parentDivData.length > 0 ? (
               <ResponsiveContainer width="100%" height={190} minWidth={0}>
@@ -967,6 +1222,7 @@ export default function SalesRevenueReport() {
             loading={loading.subDiv}
             error={errors.subDiv}
             onRetry={() => fetchAll(appliedFilters)}
+            action={<ViewAllButton onClick={handleViewSubDivisionDetails} />}
           >
             {subDivData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220} minWidth={0}>
@@ -1174,6 +1430,17 @@ export default function SalesRevenueReport() {
         </div>
 
       </div>
+
+      {/* ── Detailed Breakdown Modal ── */}
+      {modalConfig && (
+        <DetailModal
+          isOpen={!!modalConfig}
+          onClose={() => setModalConfig(null)}
+          title={modalConfig.title}
+          headers={modalConfig.headers}
+          rows={modalConfig.rows}
+        />
+      )}
     </>
   );
 }
