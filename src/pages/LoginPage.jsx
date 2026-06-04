@@ -1,85 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { DEMO_USERS } from '../context/AuthContext';
-import { Shield, Eye, EyeOff, ChevronDown, Smartphone, RefreshCw, Wifi, WifiOff, AlertCircle } from 'lucide-react';
+import { Shield, Eye, EyeOff, ChevronDown, Smartphone, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { checkBackendHealth, resetHealthCache, API_BASE } from '../services/authApi';
+import { BACKEND_HOST } from '../services/authApi';
 
-/* ── Backend Status Badge ─────────────────────────────────────────── */
-function BackendStatusBadge({ status, onRetry }) {
+/* ── Tiny server status pill (non-blocking) ──────────────────────── */
+function ServerPill({ status }) {
   const cfg = {
-    checking: {
-      bg: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
-      dot: '#6366f1', text: '#4f46e5', label: 'Checking server…', pulse: true,
-    },
-    online: {
-      bg: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-      dot: '#10b981', text: '#059669', label: 'Live backend connected', pulse: false,
-    },
-    offline: {
-      bg: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)',
-      dot: '#ef4444', text: '#dc2626', label: 'Backend offline – using demo mode', pulse: false,
-    },
-  }[status] || {};
+    checking: { dot: '#6366f1', label: 'Connecting to server…', pulse: true  },
+    online:   { dot: '#10b981', label: 'Live server connected',  pulse: false },
+    offline:  { dot: '#94a3b8', label: `Demo mode · ${BACKEND_HOST} unreachable`, pulse: false },
+  }[status] || { dot: '#94a3b8', label: '', pulse: false };
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '7px 12px', borderRadius: 8,
-      background: cfg.bg, border: cfg.border,
-      marginBottom: 16, gap: 8,
+      display: 'flex', alignItems: 'center', gap: 6,
+      marginBottom: 18,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        {/* Pulsing dot */}
-        <span style={{
-          width: 7, height: 7, borderRadius: '50%', background: cfg.dot,
-          flexShrink: 0, display: 'inline-block',
-          boxShadow: cfg.pulse ? `0 0 0 0 ${cfg.dot}` : 'none',
-          animation: cfg.pulse ? 'ping 1.2s ease-out infinite' : 'none',
-        }} />
-        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: cfg.text }}>
-          {cfg.label}
-        </span>
-      </div>
-      {status === 'offline' && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          title="Retry connection"
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: cfg.text, display: 'flex', alignItems: 'center', gap: 4,
-            fontSize: '0.68rem', fontWeight: 700, padding: '2px 6px',
-            borderRadius: 4, transition: 'all 0.15s',
-          }}
-        >
-          <RefreshCw size={11} /> Retry
-        </button>
-      )}
-    </div>
-  );
-}
-
-/* ── Offline Info Banner ───────────────────────────────────────────── */
-function OfflineBanner() {
-  return (
-    <div style={{
-      background: 'rgba(245,158,11,0.07)',
-      border: '1px solid rgba(245,158,11,0.3)',
-      borderRadius: 10, padding: '10px 14px', marginBottom: 16,
-      display: 'flex', gap: 10, alignItems: 'flex-start',
-    }}>
-      <AlertCircle size={14} style={{ color: '#d97706', flexShrink: 0, marginTop: 1 }} />
-      <div>
-        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#92400e', marginBottom: 2 }}>
-          Running in Demo Mode
-        </div>
-        <div style={{ fontSize: '0.68rem', color: '#b45309', lineHeight: 1.5 }}>
-          The backend server ({API_BASE.replace('http://', '')}) is currently unreachable.
-          Sign in with demo credentials — all UI features are available, but live data
-          from the API will not load until the server comes back online.
-        </div>
-      </div>
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%',
+        background: cfg.dot, flexShrink: 0, display: 'inline-block',
+        animation: cfg.pulse ? 'ping 1.2s ease-out infinite' : 'none',
+      }} />
+      <span style={{ fontSize: '0.68rem', color: 'var(--clr-text-muted)', fontWeight: 500 }}>
+        {cfg.label}
+      </span>
     </div>
   );
 }
@@ -98,8 +44,8 @@ export default function LoginPage() {
   const [loading,  setLoading]  = useState(false);
   const [showDemo, setShowDemo] = useState(false);
 
-  // Backend status: 'checking' | 'online' | 'offline'
-  const [backendStatus, setBackendStatus] = useState('checking');
+  // 'checking' only while login is in-flight; 'online' / 'offline' after attempt
+  const [backendStatus, setBackendStatus] = useState('idle');
 
   // MFA state
   const [mfaStep,  setMfaStep]  = useState(false);
@@ -111,20 +57,6 @@ export default function LoginPage() {
   useEffect(() => {
     if (user && !mfaStep) navigate(from || user.defaultPage || '/dashboard', { replace: true });
   }, [user, mfaStep, navigate, from]);
-
-  // ── Backend health probe on mount ───────────────────────────────
-  const probeBackend = useCallback(async () => {
-    setBackendStatus('checking');
-    const online = await checkBackendHealth();
-    setBackendStatus(online ? 'online' : 'offline');
-  }, []);
-
-  useEffect(() => { probeBackend(); }, [probeBackend]);
-
-  function handleRetryConnection() {
-    resetHealthCache();
-    probeBackend();
-  }
 
   // ── Helpers ─────────────────────────────────────────────────────
   function generateMfaCode() {
@@ -139,47 +71,47 @@ export default function LoginPage() {
   }
 
   // ── Submit handler ───────────────────────────────────────────────
+  // Strategy: ALWAYS try the real backend first (no pre-check).
+  // If it succeeds → real JWT session.
+  // If it fails with a network/timeout error → silently fall back to demo.
+  // If it fails with 401/403 → show credential error (wrong password).
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setBackendStatus('checking');
 
     try {
-      // ── Path A: Backend is online → real JWT auth ────────────────
-      if (backendStatus === 'online') {
-        try {
-          const session = await loginWithBackend(email.trim(), password);
-          // JWT stored; session pending MFA confirmation
-          setBackendStatus('online'); // confirm still online
-          goToMfa(session);
-          return;
-        } catch (backendErr) {
-          const isAuthFailure =
-            backendErr?.isAuthError ||
-            backendErr?.status === 401 ||
-            backendErr?.status === 403;
+      // ── Path A: Try real backend ─────────────────────────────────
+      try {
+        const session = await loginWithBackend(email.trim(), password);
+        setBackendStatus('online');
+        goToMfa(session);
+        return;
+      } catch (backendErr) {
+        console.error('[Login] Backend login failed:', backendErr);
+        const isAuthFailure =
+          backendErr?.isAuthError ||
+          backendErr?.status === 401 ||
+          backendErr?.status === 403;
 
-          if (isAuthFailure) {
-            // Definite wrong credentials from backend
-            setError(backendErr.message || 'Invalid email or password');
-            return;
-          }
-          // Network dropped mid-session → fall through to demo
-          setBackendStatus('offline');
-          console.warn('[Login] Backend became unreachable, switching to demo fallback.');
+        if (isAuthFailure) {
+          // Backend is up but credentials are wrong or we got an HTTP error
+          setBackendStatus('online');
+          setError(backendErr.message || 'Invalid email or password');
+          return;
         }
+        // Network error / timeout → backend is down, fall through to demo
+        console.warn('[Login] Network/Timeout error, falling through to demo mode. Error:', backendErr);
+        setBackendStatus('offline');
       }
 
-      // ── Path B: Backend offline → demo credentials ───────────────
+      // ── Path B: Backend unreachable → try demo credentials ───────
       const result = verifyCredentials(email, password);
       if (result.success) {
         goToMfa(result.user);
       } else {
-        setError(
-          backendStatus === 'offline'
-            ? 'Invalid credentials. (Backend is offline — use a demo account below.)'
-            : result.error
-        );
+        setError('Invalid credentials. Check your email and password.');
       }
     } finally {
       setLoading(false);
@@ -297,11 +229,8 @@ export default function LoginPage() {
           <h1 className="login-heading">Welcome back</h1>
           <p className="login-sub">Sign in to access your financial dashboards</p>
 
-          {/* ── Backend Status Badge ── */}
-          <BackendStatusBadge status={backendStatus} onRetry={handleRetryConnection} />
-
-          {/* ── Offline info ── */}
-          {backendStatus === 'offline' && <OfflineBanner />}
+          {/* ── Server status pill (tiny, non-blocking) ── */}
+          <ServerPill status={backendStatus} />
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -371,7 +300,7 @@ export default function LoginPage() {
               type="submit"
               className="btn btn-primary w-full"
               style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: '16px' }}
-              disabled={loading || backendStatus === 'checking'}
+              disabled={loading}
             >
               {loading ? (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -380,24 +309,10 @@ export default function LoginPage() {
                     borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite',
                     display: 'inline-block',
                   }} />
-                  {backendStatus === 'online' ? 'Authenticating…' : 'Signing in…'}
-                </span>
-              ) : backendStatus === 'checking' ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)',
-                    borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite',
-                    display: 'inline-block',
-                  }} />
-                  Connecting…
+                  Signing in…
                 </span>
               ) : (
-                <>
-                  {backendStatus === 'online'
-                    ? <><Wifi size={14} /> Sign In Securely</>
-                    : <><WifiOff size={14} /> Sign In (Demo Mode)</>
-                  }
-                </>
+                <><Wifi size={14} /> Sign In Securely</>
               )}
             </button>
           </form>

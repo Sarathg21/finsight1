@@ -3,10 +3,14 @@
  * ─────────────────────────
  * All calls include JWT Bearer token from localStorage.
  * Base URL is read from the Vite env variable VITE_API_BASE_URL
- * (defaults to http://localhost:8000 for local development).
+ * (defaults to http://13.233.207.68:8000 for local development).
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://13.233.207.68:8000';
+// IMPORTANT: Keep ?? (not ||) here.
+// When VITE_API_BASE_URL is empty (""), API_BASE stays "" so all requests use
+// relative paths (/api/...) intercepted by the Vite dev proxy → backend.
+// Using || would bypass the proxy and cause CORS errors from the browser.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /* ── JWT helpers ───────────────────────────────────────────────── */
 
@@ -88,61 +92,134 @@ const MOCK_SUBDIVISION = {
   total: 14250000
 };
 
-const MOCK_DETAILS = {
-  rows: [
-    {
-      legal_entity: 'FJ HQ',
-      parent_division: 'Corporate',
-      sub_division: 'HQ Operations',
-      mtd_revenue: 7850000,
-      prev_mtd_revenue: 7200000,
-      ytd_revenue: 92000000,
-      ytd_py_revenue: 85000000,
-      variance_mtd_pct: 9.03,
-      variance_ytd_pct: 8.24,
-    },
-    {
-      legal_entity: 'FJ Care UAE',
-      parent_division: 'FJ Care',
-      sub_division: 'FJ Care Services',
-      mtd_revenue: 2450000,
-      prev_mtd_revenue: 2200000,
-      ytd_revenue: 28000000,
-      ytd_py_revenue: 25000000,
-      variance_mtd_pct: 11.36,
-      variance_ytd_pct: 12.00,
-    },
-    {
-      legal_entity: 'Flowtech Qatar',
-      parent_division: 'Flowtech UAE, QTR, OMN',
-      sub_division: 'Flowtech Sales',
-      mtd_revenue: 1850000,
-      prev_mtd_revenue: 1700000,
-      ytd_revenue: 22000000,
-      ytd_py_revenue: 20000000,
-      variance_mtd_pct: 8.82,
-      variance_ytd_pct: 10.00,
-    },
-    {
-      legal_entity: 'FJ Engineering KSA',
-      parent_division: 'Engineering',
-      sub_division: 'Engineering Services',
-      mtd_revenue: 2100000,
-      prev_mtd_revenue: 2000000,
-      ytd_revenue: 26900000,
-      ytd_py_revenue: 24000000,
-      variance_mtd_pct: 5.00,
-      variance_ytd_pct: 12.08,
-    }
+/* ── Mock View-All Detail Data ────────────────────────────────── */
+
+const MOCK_LEGAL_ENTITY_DETAIL = {
+  data: [
+    { legal_entity: 'FJ HQ', total_revenue: 7850000, mtd_revenue: 7850000, ytd_revenue: 92000000, transaction_count: 142, currency: 'AED' },
+    { legal_entity: 'FJ Care UAE', total_revenue: 2450000, mtd_revenue: 2450000, ytd_revenue: 28000000, transaction_count: 85, currency: 'AED' },
+    { legal_entity: 'Flowtech Qatar', total_revenue: 1850000, mtd_revenue: 1850000, ytd_revenue: 22000000, transaction_count: 63, currency: 'AED' },
+    { legal_entity: 'FJ Engineering KSA', total_revenue: 2100000, mtd_revenue: 2100000, ytd_revenue: 26900000, transaction_count: 71, currency: 'AED' },
   ],
-  totals: {
-    mtd_revenue: 14250000,
-    prev_mtd_revenue: 13100000,
-    ytd_revenue: 168900000,
-    ytd_py_revenue: 154000000,
-    variance_mtd_pct: 8.78,
-    variance_ytd_pct: 9.68,
-  }
+  total: 14250000,
+  count: 4
+};
+
+const MOCK_PARENT_DIVISION_DETAIL = {
+  data: [
+    { division_name: 'Corporate', division_code: 'CORP', total_revenue: 7850000, mtd_revenue: 7850000, ytd_revenue: 92000000, transaction_count: 142, currency: 'AED' },
+    { division_name: 'FJ Care', division_code: 'FJCARE', total_revenue: 2450000, mtd_revenue: 2450000, ytd_revenue: 28000000, transaction_count: 85, currency: 'AED' },
+    { division_name: 'Flowtech UAE, QTR, OMN', division_code: 'FLOWTECH', total_revenue: 1850000, mtd_revenue: 1850000, ytd_revenue: 22000000, transaction_count: 63, currency: 'AED' },
+    { division_name: 'Engineering', division_code: 'ENG', total_revenue: 2100000, mtd_revenue: 2100000, ytd_revenue: 26900000, transaction_count: 71, currency: 'AED' },
+  ],
+  total: 14250000,
+  count: 4
+};
+
+const MOCK_SUBDIVISION_DETAIL = {
+  data: [
+    { subdivision_name: 'HQ Operations', subdivision_code: 'HQ-OPS', parent_division: 'Corporate', total_revenue: 7850000, mtd_revenue: 7850000, ytd_revenue: 92000000, transaction_count: 142, currency: 'AED' },
+    { subdivision_name: 'FJ Care Services', subdivision_code: 'FJCARE-SVC', parent_division: 'FJ Care', total_revenue: 2450000, mtd_revenue: 2450000, ytd_revenue: 28000000, transaction_count: 85, currency: 'AED' },
+    { subdivision_name: 'Flowtech Sales', subdivision_code: 'FLOWTECH-SLS', parent_division: 'Flowtech UAE, QTR, OMN', total_revenue: 1850000, mtd_revenue: 1850000, ytd_revenue: 22000000, transaction_count: 63, currency: 'AED' },
+    { subdivision_name: 'Engineering Services', subdivision_code: 'ENG-SVC', parent_division: 'Engineering', total_revenue: 2100000, mtd_revenue: 2100000, ytd_revenue: 26900000, transaction_count: 71, currency: 'AED' },
+  ],
+  total: 14250000,
+  count: 4
+};
+
+const MOCK_SALESMAN_DETAIL = {
+  data: [
+    { sales_person: 'Hassan Al Nuaimi', legal_entity: 'FJ HQ', division: 'Corporate', total_revenue: 4550000, mtd_revenue: 4550000, ytd_revenue: 52000000, target: 5000000, achievement_pct: 91.0, transaction_count: 58, currency: 'AED' },
+    { sales_person: 'John Doe', legal_entity: 'FJ Care UAE', division: 'FJ Care', total_revenue: 3890000, mtd_revenue: 3890000, ytd_revenue: 45000000, target: 4000000, achievement_pct: 97.25, transaction_count: 47, currency: 'AED' },
+    { sales_person: 'Sarah Connor', legal_entity: 'Flowtech Qatar', division: 'Flowtech UAE, QTR, OMN', total_revenue: 3100000, mtd_revenue: 3100000, ytd_revenue: 36000000, target: 3000000, achievement_pct: 103.33, transaction_count: 39, currency: 'AED' },
+    { sales_person: 'Mike Ross', legal_entity: 'FJ Engineering KSA', division: 'Engineering', total_revenue: 1850000, mtd_revenue: 1850000, ytd_revenue: 21500000, target: 2000000, achievement_pct: 92.5, transaction_count: 28, currency: 'AED' },
+    { sales_person: 'Rachel Zane', legal_entity: 'FJ HQ', division: 'Corporate', total_revenue: 860000, mtd_revenue: 860000, ytd_revenue: 14400000, target: 1000000, achievement_pct: 86.0, transaction_count: 17, currency: 'AED' },
+  ],
+  total: 14250000,
+  count: 5
+};
+
+const MOCK_DETAILS = {
+  data: [
+    {
+      invoice_number: 'INV-2026-001',
+      invoice_date: '2026-01-05',
+      legal_entity: 'FJ HQ',
+      division_code: 'CORP',
+      subdivision_code: 'HQ-OPS',
+      business_unit: 'BU-001',
+      sales_person: 'Hassan Al Nuaimi',
+      customer_name: 'Al Futtaim Carillion',
+      customer_account_number: 'ACC-1001',
+      project_reference: 'PRJ-2026-001',
+      invoice_currency: 'AED',
+      amount: 450000,
+      base_amount: 450000,
+    },
+    {
+      invoice_number: 'INV-2026-002',
+      invoice_date: '2026-01-08',
+      legal_entity: 'FJ Care UAE',
+      division_code: 'FJCARE',
+      subdivision_code: 'FJCARE-SVC',
+      business_unit: 'BU-002',
+      sales_person: 'John Doe',
+      customer_name: 'Emaar Properties PJSC',
+      customer_account_number: 'ACC-1002',
+      project_reference: 'PRJ-2026-002',
+      invoice_currency: 'AED',
+      amount: 380000,
+      base_amount: 380000,
+    },
+    {
+      invoice_number: 'INV-2026-003',
+      invoice_date: '2026-01-12',
+      legal_entity: 'Flowtech Qatar',
+      division_code: 'FLOWTECH',
+      subdivision_code: 'FLOWTECH-SLS',
+      business_unit: 'BU-003',
+      sales_person: 'Sarah Connor',
+      customer_name: 'Damac Properties',
+      customer_account_number: 'ACC-1003',
+      project_reference: 'PRJ-2026-003',
+      invoice_currency: 'AED',
+      amount: 290000,
+      base_amount: 290000,
+    },
+    {
+      invoice_number: 'INV-2026-004',
+      invoice_date: '2026-01-15',
+      legal_entity: 'FJ Engineering KSA',
+      division_code: 'ENG',
+      subdivision_code: 'ENG-SVC',
+      business_unit: 'BU-004',
+      sales_person: 'Mike Ross',
+      customer_name: 'Arabtec Construction',
+      customer_account_number: 'ACC-1004',
+      project_reference: 'PRJ-2026-004',
+      invoice_currency: 'AED',
+      amount: 315000,
+      base_amount: 315000,
+    },
+    {
+      invoice_number: 'INV-2026-005',
+      invoice_date: '2026-01-18',
+      legal_entity: 'FJ HQ',
+      division_code: 'CORP',
+      subdivision_code: 'HQ-OPS',
+      business_unit: 'BU-001',
+      sales_person: 'Rachel Zane',
+      customer_name: 'Sobha Realty',
+      customer_account_number: 'ACC-1005',
+      project_reference: 'PRJ-2026-005',
+      invoice_currency: 'AED',
+      amount: 175000,
+      base_amount: 175000,
+    },
+  ],
+  total_count: 5,
+  limit: 50,
+  offset: 0,
 };
 
 const MOCK_TOP_CUSTOMERS = {
@@ -197,6 +274,10 @@ function getMockDataForPath(path) {
   if (path.includes('/filters')) return MOCK_FILTERS;
   if (path.includes('/summary')) return MOCK_SUMMARY;
   if (path.includes('/trend')) return MOCK_TREND;
+  if (path.includes('/legal-entity-detail')) return MOCK_LEGAL_ENTITY_DETAIL;
+  if (path.includes('/parent-division-detail')) return MOCK_PARENT_DIVISION_DETAIL;
+  if (path.includes('/subdivision-detail')) return MOCK_SUBDIVISION_DETAIL;
+  if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;
   if (path.includes('/legal-entity')) return MOCK_LEGAL_ENTITY;
   if (path.includes('/parent-division')) return MOCK_PARENT_DIVISION;
   if (path.includes('/subdivision')) return MOCK_SUBDIVISION;
@@ -272,7 +353,36 @@ async function apiCall(path, params = {}) {
     throw { status: res.status, message, rawBody: rawBody.slice(0, 300) };
   }
 
-  return res.json();
+  const json = await res.json();
+  
+  // Normalize response to always have a .data array if the backend returns a direct array
+  if (Array.isArray(json)) {
+    if (json.length > 0) {
+      console.log(`\n========================================`);
+      console.log(`[salesRevenueApi] FIRST ROW FOR ${path}:`);
+      console.log(`KEYS:`, Object.keys(json[0]).join(', '));
+      console.log(`DATA:`, JSON.stringify(json[0], null, 2));
+      console.log(`========================================\n`);
+    }
+    return { data: json };
+  }
+  
+  // If the backend returned an object but no .data field, try to find the array
+  if (json && typeof json === 'object' && !('data' in json)) {
+    const arrVal = Object.values(json).find(v => Array.isArray(v));
+    if (arrVal) {
+      if (arrVal.length > 0) {
+        console.log(`\n========================================`);
+        console.log(`[salesRevenueApi] FIRST ROW FOR ${path}:`);
+        console.log(`KEYS:`, Object.keys(arrVal[0]).join(', '));
+        console.log(`DATA:`, JSON.stringify(arrVal[0], null, 2));
+        console.log(`========================================\n`);
+      }
+      return { ...json, data: arrVal };
+    }
+  }
+
+  return json;
 }
 
 
@@ -280,18 +390,79 @@ async function apiCall(path, params = {}) {
 
 /**
  * Normalise the filter state object into API-ready query params.
+ * Maps frontend filter keys to the backend parameter names.
  */
 function buildParams(filters = {}) {
   return {
-    legal_group:   filters.legalGroup   !== 'All' ? filters.legalGroup   : undefined,
-    legal_entity:  filters.legalEntity  !== 'All' ? filters.legalEntity  : undefined,
-    parent_division: filters.parentDiv  !== 'All' ? filters.parentDiv    : undefined,
-    sub_division:  filters.subDiv       !== 'All' ? filters.subDiv       : undefined,
-    salesman:      filters.salesman     !== 'All' ? filters.salesman     : undefined,
-    from_date:     filters.fromDate     || undefined,
-    to_date:       filters.toDate       || undefined,
-    currency:      'AED',
+    from_date:              filters.fromDate        || undefined,
+    to_date:                filters.toDate          || undefined,
+    legal_entity:           filters.legalEntity !== 'All' ? filters.legalEntity  : undefined,
+    division_code:          filters.parentDiv   !== 'All' ? filters.parentDiv    : undefined,
+    subdivision_code:       filters.subDiv      !== 'All' ? filters.subDiv       : undefined,
+    business_unit:          filters.businessUnit !== 'All' ? filters.businessUnit : undefined,
+    sales_person:           filters.salesman    !== 'All' ? filters.salesman     : undefined,
+    customer_name:          filters.customerName            || undefined,
+    customer_account_number:filters.customerAccountNumber   || undefined,
+    project_reference:      filters.projectReference        || undefined,
+    invoice_currency:       filters.invoiceCurrency         || undefined,
   };
+}
+
+/* ── Export URL builder ────────────────────────────────────────── */
+
+/**
+ * Triggers a file download for Excel or PDF export from the backend.
+ * @param {string} endpoint - e.g. 'legal-entity-detail', 'details'
+ * @param {'excel'|'pdf'} format
+ * @param {object} filters  - current applied filters
+ */
+export function exportSalesRevenue(endpoint, format, filters = {}) {
+  const token = localStorage.getItem('finsight_token');
+
+  const params = {
+    ...buildParams(filters),
+    format,
+  };
+
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)
+  ).toString();
+
+  const url = `${API_BASE}/api/sales-revenue/${endpoint}/export${qs ? `?${qs}` : ''}`;
+
+  // Create a hidden anchor and click it to trigger download
+  const a = document.createElement('a');
+  a.href = url;
+  if (token) {
+    // For JWT-protected download endpoints the browser cannot set headers via <a>,
+    // so we fetch the blob and create an object URL instead.
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => {
+        if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+        return res.blob();
+      })
+      .then(blob => {
+        const ext = format === 'excel' ? 'xlsx' : 'pdf';
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = `${endpoint}_export.${ext}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+      })
+      .catch(err => {
+        console.error('[salesRevenueApi] Export error:', err);
+        alert(`Export failed: ${err.message}`);
+      });
+  } else {
+    // Demo mode — no token, open URL directly
+    a.download = `${endpoint}_export.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 /* ── Public API functions ──────────────────────────────────────── */
@@ -299,158 +470,107 @@ function buildParams(filters = {}) {
 /**
  * GET /api/sales-revenue/filters
  * Returns available filter options (dropdown values).
- *
- * Expected response shape:
- * {
- *   legal_groups: string[],
- *   legal_entities: string[],
- *   parent_divisions: string[],
- *   sub_divisions: string[],
- *   salesmen: string[],
- * }
  */
 export async function fetchFilters() {
   return apiCall('/api/sales-revenue/filters', { currency: 'AED' });
 }
 
-/**
- * GET /api/sales-revenue/summary
- * Returns KPI summary values.
- *
- * Expected response shape:
- * {
- *   mtd_revenue: number,
- *   ytd_revenue: number,
- *   prev_mtd_revenue: number,
- *   prev_ytd_revenue: number,
- *   mtd_change_pct: number,
- *   ytd_change_pct: number,
- *   top_legal_entity: { name: string, value: number, pct: number },
- *   top_parent_division: { name: string, value: number, pct: number },
- *   currency: string,
- *   data_as_of: string,   // ISO date string
- * }
- */
-export async function fetchSummary(filters) {
-  return apiCall('/api/sales-revenue/summary', buildParams(filters));
-}
+/* ── View-All Detail APIs (new endpoints) ──────────────────────── */
 
 /**
- * GET /api/sales-revenue/trend
- * Returns monthly revenue trend data.
+ * GET /api/sales-revenue/legal-entity-detail
+ * Returns full detail table for all legal entities.
  *
  * Expected response shape:
  * {
  *   data: [
- *     { period: string, current_year: number, previous_year: number, target: number }
- *   ]
- * }
- */
-export async function fetchTrend(filters) {
-  return apiCall('/api/sales-revenue/trend', buildParams(filters));
-}
-
-/**
- * GET /api/sales-revenue/legal-entity
- * Returns revenue breakdown by legal entity.
- *
- * Expected response shape:
- * {
- *   data: [
- *     { name: string, value: number, pct: number }
+ *     { legal_entity, total_revenue, mtd_revenue, ytd_revenue, transaction_count, currency }
  *   ],
- *   total: number
+ *   total: number,
+ *   count: number
  * }
  */
-export async function fetchLegalEntity(filters) {
-  return apiCall('/api/sales-revenue/legal-entity', buildParams(filters));
+export async function fetchLegalEntityDetail(filters) {
+  return apiCall('/api/sales-revenue/legal-entity-detail', buildParams(filters));
 }
 
 /**
- * GET /api/sales-revenue/parent-division
- * Returns revenue breakdown by parent division.
+ * GET /api/sales-revenue/parent-division-detail
+ * Returns full detail table for all parent divisions.
  *
  * Expected response shape:
  * {
  *   data: [
- *     { name: string, value: number }
+ *     { division_name, division_code, total_revenue, mtd_revenue, ytd_revenue, transaction_count, currency }
  *   ],
- *   total: number
+ *   total: number,
+ *   count: number
  * }
  */
-export async function fetchParentDivision(filters) {
-  return apiCall('/api/sales-revenue/parent-division', buildParams(filters));
+export async function fetchParentDivisionDetail(filters) {
+  return apiCall('/api/sales-revenue/parent-division-detail', buildParams(filters));
 }
 
 /**
- * GET /api/sales-revenue/subdivision
- * Returns revenue breakdown by sub-division.
+ * GET /api/sales-revenue/subdivision-detail
+ * Returns full detail table for all sub-divisions.
  *
  * Expected response shape:
  * {
  *   data: [
- *     { name: string, value: number }
+ *     { subdivision_name, subdivision_code, parent_division, total_revenue, mtd_revenue, ytd_revenue, transaction_count, currency }
  *   ],
- *   total: number
+ *   total: number,
+ *   count: number
  * }
  */
-export async function fetchSubDivision(filters) {
-  return apiCall('/api/sales-revenue/subdivision', buildParams(filters));
+export async function fetchSubdivisionDetail(filters) {
+  return apiCall('/api/sales-revenue/subdivision-detail', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/salesman-detail
+ * Returns full detail table for all salespeople.
+ *
+ * Expected response shape:
+ * {
+ *   data: [
+ *     { sales_person, legal_entity, division, total_revenue, mtd_revenue, ytd_revenue, target, achievement_pct, transaction_count, currency }
+ *   ],
+ *   total: number,
+ *   count: number
+ * }
+ */
+export async function fetchSalesmanDetail(filters) {
+  return apiCall('/api/sales-revenue/salesman-detail', buildParams(filters));
 }
 
 /**
  * GET /api/sales-revenue/details
- * Returns the full detailed view rows.
+ * Returns the full detailed transaction view with pagination.
+ *
+ * @param {object} filters     - applied filters
+ * @param {number} limit       - rows per page (default 50)
+ * @param {number} offset      - starting row index (default 0)
  *
  * Expected response shape:
  * {
- *   rows: [
+ *   data: [
  *     {
- *       legal_entity: string,
- *       parent_division: string,
- *       sub_division: string,
- *       mtd_revenue: number,
- *       prev_mtd_revenue: number,
- *       ytd_revenue: number,
- *       ytd_py_revenue: number,
- *       variance_mtd_pct: number,
- *       variance_ytd_pct: number,
+ *       invoice_number, invoice_date, legal_entity, division_code, subdivision_code,
+ *       business_unit, sales_person, customer_name, customer_account_number,
+ *       project_reference, invoice_currency, amount, base_amount
  *     }
  *   ],
- *   totals: {
- *     mtd_revenue: number,
- *     prev_mtd_revenue: number,
- *     ytd_revenue: number,
- *     ytd_py_revenue: number,
- *     variance_mtd_pct: number,
- *     variance_ytd_pct: number,
- *   }
+ *   total_count: number,
+ *   limit: number,
+ *   offset: number
  * }
  */
-export async function fetchDetails(filters) {
-  return apiCall('/api/sales-revenue/details', buildParams(filters));
-}
-
-/**
- * GET /api/sales-revenue/top-customers
- * Returns top 10 customers.
- */
-export async function fetchTopCustomers(filters) {
-  return apiCall('/api/sales-revenue/top-customers', buildParams(filters));
-}
-
-/**
- * GET /api/sales-revenue/by-salesman
- * Returns sales by salesman.
- */
-export async function fetchBySalesman(filters) {
-  return apiCall('/api/sales-revenue/by-salesman', buildParams(filters));
-}
-
-/**
- * GET /api/sales-revenue/gross-margin
- * Returns gross profit / margin info.
- */
-export async function fetchGrossMargin(filters) {
-  return apiCall('/api/sales-revenue/gross-margin', buildParams(filters));
+export async function fetchDetails(filters, limit = 50, offset = 0) {
+  return apiCall('/api/sales-revenue/details', {
+    ...buildParams(filters),
+    limit,
+    offset,
+  });
 }

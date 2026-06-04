@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
@@ -7,15 +7,12 @@ import {
 } from 'recharts';
 import {
   fetchFilters,
-  fetchSummary,
-  fetchTrend,
-  fetchLegalEntity,
-  fetchParentDivision,
-  fetchSubDivision,
   fetchDetails,
-  fetchTopCustomers,
-  fetchBySalesman,
-  fetchGrossMargin,
+  fetchLegalEntityDetail,
+  fetchParentDivisionDetail,
+  fetchSubdivisionDetail,
+  fetchSalesmanDetail,
+  exportSalesRevenue,
 } from '../services/salesRevenueApi';
 
 /* ─── Color Palette ─────────────────────────────────────────────── */
@@ -59,6 +56,8 @@ const DEFAULT_FILTERS = {
   toDate:      LAST_DAY,
 };
 
+const DETAILS_PAGE_SIZE = 50;
+
 /* ─── Loading Skeleton ──────────────────────────────────────────── */
 function Skeleton({ h = 20, w = '100%', radius = 6 }) {
   return (
@@ -71,8 +70,65 @@ function Skeleton({ h = 20, w = '100%', radius = 6 }) {
   );
 }
 
-/* ─── Chart Details Modal & Buttons ─────────────────────────────── */
+/* ─── Export Buttons ─────────────────────────────────────────────── */
+function ExportButtons({ endpoint, filters, size = 'sm' }) {
+  const [exporting, setExporting] = useState(null);
 
+  const handleExport = (format) => {
+    setExporting(format);
+    try {
+      exportSalesRevenue(endpoint, format, filters);
+    } catch (e) {
+      console.error('Export error:', e);
+    }
+    setTimeout(() => setExporting(null), 2000);
+  };
+
+  const btnBase = {
+    display: 'flex', alignItems: 'center', gap: 4,
+    border: 'none', borderRadius: 7, cursor: 'pointer',
+    fontWeight: 700, transition: 'all 0.15s', outline: 'none',
+    fontSize: size === 'sm' ? '0.70rem' : '0.74rem',
+    padding: size === 'sm' ? '5px 10px' : '6px 13px',
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      <button
+        id={`btn-export-excel-${endpoint}`}
+        onClick={() => handleExport('excel')}
+        disabled={exporting === 'excel'}
+        title="Export to Excel"
+        style={{
+          ...btnBase,
+          background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
+          color: '#15803d',
+          border: '1px solid #bbf7d0',
+          opacity: exporting === 'excel' ? 0.7 : 1,
+        }}
+      >
+        {exporting === 'excel' ? '⏳' : '📊'} Excel
+      </button>
+      <button
+        id={`btn-export-pdf-${endpoint}`}
+        onClick={() => handleExport('pdf')}
+        disabled={exporting === 'pdf'}
+        title="Export to PDF"
+        style={{
+          ...btnBase,
+          background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
+          color: '#be123c',
+          border: '1px solid #fecdd3',
+          opacity: exporting === 'pdf' ? 0.7 : 1,
+        }}
+      >
+        {exporting === 'pdf' ? '⏳' : '📄'} PDF
+      </button>
+    </div>
+  );
+}
+
+/* ─── View-All Button ────────────────────────────────────────────── */
 function ViewAllButton({ onClick }) {
   const [hover, setHover] = useState(false);
   return (
@@ -101,6 +157,7 @@ function ViewAllButton({ onClick }) {
   );
 }
 
+/* ─── Modal Close Button ─────────────────────────────────────────── */
 function ModalCloseButton({ onClick }) {
   const [hover, setHover] = useState(false);
   return (
@@ -130,34 +187,50 @@ function ModalCloseButton({ onClick }) {
   );
 }
 
-function DetailModal({ isOpen, onClose, title, headers, rows, searchPlaceholder = "Search detailed breakdown..." }) {
-  const [searchTerm, setSearchTerm] = useState('');
+/* ─── Detail API Modal ───────────────────────────────────────────── */
+/**
+ * A View-All modal that fetches from a backend detail API on open,
+ * then renders all rows dynamically from the response.
+ * Includes Excel & PDF export buttons.
+ */
+function DetailApiModal({
+  isOpen,
+  onClose,
+  title,
+  endpoint,
+  fetchFn,
+  columnDefs,    // [{ label, key, align, fmt }]
+  filters,
+  searchPlaceholder = 'Search...',
+}) {
+  const [rows, setRows]         = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState(null);
+  const [searchTerm, setSearch] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    setError(null);
+    setRows([]);
+    fetchFn(filters)
+      .then(res => setRows(res?.data || []))
+      .catch(err => setError(err?.message || 'Failed to load data'))
+      .finally(() => setLoading(false));
+  }, [isOpen, filters, fetchFn]);
+
   if (!isOpen) return null;
 
-  // Filter rows based on search term (across all cell values)
-  const filteredRows = rows.filter(row =>
-    row.some(val =>
-      String(val).toLowerCase().includes(searchTerm.toLowerCase())
+  const filtered = rows.filter(row =>
+    columnDefs.some(col =>
+      String(row[col.key] ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
-
-  const handleExport = () => {
-    // Generate CSV content
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + [headers.join(','), ...filteredRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${title.replace(/\s+/g, '_').toLowerCase()}_export.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.3)', backdropFilter: 'blur(6px)',
+      background: 'rgba(15, 23, 42, 0.35)', backdropFilter: 'blur(6px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 1000, animation: 'fadeIn 0.2s ease',
     }}>
@@ -166,98 +239,133 @@ function DetailModal({ isOpen, onClose, title, headers, rows, searchPlaceholder 
         @keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       `}</style>
       <div style={{
-        background: '#fff', borderRadius: 16, width: '90%', maxWidth: 750,
-        maxHeight: '80vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+        background: '#fff', borderRadius: 16,
+        width: '92%', maxWidth: 860,
+        maxHeight: '82vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
         animation: 'scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         overflow: 'hidden', border: '1px solid #e2e8f0',
       }}>
         {/* Header */}
         <div style={{
-          padding: '16px 20px', borderBottom: '1px solid #f1f5f9',
+          padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: '#f8fafc',
+          background: 'linear-gradient(90deg,#f8fafc,#fff)',
         }}>
-          <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>{title}</h3>
+          <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
+            {title}
+          </h3>
           <ModalCloseButton onClick={onClose} />
         </div>
 
-        {/* Search & Actions Bar */}
+        {/* Search & Export Bar */}
         <div style={{
-          padding: '12px 20px', borderBottom: '1px solid #f1f5f9',
-          display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between',
-          flexWrap: 'wrap',
+          padding: '10px 20px', borderBottom: '1px solid #f1f5f9',
+          display: 'flex', gap: 10, alignItems: 'center',
+          justifyContent: 'space-between', flexWrap: 'wrap',
+          background: '#fafbfc',
         }}>
           <input
             type="text"
             placeholder={searchPlaceholder}
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             style={{
               padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
-              fontSize: '0.78rem', width: 220, outline: 'none',
-              transition: 'border-color 0.15s',
+              fontSize: '0.78rem', minWidth: 200, outline: 'none',
             }}
           />
-          <button onClick={handleExport} style={{
-            padding: '6px 14px', background: C.blue, color: '#fff', border: 'none',
-            borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 5, boxShadow: '0 2px 4px rgba(37,99,235,0.1)',
-            transition: 'opacity 0.15s',
-          }}>
-            📥 Export CSV
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {!loading && rows.length > 0 && (
+              <span style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 600 }}>
+                {filtered.length} of {rows.length} records
+              </span>
+            )}
+            <ExportButtons endpoint={endpoint} filters={filters} />
+          </div>
         </div>
 
-        {/* Table Body */}
-        <div style={{ padding: '0 20px 16px', overflowY: 'auto', flex: 1 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
-            <thead>
-              <tr>
-                {headers.map((h, i) => (
-                  <th key={i} style={{
-                    ...TH, padding: '10px 8px', position: 'sticky', top: 0, background: '#fff',
-                    textAlign: i === 0 ? 'left' : 'right', borderBottom: '2px solid #e2e8f0',
-                    zIndex: 2,
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.length > 0 ? (
-                filteredRows.map((row, idx) => (
-                  <tr key={idx} style={{
-                    borderBottom: '1px solid #f1f5f9',
-                    background: idx % 2 === 0 ? '#fff' : '#f8fafc',
-                  }}>
-                    {row.map((cell, cIdx) => (
-                      <td key={cIdx} style={{
-                        ...TD, padding: '10px 8px',
-                        textAlign: cIdx === 0 ? 'left' : 'right',
-                        fontWeight: cIdx === 0 ? 600 : 'normal',
-                      }}>{cell}</td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
+        {/* Table */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 16px' }}>
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} h={18} />
+              ))}
+            </div>
+          ) : error ? (
+            <div style={{
+              margin: '24px 0', padding: '14px 18px',
+              background: '#fff1f2', border: '1px solid #fecdd3',
+              borderRadius: 10, color: '#be123c', fontSize: '0.8rem',
+            }}>
+              ⚠ {error}
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 12 }}>
+              <thead>
                 <tr>
-                  <td colSpan={headers.length} style={{
-                    textAlign: 'center', padding: '32px 0', color: C.muted, fontSize: '0.8rem'
-                  }}>No matching records found.</td>
+                  {columnDefs.map((col, i) => (
+                    <th key={i} style={{
+                      ...TH, padding: '10px 10px',
+                      position: 'sticky', top: 0,
+                      background: '#fff', zIndex: 2,
+                      textAlign: col.align || 'left',
+                      borderBottom: '2px solid #e2e8f0',
+                    }}>
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.length > 0 ? (
+                  filtered.map((row, idx) => (
+                    <tr key={idx} style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      background: idx % 2 === 0 ? '#fff' : '#f8fafc',
+                      transition: 'background 0.1s',
+                    }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+                    >
+                      {columnDefs.map((col, ci) => (
+                        <td key={ci} style={{
+                          ...TD, padding: '9px 10px',
+                          textAlign: col.align || 'left',
+                          fontWeight: ci === 0 ? 600 : 'normal',
+                          color: ci === 0 ? C.navy : '#334155',
+                        }}>
+                          {col.fmt ? col.fmt(row[col.key], row) : (row[col.key] ?? '—')}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={columnDefs.length} style={{
+                      textAlign: 'center', padding: '36px 0',
+                      color: C.muted, fontSize: '0.8rem',
+                    }}>
+                      No records found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Footer */}
         <div style={{
-          padding: '12px 20px', borderTop: '1px solid #f1f5f9',
-          display: 'flex', justifyContent: 'flex-end', background: '#f8fafc',
+          padding: '10px 20px', borderTop: '1px solid #f1f5f9',
+          display: 'flex', justifyContent: 'flex-end',
+          background: '#f8fafc',
         }}>
           <button onClick={onClose} style={{
-            padding: '6px 16px', background: '#e2e8f0', color: C.slate, border: 'none',
-            borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            padding: '6px 18px', background: '#e2e8f0', color: C.slate,
+            border: 'none', borderRadius: 8, fontSize: '0.74rem',
+            fontWeight: 700, cursor: 'pointer',
           }}>Close</button>
         </div>
       </div>
@@ -297,7 +405,6 @@ function PendingCard({ title, icon, minHeight = 180 }) {
       boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* Frosted overlay */}
       <div style={{
         position: 'absolute', inset: 0,
         background: 'rgba(248,250,252,0.88)',
@@ -322,7 +429,6 @@ function PendingCard({ title, icon, minHeight = 180 }) {
           ⏳ Data source pending from CFO
         </div>
       </div>
-      {/* Background placeholder content (blurred) */}
       <div style={{ opacity: 0.25 }}>
         <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 12 }}>{title}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -454,8 +560,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           ) : (
             <div style={{
               fontSize: numericValue !== null ? '1.1rem' : '0.95rem',
-              fontWeight: 800, color: C.navy, lineHeight: 1.15,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              fontWeight: 800, color: C.navy, lineHeight: 1.25,
             }}>{formattedNum}</div>
           )}
         </div>
@@ -572,14 +677,22 @@ function LegendDot({ color, label, dashed }) {
 
 /* ─── Custom X-Axis Tick ─────────────────────────────────────────── */
 function CustomXAxisTick({ x, y, payload }) {
-  const lines = (payload?.value || '').split('\n');
+  const text = payload?.value || '';
+  // Truncate if extremely long
+  const display = text.length > 25 ? text.substring(0, 22) + '...' : text;
   return (
     <g transform={`translate(${x},${y})`}>
-      {lines.map((line, i) => (
-        <text key={i} x={0} y={0} dy={10 + i * 11} textAnchor="middle" fill={C.slate} fontSize={8}>
-          {line}
-        </text>
-      ))}
+      <text 
+        x={0} 
+        y={0} 
+        dy={10} 
+        textAnchor="end" 
+        fill={C.slate} 
+        fontSize={9}
+        transform="rotate(-35)"
+      >
+        {display}
+      </text>
     </g>
   );
 }
@@ -642,7 +755,7 @@ export default function SalesRevenueReport() {
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
 
-  /* ── Filter options (from /filters endpoint) ─────────────────── */
+  /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
     legalGroups:    ['All'],
     legalEntities:  ['All'],
@@ -651,17 +764,24 @@ export default function SalesRevenueReport() {
     salesmen:       ['All'],
   });
 
-  /* ── Data state ───────────────────────────────────────────────── */
+  /* ── Chart / KPI data state ───────────────────────────────────── */
   const [summary,          setSummary]          = useState(null);
   const [trendData,        setTrendData]        = useState([]);
   const [legalEntData,     setLegalEntData]     = useState([]);
   const [parentDivData,    setParentDivData]    = useState([]);
   const [subDivData,       setSubDivData]       = useState([]);
-  const [detailData,       setDetailData]       = useState({ rows: [], totals: {} });
   const [topCustomersData, setTopCustomersData] = useState([]);
   const [bySalesmanData,   setBySalesmanData]   = useState([]);
   const [grossMarginData,  setGrossMarginData]  = useState(null);
   const [activeTab,        setActiveTab]        = useState('all');
+
+  /* ── /details pagination state ────────────────────────────────── */
+  const [detailRows,       setDetailRows]       = useState([]);
+  const [detailTotalCount, setDetailTotalCount] = useState(0);
+  const [detailPage,       setDetailPage]       = useState(0); // 0-indexed
+
+  /* ── View-All modal state ─────────────────────────────────────── */
+  const [openModal, setOpenModal] = useState(null); // 'legalEntity' | 'parentDiv' | 'subDiv' | 'salesman'
 
   /* ── Loading flags ────────────────────────────────────────────── */
   const [loading, setLoading] = useState({
@@ -684,90 +804,14 @@ export default function SalesRevenueReport() {
     }
   }, [errors, publicIp]);
 
-  /* ── Detail Modal state & handlers ────────────────────────────── */
-  const [modalConfig, setModalConfig] = useState(null); // { title, headers, rows }
-
+  /* ── Formatters ───────────────────────────────────────────────── */
   const fmtCurrency = (v) => v !== null && v !== undefined ? `AED ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
   const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
   const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
-
-  const handleViewTrendDetails = () => {
-    const headers = ['Period', 'Current Year', 'Previous Year', 'Target', 'Variance to Target', 'Growth vs PY'];
-    const rows = trendData.map(row => {
-      const variance = row.currentYear !== null && row.target !== null ? row.currentYear - row.target : null;
-      const variancePct = row.target ? (variance / row.target) * 100 : null;
-      const growth = row.currentYear !== null && row.previousYear !== null ? row.currentYear - row.previousYear : null;
-      const growthPct = row.previousYear ? (growth / row.previousYear) * 100 : null;
-
-      return [
-        row.period,
-        fmtCurrency(row.currentYear),
-        fmtCurrency(row.previousYear),
-        fmtCurrency(row.target),
-        variance !== null ? `${variance >= 0 ? '+' : ''}${fmtCurrency(variance)} (${variancePct >= 0 ? '+' : ''}${fmtPct(variancePct)})` : '—',
-        growth !== null ? `${growth >= 0 ? '+' : ''}${fmtCurrency(growth)} (${growthPct >= 0 ? '+' : ''}${fmtPct(growthPct)})` : '—'
-      ];
-    });
-    setModalConfig({ title: 'Revenue Trend Detailed Breakdown', headers, rows });
-  };
-
-  const handleViewLegalEntityDetails = () => {
-    const headers = ['Legal Entity', 'Revenue', 'Contribution (%)'];
-    const rows = legalEntData.map(row => [
-      row.name,
-      fmtCurrency(row.value),
-      fmtPct(row.pct)
-    ]);
-    setModalConfig({ title: 'Revenue by Legal Entity Breakdown', headers, rows });
-  };
-
-  const handleViewParentDivisionDetails = () => {
-    const headers = ['Parent Division', 'Revenue', 'Contribution (%)'];
-    const totalVal = parentDivData.reduce((acc, r) => acc + r.value, 0);
-    const rows = parentDivData.map(row => [
-      row.name,
-      fmtCurrency(row.value),
-      fmtPct(totalVal ? (row.value / totalVal) * 100 : 0)
-    ]);
-    setModalConfig({ title: 'Revenue by Parent Division Breakdown', headers, rows });
-  };
-
-  const handleViewSubDivisionDetails = () => {
-    const headers = ['Sub-Division', 'Revenue', 'Contribution (%)'];
-    const totalVal = subDivData.reduce((acc, r) => acc + r.value, 0);
-    const rows = subDivData.map(row => [
-      row.name.replace(/\n/g, ' '),
-      fmtCurrency(row.value),
-      fmtPct(totalVal ? (row.value / totalVal) * 100 : 0)
-    ]);
-    setModalConfig({ title: 'Revenue by Sub-Division Breakdown', headers, rows });
-  };
-
-  const handleViewTopCustomersDetails = () => {
-    const headers = ['Customer Name', 'Revenue', 'Contribution (%)'];
-    const rows = topCustomersData.map(row => [
-      row.name,
-      fmtCurrency(row.value),
-      fmtPct(row.pct)
-    ]);
-    setModalConfig({ title: 'Top 10 Customers detailed Breakdown', headers, rows });
-  };
-
-  const handleViewBySalesmanDetails = () => {
-    const headers = ['Salesman Name', 'Actual Revenue', 'Sales Target', 'Achievement (%)', 'Contribution (%)'];
-    const rows = bySalesmanData.map(row => [
-      row.name,
-      fmtCurrency(row.value),
-      fmtCurrency(row.target),
-      row.target ? fmtPct((row.value / row.target) * 100) : '—',
-      fmtPct(row.pct)
-    ]);
-    setModalConfig({ title: 'Revenue by Salesman detailed Breakdown', headers, rows });
-  };
+  const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   /* ── Auth redirect helper ─────────────────────────────────────── */
   const handle401 = useCallback((err) => {
-    // Redirect to login on auth failures: 401, 403, or missing token flag
     if (err?.status === 401 || err?.status === 403 || err?.isAuthError) {
       navigate('/login');
     }
@@ -792,19 +836,41 @@ export default function SalesRevenueReport() {
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
   }, [handle401]);
 
+  /* ── Fetch details page ───────────────────────────────────────── */
+  const fetchDetailsPage = useCallback((f, page) => {
+    setLoading(prev => ({ ...prev, details: true }));
+    const offset = page * DETAILS_PAGE_SIZE;
+    fetchDetails(f, DETAILS_PAGE_SIZE, offset)
+      .then(d => {
+        setDetailRows(d?.data || []);
+        setDetailTotalCount(d?.total_count ?? 0);
+      })
+      .catch(err => {
+        handle401(err);
+        const msg = err?.rawBody
+          ? `${err.message} — Backend detail: ${err.rawBody}`
+          : err.message || 'Failed to load details';
+        setErrors(prev => ({ ...prev, details: msg }));
+      })
+      .finally(() => setLoading(prev => ({ ...prev, details: false })));
+  }, [handle401]);
+
   /* ── Fetch all data sections when applied filters change ────────── */
   const fetchAll = useCallback((f) => {
     setLoading({
-      filters: false, summary: true, trend: true, legalEnt: true, parentDiv: true, subDiv: true, details: true,
-      topCustomers: true, bySalesman: true, grossMargin: true
+      filters: false, summary: true, trend: false, legalEnt: true,
+      parentDiv: true, subDiv: true, details: true,
+      topCustomers: true, bySalesman: true, grossMargin: false
     });
     setErrors({});
+    setDetailPage(0);
+    setTrendData([]); // Unused
+    setGrossMarginData(null); // Unused
 
     const guard = (key, promise) =>
       promise
         .catch(err => {
           handle401(err);
-          // For 502, include rawBody detail so user can see what backend says
           const msg = err?.rawBody
             ? `${err.message} — Backend detail: ${err.rawBody}`
             : err.message || 'Failed to load data';
@@ -813,66 +879,143 @@ export default function SalesRevenueReport() {
         })
         .finally(() => setLoading(prev => ({ ...prev, [key]: false })));
 
-    guard('summary', fetchSummary(f)).then(d => d && setSummary(d));
-
-    guard('trend', fetchTrend(f)).then(d => {
-      if (!d) return;
-      setTrendData((d.data || []).map(row => ({
-        period:       row.period,
-        currentYear:  row.current_year,
-        previousYear: row.previous_year,
-        target:       row.target,
-      })));
-    });
-
-    guard('legalEnt', fetchLegalEntity(f)).then(d => {
-      if (!d) return;
-      setLegalEntData((d.data || []).map((row, i) => ({
-        name:  row.name,
-        value: row.value,
-        pct:   row.pct,
-        color: CHART_COLORS[i % CHART_COLORS.length],
-      })));
-    });
-
-    guard('parentDiv', fetchParentDivision(f)).then(d => {
-      if (!d) return;
-      setParentDivData((d.data || []).map(row => ({ name: row.name, value: row.value })));
-    });
-
-    guard('subDiv', fetchSubDivision(f)).then(d => {
-      if (!d) return;
-      setSubDivData((d.data || []).map((row, i) => ({
-        name:  row.name.replace(/\s/g, '\n'),
-        value: row.value,
-        color: CHART_COLORS[i % CHART_COLORS.length],
-      })));
-    });
-
-    guard('details', fetchDetails(f)).then(d => {
-      if (!d) return;
-      setDetailData({
-        rows:   d.rows   || [],
-        totals: d.totals || {},
+    // 1. Legal Entity
+    guard('legalEnt', fetchLegalEntityDetail(f)).then(d => {
+      if (!d || !d.data) return;
+      const arr = d.data;
+      
+      const totalYTD = arr.reduce((acc, r) => acc + (Number(r.sales_aed) || 0), 0);
+      
+      // Group by legal_entity to avoid duplicate keys in charts
+      const grouped = {};
+      const pctMap = {};
+      arr.forEach(row => {
+        const name = row.legal_entity || 'Unknown';
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        // Note: Percentage is pre-calculated by backend, but if multiple rows exist, we might just sum it or take the first.
+        // Assuming the backend grouped it for us and duplicates are rare, we just take the first we see.
+        if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
+
+      const chartData = Object.keys(grouped)
+        .map(name => ({ name, value: grouped[name], pct: pctMap[name] }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10); // Limit to top 10 to prevent chart overlapping
+
+      const topLE = chartData.length > 0 ? chartData[0] : null;
+
+      setSummary(prev => ({
+        ...prev,
+        ytd_revenue: totalYTD, // Assuming all data fetched represents the filtered period
+        top_legal_entity: topLE,
+      }));
+      setLoading(p => ({ ...p, summary: false }));
+
+      setLegalEntData(chartData.map((item, i) => ({
+        ...item,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+      })));
     });
 
-    guard('topCustomers', fetchTopCustomers(f)).then(d => {
-      if (d) setTopCustomersData(d.data || []);
+    // 2. Parent Division
+    guard('parentDiv', fetchParentDivisionDetail(f)).then(d => {
+      if (!d || !d.data) return;
+      const arr = d.data;
+      
+      const grouped = {};
+      const pctMap = {};
+      arr.forEach(row => {
+        const name = row.parent_division || row.division_name || row.division_code || 'Unknown';
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
+      });
+
+      const chartData = Object.keys(grouped)
+        .map(name => ({ name, value: grouped[name], pct: pctMap[name] }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 15); // Limit to top 15 to prevent overlap
+
+      const topPD = chartData.length > 0 ? chartData[0] : null;
+      setSummary(prev => ({ ...prev, top_parent_division: topPD }));
+      setParentDivData(chartData);
     });
 
-    guard('bySalesman', fetchBySalesman(f)).then(d => {
-      if (d) setBySalesmanData(d.data || []);
+    // 3. Sub-Division
+    guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
+      if (!d || !d.data) return;
+      const grouped = {};
+      const pctMap = {};
+      d.data.forEach(row => {
+        const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
+      });
+
+      const chartData = Object.keys(grouped)
+        .map(name => ({ name, value: grouped[name], pct: pctMap[name] }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 15); // Limit to top 15 to prevent overlap
+
+      setSubDivData(chartData.map((item, i) => ({
+        ...item,
+        color: CHART_COLORS[i % CHART_COLORS.length],
+      })));
     });
 
-    guard('grossMargin', fetchGrossMargin(f)).then(d => {
-      if (d) setGrossMarginData(d);
+    // 4. Salesman
+    guard('bySalesman', fetchSalesmanDetail(f)).then(d => {
+      if (!d || !d.data) return;
+      const grouped = {};
+      const pctMap = {};
+      const targets = {};
+      d.data.forEach(row => {
+        const name = row.sales_person || 'Unknown';
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        targets[name] = (targets[name] || 0) + (Number(row.target) || 0);
+        if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
+      });
+
+      const chartData = Object.keys(grouped)
+        .filter(name => name !== 'Unknown' && name !== '')
+        .map(name => ({ name, value: grouped[name], pct: pctMap[name], target: targets[name] }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 15); // Limit to top 15 to prevent overlap
+
+      setBySalesmanData(chartData);
+    });
+
+    // 5. Details (page 0) & Top Customers aggregation
+    guard('details', fetchDetails(f, DETAILS_PAGE_SIZE, 0)).then(d => {
+      if (!d || !d.data) return;
+      setDetailRows(d.data);
+      setDetailTotalCount(d.total_count || d.total || d.count || d.data.length);
+      
+      // Compute pseudo top customers from current details page
+      const custMap = {};
+      d.data.forEach(row => {
+        const name = row.customer_name || 'Unknown';
+        custMap[name] = (custMap[name] || 0) + (Number(row.sales_aed) || Number(row.amount) || Number(row.base_amount) || 0);
+      });
+      const topCust = Object.keys(custMap)
+        .map(name => ({ name, value: custMap[name] }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+      setTopCustomersData(topCust);
+      setLoading(p => ({ ...p, topCustomers: false }));
     });
   }, [handle401]);
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
 
-  /* ── Handlers ─────────────────────────────────────────────────── */
+  /* ── When page changes, re-fetch details only ─────────────────── */
+  const prevPageRef = useRef(0);
+  useEffect(() => {
+    if (detailPage === prevPageRef.current) return;
+    prevPageRef.current = detailPage;
+    fetchDetailsPage(appliedFilters, detailPage);
+  }, [detailPage, appliedFilters, fetchDetailsPage]);
+
+  /* ── Filter handlers ──────────────────────────────────────────── */
   const handleApply = () => setAppliedFilters({ ...filters });
   const handleReset = () => {
     setFilters(DEFAULT_FILTERS);
@@ -887,7 +1030,9 @@ export default function SalesRevenueReport() {
   const ytdChangePct  = summary?.ytd_change_pct ?? null;
   const topLE         = summary?.top_legal_entity;
   const topPD         = summary?.top_parent_division;
-  const dataAsOf      = summary?.data_as_of ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : appliedFilters.toDate;
+  const dataAsOf      = summary?.data_as_of
+    ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : appliedFilters.toDate;
   const topSalesmanRecord = bySalesmanData && bySalesmanData.length > 0
     ? [...bySalesmanData].sort((a, b) => b.value - a.value)[0]
     : null;
@@ -896,9 +1041,48 @@ export default function SalesRevenueReport() {
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
   const sparkYTD = trendData.map(d => d.previousYear).filter(Boolean);
 
-  /* ── Current / Previous year labels from trend ─────────────────── */
+  /* ── Year labels ─────────────────────────────────────────────── */
   const currentYearLabel  = summary?.current_year_label  || 'Current Year';
   const previousYearLabel = summary?.previous_year_label || 'Previous Year';
+
+  /* ── Details pagination derived ───────────────────────────────── */
+  const totalPages   = Math.max(1, Math.ceil(detailTotalCount / DETAILS_PAGE_SIZE));
+  const pageStart    = detailPage * DETAILS_PAGE_SIZE + 1;
+  const pageEnd      = Math.min((detailPage + 1) * DETAILS_PAGE_SIZE, detailTotalCount);
+
+  /* ── Column definitions for View-All modals ──────────────────── */
+  const legalEntityCols = [
+    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left'  },
+    { label: 'Sales (AED)',        key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
+    { label: 'Percentage',         key: 'percentage',         align: 'right', fmt: v => fmtPct(v) },
+    { label: '# Transactions',     key: 'transaction_count',  align: 'right' },
+    { label: 'Currency',           key: 'currency',           align: 'center' },
+  ];
+
+  const parentDivisionCols = [
+    { label: 'Parent Division', key: 'parent_division',   align: 'left'  },
+    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
+    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
+    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
+    { label: 'Currency',        key: 'currency',          align: 'center' },
+  ];
+
+  const subdivisionCols = [
+    { label: 'Sub-Division',    key: 'subdivision',       align: 'left'  },
+    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
+    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
+    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
+    { label: 'Currency',        key: 'currency',          align: 'center' },
+  ];
+
+  const salesmanCols = [
+    { label: 'Sales Person',    key: 'sales_person',      align: 'left'  },
+    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin',    key: 'gross_margin',      align: 'right', fmt: fmtCurrency },
+    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
+    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
+    { label: 'Currency',        key: 'currency',          align: 'center' },
+  ];
 
   /* ────────────────────────────────────────────────────────────── */
   /*  RENDER                                                        */
@@ -933,9 +1117,7 @@ export default function SalesRevenueReport() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button id="btn-export" style={{ ...headerBtn('#fff', C.navy, C.border), display: 'flex', alignItems: 'center', gap: 6 }}>
-              ⬇ Export <span style={{ fontSize: '0.6rem', color: C.muted }}>▼</span>
-            </button>
+            <ExportButtons endpoint="details" filters={appliedFilters} size="md" />
           </div>
         </div>
 
@@ -944,14 +1126,9 @@ export default function SalesRevenueReport() {
           <div style={{
             background: 'rgba(239, 68, 68, 0.04)',
             border: '1px solid rgba(239, 68, 68, 0.25)',
-            borderRadius: 12,
-            padding: '14px 18px',
-            marginBottom: 16,
-            display: 'flex',
-            gap: 12,
-            alignItems: 'flex-start',
+            borderRadius: 12, padding: '14px 18px', marginBottom: 16,
+            display: 'flex', gap: 12, alignItems: 'flex-start',
             boxShadow: '0 2px 8px rgba(239,68,68,0.04)',
-            fontFamily: "'Inter', system-ui, sans-serif",
           }}>
             <span style={{ fontSize: '1.25rem', marginTop: -2 }}>⚠️</span>
             <div style={{ flex: 1 }}>
@@ -959,11 +1136,22 @@ export default function SalesRevenueReport() {
                 Backend Connection Issue (502 Bad Gateway / Network Unreachable)
               </div>
               <div style={{ fontSize: '0.74rem', color: '#7f1d1d', lineHeight: 1.5 }}>
-                The frontend development proxy was unable to reach the live API at <code style={{ background: '#fee2e2', padding: '2px 4px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 600 }}>13.233.207.68:8000</code>. This typically means the backend server is offline or your current IP is blocked by the AWS Security Group.
+                The frontend development proxy was unable to reach the live API at{' '}
+                <code style={{ background: '#fee2e2', padding: '2px 4px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 600 }}>
+                  13.233.207.68:8000
+                </code>. This typically means the backend server is offline or your current IP is blocked by the AWS Security Group.
               </div>
               {publicIp && (
                 <div style={{ marginTop: 8, fontSize: '0.74rem', color: '#7f1d1d', fontWeight: 600 }}>
-                  📍 Your Public IP Address: <span style={{ textDecoration: 'underline', color: '#b91c1c', cursor: 'copy' }} onClick={() => { navigator.clipboard.writeText(publicIp); alert('Copied to clipboard!'); }} title="Click to copy">{publicIp}</span> (Share this with the backend/IT team to whitelist).
+                  📍 Your Public IP Address:{' '}
+                  <span
+                    style={{ textDecoration: 'underline', color: '#b91c1c', cursor: 'copy' }}
+                    onClick={() => { navigator.clipboard.writeText(publicIp); alert('Copied to clipboard!'); }}
+                    title="Click to copy"
+                  >
+                    {publicIp}
+                  </span>{' '}
+                  (Share this with the backend/IT team to whitelist).
                 </div>
               )}
             </div>
@@ -1044,7 +1232,6 @@ export default function SalesRevenueReport() {
 
         {/* ── KPI Cards Row ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12, marginBottom: 16 }}>
-          {/* Live KPI 1: Total Sales MTD */}
           <KPICard
             label="Total Sales (MTD)"
             numericValue={mtdRevenue}
@@ -1058,8 +1245,6 @@ export default function SalesRevenueReport() {
             loading={loading.summary}
             error={errors.summary}
           />
-
-          {/* Live KPI 2: Sales YTD */}
           <KPICard
             label="Sales (YTD)"
             numericValue={ytdRevenue}
@@ -1073,8 +1258,6 @@ export default function SalesRevenueReport() {
             loading={loading.summary}
             error={errors.summary}
           />
-
-          {/* Live KPI 3: Top Legal Entity */}
           <KPICard
             label="Top Legal Entity"
             numericValue={null}
@@ -1089,8 +1272,6 @@ export default function SalesRevenueReport() {
             loading={loading.summary}
             error={errors.summary}
           />
-
-          {/* Live KPI 4: Top Parent Division */}
           <KPICard
             label="Top Parent Division"
             numericValue={null}
@@ -1105,8 +1286,6 @@ export default function SalesRevenueReport() {
             loading={loading.summary}
             error={errors.summary}
           />
-
-          {/* Live KPI 5: Gross Profit (MTD) */}
           <KPICard
             label="Gross Profit (MTD)"
             numericValue={grossMarginData?.gross_profit_mtd ?? null}
@@ -1120,15 +1299,13 @@ export default function SalesRevenueReport() {
             loading={loading.grossMargin}
             error={errors.grossMargin}
           />
-
-          {/* Live KPI 6: Top Salesman */}
           <KPICard
             label="Top Salesman"
             numericValue={null}
             textValue={topSalesmanRecord?.name || '—'}
             changePct={null}
-            changeLabel={topSalesmanRecord ? `AED ${Number(topSalesmanRecord.value).toLocaleString('en-US', { maximumFractionDigits: 0 })} (${Number((topSalesmanRecord.value / (topSalesmanRecord.target || 1)) * 100).toFixed(1)}% Target)` : undefined}
-            up={topSalesmanRecord ? (topSalesmanRecord.value >= topSalesmanRecord.target) : null}
+            changeLabel={topSalesmanRecord ? `AED ${Number(topSalesmanRecord.value).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${topSalesmanRecord.target > 0 ? `(${Number((topSalesmanRecord.value / topSalesmanRecord.target) * 100).toFixed(1)}% Target)` : ''}` : undefined}
+            up={topSalesmanRecord && topSalesmanRecord.target > 0 ? (topSalesmanRecord.value >= topSalesmanRecord.target) : null}
             icon="👤"
             iconBg="linear-gradient(135deg,#fce7f3,#fbcfe8)"
             sparkData={null}
@@ -1137,7 +1314,6 @@ export default function SalesRevenueReport() {
             error={errors.bySalesman}
           />
         </div>
-
 
         {/* ── Charts Row 1: Trend | Legal Entity Donut | Parent Division Bar ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1.15fr', gap: 14, marginBottom: 14 }}>
@@ -1149,7 +1325,7 @@ export default function SalesRevenueReport() {
             loading={loading.trend}
             error={errors.trend}
             onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={handleViewTrendDetails} />}
+            action={<ViewAllButton onClick={() => setOpenModal('trend')} />}
           >
             <ResponsiveContainer width="100%" height={180} minWidth={0}>
               <LineChart data={trendData} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
@@ -1176,7 +1352,7 @@ export default function SalesRevenueReport() {
             loading={loading.legalEnt}
             error={errors.legalEnt}
             onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={handleViewLegalEntityDetails} />}
+            action={<ViewAllButton onClick={() => setOpenModal('legalEntity')} />}
           >
             {legalEntData.length > 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1228,7 +1404,7 @@ export default function SalesRevenueReport() {
             loading={loading.parentDiv}
             error={errors.parentDiv}
             onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={handleViewParentDivisionDetails} />}
+            action={<ViewAllButton onClick={() => setOpenModal('parentDiv')} />}
           >
             {parentDivData.length > 0 ? (
               <ResponsiveContainer width="100%" height={190} minWidth={0}>
@@ -1254,7 +1430,7 @@ export default function SalesRevenueReport() {
           </ChartCard>
         </div>
 
-        {/* ── Charts Row 2: Sub-Division Bar | Placeholder Customers | Placeholder Salesmen ── */}
+        {/* ── Charts Row 2: Sub-Division | Top Customers (no View All) | Salesman ── */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
 
           {/* Revenue by Sub-Division */}
@@ -1264,7 +1440,7 @@ export default function SalesRevenueReport() {
             loading={loading.subDiv}
             error={errors.subDiv}
             onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={handleViewSubDivisionDetails} />}
+            action={<ViewAllButton onClick={() => setOpenModal('subDiv')} />}
           >
             {subDivData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220} minWidth={0}>
@@ -1272,9 +1448,13 @@ export default function SalesRevenueReport() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
                   <XAxis
                     dataKey="name"
-                    tick={<CustomXAxisTick />}
+                    tickFormatter={(val) => val.length > 20 ? val.substring(0, 17) + '...' : val}
+                    angle={-40}
+                    textAnchor="end"
+                    tick={{ fill: C.slate, fontSize: 9 }}
                     axisLine={false} tickLine={false}
                     interval={0}
+                    height={85}
                   />
                   <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
                   <Tooltip
@@ -1294,21 +1474,20 @@ export default function SalesRevenueReport() {
             )}
           </ChartCard>
 
-          {/* Top 10 Customers */}
+          {/* Top 10 Customers — NO View All per CFO decision */}
           <ChartCard
             title="Top 10 Customers by Sales (AED)"
             minHeight={290}
             loading={loading.topCustomers}
             error={errors.topCustomers}
             onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={handleViewTopCustomersDetails} />}
           >
             {topCustomersData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220} minWidth={0}>
                 <BarChart data={topCustomersData} layout="vertical" margin={{ top: 8, right: 12, left: 16, bottom: 0 }} barSize={10}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4ff" />
                   <XAxis type="number" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 8 }} axisLine={false} tickLine={false} width={80} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 9 }} axisLine={false} tickLine={false} width={180} />
                   <Tooltip
                     formatter={v => [`AED ${Number(v).toFixed(2)}`]}
                     contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
@@ -1333,13 +1512,22 @@ export default function SalesRevenueReport() {
             loading={loading.bySalesman}
             error={errors.bySalesman}
             onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={handleViewBySalesmanDetails} />}
+            action={<ViewAllButton onClick={() => setOpenModal('salesman')} />}
           >
             {bySalesmanData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220} minWidth={0}>
                 <BarChart data={bySalesmanData} margin={{ top: 8, right: 4, left: -16, bottom: 0 }} barSize={12}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                  <XAxis dataKey="name" tick={{ fill: C.slate, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <XAxis 
+                    dataKey="name" 
+                    tickFormatter={(val) => val.length > 20 ? val.substring(0, 17) + '...' : val}
+                    angle={-40}
+                    textAnchor="end"
+                    tick={{ fill: C.slate, fontSize: 9 }}
+                    axisLine={false} tickLine={false} 
+                    interval={0} 
+                    height={85} 
+                  />
                   <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'value' ? 'Actual Revenue' : 'Sales Target']}
@@ -1357,66 +1545,73 @@ export default function SalesRevenueReport() {
           </ChartCard>
         </div>
 
-          {/* Target vs Actual Revenue */}
-          <ChartCard
-            title="Target vs Actual Revenue Trend (AED)"
-            minHeight={200}
-            loading={loading.trend}
-            error={errors.trend}
-            onRetry={() => fetchAll(appliedFilters)}
-          >
-            {trendData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={140} minWidth={0}>
-                <BarChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barSize={16}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                  <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'currentYear' ? 'Actual Revenue' : 'Target Revenue']}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
-                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                  />
-                  <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
-                  <Bar dataKey="currentYear" name="Actual Revenue" fill={C.green} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="target" name="Target Revenue" fill={C.orange} radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 30 }}>No data available</div>
-            )}
-          </ChartCard>
+        {/* Target vs Actual Revenue */}
+        <ChartCard
+          title="Target vs Actual Revenue Trend (AED)"
+          minHeight={200}
+          loading={loading.trend}
+          error={errors.trend}
+          onRetry={() => fetchAll(appliedFilters)}
+        >
+          {trendData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={140} minWidth={0}>
+              <BarChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barSize={16}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'currentYear' ? 'Actual Revenue' : 'Target Revenue']}
+                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
+                  cursor={{ fill: 'rgba(37,99,235,0.05)' }}
+                />
+                <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
+                <Bar dataKey="currentYear" name="Actual Revenue" fill={C.green} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="target" name="Target Revenue" fill={C.orange} radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 30 }}>No data available</div>
+          )}
+        </ChartCard>
 
-        {/* ── Detailed View Table ── */}
+        {/* ── Sales Revenue Detailed View Table (/details with pagination) ── */}
         <div style={{
           background: '#fff', borderRadius: 14,
           border: `1px solid ${C.border}`,
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          overflow: 'hidden', marginBottom: 8,
+          overflow: 'hidden', marginBottom: 8, marginTop: 14,
         }}>
+          {/* Table Header */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '14px 20px', borderBottom: `1px solid ${C.border}`,
             background: 'linear-gradient(90deg, #f8fafc 0%, #fff 100%)',
+            flexWrap: 'wrap', gap: 10,
           }}>
             <span style={{ fontWeight: 800, fontSize: '0.9rem', color: C.navy, display: 'flex', alignItems: 'center', gap: 8 }}>
-              📋 Sales Revenue Detailed View
+              📋 Sales Revenue Detailed Transaction View
             </span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {['All', 'MTD', 'YTD'].map(tab => (
-                <button
-                  key={tab}
-                  id={`tab-detail-${tab.toLowerCase()}`}
-                  onClick={() => setActiveTab(tab.toLowerCase())}
-                  style={{
-                    padding: '5px 14px', borderRadius: 20,
-                    border: 'none', cursor: 'pointer',
-                    fontSize: '0.72rem', fontWeight: 700,
-                    background: activeTab === tab.toLowerCase() ? C.blue : '#f1f5f9',
-                    color: activeTab === tab.toLowerCase() ? '#fff' : C.slate,
-                    transition: 'all 0.18s',
-                  }}
-                >{tab}</button>
-              ))}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* Tab switcher */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['All', 'MTD', 'YTD'].map(tab => (
+                  <button
+                    key={tab}
+                    id={`tab-detail-${tab.toLowerCase()}`}
+                    onClick={() => setActiveTab(tab.toLowerCase())}
+                    style={{
+                      padding: '5px 14px', borderRadius: 20,
+                      border: 'none', cursor: 'pointer',
+                      fontSize: '0.72rem', fontWeight: 700,
+                      background: activeTab === tab.toLowerCase() ? C.blue : '#f1f5f9',
+                      color: activeTab === tab.toLowerCase() ? '#fff' : C.slate,
+                      transition: 'all 0.18s',
+                    }}
+                  >{tab}</button>
+                ))}
+              </div>
+              {/* Export buttons for /details */}
+              <ExportButtons endpoint="details" filters={appliedFilters} />
             </div>
           </div>
 
@@ -1431,97 +1626,135 @@ export default function SalesRevenueReport() {
               <thead>
                 <tr style={{ background: '#f8fafc' }}>
                   {[
-                    ['Entity',                     'left'],
-                    ['Parent Div',                 'left'],
-                    ['Sub-Division',               'left'],
-                    ['MTD Revenue',                'right'],
-                    ['Prev MTD',                   'right'],
-                    ['YTD Revenue',                'right'],
-                    ['YTD PY',                     'right'],
-                    ['Var % (MTD)',                'right'],
-                    ['Var % (YTD)',                'right'],
-                  ].map(([h, align]) => {
-                    // Filter columns based on active tab
-                    if (activeTab === 'mtd' && (h.includes('YTD'))) return null;
-                    if (activeTab === 'ytd' && (h.includes('MTD') && !h.includes('YTD'))) return null;
-                    return <th key={h} style={{ ...TH_LG, textAlign: align }}>{h}</th>;
-                  })}
+                    ['Invoice #',       'left'],
+                    ['Invoice Date',    'left'],
+                    ['Legal Entity',    'left'],
+                    ['Division',        'left'],
+                    ['Sub-Division',    'left'],
+                    ['Sales Person',    'left'],
+                    ['Customer',        'left'],
+                    ['Project Ref',     'left'],
+                    ['Currency',        'center'],
+                    ['Amount',          'right'],
+                    ['Base Amount',     'right'],
+                  ].map(([h, align]) => (
+                    <th key={h} style={{ ...TH_LG, textAlign: align }}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {loading.details ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 8 }).map((_, i) => (
                     <tr key={i}>
-                      {Array.from({ length: 9 }).map((__, j) => (
+                      {Array.from({ length: 11 }).map((__, j) => (
                         <td key={j} style={TD_LG}><Skeleton h={14} /></td>
                       ))}
                     </tr>
                   ))
-                ) : detailData.rows.length > 0 ? (
-                  <>
-                    {detailData.rows.map((row, i) => (
-                      <tr
-                        key={i}
-                        style={{ borderBottom: `1px solid #f1f5f9`, transition: 'background 0.12s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        {(activeTab === 'all' || activeTab === 'mtd') && (
-                          <><td style={{ ...TD_LG, fontWeight: 700, color: C.navy }}>{row.legal_entity || '—'}</td>
-                          <td style={TD_LG}>{row.parent_division || '—'}</td>
-                          <td style={TD_LG}>{row.sub_division || '—'}</td></>
-                        )}
-                        {activeTab === 'ytd' && (
-                          <><td style={{ ...TD_LG, fontWeight: 700, color: C.navy }}>{row.legal_entity || '—'}</td>
-                          <td style={TD_LG}>{row.parent_division || '—'}</td>
-                          <td style={TD_LG}>{row.sub_division || '—'}</td></>
-                        )}
-                        {(activeTab === 'all' || activeTab === 'mtd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{fmtTableNum(row.mtd_revenue)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(row.prev_mtd_revenue)}</td>
-                        </>}
-                        {(activeTab === 'all' || activeTab === 'ytd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{fmtTableNum(row.ytd_revenue)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(row.ytd_py_revenue)}</td>
-                        </>}
-                        {(activeTab === 'all' || activeTab === 'mtd') && (
-                          <td style={{ ...TD_LG, textAlign: 'right' }}><VarBadge val={row.variance_mtd_pct} /></td>
-                        )}
-                        {(activeTab === 'all' || activeTab === 'ytd') && (
-                          <td style={{ ...TD_LG, textAlign: 'right' }}><VarBadge val={row.variance_ytd_pct} /></td>
-                        )}
-                      </tr>
-                    ))}
-                    {/* Totals Row */}
-                    {detailData.totals && Object.keys(detailData.totals).length > 0 && (
-                      <tr style={{ background: 'linear-gradient(90deg,#eff6ff,#f0fdf4)', fontWeight: 800, borderTop: `2px solid #e0eeff` }}>
-                        <td colSpan={3} style={{ ...TD_LG, color: C.navy, fontWeight: 800 }}>Total</td>
-                        {(activeTab === 'all' || activeTab === 'mtd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.navy }}>{fmtTableNum(detailData.totals.mtd_revenue)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(detailData.totals.prev_mtd_revenue)}</td>
-                        </>}
-                        {(activeTab === 'all' || activeTab === 'ytd') && <>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.navy }}>{fmtTableNum(detailData.totals.ytd_revenue)}</td>
-                          <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(detailData.totals.ytd_py_revenue)}</td>
-                        </>}
-                        {(activeTab === 'all' || activeTab === 'mtd') && (
-                          <td style={{ ...TD_LG, textAlign: 'right' }}><VarBadge val={detailData.totals.variance_mtd_pct} /></td>
-                        )}
-                        {(activeTab === 'all' || activeTab === 'ytd') && (
-                          <td style={{ ...TD_LG, textAlign: 'right' }}><VarBadge val={detailData.totals.variance_ytd_pct} /></td>
-                        )}
-                      </tr>
-                    )}
-                  </>
+                ) : detailRows.length > 0 ? (
+                  detailRows.map((row, i) => (
+                    <tr
+                      key={i}
+                      style={{ borderBottom: `1px solid #f1f5f9`, transition: 'background 0.12s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <td style={{ ...TD_LG, fontWeight: 700, color: C.blue }}>{row.invoice_number || '—'}</td>
+                      <td style={TD_LG}>{row.invoice_date ? new Date(row.invoice_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                      <td style={{ ...TD_LG, fontWeight: 600, color: C.navy }}>{row.legal_entity || '—'}</td>
+                      <td style={TD_LG}>{row.division_code || '—'}</td>
+                      <td style={TD_LG}>{row.subdivision_code || '—'}</td>
+                      <td style={TD_LG}>{row.sales_person || '—'}</td>
+                      <td style={{ ...TD_LG, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={row.customer_name}>{row.customer_name || '—'}</td>
+                      <td style={TD_LG}>{row.project_reference || '—'}</td>
+                      <td style={{ ...TD_LG, textAlign: 'center' }}>{row.invoice_currency || '—'}</td>
+                      <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{fmtTableNum(row.amount)}</td>
+                      <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(row.base_amount)}</td>
+                    </tr>
+                  ))
                 ) : !errors.details ? (
                   <tr>
-                    <td colSpan={9} style={{ ...TD_LG, textAlign: 'center', color: C.muted, padding: '32px 14px' }}>
+                    <td colSpan={11} style={{ ...TD_LG, textAlign: 'center', color: C.muted, padding: '32px 14px' }}>
                       No records found for the selected filters
                     </td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Footer */}
+          <div style={{
+            padding: '12px 20px',
+            borderTop: `1px solid ${C.border}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: '#fafbfc', flexWrap: 'wrap', gap: 8,
+          }}>
+            <span style={{ fontSize: '0.72rem', color: C.slate }}>
+              {detailTotalCount > 0
+                ? `Showing ${pageStart}–${pageEnd} of ${detailTotalCount.toLocaleString()} records`
+                : 'No records'}
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <button
+                id="btn-details-prev"
+                onClick={() => setDetailPage(p => Math.max(0, p - 1))}
+                disabled={detailPage === 0 || loading.details}
+                style={{
+                  padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
+                  background: detailPage === 0 ? '#f1f5f9' : '#fff',
+                  color: detailPage === 0 ? C.muted : C.navy,
+                  fontSize: '0.72rem', fontWeight: 600, cursor: detailPage === 0 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >← Prev</button>
+
+              {/* Page number pills */}
+              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                let page;
+                if (totalPages <= 7) {
+                  page = i;
+                } else if (detailPage < 4) {
+                  page = i < 5 ? i : i === 5 ? -1 : totalPages - 1;
+                } else if (detailPage > totalPages - 5) {
+                  page = i === 0 ? 0 : i === 1 ? -1 : totalPages - 7 + i;
+                } else {
+                  page = i === 0 ? 0 : i === 1 ? -1 : i === 5 ? -1 : i === 6 ? totalPages - 1 : detailPage - 2 + i;
+                }
+                if (page === -1) return (
+                  <span key={`ellipsis-${i}`} style={{ color: C.muted, fontSize: '0.72rem', padding: '0 2px' }}>…</span>
+                );
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setDetailPage(page)}
+                    style={{
+                      width: 30, height: 30, borderRadius: 7,
+                      border: `1px solid ${detailPage === page ? C.blue : C.border}`,
+                      background: detailPage === page ? C.blue : '#fff',
+                      color: detailPage === page ? '#fff' : C.navy,
+                      fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
+                      transition: 'all 0.15s',
+                    }}
+                  >{page + 1}</button>
+                );
+              })}
+
+              <button
+                id="btn-details-next"
+                onClick={() => setDetailPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={detailPage >= totalPages - 1 || loading.details}
+                style={{
+                  padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
+                  background: detailPage >= totalPages - 1 ? '#f1f5f9' : '#fff',
+                  color: detailPage >= totalPages - 1 ? C.muted : C.navy,
+                  fontSize: '0.72rem', fontWeight: 600,
+                  cursor: detailPage >= totalPages - 1 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s',
+                }}
+              >Next →</button>
+            </div>
           </div>
         </div>
 
@@ -1541,15 +1774,123 @@ export default function SalesRevenueReport() {
 
       </div>
 
-      {/* ── Detailed Breakdown Modal ── */}
-      {modalConfig && (
-        <DetailModal
-          isOpen={!!modalConfig}
-          onClose={() => setModalConfig(null)}
-          title={modalConfig.title}
-          headers={modalConfig.headers}
-          rows={modalConfig.rows}
-        />
+      {/* ── View-All Modals ── */}
+
+      {/* Legal Entity Detail Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'legalEntity'}
+        onClose={() => setOpenModal(null)}
+        title="Legal Entity — Full Detail View"
+        endpoint="legal-entity-detail"
+        fetchFn={fetchLegalEntityDetail}
+        columnDefs={legalEntityCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search legal entities..."
+      />
+
+      {/* Parent Division Detail Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'parentDiv'}
+        onClose={() => setOpenModal(null)}
+        title="Parent Division — Full Detail View"
+        endpoint="parent-division-detail"
+        fetchFn={fetchParentDivisionDetail}
+        columnDefs={parentDivisionCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search parent divisions..."
+      />
+
+      {/* Sub-Division Detail Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'subDiv'}
+        onClose={() => setOpenModal(null)}
+        title="Sub-Division — Full Detail View"
+        endpoint="subdivision-detail"
+        fetchFn={fetchSubdivisionDetail}
+        columnDefs={subdivisionCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search sub-divisions..."
+      />
+
+      {/* Salesman Detail Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'salesman'}
+        onClose={() => setOpenModal(null)}
+        title="Salesman — Full Detail View"
+        endpoint="salesman-detail"
+        fetchFn={fetchSalesmanDetail}
+        columnDefs={salesmanCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search salespeople..."
+      />
+
+      {/* Trend View-All — inline modal reusing old table logic */}
+      {openModal === 'trend' && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15,23,42,0.35)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000,
+        }}>
+          <style>{`@keyframes scaleUp{from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
+          <div style={{
+            background: '#fff', borderRadius: 16, width: '88%', maxWidth: 780,
+            maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+            animation: 'scaleUp 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards',
+            overflow: 'hidden', border: '1px solid #e2e8f0',
+          }}>
+            <div style={{
+              padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'linear-gradient(90deg,#f8fafc,#fff)',
+            }}>
+              <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
+                Revenue Trend — Full Breakdown
+              </h3>
+              <ModalCloseButton onClick={() => setOpenModal(null)} />
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    {['Period', currentYearLabel, previousYearLabel, 'Target', 'Variance to Target', 'Growth vs PY'].map((h, i) => (
+                      <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {trendData.map((row, idx) => {
+                    const variance = row.currentYear != null && row.target != null ? row.currentYear - row.target : null;
+                    const variancePct = row.target ? (variance / row.target) * 100 : null;
+                    const growth = row.currentYear != null && row.previousYear != null ? row.currentYear - row.previousYear : null;
+                    const growthPct = row.previousYear ? (growth / row.previousYear) * 100 : null;
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                        <td style={{ ...TD, fontWeight: 600, color: C.navy }}>{row.period}</td>
+                        <td style={{ ...TD, textAlign: 'right' }}>{fmtCurrency(row.currentYear)}</td>
+                        <td style={{ ...TD, textAlign: 'right', color: C.slate }}>{fmtCurrency(row.previousYear)}</td>
+                        <td style={{ ...TD, textAlign: 'right', color: C.orange }}>{fmtCurrency(row.target)}</td>
+                        <td style={{ ...TD, textAlign: 'right' }}>
+                          {variance != null ? <VarBadge val={variancePct} /> : '—'}
+                        </td>
+                        <td style={{ ...TD, textAlign: 'right' }}>
+                          {growth != null ? <VarBadge val={growthPct} /> : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: '10px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#f8fafc' }}>
+              <button onClick={() => setOpenModal(null)} style={{
+                padding: '6px 18px', background: '#e2e8f0', color: C.slate,
+                border: 'none', borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+              }}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
