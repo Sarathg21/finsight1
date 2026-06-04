@@ -45,7 +45,7 @@ const DepartmentDistributionCard = ({
             <div className="flex flex-col items-center gap-6 mb-8">
                 {/* Top: Doughnut Chart */}
                 <div className="relative w-[220px] h-[220px] flex-shrink-0 mx-auto">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width={220} height={220}>
                         <PieChart>
                             <Pie
                                 data={chartData}

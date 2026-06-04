@@ -510,28 +510,31 @@ const AssignTaskPage = () => {
                     {/* Task Configuration Block */}
                     <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-4">
                         
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
-                                        <Clock size={18} strokeWidth={2.5} />
+                            {!isManager && (
+                                <div className="flex items-center justify-between pb-4 border-b border-indigo-100 mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
+                                            <Clock size={18} strokeWidth={2.5} />
+                                        </div>
+                                        <div className="pt-0.5">
+                                            <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Type</h4>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Normal or Recurring</p>
+                                        </div>
                                     </div>
-                                    <div className="pt-0.5">
-                                        <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Type</h4>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Normal or Recurring</p>
+                                    <div className="flex bg-white p-1 rounded-xl border border-slate-200">
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, isRecurring: false })}
+                                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                        >Normal</button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, isRecurring: true })}
+                                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                        >Recurring</button>
                                     </div>
                                 </div>
-                                <div className="flex bg-white p-1 rounded-xl border border-slate-200">
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, isRecurring: false })}
-                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                    >Normal</button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setFormData({ ...formData, isRecurring: true })}
-                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                    >Recurring</button></div></div>
-
+                            )}
                         {!formData.isRecurring && (
                             <div className="animate-fade-in space-y-5 pt-4 border-t border-indigo-100">
                                 {/* Task Structure Selector */}
@@ -800,7 +803,7 @@ const AssignTaskPage = () => {
                             </div>
                         )}
 
-                        {formData.isRecurring && (
+                        {!isManager && formData.isRecurring && (
                             <div className="animate-fade-in space-y-6 pt-4 border-t border-indigo-100">
                                 {/* Frequency Selector */}
                                 <div className="flex items-center gap-4">

@@ -58,6 +58,7 @@ const buildBranchRecord = ({
         end_date: end_date || '',
         is_active: is_active !== false,
         active_action_count,
+        child_description: raw.subtask_description ?? raw.child_description ?? raw.description ?? '',
         raw,
     };
 };
@@ -101,7 +102,7 @@ const mapManagerBranchRow = (row) => {
             row.title ||
             row.child?.title,
         frequency: row.frequency || row.recurring_frequency || row.parent_frequency || '',
-        due_in_days: row.due_in_days ?? row.dueDays ?? row.due_in_days_count ?? 0,
+        due_in_days: row.subtask_due_in_days ?? row.child_due_in_days ?? row.sub_task_due_in_days ?? row.due_in_days ?? row.dueDays ?? row.due_in_days_count ?? 0,
         start_date: row.start_date || row.parent_start_date || '',
         end_date: row.end_date || row.parent_end_date || '',
         is_active,
@@ -245,6 +246,7 @@ const ManagerRecurringTasksPage = () => {
             due_in_days: Number(searchParams.get('due_in_days') || 0),
             start_date: searchParams.get('start_date') || '',
             end_date: searchParams.get('end_date') || '',
+            raw: { child_description: searchParams.get('child_description') || searchParams.get('subtask_description') || '' },
         });
     };
 

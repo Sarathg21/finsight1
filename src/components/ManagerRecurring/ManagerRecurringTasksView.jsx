@@ -289,10 +289,17 @@ const ManagerRecurringTasksView = ({
                         <div>
                             <h2 className="text-sm font-bold text-slate-800">Recurring Employee Action Templates</h2>
                             {selectedBranch ? (
-                                <p className="mt-1 text-xs text-slate-600">
-                                    <span className="font-semibold text-slate-500">Branch:</span>{' '}
-                                    {selectedBranch.parent_title} &gt; {selectedBranch.child_title}
-                                </p>
+                                <div className="mt-1 flex flex-col gap-1.5">
+                                    <p className="text-xs text-slate-600">
+                                        <span className="font-semibold text-slate-500">Branch:</span>{' '}
+                                        {selectedBranch.parent_title} &gt; {selectedBranch.child_title}
+                                    </p>
+                                    {selectedBranch.child_description && (
+                                        <p className="text-[11px] text-slate-500 italic max-w-2xl border-l-2 border-slate-200 pl-2">
+                                            {selectedBranch.child_description}
+                                        </p>
+                                    )}
+                                </div>
                             ) : (
                                 <p className="mt-1 text-xs text-slate-500">Select a branch above to load templates.</p>
                             )}
@@ -404,6 +411,9 @@ const ManagerRecurringTasksView = ({
                         <div><dt className="text-slate-500">Child branch</dt><dd>{viewBranch.child_title}</dd></div>
                         <div><dt className="text-slate-500">Frequency</dt><dd>{viewBranch.frequency || '—'}</dd></div>
                         <div><dt className="text-slate-500">Due in (days)</dt><dd>{viewBranch.due_in_days ?? '—'}</dd></div>
+                        {viewBranch.child_description && (
+                            <div><dt className="text-slate-500">Description</dt><dd className="whitespace-pre-wrap mt-0.5">{viewBranch.child_description}</dd></div>
+                        )}
                         {viewBranch.active_action_count != null && (
                             <div><dt className="text-slate-500">Active employee actions</dt><dd>{viewBranch.active_action_count}</dd></div>
                         )}

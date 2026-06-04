@@ -512,7 +512,7 @@ const OKRActionsPage = () => {
                 <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">Sub Task</th>
                 <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">Manager</th>
                 <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">Assigned To</th>
-                <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">Assigned</th>
+                <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">Assigned On</th>
                 <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">Due</th>
                 <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">Status</th>
                 <th className="px-5 py-3 text-[11px] font-black text-slate-500 uppercase tracking-widest">ETA</th>
@@ -540,7 +540,16 @@ const OKRActionsPage = () => {
                   const subTitle = cleanStr(a?.sub_task_title ?? a?.subtask_title ?? a?.sub_title) || '—';
                   const managerName = cleanStr(a?.manager_name ?? a?.assigned_by_name ?? a?.manager_emp_name) || '—';
                   const assigneeName = cleanStr(a?.assigned_to_name ?? a?.assignee_name ?? a?.assigned_to_emp_name) || '—';
-                  const assignedDate = a?.assigned_date ?? a?.created_at ?? a?.assigned_on;
+                  const assignedDate =
+                    a?.assigned_at ||
+                    a?.assigned_date ||
+                    a?.created_at ||
+                    a?.assigned_on ||
+                    a?.start_date ||
+                    a?.date ||
+                    filters.from_date ||
+                    localStorage.getItem('dashboard_from_date') ||
+                    '';
                   const dueDate = a?.due_date ?? a?.end_date ?? a?.target_date;
                   const status = a?.status ?? a?.task_status;
 
@@ -608,3 +617,4 @@ const OKRActionsPage = () => {
 };
 
 export default OKRActionsPage;
+
