@@ -35,7 +35,6 @@ const AssignTaskPage = () => {
         recurringDay: 1, // Monthly Day
         weeklyDay: 1, // Integer 1-7 (Mon-Sun)
         yearlyMonth: 1,
-        quarterCycle: 1,
         yearlyDay: 1,
         startDate: new Date().toISOString().split('T')[0],
         endDate: '',
@@ -333,8 +332,8 @@ const AssignTaskPage = () => {
                     frequency: formData.recurringFrequency,
                     interval_days: 1,
                     weekly_day: formData.recurringFrequency === 'WEEKLY' ? weeklyDayInt : null,
-                    monthly_day: (formData.recurringFrequency === 'MONTHLY' || formData.recurringFrequency === 'QUARTERLY') ? parseInt(formData.recurringDay) : null,
-                    yearly_month: formData.recurringFrequency === 'YEARLY' ? parseInt(formData.yearlyMonth) : (formData.recurringFrequency === 'QUARTERLY' ? parseInt(formData.quarterCycle || 1) : null),
+                    monthly_day: formData.recurringFrequency === 'MONTHLY' ? parseInt(formData.recurringDay) : null,
+                    yearly_month: formData.recurringFrequency === 'YEARLY' ? parseInt(formData.yearlyMonth) : null,
                     yearly_day: formData.recurringFrequency === 'YEARLY' ? parseInt(formData.yearlyDay) : null,
                     start_date: formData.startDate || new Date().toISOString().split('T')[0],
                     end_date: formData.endDate || null,
@@ -810,7 +809,7 @@ const AssignTaskPage = () => {
                                 <div className="flex items-center gap-4">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest shrink-0">Frequency:</label>
                                     <div className="flex bg-white p-1 rounded-xl border border-indigo-100 w-full shadow-sm">
-                                        {['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'].map((f) => (
+                                        {['WEEKLY', 'MONTHLY', 'YEARLY'].map((f) => (
                                             <button
                                                 key={f}
                                                 type="button"
@@ -850,32 +849,6 @@ const AssignTaskPage = () => {
                                                 onChange={(e) => setFormData({ ...formData, recurringDay: e.target.value })}
                                             />
                                         </div>
-                                    )}
-
-                                    {formData.recurringFrequency === 'QUARTERLY' && (
-                                        <>
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Quarter Cycle</label>
-                                                <select
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
-                                                    value={formData.quarterCycle || 1}
-                                                    onChange={(e) => setFormData({ ...formData, quarterCycle: parseInt(e.target.value) })}
-                                                >
-                                                    <option value={1}>Q1 Cycle (Jan / Apr / Jul / Oct)</option>
-                                                    <option value={2}>Q2 Cycle (Feb / May / Aug / Nov)</option>
-                                                    <option value={3}>Q3 Cycle (Mar / Jun / Sep / Dec)</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Day of Month</label>
-                                                <input
-                                                    type="number" min="1" max="31"
-                                                    className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
-                                                    value={formData.recurringDay}
-                                                    onChange={(e) => setFormData({ ...formData, recurringDay: e.target.value })}
-                                                />
-                                            </div>
-                                        </>
                                     )}
 
                                     {formData.recurringFrequency === 'YEARLY' && (

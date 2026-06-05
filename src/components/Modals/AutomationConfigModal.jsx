@@ -533,7 +533,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                     <option value="DAILY">Daily</option>
                                     <option value="WEEKLY">Weekly</option>
                                     <option value="MONTHLY">Monthly</option>
-                                    <option value="QUARTERLY">Quarterly</option>
+
                                     <option value="YEARLY">Yearly</option>
                                 </select>
                             </div>

@@ -401,7 +401,7 @@ const RecurringTasksPage = () => {
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsFreqOpen(false)} />
                             <div className="absolute top-full left-0 mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 z-50 animate-in zoom-in-95 duration-200">
-                                {['ALL', 'DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'].map(f => (
+                                {['ALL', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].map(f => (
                                     <button 
                                         key={f}
                                         onClick={() => { setFilterFrequency(f); setIsFreqOpen(false); }}
