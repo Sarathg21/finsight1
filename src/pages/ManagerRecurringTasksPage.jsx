@@ -43,6 +43,10 @@ const buildBranchRecord = ({
     end_date = '',
     is_active = true,
     active_action_count = null,
+    weekly_day = null,
+    monthly_day = null,
+    yearly_month = null,
+    yearly_day = null,
     raw = {},
 }) => {
     if (!recurring_id || !subtask_template_id) return null;
@@ -56,6 +60,10 @@ const buildBranchRecord = ({
         due_in_days: due_in_days ?? 0,
         start_date: start_date || '',
         end_date: end_date || '',
+        weekly_day,
+        monthly_day,
+        yearly_month,
+        yearly_day,
         is_active: is_active !== false,
         active_action_count,
         child_description: raw.subtask_description ?? raw.child_description ?? raw.description ?? '',
@@ -102,9 +110,13 @@ const mapManagerBranchRow = (row) => {
             row.title ||
             row.child?.title,
         frequency: row.frequency || row.recurring_frequency || row.parent_frequency || '',
-        due_in_days: row.subtask_due_in_days ?? row.child_due_in_days ?? row.sub_task_due_in_days ?? row.due_in_days ?? row.dueDays ?? row.due_in_days_count ?? 0,
+        due_in_days: row.st_due_in_days ?? row.subtask_template_due_in_days ?? row.subtask_due_in_days ?? row.child_due_in_days ?? row.sub_task_due_in_days ?? row.subtask_due_days ?? row.child_due_days ?? row.subtask?.due_in_days ?? row.child?.due_in_days ?? row.subtask_template?.due_in_days ?? row.due_in_days ?? row.dueDays ?? row.due_in_days_count ?? 0,
         start_date: row.start_date || row.parent_start_date || '',
         end_date: row.end_date || row.parent_end_date || '',
+        weekly_day: row.weekly_day ?? row.subtask?.weekly_day ?? row.child?.weekly_day ?? null,
+        monthly_day: row.monthly_day ?? row.subtask?.monthly_day ?? row.child?.monthly_day ?? null,
+        yearly_month: row.yearly_month ?? row.subtask?.yearly_month ?? row.child?.yearly_month ?? null,
+        yearly_day: row.yearly_day ?? row.subtask?.yearly_day ?? row.child?.yearly_day ?? null,
         is_active,
         active_action_count:
             row.active_action_template_count ??
@@ -246,6 +258,10 @@ const ManagerRecurringTasksPage = () => {
             due_in_days: Number(searchParams.get('due_in_days') || 0),
             start_date: searchParams.get('start_date') || '',
             end_date: searchParams.get('end_date') || '',
+            weekly_day: searchParams.get('weekly_day') ? Number(searchParams.get('weekly_day')) : null,
+            monthly_day: searchParams.get('monthly_day') ? Number(searchParams.get('monthly_day')) : null,
+            yearly_month: searchParams.get('yearly_month') ? Number(searchParams.get('yearly_month')) : null,
+            yearly_day: searchParams.get('yearly_day') ? Number(searchParams.get('yearly_day')) : null,
             raw: { child_description: searchParams.get('child_description') || searchParams.get('subtask_description') || '' },
         });
     };
