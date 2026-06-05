@@ -1101,7 +1101,10 @@ const handleReworkConfirm = async (comment) => {
       {/* PREMIUM METRIC WIDGETS — counts from filteredTasks so they always match the visible list */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-full px-4 mx-auto">
         {/* Active Tasks */}
-        <div className="bg-violet-50/50 p-6 rounded-[2rem] border border-violet-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-violet-100/50 group">
+        <div 
+          onClick={() => setFilter({ ...filter, status: 'ACTIVE', taskId: '' })}
+          className="bg-violet-50/50 p-6 rounded-[2rem] border border-violet-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-violet-100/50 group cursor-pointer"
+        >
           <div className="w-14 h-14 rounded-2xl bg-violet-600 text-white flex items-center justify-center shadow-lg shadow-violet-200 shrink-0 group-hover:scale-110 transition-transform">
             <CheckSquare size={24} />
           </div>
@@ -1112,7 +1115,10 @@ const handleReworkConfirm = async (comment) => {
         </div>
 
         {/* In Progress */}
-        <div className="bg-orange-50/50 p-6 rounded-[2rem] border border-orange-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-orange-100/50 group">
+        <div 
+          onClick={() => setFilter({ ...filter, status: 'IN_PROGRESS', taskId: '' })}
+          className="bg-orange-50/50 p-6 rounded-[2rem] border border-orange-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-orange-100/50 group cursor-pointer"
+        >
           <div className="w-14 h-14 rounded-2xl bg-orange-600 text-white flex items-center justify-center shadow-lg shadow-orange-200 shrink-0 group-hover:scale-110 transition-transform">
             <Play size={24} />
           </div>
@@ -1123,7 +1129,10 @@ const handleReworkConfirm = async (comment) => {
         </div>
 
         {/* Pending Submission */}
-        <div className="bg-amber-50/50 p-6 rounded-[2rem] border border-amber-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-amber-100/50 group">
+        <div 
+          onClick={() => setFilter({ ...filter, status: 'PENDING_SUBMISSION', taskId: '' })}
+          className="bg-amber-50/50 p-6 rounded-[2rem] border border-amber-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-amber-100/50 group cursor-pointer"
+        >
           <div className="w-14 h-14 rounded-2xl bg-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-200 shrink-0 group-hover:scale-110 transition-transform">
             <Upload size={24} />
           </div>
@@ -1134,7 +1143,10 @@ const handleReworkConfirm = async (comment) => {
         </div>
 
         {/* Overdue */}
-        <div className="bg-rose-50/50 p-6 rounded-[2rem] border border-rose-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-rose-100/50 group">
+        <div 
+          onClick={() => setFilter({ ...filter, status: 'Overdue', taskId: '' })}
+          className="bg-rose-50/50 p-6 rounded-[2rem] border border-rose-100 flex items-center gap-5 transition-all hover:shadow-lg hover:bg-rose-100/50 group cursor-pointer"
+        >
           <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-lg shadow-rose-200 shrink-0 group-hover:scale-110 transition-transform">
             <AlertTriangle size={24} />
           </div>
