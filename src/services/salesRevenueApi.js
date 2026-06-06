@@ -395,11 +395,77 @@ const MOCK_GROSS_MARGIN = {
   ]
 };
 
+const MOCK_SUMMARY_DETAIL = {
+  data: [
+    {
+      legal_entity: 'Alpine Coils', parent_division: 'Alpine', sub_division: 'Alpine Coils',
+      business_unit: 'Coils BU',
+      revenue_mtd: 28200000, revenue_prev_mtd: 24100000,
+      revenue_ytd: 268400000, revenue_ytd_py: 225300000,
+    },
+    {
+      legal_entity: 'DC Serve', parent_division: 'DC Serve', sub_division: 'DC Serve Equip.',
+      business_unit: 'Service BU',
+      revenue_mtd: 18400000, revenue_prev_mtd: 16200000,
+      revenue_ytd: 184300000, revenue_ytd_py: 152100000,
+    },
+    {
+      legal_entity: 'Filter Fan', parent_division: 'Alpine', sub_division: 'Filter Fan - UAE',
+      business_unit: 'Fans BU',
+      revenue_mtd: 12100000, revenue_prev_mtd: 9800000,
+      revenue_ytd: 128400000, revenue_ytd_py: 110200000,
+    },
+    {
+      legal_entity: 'Alpine Gears', parent_division: 'Alpine Gears', sub_division: 'Alpine Gears',
+      business_unit: 'Gears BU',
+      revenue_mtd: 7800000, revenue_prev_mtd: 6500000,
+      revenue_ytd: 78600000, revenue_ytd_py: 64200000,
+    },
+    {
+      legal_entity: 'Valves KSA', parent_division: 'DC Serve', sub_division: 'Valves KSA',
+      business_unit: 'Valves BU',
+      revenue_mtd: 6400000, revenue_prev_mtd: 5600000,
+      revenue_ytd: 64250000, revenue_ytd_py: 52800000,
+    },
+    {
+      legal_entity: 'CT KSA', parent_division: 'DC Serve', sub_division: 'CT KSA',
+      business_unit: 'CT BU',
+      revenue_mtd: 4200000, revenue_prev_mtd: 3800000,
+      revenue_ytd: 42300000, revenue_ytd_py: 34600000,
+    },
+    {
+      legal_entity: 'FJ Engineering', parent_division: 'Engineering', sub_division: 'Engineering Services',
+      business_unit: 'Eng BU',
+      revenue_mtd: 3100000, revenue_prev_mtd: 2900000,
+      revenue_ytd: 31500000, revenue_ytd_py: 27400000,
+    },
+    {
+      legal_entity: 'FJ Care UAE', parent_division: 'FJ Care', sub_division: 'FJ Care Services',
+      business_unit: 'Care BU',
+      revenue_mtd: 2800000, revenue_prev_mtd: 2400000,
+      revenue_ytd: 28200000, revenue_ytd_py: 24100000,
+    },
+    {
+      legal_entity: 'Flowtech Qatar', parent_division: 'Flowtech', sub_division: 'Flowtech Sales',
+      business_unit: 'Flow BU',
+      revenue_mtd: 2500000, revenue_prev_mtd: 2200000,
+      revenue_ytd: 25100000, revenue_ytd_py: 22000000,
+    },
+    {
+      legal_entity: 'Others', parent_division: 'Others', sub_division: 'Others',
+      business_unit: 'Others',
+      revenue_mtd: 2950000, revenue_prev_mtd: 2700000,
+      revenue_ytd: 32400000, revenue_ytd_py: 28100000,
+    },
+  ]
+};
+
 function getMockDataForPath(path) {
   if (path.includes('/filters')) return MOCK_FILTERS;
   if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
   if (path.includes('/salesman-summary')) return MOCK_SALESMAN_SUMMARY;
   if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;
+  if (path.includes('/summary-detail')) return MOCK_SUMMARY_DETAIL;
   if (path.includes('/summary')) return MOCK_SUMMARY;
   if (path.includes('/trend')) return MOCK_TREND;
   if (path.includes('/legal-entity-detail')) return MOCK_LEGAL_ENTITY_DETAIL;
@@ -815,4 +881,23 @@ export async function fetchCustomerSummary(filters) {
  */
 export async function fetchCustomerDetail(filters) {
   return apiCall('/api/sales-revenue/customer-detail', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/summary-detail
+ * Returns the summary grid table with MTD/YTD revenue by Legal Entity,
+ * Parent Division, Sub-Division, and Business Unit.
+ *
+ * Expected response shape:
+ * {
+ *   data: [
+ *     {
+ *       legal_entity, parent_division, sub_division, business_unit,
+ *       revenue_mtd, revenue_prev_mtd, revenue_ytd, revenue_ytd_py
+ *     }
+ *   ]
+ * }
+ */
+export async function fetchSummaryDetail(filters) {
+  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters));
 }

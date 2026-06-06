@@ -25,6 +25,7 @@ import {
   fetchTopCustomers,
   fetchCustomerSummary,
   fetchCustomerDetail,
+  fetchSummaryDetail,
 } from '../services/salesRevenueApi';
 
 /* ─── Color Palette ─────────────────────────────────────────────── */
@@ -741,7 +742,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         }}>{icon}</div>
 
         {/* Right: Label and Value */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
           <span style={{
             fontSize: '0.72rem', fontWeight: 700, color: accent,
           }}>{label}</span>
@@ -752,9 +753,10 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
             <span style={{ fontSize: '0.72rem', color: C.rose }}>Error</span>
           ) : (
             <div style={{
-              fontSize: numericValue !== null ? '1.25rem' : '1.1rem',
-              fontWeight: 800, color: '#1e293b', lineHeight: 1.1,
+              fontSize: numericValue !== null ? '1.25rem' : '0.95rem',
+              fontWeight: 800, color: '#1e293b', lineHeight: 1.25,
               letterSpacing: '-0.01em',
+              wordBreak: 'break-word',
             }}>
               {formattedNum}
             </div>
@@ -981,6 +983,8 @@ export default function SalesRevenueReport() {
   const [bySalesmanData,      setBySalesmanData]      = useState([]);
   const [salesmanSummaryData, setSalesmanSummaryData] = useState([]);
   const [grossMarginData,     setGrossMarginData]     = useState(null);
+  const [legalEntityDetailRaw, setLegalEntityDetailRaw] = useState([]);
+  const [summaryDetailData,   setSummaryDetailData]   = useState([]);
   const [activeTab,           setActiveTab]           = useState('all');
 
   /* ── /details pagination state ────────────────────────────────── */
@@ -996,7 +1000,7 @@ export default function SalesRevenueReport() {
     filters: true, summary: true, trend: true,
     legalEnt: true, parentDiv: true, subDiv: true, details: true,
     topCustomers: true, bySalesman: true, grossMargin: true,
-    salesmanSummary: true,
+    salesmanSummary: true, summaryDetail: true,
   });
 
   /* ── Error state ──────────────────────────────────────────────── */
@@ -1070,7 +1074,7 @@ export default function SalesRevenueReport() {
       filters: false, summary: true, trend: true, legalEnt: true,
       parentDiv: true, subDiv: true, details: true,
       topCustomers: true, bySalesman: false, grossMargin: true,
-      salesmanSummary: true,
+      salesmanSummary: true, summaryDetail: true,
     });
     setErrors({});
     setDetailPage(0);
@@ -1092,26 +1096,53 @@ export default function SalesRevenueReport() {
     // 0. Summary — GET /api/sales-revenue/summary
     guard('summary', fetchSummary(f)).then(d => {
       if (!d) return;
+
+      // Map directly from the exact backend fields
+      const mtd = d.sales_mtd_aed     ?? d.mtd_revenue ?? null;
+      const ytd = d.sales_ytd_aed     ?? d.ytd_revenue ?? null;
+      const prevMtd = d.prev_mtd_revenue ?? d.prev_mtd_sales_aed ?? null;
+      const prevYtd = d.prev_ytd_revenue ?? d.prev_ytd_sales_aed ?? null;
+
+      // Real API returns separate _sales_aed fields for value:
+      // top_legal_entity_sales_aed, top_parent_division_sales_aed
+      const normHighlight = (nameVal, salesVal, pctVal) => {
+        if (!nameVal) return null;
+        const name = typeof nameVal === 'object' ? nameVal.name : nameVal;
+        const value = salesVal ?? (typeof nameVal === 'object' ? nameVal.value : null);
+        const pct   = pctVal   ?? (typeof nameVal === 'object' ? nameVal.pct   : null);
+        return { name, value: value ? Number(value) : null, pct: pct ? Number(pct) : null };
+      };
+
       setSummary({
         // Revenue
-        total_revenue:          d.total_revenue          ?? d.ytd_revenue ?? null,
-        mtd_revenue:            d.mtd_revenue            ?? null,
-        ytd_revenue:            d.ytd_revenue            ?? null,
-        mtd_change_pct:         d.mtd_change_pct         ?? null,
-        ytd_change_pct:         d.ytd_change_pct         ?? null,
-        // Gross margin
-        gross_margin:           d.gross_margin           ?? null,
-        gross_margin_pct:       d.gross_margin_pct       ?? null,
+        total_revenue:           ytd,
+        mtd_revenue:             mtd,
+        ytd_revenue:             ytd,
+        prev_mtd_revenue:        prevMtd,
+        prev_ytd_revenue:        prevYtd,
+        mtd_change_pct:          d.mtd_change_pct         ?? null,
+        ytd_change_pct:          d.ytd_change_pct         ?? null,
+        // Gross margin (may not be in summary; falls back to grossMarginData)
+        gross_margin:            d.gross_margin           ?? null,
+        gross_margin_pct:        d.gross_margin_pct       ?? null,
         gross_margin_change_pct: d.gross_margin_change_pct ?? null,
         // Counts
-        total_customers:        d.total_customers        ?? null,
-        total_salesmen:         d.total_salesmen         ?? null,
-        // Highlights
-        top_legal_entity:       d.top_legal_entity       ?? null,
-        top_parent_division:    d.top_parent_division    ?? null,
-        data_as_of:             d.data_as_of             ?? null,
-        current_year_label:     d.current_year_label     || 'Current Year',
-        previous_year_label:    d.previous_year_label    || 'Previous Year',
+        total_customers:         d.total_customers        ?? null,
+        total_salesmen:          d.total_salesmen         ?? null,
+        // Highlights — exact backend fields
+        top_legal_entity:    normHighlight(
+          d.top_legal_entity,
+          d.top_legal_entity_sales_aed,
+          d.top_legal_entity_pct
+        ),
+        top_parent_division: normHighlight(
+          d.top_parent_division,
+          d.top_parent_division_sales_aed,
+          d.top_parent_division_pct
+        ),
+        data_as_of:              d.data_as_of             ?? null,
+        current_year_label:      d.current_year_label     || 'Current Year',
+        previous_year_label:     d.previous_year_label    || 'Previous Year',
       });
     });
 
@@ -1136,19 +1167,21 @@ export default function SalesRevenueReport() {
     // 3. Salesman Summary — GET /api/sales-revenue/salesman-summary
     //    Used for: Top Salesman KPI card + Salesman View All modal
     guard('salesmanSummary', fetchSalesmanSummary(f)).then(d => {
-      if (!d || !d.data) return;
-      setSalesmanSummaryData(d.data);
-      // Also populate bySalesmanData (chart) from salesman-summary
-      const chartData = d.data
+      // Real API returns a raw array; mock returns { data: [...] }
+      const rows = Array.isArray(d) ? d : (d?.data ?? []);
+      if (!rows.length) return;
+      setSalesmanSummaryData(rows);
+      // Populate bySalesmanData chart
+      const chartData = rows
         .filter(row => {
-          const name = row.salesman || row.sales_person || row.salesman_name;
+          const name = row.salesman_name || row.salesman || row.sales_person;
           return name && name !== '';
         })
         .map(row => ({
-          name:   row.salesman || row.sales_person || row.salesman_name || 'Unknown',
-          value:  Number(row.sales_aed   || 0),
-          target: Number(row.target      || 0),
-          pct:    Number(row.percentage  || 0),
+          name:   row.salesman_name || row.salesman || row.sales_person || 'Unknown',
+          value:  Number(row.sales_aed  || 0),
+          target: Number(row.target     || 0),
+          pct:    Number(row.percentage || 0),
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 15);
@@ -1159,6 +1192,7 @@ export default function SalesRevenueReport() {
     guard('legalEnt', fetchLegalEntityDetail(f)).then(d => {
       if (!d || !d.data) return;
       const arr = d.data;
+      setLegalEntityDetailRaw(arr); // raw rows for summary table
 
       const grouped = {};
       const pctMap  = {};
@@ -1266,6 +1300,13 @@ export default function SalesRevenueReport() {
       }));
       setTopCustomersData(mapped);
     });
+
+    // 9. Summary Detail — GET /api/sales-revenue/summary-detail
+    guard('summaryDetail', fetchSummaryDetail(f)).then(d => {
+      if (!d) return;
+      const rows = Array.isArray(d) ? d : (d?.data ?? []);
+      setSummaryDetailData(rows);
+    });
   }, [handle401]);
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
@@ -1293,10 +1334,13 @@ export default function SalesRevenueReport() {
   const ytdRevenue      = summary?.ytd_revenue      ?? null;
   const mtdChangePct    = summary?.mtd_change_pct   ?? null;
   const ytdChangePct    = summary?.ytd_change_pct   ?? null;
-  // Gross margin
-  const grossMargin     = summary?.gross_margin     ?? null;
-  const grossMarginPct  = summary?.gross_margin_pct ?? null;
-  const grossMarginChg  = summary?.gross_margin_change_pct ?? null;
+  // Gross margin — use exact backend fields: gross_margin and margin_pct
+  const grossMargin    = grossMarginData?.gross_margin
+    ?? grossMarginData?.gross_profit_mtd
+    ?? summary?.gross_margin
+    ?? null;
+  const grossMarginPct  = grossMarginData?.margin_pct ?? grossMarginData?.gross_margin_pct ?? summary?.gross_margin_pct ?? null;
+  const grossMarginChg  = grossMarginData?.mtd_change_pct   ?? grossMarginData?.gross_margin_change_pct ?? summary?.gross_margin_change_pct ?? null;
   // Counts
   const totalCustomers  = summary?.total_customers  ?? null;
   const totalSalesmen   = summary?.total_salesmen   ?? null;
@@ -1307,11 +1351,11 @@ export default function SalesRevenueReport() {
     ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : appliedFilters.toDate;
 
-  // Top Salesman derived from salesman-summary data
+  // Top Salesman: directly use the first row from the response as requested
   const topSalesmanRecord = salesmanSummaryData && salesmanSummaryData.length > 0
-    ? [...salesmanSummaryData].sort((a, b) => (Number(b.sales_aed) || 0) - (Number(a.sales_aed) || 0))[0]
+    ? salesmanSummaryData[0]
     : null;
-  const topSalesmanName  = topSalesmanRecord?.sales_person || '—';
+  const topSalesmanName  = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
   const topSalesmanAED   = topSalesmanRecord ? Number(topSalesmanRecord.sales_aed || 0) : null;
 
   /* ── Spark data from trend ────────────────────────────────────── */
@@ -1568,8 +1612,8 @@ export default function SalesRevenueReport() {
             changeLabel="vs Mar 2024"
             up={mtdChangePct !== null ? mtdChangePct >= 0 : null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
-            iconBg="#eff6ff"
-            cardBg="#fafcff"
+            iconBg="#dbeafe"
+            cardBg="#f0f5ff"
             accentColor="#2563eb"
             sparkData={sparkMTD}
             sparkColor="#2563eb"
@@ -1585,8 +1629,8 @@ export default function SalesRevenueReport() {
             changeLabel="vs YTD Apr 2023"
             up={ytdChangePct !== null ? ytdChangePct >= 0 : null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
-            iconBg="#f0fdf4"
-            cardBg="#fafff5"
+            iconBg="#dcfce7"
+            cardBg="#f0fdf4"
             accentColor="#16a34a"
             sparkData={sparkMTD}
             sparkColor="#16a34a"
@@ -1602,8 +1646,8 @@ export default function SalesRevenueReport() {
             changeLabel="vs Mar 2024"
             up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
-            iconBg="#f5f3ff"
-            cardBg="#fcfbff"
+            iconBg="#ede9fe"
+            cardBg="#f5f3ff"
             accentColor="#8b5cf6"
             sparkData={sparkMTD}
             sparkColor="#8b5cf6"
@@ -1617,11 +1661,11 @@ export default function SalesRevenueReport() {
             numericValue={null}
             textValue={topLE ? topLE.name : '—'}
             changePct={null}
-            changeLabel={topLE ? `AED ${fmtAxisNum(topLE.value)} (${topLE.pct}%)` : ''}
+            changeLabel={topLE?.value ? `AED ${fmtAxisNum(topLE.value)}${topLE.pct ? ` (${Number(topLE.pct).toFixed(1)}%)` : ''}` : ''}
             up={null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
-            iconBg="#fff7ed"
-            cardBg="#fffdfa"
+            iconBg="#ffedd5"
+            cardBg="#fff7ed"
             accentColor="#ea580c"
             sparkData={null}
             sparkColor="#ea580c"
@@ -1635,11 +1679,11 @@ export default function SalesRevenueReport() {
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
             changePct={null}
-            changeLabel={topPD ? `AED ${fmtAxisNum(topPD.value)} (${topPD.pct}%)` : ''}
+            changeLabel={topPD?.value ? `AED ${fmtAxisNum(topPD.value)}${topPD.pct ? ` (${Number(topPD.pct).toFixed(1)}%)` : ''}` : ''}
             up={null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
-            iconBg="#ecfeff"
-            cardBg="#f7fffc"
+            iconBg="#cffafe"
+            cardBg="#ecfeff"
             accentColor="#0891b2"
             sparkData={null}
             sparkColor="#0891b2"
@@ -1656,8 +1700,8 @@ export default function SalesRevenueReport() {
             changeLabel={topSalesmanAED !== null ? `AED ${fmtAxisNum(topSalesmanAED)}` : ''}
             up={null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
-            iconBg="#fdf2f8"
-            cardBg="#fffcfd"
+            iconBg="#fce7f3"
+            cardBg="#fdf2f8"
             accentColor="#db2777"
             sparkData={null}
             sparkColor="#db2777"
@@ -1905,320 +1949,208 @@ export default function SalesRevenueReport() {
           </div>
         </div>
 
-        {/* ── Additional Analytics Row (Legal Entity & Target vs Actual) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
-          {/* Legal Entity Detail */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px' }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, marginBottom: 16 }}>Legal Entity Detail</div>
-            <div style={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
-              {loading.legalEnt ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={18} />)}</div>
-              ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.73rem' }}>
+        {/* ── Sales Revenue Detailed View — sourced from /summary-detail ── */}
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 8, marginTop: 14 }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: '#fff', flexWrap: 'wrap', gap: 10 }}>
+            <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e1b4b' }}>
+              Sales Revenue Detailed View
+            </span>
+            <ExportButtons endpoint="summary-detail" filters={appliedFilters} />
+          </div>
+
+          {/* Table body */}
+          {loading.summaryDetail ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '16px 20px' }}>
+              {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} h={16} />)}
+            </div>
+          ) : (() => {
+            const n = (r, ...keys) => {
+              for (const k of keys) {
+                const v = r[k];
+                if (v !== undefined && v !== null && v !== '') return Number(v);
+              }
+              return null;
+            };
+
+            /* Take top 9 rows + collapse rest into Others */
+            const sorted = [...summaryDetailData].sort(
+              (a, b) => (n(b, 'revenue_mtd') || 0) - (n(a, 'revenue_mtd') || 0)
+            );
+            const top9 = sorted.slice(0, 9);
+            const rest = sorted.slice(9);
+
+            const rows = top9.map(r => {
+              // Debug: log first row keys to console so we can see exact API field names
+              if (top9.indexOf(r) === 0) {
+                console.log('[summary-detail] First row keys:', Object.keys(r));
+                console.log('[summary-detail] First row data:', JSON.stringify(r, null, 2));
+              }
+              return {
+                legalEntity: r.legal_entity  || r.name || '—',
+                parentDiv:   r.parent_division || r.division || '—',
+                subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
+                bizUnit:     r.business_unit  || r.biz_unit || '—',
+                mtd:         n(r, 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales_aed'),
+                prevMtd:     n(r, 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales_aed'),
+                ytd:         n(r, 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales_aed'),
+                ytdPy:       n(r, 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales_aed'),
+                varMtd:      n(r, 'variance_mtd_pct','mtd_var_pct',      'variance_mtd'),
+                varYtd:      n(r, 'variance_ytd_pct','ytd_var_pct',      'variance_ytd'),
+              };
+            });
+
+            if (rest.length > 0) {
+              rows.push({
+                legalEntity: 'Others', parentDiv: 'Others', subDiv: 'Others', bizUnit: 'Others',
+                mtd:    rest.reduce((s, r) => s + (n(r, 'revenue_mtd')      || 0), 0),
+                prevMtd:rest.reduce((s, r) => s + (n(r, 'revenue_prev_mtd') || 0), 0),
+                ytd:    rest.reduce((s, r) => s + (n(r, 'revenue_ytd')      || 0), 0),
+                ytdPy:  rest.reduce((s, r) => s + (n(r, 'revenue_ytd_py')   || 0), 0),
+                varMtd: null, // Don't aggregate variance directly
+                varYtd: null,
+              });
+            }
+
+            const totMTD    = rows.reduce((s, r) => s + (r.mtd || 0),     0);
+            const totPMTD   = rows.reduce((s, r) => s + (r.prevMtd || 0), 0);
+            const totYTD    = rows.reduce((s, r) => s + (r.ytd || 0),     0);
+            const totYTDPY  = rows.reduce((s, r) => s + (r.ytdPy || 0),   0);
+
+            /* formatters */
+            const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `AED ${(v / 1e6).toFixed(2)}M` : '—';
+            
+            const calcVar = (cur, prev) =>
+              (prev > 0 && cur >= 0) ? ((cur - prev) / Math.abs(prev)) * 100 : null;
+
+            const VarBadge = ({ pct }) => {
+              if (pct === null || pct === undefined || isNaN(pct)) return <span style={{ color: C.muted }}>—</span>;
+              const up = pct >= 0;
+              return (
+                <span style={{
+                  color: up ? '#16a34a' : '#dc2626',
+                  fontWeight: 600, fontSize: '0.72rem',
+                  display: 'inline-flex', alignItems: 'center', gap: 2,
+                }}>
+                  {up ? '▲' : '▼'} {Math.abs(pct).toFixed(2)}%
+                </span>
+              );
+            };
+
+            const TH_S = {
+              background: '#eef2ff',
+              fontSize: '0.78rem',
+              padding: '11px 14px',
+              whiteSpace: 'nowrap',
+              fontWeight: 700,
+              color: '#312e81',
+              textAlign: 'center',
+              borderBottom: '2px solid #c7d2fe',
+              fontFamily: "'Inter', system-ui, sans-serif",
+            };
+            const TD_S = {
+              fontSize: '0.76rem', padding: '9px 14px', whiteSpace: 'nowrap',
+              color: '#1e293b', fontWeight: 400, textAlign: 'center',
+              fontFamily: "'Inter', system-ui, sans-serif",
+              borderBottom: '1px solid #f1f5f9',
+            };
+            const TD_FOOT = {
+              ...TD_S,
+              color: '#1e1b4b',
+              fontWeight: 700,
+              background: '#eef2ff',
+              borderTop: '2px solid #c7d2fe',
+              borderBottom: 'none',
+            };
+
+            const COLS = [
+              'Legal Entity', 'Parent Division', 'Sub Division', 'Business Unit',
+              'Revenue (MTD)', 'Revenue (Prev MTD)', 'Revenue (YTD)', 'Revenue (YTD PY)',
+              'Variance % (MTD)', 'Variance % (YTD)',
+            ];
+
+            return (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1000 }}>
                   <thead>
                     <tr>
-                      {['Legal Entity', 'Revenue', '% Share'].map((h, i) => (
-                        <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', background: '#fff', position: 'sticky', top: 0, zIndex: 1 }}>{h}</th>
+                      {COLS.map((h, i) => (
+                        <th key={h} style={{ ...TH_S, textAlign: i === 0 ? 'left' : 'center' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {legalEntData.map((row, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
-                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
-                      >
-                        <td style={{ ...TD, fontWeight: 600, color: C.navy, paddingLeft: 0 }}>
-                          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: row.color, marginRight: 6 }} />
-                          {row.name}
+                    {rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} style={{ ...TD_S, textAlign: 'center', color: C.muted, padding: '40px 14px' }}>
+                          No data available for the selected filters
                         </td>
-                        <td style={{ ...TD, textAlign: 'right' }}>{fmtCurrency(row.value)}</td>
-                        <td style={{ ...TD, textAlign: 'right', color: C.slate }}>{Number(row.pct).toFixed(1)}%</td>
                       </tr>
-                    ))}
+                    ) : rows.map((row, idx) => {
+                      const isOthers = row.legalEntity === 'Others';
+                      const bgBase = idx % 2 === 0 ? '#fff' : '#fafbfd';
+                      return (
+                        <tr key={idx}
+                          style={{ background: bgBase, transition: 'background 0.12s' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = bgBase; }}
+                        >
+                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: isOthers ? 400 : 600, color: '#1e1b4b' }} title={row.legalEntity}>
+                            {row.legalEntity}
+                          </td>
+                          {/* Parent Division */}
+                          <td style={{ ...TD_S }}>{row.parentDiv}</td>
+                          {/* Sub Division */}
+                          <td style={{ ...TD_S }}>{row.subDiv}</td>
+                          {/* Business Unit */}
+                          <td style={{ ...TD_S }}>{row.bizUnit}</td>
+                          {/* Revenue MTD */}
+                          <td style={{ ...TD_S }}>{fmtAED(row.mtd)}</td>
+                          {/* Revenue Prev MTD */}
+                          <td style={{ ...TD_S }}>{fmtAED(row.prevMtd)}</td>
+                          {/* Revenue YTD */}
+                          <td style={{ ...TD_S }}>{fmtAED(row.ytd)}</td>
+                          {/* Revenue YTD PY */}
+                          <td style={{ ...TD_S }}>{fmtAED(row.ytdPy)}</td>
+                          {/* Variance MTD */}
+                          <td style={{ ...TD_S, textAlign: 'center' }}>
+                            <VarBadge pct={row.varMtd !== null ? row.varMtd : calcVar(row.mtd, row.prevMtd)} />
+                          </td>
+                          {/* Variance YTD */}
+                          <td style={{ ...TD_S, textAlign: 'center' }}>
+                            <VarBadge pct={row.varYtd !== null ? row.varYtd : calcVar(row.ytd, row.ytdPy)} />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-
-          {/* Target vs Actual Revenue Trend */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, marginBottom: 16 }}>Target vs Actual Revenue Trend (AED)</div>
-            {loading.trend ? (
-              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
-            ) : trendData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220} minWidth={0}>
-                <BarChart data={trendData} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barSize={16}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                  <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={42} />
-                  <Tooltip
-                    formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'currentYear' ? 'Actual Revenue' : 'Target Revenue']}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
-                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                  />
-                  <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
-                  <Bar dataKey="currentYear" name="Actual Revenue" fill={C.green} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="target" name="Target Revenue" fill={C.orange} radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data available</div>
-            )}
-          </div>
-        </div>
-
-        {/* Salesman Detail Table — standalone container */}
-        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 14, width: '100%' }}>
-          <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>
-              👤 Salesman Detail — All Fields
-            </div>
-            <ExportButtons endpoint="salesman-detail" filters={appliedFilters} size="sm" />
-          </div>
-          <div style={{ overflowX: 'auto', width: '100%', padding: '0 20px 20px 20px', boxSizing: 'border-box' }}>
-            {loading.salesmanSummary ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 16 }}>{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={16} />)}</div>
-            ) : salesmanSummaryData.length > 0 ? (
-              <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                <thead>
-                  <tr>
-                    {[
-                      'Emp ID', 'Salesman', 'Direct Manager', 'Mgr Level',
-                      'Sales Mgr', 'Div Manager', 'Legal Entity', 'Parent Div',
-                      'Subdivision', 'Business Unit', 'Revenue (AED)', 'Gross Margin (AED)', 'Contribution %'
-                    ].map((h, i) => (
-                        <th key={h} style={{
-                          ...TH,
-                          textAlign: i >= 10 ? 'right' : 'left',
-                          background: '#f8fafc', position: 'sticky', top: 0, zIndex: 1,
-                          fontSize: '0.62rem', padding: '8px 10px',
-                        }}>{h}</th>
-                      ))}
+                  {/* Total footer row */}
+                  <tfoot>
+                    <tr>
+                      <td style={{ ...TD_FOOT, textAlign: 'left', padding: '12px 12px' }}>Total</td>
+                      <td style={{ ...TD_FOOT }}>—</td>
+                      <td style={{ ...TD_FOOT }}>—</td>
+                      <td style={{ ...TD_FOOT }}>—</td>
+                      <td style={{ ...TD_FOOT }}>{fmtAED(totMTD)}</td>
+                      <td style={{ ...TD_FOOT }}>{fmtAED(totPMTD)}</td>
+                      <td style={{ ...TD_FOOT }}>{fmtAED(totYTD)}</td>
+                      <td style={{ ...TD_FOOT }}>{fmtAED(totYTDPY)}</td>
+                      <td style={{ ...TD_FOOT }}><VarBadge pct={calcVar(totMTD, totPMTD)} /></td>
+                      <td style={{ ...TD_FOOT }}><VarBadge pct={calcVar(totYTD, totYTDPY)} /></td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {salesmanSummaryData.map((row, idx) => (
-                      <tr key={idx}
-                        style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
-                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
-                      >
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', fontFamily: 'monospace', color: C.blue }}>{row.employee_id || row.emp_id || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', fontWeight: 700, color: C.navy }}>{row.salesman || row.sales_person || row.salesman_name || 'Unknown'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.direct_manager || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>
-                          <span style={{ background: '#f1f5f9', borderRadius: 6, padding: '2px 6px', fontSize: '0.65rem', color: C.slate }}>
-                            {row.direct_manager_level || '—'}
-                          </span>
-                        </td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.sales_manager || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.division_manager || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.legal_entity || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.parent_division || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.subdivision || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.business_unit || '—'}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>{fmtCurrency(row.sales_aed)}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', textAlign: 'right', color: C.green, fontWeight: 700 }}>{fmtCurrency(row.gross_margin)}</td>
-                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', textAlign: 'right' }}>
-                          <span style={{ background: '#eff6ff', color: C.blue, borderRadius: 12, padding: '2px 7px', fontWeight: 700, fontSize: '0.68rem' }}>
-                            {row.contribution_pct != null ? `${Number(row.contribution_pct).toFixed(2)}%` : (row.percentage != null ? `${Number(row.percentage).toFixed(2)}%` : '—')}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
+                  </tfoot>
                 </table>
-              ) : (
-                <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 40 }}>No salesman data available</div>
-              )}
-            </div>
-        </div>
-        {/* ── Sales Revenue Detailed View Table (/details with pagination) ── */}
-        <div style={{
-          background: '#fff', borderRadius: 14,
-          border: `1px solid ${C.border}`,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-          overflow: 'hidden', marginBottom: 8, marginTop: 14,
-        }}>
-          {/* Table Header */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '14px 20px', borderBottom: `1px solid ${C.border}`,
-            background: 'linear-gradient(90deg, #f8fafc 0%, #fff 100%)',
-            flexWrap: 'wrap', gap: 10,
-          }}>
-            <span style={{ fontWeight: 800, fontSize: '0.9rem', color: C.navy, display: 'flex', alignItems: 'center', gap: 8 }}>
-              📋 Sales Revenue Detailed Transaction View
-            </span>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              {/* Tab switcher */}
-              <div style={{ display: 'flex', gap: 6 }}>
-                {['All', 'MTD', 'YTD'].map(tab => (
-                  <button
-                    key={tab}
-                    id={`tab-detail-${tab.toLowerCase()}`}
-                    onClick={() => setActiveTab(tab.toLowerCase())}
-                    style={{
-                      padding: '5px 14px', borderRadius: 20,
-                      border: 'none', cursor: 'pointer',
-                      fontSize: '0.72rem', fontWeight: 700,
-                      background: activeTab === tab.toLowerCase() ? C.blue : '#f1f5f9',
-                      color: activeTab === tab.toLowerCase() ? '#fff' : C.slate,
-                      transition: 'all 0.18s',
-                    }}
-                  >{tab}</button>
-                ))}
               </div>
-              {/* Export buttons for /details */}
-              <ExportButtons endpoint="details" filters={appliedFilters} />
-            </div>
-          </div>
+            );
+          })()}
 
-          {errors.details && (
-            <div style={{ padding: '12px 20px' }}>
-              <ErrorBanner message={errors.details} onRetry={() => fetchAll(appliedFilters)} />
-            </div>
-          )}
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc' }}>
-                  {[
-                    ['Invoice #',       'left'],
-                    ['Invoice Date',    'left'],
-                    ['Legal Entity',    'left'],
-                    ['Division',        'left'],
-                    ['Sub-Division',    'left'],
-                    ['Sales Person',    'left'],
-                    ['Customer',        'left'],
-                    ['Project Ref',     'left'],
-                    ['Currency',        'center'],
-                    ['Amount',          'right'],
-                    ['Base Amount',     'right'],
-                  ].map(([h, align]) => (
-                    <th key={h} style={{ ...TH_LG, textAlign: align }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {loading.details ? (
-                  Array.from({ length: 8 }).map((_, i) => (
-                    <tr key={i}>
-                      {Array.from({ length: 11 }).map((__, j) => (
-                        <td key={j} style={TD_LG}><Skeleton h={14} /></td>
-                      ))}
-                    </tr>
-                  ))
-                ) : detailRows.length > 0 ? (
-                  detailRows.map((row, i) => (
-                    <tr
-                      key={i}
-                      style={{ borderBottom: `1px solid #f1f5f9`, transition: 'background 0.12s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f0f7ff'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <td style={{ ...TD_LG, fontWeight: 700, color: C.blue }}>{row.invoice_number || '—'}</td>
-                      <td style={TD_LG}>{row.invoice_date ? new Date(row.invoice_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                      <td style={{ ...TD_LG, fontWeight: 600, color: C.navy }}>{row.legal_entity || '—'}</td>
-                      <td style={TD_LG}>{row.division_code || '—'}</td>
-                      <td style={TD_LG}>{row.subdivision_code || '—'}</td>
-                      <td style={TD_LG}>{row.sales_person || '—'}</td>
-                      <td style={{ ...TD_LG, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                        title={row.customer_name}>{row.customer_name || '—'}</td>
-                      <td style={TD_LG}>{row.project_reference || '—'}</td>
-                      <td style={{ ...TD_LG, textAlign: 'center' }}>{row.invoice_currency || '—'}</td>
-                      <td style={{ ...TD_LG, textAlign: 'right', fontWeight: 600 }}>{fmtTableNum(row.amount)}</td>
-                      <td style={{ ...TD_LG, textAlign: 'right', color: C.slate }}>{fmtTableNum(row.base_amount)}</td>
-                    </tr>
-                  ))
-                ) : !errors.details ? (
-                  <tr>
-                    <td colSpan={11} style={{ ...TD_LG, textAlign: 'center', color: C.muted, padding: '32px 14px' }}>
-                      No records found for the selected filters
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Footer */}
-          <div style={{
-            padding: '12px 20px',
-            borderTop: `1px solid ${C.border}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: '#fafbfc', flexWrap: 'wrap', gap: 8,
-          }}>
-            <span style={{ fontSize: '0.72rem', color: C.slate }}>
-              {detailTotalCount > 0
-                ? `Showing ${pageStart}–${pageEnd} of ${detailTotalCount.toLocaleString()} records`
-                : 'No records'}
-            </span>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button
-                id="btn-details-prev"
-                onClick={() => setDetailPage(p => Math.max(0, p - 1))}
-                disabled={detailPage === 0 || loading.details}
-                style={{
-                  padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
-                  background: detailPage === 0 ? '#f1f5f9' : '#fff',
-                  color: detailPage === 0 ? C.muted : C.navy,
-                  fontSize: '0.72rem', fontWeight: 600, cursor: detailPage === 0 ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >← Prev</button>
-
-              {/* Page number pills */}
-              {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                let page;
-                if (totalPages <= 7) {
-                  page = i;
-                } else if (detailPage < 4) {
-                  page = i < 5 ? i : i === 5 ? -1 : totalPages - 1;
-                } else if (detailPage > totalPages - 5) {
-                  page = i === 0 ? 0 : i === 1 ? -1 : totalPages - 7 + i;
-                } else {
-                  page = i === 0 ? 0 : i === 1 ? -1 : i === 5 ? -1 : i === 6 ? totalPages - 1 : detailPage - 2 + i;
-                }
-                if (page === -1) return (
-                  <span key={`ellipsis-${i}`} style={{ color: C.muted, fontSize: '0.72rem', padding: '0 2px' }}>…</span>
-                );
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setDetailPage(page)}
-                    style={{
-                      width: 30, height: 30, borderRadius: 7,
-                      border: `1px solid ${detailPage === page ? C.blue : C.border}`,
-                      background: detailPage === page ? C.blue : '#fff',
-                      color: detailPage === page ? '#fff' : C.navy,
-                      fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
-                      transition: 'all 0.15s',
-                    }}
-                  >{page + 1}</button>
-                );
-              })}
-
-              <button
-                id="btn-details-next"
-                onClick={() => setDetailPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={detailPage >= totalPages - 1 || loading.details}
-                style={{
-                  padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
-                  background: detailPage >= totalPages - 1 ? '#f1f5f9' : '#fff',
-                  color: detailPage >= totalPages - 1 ? C.muted : C.navy,
-                  fontSize: '0.72rem', fontWeight: 600,
-                  cursor: detailPage >= totalPages - 1 ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s',
-                }}
-              >Next →</button>
-            </div>
+          {/* Footer note */}
+          <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
+            <span>All values are in <strong>AED</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
+            <span>Source: Oracle Fusion Cloud</span>
           </div>
         </div>
-
         {/* ── Footer ── */}
         <div style={{
           fontSize: '0.65rem', color: C.muted,
