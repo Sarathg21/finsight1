@@ -433,7 +433,7 @@ export default function PLAnalytics() {
         <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Trend (₹ Cr) ⓘ</div>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Trend (AED M) ⓘ</div>
             </div>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
@@ -461,7 +461,7 @@ export default function PLAnalytics() {
         {/* P&L Comparison */}
         <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Comparison (₹ Cr)</div>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Comparison (AED M)</div>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
           <ResponsiveContainer width="100%" height={190}>
@@ -521,7 +521,7 @@ export default function PLAnalytics() {
       {/* ── P&L Statement Table ── */}
       <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: 8 }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)' }}>
-          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>📋 Profit &amp; Loss Statement (₹ Cr)</span>
+          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>📋 Profit &amp; Loss Statement (AED M)</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
@@ -530,7 +530,7 @@ export default function PLAnalytics() {
                 <th style={{ ...TH_L, width: '24%' }}>Particulars</th>
                 <th style={TH}>Current Month<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>Apr 2024</span></th>
                 <th style={TH}>Previous Month<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>Mar 2024</span></th>
-                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(₹ Cr)</span></th>
+                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(AED M)</span></th>
                 <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(%)</span></th>
                 <th style={TH}>YTD (Apr 2024)</th>
                 <th style={TH}>YTD (Apr 2023)</th>
@@ -583,7 +583,7 @@ export default function PLAnalytics() {
 
       {/* ── Footer ── */}
       <div style={{ fontSize: '0.65rem', color: C.muted, display: 'flex', justifyContent: 'space-between', paddingTop: 8, flexWrap: 'wrap', gap: 4 }}>
-        <span>All values are in INR (₹ Cr) &nbsp;|&nbsp; Data as on 30 Apr 2024</span>
+        <span>All values are in AED M &nbsp;|&nbsp; Data as on 30 Apr 2024</span>
         <span>☁️ Source: Oracle Fusion Cloud</span>
       </div>
 

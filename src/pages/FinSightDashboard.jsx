@@ -53,19 +53,19 @@ const FIN_SUMMARY = [
 
 /* ─── KPI Cards data ─────────────────────────────────────────────── */
 const KPI_CARDS = [
-  { label: 'Total Revenue',   value: '₹ 125.75 Cr', change: '16.86% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
-  { label: 'Gross Profit',    value: '₹ 28.35 Cr',  change: '17.11% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
-  { label: 'EBITDA',          value: '₹ 18.42 Cr',  change: '15.45% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
-  { label: 'Net Profit',      value: '₹ 10.25 Cr',  change: '23.11% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
-  { label: 'Working Capital', value: '₹ 45.80 Cr',  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#e0f2fe' },
+  { label: 'Total Revenue',   value: 'AED 125.75 M', change: '16.86% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
+  { label: 'Gross Profit',    value: 'AED 28.35 M',  change: '17.11% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
+  { label: 'EBITDA',          value: 'AED 18.42 M',  change: '15.45% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
+  { label: 'Net Profit',      value: 'AED 10.25 M',  change: '23.11% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
+  { label: 'Working Capital', value: 'AED 45.80 M',  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#e0f2fe' },
   { label: 'Current Ratio',   value: '1.86',         change: '0.12 vs Apr 2023',  up: true,  icon: '⚖️', iconBg: '#fce7f3' },
 ];
 
 /* ─── Row 2 KPI Cards data ────────────────────────────────────────── */
 const KPI_CARDS_ROW_2 = [
-  { label: 'Total Receivables',       value: '₹ 62.35 Cr', change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10, 15, 12, 18, 14, 20], color: '#f59e0b' },
-  { label: 'Overdue Receivables',     value: '₹ 18.75 Cr', change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18, 14, 16, 12, 15, 10], color: '#f43f5e' },
-  { label: 'Cash Collection (MTD)',   value: '₹ 21.40 Cr', change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5, 8, 12, 9, 15, 18], color: '#3b82f6' },
+  { label: 'Total Receivables',       value: 'AED 62.35 M', change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10, 15, 12, 18, 14, 20], color: '#f59e0b' },
+  { label: 'Overdue Receivables',     value: 'AED 18.75 M', change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18, 14, 16, 12, 15, 10], color: '#f43f5e' },
+  { label: 'Cash Collection (MTD)',   value: 'AED 21.40 M', change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5, 8, 12, 9, 15, 18], color: '#3b82f6' },
   { label: 'Bank Facility Utilization', value: '42.75%',     change: '3.56% vs Apr 2023',  up: false, icon: '🏦', iconBg: '#e0f2fe', data: [40, 42, 45, 41, 44, 43], color: '#0ea5e9' },
 ];
 
@@ -135,7 +135,7 @@ export default function FinSightDashboard() {
           onMouseLeave={e => e.currentTarget.style.background = '#1a3a6b'}
         >Apply</button>
         <div style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: '0.68rem', color: '#94a3b8' }}>
-          All values are in INR (₹)
+          All values are in AED
         </div>
       </div>
 
@@ -164,7 +164,7 @@ export default function FinSightDashboard() {
         gap: 14, marginBottom: 16,
       }}>
         {/* Revenue Trend */}
-        <ChartCard title="Revenue Trend (₹ Cr)">
+        <ChartCard title="Revenue Trend (AED M)">
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={REVENUE_TREND} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
@@ -185,7 +185,7 @@ export default function FinSightDashboard() {
         </ChartCard>
 
         {/* Profit Trend */}
-        <ChartCard title="Profit Trend (₹ Cr)">
+        <ChartCard title="Profit Trend (AED M)">
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={PROFIT_TREND} barGap={2} barCategoryGap="40%" margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
@@ -206,7 +206,7 @@ export default function FinSightDashboard() {
         </ChartCard>
 
         {/* Revenue by Geography */}
-        <ChartCard title="Revenue by Geography (₹ Cr)">
+        <ChartCard title="Revenue by Geography (AED M)">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <ResponsiveContainer width={120} height={160}>
               <PieChart>
@@ -284,7 +284,7 @@ export default function FinSightDashboard() {
           padding: '14px 18px', borderBottom: '1px solid #e2e8f0',
         }}>
           <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1a3a6b' }}>
-            Financial Summary (₹ Cr)
+            Financial Summary (AED M)
           </span>
           <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1.1rem' }}>⋮</button>
         </div>

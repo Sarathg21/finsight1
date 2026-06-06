@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
+  AreaChart, Area,
   CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
 import {
   fetchFilters,
@@ -12,7 +13,18 @@ import {
   fetchParentDivisionDetail,
   fetchSubdivisionDetail,
   fetchSalesmanDetail,
+  fetchSalesmanSummary,
+  fetchSummary,
+  fetchGrossMargin,
   exportSalesRevenue,
+  fetchTrend,
+  fetchLegalEntity,
+  fetchParentDivision,
+  fetchSubdivision,
+  fetchBySalesman,
+  fetchTopCustomers,
+  fetchCustomerSummary,
+  fetchCustomerDetail,
 } from '../services/salesRevenueApi';
 
 /* ─── Color Palette ─────────────────────────────────────────────── */
@@ -56,7 +68,7 @@ const DEFAULT_FILTERS = {
   toDate:      LAST_DAY,
 };
 
-const DETAILS_PAGE_SIZE = 50;
+const DETAILS_PAGE_SIZE = 10;
 
 /* ─── Loading Skeleton ──────────────────────────────────────────── */
 function Skeleton({ h = 20, w = '100%', radius = 6 }) {
@@ -70,18 +82,53 @@ function Skeleton({ h = 20, w = '100%', radius = 6 }) {
   );
 }
 
+/* ─── Export Toast ───────────────────────────────────────────────── */
+function ExportToast({ message, type }) {
+  if (!message) return null;
+  const isError = type === 'error';
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+      background: isError ? '#fff1f2' : '#f0fdf4',
+      border: `1px solid ${isError ? '#fecdd3' : '#bbf7d0'}`,
+      color: isError ? '#be123c' : '#15803d',
+      borderRadius: 10, padding: '10px 18px',
+      fontSize: '0.78rem', fontWeight: 700,
+      boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+      display: 'flex', alignItems: 'center', gap: 8,
+      animation: 'fadeIn 0.2s ease',
+    }}>
+      {isError ? '⚠ ' : '✓ '}{message}
+    </div>
+  );
+}
+
 /* ─── Export Buttons ─────────────────────────────────────────────── */
 function ExportButtons({ endpoint, filters, size = 'sm' }) {
-  const [exporting, setExporting] = useState(null);
+  const [exporting, setExporting] = useState(null); // 'excel' | 'pdf' | 'error'
+  const [toast,     setToast]     = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const handleExport = (format) => {
+    if (exporting) return;
     setExporting(format);
-    try {
-      exportSalesRevenue(endpoint, format, filters);
-    } catch (e) {
-      console.error('Export error:', e);
+    // exportSalesRevenue returns a Promise only when token exists; otherwise void
+    const result = exportSalesRevenue(endpoint, format, filters);
+    const finish = (ok, err) => {
+      setExporting(null);
+      if (!ok) showToast(err || 'Export failed', 'error');
+      else showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started — check Downloads`, 'success');
+    };
+    if (result && typeof result.then === 'function') {
+      result.then(() => finish(true)).catch(e => finish(false, e?.message));
+    } else {
+      // Demo / no-token path: fire-and-forget
+      setTimeout(() => finish(true), 800);
     }
-    setTimeout(() => setExporting(null), 2000);
   };
 
   const btnBase = {
@@ -93,69 +140,127 @@ function ExportButtons({ endpoint, filters, size = 'sm' }) {
   };
 
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <>
+      {toast && <ExportToast message={toast.msg} type={toast.type} />}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button
+          id={`btn-export-excel-${endpoint}`}
+          onClick={() => handleExport('excel')}
+          disabled={!!exporting}
+          title="Export to Excel"
+          style={{
+            ...btnBase,
+            background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
+            color: '#15803d',
+            border: '1px solid #bbf7d0',
+            opacity: exporting ? 0.7 : 1,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {exporting === 'excel' ? '⏳' : '📊'} Excel
+        </button>
+        <button
+          id={`btn-export-pdf-${endpoint}`}
+          onClick={() => handleExport('pdf')}
+          disabled={!!exporting}
+          title="Export to PDF"
+          style={{
+            ...btnBase,
+            background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
+            color: '#be123c',
+            border: '1px solid #fecdd3',
+            opacity: exporting ? 0.7 : 1,
+            cursor: exporting ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {exporting === 'pdf' ? '⏳' : '📄'} PDF
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ─── Chart Menu (3-dot kebab) ───────────────────────────────────── */
+function ChartMenu({ onViewAll, endpoint, filters }) {
+  const [open, setOpen] = useState(false);
+  const [exporting, setExporting] = useState(null);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleExport = (format) => {
+    setExporting(format);
+    try { exportSalesRevenue(endpoint, format, filters); } catch (e) { console.error(e); }
+    setTimeout(() => setExporting(null), 2000);
+    setOpen(false);
+  };
+
+  const menuItems = [
+    ...(onViewAll ? [{ label: '🔎 View All', action: () => { onViewAll(); setOpen(false); } }] : []),
+    { label: exporting === 'excel' ? '⏳ Exporting…' : '📊 Export Excel', action: () => handleExport('excel') },
+    { label: exporting === 'pdf'   ? '⏳ Exporting…' : '📄 Export PDF',   action: () => handleExport('pdf') },
+  ];
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
       <button
-        id={`btn-export-excel-${endpoint}`}
-        onClick={() => handleExport('excel')}
-        disabled={exporting === 'excel'}
-        title="Export to Excel"
+        onClick={() => setOpen(v => !v)}
+        title="Options"
         style={{
-          ...btnBase,
-          background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
-          color: '#15803d',
-          border: '1px solid #bbf7d0',
-          opacity: exporting === 'excel' ? 0.7 : 1,
+          background: open ? '#f1f5f9' : 'none',
+          border: 'none', cursor: 'pointer',
+          padding: '4px 6px', borderRadius: 6,
+          fontSize: '1.1rem', color: '#94a3b8',
+          lineHeight: 1, transition: 'all 0.15s',
+          display: 'flex', alignItems: 'center',
+          outline: 'none',
         }}
       >
-        {exporting === 'excel' ? '⏳' : '📊'} Excel
+        ⋮
       </button>
-      <button
-        id={`btn-export-pdf-${endpoint}`}
-        onClick={() => handleExport('pdf')}
-        disabled={exporting === 'pdf'}
-        title="Export to PDF"
-        style={{
-          ...btnBase,
-          background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
-          color: '#be123c',
-          border: '1px solid #fecdd3',
-          opacity: exporting === 'pdf' ? 0.7 : 1,
-        }}
-      >
-        {exporting === 'pdf' ? '⏳' : '📄'} PDF
-      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: 'calc(100% + 4px)',
+          background: '#fff', borderRadius: 10,
+          boxShadow: '0 8px 24px rgba(0,0,0,0.13)',
+          border: '1px solid #e2e8f0',
+          minWidth: 160, zIndex: 100,
+          overflow: 'hidden',
+          animation: 'scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        }}>
+          {menuItems.map((item, i) => (
+            <button
+              key={i}
+              onClick={item.action}
+              style={{
+                display: 'block', width: '100%',
+                textAlign: 'left', padding: '9px 14px',
+                background: 'none', border: 'none',
+                fontSize: '0.75rem', fontWeight: 600,
+                color: '#334155', cursor: 'pointer',
+                transition: 'background 0.12s',
+                borderTop: i > 0 ? '1px solid #f1f5f9' : 'none',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ─── View-All Button ────────────────────────────────────────────── */
-function ViewAllButton({ onClick }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: hover ? 'rgba(37, 99, 235, 0.06)' : 'none',
-        border: 'none',
-        color: C.blue,
-        fontSize: '0.72rem',
-        fontWeight: 700,
-        cursor: 'pointer',
-        padding: '4px 8px',
-        borderRadius: 6,
-        transition: 'all 0.18s',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 3,
-        outline: 'none',
-      }}
-    >
-      🔎 View All
-    </button>
-  );
-}
 
 /* ─── Modal Close Button ─────────────────────────────────────────── */
 function ModalCloseButton({ onClick }) {
@@ -207,6 +312,9 @@ function DetailApiModal({
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState(null);
   const [searchTerm, setSearch] = useState('');
+  const [page, setPage]         = useState(0);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const pageSize = 15;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -221,11 +329,47 @@ function DetailApiModal({
 
   if (!isOpen) return null;
 
+  const handleSearch = (e) => {
+    setSearch(e.target.value);
+    setPage(0); // reset page on search
+  };
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+    setPage(0); // reset page on sort
+  };
+
+  // 1. Search
   const filtered = rows.filter(row =>
     columnDefs.some(col =>
       String(row[col.key] ?? '').toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
+
+  // 2. Sort
+  const sorted = [...filtered].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    const valA = a[sortConfig.key];
+    const valB = b[sortConfig.key];
+    if (valA == null) return 1;
+    if (valB == null) return -1;
+    if (typeof valA === 'number' && typeof valB === 'number') {
+      return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+    }
+    const strA = String(valA).toLowerCase();
+    const strB = String(valB).toLowerCase();
+    if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // 3. Paginate
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const paginated = sorted.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div style={{
@@ -269,16 +413,16 @@ function DetailApiModal({
             type="text"
             placeholder={searchPlaceholder}
             value={searchTerm}
-            onChange={e => setSearch(e.target.value)}
+            onChange={handleSearch}
             style={{
               padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
               fontSize: '0.78rem', minWidth: 200, outline: 'none',
             }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {!loading && rows.length > 0 && (
+            {!loading && sorted.length > 0 && (
               <span style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 600 }}>
-                {filtered.length} of {rows.length} records
+                {sorted.length} {searchTerm ? 'matches' : 'records'}
               </span>
             )}
             <ExportButtons endpoint={endpoint} filters={filters} />
@@ -286,7 +430,7 @@ function DetailApiModal({
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 16px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 20px 16px' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -306,21 +450,27 @@ function DetailApiModal({
               <thead>
                 <tr>
                   {columnDefs.map((col, i) => (
-                    <th key={i} style={{
+                    <th key={i} onClick={() => handleSort(col.key)} style={{
                       ...TH, padding: '10px 10px',
                       position: 'sticky', top: 0,
-                      background: '#fff', zIndex: 2,
+                      background: '#f8fafc', zIndex: 2,
                       textAlign: col.align || 'left',
                       borderBottom: '2px solid #e2e8f0',
+                      cursor: 'pointer', userSelect: 'none',
                     }}>
-                      {col.label}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : col.align === 'center' ? 'center' : 'flex-start', gap: 4 }}>
+                        {col.label}
+                        {sortConfig.key === col.key && (
+                          <span style={{ fontSize: '0.7rem', color: C.blue }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.length > 0 ? (
-                  filtered.map((row, idx) => (
+                {paginated.length > 0 ? (
+                  paginated.map((row, idx) => (
                     <tr key={idx} style={{
                       borderBottom: '1px solid #f1f5f9',
                       background: idx % 2 === 0 ? '#fff' : '#f8fafc',
@@ -356,17 +506,48 @@ function DetailApiModal({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer with Pagination */}
         <div style={{
-          padding: '10px 20px', borderTop: '1px solid #f1f5f9',
-          display: 'flex', justifyContent: 'flex-end',
-          background: '#f8fafc',
+          padding: '12px 20px', borderTop: '1px solid #f1f5f9',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          background: '#f8fafc', flexWrap: 'wrap', gap: 10
         }}>
-          <button onClick={onClose} style={{
-            padding: '6px 18px', background: '#e2e8f0', color: C.slate,
-            border: 'none', borderRadius: 8, fontSize: '0.74rem',
-            fontWeight: 700, cursor: 'pointer',
-          }}>Close</button>
+          <div style={{ fontSize: '0.72rem', color: C.slate }}>
+            {sorted.length > 0 
+              ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records` 
+              : 'No records'}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              style={{
+                padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
+                background: page === 0 ? '#f1f5f9' : '#fff',
+                color: page === 0 ? C.muted : C.navy,
+                fontSize: '0.72rem', fontWeight: 600, cursor: page === 0 ? 'not-allowed' : 'pointer',
+              }}
+            >← Prev</button>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: C.navy, minWidth: 40, textAlign: 'center' }}>
+              {sorted.length > 0 ? page + 1 : 0} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              style={{
+                padding: '5px 12px', borderRadius: 7, border: `1px solid ${C.border}`,
+                background: page >= totalPages - 1 ? '#f1f5f9' : '#fff',
+                color: page >= totalPages - 1 ? C.muted : C.navy,
+                fontSize: '0.72rem', fontWeight: 600, cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
+              }}
+            >Next →</button>
+            <div style={{ width: 1, height: 20, background: C.border, margin: '0 4px' }} />
+            <button onClick={onClose} style={{
+              padding: '6px 18px', background: '#e2e8f0', color: C.slate,
+              border: 'none', borderRadius: 8, fontSize: '0.74rem',
+              fontWeight: 700, cursor: 'pointer',
+            }}>Close</button>
+          </div>
         </div>
       </div>
     </div>
@@ -506,9 +687,9 @@ function Sparkline({ data, color, height = 40 }) {
 }
 
 /* ─── KPI Card ──────────────────────────────────────────────────── */
-function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error }) {
+function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor }) {
   const [displayVal, setDisplayVal] = useState(0);
-  const [hover, setHover] = useState(false);
+  const [hover, setHover]           = useState(false);
 
   useEffect(() => {
     if (numericValue === null || numericValue === undefined) return;
@@ -526,10 +707,10 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
   }, [numericValue]);
 
   const formattedNum = numericValue !== null && numericValue !== undefined
-    ? `AED ${displayVal >= 1000
-        ? displayVal.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-        : displayVal.toFixed(2)}`
+    ? `AED ${fmtAxisNum(displayVal)}`
     : textValue || '—';
+
+  const accent = accentColor || '#2563eb';
 
   return (
     <div
@@ -537,61 +718,71 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        background: '#fff', borderRadius: 14,
-        border: `1px solid ${hover ? '#c7d7f7' : C.border}`,
-        padding: '16px 16px 10px',
-        boxShadow: hover ? '0 8px 28px rgba(37,99,235,0.12)' : '0 2px 6px rgba(0,0,0,0.05)',
+        background: cardBg || '#fff',
+        borderRadius: 12,
+        border: `1.5px solid ${hover ? accent + '55' : 'transparent'}`,
+        padding: '16px 16px 12px',
+        boxShadow: hover
+          ? `0 8px 28px ${accent}22`
+          : '0 2px 8px rgba(0,0,0,0.06)',
         transition: 'all 0.22s ease',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', flexDirection: 'column', gap: 6,
+        display: 'flex', flexDirection: 'column',
         overflow: 'hidden', position: 'relative',
+        fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: '0.68rem', color: C.slate, fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6,
-          }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* Left: Icon */}
+        <div style={{
+          width: 46, height: 46, borderRadius: '50%', background: iconBg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '1.25rem', flexShrink: 0, color: accent,
+        }}>{icon}</div>
+
+        {/* Right: Label and Value */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{
+            fontSize: '0.72rem', fontWeight: 700, color: accent,
+          }}>{label}</span>
+          
           {loading ? (
-            <Skeleton h={22} w="80%" />
+            <Skeleton h={22} w={100} />
           ) : error ? (
-            <span style={{ fontSize: '0.72rem', color: C.rose }}>Error loading</span>
+            <span style={{ fontSize: '0.72rem', color: C.rose }}>Error</span>
           ) : (
             <div style={{
-              fontSize: numericValue !== null ? '1.1rem' : '0.95rem',
-              fontWeight: 800, color: C.navy, lineHeight: 1.25,
-            }}>{formattedNum}</div>
+              fontSize: numericValue !== null ? '1.25rem' : '1.1rem',
+              fontWeight: 800, color: '#1e293b', lineHeight: 1.1,
+              letterSpacing: '-0.01em',
+            }}>
+              {formattedNum}
+            </div>
           )}
         </div>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, background: iconBg,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.1rem', flexShrink: 0, marginLeft: 8,
-        }}>{icon}</div>
       </div>
 
-      {sparkData && sparkData.length > 1 && (
-        <div style={{ margin: '2px -2px 0' }}>
-          <Sparkline data={sparkData} color={sparkColor} height={34} />
-        </div>
-      )}
-
+      {/* Change percentage badge */}
       {loading ? (
-        <Skeleton h={16} w="60%" radius={100} />
+        <Skeleton h={16} w={120} radius={100} />
       ) : (
         <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
-          fontSize: '0.62rem', fontWeight: 700,
-          color: up === true ? C.green : up === false ? C.rose : '#475569',
-          background: up === true ? '#f0fdf4' : up === false ? '#fff1f2' : '#f8fafc',
-          borderRadius: 100, padding: '3px 8px', width: 'fit-content',
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontSize: '0.65rem', fontWeight: 700, marginTop: 8, paddingLeft: 60,
+          color: up === true ? C.green : up === false ? C.rose : '#64748b',
         }}>
           {up === true && <span>▲</span>}
           {up === false && <span>▼</span>}
           <span>{changePct !== null && changePct !== undefined
             ? `${Math.abs(changePct).toFixed(2)}% ${changeLabel || ''}`
             : changeLabel || '—'}</span>
+        </div>
+      )}
+
+      {/* Sparkline */}
+      {sparkData && sparkData.length > 1 && (
+        <div style={{ margin: '12px -2px 0' }}>
+          <Sparkline data={sparkData} color={sparkColor} height={30} />
         </div>
       )}
     </div>
@@ -632,13 +823,20 @@ const CustomTooltip = ({ active, payload, label }) => {
       background: '#fff', border: `1px solid ${C.border}`,
       borderRadius: 10, padding: '10px 14px',
       boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '0.75rem',
+      minWidth: 160,
     }}>
-      <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6, borderBottom: `1px solid ${C.border}`, paddingBottom: 5 }}>
+        {label}
+      </div>
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block' }} />
-          <span style={{ color: C.slate }}>{p.name}:</span>
-          <span style={{ fontWeight: 700, color: C.navy }}>AED {Number(p.value).toFixed(2)}</span>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block' }} />
+            <span style={{ color: C.slate }}>{p.name}</span>
+          </div>
+          <span style={{ fontWeight: 700, color: C.navy }}>
+            AED {Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </span>
         </div>
       ))}
     </div>
@@ -744,6 +942,15 @@ const TH_LG = {
 };
 const TD_LG = { padding: '5px 10px', fontSize: '0.70rem', color: '#334155' };
 
+/* ─── Axis Number Formatter ─────────────────────────────────────── */
+const fmtAxisNum = (v) => {
+  if (v === 0) return '0';
+  if (Math.abs(v) >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
+  if (Math.abs(v) >= 1_000_000)     return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000)         return `${(v / 1_000).toFixed(0)}K`;
+  return String(v);
+};
+
 /* ═══════════════════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                                  */
 /* ═══════════════════════════════════════════════════════════════ */
@@ -765,15 +972,16 @@ export default function SalesRevenueReport() {
   });
 
   /* ── Chart / KPI data state ───────────────────────────────────── */
-  const [summary,          setSummary]          = useState(null);
-  const [trendData,        setTrendData]        = useState([]);
-  const [legalEntData,     setLegalEntData]     = useState([]);
-  const [parentDivData,    setParentDivData]    = useState([]);
-  const [subDivData,       setSubDivData]       = useState([]);
-  const [topCustomersData, setTopCustomersData] = useState([]);
-  const [bySalesmanData,   setBySalesmanData]   = useState([]);
-  const [grossMarginData,  setGrossMarginData]  = useState(null);
-  const [activeTab,        setActiveTab]        = useState('all');
+  const [summary,             setSummary]             = useState(null);
+  const [trendData,           setTrendData]           = useState([]);
+  const [legalEntData,        setLegalEntData]        = useState([]);
+  const [parentDivData,       setParentDivData]       = useState([]);
+  const [subDivData,          setSubDivData]          = useState([]);
+  const [topCustomersData,    setTopCustomersData]    = useState([]);
+  const [bySalesmanData,      setBySalesmanData]      = useState([]);
+  const [salesmanSummaryData, setSalesmanSummaryData] = useState([]);
+  const [grossMarginData,     setGrossMarginData]     = useState(null);
+  const [activeTab,           setActiveTab]           = useState('all');
 
   /* ── /details pagination state ────────────────────────────────── */
   const [detailRows,       setDetailRows]       = useState([]);
@@ -788,6 +996,7 @@ export default function SalesRevenueReport() {
     filters: true, summary: true, trend: true,
     legalEnt: true, parentDiv: true, subDiv: true, details: true,
     topCustomers: true, bySalesman: true, grossMargin: true,
+    salesmanSummary: true,
   });
 
   /* ── Error state ──────────────────────────────────────────────── */
@@ -858,14 +1067,15 @@ export default function SalesRevenueReport() {
   /* ── Fetch all data sections when applied filters change ────────── */
   const fetchAll = useCallback((f) => {
     setLoading({
-      filters: false, summary: true, trend: false, legalEnt: true,
+      filters: false, summary: true, trend: true, legalEnt: true,
       parentDiv: true, subDiv: true, details: true,
-      topCustomers: true, bySalesman: true, grossMargin: false
+      topCustomers: true, bySalesman: false, grossMargin: true,
+      salesmanSummary: true,
     });
     setErrors({});
     setDetailPage(0);
-    setTrendData([]); // Unused
-    setGrossMarginData(null); // Unused
+    setTrendData([]);
+    setGrossMarginData(null);
 
     const guard = (key, promise) =>
       promise
@@ -879,37 +1089,98 @@ export default function SalesRevenueReport() {
         })
         .finally(() => setLoading(prev => ({ ...prev, [key]: false })));
 
-    // 1. Legal Entity
+    // 0. Summary — GET /api/sales-revenue/summary
+    guard('summary', fetchSummary(f)).then(d => {
+      if (!d) return;
+      setSummary({
+        // Revenue
+        total_revenue:          d.total_revenue          ?? d.ytd_revenue ?? null,
+        mtd_revenue:            d.mtd_revenue            ?? null,
+        ytd_revenue:            d.ytd_revenue            ?? null,
+        mtd_change_pct:         d.mtd_change_pct         ?? null,
+        ytd_change_pct:         d.ytd_change_pct         ?? null,
+        // Gross margin
+        gross_margin:           d.gross_margin           ?? null,
+        gross_margin_pct:       d.gross_margin_pct       ?? null,
+        gross_margin_change_pct: d.gross_margin_change_pct ?? null,
+        // Counts
+        total_customers:        d.total_customers        ?? null,
+        total_salesmen:         d.total_salesmen         ?? null,
+        // Highlights
+        top_legal_entity:       d.top_legal_entity       ?? null,
+        top_parent_division:    d.top_parent_division    ?? null,
+        data_as_of:             d.data_as_of             ?? null,
+        current_year_label:     d.current_year_label     || 'Current Year',
+        previous_year_label:    d.previous_year_label    || 'Previous Year',
+      });
+    });
+
+    // 1. Revenue Trend — GET /api/sales-revenue/trend
+    //    API returns: [{ period_name, sales_aed }, ...] (Current Year only)
+    guard('trend', fetchTrend(f)).then(d => {
+      if (!d) return;
+      // Handle both array response and wrapped { data: [...] } response
+      const arr = Array.isArray(d) ? d : (d?.data || []);
+      setTrendData(arr.map(item => ({
+        period:      item.period_name ?? item.period ?? '',
+        currentYear: Number(item.sales_aed ?? item.current_year ?? 0),
+      })));
+    });
+
+    // 2. Gross Margin — GET /api/sales-revenue/gross-margin
+    guard('grossMargin', fetchGrossMargin(f)).then(d => {
+      if (!d) return;
+      setGrossMarginData(d);
+    });
+
+    // 3. Salesman Summary — GET /api/sales-revenue/salesman-summary
+    //    Used for: Top Salesman KPI card + Salesman View All modal
+    guard('salesmanSummary', fetchSalesmanSummary(f)).then(d => {
+      if (!d || !d.data) return;
+      setSalesmanSummaryData(d.data);
+      // Also populate bySalesmanData (chart) from salesman-summary
+      const chartData = d.data
+        .filter(row => {
+          const name = row.salesman || row.sales_person || row.salesman_name;
+          return name && name !== '';
+        })
+        .map(row => ({
+          name:   row.salesman || row.sales_person || row.salesman_name || 'Unknown',
+          value:  Number(row.sales_aed   || 0),
+          target: Number(row.target      || 0),
+          pct:    Number(row.percentage  || 0),
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 15);
+      setBySalesmanData(chartData);
+    });
+
+    // 4. Legal Entity
     guard('legalEnt', fetchLegalEntityDetail(f)).then(d => {
       if (!d || !d.data) return;
       const arr = d.data;
-      
-      const totalYTD = arr.reduce((acc, r) => acc + (Number(r.sales_aed) || 0), 0);
-      
-      // Group by legal_entity to avoid duplicate keys in charts
+
       const grouped = {};
-      const pctMap = {};
+      const pctMap  = {};
       arr.forEach(row => {
         const name = row.legal_entity || 'Unknown';
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
-        // Note: Percentage is pre-calculated by backend, but if multiple rows exist, we might just sum it or take the first.
-        // Assuming the backend grouped it for us and duplicates are rare, we just take the first we see.
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
-      const chartData = Object.keys(grouped)
+      const chartDataAll = Object.keys(grouped)
         .map(name => ({ name, value: grouped[name], pct: pctMap[name] }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10); // Limit to top 10 to prevent chart overlapping
+        .sort((a, b) => b.value - a.value);
 
-      const topLE = chartData.length > 0 ? chartData[0] : null;
-
-      setSummary(prev => ({
-        ...prev,
-        ytd_revenue: totalYTD, // Assuming all data fetched represents the filtered period
-        top_legal_entity: topLE,
-      }));
-      setLoading(p => ({ ...p, summary: false }));
+      let chartData = [];
+      if (chartDataAll.length > 5) {
+        const top5 = chartDataAll.slice(0, 5);
+        const othersValue = chartDataAll.slice(5).reduce((sum, item) => sum + item.value, 0);
+        const othersPct   = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
+        chartData = [...top5, { name: 'Others', value: othersValue, pct: othersPct }];
+      } else {
+        chartData = chartDataAll;
+      }
 
       setLegalEntData(chartData.map((item, i) => ({
         ...item,
@@ -917,44 +1188,60 @@ export default function SalesRevenueReport() {
       })));
     });
 
-    // 2. Parent Division
+    // 5. Parent Division
     guard('parentDiv', fetchParentDivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
       const arr = d.data;
-      
+
       const grouped = {};
-      const pctMap = {};
+      const pctMap  = {};
       arr.forEach(row => {
         const name = row.parent_division || row.division_name || row.division_code || 'Unknown';
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
-      const chartData = Object.keys(grouped)
+      const chartDataAll = Object.keys(grouped)
         .map(name => ({ name, value: grouped[name], pct: pctMap[name] }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 15); // Limit to top 15 to prevent overlap
+        .sort((a, b) => b.value - a.value);
 
-      const topPD = chartData.length > 0 ? chartData[0] : null;
-      setSummary(prev => ({ ...prev, top_parent_division: topPD }));
+      let chartData = [];
+      if (chartDataAll.length > 5) {
+        const top5 = chartDataAll.slice(0, 5);
+        const othersValue = chartDataAll.slice(5).reduce((sum, item) => sum + item.value, 0);
+        const othersPct   = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
+        chartData = [...top5, { name: 'Others', value: othersValue, pct: othersPct }];
+      } else {
+        chartData = chartDataAll;
+      }
+
       setParentDivData(chartData);
     });
 
-    // 3. Sub-Division
+    // 6. Sub-Division
     guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
       const grouped = {};
-      const pctMap = {};
+      const pctMap  = {};
       d.data.forEach(row => {
         const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
-      const chartData = Object.keys(grouped)
+      const chartDataAll = Object.keys(grouped)
         .map(name => ({ name, value: grouped[name], pct: pctMap[name] }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 15); // Limit to top 15 to prevent overlap
+        .sort((a, b) => b.value - a.value);
+
+      let chartData = [];
+      if (chartDataAll.length > 5) {
+        const top5 = chartDataAll.slice(0, 5);
+        const othersValue = chartDataAll.slice(5).reduce((sum, item) => sum + item.value, 0);
+        const othersPct   = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
+        chartData = [...top5, { name: 'Others', value: othersValue, pct: othersPct }];
+      } else {
+        chartData = chartDataAll;
+      }
 
       setSubDivData(chartData.map((item, i) => ({
         ...item,
@@ -962,46 +1249,22 @@ export default function SalesRevenueReport() {
       })));
     });
 
-    // 4. Salesman
-    guard('bySalesman', fetchSalesmanDetail(f)).then(d => {
-      if (!d || !d.data) return;
-      const grouped = {};
-      const pctMap = {};
-      const targets = {};
-      d.data.forEach(row => {
-        const name = row.sales_person || 'Unknown';
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
-        targets[name] = (targets[name] || 0) + (Number(row.target) || 0);
-        if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
-      });
-
-      const chartData = Object.keys(grouped)
-        .filter(name => name !== 'Unknown' && name !== '')
-        .map(name => ({ name, value: grouped[name], pct: pctMap[name], target: targets[name] }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 15); // Limit to top 15 to prevent overlap
-
-      setBySalesmanData(chartData);
-    });
-
-    // 5. Details (page 0) & Top Customers aggregation
+    // 7. Details (page 0)
     guard('details', fetchDetails(f, DETAILS_PAGE_SIZE, 0)).then(d => {
       if (!d || !d.data) return;
       setDetailRows(d.data);
       setDetailTotalCount(d.total_count || d.total || d.count || d.data.length);
-      
-      // Compute pseudo top customers from current details page
-      const custMap = {};
-      d.data.forEach(row => {
-        const name = row.customer_name || 'Unknown';
-        custMap[name] = (custMap[name] || 0) + (Number(row.sales_aed) || Number(row.amount) || Number(row.base_amount) || 0);
-      });
-      const topCust = Object.keys(custMap)
-        .map(name => ({ name, value: custMap[name] }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
-      setTopCustomersData(topCust);
-      setLoading(p => ({ ...p, topCustomers: false }));
+    });
+
+    // 8. Top Customers
+    guard('topCustomers', fetchTopCustomers(f)).then(d => {
+      if (!d || !d.data) return;
+      const mapped = d.data.map(c => ({
+        name: c.customer_name || c.name || 'Unknown',
+        value: Number(c.sales_aed ?? c.value ?? 0),
+        pct: Number(c.contribution_pct ?? c.pct ?? 0),
+      }));
+      setTopCustomersData(mapped);
     });
   }, [handle401]);
 
@@ -1023,23 +1286,37 @@ export default function SalesRevenueReport() {
   };
   const updateFilter = (key, val) => setFilters(prev => ({ ...prev, [key]: val }));
 
-  /* ── Derived KPI values ───────────────────────────────────────── */
-  const mtdRevenue    = summary?.mtd_revenue    ?? null;
-  const ytdRevenue    = summary?.ytd_revenue    ?? null;
-  const mtdChangePct  = summary?.mtd_change_pct ?? null;
-  const ytdChangePct  = summary?.ytd_change_pct ?? null;
-  const topLE         = summary?.top_legal_entity;
-  const topPD         = summary?.top_parent_division;
-  const dataAsOf      = summary?.data_as_of
+  /* ── Derived KPI values from /summary ─────────────────────────── */
+  // Revenue
+  const totalRevenue    = summary?.total_revenue    ?? summary?.ytd_revenue ?? null;
+  const mtdRevenue      = summary?.mtd_revenue      ?? null;
+  const ytdRevenue      = summary?.ytd_revenue      ?? null;
+  const mtdChangePct    = summary?.mtd_change_pct   ?? null;
+  const ytdChangePct    = summary?.ytd_change_pct   ?? null;
+  // Gross margin
+  const grossMargin     = summary?.gross_margin     ?? null;
+  const grossMarginPct  = summary?.gross_margin_pct ?? null;
+  const grossMarginChg  = summary?.gross_margin_change_pct ?? null;
+  // Counts
+  const totalCustomers  = summary?.total_customers  ?? null;
+  const totalSalesmen   = summary?.total_salesmen   ?? null;
+  // Highlights
+  const topLE           = summary?.top_legal_entity;
+  const topPD           = summary?.top_parent_division;
+  const dataAsOf        = summary?.data_as_of
     ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : appliedFilters.toDate;
-  const topSalesmanRecord = bySalesmanData && bySalesmanData.length > 0
-    ? [...bySalesmanData].sort((a, b) => b.value - a.value)[0]
+
+  // Top Salesman derived from salesman-summary data
+  const topSalesmanRecord = salesmanSummaryData && salesmanSummaryData.length > 0
+    ? [...salesmanSummaryData].sort((a, b) => (Number(b.sales_aed) || 0) - (Number(a.sales_aed) || 0))[0]
     : null;
+  const topSalesmanName  = topSalesmanRecord?.sales_person || '—';
+  const topSalesmanAED   = topSalesmanRecord ? Number(topSalesmanRecord.sales_aed || 0) : null;
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
-  const sparkYTD = trendData.map(d => d.previousYear).filter(Boolean);
+  const sparkYTD = sparkMTD; // same source — API returns current year only
 
   /* ── Year labels ─────────────────────────────────────────────── */
   const currentYearLabel  = summary?.current_year_label  || 'Current Year';
@@ -1052,36 +1329,85 @@ export default function SalesRevenueReport() {
 
   /* ── Column definitions for View-All modals ──────────────────── */
   const legalEntityCols = [
-    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left'  },
+    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
+    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
+    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+  ];
+
+  const parentDivisionCols = [
+    { label: 'Division Code',      key: 'division_code',      align: 'left', fmt: (v, row) => v ?? row.parent_division_code ?? row.code ?? '—'  },
+    { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—'  },
+    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
+    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+  ];
+
+  const subdivisionCols = [
+    { label: 'Sub-Division',       key: 'subdivision',        align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.name ?? '—'  },
+    { label: 'Code',               key: 'subdivision_code',   align: 'left', fmt: (v, row) => v ?? row.code ?? '—'  },
+    { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? '—'  },
+    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
+    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+  ];
+
+  const customerSummaryCols = [
+    { label: 'Customer Name',      key: 'customer_name',      align: 'left'  },
+    { label: 'Account Number',     key: 'customer_account_number', align: 'left'  },
     { label: 'Sales (AED)',        key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin',       key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
     { label: 'Percentage',         key: 'percentage',         align: 'right', fmt: v => fmtPct(v) },
     { label: '# Transactions',     key: 'transaction_count',  align: 'right' },
     { label: 'Currency',           key: 'currency',           align: 'center' },
   ];
 
-  const parentDivisionCols = [
-    { label: 'Parent Division', key: 'parent_division',   align: 'left'  },
-    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
-    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
-    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
-    { label: 'Currency',        key: 'currency',          align: 'center' },
+  const customerDetailCols = [
+    { label: 'Account Number',     key: 'customer_account_number', align: 'left' },
+    { label: 'Customer Name',      key: 'customer_name',      align: 'left' },
+    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left' },
+    { label: 'Business Unit',      key: 'business_unit',      align: 'left' },
+    { label: 'Revenue (AED)',      key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin (AED)', key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
+    { label: 'Contribution %',     key: 'contribution_pct',   align: 'right', fmt: v => fmtPct(v) },
   ];
 
-  const subdivisionCols = [
-    { label: 'Sub-Division',    key: 'subdivision',       align: 'left'  },
-    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
-    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
-    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
-    { label: 'Currency',        key: 'currency',          align: 'center' },
-  ];
-
-  const salesmanCols = [
+  // Salesman View All uses salesman-summary (aggregated) endpoint
+  const salesmanSummaryCols = [
     { label: 'Sales Person',    key: 'sales_person',      align: 'left'  },
     { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin',    key: 'gross_margin',      align: 'right', fmt: fmtCurrency },
     { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
     { label: '# Transactions',  key: 'transaction_count', align: 'right' },
     { label: 'Currency',        key: 'currency',          align: 'center' },
+  ];
+
+  // Salesman Detail (drill-down) — 13 columns per spec
+  const salesmanDetailCols = [
+    { label: 'Emp ID',            key: 'employee_id',          align: 'left'  },
+    { label: 'Salesman',          key: 'sales_person',         align: 'left'  },
+    { label: 'Direct Manager',    key: 'direct_manager',       align: 'left'  },
+    { label: 'Manager Level',     key: 'direct_manager_level', align: 'left'  },
+    { label: 'Sales Manager',     key: 'sales_manager',        align: 'left'  },
+    { label: 'Division Manager',  key: 'division_manager',     align: 'left'  },
+    { label: 'Legal Entity',      key: 'legal_entity',         align: 'left'  },
+    { label: 'Parent Division',   key: 'parent_division',      align: 'left'  },
+    { label: 'Subdivision',       key: 'subdivision',          align: 'left'  },
+    { label: 'Business Unit',     key: 'business_unit',        align: 'left'  },
+    { label: 'Revenue (AED)',     key: 'sales_aed',            align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin (AED)', key: 'gross_margin',        align: 'right', fmt: fmtCurrency },
+    { label: 'Contribution %',    key: 'contribution_pct',     align: 'right',
+      fmt: (v, row) => {
+        const val = v ?? row?.percentage;
+        return val != null ? `${Number(val).toFixed(2)}%` : '—';
+      }
+    },
   ];
 
   /* ────────────────────────────────────────────────────────────── */
@@ -1170,7 +1496,8 @@ export default function SalesRevenueReport() {
           background: '#fff', borderRadius: 12,
           border: `1px solid ${C.border}`,
           padding: '14px 18px', marginBottom: 16,
-          display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap',
+          display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'nowrap',
+          overflowX: 'auto',
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
         }}>
           <FilterField label="Legal Group">
@@ -1230,350 +1557,484 @@ export default function SalesRevenueReport() {
           }}>Reset</button>
         </div>
 
-        {/* ── KPI Cards Row ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12, marginBottom: 16 }}>
+        {/* ── Revenue Dashboard KPI Cards ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
+
+          {/* 1. Total Sales (MTD) */}
           <KPICard
             label="Total Sales (MTD)"
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
-            changeLabel="vs Prev MTD"
+            changeLabel="vs Mar 2024"
             up={mtdChangePct !== null ? mtdChangePct >= 0 : null}
-            icon="📈"
-            iconBg="linear-gradient(135deg,#dbeafe,#bfdbfe)"
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
+            iconBg="#eff6ff"
+            cardBg="#fafcff"
+            accentColor="#2563eb"
             sparkData={sparkMTD}
-            sparkColor={C.blue}
+            sparkColor="#2563eb"
             loading={loading.summary}
             error={errors.summary}
           />
+
+          {/* 2. Sales (YTD) */}
           <KPICard
             label="Sales (YTD)"
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
-            changeLabel="vs YTD PY"
+            changeLabel="vs YTD Apr 2023"
             up={ytdChangePct !== null ? ytdChangePct >= 0 : null}
-            icon="📅"
-            iconBg="linear-gradient(135deg,#dcfce7,#bbf7d0)"
-            sparkData={sparkYTD}
-            sparkColor={C.green}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
+            iconBg="#f0fdf4"
+            cardBg="#fafff5"
+            accentColor="#16a34a"
+            sparkData={sparkMTD}
+            sparkColor="#16a34a"
             loading={loading.summary}
             error={errors.summary}
           />
+
+          {/* 3. Gross Profit (MTD) */}
+          <KPICard
+            label="Gross Profit (MTD)"
+            numericValue={grossMargin}
+            changePct={grossMarginChg}
+            changeLabel="vs Mar 2024"
+            up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
+            iconBg="#f5f3ff"
+            cardBg="#fcfbff"
+            accentColor="#8b5cf6"
+            sparkData={sparkMTD}
+            sparkColor="#8b5cf6"
+            loading={loading.summary}
+            error={errors.summary}
+          />
+
+          {/* 4. Top Legal Entity */}
           <KPICard
             label="Top Legal Entity"
             numericValue={null}
-            textValue={topLE?.name || '—'}
+            textValue={topLE ? topLE.name : '—'}
             changePct={null}
-            changeLabel={topLE ? `AED ${Number(topLE.value || 0).toFixed(2)} (${Number(topLE.pct || 0).toFixed(2)}%)` : undefined}
+            changeLabel={topLE ? `AED ${fmtAxisNum(topLE.value)} (${topLE.pct}%)` : ''}
             up={null}
-            icon="🏢"
-            iconBg="linear-gradient(135deg,#fff7ed,#fed7aa)"
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
+            iconBg="#fff7ed"
+            cardBg="#fffdfa"
+            accentColor="#ea580c"
             sparkData={null}
-            sparkColor={C.orange}
+            sparkColor="#ea580c"
             loading={loading.summary}
             error={errors.summary}
           />
+
+          {/* 5. Top Parent Division */}
           <KPICard
             label="Top Parent Division"
             numericValue={null}
-            textValue={topPD?.name || '—'}
+            textValue={topPD ? topPD.name : '—'}
             changePct={null}
-            changeLabel={topPD ? `AED ${Number(topPD.value || 0).toFixed(2)} (${Number(topPD.pct || 0).toFixed(2)}%)` : undefined}
+            changeLabel={topPD ? `AED ${fmtAxisNum(topPD.value)} (${topPD.pct}%)` : ''}
             up={null}
-            icon="🏭"
-            iconBg="linear-gradient(135deg,#e0f2fe,#bae6fd)"
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
+            iconBg="#ecfeff"
+            cardBg="#f7fffc"
+            accentColor="#0891b2"
             sparkData={null}
-            sparkColor={C.cyan}
+            sparkColor="#0891b2"
             loading={loading.summary}
             error={errors.summary}
           />
-          <KPICard
-            label="Gross Profit (MTD)"
-            numericValue={grossMarginData?.gross_profit_mtd ?? null}
-            changePct={grossMarginData?.mtd_change_pct ?? null}
-            changeLabel={grossMarginData ? `vs Prev MTD (Margin: ${Number(grossMarginData.gross_margin_mtd_pct).toFixed(1)}%)` : ''}
-            up={grossMarginData?.mtd_change_pct !== null && grossMarginData?.mtd_change_pct !== undefined ? grossMarginData.mtd_change_pct >= 0 : null}
-            icon="📊"
-            iconBg="linear-gradient(135deg,#ede9fe,#ddd6fe)"
-            sparkData={grossMarginData?.trend?.map(t => t.gross_profit) || null}
-            sparkColor={C.purple}
-            loading={loading.grossMargin}
-            error={errors.grossMargin}
-          />
+
+          {/* 6. Top Salesman */}
           <KPICard
             label="Top Salesman"
             numericValue={null}
-            textValue={topSalesmanRecord?.name || '—'}
+            textValue={topSalesmanName}
             changePct={null}
-            changeLabel={topSalesmanRecord ? `AED ${Number(topSalesmanRecord.value).toLocaleString('en-US', { maximumFractionDigits: 0 })} ${topSalesmanRecord.target > 0 ? `(${Number((topSalesmanRecord.value / topSalesmanRecord.target) * 100).toFixed(1)}% Target)` : ''}` : undefined}
-            up={topSalesmanRecord && topSalesmanRecord.target > 0 ? (topSalesmanRecord.value >= topSalesmanRecord.target) : null}
-            icon="👤"
-            iconBg="linear-gradient(135deg,#fce7f3,#fbcfe8)"
+            changeLabel={topSalesmanAED !== null ? `AED ${fmtAxisNum(topSalesmanAED)}` : ''}
+            up={null}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
+            iconBg="#fdf2f8"
+            cardBg="#fffcfd"
+            accentColor="#db2777"
             sparkData={null}
-            sparkColor={C.purple}
-            loading={loading.bySalesman}
-            error={errors.bySalesman}
+            sparkColor="#db2777"
+            loading={loading.summary}
+            error={errors.summary}
           />
         </div>
 
-        {/* ── Charts Row 1: Trend | Legal Entity Donut | Parent Division Bar ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1.15fr', gap: 14, marginBottom: 14 }}>
-
-          {/* Revenue Trend */}
-          <ChartCard
-            title="Revenue Trend (AED)"
-            minHeight={240}
-            loading={loading.trend}
-            error={errors.trend}
-            onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={() => setOpenModal('trend')} />}
-          >
-            <ResponsiveContainer width="100%" height={180} minWidth={0}>
-              <LineChart data={trendData} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Line dataKey="previousYear" name={previousYearLabel} stroke={C.navy} strokeWidth={2} dot={{ r: 3, fill: C.navy }} activeDot={{ r: 5 }} />
-                <Line dataKey="target" name="Target" stroke={C.orange} strokeWidth={2} dot={{ r: 3, fill: C.orange }} strokeDasharray="5 3" />
-                <Line dataKey="currentYear" name={currentYearLabel} stroke={C.green} strokeWidth={2.5} dot={{ r: 3, fill: C.green }} activeDot={{ r: 5 }} />
-              </LineChart>
-            </ResponsiveContainer>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 8 }}>
-              <LegendDot color={C.navy}   label={previousYearLabel} />
-              <LegendDot color={C.orange} label="Target" dashed />
-              <LegendDot color={C.green}  label={currentYearLabel} />
+        {/* ── Main Dashboard Charts Row ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: 14, marginBottom: 16 }}>
+          
+          {/* 1. Revenue Trend (Line Chart) */}
+          <div style={{
+            background: '#fff', borderRadius: 12,
+            border: `1px solid ${C.border}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+            padding: '16px 20px 12px',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend (AED)</div>
+              <ChartMenu onViewAll={() => setOpenModal('trend')} endpoint="trend" filters={appliedFilters} />
             </div>
-          </ChartCard>
 
-          {/* Revenue by Legal Entity – Donut */}
-          <ChartCard
-            title="Revenue by Legal Entity (AED)"
-            minHeight={240}
-            loading={loading.legalEnt}
-            error={errors.legalEnt}
-            onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={() => setOpenModal('legalEntity')} />}
-          >
-            {legalEntData.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 130, flexShrink: 0 }}>
-                  <ResponsiveContainer width="100%" height={150} minWidth={0}>
-                    <PieChart>
-                      <Pie
-                        data={legalEntData}
-                        cx="50%" cy="50%"
-                        innerRadius={40} outerRadius={62}
-                        dataKey="value"
-                        startAngle={90} endAngle={-270}
-                        stroke="none"
-                      >
-                        {legalEntData.map((e, i) => (
-                          <Cell key={i} fill={e.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n]}
-                        contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 11 }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+            {loading.trend ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : errors.trend ? (
+              <div style={{ textAlign: 'center', color: '#ef4444', fontSize: '0.78rem', paddingTop: 60 }}>⚠ Failed to load</div>
+            ) : trendData.length === 0 ? (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No trend data available</div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={220} minWidth={0}>
+                  <LineChart data={trendData} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                    <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={50} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="currentYear" name="Sales" stroke={C.blue} strokeWidth={2.5} dot={{ r: 4, fill: '#fff', stroke: C.blue, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: C.slate }}>
+                    <span style={{ width: 12, height: 3, background: C.blue, display: 'inline-block', borderRadius: 2 }} />
+                    {currentYearLabel}
+                  </div>
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  {legalEntData.map(g => (
-                    <div key={g.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: g.color, flexShrink: 0, display: 'inline-block' }} />
-                        <span style={{ fontSize: '0.7rem', color: '#475569' }}>{g.name}</span>
+              </>
+            )}
+          </div>
+
+          {/* 2. Revenue by Legal Entity (Donut) */}
+          <div style={{
+            background: '#fff', borderRadius: 12,
+            border: `1px solid ${C.border}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+            padding: '16px 20px 12px',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Legal Entity (AED)</div>
+              <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={appliedFilters} />
+            </div>
+
+            {loading.legalEnt ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : legalEntData.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', height: 220 }}>
+                <ResponsiveContainer width="50%" height="100%">
+                  <PieChart>
+                    <Pie data={legalEntData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" stroke="none">
+                      {legalEntData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ width: '50%', paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
+                  {legalEntData.slice(0, 5).map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
+                        <span style={{ color: C.slate, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={d.name}>{d.name}</span>
                       </div>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: C.navy }}>
-                        {Number(g.pct).toFixed(2)}%
-                      </span>
+                      <span style={{ fontWeight: 600, color: C.navy, marginLeft: 8 }}>{d.pct.toFixed(1)}%</span>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 40 }}>No data available</div>
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
-          </ChartCard>
+          </div>
 
-          {/* Revenue by Parent Division – Horizontal Bar */}
-          <ChartCard
-            title="Revenue by Parent Division (AED)"
-            minHeight={240}
-            loading={loading.parentDiv}
-            error={errors.parentDiv}
-            onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={() => setOpenModal('parentDiv')} />}
-          >
-            {parentDivData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={190} minWidth={0}>
-                <BarChart data={parentDivData} layout="vertical" margin={{ top: 0, right: 30, left: 24, bottom: 0 }} barSize={14}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4ff" />
-                  <XAxis type="number" tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 9 }} axisLine={false} tickLine={false} width={72} />
-                  <Tooltip
-                    formatter={v => [`AED ${Number(v).toFixed(2)}`]}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 11 }}
-                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                  />
-                  <Bar dataKey="value" name="Revenue" radius={[0, 5, 5, 0]}>
-                    {parentDivData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 40 }}>No data available</div>
-            )}
-          </ChartCard>
-        </div>
+          {/* 3. Revenue by Parent Division (Bar) */}
+          <div style={{
+            background: '#fff', borderRadius: 12,
+            border: `1px solid ${C.border}`,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+            padding: '16px 20px 12px',
+            display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Parent Division (AED)</div>
+              <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={appliedFilters} />
+            </div>
 
-        {/* ── Charts Row 2: Sub-Division | Top Customers (no View All) | Salesman ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-
-          {/* Revenue by Sub-Division */}
-          <ChartCard
-            title="Revenue by Sub-Division (AED)"
-            minHeight={290}
-            loading={loading.subDiv}
-            error={errors.subDiv}
-            onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={() => setOpenModal('subDiv')} />}
-          >
-            {subDivData.length > 0 ? (
+            {loading.parentDiv ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : parentDivData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220} minWidth={0}>
-                <BarChart data={subDivData} margin={{ top: 8, right: 4, left: -24, bottom: 20 }} barSize={20}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                  <XAxis
-                    dataKey="name"
-                    tickFormatter={(val) => val.length > 20 ? val.substring(0, 17) + '...' : val}
-                    angle={-40}
-                    textAnchor="end"
-                    tick={{ fill: C.slate, fontSize: 9 }}
-                    axisLine={false} tickLine={false}
-                    interval={0}
-                    height={85}
-                  />
-                  <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    formatter={v => [`AED ${Number(v).toFixed(2)}`]}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 11 }}
-                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                  />
-                  <Bar dataKey="value" name="Revenue" radius={[5, 5, 0, 0]}>
-                    {subDivData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
-            )}
-          </ChartCard>
-
-          {/* Top 10 Customers — NO View All per CFO decision */}
-          <ChartCard
-            title="Top 10 Customers by Sales (AED)"
-            minHeight={290}
-            loading={loading.topCustomers}
-            error={errors.topCustomers}
-            onRetry={() => fetchAll(appliedFilters)}
-          >
-            {topCustomersData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220} minWidth={0}>
-                <BarChart data={topCustomersData} layout="vertical" margin={{ top: 8, right: 12, left: 16, bottom: 0 }} barSize={10}>
+                <BarChart data={parentDivData} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }} barSize={16}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4ff" />
-                  <XAxis type="number" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 9 }} axisLine={false} tickLine={false} width={180} />
-                  <Tooltip
-                    formatter={v => [`AED ${Number(v).toFixed(2)}`]}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
-                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                  />
+                  <XAxis type="number" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} width={80} tickFormatter={v => v.length > 10 ? v.substring(0, 8) + '…' : v} />
+                  <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="value" name="Revenue" radius={[0, 4, 4, 0]}>
-                    {topCustomersData.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
+                    {parentDivData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
-          </ChartCard>
+          </div>
+        </div>
 
-          {/* Revenue by Salesman */}
-          <ChartCard
-            title="Revenue vs Target by Salesman (AED)"
-            minHeight={290}
-            loading={loading.bySalesman}
-            error={errors.bySalesman}
-            onRetry={() => fetchAll(appliedFilters)}
-            action={<ViewAllButton onClick={() => setOpenModal('salesman')} />}
-          >
-            {bySalesmanData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220} minWidth={0}>
-                <BarChart data={bySalesmanData} margin={{ top: 8, right: 4, left: -16, bottom: 0 }} barSize={12}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                  <XAxis 
-                    dataKey="name" 
-                    tickFormatter={(val) => val.length > 20 ? val.substring(0, 17) + '...' : val}
-                    angle={-40}
-                    textAnchor="end"
-                    tick={{ fill: C.slate, fontSize: 9 }}
-                    axisLine={false} tickLine={false} 
-                    interval={0} 
-                    height={85} 
-                  />
-                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'value' ? 'Actual Revenue' : 'Sales Target']}
-                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
-                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                  />
-                  <Legend verticalAlign="top" height={28} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
-                  <Bar dataKey="value" name="Actual Revenue" fill={C.blue} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="target" name="Sales Target" fill={C.orange} radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                {/* ── Sub-Division Full Width Row ── */}
+        <div style={{ marginBottom: 16 }}>
+          {/* 1. Subdivision */}
+          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division (AED)</div>
+              <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
+            </div>
+            {loading.subDiv ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : subDivData.length > 0 ? (
+              <div style={{ flex: 1, position: 'relative', minHeight: 280 }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <BarChart data={subDivData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }} barSize={36}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                      <XAxis interval={0} dataKey="name" tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={v => v.replace(/\n/g, ' ')} />
+                      <YAxis tick={{ fill: C.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="value" name="Revenue" radius={[4, 4, 0, 0]}>
+                        <LabelList dataKey="value" position="top" formatter={v => fmtAxisNum(v)} style={{ fill: C.navy, fontSize: 10, fontWeight: 700 }} />
+                        {subDivData.map((entry, i) => <Cell key={i} fill={entry.color || CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Secondary Analysis Row (Customers, Salesman) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+          {/* 2. Top Customers */}
+          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales (AED)</div>
+              <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
+            </div>
+            {loading.topCustomers ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : topCustomersData.length > 0 ? (
+              <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead style={{ background: '#f4f7fa', color: C.navy, borderBottom: `2px solid ${C.border}` }}>
+                    <tr>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>Customer Name</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>Sales (AED)</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>% Contribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topCustomersData.slice(0, 10).map((c, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'left', color: C.navy, fontWeight: 500, maxWidth: 170, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={c.name}>{c.name}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate }}>{Number(c.value).toLocaleString('en-AE')}</td>
+                        <td style={{ padding: '8px 16px', textAlign: 'center', color: C.slate }}>{c.pct != null ? `${Number(c.pct).toFixed(2)}%` : '—'}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#f4f7fa', fontWeight: 800, color: C.navy }}>
+                      <td colSpan={2} style={{ padding: '6px 8px', textAlign: 'center' }}>Total</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.value || 0), 0).toLocaleString('en-AE')}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.pct || 0), 0).toFixed(2)}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
             )}
-          </ChartCard>
+          </div>
+
+          {/* 3. Revenue by Salesman */}
+          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesman (AED)</div>
+              <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
+            </div>
+            {loading.salesmanSummary ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : salesmanSummaryData.length > 0 ? (
+              <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                  <thead style={{ background: '#f4f7fa', color: C.navy, borderBottom: `2px solid ${C.border}` }}>
+                    <tr>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>Salesman</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>Sales (AED)</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>% Contribution</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesmanSummaryData.slice(0, 10).map((c, i) => {
+                      const name = c.salesman || c.sales_person || c.salesman_name || 'Unknown';
+                      return (
+                        <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
+                          <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
+                          <td style={{ padding: '4px 8px', textAlign: 'left', color: C.navy, fontWeight: 500, maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{name}</td>
+                          <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate }}>{Number(c.sales_aed).toLocaleString('en-AE')}</td>
+                          <td style={{ padding: '8px 16px', textAlign: 'center', color: C.slate }}>{c.percentage != null ? `${Number(c.percentage).toFixed(2)}%` : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ background: '#f4f7fa', fontWeight: 800, color: C.navy }}>
+                      <td colSpan={2} style={{ padding: '6px 8px', textAlign: 'center' }}>Total</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0).toLocaleString('en-AE')}</td>
+                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.percentage) || 0), 0).toFixed(2)}%</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No data available</div>
+            )}
+          </div>
         </div>
 
-        {/* Target vs Actual Revenue */}
-        <ChartCard
-          title="Target vs Actual Revenue Trend (AED)"
-          minHeight={200}
-          loading={loading.trend}
-          error={errors.trend}
-          onRetry={() => fetchAll(appliedFilters)}
-        >
-          {trendData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={140} minWidth={0}>
-              <BarChart data={trendData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} barSize={16}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
-                <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'currentYear' ? 'Actual Revenue' : 'Target Revenue']}
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
-                  cursor={{ fill: 'rgba(37,99,235,0.05)' }}
-                />
-                <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
-                <Bar dataKey="currentYear" name="Actual Revenue" fill={C.green} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="target" name="Target Revenue" fill={C.orange} radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 30 }}>No data available</div>
-          )}
-        </ChartCard>
+        {/* ── Additional Analytics Row (Legal Entity & Target vs Actual) ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+          {/* Legal Entity Detail */}
+          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px' }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, marginBottom: 16 }}>Legal Entity Detail</div>
+            <div style={{ overflowX: 'auto', maxHeight: 220, overflowY: 'auto' }}>
+              {loading.legalEnt ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={18} />)}</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.73rem' }}>
+                  <thead>
+                    <tr>
+                      {['Legal Entity', 'Revenue', '% Share'].map((h, i) => (
+                        <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', background: '#fff', position: 'sticky', top: 0, zIndex: 1 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {legalEntData.map((row, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+                      >
+                        <td style={{ ...TD, fontWeight: 600, color: C.navy, paddingLeft: 0 }}>
+                          <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: row.color, marginRight: 6 }} />
+                          {row.name}
+                        </td>
+                        <td style={{ ...TD, textAlign: 'right' }}>{fmtCurrency(row.value)}</td>
+                        <td style={{ ...TD, textAlign: 'right', color: C.slate }}>{Number(row.pct).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
 
+          {/* Target vs Actual Revenue Trend */}
+          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, marginBottom: 16 }}>Target vs Actual Revenue Trend (AED)</div>
+            {loading.trend ? (
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : trendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={220} minWidth={0}>
+                <BarChart data={trendData} margin={{ top: 8, right: 8, left: 4, bottom: 0 }} barSize={16}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                  <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: C.muted, fontSize: 8 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={42} />
+                  <Tooltip
+                    formatter={(v, n) => [`AED ${Number(v).toFixed(2)}`, n === 'currentYear' ? 'Actual Revenue' : 'Target Revenue']}
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 10 }}
+                    cursor={{ fill: 'rgba(37,99,235,0.05)' }}
+                  />
+                  <Legend verticalAlign="top" height={24} iconSize={8} wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="currentYear" name="Actual Revenue" fill={C.green} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="target" name="Target Revenue" fill={C.orange} radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data available</div>
+            )}
+          </div>
+        </div>
+
+        {/* Salesman Detail Table — standalone container */}
+        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 14, width: '100%' }}>
+          <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>
+              👤 Salesman Detail — All Fields
+            </div>
+            <ExportButtons endpoint="salesman-detail" filters={appliedFilters} size="sm" />
+          </div>
+          <div style={{ overflowX: 'auto', width: '100%', padding: '0 20px 20px 20px', boxSizing: 'border-box' }}>
+            {loading.salesmanSummary ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 16 }}>{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} h={16} />)}</div>
+            ) : salesmanSummaryData.length > 0 ? (
+              <table style={{ width: '100%', minWidth: 1100, borderCollapse: 'collapse', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                <thead>
+                  <tr>
+                    {[
+                      'Emp ID', 'Salesman', 'Direct Manager', 'Mgr Level',
+                      'Sales Mgr', 'Div Manager', 'Legal Entity', 'Parent Div',
+                      'Subdivision', 'Business Unit', 'Revenue (AED)', 'Gross Margin (AED)', 'Contribution %'
+                    ].map((h, i) => (
+                        <th key={h} style={{
+                          ...TH,
+                          textAlign: i >= 10 ? 'right' : 'left',
+                          background: '#f8fafc', position: 'sticky', top: 0, zIndex: 1,
+                          fontSize: '0.62rem', padding: '8px 10px',
+                        }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {salesmanSummaryData.map((row, idx) => (
+                      <tr key={idx}
+                        style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+                      >
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', fontFamily: 'monospace', color: C.blue }}>{row.employee_id || row.emp_id || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', fontWeight: 700, color: C.navy }}>{row.salesman || row.sales_person || row.salesman_name || 'Unknown'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.direct_manager || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>
+                          <span style={{ background: '#f1f5f9', borderRadius: 6, padding: '2px 6px', fontSize: '0.65rem', color: C.slate }}>
+                            {row.direct_manager_level || '—'}
+                          </span>
+                        </td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.sales_manager || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.division_manager || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.legal_entity || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.parent_division || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.subdivision || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px' }}>{row.business_unit || '—'}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>{fmtCurrency(row.sales_aed)}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', textAlign: 'right', color: C.green, fontWeight: 700 }}>{fmtCurrency(row.gross_margin)}</td>
+                        <td style={{ ...TD, fontSize: '0.7rem', padding: '8px 10px', textAlign: 'right' }}>
+                          <span style={{ background: '#eff6ff', color: C.blue, borderRadius: 12, padding: '2px 7px', fontWeight: 700, fontSize: '0.68rem' }}>
+                            {row.contribution_pct != null ? `${Number(row.contribution_pct).toFixed(2)}%` : (row.percentage != null ? `${Number(row.percentage).toFixed(2)}%` : '—')}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 40 }}>No salesman data available</div>
+              )}
+            </div>
+        </div>
         {/* ── Sales Revenue Detailed View Table (/details with pagination) ── */}
         <div style={{
           background: '#fff', borderRadius: 14,
@@ -1812,16 +2273,52 @@ export default function SalesRevenueReport() {
         searchPlaceholder="Search sub-divisions..."
       />
 
-      {/* Salesman Detail Modal */}
+      {/* Salesman View All Modal — uses /salesman-summary (aggregated) */}
       <DetailApiModal
         isOpen={openModal === 'salesman'}
         onClose={() => setOpenModal(null)}
-        title="Salesman — Full Detail View"
-        endpoint="salesman-detail"
-        fetchFn={fetchSalesmanDetail}
-        columnDefs={salesmanCols}
+        title="Salesman Summary — All Salespeople"
+        endpoint="salesman-summary"
+        fetchFn={fetchSalesmanSummary}
+        columnDefs={salesmanSummaryCols}
         filters={appliedFilters}
         searchPlaceholder="Search salespeople..."
+      />
+
+      {/* Salesman Detail Drill-Down Modal — uses /salesman-detail */}
+      <DetailApiModal
+        isOpen={openModal === 'salesmanDetail'}
+        onClose={() => setOpenModal(null)}
+        title="Salesman Detail — Transaction Drill-Down"
+        endpoint="salesman-detail"
+        fetchFn={fetchSalesmanDetail}
+        columnDefs={salesmanDetailCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search salesman detail..."
+      />
+
+      {/* Customer Summary Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'customerSummary'}
+        onClose={() => setOpenModal(null)}
+        title="Customer Summary — All Customers"
+        endpoint="customer-summary"
+        fetchFn={fetchCustomerSummary}
+        columnDefs={customerSummaryCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search customers..."
+      />
+
+      {/* Customer Detail Drill-Down Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'customerDetail'}
+        onClose={() => setOpenModal(null)}
+        title="Customer Detail — Full Breakdown"
+        endpoint="customer-detail"
+        fetchFn={fetchCustomerDetail}
+        columnDefs={customerDetailCols}
+        filters={appliedFilters}
+        searchPlaceholder="Search customer detail..."
       />
 
       {/* Trend View-All — inline modal reusing old table logic */}
@@ -1854,32 +2351,29 @@ export default function SalesRevenueReport() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Period', currentYearLabel, previousYearLabel, 'Target', 'Variance to Target', 'Growth vs PY'].map((h, i) => (
+                    {['Period', `${currentYearLabel} Sales (AED)`].map((h, i) => (
                       <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {trendData.map((row, idx) => {
-                    const variance = row.currentYear != null && row.target != null ? row.currentYear - row.target : null;
-                    const variancePct = row.target ? (variance / row.target) * 100 : null;
-                    const growth = row.currentYear != null && row.previousYear != null ? row.currentYear - row.previousYear : null;
-                    const growthPct = row.previousYear ? (growth / row.previousYear) * 100 : null;
-                    return (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                        <td style={{ ...TD, fontWeight: 600, color: C.navy }}>{row.period}</td>
-                        <td style={{ ...TD, textAlign: 'right' }}>{fmtCurrency(row.currentYear)}</td>
-                        <td style={{ ...TD, textAlign: 'right', color: C.slate }}>{fmtCurrency(row.previousYear)}</td>
-                        <td style={{ ...TD, textAlign: 'right', color: C.orange }}>{fmtCurrency(row.target)}</td>
-                        <td style={{ ...TD, textAlign: 'right' }}>
-                          {variance != null ? <VarBadge val={variancePct} /> : '—'}
-                        </td>
-                        <td style={{ ...TD, textAlign: 'right' }}>
-                          {growth != null ? <VarBadge val={growthPct} /> : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {trendData.map((row, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+                    >
+                      <td style={{ ...TD, fontWeight: 600, color: C.navy }}>{row.period}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 700, color: C.green }}>{fmtCurrency(row.currentYear)}</td>
+                    </tr>
+                  ))}
+                  {trendData.length > 0 && (
+                    <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                      <td style={{ ...TD, fontWeight: 800, color: C.navy }}>Total</td>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 800, color: C.navy }}>
+                        {fmtCurrency(trendData.reduce((s, r) => s + (r.currentYear || 0), 0))}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

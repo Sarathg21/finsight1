@@ -37,30 +37,39 @@ const MOCK_FILTERS = {
 };
 
 const MOCK_SUMMARY = {
-  mtd_revenue: 14250000,
-  ytd_revenue: 168900000,
-  prev_mtd_revenue: 13100000,
-  prev_ytd_revenue: 154000000,
-  mtd_change_pct: 8.78,
-  ytd_change_pct: 9.68,
-  top_legal_entity: { name: 'FJ HQ', value: 7850000, pct: 55.09 },
-  top_parent_division: { name: 'Engineering', value: 6540000, pct: 45.89 },
-  currency: 'AED',
-  data_as_of: new Date().toISOString(),
-  current_year_label: 'Current Year',
-  previous_year_label: 'Previous Year'
+  // Core revenue
+  total_revenue:       168900000,
+  mtd_revenue:         14250000,
+  ytd_revenue:         168900000,
+  prev_mtd_revenue:    13100000,
+  prev_ytd_revenue:    154000000,
+  mtd_change_pct:      8.78,
+  ytd_change_pct:      9.68,
+  // Gross margin
+  gross_margin:        59115000,
+  gross_margin_pct:    35.00,
+  prev_gross_margin:   52360000,
+  gross_margin_change_pct: 12.90,
+  // Counts
+  total_customers:     47,
+  total_salesmen:      12,
+  // Drill-down highlights
+  top_legal_entity:   { name: 'FJ HQ', value: 7850000, pct: 55.09 },
+  top_parent_division:{ name: 'Engineering', value: 6540000, pct: 45.89 },
+  currency:            'AED',
+  data_as_of:          new Date().toISOString(),
+  current_year_label:  'Current Year',
+  previous_year_label: 'Previous Year',
 };
 
-const MOCK_TREND = {
-  data: [
-    { period: 'Jan', current_year: 12000000, previous_year: 11000000, target: 11500000 },
-    { period: 'Feb', current_year: 13500000, previous_year: 12200000, target: 13000000 },
-    { period: 'Mar', current_year: 14200000, previous_year: 13000000, target: 13800000 },
-    { period: 'Apr', current_year: 15100000, previous_year: 14000000, target: 14500000 },
-    { period: 'May', current_year: 16200000, previous_year: 14800000, target: 15500000 },
-    { period: 'Jun', current_year: 17500000, previous_year: 15500000, target: 16800000 },
-  ]
-};
+const MOCK_TREND = [
+  { period_name: 'Jan-26', sales_aed: 12000000 },
+  { period_name: 'Feb-26', sales_aed: 13500000 },
+  { period_name: 'Mar-26', sales_aed: 14200000 },
+  { period_name: 'Apr-26', sales_aed: 15100000 },
+  { period_name: 'May-26', sales_aed: 16200000 },
+  { period_name: 'Jun-26', sales_aed: 17500000 },
+];
 
 const MOCK_LEGAL_ENTITY = {
   data: [
@@ -129,14 +138,94 @@ const MOCK_SUBDIVISION_DETAIL = {
 
 const MOCK_SALESMAN_DETAIL = {
   data: [
-    { sales_person: 'Hassan Al Nuaimi', legal_entity: 'FJ HQ', division: 'Corporate', total_revenue: 4550000, mtd_revenue: 4550000, ytd_revenue: 52000000, target: 5000000, achievement_pct: 91.0, transaction_count: 58, currency: 'AED' },
-    { sales_person: 'John Doe', legal_entity: 'FJ Care UAE', division: 'FJ Care', total_revenue: 3890000, mtd_revenue: 3890000, ytd_revenue: 45000000, target: 4000000, achievement_pct: 97.25, transaction_count: 47, currency: 'AED' },
-    { sales_person: 'Sarah Connor', legal_entity: 'Flowtech Qatar', division: 'Flowtech UAE, QTR, OMN', total_revenue: 3100000, mtd_revenue: 3100000, ytd_revenue: 36000000, target: 3000000, achievement_pct: 103.33, transaction_count: 39, currency: 'AED' },
-    { sales_person: 'Mike Ross', legal_entity: 'FJ Engineering KSA', division: 'Engineering', total_revenue: 1850000, mtd_revenue: 1850000, ytd_revenue: 21500000, target: 2000000, achievement_pct: 92.5, transaction_count: 28, currency: 'AED' },
-    { sales_person: 'Rachel Zane', legal_entity: 'FJ HQ', division: 'Corporate', total_revenue: 860000, mtd_revenue: 860000, ytd_revenue: 14400000, target: 1000000, achievement_pct: 86.0, transaction_count: 17, currency: 'AED' },
+    {
+      employee_id: 'EMP-1001',
+      sales_person: 'Hassan Al Nuaimi',
+      direct_manager: 'Ahmed Al Rashid',
+      direct_manager_level: 'L3 – Sales Director',
+      sales_manager: 'Khalid Al Mansoori',
+      division_manager: 'Omar Bin Saeed',
+      legal_entity: 'FJ HQ',
+      parent_division: 'Corporate',
+      subdivision: 'HQ Operations',
+      business_unit: 'BU-001',
+      sales_aed: 4550000,
+      gross_margin: 1592500,
+      contribution_pct: 31.93,
+      transaction_count: 58,
+      currency: 'AED',
+    },
+    {
+      employee_id: 'EMP-1002',
+      sales_person: 'John Doe',
+      direct_manager: 'Ahmed Al Rashid',
+      direct_manager_level: 'L3 – Sales Director',
+      sales_manager: 'Khalid Al Mansoori',
+      division_manager: 'Nasser Al Blooshi',
+      legal_entity: 'FJ Care UAE',
+      parent_division: 'FJ Care',
+      subdivision: 'FJ Care Services',
+      business_unit: 'BU-002',
+      sales_aed: 3890000,
+      gross_margin: 1361500,
+      contribution_pct: 27.30,
+      transaction_count: 47,
+      currency: 'AED',
+    },
+    {
+      employee_id: 'EMP-1003',
+      sales_person: 'Sarah Connor',
+      direct_manager: 'Faisal Al Hammadi',
+      direct_manager_level: 'L3 – Sales Director',
+      sales_manager: 'Rashed Al Suwaidi',
+      division_manager: 'Hamdan Al Maktoum',
+      legal_entity: 'Flowtech Qatar',
+      parent_division: 'Flowtech UAE, QTR, OMN',
+      subdivision: 'Flowtech Sales',
+      business_unit: 'BU-003',
+      sales_aed: 3100000,
+      gross_margin: 1085000,
+      contribution_pct: 21.75,
+      transaction_count: 39,
+      currency: 'AED',
+    },
+    {
+      employee_id: 'EMP-1004',
+      sales_person: 'Mike Ross',
+      direct_manager: 'Faisal Al Hammadi',
+      direct_manager_level: 'L4 – Regional Manager',
+      sales_manager: 'Rashed Al Suwaidi',
+      division_manager: 'Sultan Al Nuaimi',
+      legal_entity: 'FJ Engineering KSA',
+      parent_division: 'Engineering',
+      subdivision: 'Engineering Services',
+      business_unit: 'BU-004',
+      sales_aed: 1850000,
+      gross_margin: 647500,
+      contribution_pct: 12.98,
+      transaction_count: 28,
+      currency: 'AED',
+    },
+    {
+      employee_id: 'EMP-1005',
+      sales_person: 'Rachel Zane',
+      direct_manager: 'Ahmed Al Rashid',
+      direct_manager_level: 'L4 – Regional Manager',
+      sales_manager: 'Khalid Al Mansoori',
+      division_manager: 'Omar Bin Saeed',
+      legal_entity: 'FJ HQ',
+      parent_division: 'Corporate',
+      subdivision: 'HQ Operations',
+      business_unit: 'BU-001',
+      sales_aed: 860000,
+      gross_margin: 301000,
+      contribution_pct: 6.04,
+      transaction_count: 17,
+      currency: 'AED',
+    },
   ],
-  total: 14250000,
-  count: 5
+  total_sales_aed: 14250000,
+  count: 5,
 };
 
 const MOCK_DETAILS = {
@@ -249,6 +338,42 @@ const MOCK_BY_SALESMAN = {
   total: 14250000
 };
 
+const MOCK_CUSTOMER_SUMMARY = {
+  data: [
+    { customer_name: 'Al Futtaim Carillion', customer_account_number: 'ACC-1001', sales_aed: 3450000, gross_margin: 1207500, percentage: 24.21, transaction_count: 42, currency: 'AED' },
+    { customer_name: 'Emaar Properties PJSC', customer_account_number: 'ACC-1002', sales_aed: 2890000, gross_margin: 1011500, percentage: 20.28, transaction_count: 35, currency: 'AED' },
+    { customer_name: 'Damac Properties', customer_account_number: 'ACC-1003', sales_aed: 1850000, gross_margin: 647500, percentage: 12.98, transaction_count: 22, currency: 'AED' },
+    { customer_name: 'Arabtec Construction', customer_account_number: 'ACC-1004', sales_aed: 1650000, gross_margin: 577500, percentage: 11.58, transaction_count: 18, currency: 'AED' },
+    { customer_name: 'Sobha Realty', customer_account_number: 'ACC-1005', sales_aed: 1200000, gross_margin: 420000, percentage: 8.42, transaction_count: 15, currency: 'AED' },
+  ],
+  total_sales_aed: 11040000,
+  count: 5
+};
+
+const MOCK_CUSTOMER_DETAIL = {
+  data: [
+    { customer_account_number: 'ACC-1001', customer_name: 'Al Futtaim Carillion', legal_entity: 'FJ HQ', business_unit: 'BU-001', sales_aed: 3450000, gross_margin: 1207500, contribution_pct: 24.21, currency: 'AED' },
+    { customer_account_number: 'ACC-1002', customer_name: 'Emaar Properties PJSC', legal_entity: 'FJ Care UAE', business_unit: 'BU-002', sales_aed: 2890000, gross_margin: 1011500, contribution_pct: 20.28, currency: 'AED' },
+    { customer_account_number: 'ACC-1003', customer_name: 'Damac Properties', legal_entity: 'Flowtech Qatar', business_unit: 'BU-003', sales_aed: 1850000, gross_margin: 647500, contribution_pct: 12.98, currency: 'AED' },
+    { customer_account_number: 'ACC-1004', customer_name: 'Arabtec Construction', legal_entity: 'FJ Engineering KSA', business_unit: 'BU-004', sales_aed: 1650000, gross_margin: 577500, contribution_pct: 11.58, currency: 'AED' },
+    { customer_account_number: 'ACC-1005', customer_name: 'Sobha Realty', legal_entity: 'FJ HQ', business_unit: 'BU-001', sales_aed: 1200000, gross_margin: 420000, contribution_pct: 8.42, currency: 'AED' },
+  ],
+  total_sales_aed: 11040000,
+  count: 5
+};
+
+const MOCK_SALESMAN_SUMMARY = {
+  data: [
+    { sales_person: 'Hassan Al Nuaimi', sales_aed: 4550000, gross_margin: 1592500, percentage: 31.93, transaction_count: 58, currency: 'AED' },
+    { sales_person: 'John Doe', sales_aed: 3890000, gross_margin: 1361500, percentage: 27.30, transaction_count: 47, currency: 'AED' },
+    { sales_person: 'Sarah Connor', sales_aed: 3100000, gross_margin: 1085000, percentage: 21.75, transaction_count: 39, currency: 'AED' },
+    { sales_person: 'Mike Ross', sales_aed: 1850000, gross_margin: 647500, percentage: 12.98, transaction_count: 28, currency: 'AED' },
+    { sales_person: 'Rachel Zane', sales_aed: 860000, gross_margin: 301000, percentage: 6.04, transaction_count: 17, currency: 'AED' },
+  ],
+  total_sales_aed: 14250000,
+  count: 5
+};
+
 const MOCK_GROSS_MARGIN = {
   gross_profit_mtd: 4987500,
   gross_margin_mtd_pct: 35.00,
@@ -272,19 +397,22 @@ const MOCK_GROSS_MARGIN = {
 
 function getMockDataForPath(path) {
   if (path.includes('/filters')) return MOCK_FILTERS;
+  if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
+  if (path.includes('/salesman-summary')) return MOCK_SALESMAN_SUMMARY;
+  if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;
   if (path.includes('/summary')) return MOCK_SUMMARY;
   if (path.includes('/trend')) return MOCK_TREND;
   if (path.includes('/legal-entity-detail')) return MOCK_LEGAL_ENTITY_DETAIL;
   if (path.includes('/parent-division-detail')) return MOCK_PARENT_DIVISION_DETAIL;
   if (path.includes('/subdivision-detail')) return MOCK_SUBDIVISION_DETAIL;
-  if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;
   if (path.includes('/legal-entity')) return MOCK_LEGAL_ENTITY;
   if (path.includes('/parent-division')) return MOCK_PARENT_DIVISION;
   if (path.includes('/subdivision')) return MOCK_SUBDIVISION;
   if (path.includes('/details')) return MOCK_DETAILS;
   if (path.includes('/top-customers')) return MOCK_TOP_CUSTOMERS;
+  if (path.includes('/customer-summary')) return MOCK_CUSTOMER_SUMMARY;
+  if (path.includes('/customer-detail')) return MOCK_CUSTOMER_DETAIL;
   if (path.includes('/by-salesman')) return MOCK_BY_SALESMAN;
-  if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
   return {};
 }
 
@@ -436,9 +564,10 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
   if (token) {
     // For JWT-protected download endpoints the browser cannot set headers via <a>,
     // so we fetch the blob and create an object URL instead.
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    // Return the Promise so callers can chain .then/.catch for feedback.
+    return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then(res => {
-        if (!res.ok) throw new Error(`Export failed: ${res.status}`);
+        if (!res.ok) throw new Error(`Export failed: ${res.status} ${res.statusText}`);
         return res.blob();
       })
       .then(blob => {
@@ -451,13 +580,10 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(objectUrl);
-      })
-      .catch(err => {
-        console.error('[salesRevenueApi] Export error:', err);
-        alert(`Export failed: ${err.message}`);
       });
+    // Note: .catch is intentionally NOT chained here — let the caller handle it.
   } else {
-    // Demo mode — no token, open URL directly
+    // Demo mode — no token, open URL directly (fire-and-forget, returns undefined)
     a.download = `${endpoint}_export.${format === 'excel' ? 'xlsx' : 'pdf'}`;
     document.body.appendChild(a);
     a.click();
@@ -573,4 +699,120 @@ export async function fetchDetails(filters, limit = 50, offset = 0) {
     limit,
     offset,
   });
+}
+
+/**
+ * GET /api/sales-revenue/summary
+ * Returns aggregate KPI summary (MTD/YTD revenue, change percentages, etc.).
+ *
+ * Expected response shape:
+ * {
+ *   mtd_revenue, ytd_revenue, prev_mtd_revenue, prev_ytd_revenue,
+ *   mtd_change_pct, ytd_change_pct, top_legal_entity, top_parent_division,
+ *   currency, data_as_of, current_year_label, previous_year_label
+ * }
+ */
+export async function fetchSummary(filters) {
+  return apiCall('/api/sales-revenue/summary', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/gross-margin
+ * Returns gross margin KPI data.
+ *
+ * Expected response shape:
+ * {
+ *   gross_profit_mtd, gross_margin_mtd_pct, gross_profit_ytd, gross_margin_ytd_pct,
+ *   prev_gross_profit_mtd, prev_gross_margin_mtd_pct,
+ *   mtd_change_pct, ytd_change_pct,
+ *   trend: [{ period, gross_profit, gross_margin_pct }]
+ * }
+ */
+export async function fetchGrossMargin(filters) {
+  return apiCall('/api/sales-revenue/gross-margin', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/salesman-summary
+ * Returns summary table for all salespeople (used for KPI card & Salesman View All).
+ *
+ * Expected response shape:
+ * {
+ *   data: [
+ *     { sales_person, sales_aed, gross_margin, percentage, transaction_count, currency }
+ *   ],
+ *   total_sales_aed, count
+ * }
+ */
+export async function fetchSalesmanSummary(filters) {
+  return apiCall('/api/sales-revenue/salesman-summary', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/trend
+ * Returns the revenue trend data.
+ *
+ * Expected response shape (array):
+ * [
+ *   { period_name: 'Jan', sales_aed: 12000000 },
+ *   ...
+ * ]
+ */
+export async function fetchTrend(filters) {
+  return apiCall('/api/sales-revenue/trend', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/legal-entity
+ * Aggregated revenue by legal entity.
+ */
+export async function fetchLegalEntity(filters) {
+  return apiCall('/api/sales-revenue/legal-entity', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/parent-division
+ * Aggregated revenue by parent division.
+ */
+export async function fetchParentDivision(filters) {
+  return apiCall('/api/sales-revenue/parent-division', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/subdivision
+ * Aggregated revenue by subdivision.
+ */
+export async function fetchSubdivision(filters) {
+  return apiCall('/api/sales-revenue/subdivision', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/by-salesman
+ * Revenue vs target grouped by salesman.
+ */
+export async function fetchBySalesman(filters) {
+  return apiCall('/api/sales-revenue/by-salesman', buildParams(filters));
+}
+/**
+ * GET /api/sales-revenue/top-customers
+ * Returns top customers aggregated data.
+ */
+export async function fetchTopCustomers(filters) {
+  return apiCall('/api/sales-revenue/top-customers', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/customer-summary
+ * Returns customer summary.
+ */
+export async function fetchCustomerSummary(filters) {
+  return apiCall('/api/sales-revenue/customer-summary', buildParams(filters));
+}
+
+/**
+ * GET /api/sales-revenue/customer-detail
+ * Returns detailed view of customers.
+ */
+export async function fetchCustomerDetail(filters) {
+  return apiCall('/api/sales-revenue/customer-detail', buildParams(filters));
 }
