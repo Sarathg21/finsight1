@@ -1952,11 +1952,15 @@ export default function SalesRevenueReport() {
         {/* ── Sales Revenue Detailed View — sourced from /summary-detail ── */}
         <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 8, marginTop: 14 }}>
 
-          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: '#fff', flexWrap: 'wrap', gap: 10 }}>
-            <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e1b4b' }}>
-              Sales Revenue Detailed View
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e1b4b' }}>
+                Sales Revenue Detailed View
+              </span>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500, padding: '2px 8px', background: '#f1f5f9', borderRadius: 12 }}>
+                Amounts in AED
+              </span>
+            </div>
             <ExportButtons endpoint="summary-detail" filters={appliedFilters} />
           </div>
 
@@ -1974,20 +1978,8 @@ export default function SalesRevenueReport() {
               return null;
             };
 
-            /* Take top 9 rows + collapse rest into Others */
-            const sorted = [...summaryDetailData].sort(
-              (a, b) => (n(b, 'revenue_mtd') || 0) - (n(a, 'revenue_mtd') || 0)
-            );
-            const top9 = sorted.slice(0, 9);
-            const rest = sorted.slice(9);
-
-            const rows = top9.map(r => {
-              // Debug: log first row keys to console so we can see exact API field names
-              if (top9.indexOf(r) === 0) {
-                console.log('[summary-detail] First row keys:', Object.keys(r));
-                console.log('[summary-detail] First row data:', JSON.stringify(r, null, 2));
-              }
-              return {
+            /* Sort alphabetically by Legal Entity > Parent Division > Sub Division */
+            const rows = [...summaryDetailData].map(r => ({
                 legalEntity: r.legal_entity  || r.name || '—',
                 parentDiv:   r.parent_division || r.division || '—',
                 subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
@@ -1998,20 +1990,13 @@ export default function SalesRevenueReport() {
                 ytdPy:       n(r, 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales_aed'),
                 varMtd:      n(r, 'variance_mtd_pct','mtd_var_pct',      'variance_mtd'),
                 varYtd:      n(r, 'variance_ytd_pct','ytd_var_pct',      'variance_ytd'),
-              };
+            })).sort((a, b) => {
+              const cmp1 = a.legalEntity.localeCompare(b.legalEntity);
+              if (cmp1 !== 0) return cmp1;
+              const cmp2 = a.parentDiv.localeCompare(b.parentDiv);
+              if (cmp2 !== 0) return cmp2;
+              return a.subDiv.localeCompare(b.subDiv);
             });
-
-            if (rest.length > 0) {
-              rows.push({
-                legalEntity: 'Others', parentDiv: 'Others', subDiv: 'Others', bizUnit: 'Others',
-                mtd:    rest.reduce((s, r) => s + (n(r, 'revenue_mtd')      || 0), 0),
-                prevMtd:rest.reduce((s, r) => s + (n(r, 'revenue_prev_mtd') || 0), 0),
-                ytd:    rest.reduce((s, r) => s + (n(r, 'revenue_ytd')      || 0), 0),
-                ytdPy:  rest.reduce((s, r) => s + (n(r, 'revenue_ytd_py')   || 0), 0),
-                varMtd: null, // Don't aggregate variance directly
-                varYtd: null,
-              });
-            }
 
             const totMTD    = rows.reduce((s, r) => s + (r.mtd || 0),     0);
             const totPMTD   = rows.reduce((s, r) => s + (r.prevMtd || 0), 0);
@@ -2019,7 +2004,7 @@ export default function SalesRevenueReport() {
             const totYTDPY  = rows.reduce((s, r) => s + (r.ytdPy || 0),   0);
 
             /* formatters */
-            const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `AED ${(v / 1e6).toFixed(2)}M` : '—';
+            const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `${(v / 1e6).toFixed(2)}M` : '—';
             
             const calcVar = (cur, prev) =>
               (prev > 0 && cur >= 0) ? ((cur - prev) / Math.abs(prev)) * 100 : null;
@@ -2041,8 +2026,7 @@ export default function SalesRevenueReport() {
             const TH_S = {
               background: '#eef2ff',
               fontSize: '0.78rem',
-              padding: '11px 14px',
-              whiteSpace: 'nowrap',
+              padding: '11px 10px',
               fontWeight: 700,
               color: '#312e81',
               textAlign: 'center',
@@ -2050,7 +2034,7 @@ export default function SalesRevenueReport() {
               fontFamily: "'Inter', system-ui, sans-serif",
             };
             const TD_S = {
-              fontSize: '0.76rem', padding: '9px 14px', whiteSpace: 'nowrap',
+              fontSize: '0.76rem', padding: '9px 10px',
               color: '#1e293b', fontWeight: 400, textAlign: 'center',
               fontFamily: "'Inter', system-ui, sans-serif",
               borderBottom: '1px solid #f1f5f9',
@@ -2065,14 +2049,14 @@ export default function SalesRevenueReport() {
             };
 
             const COLS = [
-              'Legal Entity', 'Parent Division', 'Sub Division', 'Business Unit',
+              'Legal Entity', 'Parent Division', 'Sub Division',
               'Revenue (MTD)', 'Revenue (Prev MTD)', 'Revenue (YTD)', 'Revenue (YTD PY)',
               'Variance % (MTD)', 'Variance % (YTD)',
             ];
 
             return (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1000 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {COLS.map((h, i) => (
@@ -2088,7 +2072,6 @@ export default function SalesRevenueReport() {
                         </td>
                       </tr>
                     ) : rows.map((row, idx) => {
-                      const isOthers = row.legalEntity === 'Others';
                       const bgBase = idx % 2 === 0 ? '#fff' : '#fafbfd';
                       return (
                         <tr key={idx}
@@ -2096,15 +2079,13 @@ export default function SalesRevenueReport() {
                           onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = bgBase; }}
                         >
-                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: isOthers ? 400 : 600, color: '#1e1b4b' }} title={row.legalEntity}>
+                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b' }} title={row.legalEntity}>
                             {row.legalEntity}
                           </td>
                           {/* Parent Division */}
                           <td style={{ ...TD_S }}>{row.parentDiv}</td>
                           {/* Sub Division */}
                           <td style={{ ...TD_S }}>{row.subDiv}</td>
-                          {/* Business Unit */}
-                          <td style={{ ...TD_S }}>{row.bizUnit}</td>
                           {/* Revenue MTD */}
                           <td style={{ ...TD_S }}>{fmtAED(row.mtd)}</td>
                           {/* Revenue Prev MTD */}
@@ -2129,7 +2110,6 @@ export default function SalesRevenueReport() {
                   <tfoot>
                     <tr>
                       <td style={{ ...TD_FOOT, textAlign: 'left', padding: '12px 12px' }}>Total</td>
-                      <td style={{ ...TD_FOOT }}>—</td>
                       <td style={{ ...TD_FOOT }}>—</td>
                       <td style={{ ...TD_FOOT }}>—</td>
                       <td style={{ ...TD_FOOT }}>{fmtAED(totMTD)}</td>
