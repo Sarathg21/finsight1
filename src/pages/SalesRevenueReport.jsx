@@ -747,6 +747,8 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
           <span style={{
             fontSize: '0.72rem', fontWeight: 700, color: accent,
+            lineHeight: 1.2, minHeight: '2.4em', display: 'block',
+            whiteSpace: 'pre-line'
           }}>{label}</span>
           
           {loading ? (
@@ -1666,7 +1668,7 @@ export default function SalesRevenueReport() {
 
           {/* 1. Total Sales (MTD) */}
           <KPICard
-            label="Total Sales (MTD)"
+            label={"Total Sales\n(MTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
             changeLabel="vs Mar 2024"
@@ -1683,7 +1685,7 @@ export default function SalesRevenueReport() {
 
           {/* 2. Sales (YTD) */}
           <KPICard
-            label="Sales (YTD)"
+            label={"Sales\n(YTD)"}
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
             changeLabel="vs YTD Apr 2023"
@@ -1700,7 +1702,7 @@ export default function SalesRevenueReport() {
 
           {/* 3. Gross Profit (MTD) */}
           <KPICard
-            label="Gross Profit (MTD)"
+            label={"Gross Profit\n(MTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
             changeLabel="vs Mar 2024"
