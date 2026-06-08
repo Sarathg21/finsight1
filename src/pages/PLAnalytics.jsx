@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -354,9 +354,90 @@ export default function PLAnalytics() {
   const [period,       setPeriod]       = useState('2024-04');
   const [compareWith,  setCompareWith]  = useState('2024-03');
 
-  const [secIncome,   setSecIncome]   = useState(true);
-  const [secCOGS,     setSecCOGS]     = useState(true);
-  const [secExpenses, setSecExpenses] = useState(true);
+  /* ── Scale factor from filter selections ────────────────────────── */
+  /* Each option is a known proportion of the consolidated total.       */
+  const scale = useMemo(() => {
+    const g = ({ 'FJ Group (Consolidated)': 1.00, 'Group A': 0.62, 'Group B': 0.38 })[legalGroup] ?? 1;
+    const e = ({ All: 1.00, 'Alpine Coils': 0.34, 'DC Serve': 0.22, 'Filter Fan': 0.18, 'Alpine Gears': 0.16 })[legalEntity] ?? 1;
+    const d = ({ All: 1.00, Alpine: 0.52, 'DC Serve': 0.22, 'Alpine Gears': 0.16, Others: 0.10 })[parentDiv] ?? 1;
+    const s = ({ All: 1.00, 'Alpine Coils': 0.34, 'DC Serve Equip.': 0.22, 'Filter Fan - UAE': 0.18, 'CT KSA': 0.08 })[subDiv] ?? 1;
+    const b = ({ All: 1.00, 'Coils BU': 0.34, 'Service BU': 0.22, 'Fans BU': 0.18, 'Gears BU': 0.16, 'Valves BU': 0.05, 'CT BU': 0.05 })[businessUnit] ?? 1;
+    // Apply whichever filter is most specific (not all selected)
+    const factors = [g];
+    if (legalEntity !== 'All') factors.push(e);
+    if (parentDiv !== 'All') factors.push(d);
+    if (subDiv !== 'All') factors.push(s);
+    if (businessUnit !== 'All') factors.push(b);
+    return Math.min(...factors);
+  }, [legalGroup, legalEntity, parentDiv, subDiv, businessUnit]);
+
+  /* ── Scaled KPI cards ── */
+  const scaledKPIs = useMemo(() => [
+    { id: 'total-rev',    label: 'Total Revenue (MTD)',    value: `₹ ${(125.75 * scale).toFixed(2)} Cr`, change: '18.86% vs Mar 2024', up: true,  icon: '📈', iconBg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)', spark: SP_REV.map(v => +(v * scale).toFixed(2)),    sparkColor: C.blue },
+    { id: 'gross-profit', label: 'Gross Profit (MTD)',    value: `₹ ${(28.35 * scale).toFixed(2)} Cr`,  change: '17.11% vs Mar 2024', up: true,  icon: '💰', iconBg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)', spark: SP_GP.map(v => +(v * scale).toFixed(2)),     sparkColor: C.green },
+    { id: 'ebitda',       label: 'EBITDA (MTD)',           value: `₹ ${(18.42 * scale).toFixed(2)} Cr`,  change: '15.46% vs Mar 2024', up: true,  icon: '📊', iconBg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)', spark: SP_EBITDA.map(v => +(v * scale).toFixed(2)), sparkColor: C.purple },
+    { id: 'net-profit',   label: 'Net Profit (MTD)',      value: `₹ ${(10.25 * scale).toFixed(2)} Cr`,  change: '23.11% vs Mar 2024', up: true,  icon: '🏆', iconBg: 'linear-gradient(135deg,#fff7ed,#fed7aa)', spark: SP_NP.map(v => +(v * scale).toFixed(2)),     sparkColor: C.orange },
+    { id: 'np-margin',    label: 'Net Profit Margin (MTD)', value: '8.15%',                               change: '0.79% vs Mar 2024',  up: true,  icon: '📉', iconBg: 'linear-gradient(135deg,#e0f2fe,#bae6fd)', spark: SP_NPM,                                     sparkColor: C.cyan },
+    { id: 'ebitda-margin',label: 'EBITDA Margin (MTD)',   value: '14.66%',                               change: '0.62% vs Mar 2024',  up: true,  icon: '⏰', iconBg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)', spark: SP_EBITM,                                    sparkColor: '#e879a0' },
+  ], [scale]);
+
+  /* ── Scaled chart data ── */
+  const scaledPLTrend = useMemo(() =>
+    PL_TREND.map(m => ({
+      ...m,
+      Revenue:       +(m.Revenue       * scale).toFixed(1),
+      'Gross Profit': +(m['Gross Profit'] * scale).toFixed(1),
+      'Net Profit':   +(m['Net Profit']   * scale).toFixed(1),
+    })), [scale]);
+
+  const scaledPLComp = useMemo(() =>
+    PL_COMP.map(r => ({
+      ...r,
+      apr24: +(r.apr24 * scale).toFixed(1),
+      mar24: +(r.mar24 * scale).toFixed(1),
+      apr23: +(r.apr23 * scale).toFixed(1),
+    })), [scale]);
+
+  /* ── Scaled expense pie ── */
+  const scaledExpPie = useMemo(() =>
+    EXPENSE_PIE.map(e => ({ ...e, value: +(e.value * scale).toFixed(2) })), [scale]);
+  const totalExpenses = useMemo(() =>
+    scaledExpPie.reduce((s, e) => s + e.value, 0).toFixed(2), [scaledExpPie]);
+
+  /* ── Scaled P&L statement ── */
+  const scaleRow = (r) => {
+    if (!r || typeof r.curr !== 'number') return r; // percentage rows pass through
+    return {
+      ...r,
+      curr:   +(r.curr   * scale).toFixed(2),
+      prev:   +(r.prev   * scale).toFixed(2),
+      varAmt: typeof r.varAmt === 'number' ? +(r.varAmt * scale).toFixed(2) : r.varAmt,
+      ytd:    +(r.ytd    * scale).toFixed(2),
+      ytdPY:  +(r.ytdPY  * scale).toFixed(2),
+    };
+  };
+  const scaledPL = useMemo(() => ({
+    income: {
+      ...PL_STATEMENT.income,
+      rows:  PL_STATEMENT.income.rows.map(scaleRow),
+      total: scaleRow(PL_STATEMENT.income.total),
+    },
+    cogs: {
+      ...PL_STATEMENT.cogs,
+      rows:  PL_STATEMENT.cogs.rows.map(scaleRow),
+      total: scaleRow(PL_STATEMENT.cogs.total),
+    },
+    expenses: {
+      ...PL_STATEMENT.expenses,
+      rows:   PL_STATEMENT.expenses.rows.map(scaleRow),
+      total:  scaleRow(PL_STATEMENT.expenses.total),
+      ebitda: scaleRow(PL_STATEMENT.expenses.ebitda),
+    },
+    bottom: {
+      rows:  PL_STATEMENT.bottom.rows.map(scaleRow),
+      total: scaleRow(PL_STATEMENT.bottom.total),
+    },
+  }), [scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="animate-in" style={{ padding: '20px 24px 32px', fontFamily: "'Inter', system-ui, sans-serif", background: C.bg, minHeight: '100%' }}>
@@ -438,7 +519,7 @@ export default function PLAnalytics() {
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
           <ResponsiveContainer width="100%" height={190}>
-            <LineChart data={PL_TREND} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
+            <LineChart data={scaledPLTrend} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
               <XAxis dataKey="month" tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -465,7 +546,7 @@ export default function PLAnalytics() {
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
           <ResponsiveContainer width="100%" height={190}>
-            <BarChart data={PL_COMP} margin={{ top: 8, right: 6, left: -22, bottom: 0 }} barCategoryGap="30%">
+              <BarChart data={scaledPLComp} margin={{ top: 8, right: 6, left: -22, bottom: 0 }} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
               <XAxis dataKey="label" tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: C.muted, fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -492,19 +573,19 @@ export default function PLAnalytics() {
             <div style={{ flex: '0 0 140px' }}>
               <ResponsiveContainer width="100%" height={140}>
                 <PieChart>
-                  <Pie data={EXPENSE_PIE} cx="50%" cy="50%" innerRadius={42} outerRadius={64} dataKey="value" startAngle={90} endAngle={-270} stroke="none" labelLine={false}>
-                    {EXPENSE_PIE.map((e, i) => <Cell key={i} fill={e.color} />)}
+                  <Pie data={scaledExpPie} cx="50%" cy="50%" innerRadius={42} outerRadius={64} dataKey="value" startAngle={90} endAngle={-270} stroke="none" labelLine={false}>
+                    {scaledExpPie.map((e, i) => <Cell key={i} fill={e.color} />)}
                   </Pie>
                   <Tooltip formatter={(v, n) => [`₹${v} Cr`, n]} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
               <div style={{ textAlign: 'center', marginTop: -4 }}>
                 <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 600 }}>Total Expenses</div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: C.navy }}>₹ 107.62 Cr</div>
+                <div style={{ fontSize: '0.82rem', fontWeight: 800, color: C.navy }}>₹ {totalExpenses} Cr</div>
               </div>
             </div>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {EXPENSE_PIE.map(e => (
+              {scaledExpPie.map(e => (
                 <div key={e.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 9, height: 9, borderRadius: 2, background: e.color, display: 'inline-block', flexShrink: 0 }} />
@@ -541,39 +622,39 @@ export default function PLAnalytics() {
               {/* INCOME */}
               <SectionHeader label="INCOME" expanded={secIncome} onToggle={() => setSecIncome(p => !p)} />
               {secIncome && <>
-                {PL_STATEMENT.income.rows.map(r => <PLRow key={r.label} row={r} indent />)}
-                <PLRow row={PL_STATEMENT.income.total} isTotal />
+                {scaledPL.income.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+                <PLRow row={scaledPL.income.total} isTotal />
               </>}
 
               {/* COST OF GOODS SOLD */}
               <SectionHeader label="COST OF GOODS SOLD" expanded={secCOGS} onToggle={() => setSecCOGS(p => !p)} />
               {secCOGS && <>
-                {PL_STATEMENT.cogs.rows.map(r => <PLRow key={r.label} row={r} indent />)}
-                <PLRow row={PL_STATEMENT.cogs.total} isTotal isGreen />
-                <PLRow row={PL_STATEMENT.cogs.pctRow} isGray />
+                {scaledPL.cogs.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+                <PLRow row={scaledPL.cogs.total} isTotal isGreen />
+                <PLRow row={scaledPL.cogs.pctRow} isGray />
               </>}
 
               {/* EXPENSES */}
               <SectionHeader label="EXPENSES" expanded={secExpenses} onToggle={() => setSecExpenses(p => !p)} />
               {secExpenses && <>
-                {PL_STATEMENT.expenses.rows.map(r => <PLRow key={r.label} row={r} indent />)}
-                <PLRow row={PL_STATEMENT.expenses.total} isTotal />
-                <PLRow row={PL_STATEMENT.expenses.ebitda} isBold isGreen />
+                {scaledPL.expenses.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+                <PLRow row={scaledPL.expenses.total} isTotal />
+                <PLRow row={scaledPL.expenses.ebitda} isBold isGreen />
                 <PLRow row={PL_STATEMENT.expenses.ebitdaPct} isGray />
               </>}
 
               {/* Bottom rows */}
-              {PL_STATEMENT.bottom.rows.map(r => <PLRow key={r.label} row={r} indent />)}
+              {scaledPL.bottom.rows.map(r => <PLRow key={r.label} row={r} indent />)}
 
               {/* Net Profit */}
               <tr style={{ background: '#16a34a', fontWeight: 800 }}>
                 <td style={{ ...TD_L, color: '#fff', fontWeight: 800, fontSize: '0.82rem' }}>Net Profit</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(PL_STATEMENT.bottom.total.curr)}</td>
-                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(PL_STATEMENT.bottom.total.prev)}</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(PL_STATEMENT.bottom.total.varAmt).toFixed(2)}</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(PL_STATEMENT.bottom.total.varPct).toFixed(2)}%</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(PL_STATEMENT.bottom.total.ytd)}</td>
-                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(PL_STATEMENT.bottom.total.ytdPY)}</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(scaledPL.bottom.total.curr)}</td>
+                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(scaledPL.bottom.total.prev)}</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(scaledPL.bottom.total.varAmt).toFixed(2)}</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(scaledPL.bottom.total.varPct).toFixed(2)}%</td>
+                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(scaledPL.bottom.total.ytd)}</td>
+                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(scaledPL.bottom.total.ytdPY)}</td>
                 <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▲ {PL_STATEMENT.bottom.total.ytdVar.toFixed(2)}%</td>
               </tr>
             </tbody>

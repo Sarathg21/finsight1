@@ -304,7 +304,11 @@ export default function FilterBar({ compact = false, showSalesman = false }) {
             <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: salesmanLocked ? '#94a3b8' : '#334155' }}>
               {salesmanLocked
                 ? `Locked to: ${salesman}`
-                : <OptionList items={[{ key: 'all', label: 'All Salespeople' }]} selected={salesman} onSelect={v => { setSalesman(v); close(); }} />}
+                : <OptionList 
+                    items={meta.salesmenList.map(s => ({ key: s, label: s === 'all' ? 'All Salespeople' : s }))} 
+                    selected={salesman} 
+                    onSelect={v => { setSalesman(v); close(); }} 
+                  />}
             </div>
           )}
         </Pill>

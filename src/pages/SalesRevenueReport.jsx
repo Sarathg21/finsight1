@@ -1311,6 +1311,36 @@ export default function SalesRevenueReport() {
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
 
+  /* ── Auto-apply: sync filters → appliedFilters with debounce ──── */
+  /* Dropdowns apply in 100 ms; date inputs wait 600 ms after        */
+  /* the last keystroke so we don't hammer the API while typing.     */
+  /* Initial mount is skipped — fetchAll already fires via the       */
+  /* appliedFilters effect above on first render.                    */
+  const isFirstAutoApplyRun = useRef(true);
+  const prevFiltersRef = useRef(filters);
+  useEffect(() => {
+    // Skip initial mount — avoid double-fetching on page load
+    if (isFirstAutoApplyRun.current) {
+      isFirstAutoApplyRun.current = false;
+      prevFiltersRef.current = filters;
+      return;
+    }
+
+    const prev = prevFiltersRef.current;
+    prevFiltersRef.current = filters;
+
+    // Guard: bail out if nothing actually changed
+    const dateKeys = ['fromDate', 'toDate'];
+    const changedKeys = Object.keys(filters).filter(k => filters[k] !== prev[k]);
+    if (changedKeys.length === 0) return;
+
+    // Dropdowns get 100 ms; date fields get 600 ms (user may still be typing)
+    const onlyDatesChanged = changedKeys.every(k => dateKeys.includes(k));
+    const delay = onlyDatesChanged ? 600 : 100;
+    const timer = setTimeout(() => setAppliedFilters({ ...filters }), delay);
+    return () => clearTimeout(timer);
+  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ── When page changes, re-fetch details only ─────────────────── */
   const prevPageRef = useRef(0);
   useEffect(() => {
@@ -1570,7 +1600,9 @@ export default function SalesRevenueReport() {
 
           <FilterField label="Salesman">
             <select id="filter-salesman" style={selStyle} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
-              {filterOptions.salesmen.map(o => <option key={o}>{o}</option>)}
+              {filterOptions.salesmen.map(o => (
+                <option key={o} value={o}>{o}</option>
+              ))}
             </select>
           </FilterField>
 
@@ -1961,7 +1993,7 @@ export default function SalesRevenueReport() {
                 Amounts in AED
               </span>
             </div>
-            <ExportButtons endpoint="summary-detail" filters={appliedFilters} />
+            <ChartMenu onViewAll={() => setOpenModal('summaryDetail')} endpoint="summary-detail" filters={appliedFilters} />
           </div>
 
           {/* Table body */}
@@ -1979,7 +2011,7 @@ export default function SalesRevenueReport() {
             };
 
             /* Sort alphabetically by Legal Entity > Parent Division > Sub Division */
-            const rows = [...summaryDetailData].map(r => ({
+            const allRows = [...summaryDetailData].map(r => ({
                 legalEntity: r.legal_entity  || r.name || '—',
                 parentDiv:   r.parent_division || r.division || '—',
                 subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
@@ -1998,10 +2030,33 @@ export default function SalesRevenueReport() {
               return a.subDiv.localeCompare(b.subDiv);
             });
 
-            const totMTD    = rows.reduce((s, r) => s + (r.mtd || 0),     0);
-            const totPMTD   = rows.reduce((s, r) => s + (r.prevMtd || 0), 0);
-            const totYTD    = rows.reduce((s, r) => s + (r.ytd || 0),     0);
-            const totYTDPY  = rows.reduce((s, r) => s + (r.ytdPy || 0),   0);
+            /* Aggregate top 10 + Others */
+            let rows = allRows;
+            if (allRows.length > 10) {
+              const top10 = allRows.slice(0, 10);
+              const others = allRows.slice(10);
+              
+              const mtd     = others.reduce((s, r) => s + (r.mtd || 0), 0);
+              const prevMtd = others.reduce((s, r) => s + (r.prevMtd || 0), 0);
+              const ytd     = others.reduce((s, r) => s + (r.ytd || 0), 0);
+              const ytdPy   = others.reduce((s, r) => s + (r.ytdPy || 0), 0);
+              
+              const othersRow = {
+                legalEntity: 'Others',
+                parentDiv: '—',
+                subDiv: '—',
+                bizUnit: '—',
+                mtd, prevMtd, ytd, ytdPy,
+                varMtd: (prevMtd > 0 && mtd >= 0) ? ((mtd - prevMtd) / Math.abs(prevMtd)) * 100 : null,
+                varYtd: (ytdPy > 0 && ytd >= 0)   ? ((ytd - ytdPy)   / Math.abs(ytdPy))   * 100 : null,
+              };
+              rows = [...top10, othersRow];
+            }
+
+            const totMTD    = allRows.reduce((s, r) => s + (r.mtd || 0),     0);
+            const totPMTD   = allRows.reduce((s, r) => s + (r.prevMtd || 0), 0);
+            const totYTD    = allRows.reduce((s, r) => s + (r.ytd || 0),     0);
+            const totYTDPY  = allRows.reduce((s, r) => s + (r.ytdPy || 0),   0);
 
             /* formatters */
             const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `${(v / 1e6).toFixed(2)}M` : '—';
@@ -2231,6 +2286,26 @@ export default function SalesRevenueReport() {
         columnDefs={customerDetailCols}
         filters={appliedFilters}
         searchPlaceholder="Search customer detail..."
+      />
+
+      {/* Summary Detail Drill-Down Modal */}
+      <DetailApiModal
+        isOpen={openModal === 'summaryDetail'}
+        onClose={() => setOpenModal(null)}
+        title="Sales Revenue Detailed View — All Data"
+        endpoint="summary-detail"
+        fetchFn={fetchSummaryDetail}
+        columnDefs={[
+          { key: 'legal_entity', label: 'Legal Entity', align: 'left', width: '25%' },
+          { key: 'parent_division', label: 'Parent Division', align: 'left', width: '15%' },
+          { key: 'sub_division', label: 'Sub Division', align: 'left', width: '15%' },
+          { key: 'revenue_mtd', label: 'Rev (MTD)', isCurrency: true },
+          { key: 'revenue_prev_mtd', label: 'Rev (Prev MTD)', isCurrency: true },
+          { key: 'revenue_ytd', label: 'Rev (YTD)', isCurrency: true },
+          { key: 'revenue_ytd_py', label: 'Rev (YTD PY)', isCurrency: true },
+        ]}
+        filters={appliedFilters}
+        searchPlaceholder="Search detailed view..."
       />
 
       {/* Trend View-All — inline modal reusing old table logic */}

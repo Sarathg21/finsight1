@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
+import { fetchFilters } from '../services/salesRevenueApi';
 import { useAuth } from './AuthContext';
 import { LEGAL_ENTITIES, COUNTRIES, DIVISIONS, CURRENCIES, PERIODS, SCENARIOS } from '../data/masterData';
 
@@ -61,6 +62,17 @@ export function FilterProvider({ children }) {
   }, [user?.id]);
 
   // ── filter state ───────────────────────────────────────────────────────
+  const [salesmenList, setSalesmenList] = useState(['all']);
+
+  useEffect(() => {
+    fetchFilters()
+      .then(data => {
+        if (data && data.salesmen) {
+          setSalesmenList(['all', ...data.salesmen]);
+        }
+      })
+      .catch(console.error);
+  }, []);
   const [period,     setPeriod]     = useState('ytd');           // DATE_PRESETS key
   const [year,       setYear]       = useState(String(YEAR));
   const [country,    setCountry]    = useState('all');
@@ -126,7 +138,7 @@ export function FilterProvider({ children }) {
 
   const meta = {
     scopedEntities, scopedCountries, scopedDivisions,
-    salesmanLocked, entityLocked,
+    salesmanLocked, entityLocked, salesmenList,
     DATE_PRESETS, COMPARISON_MODES, MONTHS_SHORT,
     activeMonthLabel: DATE_PRESETS.find(p => p.key === period)?.label || 'YTD',
     comparisonLabel: COMPARISON_MODES.find(c => c.key === comparison)?.label || 'vs Prior Year',

@@ -78,10 +78,10 @@ export default function ExecDashboard() {
 
       {/* ── KPI CARDS ───────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 20 }}>
-        <KPICard title="Gross Receivables"     value={`AED ${(740.4 * rate).toFixed(1)}M`}  change="As of 31-Mar-2026"  up={false} />
-        <KPICard title="Overdue AR (>30d)"     value={`AED ${(579.0 * rate).toFixed(1)}M`}  change="78.2% of Total AR" up={false} />
+        <KPICard title="Gross Receivables"     value={`${currency} ${(740.4 * rate).toFixed(1)}M`}  change="As of 31-Mar-2026"  up={false} />
+        <KPICard title="Overdue AR (>30d)"     value={`${currency} ${(579.0 * rate).toFixed(1)}M`}  change={`${((579.0/740.4)*100).toFixed(1)}% of Total AR`} up={false} />
         <KPICard title="DSO"                   value="112 Days"    change="+58 days vs target" up={false} />
-        <KPICard title="Inventory (Total)"     value="AED 124.6M"  change="71.9% within 90d"  up />
+        <KPICard title="Inventory (Total)"     value={`${currency} ${(124.6 * rate).toFixed(1)}M`}  change="71.9% within 90d"  up />
       </div>
 
       {/* ── TABS ────────────────────────────────────────────────────── */}

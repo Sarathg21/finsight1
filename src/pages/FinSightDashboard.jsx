@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -78,6 +78,45 @@ export default function FinSightDashboard() {
   const [businessUnit, setBusinessUnit] = useState('All');
   const [division,     setDivision]     = useState('All');
 
+  /* ── Scale factor: each segment is a proportional slice of total ── */
+  const scale = useMemo(() => {
+    const g = ({ All: 1.00, 'Group A': 0.62, 'Group B': 0.38 })[legalGroup] ?? 1;
+    const b = ({ All: 1.00, 'BU 1': 0.35,   'BU 2': 0.28,   'BU 3': 0.37 })[businessUnit] ?? 1;
+    const d = ({ All: 1.00, 'Division 1': 0.55, 'Division 2': 0.45 })[division] ?? 1;
+    return g * b * d;
+  }, [legalGroup, businessUnit, division]);
+
+  /* ── Helpers ── */
+  const fmtM = (base) => `AED ${(base * scale).toFixed(2)} M`;
+  const fmtP = (base) => `${(base * scale).toFixed(2)}%`;
+
+  /* ── Scale chart series ── */
+  const scaledRevTrend = useMemo(() =>
+    REVENUE_TREND.map(m => ({
+      ...m,
+      fy2324: +(m.fy2324 * scale).toFixed(1),
+      fy2425: +(m.fy2425 * scale).toFixed(1),
+    })), [scale]);
+
+  const scaledProfTrend = useMemo(() =>
+    PROFIT_TREND.map(m => ({
+      ...m,
+      netFY2324: +(m.netFY2324 * scale).toFixed(1),
+      netFY2425: +(m.netFY2425 * scale).toFixed(1),
+    })), [scale]);
+
+  const scaledFinSummary = useMemo(() =>
+    FIN_SUMMARY.map(r => {
+      const isRatio = r.name === 'Current Ratio';
+      return {
+        ...r,
+        curMonth:  isRatio ? r.curMonth  : +(r.curMonth  * scale).toFixed(2),
+        prevMonth: isRatio ? r.prevMonth : +(r.prevMonth * scale).toFixed(2),
+        ytdCur:    isRatio ? r.ytdCur    : +(r.ytdCur    * scale).toFixed(2),
+        ytdPrev:   isRatio ? r.ytdPrev   : +(r.ytdPrev   * scale).toFixed(2),
+      };
+    }), [scale]);
+
   return (
     <div className="animate-in" style={{
       padding: '20px 24px',
@@ -145,7 +184,14 @@ export default function FinSightDashboard() {
         gridTemplateColumns: 'repeat(6, 1fr)',
         gap: 12, marginBottom: 12,
       }}>
-        {KPI_CARDS.map(kpi => <KPICard key={kpi.label} {...kpi} />)}
+        {[
+          { label: 'Total Revenue',   value: fmtM(125.75), change: '16.86% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
+          { label: 'Gross Profit',    value: fmtM(28.35),  change: '17.11% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
+          { label: 'EBITDA',          value: fmtM(18.42),  change: '15.45% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
+          { label: 'Net Profit',      value: fmtM(10.25),  change: '23.11% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
+          { label: 'Working Capital', value: fmtM(45.80),  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#e0f2fe' },
+          { label: 'Current Ratio',   value: String(1.86), change: '0.12 vs Apr 2023',   up: true,  icon: '⚖️', iconBg: '#fce7f3' },
+        ].map(kpi => <KPICard key={kpi.label} {...kpi} />)}
       </div>
 
       {/* ── KPI CARDS ROW 2 ── */}
@@ -154,7 +200,12 @@ export default function FinSightDashboard() {
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: 12, marginBottom: 16,
       }}>
-        {KPI_CARDS_ROW_2.map(kpi => <SparklineKPICard key={kpi.label} {...kpi} />)}
+        {[
+          { label: 'Total Receivables',         value: fmtM(62.35), change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10,15,12,18,14,20].map(v=>+(v*scale).toFixed(1)), color: '#f59e0b' },
+          { label: 'Overdue Receivables',       value: fmtM(18.75), change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18,14,16,12,15,10].map(v=>+(v*scale).toFixed(1)), color: '#f43f5e' },
+          { label: 'Cash Collection (MTD)',     value: fmtM(21.40), change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5,8,12,9,15,18].map(v=>+(v*scale).toFixed(1)),    color: '#3b82f6' },
+          { label: 'Bank Facility Utilization', value: fmtP(42.75), change: '3.56% vs Apr 2023',  up: false, icon: '🏦', iconBg: '#e0f2fe', data: [40,42,45,41,44,43],                               color: '#0ea5e9' },
+        ].map(kpi => <SparklineKPICard key={kpi.label} {...kpi} />)}
       </div>
 
       {/* ── CHARTS ROW ── */}
@@ -166,7 +217,7 @@ export default function FinSightDashboard() {
         {/* Revenue Trend */}
         <ChartCard title="Revenue Trend (AED M)">
           <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={REVENUE_TREND} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <LineChart data={scaledRevTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
               <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -187,7 +238,7 @@ export default function FinSightDashboard() {
         {/* Profit Trend */}
         <ChartCard title="Profit Trend (AED M)">
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={PROFIT_TREND} barGap={2} barCategoryGap="40%" margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <BarChart data={scaledProfTrend} barGap={2} barCategoryGap="40%" margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
               <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -301,7 +352,7 @@ export default function FinSightDashboard() {
               </tr>
             </thead>
             <tbody>
-              {FIN_SUMMARY.map((row, i) => (
+              {scaledFinSummary.map((row, i) => (
                 <tr
                   key={i}
                   style={{ borderBottom: '1px solid #f1f5f9', background: '#fff', transition: 'background 0.15s' }}

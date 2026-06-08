@@ -33,7 +33,7 @@ const MOCK_FILTERS = {
   legal_entities: ['FJ HQ', 'FJ Care UAE', 'FJ Care Int\'l', 'Flowtech Qatar', 'Flowtech Oman', 'FJ Engineering KSA'],
   parent_divisions: ['Corporate', 'FJ Care', 'Flowtech UAE, QTR, OMN', 'Engineering'],
   sub_divisions: ['HQ Operations', 'FJ Care Services', 'Flowtech Sales', 'Engineering Services'],
-  salesmen: ['Hassan Al Nuaimi', 'John Doe', 'Sarah Connor']
+  salesmen: ['E000001-Hassan Al Nuaimi', 'E000037-Senan A. Alwan', 'E000063-Krikor Ohanian', 'E000002-John Doe', 'E000003-Sarah Connor']
 };
 
 const MOCK_SUMMARY = {
@@ -491,6 +491,8 @@ function getMockDataForPath(path) {
  * @returns {Promise<any>}  - parsed JSON response
  * @throws {{ status: number, message: string }}
  */
+const apiCache = new Map();
+
 async function apiCall(path, params = {}) {
   const token = localStorage.getItem('finsight_token');
 
@@ -511,8 +513,14 @@ async function apiCall(path, params = {}) {
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
 
-  let res;
-  try {
+  // Deduplicate identical concurrent requests using a short-lived cache (solves React Strict Mode double-fetches)
+  if (apiCache.has(url)) {
+    return apiCache.get(url);
+  }
+
+  const fetchPromise = (async () => {
+    let res;
+    try {
     res = await fetch(url, {
       method: 'GET',
       headers: {
@@ -576,7 +584,14 @@ async function apiCall(path, params = {}) {
     }
   }
 
-  return json;
+    return json;
+  })();
+
+  apiCache.set(url, fetchPromise);
+  // Keep in cache for 500ms to catch identical concurrent requests
+  setTimeout(() => apiCache.delete(url), 500);
+
+  return fetchPromise;
 }
 
 
@@ -584,21 +599,35 @@ async function apiCall(path, params = {}) {
 
 /**
  * Normalise the filter state object into API-ready query params.
- * Maps frontend filter keys to the backend parameter names.
+ * Maps frontend camelCase filter keys → exact backend snake_case param names.
+ *
+ * Backend field names accepted by stg_sales_revenue_detail APIs:
+ *   from_date, to_date, legal_entity, division_code, subdivision_code,
+ *   business_unit, sales_person, invoice_currency
+ *
+ * NOTE: sales_person is the confirmed backend field name (not 'salesman').
+ *       The selected value is passed as-is, e.g. "E002767-Sreejith Prasannan Pillai".
  */
 function buildParams(filters = {}) {
+  // Helper: return value only when it exists and is not a catch-all placeholder
+  const active = (val) =>
+    val && val !== 'All' && val !== 'all' ? val : undefined;
+
   return {
-    from_date:              filters.fromDate        || undefined,
-    to_date:                filters.toDate          || undefined,
-    legal_entity:           filters.legalEntity !== 'All' ? filters.legalEntity  : undefined,
-    division_code:          filters.parentDiv   !== 'All' ? filters.parentDiv    : undefined,
-    subdivision_code:       filters.subDiv      !== 'All' ? filters.subDiv       : undefined,
-    business_unit:          filters.businessUnit !== 'All' ? filters.businessUnit : undefined,
-    sales_person:           filters.salesman    !== 'All' ? filters.salesman     : undefined,
-    customer_name:          filters.customerName            || undefined,
-    customer_account_number:filters.customerAccountNumber   || undefined,
-    project_reference:      filters.projectReference        || undefined,
-    invoice_currency:       filters.invoiceCurrency         || undefined,
+    // ── Date range ──────────────────────────────────────────────
+    from_date:               filters.fromDate                  || undefined,
+    to_date:                 filters.toDate                    || undefined,
+    // ── Dimension filters (stg_sales_revenue_detail) ────────────
+    legal_entity:            active(filters.legalEntity),
+    division_code:           active(filters.parentDiv),
+    subdivision_code:        active(filters.subDiv),
+    business_unit:           active(filters.businessUnit),
+    sales_person:            active(filters.salesman),          // backend field: sales_person
+    invoice_currency:        active(filters.invoiceCurrency),
+    // ── Customer / transaction filters (details endpoint) ───────
+    customer_name:           filters.customerName              || undefined,
+    customer_account_number: filters.customerAccountNumber     || undefined,
+    project_reference:       filters.projectReference         || undefined,
   };
 }
 
