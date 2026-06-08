@@ -926,7 +926,21 @@ export async function fetchCustomerDetail(filters) {
  *     }
  *   ]
  * }
+ *
+ * NOTE: Falls back to local mock data if the backend returns a 5xx error
+ * (endpoint may not be implemented yet on the server).
  */
 export async function fetchSummaryDetail(filters) {
-  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters));
+  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters))
+    .catch((err) => {
+      if (err?.status >= 500 || err?.status === 0) {
+        console.warn(
+          `[salesRevenueApi] summary-detail returned ${err?.status ?? 'network error'} — ` +
+          'falling back to local mock data. Backend endpoint may not be implemented yet.'
+        );
+        return MOCK_SUMMARY_DETAIL;
+      }
+      // Re-throw auth errors and other client errors so the caller can handle them
+      throw err;
+    });
 }

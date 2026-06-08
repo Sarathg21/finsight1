@@ -64,7 +64,9 @@ const DEFAULT_FILTERS = {
   legalEntity: 'All',
   parentDiv:   'All',
   subDiv:      'All',
+  businessUnit:'All',
   salesman:    'All',
+  invoiceCurrency: 'AED',
   fromDate:    FIRST_DAY,
   toDate:      LAST_DAY,
 };
@@ -970,7 +972,9 @@ export default function SalesRevenueReport() {
     legalEntities:  ['All'],
     parentDivs:     ['All'],
     subDivs:        ['All'],
+    businessUnits:  ['All'],
     salesmen:       ['All'],
+    invoiceCurrencies: ['AED'],
   });
 
   /* ── Chart / KPI data state ───────────────────────────────────── */
@@ -1039,7 +1043,9 @@ export default function SalesRevenueReport() {
           legalEntities: ['All', ...(data.legal_entities || [])],
           parentDivs:    ['All', ...(data.parent_divisions || [])],
           subDivs:       ['All', ...(data.sub_divisions  || [])],
+          businessUnits: ['All', ...(data.business_units || [])],
           salesmen:      ['All', ...(data.salesmen        || [])],
+          invoiceCurrencies: [...(data.currencies || data.invoice_currencies || ['AED'])],
         });
       })
       .catch(err => {
@@ -1302,11 +1308,18 @@ export default function SalesRevenueReport() {
     });
 
     // 9. Summary Detail — GET /api/sales-revenue/summary-detail
-    guard('summaryDetail', fetchSummaryDetail(f)).then(d => {
-      if (!d) return;
-      const rows = Array.isArray(d) ? d : (d?.data ?? []);
-      setSummaryDetailData(rows);
-    });
+    guard('summaryDetail', fetchSummaryDetail(f))
+      .then(d => {
+        if (!d) return;
+        const rows = Array.isArray(d) ? d : (d?.data ?? []);
+        setSummaryDetailData(rows);
+      })
+      .catch(err => {
+        // 500 from backend — log but don't crash; table will show empty state
+        console.warn('[SalesRevenueReport] summary-detail failed, using empty data:', err?.message || err);
+        setSummaryDetailData([]);
+        // Don't propagate to global error banner — this section degrades gracefully
+      });
   }, [handle401]);
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
@@ -1598,11 +1611,26 @@ export default function SalesRevenueReport() {
             </select>
           </FilterField>
 
+          <FilterField label="Business Unit">
+            <select id="filter-business-unit" style={selStyle} value={filters.businessUnit} onChange={e => updateFilter('businessUnit', e.target.value)}>
+              {filterOptions.businessUnits.map(o => <option key={o}>{o}</option>)}
+            </select>
+          </FilterField>
+
           <FilterField label="Salesman">
             <select id="filter-salesman" style={selStyle} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
-              {filterOptions.salesmen.map(o => (
-                <option key={o} value={o}>{o}</option>
-              ))}
+              {filterOptions.salesmen.map((o, idx) => {
+                // Guarantee o is always a string (belt-and-suspenders guard)
+                const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
+                const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
+                return <option key={`salesman-${idx}`} value={val}>{label}</option>;
+              })}
+            </select>
+          </FilterField>
+
+          <FilterField label="Currency">
+            <select id="filter-currency" style={selStyle} value={filters.invoiceCurrency} onChange={e => updateFilter('invoiceCurrency', e.target.value)}>
+              {filterOptions.invoiceCurrencies.map(o => <option key={o}>{o}</option>)}
             </select>
           </FilterField>
 
