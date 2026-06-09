@@ -1802,7 +1802,7 @@ export default function SalesRevenueReport() {
                     <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={50} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Line type="monotone" dataKey="currentYear" name="Sales" stroke={C.blue} strokeWidth={2.5} dot={{ r: 4, fill: '#fff', stroke: C.blue, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="currentYear" name="Sales" stroke={C.blue} strokeWidth={2.5} dot={{ r: trendData.length === 1 ? 5 : 4, fill: trendData.length === 1 ? C.blue : '#fff', stroke: C.blue, strokeWidth: 2 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
@@ -1832,15 +1832,15 @@ export default function SalesRevenueReport() {
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : legalEntData.length > 0 ? (
               <div style={{ display: 'flex', alignItems: 'center', height: 220 }}>
-                <ResponsiveContainer width="50%" height="100%">
+                <ResponsiveContainer width="55%" height="100%">
                   <PieChart>
-                    <Pie data={legalEntData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" stroke="none">
+                    <Pie data={legalEntData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={2} dataKey="value" stroke="none">
                       {legalEntData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div style={{ width: '50%', paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
+                <div style={{ width: '45%', paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
                   {legalEntData.slice(0, 5).map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
