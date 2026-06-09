@@ -74,13 +74,13 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             const isAltRole = role === 'ADMIN' || role === 'CFO' || role === 'MANAGER';
 
             const [deptRes, empRes] = await Promise.all([
-                api.get('/admin/departments')
-                    .catch(() => api.get('/departments'))
-                    .catch(() => api.get('/dashboard/cfo/departments'))
+                api.get('/admin/departments', { skip403Graceful: true })
+                    .catch(() => api.get('/departments', { skip403Graceful: true }))
+                    .catch(() => api.get('/dashboard/cfo/departments', { skip403Graceful: true }))
                     .catch(() => ({ data: [] })),
-                api.get(isAltRole ? '/employees' : '/employees/assignable')
-                    .catch(() => api.get('/employees'))
-                    .catch(() => api.get('/employees/assignable'))
+                api.get(isAltRole ? '/employees' : '/employees/assignable', { skip403Graceful: true })
+                    .catch(() => api.get('/employees', { skip403Graceful: true }))
+                    .catch(() => api.get('/employees/assignable', { skip403Graceful: true }))
                     .catch(() => ({ data: [] }))
             ]);
             
@@ -248,9 +248,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
         const isLocal = String(targetId).startsWith('local-');
         const existingSubtask = subtasks.find(st => String(getSubtaskId(st)) === String(targetId));
         const normalizedUpdates = { ...updates };
-        if (!Object.prototype.hasOwnProperty.call(normalizedUpdates, 'due_in_days')) {
-            normalizedUpdates.due_in_days = toNonNegativeDayCount(existingSubtask?.due_in_days);
-        }
+
         if (Object.prototype.hasOwnProperty.call(normalizedUpdates, 'due_in_days')) {
             const parentDueInDays = toNonNegativeDayCount(formData.due_in_days);
             const childDueInDays = toNonNegativeDayCount(normalizedUpdates.due_in_days);
@@ -287,15 +285,29 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 sanitizedUpdates.dept_id = sanitizedUpdates.department_id;
             }
 
-            if (sanitizedUpdates.start_date === '') sanitizedUpdates.start_date = null;
-            if (sanitizedUpdates.end_date === '') sanitizedUpdates.end_date = null;
+            // Only send supported subtask update fields to backend
+            const allowedFields = ['title', 'description', 'department_id', 'assigned_to_emp_id', 'priority', 'sequence_no'];
+            const patchPayload = {};
+            for (const key of allowedFields) {
+                if (Object.prototype.hasOwnProperty.call(sanitizedUpdates, key)) {
+                    const value = sanitizedUpdates[key];
+                    // Drop empty fields to avoid backend errors; assignee should be sent only when valid.
+                    if (value !== undefined && value !== null && value !== '') {
+                        patchPayload[key] = value;
+                    }
+                }
+            }
+
+            if (Object.keys(patchPayload).length === 0) {
+                return;
+            }
 
             const numericRid = isNaN(rid) ? rid : parseInt(rid, 10);
             const numericSid = isNaN(targetId) ? targetId : parseInt(targetId, 10);
 
             await api.patch(
                 `/recurring-tasks/${numericRid}/subtasks/${numericSid}`,
-                sanitizedUpdates
+                patchPayload
             );
 
             setSubtasks(prev =>
@@ -308,7 +320,9 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             );
 
         } catch (err) {
-            console.error("Subtask update failed", err);
+            const status = err.response?.status;
+            const responseData = err.response?.data;
+            console.error("Subtask update failed", { status, responseData, error: err });
             toast.error('Failed to update subtask');
         }
     };
@@ -764,7 +778,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                                     ? { ...s, department_id: e.target.value, assigned_to_emp_id: '' }
                                                                                     : s;
                                                                             }));
-                                                                            handleUpdateSubtask(subtaskId, { department_id: e.target.value, assigned_to_emp_id: null });
+                                                                            handleUpdateSubtask(subtaskId, { department_id: e.target.value, assigned_to_emp_id: '' });
                                                                         }}
                                                                     >
                                                                         <option value="">Select Dept</option>
