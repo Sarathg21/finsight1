@@ -117,8 +117,28 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             const normalizedEmps = emps.map(e => ({
                 ...e,
                 emp_id: e.emp_id || e.employee_id || e.id || e.user_id,
-                name: e.name || e.full_name || [e.first_name, e.last_name].filter(Boolean).join(' ') || e.username || e.email || 'Employee'
+                name: e.name || e.full_name || [e.first_name, e.last_name].filter(Boolean).join(' ') || e.username || e.email || 'Employee',
+                // Normalize ALL dept field variants into one canonical key
+                department_id:
+                    e.department_id ||
+                    e.dept_id ||
+                    e.department ||
+                    e.department_code ||
+                    e.dept_code ||
+                    e.dept ||
+                    '',
+                // Also preserve dept name for cross-reference matching
+                department_name:
+                    e.department_name ||
+                    e.dept_name ||
+                    '',
             }));
+
+            // 🔍 DEBUG: show first 2 employees' dept fields
+            console.log('[fetchMetadata] sample emp dept fields:', JSON.stringify(normalizedEmps.slice(0, 2).map(e => ({
+                emp_id: e.emp_id, department_id: e.department_id, department_name: e.department_name
+            })), null, 2));
+
 
             const deptFromEmployees = normalizedEmps.map(e => {
                 const deptId = e.department_id || e.dept_id || e.department || e.department_name;
@@ -161,14 +181,32 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             const res = await api.get(`/recurring-tasks/${rid}/subtasks`, { timeout: 8000 });
             const data = (res.data?.data || res.data || []);
 
-            setSubtasks(
-                Array.isArray(data)
-                    ? data.map(st => ({
+            const normalized = Array.isArray(data)
+                ? data.map(st => {
+                    // Normalize ALL possible dept field names into a single canonical key
+                    const deptId =
+                        st.department_id ||
+                        st.dept_id ||
+                        st.department ||
+                        st.department_code ||
+                        st.dept_code ||
+                        st.dept ||
+                        st.responsible_dept ||
+                        '';
+                    return {
                         ...st,
-                        id: st.id ?? st.subtask_id ?? st.recurring_subtask_id ?? null
-                    }))
-                    : []
-            );
+                        id: st.id ?? st.subtask_id ?? st.recurring_subtask_id ?? null,
+                        department_id: deptId,  // canonical key used everywhere
+                    };
+                })
+                : [];
+
+            // 🔍 DEBUG: log first subtask to reveal API field names
+            if (normalized.length > 0) {
+                console.log('[fetchSubtasks] raw subtask[0] fields:', JSON.stringify(normalized[0], null, 2));
+            }
+
+            setSubtasks(normalized);
         } catch (err) {
             if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
                 console.warn('Subtask fetch timed out — proceeding without subtasks');
@@ -278,11 +316,28 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
         try {
             const sanitizedUpdates = { ...normalizedUpdates };
             // Standardize field names for backend compatibility
-            if (sanitizedUpdates.dept_id) {
+            if (sanitizedUpdates.dept_id && !sanitizedUpdates.department_id) {
                 sanitizedUpdates.department_id = sanitizedUpdates.dept_id;
             }
-            if (sanitizedUpdates.department_id) {
+            if (sanitizedUpdates.department_id && !sanitizedUpdates.dept_id) {
                 sanitizedUpdates.dept_id = sanitizedUpdates.department_id;
+            }
+
+            // ✅ KEY FIX: whenever we're patching assigned_to_emp_id, always include
+            // department_id so the backend can validate them as a consistent pair.
+            // Pull the current dept from the existing subtask state if not already provided.
+            if (
+                Object.prototype.hasOwnProperty.call(sanitizedUpdates, 'assigned_to_emp_id') &&
+                !sanitizedUpdates.department_id
+            ) {
+                const existingDept =
+                    existingSubtask?.department_id ||
+                    existingSubtask?.dept_id ||
+                    existingSubtask?.department ||
+                    '';
+                if (existingDept) {
+                    sanitizedUpdates.department_id = existingDept;
+                }
             }
 
             // Only send supported subtask update fields to backend
@@ -291,7 +346,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             for (const key of allowedFields) {
                 if (Object.prototype.hasOwnProperty.call(sanitizedUpdates, key)) {
                     const value = sanitizedUpdates[key];
-                    // Drop empty fields to avoid backend errors; assignee should be sent only when valid.
+                    // Drop empty/null fields to avoid backend errors
                     if (value !== undefined && value !== null && value !== '') {
                         patchPayload[key] = value;
                     }
@@ -301,6 +356,8 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             if (Object.keys(patchPayload).length === 0) {
                 return;
             }
+
+            console.log('[handleUpdateSubtask] PATCH payload:', patchPayload);
 
             const numericRid = isNaN(rid) ? rid : parseInt(rid, 10);
             const numericSid = isNaN(targetId) ? targetId : parseInt(targetId, 10);
@@ -323,7 +380,11 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             const status = err.response?.status;
             const responseData = err.response?.data;
             console.error("Subtask update failed", { status, responseData, error: err });
-            toast.error('Failed to update subtask');
+            const detail = responseData?.detail;
+            const errMsg = Array.isArray(detail)
+                ? detail.map(d => d.msg || JSON.stringify(d)).join(', ')
+                : (typeof detail === 'string' ? detail : (responseData?.message || err.message || 'Failed to update subtask'));
+            toast.error(errMsg);
         }
     };
 
@@ -770,7 +831,9 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                                                         value={st.department_id || st.dept_id || ''}
                                                                         onChange={(e) => {
-                                                                            // When dept changes, also clear the assignee
+                                                                            // ✅ Only update local state — do NOT PATCH yet.
+                                                                            // Backend requires dept + assignee together in one call.
+                                                                            // The PATCH fires when the user picks an assignee.
                                                                             setSubtasks(prev => prev.map(s => {
                                                                                 const sid = getSubtaskId(s);
                                                                                 const tid = getSubtaskId(st);
@@ -778,12 +841,11 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                                     ? { ...s, department_id: e.target.value, assigned_to_emp_id: '' }
                                                                                     : s;
                                                                             }));
-                                                                            handleUpdateSubtask(subtaskId, { department_id: e.target.value, assigned_to_emp_id: '' });
                                                                         }}
                                                                     >
                                                                         <option value="">Select Dept</option>
                                                                         {departments.map((d, dk) => {
-                                                                            const dId = d.department_id || d.id || d.dept_id;
+                                                                            const dId = d.dept_id;
                                                                             return <option key={dId || `st-dept-${dk}`} value={dId}>{d.name || d.dept_name}</option>;
                                                                         })}
                                                                     </select>
@@ -793,14 +855,47 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                                                 <select 
                                                                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                                                                     value={st.assigned_to_emp_id || ''}
-                                                                    onChange={(e) => handleUpdateSubtask(subtaskId, { assigned_to_emp_id: e.target.value })}
+                                                                    onChange={(e) => {
+                                                                        const selectedEmpId = e.target.value;
+
+                                                                        // Update local state immediately
+                                                                        setSubtasks(prev => prev.map(s => {
+                                                                            const sid = getSubtaskId(s);
+                                                                            const tid = getSubtaskId(st);
+                                                                            return String(sid) === String(tid) ? { ...s, assigned_to_emp_id: selectedEmpId } : s;
+                                                                        }));
+
+                                                                        if (!selectedEmpId) return; // nothing to PATCH if cleared
+
+                                                                        // ✅ Always send dept + assignee together so backend can validate them as a pair
+                                                                        const currentDeptId = st.department_id || '';
+                                                                        if (!currentDeptId) {
+                                                                            toast.error('Please select a department before choosing an assignee.');
+                                                                            return;
+                                                                        }
+
+                                                                        handleUpdateSubtask(subtaskId, {
+                                                                            department_id: currentDeptId,
+                                                                            assigned_to_emp_id: selectedEmpId
+                                                                        });
+                                                                    }}
                                                                 >
                                                                     <option value="">Select Owner</option>
                                                                     {employees
                                                                         .filter(e => {
-                                                                            const stDeptId = String(st.department_id || st.dept_id || '');
+                                                                            const stDeptId = String(st.department_id || '').trim();
                                                                             if (!stDeptId) return true;
-                                                                            return String(e.department_id || e.dept_id || '') === stDeptId;
+
+                                                                            // Direct dept code match
+                                                                            const empDeptId = String(e.department_id || '').trim();
+                                                                            if (empDeptId === stDeptId) return true;
+
+                                                                            // Fallback: match by dept name (handles format mismatches between APIs)
+                                                                            const selectedDept = departments.find(d => String(d.dept_id || '').trim() === stDeptId);
+                                                                            const stDeptName = (selectedDept?.name || selectedDept?.dept_name || '').toLowerCase().trim();
+                                                                            if (!stDeptName) return false;
+                                                                            const empDeptName = (e.department_name || '').toLowerCase().trim();
+                                                                            return empDeptName === stDeptName;
                                                                         })
                                                                         .map((e, ek) => <option key={e.emp_id || `st-emp-${ek}`} value={e.emp_id}>{e.name}</option>)
                                                                     }

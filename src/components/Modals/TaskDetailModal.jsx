@@ -207,7 +207,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
 
             // Extract filename for potential usage (though S3 URL usually handles it)
             const fileName = (typeof attachment === 'object') 
-                ? (attachment.filename || attachment.name || 'document')
+                ? (attachment.original_filename || 'document')
                 : 'document';
 
             // Trigger download via new tab (most reliable for presigned S3 URLs)
@@ -344,7 +344,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                                 <Paperclip size={12} strokeWidth={3} />
                                             </div>
                                             <span className="text-[11px] font-bold text-slate-600 max-w-[100px] truncate">
-                                                {file.filename || file.name || 'document'}
+                                                {file.original_filename || 'document'}
                                             </span>
                                         </div>
                                     ))}
@@ -467,7 +467,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                         attachments.map((file, idx) => {
                                             const isObj = typeof file === 'object' && file !== null;
                                             const id = isObj ? (file.id || file.file_id || file.attachment_id || file._id || idx) : idx;
-                                            const name = isObj ? (file.filename || file.name || file.file_name || file.original_name || file.title || 'document') : (typeof file === 'string' ? file : 'document');
+                                            const name = isObj ? (file.original_filename || 'document') : (typeof file === 'string' ? file : 'document');
                                             const time = isObj ? (file.uploaded_at || file.created_at || file.timestamp || new Date().toISOString()) : new Date().toISOString();
                                             const by = isObj ? (file.uploaded_by || file.uploader || 'System') : 'System';
 
