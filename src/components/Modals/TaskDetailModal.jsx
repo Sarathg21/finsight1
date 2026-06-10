@@ -467,7 +467,7 @@ const TaskDetailModal = ({ isOpen, onClose, task, currentUser }) => {
                                         attachments.map((file, idx) => {
                                             const isObj = typeof file === 'object' && file !== null;
                                             const id = isObj ? (file.id || file.file_id || file.attachment_id || file._id || idx) : idx;
-                                            const name = isObj ? (file.original_filename || 'document') : (typeof file === 'string' ? file : 'document');
+                                            const name = isObj ? (file.original_name || file.file_name || file.original_filename || file.filename || file.name || 'document') : (typeof file === 'string' ? file.split('/').pop() : 'document');
                                             const time = isObj ? (file.uploaded_at || file.created_at || file.timestamp || new Date().toISOString()) : new Date().toISOString();
                                             const by = isObj ? (file.uploaded_by || file.uploader || 'System') : 'System';
 
