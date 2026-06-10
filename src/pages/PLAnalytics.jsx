@@ -13,6 +13,7 @@ const C = {
   green2:  '#22c55e',
   orange:  '#f59e0b',
   purple:  '#7c3aed',
+  primary: '#5138ed',
   cyan:    '#0891b2',
   rose:    '#e11d48',
   teal:    '#0d9488',
@@ -91,12 +92,12 @@ const PL_COMP = [
 
 /* ─── Expense Breakdown donut ──────────────────────────────────── */
 const EXPENSE_PIE = [
-  { name: 'Employee Cost',    value: 36.80, pct: '34.2%', color: '#1a3a6b' },
-  { name: 'Sales & Marketing',value: 20.00, pct: '18.6%', color: '#2563eb' },
-  { name: 'Admin Expenses',   value: 13.35, pct: '12.4%', color: '#7c3aed' },
-  { name: 'Finance Cost',     value: 10.55, pct: '9.8%',  color: '#0891b2' },
-  { name: 'Depreciation',     value: 8.05,  pct: '7.5%',  color: '#0d9488' },
-  { name: 'Others',           value: 18.87, pct: '17.5%', color: '#e11d48' },
+  { name: 'Employee Cost',    value: 36.80, pct: '34.2%', color: '#3b82f6' },
+  { name: 'Sales & Marketing',value: 20.00, pct: '18.6%', color: '#22c55e' },
+  { name: 'Admin Expenses',   value: 13.35, pct: '12.4%', color: '#a855f7' },
+  { name: 'Finance Cost',     value: 10.55, pct: '9.8%',  color: '#eab308' },
+  { name: 'Depreciation',     value: 8.05,  pct: '7.5%',  color: '#06b6d4' },
+  { name: 'Others',           value: 18.87, pct: '17.5%', color: '#ec4899' },
 ];
 
 /* ─── P&L Statement rows ───────────────────────────────────────── */
@@ -204,7 +205,7 @@ function KPICard({ id, label, value, change, up, icon, iconBg, spark, sparkColor
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {label}
           </div>
           <div style={{ fontSize: '1.05rem', fontWeight: 800, color: C.navy, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -254,7 +255,7 @@ const dateStyle = { ...selStyle, paddingRight: 9, backgroundImage: 'none' };
 function FilterField({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 100, flex: '1 1 auto' }}>
-      <span style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+      <span style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, letterSpacing: '-0.02em' }}>{label}</span>
       {children}
     </div>
   );
@@ -294,9 +295,9 @@ function VarCell({ v, pct }) {
   );
 }
 
-const TH = { padding: '9px 10px', textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: '#fff', borderBottom: `1px solid #1e3a6e`, whiteSpace: 'nowrap' };
+const TH = { padding: '10px 10px', textAlign: 'right', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a', background: '#f8fafc', borderBottom: `2px solid #e2e8f0`, whiteSpace: 'nowrap' };
 const TH_L = { ...TH, textAlign: 'left' };
-const TD = { padding: '7px 10px', textAlign: 'right', fontSize: '0.76rem', color: '#334155', borderBottom: `1px solid #f1f5f9` };
+const TD = { padding: '8px 10px', textAlign: 'right', fontSize: '0.74rem', color: '#334155', borderBottom: `1px solid #f1f5f9` };
 const TD_L = { ...TD, textAlign: 'left', color: C.navy };
 const TD_NUM = { ...TD };
 
@@ -335,8 +336,8 @@ function PLRow({ row, indent = false, isTotal = false, isBold = false, isGreen =
 /* ─── Section header row ─────────────────────────────────────────── */
 function SectionHeader({ label, expanded, onToggle }) {
   return (
-    <tr style={{ background: '#1a3a6b', cursor: 'pointer' }} onClick={onToggle}>
-      <td colSpan={8} style={{ padding: '7px 10px', fontSize: '0.72rem', fontWeight: 700, color: '#fff', letterSpacing: '0.04em' }}>
+    <tr style={{ background: '#fff', cursor: 'pointer', borderBottom: `1px solid ${C.border}` }} onClick={onToggle}>
+      <td colSpan={8} style={{ padding: '7px 10px', fontSize: '0.72rem', fontWeight: 800, color: C.navy, letterSpacing: '0.04em' }}>
         <span style={{ marginRight: 6, fontSize: '0.65rem', display: 'inline-block', transition: 'transform 0.2s', transform: expanded ? 'rotate(90deg)' : 'none' }}>▶</span>
         {label}
       </td>
@@ -353,6 +354,10 @@ export default function PLAnalytics() {
   const [businessUnit, setBusinessUnit] = useState('All');
   const [period,       setPeriod]       = useState('2024-04');
   const [compareWith,  setCompareWith]  = useState('2024-03');
+
+  const [secIncome,    setSecIncome]    = useState(true);
+  const [secCOGS,      setSecCOGS]      = useState(true);
+  const [secExpenses,  setSecExpenses]  = useState(true);
 
   /* ── Scale factor from filter selections ────────────────────────── */
   /* Each option is a known proportion of the consolidated total.       */
@@ -453,7 +458,7 @@ export default function PLAnalytics() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button id="btn-export-pl" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: C.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
+          <button id="btn-export-pl" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer' }}>
             ⬇ Export <span style={{ fontSize: '0.6rem', opacity: 0.8 }}>▼</span>
           </button>
           <button id="btn-schedule-pl" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#fff', color: C.navy, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
@@ -498,7 +503,7 @@ export default function PLAnalytics() {
         <FilterField label="Compare With">
           <input id="filter-pl-compare" type="month" value={compareWith} onChange={e => setCompareWith(e.target.value)} style={dateStyle} />
         </FilterField>
-        <button id="btn-pl-apply" style={{ padding: '6px 18px', background: C.blue, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-end' }}>Apply</button>
+        <button id="btn-pl-apply" style={{ padding: '6px 18px', background: C.primary, color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-end' }}>Apply</button>
         <button id="btn-pl-reset" style={{ background: 'none', border: 'none', color: C.slate, fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer', alignSelf: 'flex-end', padding: '6px 4px' }}>Reset</button>
       </div>
 
@@ -514,7 +519,7 @@ export default function PLAnalytics() {
         <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Trend (AED M) ⓘ</div>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Trend (₹ Cr) ⓘ</div>
             </div>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
@@ -542,7 +547,7 @@ export default function PLAnalytics() {
         {/* P&L Comparison */}
         <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Comparison (AED M)</div>
+            <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Comparison (₹ Cr)</div>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
           </div>
           <ResponsiveContainer width="100%" height={190}>
@@ -602,16 +607,16 @@ export default function PLAnalytics() {
       {/* ── P&L Statement Table ── */}
       <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: 8 }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)' }}>
-          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>📋 Profit &amp; Loss Statement (AED M)</span>
+          <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Profit &amp; Loss Statement (₹ Cr)</span>
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
             <thead>
-              <tr style={{ background: '#1a3a6b' }}>
+              <tr style={{ background: '#f8fafc' }}>
                 <th style={{ ...TH_L, width: '24%' }}>Particulars</th>
                 <th style={TH}>Current Month<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>Apr 2024</span></th>
                 <th style={TH}>Previous Month<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>Mar 2024</span></th>
-                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(AED M)</span></th>
+                <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(₹ Cr)</span></th>
                 <th style={TH}>Variance<br /><span style={{ fontWeight: 400, opacity: 0.8 }}>(%)</span></th>
                 <th style={TH}>YTD (Apr 2024)</th>
                 <th style={TH}>YTD (Apr 2023)</th>
@@ -647,15 +652,15 @@ export default function PLAnalytics() {
               {scaledPL.bottom.rows.map(r => <PLRow key={r.label} row={r} indent />)}
 
               {/* Net Profit */}
-              <tr style={{ background: '#16a34a', fontWeight: 800 }}>
-                <td style={{ ...TD_L, color: '#fff', fontWeight: 800, fontSize: '0.82rem' }}>Net Profit</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(scaledPL.bottom.total.curr)}</td>
-                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(scaledPL.bottom.total.prev)}</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(scaledPL.bottom.total.varAmt).toFixed(2)}</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▼ {Math.abs(scaledPL.bottom.total.varPct).toFixed(2)}%</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 800 }}>{fmt(scaledPL.bottom.total.ytd)}</td>
-                <td style={{ ...TD_NUM, color: 'rgba(255,255,255,0.8)' }}>{fmt(scaledPL.bottom.total.ytdPY)}</td>
-                <td style={{ ...TD_NUM, color: '#fff', fontWeight: 700 }}>▲ {PL_STATEMENT.bottom.total.ytdVar.toFixed(2)}%</td>
+              <tr style={{ background: '#f0fdf4', fontWeight: 800 }}>
+                <td style={{ ...TD_L, color: C.green, fontWeight: 800, fontSize: '0.82rem' }}>Net Profit</td>
+                <td style={{ ...TD_NUM, color: C.green, fontWeight: 800 }}>{fmt(scaledPL.bottom.total.curr)}</td>
+                <td style={{ ...TD_NUM, color: C.green }}>{fmt(scaledPL.bottom.total.prev)}</td>
+                <td style={{ ...TD_NUM, color: C.rose, fontWeight: 700 }}>▼ {Math.abs(scaledPL.bottom.total.varAmt).toFixed(2)}</td>
+                <td style={{ ...TD_NUM, color: C.rose, fontWeight: 700 }}>▼ {Math.abs(scaledPL.bottom.total.varPct).toFixed(2)}%</td>
+                <td style={{ ...TD_NUM, color: C.green, fontWeight: 800 }}>{fmt(scaledPL.bottom.total.ytd)}</td>
+                <td style={{ ...TD_NUM, color: C.green }}>{fmt(scaledPL.bottom.total.ytdPY)}</td>
+                <td style={{ ...TD_NUM, color: C.green, fontWeight: 700 }}>▲ {PL_STATEMENT.bottom.total.ytdVar.toFixed(2)}%</td>
               </tr>
             </tbody>
           </table>
@@ -664,7 +669,7 @@ export default function PLAnalytics() {
 
       {/* ── Footer ── */}
       <div style={{ fontSize: '0.65rem', color: C.muted, display: 'flex', justifyContent: 'space-between', paddingTop: 8, flexWrap: 'wrap', gap: 4 }}>
-        <span>All values are in AED M &nbsp;|&nbsp; Data as on 30 Apr 2024</span>
+        <span>All values are in INR (₹ Cr) &nbsp;|&nbsp; Data as on 30 Apr 2024</span>
         <span>☁️ Source: Oracle Fusion Cloud</span>
       </div>
 

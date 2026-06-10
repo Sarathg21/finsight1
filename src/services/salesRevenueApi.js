@@ -621,7 +621,6 @@ function buildParams(filters = {}) {
     legal_entity:            active(filters.legalEntity),
     division_code:           active(filters.parentDiv),
     subdivision_code:        active(filters.subDiv),
-    business_unit:           active(filters.businessUnit),
     sales_person:            active(filters.salesman),          // backend field: sales_person
     invoice_currency:        active(filters.invoiceCurrency),
     // ── Customer / transaction filters (details endpoint) ───────
@@ -694,6 +693,19 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
  */
 export async function fetchFilters() {
   return apiCall('/api/sales-revenue/filters', { currency: 'AED' });
+}
+
+/**
+ * GET /api/sales-revenue/filter-options
+ * Cascading filter options
+ */
+export async function fetchFilterOptions(params = {}) {
+  const apiParams = {};
+  if (params.legalEntity && params.legalEntity !== 'All') apiParams.legal_entity = params.legalEntity;
+  if (params.parentDiv && params.parentDiv !== 'All') apiParams.parent_division = params.parentDiv;
+  if (params.subDiv && params.subDiv !== 'All') apiParams.subdivision = params.subDiv;
+  
+  return apiCall('/api/sales-revenue/filter-options', apiParams);
 }
 
 /* ── View-All Detail APIs (new endpoints) ──────────────────────── */

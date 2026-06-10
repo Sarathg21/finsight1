@@ -433,14 +433,14 @@ function KPICard({ label, value, change, up, icon, iconBg }) {
     >
       <div style={{
         position: 'absolute', top: 12, right: 12,
-        width: 34, height: 34, borderRadius: 8,
+        width: 38, height: 38, borderRadius: 8,
         background: iconBg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '1rem',
+        fontSize: '1.1rem',
       }}>{icon}</div>
-      <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600, marginBottom: 6, paddingRight: 40 }}>{label}</div>
-      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1a3a6b', marginBottom: 6, lineHeight: 1.2 }}>{value}</div>
-      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: up ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
+      <div style={{ fontSize: '0.66rem', color: '#64748b', fontWeight: 600, marginBottom: 6, paddingRight: 40, whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>{label}</div>
+      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a3a6b', marginBottom: 6, lineHeight: 1.2 }}>{value}</div>
+      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: up ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}>
         <span>{up ? '↑' : '↓'}</span>
         <span>{change}</span>
       </div>
@@ -470,12 +470,12 @@ function SparklineKPICard({ label, value, change, up, icon, iconBg, data, color 
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <div style={{
-            width: 34, height: 34, borderRadius: 8,
+            width: 38, height: 38, borderRadius: 8,
             background: iconBg,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1rem', marginBottom: 8,
+            fontSize: '1.1rem', marginBottom: 8,
           }}>{icon}</div>
-          <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 600 }}>{label}</div>
+          <div style={{ fontSize: '0.66rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>{label}</div>
           <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a3a6b', marginTop: 4 }}>{value}</div>
         </div>
       </div>
@@ -542,13 +542,12 @@ const dateInputStyle = {
 
 const th = {
   padding: '10px 14px', textAlign: 'left',
-  fontSize: '0.68rem', fontWeight: 700, color: '#64748b',
-  textTransform: 'uppercase', letterSpacing: '0.04em',
-  borderBottom: '1px solid #e2e8f0',
+  fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a',
+  borderBottom: '2px solid #e2e8f0',
   whiteSpace: 'nowrap',
 };
 
 const td = {
-  padding: '9px 14px',
-  fontSize: '0.78rem', color: '#334155',
+  padding: '8px 14px',
+  fontSize: '0.74rem', color: '#334155',
 };

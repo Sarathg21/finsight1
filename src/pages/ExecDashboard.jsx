@@ -293,7 +293,7 @@ function KPICard({ title, value, change, up }) {
       background: '#fff', borderRadius: 12, padding: '18px 20px',
       border: '1px solid #e8edfc', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
     }}>
-      <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <div style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, marginBottom: 6, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
         {title}
       </div>
       <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#0f172a', marginBottom: 4, letterSpacing: '-0.02em' }}>

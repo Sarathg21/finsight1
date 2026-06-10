@@ -244,11 +244,11 @@ export default function CFODashboard() {
             </p>
           </div>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
           <thead>
             <tr style={{ background: '#f8fafc' }}>
               {['Division', `Revenue (${currency})`, 'GP', 'GP %', 'YoY', 'Status'].map(h => (
-                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e2e8f0' }}>
+                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a', borderBottom: '2px solid #e2e8f0' }}>
                   {h}
                 </th>
               ))}
@@ -297,11 +297,11 @@ function KPICard({ label, value, varPct, sub, icon, accent, onClick, active }) {
     >
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: accent, borderRadius: '16px 16px 0 0' }} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
-        <span style={{ color: accent, opacity: 0.8 }}>{icon}</span>
+        <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#1e3a8a', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{label}</span>
+        <span style={{ color: accent, opacity: 0.8, fontSize: '1.1rem' }}>{icon}</span>
       </div>
-      <div style={{ fontSize: '1.45rem', fontWeight: 900, color: '#1e293b', letterSpacing: '-0.02em', marginBottom: 4 }}>{value}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 700 }}>
+      <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.01em', marginBottom: 6 }}>{value}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700 }}>
         <span style={{ color: positive ? '#10b981' : '#f43f5e' }}>
           {positive ? '▲' : '▼'} {Math.abs(varPct)}%
         </span>

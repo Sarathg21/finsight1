@@ -56,7 +56,7 @@ function StatCard({ icon: Icon, label, value, color, sub }) {
         <Icon size={20} style={{ color }} />
       </div>
       <div>
-        <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+        <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#1e3a8a', letterSpacing: '-0.02em', marginBottom: 4 }}>{label}</div>
         <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1e293b', lineHeight: 1 }}>{value}</div>
         {sub && <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 4 }}>{sub}</div>}
       </div>
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
           background: isAdmin ? '#d1fae5' : '#fee2e2',
           color:  isAdmin ? '#059669' : '#ef4444',
           border: `1px solid ${isAdmin ? '#a7f3d0' : '#fca5a5'}`,
-          fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase',
+          fontSize: '0.66rem', fontWeight: 700, letterSpacing: '-0.02em',
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
           {isAdmin ? <Unlock size={12} /> : <Lock size={12} />}
@@ -198,11 +198,11 @@ export default function AdminDashboard() {
             )}
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
                 {['User', 'Role', 'Tier', 'Data Scope', 'Export Rights', 'Can Manage', 'Allowed Pages'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                  <th key={h} style={{ padding: '10px 16px', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>
                     {h}
                   </th>
                 ))}
@@ -372,11 +372,11 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: '0.75rem', marginTop: 4 }}>Events are recorded as you use the system.</div>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
                     {['Timestamp', 'User', 'Role', 'Action', 'Page / Path', 'Details'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                      <th key={h} style={{ padding: '10px 16px', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a', textAlign: 'left', borderBottom: '2px solid #e2e8f0' }}>
                         {h}
                       </th>
                     ))}

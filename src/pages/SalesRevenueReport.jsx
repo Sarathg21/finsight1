@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
 import {
-  fetchFilters,
+  fetchFilterOptions,
   fetchDetails,
   fetchLegalEntityDetail,
   fetchParentDivisionDetail,
@@ -64,7 +64,6 @@ const DEFAULT_FILTERS = {
   legalEntity: 'All',
   parentDiv:   'All',
   subDiv:      'All',
-  businessUnit:'All',
   salesman:    'All',
   invoiceCurrency: 'AED',
   fromDate:    FIRST_DAY,
@@ -641,8 +640,8 @@ function KPIPendingCard({ label, icon, iconBg }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <div style={{
-            fontSize: '0.68rem', color: C.slate, fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6,
+            fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700,
+            letterSpacing: '-0.02em', marginBottom: 6,
           }}>{label}</div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
             background: '#fffbeb', border: '1px solid #fde68a',
@@ -735,20 +734,20 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         {/* Left: Icon */}
         <div style={{
-          width: 46, height: 46, borderRadius: '50%', background: iconBg,
+          width: 38, height: 38, borderRadius: '50%', background: iconBg,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.25rem', flexShrink: 0, color: accent,
+          fontSize: '1.1rem', flexShrink: 0, color: accent,
         }}>{icon}</div>
 
         {/* Right: Label and Value */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
           <span style={{
-            fontSize: '0.72rem', fontWeight: 700, color: accent,
-            lineHeight: 1.2, minHeight: '2.4em', display: 'block',
-            whiteSpace: 'pre-line'
+            fontSize: '0.66rem', fontWeight: 700, color: accent,
+            lineHeight: 1.2, display: 'block',
+            whiteSpace: 'nowrap', letterSpacing: '-0.02em'
           }}>{label}</span>
           
           {loading ? (
@@ -757,8 +756,8 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
             <span style={{ fontSize: '0.72rem', color: C.rose }}>Error</span>
           ) : (
             <div style={{
-              fontSize: numericValue !== null ? '1.25rem' : '0.95rem',
-              fontWeight: 800, color: '#1e293b', lineHeight: 1.25,
+              fontSize: numericValue !== null ? '1.1rem' : '0.9rem',
+              fontWeight: 800, color: '#1e293b', lineHeight: 1.2,
               letterSpacing: '-0.01em',
               wordBreak: 'break-word',
             }}>
@@ -774,8 +773,9 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
       ) : (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 4,
-          fontSize: '0.65rem', fontWeight: 700, marginTop: 8, paddingLeft: 60,
+          fontSize: '0.62rem', fontWeight: 700, marginTop: 6, paddingLeft: 48,
           color: up === true ? C.green : up === false ? C.rose : '#64748b',
+          whiteSpace: 'nowrap'
         }}>
           {up === true && <span>▲</span>}
           {up === false && <span>▼</span>}
@@ -915,8 +915,8 @@ function FilterField({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110, flex: '1 1 auto' }}>
       <span style={{
-        fontSize: '0.62rem', color: C.muted, fontWeight: 700,
-        textTransform: 'uppercase', letterSpacing: '0.05em',
+        fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700,
+        letterSpacing: '-0.02em',
       }}>{label}</span>
       {children}
     </div>
@@ -936,17 +936,17 @@ function headerBtn(bg, color, border) {
 
 /* ─── Table Styles ──────────────────────────────────────────────── */
 const TH = {
-  padding: '8px 10px', fontSize: '0.62rem', fontWeight: 700, color: C.slate,
-  textTransform: 'uppercase', letterSpacing: '0.04em',
-  borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap',
+  padding: '10px 16px', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a',
+  background: '#f8fafc',
+  borderBottom: `2px solid #e2e8f0`, whiteSpace: 'nowrap',
 };
-const TD = { padding: '7px 10px', fontSize: '0.73rem', color: '#334155' };
+const TD = { padding: '8px 16px', fontSize: '0.74rem', color: '#334155' };
 const TH_LG = {
-  padding: '6px 10px', fontSize: '0.58rem', fontWeight: 700, color: C.slate,
-  textTransform: 'uppercase', letterSpacing: '0.03em',
-  borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap',
+  padding: '10px 16px', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a',
+  background: '#f8fafc',
+  borderBottom: `2px solid #e2e8f0`, whiteSpace: 'nowrap',
 };
-const TD_LG = { padding: '5px 10px', fontSize: '0.70rem', color: '#334155' };
+const TD_LG = { padding: '8px 16px', fontSize: '0.74rem', color: '#334155' };
 
 /* ─── Axis Number Formatter ─────────────────────────────────────── */
 const fmtAxisNum = (v) => {
@@ -974,7 +974,6 @@ export default function SalesRevenueReport() {
     legalEntities:  ['All'],
     parentDivs:     ['All'],
     subDivs:        ['All'],
-    businessUnits:  ['All'],
     salesmen:       ['All'],
     invoiceCurrencies: ['AED'],
   });
@@ -1036,26 +1035,31 @@ export default function SalesRevenueReport() {
     }
   }, [navigate]);
 
-  /* ── Load filter options ──────────────────────────────────────── */
+  /* ── Load filter options (Cascading) ─────────────────────────── */
   useEffect(() => {
-    fetchFilters()
+    setLoading(prev => ({ ...prev, filters: true }));
+    fetchFilterOptions({
+      legalEntity: filters.legalEntity,
+      parentDiv: filters.parentDiv,
+      subDiv: filters.subDiv
+    })
       .then(data => {
-        setFilterOptions({
+        setFilterOptions(prev => ({
+          ...prev,
           legalGroups:   ['All', ...(data.legal_groups   || [])],
           legalEntities: ['All', ...(data.legal_entities || [])],
           parentDivs:    ['All', ...(data.parent_divisions || [])],
           subDivs:       ['All', ...(data.sub_divisions  || [])],
-          businessUnits: ['All', ...(data.business_units || [])],
           salesmen:      ['All', ...(data.salesmen        || [])],
-          invoiceCurrencies: [...(data.currencies || data.invoice_currencies || ['AED'])],
-        });
+          invoiceCurrencies: ['AED', ...(data.currencies || data.invoice_currencies || []).filter(c => c !== 'AED')],
+        }));
       })
       .catch(err => {
         handle401(err);
         setErrors(prev => ({ ...prev, filters: err.message || 'Failed to load filter options' }));
       })
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
-  }, [handle401]);
+  }, [filters.legalEntity, filters.parentDiv, filters.subDiv, handle401]);
 
   /* ── Fetch details page ───────────────────────────────────────── */
   const fetchDetailsPage = useCallback((f, page) => {
@@ -1370,7 +1374,22 @@ export default function SalesRevenueReport() {
     setFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
   };
-  const updateFilter = (key, val) => setFilters(prev => ({ ...prev, [key]: val }));
+  const updateFilter = (key, val) => {
+    setFilters(prev => {
+      const next = { ...prev, [key]: val };
+      if (key === 'legalEntity') {
+        next.parentDiv = 'All';
+        next.subDiv = 'All';
+        next.salesman = 'All';
+      } else if (key === 'parentDiv') {
+        next.subDiv = 'All';
+        next.salesman = 'All';
+      } else if (key === 'subDiv') {
+        next.salesman = 'All';
+      }
+      return next;
+    });
+  };
 
   /* ── Derived KPI values from /summary ─────────────────────────── */
   // Revenue
@@ -1613,12 +1632,6 @@ export default function SalesRevenueReport() {
             </select>
           </FilterField>
 
-          <FilterField label="Business Unit">
-            <select id="filter-business-unit" style={selStyle} value={filters.businessUnit} onChange={e => updateFilter('businessUnit', e.target.value)}>
-              {filterOptions.businessUnits.map(o => <option key={o}>{o}</option>)}
-            </select>
-          </FilterField>
-
           <FilterField label="Salesman">
             <select id="filter-salesman" style={selStyle} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
               {filterOptions.salesmen.map((o, idx) => {
@@ -1668,7 +1681,7 @@ export default function SalesRevenueReport() {
 
           {/* 1. Total Sales (MTD) */}
           <KPICard
-            label={"Total Sales\n(MTD)"}
+            label={"Total Sales (MTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
             changeLabel="vs Mar 2024"
@@ -1685,7 +1698,7 @@ export default function SalesRevenueReport() {
 
           {/* 2. Sales (YTD) */}
           <KPICard
-            label={"Sales\n(YTD)"}
+            label={"Sales (YTD)"}
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
             changeLabel="vs YTD Apr 2023"
@@ -1702,7 +1715,7 @@ export default function SalesRevenueReport() {
 
           {/* 3. Gross Profit (MTD) */}
           <KPICard
-            label={"Gross Profit\n(MTD)"}
+            label={"Gross Profit (MTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
             changeLabel="vs Mar 2024"
@@ -1934,29 +1947,29 @@ export default function SalesRevenueReport() {
             {loading.topCustomers ? (
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : topCustomersData.length > 0 ? (
-              <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                  <thead style={{ background: '#f4f7fa', color: C.navy, borderBottom: `2px solid ${C.border}` }}>
+              <div style={{ flex: 1, overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
+                  <thead style={{ background: '#f8fafc', color: '#1e3a8a', borderBottom: `2px solid ${C.border}` }}>
                     <tr>
-                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>Customer Name</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>Sales (AED)</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>% Contribution</th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>Customer Name</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>Sales (AED)</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>% Contribution</th>
                     </tr>
                   </thead>
                   <tbody>
                     {topCustomersData.slice(0, 10).map((c, i) => (
                       <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
-                        <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'left', color: C.navy, fontWeight: 500, maxWidth: 170, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={c.name}>{c.name}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate }}>{Number(c.value).toLocaleString('en-AE')}</td>
-                        <td style={{ padding: '8px 16px', textAlign: 'center', color: C.slate }}>{c.pct != null ? `${Number(c.pct).toFixed(2)}%` : '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, whiteSpace: 'nowrap' }} title={c.name}>{c.name}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{Number(c.value).toLocaleString('en-AE')}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{c.pct != null ? `${Number(c.pct).toFixed(2)}%` : '—'}</td>
                       </tr>
                     ))}
-                    <tr style={{ background: '#f4f7fa', fontWeight: 800, color: C.navy }}>
-                      <td colSpan={2} style={{ padding: '6px 8px', textAlign: 'center' }}>Total</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.value || 0), 0).toLocaleString('en-AE')}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.pct || 0), 0).toFixed(2)}%</td>
+                    <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#1e3a8a' }}>
+                      <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>Total</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.value || 0), 0).toLocaleString('en-AE')}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.pct || 0), 0).toFixed(2)}%</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1975,14 +1988,14 @@ export default function SalesRevenueReport() {
             {loading.salesmanSummary ? (
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : salesmanSummaryData.length > 0 ? (
-              <div style={{ overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                  <thead style={{ background: '#f4f7fa', color: C.navy, borderBottom: `2px solid ${C.border}` }}>
+              <div style={{ flex: 1, overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
+                  <thead style={{ background: '#f8fafc', color: '#1e3a8a', borderBottom: `2px solid ${C.border}` }}>
                     <tr>
-                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 700 }}>Salesman</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>Sales (AED)</th>
-                      <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}>% Contribution</th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>Salesman</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>Sales (AED)</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>% Contribution</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1990,17 +2003,17 @@ export default function SalesRevenueReport() {
                       const name = c.salesman || c.sales_person || c.salesman_name || 'Unknown';
                       return (
                         <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
-                          <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
-                          <td style={{ padding: '4px 8px', textAlign: 'left', color: C.navy, fontWeight: 500, maxWidth: 160, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={name}>{name}</td>
-                          <td style={{ padding: '4px 8px', textAlign: 'center', color: C.slate }}>{Number(c.sales_aed).toLocaleString('en-AE')}</td>
-                          <td style={{ padding: '8px 16px', textAlign: 'center', color: C.slate }}>{c.percentage != null ? `${Number(c.percentage).toFixed(2)}%` : '—'}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, whiteSpace: 'nowrap' }} title={name}>{name}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{Number(c.sales_aed).toLocaleString('en-AE')}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{c.percentage != null ? `${Number(c.percentage).toFixed(2)}%` : '—'}</td>
                         </tr>
                       );
                     })}
-                    <tr style={{ background: '#f4f7fa', fontWeight: 800, color: C.navy }}>
-                      <td colSpan={2} style={{ padding: '6px 8px', textAlign: 'center' }}>Total</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0).toLocaleString('en-AE')}</td>
-                      <td style={{ padding: '6px 8px', textAlign: 'center' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.percentage) || 0), 0).toFixed(2)}%</td>
+                    <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#1e3a8a' }}>
+                      <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>Total</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0).toLocaleString('en-AE')}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.percentage) || 0), 0).toFixed(2)}%</td>
                     </tr>
                   </tbody>
                 </table>
@@ -2109,27 +2122,27 @@ export default function SalesRevenueReport() {
             };
 
             const TH_S = {
-              background: '#eef2ff',
-              fontSize: '0.78rem',
-              padding: '11px 10px',
+              background: '#f8fafc',
+              fontSize: '0.74rem',
+              padding: '10px 10px',
               fontWeight: 700,
-              color: '#312e81',
+              color: '#1e3a8a',
               textAlign: 'center',
-              borderBottom: '2px solid #c7d2fe',
+              borderBottom: '2px solid #e2e8f0',
               fontFamily: "'Inter', system-ui, sans-serif",
             };
             const TD_S = {
-              fontSize: '0.76rem', padding: '9px 10px',
-              color: '#1e293b', fontWeight: 400, textAlign: 'center',
+              fontSize: '0.74rem', padding: '8px 10px',
+              color: '#334155', fontWeight: 500, textAlign: 'center',
               fontFamily: "'Inter', system-ui, sans-serif",
               borderBottom: '1px solid #f1f5f9',
             };
             const TD_FOOT = {
               ...TD_S,
-              color: '#1e1b4b',
-              fontWeight: 700,
-              background: '#eef2ff',
-              borderTop: '2px solid #c7d2fe',
+              color: '#1e3a8a',
+              fontWeight: 800,
+              background: '#f8fafc',
+              borderTop: '2px solid #e2e8f0',
               borderBottom: 'none',
             };
 

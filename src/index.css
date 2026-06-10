@@ -323,20 +323,18 @@ table {
 
 thead th {
   background: #f8fafc;
-  padding: 14px 20px;
+  padding: 10px 16px;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--clr-border);
+  color: #1e3a8a;
+  border-bottom: 2px solid #e2e8f0;
 }
 
 tbody td {
-  padding: 16px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid #f1f5f9;
-  font-size: 0.9rem;
+  font-size: 0.74rem;
   color: #334155;
 }
 

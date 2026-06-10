@@ -268,7 +268,7 @@ export function AuthProvider({ children }) {
       exportRights:   demoMatch?.exportRights || 'controlled',
       canManageUsers: demoMatch?.canManageUsers ?? false,
       defaultPage:    demoMatch?.defaultPage || '/dashboard',
-      allowedPages:   demoMatch?.allowedPages || ['dashboard', 'revenue'],
+      allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || ['dashboard', 'revenue', 'pl', '*'],
     };
 
     // NOTE: Do NOT call completeLogin here.

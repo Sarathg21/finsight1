@@ -159,7 +159,7 @@ export default function WCDashboard() {
           <div style={{ flex: '1 1 280px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {INVENTORY_AGING.map((item, idx) => (
               <div key={idx} style={{ padding: '12px 16px', borderRadius: '10px', background: 'var(--clr-surface-2)', border: '1px solid var(--clr-border)' }}>
-                <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>{item.bucket}</div>
+                <div style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, marginBottom: 4, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{item.bucket}</div>
                 <div style={{ fontSize: '1rem', fontWeight: 900, color: idx >= 3 ? 'var(--clr-rose)' : 'var(--clr-text)' }}>AED {item.amount}M</div>
                 <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-dim)', marginTop: 2 }}>{item.pct}% of total</div>
               </div>
