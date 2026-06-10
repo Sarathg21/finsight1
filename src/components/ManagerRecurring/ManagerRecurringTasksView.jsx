@@ -51,14 +51,47 @@ const formatTriggerDate = (branch) => {
     return '—';
 };
 
-// Due date = start_date + due_in_days
+// Due date = trigger date of the current recurrence cycle + due_in_days
 const computeDueDate = (branch) => {
-    const startRaw = branch.start_date;
     const dueInDays = Number(branch.due_in_days);
-    if (!startRaw || !Number.isFinite(dueInDays) || dueInDays < 0) return '—';
-    const iso = String(startRaw).trim().slice(0, 10);
-    const base = new Date(iso);
-    if (Number.isNaN(base.getTime())) return '—';
+    if (!Number.isFinite(dueInDays) || dueInDays < 0) return '—';
+
+    const freq = String(branch.frequency || '').toUpperCase();
+    const now = new Date();
+    let base;
+
+    if (freq === 'MONTHLY') {
+        const triggerDay = Number(branch.monthly_day);
+        if (!triggerDay) return '—';
+        // Use the trigger day in the current month; if it hasn't occurred yet this month keep
+        // it in the current month, otherwise advance to next month.
+        const candidate = new Date(now.getFullYear(), now.getMonth(), triggerDay);
+        base = candidate > now
+            ? candidate
+            : new Date(now.getFullYear(), now.getMonth(), triggerDay);
+    } else if (freq === 'WEEKLY') {
+        const triggerDow = Number(branch.weekly_day); // 1=Mon … 7=Sun
+        if (!triggerDow) return '—';
+        // ISO weekday: getDay() returns 0=Sun … 6=Sat; convert to 1=Mon … 7=Sun
+        const todayDow = now.getDay() === 0 ? 7 : now.getDay();
+        const diff = ((triggerDow - todayDow) % 7 + 7) % 7;
+        base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+    } else if (freq === 'YEARLY') {
+        const triggerMonth = Number(branch.yearly_month); // 1=Jan … 12=Dec
+        const triggerDay = Number(branch.yearly_day);
+        if (!triggerMonth || !triggerDay) return '—';
+        // Use this year's occurrence; if already past, use next year
+        let candidate = new Date(now.getFullYear(), triggerMonth - 1, triggerDay);
+        if (candidate < now) candidate = new Date(now.getFullYear() + 1, triggerMonth - 1, triggerDay);
+        base = candidate;
+    } else {
+        // Fallback: use start_date if frequency is not recognised
+        const startRaw = branch.start_date;
+        if (!startRaw) return '—';
+        base = new Date(String(startRaw).trim().slice(0, 10));
+        if (Number.isNaN(base.getTime())) return '—';
+    }
+
     base.setDate(base.getDate() + dueInDays);
     return base.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
