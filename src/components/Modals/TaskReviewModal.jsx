@@ -160,8 +160,8 @@ const TaskReviewModal = ({ isOpen, onClose, onApprove, onRework, task }) => {
                                         <div key={i} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm hover:border-violet-200 transition-all">
                                             <div className="flex items-center gap-2 min-w-0">
                                                 <Paperclip size={14} className="text-slate-400" />
-                                                <span className="text-[12px] font-bold text-slate-600 truncate max-w-[180px]">
-                                                    {file.filename || file.name || 'document'}
+                                                <span className="text-[12px] font-bold text-slate-600 truncate max-w-[180px]" title={typeof file === 'string' ? file : JSON.stringify(file)}>
+                                                    {typeof file === 'string' ? file.split('/').pop() : (file.original_name || file.file_name || file.original_filename || file.filename || file.name || 'document')}
                                                 </span>
                                             </div>
                                             <div className="flex items-center gap-1">
