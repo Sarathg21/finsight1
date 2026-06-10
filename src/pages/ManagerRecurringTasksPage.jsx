@@ -47,6 +47,8 @@ const buildBranchRecord = ({
     monthly_day = null,
     yearly_month = null,
     yearly_day = null,
+    task_trigger_date = '',
+    calculated_due_date = '',
     raw = {},
 }) => {
     if (!recurring_id || !subtask_template_id) return null;
@@ -66,6 +68,8 @@ const buildBranchRecord = ({
         yearly_day,
         is_active: is_active !== false,
         active_action_count,
+        task_trigger_date: task_trigger_date || '',
+        calculated_due_date: calculated_due_date || '',
         child_description: raw.subtask_description ?? raw.child_description ?? raw.description ?? '',
         raw,
     };
@@ -124,6 +128,8 @@ const mapManagerBranchRow = (row) => {
             row.action_template_count ??
             row.employee_action_count ??
             null,
+        task_trigger_date: row.task_trigger_date || '',
+        calculated_due_date: row.calculated_due_date || '',
         raw: row,
     });
 };
@@ -262,6 +268,8 @@ const ManagerRecurringTasksPage = () => {
             monthly_day: searchParams.get('monthly_day') ? Number(searchParams.get('monthly_day')) : null,
             yearly_month: searchParams.get('yearly_month') ? Number(searchParams.get('yearly_month')) : null,
             yearly_day: searchParams.get('yearly_day') ? Number(searchParams.get('yearly_day')) : null,
+            task_trigger_date: searchParams.get('task_trigger_date') || '',
+            calculated_due_date: searchParams.get('calculated_due_date') || '',
             raw: { child_description: searchParams.get('child_description') || searchParams.get('subtask_description') || '' },
         });
     };

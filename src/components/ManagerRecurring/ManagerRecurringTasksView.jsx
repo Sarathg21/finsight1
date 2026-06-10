@@ -27,6 +27,7 @@ const formatDate = (value) => {
 };
 
 // Human-readable label for the task trigger date (day within the recurrence cycle)
+// DEPRECATED: Use backend-provided task_trigger_date instead for current active cycle dates
 const formatTriggerDate = (branch) => {
     const freq = String(branch.frequency || '').toUpperCase();
     if (freq === 'WEEKLY') {
@@ -51,7 +52,8 @@ const formatTriggerDate = (branch) => {
     return '—';
 };
 
-// Due date = trigger date of the current recurrence cycle + due_in_days
+// Due date = start_date + due_in_days
+// DEPRECATED: Use backend-provided calculated_due_date instead for current active cycle dates
 const computeDueDate = (branch) => {
     const dueInDays = Number(branch.due_in_days);
     if (!Number.isFinite(dueInDays) || dueInDays < 0) return '—';
@@ -345,8 +347,8 @@ const ManagerRecurringTasksView = ({
                                             <td className="px-3 py-3 text-slate-600 uppercase text-xs">{branch.frequency || '—'}</td>
                                             <td className="px-3 py-3 text-slate-600">{branch.due_in_days ?? 0}</td>
                                             <td className="px-3 py-3"><StatusBadge active={branch.is_active} /></td>
-                                            <td className="px-3 py-3 text-slate-600 text-xs">{formatTriggerDate(branch)}</td>
-                                            <td className="px-3 py-3 text-slate-600 text-xs">{computeDueDate(branch)}</td>
+                                            <td className="px-3 py-3 text-slate-600 text-xs">{formatDate(branch.task_trigger_date)}</td>
+                                            <td className="px-3 py-3 text-slate-600 text-xs">{formatDate(branch.calculated_due_date)}</td>
                                             <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
                                                 <button type="button" onClick={() => onViewBranch(branch)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-blue-600" title="View branch">
                                                     <Eye size={16} />
@@ -488,8 +490,8 @@ const ManagerRecurringTasksView = ({
                         <div><dt className="text-slate-500">Child branch</dt><dd>{viewBranch.child_title}</dd></div>
                         <div><dt className="text-slate-500">Frequency</dt><dd>{viewBranch.frequency || '—'}</dd></div>
                         <div><dt className="text-slate-500">Due in (days)</dt><dd>{viewBranch.due_in_days ?? '—'}</dd></div>
-                        <div><dt className="text-slate-500">Task Trigger Date</dt><dd>{formatTriggerDate(viewBranch)}</dd></div>
-                        <div><dt className="text-slate-500">Due Date</dt><dd>{computeDueDate(viewBranch)}</dd></div>
+                        <div><dt className="text-slate-500">Task Trigger Date</dt><dd>{formatDate(viewBranch.task_trigger_date)}</dd></div>
+                        <div><dt className="text-slate-500">Due Date</dt><dd>{formatDate(viewBranch.calculated_due_date)}</dd></div>
                         {viewBranch.child_description && (
                             <div><dt className="text-slate-500">Description</dt><dd className="whitespace-pre-wrap mt-0.5">{viewBranch.child_description}</dd></div>
                         )}
