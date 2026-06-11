@@ -1,11 +1,11 @@
-import { Search, Bell, LogOut, Calendar, Globe } from 'lucide-react';
+import { Menu, Search, Bell, LogOut, Calendar, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 
 const PAGE_TITLES = {
   '/dashboard':           { title: 'CFO Dashboard',              sub: 'Executive financial command centre' },
   '/exec-dashboard':      { title: 'Exec Finance Dashboard',     sub: 'Enterprise financial overview across all divisions' },
-  '/finsight-dashboard':  { title: 'Executive Dashboard',        sub: 'Comprehensive overview of your financial performance' },
+  '/finsight-dashboard':  { title: 'Executive Dashboard',        sub: 'Comprehensive financial performance overview' },
   '/pl':                  { title: 'Profit & Loss Report',       sub: 'Income statement analysis' },
   '/ar':                  { title: 'Receivables Aging',          sub: 'AR aging & collection tracking' },
   '/ap':                  { title: 'Payables Aging',             sub: 'AP aging & cash planning' },
@@ -32,77 +32,96 @@ export default function Topbar({ onToggleSidebar }) {
       <button
         className="btn-icon"
         onClick={onToggleSidebar}
-        style={{ marginRight: '8px' }}
         id="sidebar-toggle-btn"
+        aria-label="Toggle sidebar"
+        style={{ flexShrink: 0 }}
       >
-        <div style={{ width: '20px', height: '2px', background: 'currentColor', marginBottom: '4px' }} />
-        <div style={{ width: '20px', height: '2px', background: 'currentColor', marginBottom: '4px' }} />
-        <div style={{ width: '20px', height: '2px', background: 'currentColor' }} />
+        <Menu size={18} />
       </button>
 
-      <div className="topbar-title" style={{ lineHeight: 1.25 }}>
-        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--clr-text)' }}>{page.title}</div>
-        <div style={{ fontSize: '0.63rem', color: 'var(--clr-text-muted)', fontWeight: 400 }}>{page.sub}</div>
+      {/* Page title */}
+      <div className="topbar-title">
+        <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--clr-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {page.title}
+        </div>
+        <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-dim)', fontWeight: 400, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {page.sub}
+        </div>
       </div>
 
       <div className="topbar-actions">
-        {/* Global filters pill */}
-        <div className="flex items-center gap-3" style={{
-          background: 'var(--clr-surface)', padding: '4px 12px',
-          borderRadius: 'var(--radius-full)', border: '1px solid var(--clr-border)',
-        }}>
-          <div className="flex items-center gap-2">
-            <Calendar size={14} style={{ color: 'var(--clr-primary)' }} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>FY 2026</span>
+        {/* Context pill — FY + Entity */}
+        <div
+          className="hide-on-tablet"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'var(--clr-surface-2)',
+            padding: '5px 12px', borderRadius: 'var(--radius-full)',
+            border: '1px solid var(--clr-border)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Calendar size={12} style={{ color: 'var(--clr-primary)' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>FY 2026</span>
           </div>
-          <div className="filter-divider" style={{ height: '12px' }} />
-          <div className="flex items-center gap-2">
-            <Globe size={14} style={{ color: 'var(--clr-emerald)' }} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>All Entities</span>
+          <div className="filter-divider" style={{ height: 12, margin: 0 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Globe size={12} style={{ color: 'var(--clr-emerald)' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>All Entities</span>
           </div>
         </div>
 
-        <div className="filter-divider" />
+        <div className="filter-divider hide-on-tablet" />
 
-        <div style={{ position: 'relative' }}>
-          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--clr-text-dim)' }} />
+        {/* Search */}
+        <div className="search-wrap hide-on-tablet">
+          <Search size={14} className="search-icon" />
           <input
             type="text"
-            placeholder="Search reports, entities..."
-            className="filter-input"
-            style={{ paddingLeft: '38px', width: '220px', background: 'var(--clr-surface-2)' }}
+            placeholder="Search reports…"
+            className="search-input"
+            aria-label="Search"
           />
         </div>
 
-        <button className="btn-icon" style={{ position: 'relative' }}>
-          <Bell size={18} />
-          <span style={{ position: 'absolute', top: '6px', right: '6px', width: '8px', height: '8px', background: 'var(--clr-rose)', borderRadius: '50%', border: '2px solid var(--clr-bg-2)' }} />
+        {/* Bell */}
+        <button className="btn-icon" style={{ position: 'relative' }} aria-label="Notifications">
+          <Bell size={16} />
+          <span
+            className="live-dot"
+            style={{ position: 'absolute', top: 7, right: 7, width: 6, height: 6, border: '1.5px solid var(--clr-surface)' }}
+          />
         </button>
 
         <div className="filter-divider" />
 
-        <div className="flex items-center gap-3" style={{ paddingLeft: '8px' }}>
-          {/* Avatar circle */}
+        {/* User */}
+        <div className="user-menu-wrap">
           <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: 'linear-gradient(135deg,#7c3aed,#4f46e5)',
+            width: 30, height: 30, borderRadius: '50%',
+            background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.65rem', fontWeight: 800, color: '#fff', flexShrink: 0,
+            fontSize: '0.62rem', fontWeight: 800, color: '#fff', flexShrink: 0,
+            boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
           }}>
             {user?.avatar || '?'}
           </div>
-          <div className="text-right">
-            <div style={{ fontSize: '0.8rem', fontWeight: 700 }}>{user?.name}</div>
-            <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-muted)' }}>{user?.roleLabel}</div>
+          <div className="hide-on-tablet" style={{ lineHeight: 1.25 }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-text)', whiteSpace: 'nowrap' }}>
+              {user?.name || 'Zenith User'}
+            </div>
+            <div style={{ fontSize: '0.6rem', color: 'var(--clr-text-dim)', fontWeight: 400, whiteSpace: 'nowrap' }}>
+              {user?.roleLabel || 'User'}
+            </div>
           </div>
           <button
-            className="btn-icon"
+            className="btn-icon btn-icon-danger"
             onClick={logout}
-            style={{ color: 'var(--clr-rose)', borderColor: 'rgba(244,63,94,0.2)' }}
             title="Logout"
             id="logout-btn"
+            aria-label="Logout"
           >
-            <LogOut size={18} />
+            <LogOut size={14} />
           </button>
         </div>
       </div>

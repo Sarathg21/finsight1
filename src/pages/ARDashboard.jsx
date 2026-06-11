@@ -4,13 +4,13 @@ import {
   Cell, Legend, LineChart, Line 
 } from 'recharts';
 import { 
-  Briefcase, Users, Clock, CheckCircle2, AlertCircle, Download, 
-  Filter, Search, ArrowRight, ChevronRight, Mail, Phone, TrendingUp
+  Briefcase, Clock, CheckCircle2, AlertCircle, Download, 
+  Search, ArrowRight, Mail, TrendingUp
 } from 'lucide-react';
 import { 
-  AR_AGING, SALESMAN_PERFORMANCE, KPI_SUMMARY, 
-  COUNTRIES, DIVISIONS, COLLECTIONS_TREND 
+  AR_AGING, SALESMAN_PERFORMANCE, KPI_SUMMARY, COLLECTIONS_TREND 
 } from '../data/masterData';
+import { TOOLTIP_STYLE } from '../utils/theme';
 
 export default function ARDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,7 +68,7 @@ export default function ARDashboard() {
         />
       </div>
 
-      <div className="charts-grid charts-grid-2">
+      <div className="charts-grid-2" style={{ gap: 16, marginBottom: 20 }}>
         {/* Aging Bucket Chart */}
         <div className="card">
           <div className="card-header">
@@ -78,13 +78,10 @@ export default function ARDashboard() {
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
               <BarChart data={AR_AGING} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="bucket" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={90} />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                  contentStyle={{ backgroundColor: '#131929', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                />
+                <YAxis dataKey="bucket" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} width={90} />
+                <Tooltip {...TOOLTIP_STYLE} />
                 <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
                   {AR_AGING.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={
@@ -115,15 +112,13 @@ export default function ARDashboard() {
           <div style={{ width: '100%', height: 335 }}>
             <ResponsiveContainer>
               <LineChart data={COLLECTIONS_TREND}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-                <Tooltip 
-                   contentStyle={{ backgroundColor: '#131929', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                <Line type="monotone" dataKey="collected" name="Collected" stroke="var(--clr-emerald)" strokeWidth={3} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="target" name="Target" stroke="var(--clr-text-dim)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <Tooltip {...TOOLTIP_STYLE} />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px', color: '#64748b' }} />
+                <Line type="monotone" dataKey="collected" name="Collected" stroke="var(--clr-emerald)" strokeWidth={2.5} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="target" name="Target" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

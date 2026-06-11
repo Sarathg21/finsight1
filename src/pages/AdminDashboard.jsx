@@ -47,11 +47,7 @@ const SCOPE_DISPLAY = (scope) => {
 // ── stat card ──────────────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color, sub }) {
   return (
-    <div style={{
-      background: '#fff', borderRadius: 16, padding: '20px 24px',
-      border: '1px solid #e2e8f0', display: 'flex', alignItems: 'flex-start', gap: 16,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-    }}>
+    <div className="card" style={{ padding: '20px 24px', flex: 1, display: 'flex', alignItems: 'flex-start', gap: 16 }}>
       <div style={{ width: 44, height: 44, borderRadius: 12, background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={20} style={{ color }} />
       </div>
@@ -185,7 +181,7 @@ export default function AdminDashboard() {
 
       {/* ── TAB: Users ── */}
       {tab === 'users' && (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '18px 24px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#1e293b' }}>
               Role Directory · <span style={{ color: '#94a3b8', fontWeight: 500 }}>{DEMO_USERS.length} users</span>
@@ -198,6 +194,7 @@ export default function AdminDashboard() {
             )}
           </div>
 
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
             <thead>
               <tr style={{ background: '#f8fafc' }}>
@@ -273,6 +270,7 @@ export default function AdminDashboard() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
@@ -364,7 +362,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Log table */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             {filteredLog.length === 0 ? (
               <div style={{ padding: '60px', textAlign: 'center', color: '#94a3b8' }}>
                 <Activity size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
@@ -372,6 +370,7 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: '0.75rem', marginTop: 4 }}>Events are recorded as you use the system.</div>
               </div>
             ) : (
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc' }}>
@@ -420,6 +419,7 @@ export default function AdminDashboard() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

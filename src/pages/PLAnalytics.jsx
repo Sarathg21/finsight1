@@ -4,25 +4,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 
-/* ─── Color Palette ────────────────────────────────────────────── */
-const C = {
-  navy:    '#1a3a6b',
-  blue:    '#2563eb',
-  blue2:   '#3b82f6',
-  green:   '#16a34a',
-  green2:  '#22c55e',
-  orange:  '#f59e0b',
-  purple:  '#7c3aed',
-  primary: '#5138ed',
-  cyan:    '#0891b2',
-  rose:    '#e11d48',
-  teal:    '#0d9488',
-  slate:   '#64748b',
-  muted:   '#94a3b8',
-  bg:      '#f1f5fb',
-  surface: '#ffffff',
-  border:  '#e2e8f0',
-};
+import { C } from '../utils/theme';
 
 /* ─── Sparkline data ───────────────────────────────────────────── */
 const SP_REV    = [85,90,95,100,105,108,112,118,120,123,126,125.75];
@@ -445,7 +427,7 @@ export default function PLAnalytics() {
   }), [scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="animate-in" style={{ padding: '20px 24px 32px', fontFamily: "'Inter', system-ui, sans-serif", background: C.bg, minHeight: '100%' }}>
+    <div className="animate-in" style={{ padding: '20px 24px 32px', background: C.bg, minHeight: '100%' }}>
 
       {/* ── Page Header ── */}
       <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
@@ -471,7 +453,7 @@ export default function PLAnalytics() {
       </div>
 
       {/* ── Filter Bar ── */}
-      <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
         <FilterField label="Legal Group">
           <select id="filter-pl-legal-group" style={selStyle} value={legalGroup} onChange={e => setLegalGroup(e.target.value)}>
             {['FJ Group (Consolidated)', 'Group A', 'Group B'].map(o => <option key={o}>{o}</option>)}
@@ -508,15 +490,15 @@ export default function PLAnalytics() {
       </div>
 
       {/* ── KPI Infolets (6 columns) ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div className="grid-cols-6" style={{ marginBottom: 16 }}>
         {KPI_CARDS.map(kpi => <KPICard key={kpi.id} {...kpi} />)}
       </div>
 
       {/* ── Charts Row ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 16 }}>
+      <div className="grid-cols-3" style={{ marginBottom: 16 }}>
 
         {/* P&L Trend */}
-        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+        <div className="card" style={{ padding: '16px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Trend (₹ Cr) ⓘ</div>
@@ -545,7 +527,7 @@ export default function PLAnalytics() {
         </div>
 
         {/* P&L Comparison */}
-        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+        <div className="card" style={{ padding: '16px 18px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
             <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>P&amp;L Comparison (₹ Cr)</div>
             <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: '1.1rem' }}>⋮</button>
@@ -572,7 +554,7 @@ export default function PLAnalytics() {
         </div>
 
         {/* Expense Breakdown donut */}
-        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+        <div className="card" style={{ padding: '16px 18px' }}>
           <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 8 }}>Expense Breakdown (MTD)</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ flex: '0 0 140px' }}>
@@ -605,7 +587,7 @@ export default function PLAnalytics() {
       </div>
 
       {/* ── P&L Statement Table ── */}
-      <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', marginBottom: 8 }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 8 }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)' }}>
           <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Profit &amp; Loss Statement (₹ Cr)</span>
         </div>

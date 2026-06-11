@@ -3,13 +3,12 @@ import {
   AreaChart, Area, Legend, Cell 
 } from 'recharts';
 import { 
-  Activity, Wallet, Landmark, ArrowUpRight, ArrowDownRight, 
-  Download, Filter, Zap, ShieldCheck 
+  Activity, Wallet, Landmark, Download, Zap, ShieldCheck 
 } from 'lucide-react';
 import { 
-  WORKING_CAPITAL_TREND, MONTHLY_REVENUE, BANK_FACILITIES, KPI_SUMMARY,
-  COUNTRIES, DIVISIONS, INVENTORY_AGING 
+  WORKING_CAPITAL_TREND, BANK_FACILITIES, KPI_SUMMARY, INVENTORY_AGING 
 } from '../data/masterData';
+import { TOOLTIP_STYLE } from '../utils/theme';
 
 export default function WCDashboard() {
   return (
@@ -59,7 +58,7 @@ export default function WCDashboard() {
         />
       </div>
 
-      <div className="charts-grid charts-grid-3">
+      <div className="grid-cols-2-1" style={{ marginBottom: 24 }}>
         {/* WC Trend Chart */}
         <div className="card">
           <div className="card-header">
@@ -72,14 +71,14 @@ export default function WCDashboard() {
           <div style={{ width: '100%', height: 350 }}>
             <ResponsiveContainer>
               <AreaChart data={WORKING_CAPITAL_TREND}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} />
-                <Tooltip contentStyle={{ backgroundColor: '#131929', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
-                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '11px' }} />
-                <Area type="monotone" dataKey="receivables" name="Receivables" stackId="1" stroke="var(--clr-primary)" fill="var(--clr-primary)" fillOpacity={0.2} />
-                <Area type="monotone" dataKey="inventory" name="Inventory" stackId="1" stroke="var(--clr-amber)" fill="var(--clr-amber)" fillOpacity={0.2} />
-                <Area type="monotone" dataKey="payables" name="Payables" stackId="1" stroke="var(--clr-rose)" fill="var(--clr-rose)" fillOpacity={0.2} />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                <Tooltip {...TOOLTIP_STYLE} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '11px', color: '#64748b' }} />
+                <Area type="monotone" dataKey="receivables" name="Receivables" stackId="1" stroke="var(--clr-primary)" fill="var(--clr-primary)" fillOpacity={0.12} />
+                <Area type="monotone" dataKey="inventory" name="Inventory" stackId="1" stroke="var(--clr-amber)" fill="var(--clr-amber)" fillOpacity={0.12} />
+                <Area type="monotone" dataKey="payables" name="Payables" stackId="1" stroke="var(--clr-rose)" fill="var(--clr-rose)" fillOpacity={0.12} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -136,12 +135,11 @@ export default function WCDashboard() {
           <div style={{ flex: '1 1 300px', height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={INVENTORY_AGING} layout="vertical" barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
-                <YAxis dataKey="bucket" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 11 }} width={95} />
+                <YAxis dataKey="bucket" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} width={95} />
                 <Tooltip
-                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                  contentStyle={{ backgroundColor: '#131929', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
+                  {...TOOLTIP_STYLE}
                   formatter={(v) => [`AED ${v}M`, 'Value']}
                 />
                 <Bar dataKey="amount" radius={[0, 4, 4, 0]}>

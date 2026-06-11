@@ -7,16 +7,25 @@ import Topbar from './Topbar';
 export default function Layout() {
   const auth = useAuth();
   const { user, loading } = auth || { user: null, loading: true };
-  const [collapsed, setCollapsed] = useState(false);
+  // Sidebar is expanded by default on desktop; collapsed = drawer is CLOSED
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (loading) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--clr-bg)' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid var(--clr-primary-dim)', borderTopColor: 'var(--clr-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-          <div style={{ fontSize: '0.9rem', color: 'var(--clr-text-muted)', fontWeight: 600, letterSpacing: '0.05em' }}>LOADING FINSIGHT...</div>
+          <div style={{
+            width: '36px', height: '36px',
+            border: '3px solid var(--clr-primary-dim)',
+            borderTopColor: 'var(--clr-primary)',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite',
+            margin: '0 auto 14px',
+          }} />
+          <div style={{ fontSize: '0.82rem', color: 'var(--clr-text-muted)', fontWeight: 600, letterSpacing: '0.06em' }}>
+            LOADING FINSIGHT…
+          </div>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
@@ -25,13 +34,20 @@ export default function Layout() {
     return <Navigate to="/login" replace />;
   }
 
+  const collapsed = !sidebarOpen;
+
   return (
     <div className="app-shell">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-      
+      {/* Mobile backdrop — only visible on small screens when sidebar open */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      <Sidebar collapsed={collapsed} onToggle={() => setSidebarOpen(o => !o)} />
+
       <div className="main-area">
-        <Topbar onToggleSidebar={() => setCollapsed(!collapsed)} />
-        
+        <Topbar onToggleSidebar={() => setSidebarOpen(o => !o)} />
         <main className="page-content">
           <Outlet />
         </main>

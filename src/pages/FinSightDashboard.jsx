@@ -1,17 +1,22 @@
 import { useState, useMemo } from 'react';
+import Card from '../components/ui/Card';
+import KPICard from '../components/ui/KPICard';
+import SparklineKPICard from '../components/ui/SparklineKPICard';
+import ChartLegend from '../components/ui/ChartLegend';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
+import { C, CHART_COLORS, TOOLTIP_STYLE } from '../utils/theme';
 
-/* ─── Color Palette ─────────────────────────────────────────────── */
-const NAVY       = '#1a3a6b';
-const BLUE_MED   = '#2563eb';
+/* ─── Color Palette ─────────────────────────────────────────── */
+const NAVY  = C.navy;
+const GREEN = C.emerald;
+const BLUE_MED   = C.primary;
 const BLUE_LIGHT = '#93c5fd';
-const GREEN      = '#16a34a';
 
-/* ─── Revenue Trend Data ─────────────────────────────────────────── */
+/* ─── Revenue Trend Data ──────────────────────────────────────── */
 const REVENUE_TREND = [
   { month: 'Nov', fy2324: 160, fy2425: 120 },
   { month: 'Dec', fy2324: 135, fy2425: 110 },
@@ -21,7 +26,6 @@ const REVENUE_TREND = [
   { month: 'Apr', fy2324: 160, fy2425: 180 },
 ];
 
-/* ─── Profit Trend Data ──────────────────────────────────────────── */
 const PROFIT_TREND = [
   { month: 'Nov', netFY2324: 7,  netFY2425: 10 },
   { month: 'Dec', netFY2324: 6,  netFY2425: 9  },
@@ -31,16 +35,14 @@ const PROFIT_TREND = [
   { month: 'Apr', netFY2324: 10, netFY2425: 18 },
 ];
 
-/* ─── Geography Data ─────────────────────────────────────────────── */
 const GEO_DATA = [
-  { name: 'India',         value: 45.2, color: '#7c3aed' },
-  { name: 'North America', value: 22.1, color: '#f97316' },
-  { name: 'Europe',        value: 16.8, color: '#06b6d4' },
-  { name: 'Asia Pacific',  value: 10.6, color: '#10b981' },
-  { name: 'Others',        value: 5.3,  color: '#94a3b8' },
+  { name: 'India',         value: 45.2, color: C.purple  },
+  { name: 'North America', value: 22.1, color: C.amber   },
+  { name: 'Europe',        value: 16.8, color: C.cyan    },
+  { name: 'Asia Pacific',  value: 10.6, color: C.emerald },
+  { name: 'Others',        value: 5.3,  color: C.muted   },
 ];
 
-/* ─── Financial Summary Table ────────────────────────────────────── */
 const FIN_SUMMARY = [
   { name: 'Total Revenue',   curMonth: 125.75, prevMonth: 112.40, ytdCur: 1215.60, ytdPrev: 1045.32, yoy: 16.29,  yoyPos: true  },
   { name: 'Gross Profit',    curMonth:  28.35, prevMonth:  24.21, ytdCur:  273.55, ytdPrev:  234.20, yoy: 16.80,  yoyPos: true  },
@@ -51,320 +53,243 @@ const FIN_SUMMARY = [
   { name: 'Current Ratio',   curMonth:   1.86, prevMonth:   1.74, ytdCur:    1.86, ytdPrev:    1.72, yoy:  8.14,  yoyPos: true  },
 ];
 
-/* ─── KPI Cards data ─────────────────────────────────────────────── */
-const KPI_CARDS = [
-  { label: 'Total Revenue',   value: 'AED 125.75 M', change: '16.86% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
-  { label: 'Gross Profit',    value: 'AED 28.35 M',  change: '17.11% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
-  { label: 'EBITDA',          value: 'AED 18.42 M',  change: '15.45% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
-  { label: 'Net Profit',      value: 'AED 10.25 M',  change: '23.11% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
-  { label: 'Working Capital', value: 'AED 45.80 M',  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#e0f2fe' },
-  { label: 'Current Ratio',   value: '1.86',         change: '0.12 vs Apr 2023',  up: true,  icon: '⚖️', iconBg: '#fce7f3' },
-];
-
-/* ─── Row 2 KPI Cards data ────────────────────────────────────────── */
-const KPI_CARDS_ROW_2 = [
-  { label: 'Total Receivables',       value: 'AED 62.35 M', change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10, 15, 12, 18, 14, 20], color: '#f59e0b' },
-  { label: 'Overdue Receivables',     value: 'AED 18.75 M', change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18, 14, 16, 12, 15, 10], color: '#f43f5e' },
-  { label: 'Cash Collection (MTD)',   value: 'AED 21.40 M', change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5, 8, 12, 9, 15, 18], color: '#3b82f6' },
-  { label: 'Bank Facility Utilization', value: '42.75%',     change: '3.56% vs Apr 2023',  up: false, icon: '🏦', iconBg: '#e0f2fe', data: [40, 42, 45, 41, 44, 43], color: '#0ea5e9' },
-];
-
-/* ─── Collection Efficiency Data ─────────────────────────────────── */
 const COLLECTION_EFFICIENCY = 87.45;
-
 
 export default function FinSightDashboard() {
   const [legalGroup,   setLegalGroup]   = useState('All');
   const [businessUnit, setBusinessUnit] = useState('All');
   const [division,     setDivision]     = useState('All');
 
-  /* ── Scale factor: each segment is a proportional slice of total ── */
   const scale = useMemo(() => {
-    const g = ({ All: 1.00, 'Group A': 0.62, 'Group B': 0.38 })[legalGroup] ?? 1;
-    const b = ({ All: 1.00, 'BU 1': 0.35,   'BU 2': 0.28,   'BU 3': 0.37 })[businessUnit] ?? 1;
+    const g = ({ All: 1.00, 'Group A': 0.62, 'Group B': 0.38 })[legalGroup]   ?? 1;
+    const b = ({ All: 1.00, 'BU 1': 0.35, 'BU 2': 0.28, 'BU 3': 0.37 })[businessUnit] ?? 1;
     const d = ({ All: 1.00, 'Division 1': 0.55, 'Division 2': 0.45 })[division] ?? 1;
     return g * b * d;
   }, [legalGroup, businessUnit, division]);
 
-  /* ── Helpers ── */
-  const fmtM = (base) => `AED ${(base * scale).toFixed(2)} M`;
-  const fmtP = (base) => `${(base * scale).toFixed(2)}%`;
+  const fmtM = base => `AED ${(base * scale).toFixed(2)} M`;
+  const fmtP = base => `${(base * scale).toFixed(2)}%`;
 
-  /* ── Scale chart series ── */
-  const scaledRevTrend = useMemo(() =>
-    REVENUE_TREND.map(m => ({
-      ...m,
-      fy2324: +(m.fy2324 * scale).toFixed(1),
-      fy2425: +(m.fy2425 * scale).toFixed(1),
-    })), [scale]);
-
-  const scaledProfTrend = useMemo(() =>
-    PROFIT_TREND.map(m => ({
-      ...m,
-      netFY2324: +(m.netFY2324 * scale).toFixed(1),
-      netFY2425: +(m.netFY2425 * scale).toFixed(1),
-    })), [scale]);
-
-  const scaledFinSummary = useMemo(() =>
-    FIN_SUMMARY.map(r => {
-      const isRatio = r.name === 'Current Ratio';
-      return {
-        ...r,
-        curMonth:  isRatio ? r.curMonth  : +(r.curMonth  * scale).toFixed(2),
-        prevMonth: isRatio ? r.prevMonth : +(r.prevMonth * scale).toFixed(2),
-        ytdCur:    isRatio ? r.ytdCur    : +(r.ytdCur    * scale).toFixed(2),
-        ytdPrev:   isRatio ? r.ytdPrev   : +(r.ytdPrev   * scale).toFixed(2),
-      };
-    }), [scale]);
+  const scaledRevTrend  = useMemo(() => REVENUE_TREND.map(m => ({ ...m, fy2324: +(m.fy2324 * scale).toFixed(1), fy2425: +(m.fy2425 * scale).toFixed(1) })), [scale]);
+  const scaledProfTrend = useMemo(() => PROFIT_TREND.map(m => ({ ...m, netFY2324: +(m.netFY2324 * scale).toFixed(1), netFY2425: +(m.netFY2425 * scale).toFixed(1) })), [scale]);
+  const scaledFinSummary = useMemo(() => FIN_SUMMARY.map(r => {
+    const isRatio = r.name === 'Current Ratio';
+    return { ...r,
+      curMonth:  isRatio ? r.curMonth  : +(r.curMonth  * scale).toFixed(2),
+      prevMonth: isRatio ? r.prevMonth : +(r.prevMonth * scale).toFixed(2),
+      ytdCur:    isRatio ? r.ytdCur    : +(r.ytdCur    * scale).toFixed(2),
+      ytdPrev:   isRatio ? r.ytdPrev   : +(r.ytdPrev   * scale).toFixed(2),
+    };
+  }), [scale]);
 
   return (
-    <div className="animate-in" style={{
-      padding: '20px 24px',
-      fontFamily: "'Inter', system-ui, sans-serif",
-      background: '#f4f6fb',
-      minHeight: '100%',
-    }}>
+    <div className="animate-in">
 
       {/* ── Page Title ── */}
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a3a6b', margin: 0 }}>
-          Executive Dashboard
-        </h1>
-        <p style={{ fontSize: '0.78rem', color: '#64748b', margin: '3px 0 0' }}>
-          Get a comprehensive overview of your financial performance
-        </p>
+      <div className="page-header">
+        <div>
+          <h1 className="page-header-title">Executive Dashboard</h1>
+          <p className="page-header-subtitle">
+            Comprehensive overview of your financial performance
+          </p>
+        </div>
       </div>
 
       {/* ── FILTER BAR ── */}
       <div style={{
-        background: '#fff', borderRadius: 10,
-        border: '1px solid #e2e8f0',
-        padding: '12px 16px', marginBottom: 16,
-        display: 'flex', alignItems: 'flex-end', gap: 14, flexWrap: 'wrap',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        display: 'flex', flexDirection: 'row', alignItems: 'flex-end',
+        gap: 12, flexWrap: 'nowrap', overflowX: 'auto',
+        padding: '14px 20px', marginBottom: 20,
+        background: 'var(--clr-surface)', border: '1px solid var(--clr-border)',
+        borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)',
       }}>
         <FilterField label="Legal Group">
-          <FilterDropdown value={legalGroup} onChange={setLegalGroup} options={['All', 'Group A', 'Group B']} />
+          <select value={legalGroup} onChange={e => setLegalGroup(e.target.value)} className="filter-select" style={{ minWidth: 110 }}>
+            {['All', 'Group A', 'Group B'].map(o => <option key={o}>{o}</option>)}
+          </select>
         </FilterField>
         <FilterField label="Business Unit">
-          <FilterDropdown value={businessUnit} onChange={setBusinessUnit} options={['All', 'BU 1', 'BU 2', 'BU 3']} />
+          <select value={businessUnit} onChange={e => setBusinessUnit(e.target.value)} className="filter-select" style={{ minWidth: 110 }}>
+            {['All', 'BU 1', 'BU 2', 'BU 3'].map(o => <option key={o}>{o}</option>)}
+          </select>
         </FilterField>
         <FilterField label="Division">
-          <FilterDropdown value={division} onChange={setDivision} options={['All', 'Division 1', 'Division 2']} />
+          <select value={division} onChange={e => setDivision(e.target.value)} className="filter-select" style={{ minWidth: 110 }}>
+            {['All', 'Division 1', 'Division 2'].map(o => <option key={o}>{o}</option>)}
+          </select>
         </FilterField>
         <FilterField label="From Date">
-          <div style={dateInputStyle}>
-            <span style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 500 }}>01 Apr 2024</span>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>📅</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px',
+            border: '1px solid var(--clr-border)', borderRadius: 'var(--radius-md)',
+            background: 'var(--clr-surface-2)', whiteSpace: 'nowrap',
+            fontSize: '0.82rem', color: 'var(--clr-text)', minWidth: 120, cursor: 'pointer',
+          }}>
+            <span>📅</span><span>01 Apr 2024</span>
           </div>
         </FilterField>
         <FilterField label="To Date">
-          <div style={dateInputStyle}>
-            <span style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 500 }}>30 Apr 2024</span>
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>📅</span>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px',
+            border: '1px solid var(--clr-border)', borderRadius: 'var(--radius-md)',
+            background: 'var(--clr-surface-2)', whiteSpace: 'nowrap',
+            fontSize: '0.82rem', color: 'var(--clr-text)', minWidth: 120, cursor: 'pointer',
+          }}>
+            <span>📅</span><span>30 Apr 2024</span>
           </div>
         </FilterField>
-        <button style={{
-          padding: '7px 22px', background: '#1a3a6b', color: '#fff',
-          border: 'none', borderRadius: 6, fontWeight: 700,
-          fontSize: '0.8rem', cursor: 'pointer', alignSelf: 'flex-end',
-          transition: 'background 0.2s',
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = '#1e4d9b'}
-          onMouseLeave={e => e.currentTarget.style.background = '#1a3a6b'}
-        >Apply</button>
-        <div style={{ marginLeft: 'auto', alignSelf: 'center', fontSize: '0.68rem', color: '#94a3b8' }}>
-          All values are in AED
+        <div style={{ alignSelf: 'flex-end' }}>
+          <button className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Apply</button>
+        </div>
+        <div style={{ marginLeft: 'auto', fontSize: '0.68rem', color: 'var(--clr-text-dim)', alignSelf: 'center', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          All values in AED
         </div>
       </div>
 
-      {/* ── KPI CARDS ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(6, 1fr)',
-        gap: 12, marginBottom: 12,
-      }}>
+      {/* ── KPI CARDS ROW 1 ── */}
+      <div className="grid-cols-6" style={{ marginBottom: 16 }}>
         {[
           { label: 'Total Revenue',   value: fmtM(125.75), change: '16.86% vs Apr 2023', up: true,  icon: '📊', iconBg: '#e0f2fe' },
           { label: 'Gross Profit',    value: fmtM(28.35),  change: '17.11% vs Apr 2023', up: true,  icon: '💼', iconBg: '#dcfce7' },
           { label: 'EBITDA',          value: fmtM(18.42),  change: '15.45% vs Apr 2023', up: true,  icon: '📈', iconBg: '#ede9fe' },
           { label: 'Net Profit',      value: fmtM(10.25),  change: '23.11% vs Apr 2023', up: true,  icon: '🎯', iconBg: '#fae8ff' },
-          { label: 'Working Capital', value: fmtM(45.80),  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#e0f2fe' },
+          { label: 'Working Capital', value: fmtM(45.80),  change: '2.11% vs Apr 2023',  up: false, icon: '🧮', iconBg: '#fef3c7' },
           { label: 'Current Ratio',   value: String(1.86), change: '0.12 vs Apr 2023',   up: true,  icon: '⚖️', iconBg: '#fce7f3' },
         ].map(kpi => <KPICard key={kpi.label} {...kpi} />)}
       </div>
 
       {/* ── KPI CARDS ROW 2 ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 12, marginBottom: 16,
-      }}>
+      <div className="grid-cols-4" style={{ marginBottom: 20 }}>
         {[
-          { label: 'Total Receivables',         value: fmtM(62.35), change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10,15,12,18,14,20].map(v=>+(v*scale).toFixed(1)), color: '#f59e0b' },
-          { label: 'Overdue Receivables',       value: fmtM(18.75), change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18,14,16,12,15,10].map(v=>+(v*scale).toFixed(1)), color: '#f43f5e' },
-          { label: 'Cash Collection (MTD)',     value: fmtM(21.40), change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5,8,12,9,15,18].map(v=>+(v*scale).toFixed(1)),    color: '#3b82f6' },
-          { label: 'Bank Facility Utilization', value: fmtP(42.75), change: '3.56% vs Apr 2023',  up: false, icon: '🏦', iconBg: '#e0f2fe', data: [40,42,45,41,44,43],                               color: '#0ea5e9' },
+          { label: 'Total Receivables',         value: fmtM(62.35),  change: '12.44% vs Apr 2023', up: true,  icon: '💳', iconBg: '#fef3c7', data: [10,15,12,18,14,20].map(v=>+(v*scale).toFixed(1)), color: C.amber   },
+          { label: 'Overdue Receivables',       value: fmtM(18.75),  change: '8.23% vs Apr 2023',  up: false, icon: '📙', iconBg: '#ffe4e6', data: [18,14,16,12,15,10].map(v=>+(v*scale).toFixed(1)), color: C.rose    },
+          { label: 'Cash Collection (MTD)',     value: fmtM(21.40),  change: '19.34% vs Apr 2023', up: true,  icon: '💼', iconBg: '#e0e7ff', data: [5,8,12,9,15,18].map(v=>+(v*scale).toFixed(1)),    color: C.primary },
+          { label: 'Bank Facility Utilization', value: fmtP(42.75),  change: '3.56% vs Apr 2023',  up: false, icon: '🏦', iconBg: '#e0f2fe', data: [40,42,45,41,44,43],                               color: C.cyan    },
         ].map(kpi => <SparklineKPICard key={kpi.label} {...kpi} />)}
       </div>
 
       {/* ── CHARTS ROW ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1.2fr 1fr 1fr 0.8fr',
-        gap: 14, marginBottom: 16,
-      }}>
+      <div className="grid-charts" style={{ marginBottom: 20 }}>
         {/* Revenue Trend */}
-        <ChartCard title="Revenue Trend (AED M)">
+        <Card title="Revenue Trend (AED M)">
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={scaledRevTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 10 }}
-                labelStyle={{ fontWeight: 700, color: '#1a3a6b' }}
-              />
-              <Line dataKey="fy2324" name="FY 23-24" stroke={NAVY}  strokeWidth={2} dot={{ r: 3, fill: NAVY }}  activeDot={{ r: 4 }} />
-              <Line dataKey="fy2425" name="FY 24-25" stroke={GREEN} strokeWidth={2} dot={{ r: 3, fill: GREEN }} strokeDasharray="4 2" activeDot={{ r: 4 }} />
+              <Tooltip {...TOOLTIP_STYLE} />
+              <Line dataKey="fy2324" name="FY 23-24" stroke={NAVY}  strokeWidth={2} dot={{ r: 2.5, fill: NAVY }}  activeDot={{ r: 4 }} />
+              <Line dataKey="fy2425" name="FY 24-25" stroke={GREEN} strokeWidth={2} dot={{ r: 2.5, fill: GREEN }} strokeDasharray="4 2" activeDot={{ r: 4 }} />
             </LineChart>
           </ResponsiveContainer>
-          <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
             <ChartLegend color={NAVY}  label="FY 23-24" />
             <ChartLegend color={GREEN} label="FY 24-25" dashed />
           </div>
-        </ChartCard>
+        </Card>
 
         {/* Profit Trend */}
-        <ChartCard title="Profit Trend (AED M)">
+        <Card title="Profit Trend (AED M)">
           <ResponsiveContainer width="100%" height={160}>
             <BarChart data={scaledProfTrend} barGap={2} barCategoryGap="40%" margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 10 }}
-                labelStyle={{ fontWeight: 700, color: '#1a3a6b' }}
-              />
-              <Bar dataKey="netFY2324" name="Net Profit (FY 23-24)" fill={BLUE_MED}   radius={[3, 3, 0, 0]} barSize={10} />
-              <Bar dataKey="netFY2425" name="Net Profit (FY 24-25)" fill={BLUE_LIGHT} radius={[3, 3, 0, 0]} barSize={10} />
+              <Tooltip {...TOOLTIP_STYLE} />
+              <Bar dataKey="netFY2324" name="Net Profit (FY 23-24)" fill={BLUE_MED}   radius={[3,3,0,0]} barSize={10} />
+              <Bar dataKey="netFY2425" name="Net Profit (FY 24-25)" fill={BLUE_LIGHT} radius={[3,3,0,0]} barSize={10} />
             </BarChart>
           </ResponsiveContainer>
-          <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
-            <ChartLegend color={BLUE_MED}   label="Net Profit (FY 23-24)" square />
-            <ChartLegend color={BLUE_LIGHT} label="Net Profit (FY 24-25)" square />
+          <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
+            <ChartLegend color={BLUE_MED}   label="FY 23-24" square />
+            <ChartLegend color={BLUE_LIGHT} label="FY 24-25" square />
           </div>
-        </ChartCard>
+        </Card>
 
         {/* Revenue by Geography */}
-        <ChartCard title="Revenue by Geography (AED M)">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ResponsiveContainer width={120} height={160}>
+        <Card title="Revenue by Geography">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ResponsiveContainer width={110} height={150}>
               <PieChart>
-                <Pie
-                  data={GEO_DATA}
-                  cx="50%" cy="50%"
-                  innerRadius={38} outerRadius={58}
-                  dataKey="value"
-                  startAngle={90} endAngle={-270}
-                  stroke="none"
-                >
-                  {GEO_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                <Pie data={GEO_DATA} cx="50%" cy="50%" innerRadius={34} outerRadius={52}
+                  dataKey="value" startAngle={90} endAngle={-270} stroke="none">
+                  {GEO_DATA.map((e, i) => <Cell key={i} fill={e.color} />)}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', fontSize: 10 }}
-                  formatter={(val) => [`${val}%`, '']}
-                />
+                <Tooltip {...TOOLTIP_STYLE} formatter={v => [`${v}%`, '']} />
               </PieChart>
             </ResponsiveContainer>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
               {GEO_DATA.map(g => (
                 <div key={g.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: g.color, display: 'inline-block', flexShrink: 0 }} />
-                    <span style={{ fontSize: '0.68rem', color: '#475569' }}>{g.name}</span>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: g.color, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--clr-text-muted)' }}>{g.name}</span>
                   </div>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#1a3a6b' }}>{g.value}%</span>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--clr-text)' }}>{g.value}%</span>
                 </div>
               ))}
             </div>
           </div>
-        </ChartCard>
+        </Card>
 
         {/* Collection Efficiency */}
-        <ChartCard title="Collection Efficiency (%)">
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', paddingTop: 10 }}>
-            <ResponsiveContainer width={180} height={120}>
-              <PieChart>
-                <Pie
-                  data={[{ value: COLLECTION_EFFICIENCY }, { value: 100 - COLLECTION_EFFICIENCY }]}
-                  cx="50%" cy="100%"
-                  startAngle={180} endAngle={0}
-                  innerRadius={60} outerRadius={80}
-                  paddingAngle={0}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  <Cell fill="#16a34a" />
-                  <Cell fill="#f1f5f9" />
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ position: 'absolute', bottom: 30, textAlign: 'center' }}>
-              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1a3a6b' }}>{COLLECTION_EFFICIENCY}%</div>
-              <div style={{ fontSize: '0.6rem', color: '#64748b' }}>Collection Efficiency</div>
+        <Card title="Collection Efficiency">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 8 }}>
+            <div style={{ position: 'relative' }}>
+              <ResponsiveContainer width={140} height={100}>
+                <PieChart>
+                  <Pie
+                    data={[{ value: COLLECTION_EFFICIENCY }, { value: 100 - COLLECTION_EFFICIENCY }]}
+                    cx="50%" cy="100%"
+                    startAngle={180} endAngle={0}
+                    innerRadius={52} outerRadius={68}
+                    dataKey="value" stroke="none"
+                  >
+                    <Cell fill={GREEN} />
+                    <Cell fill="var(--clr-surface-2)" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: 'absolute', bottom: 4, left: 0, right: 0, textAlign: 'center' }}>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--clr-text)' }}>{COLLECTION_EFFICIENCY}%</div>
+              </div>
             </div>
-            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', padding: '0 20px', fontSize: '0.6rem', color: '#94a3b8', marginTop: -20 }}>
-              <span>0%</span>
-              <span>100%</span>
+            <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', fontSize: '0.6rem', color: 'var(--clr-text-dim)', marginTop: 4 }}>
+              <span>0%</span><span>100%</span>
             </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--clr-text-muted)', marginTop: 6 }}>Collection Efficiency</div>
           </div>
-        </ChartCard>
+        </Card>
       </div>
 
       {/* ── FINANCIAL SUMMARY TABLE ── */}
-      <div style={{
-        background: '#fff', borderRadius: 10,
-        border: '1px solid #e2e8f0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-        overflow: 'hidden',
-        marginBottom: 20,
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '14px 18px', borderBottom: '1px solid #e2e8f0',
-        }}>
-          <span style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1a3a6b' }}>
+      <Card noPadding style={{ marginBottom: 20 }}>
+        <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--clr-border)' }}>
+          <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--clr-text)' }}>
             Financial Summary (AED M)
-          </span>
-          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1.1rem' }}>⋮</button>
+          </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table>
             <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                <th style={th}>Particulars</th>
-                <th style={{ ...th, textAlign: 'center' }}>Current Month (Apr 2024)</th>
-                <th style={{ ...th, textAlign: 'center' }}>Previous Month (Mar 2024)</th>
-                <th style={{ ...th, textAlign: 'center' }}>YTD (Apr 2024)</th>
-                <th style={{ ...th, textAlign: 'center' }}>YTD (Apr 2023)</th>
-                <th style={{ ...th, textAlign: 'center' }}>YoY %</th>
+              <tr>
+                <th>Particulars</th>
+                <th style={{ textAlign: 'center' }}>Current Month (Apr 2024)</th>
+                <th style={{ textAlign: 'center' }}>Previous Month (Mar 2024)</th>
+                <th style={{ textAlign: 'center' }}>YTD (Apr 2024)</th>
+                <th style={{ textAlign: 'center' }}>YTD (Apr 2023)</th>
+                <th style={{ textAlign: 'center' }}>YoY %</th>
               </tr>
             </thead>
             <tbody>
               {scaledFinSummary.map((row, i) => (
-                <tr
-                  key={i}
-                  style={{ borderBottom: '1px solid #f1f5f9', background: '#fff', transition: 'background 0.15s' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >
-                  <td style={{ ...td, fontWeight: 600, color: '#1a3a6b' }}>{row.name}</td>
-                  <td style={{ ...td, textAlign: 'center', color: '#334155' }}>{row.curMonth.toFixed(2)}</td>
-                  <td style={{ ...td, textAlign: 'center', color: '#334155' }}>{row.prevMonth.toFixed(2)}</td>
-                  <td style={{ ...td, textAlign: 'center', color: '#334155' }}>{row.ytdCur.toFixed(2)}</td>
-                  <td style={{ ...td, textAlign: 'center', color: '#334155' }}>{row.ytdPrev.toFixed(2)}</td>
-                  <td style={{ ...td, textAlign: 'center', fontWeight: 700, color: row.yoyPos ? '#16a34a' : '#dc2626' }}>
+                <tr key={i}>
+                  <td style={{ fontWeight: 600, color: 'var(--clr-text)' }}>{row.name}</td>
+                  <td style={{ textAlign: 'center' }}>{row.curMonth.toFixed(2)}</td>
+                  <td style={{ textAlign: 'center' }}>{row.prevMonth.toFixed(2)}</td>
+                  <td style={{ textAlign: 'center' }}>{row.ytdCur.toFixed(2)}</td>
+                  <td style={{ textAlign: 'center' }}>{row.ytdPrev.toFixed(2)}</td>
+                  <td style={{ textAlign: 'center', fontWeight: 700, color: row.yoyPos ? C.emerald : C.rose }}>
                     {row.yoy.toFixed(2)}%
                   </td>
                 </tr>
@@ -372,182 +297,25 @@ export default function FinSightDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
       {/* Footer */}
-      <div style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
-        <span>© 2024 FinSight. All rights reserved.</span>
+      <div style={{ fontSize: '0.65rem', color: 'var(--clr-text-dim)', display: 'flex', justifyContent: 'space-between', paddingBottom: 8 }}>
+        <span>© 2024 FinSight · FJ Group Finance Suite</span>
         <span>Version 1.0.0</span>
       </div>
-
     </div>
   );
 }
 
-/* ── Sub-components ─────────────────────────────────────────────── */
-
+/* ── Sub-components ─────────────────────────────────────── */
 function FilterField({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 110 }}>
-      <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600 }}>{label}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110 }}>
+      <span style={{ fontSize: '0.65rem', color: 'var(--clr-text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {label}
+      </span>
       {children}
     </div>
   );
 }
-
-function FilterDropdown({ value, onChange, options }) {
-  return (
-    <div style={{ position: 'relative' }}>
-      <select
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={{
-          appearance: 'none', padding: '5px 28px 5px 10px',
-          fontSize: '0.78rem', fontWeight: 500, color: '#334155',
-          background: '#fff', border: '1px solid #e2e8f0',
-          borderRadius: 6, cursor: 'pointer', outline: 'none', width: '100%',
-        }}
-      >
-        {options.map(o => <option key={o}>{o}</option>)}
-      </select>
-      <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', fontSize: '0.6rem', color: '#94a3b8' }}>▼</span>
-    </div>
-  );
-}
-
-function KPICard({ label, value, change, up, icon, iconBg }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: '#fff', borderRadius: 10,
-        border: '1px solid #e2e8f0',
-        padding: '14px 14px 12px',
-        boxShadow: hover ? '0 4px 16px rgba(26,58,107,0.10)' : '0 1px 3px rgba(0,0,0,0.05)',
-        transition: 'box-shadow 0.2s, transform 0.2s',
-        transform: hover ? 'translateY(-1px)' : 'none',
-        position: 'relative', overflow: 'hidden',
-      }}
-    >
-      <div style={{
-        position: 'absolute', top: 12, right: 12,
-        width: 38, height: 38, borderRadius: 8,
-        background: iconBg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '1.1rem',
-      }}>{icon}</div>
-      <div style={{ fontSize: '0.66rem', color: '#64748b', fontWeight: 600, marginBottom: 6, paddingRight: 40, whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>{label}</div>
-      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a3a6b', marginBottom: 6, lineHeight: 1.2 }}>{value}</div>
-      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: up ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}>
-        <span>{up ? '↑' : '↓'}</span>
-        <span>{change}</span>
-      </div>
-    </div>
-  );
-}
-
-function SparklineKPICard({ label, value, change, up, icon, iconBg, data, color }) {
-  const [hover, setHover] = useState(false);
-  const chartData = data.map((v, i) => ({ name: i, value: v }));
-  
-  return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: '#fff', borderRadius: 10,
-        border: '1px solid #e2e8f0',
-        padding: '14px 14px 12px',
-        boxShadow: hover ? '0 4px 16px rgba(26,58,107,0.10)' : '0 1px 3px rgba(0,0,0,0.05)',
-        transition: 'box-shadow 0.2s, transform 0.2s',
-        transform: hover ? 'translateY(-1px)' : 'none',
-        position: 'relative', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', gap: 6,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{
-            width: 38, height: 38, borderRadius: 8,
-            background: iconBg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '1.1rem', marginBottom: 8,
-          }}>{icon}</div>
-          <div style={{ fontSize: '0.66rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap', letterSpacing: '-0.02em' }}>{label}</div>
-          <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a3a6b', marginTop: 4 }}>{value}</div>
-        </div>
-      </div>
-      
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
-        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: up ? '#16a34a' : '#dc2626', display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span>{up ? '▲' : '▼'}</span>
-          <span>{change}</span>
-        </div>
-        
-        <div style={{ width: 60, height: 25 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChartCard({ title, children }) {
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 10,
-      border: '1px solid #e2e8f0',
-      padding: '14px 16px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <span style={{ fontWeight: 700, fontSize: '0.8rem', color: '#1a3a6b' }}>{title}</span>
-        <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1rem' }}>⋮</button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ChartLegend({ color, label, dashed, square }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-      {square ? (
-        <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />
-      ) : (
-        <span style={{
-          width: 16, height: 2,
-          background: dashed ? 'transparent' : color,
-          borderTop: dashed ? `2px dashed ${color}` : 'none',
-          display: 'inline-block',
-        }} />
-      )}
-      <span style={{ fontSize: '0.62rem', color: '#64748b' }}>{label}</span>
-    </div>
-  );
-}
-
-/* ── Shared styles ─────────────────────────────────────────────── */
-const dateInputStyle = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '5px 10px', border: '1px solid #e2e8f0',
-  borderRadius: 6, background: '#fff', minWidth: 110, gap: 6,
-};
-
-const th = {
-  padding: '10px 14px', textAlign: 'left',
-  fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a',
-  borderBottom: '2px solid #e2e8f0',
-  whiteSpace: 'nowrap',
-};
-
-const td = {
-  padding: '8px 14px',
-  fontSize: '0.74rem', color: '#334155',
-};

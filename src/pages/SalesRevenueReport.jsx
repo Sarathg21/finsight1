@@ -28,28 +28,7 @@ import {
   fetchSummaryDetail,
 } from '../services/salesRevenueApi';
 
-/* ─── Color Palette ─────────────────────────────────────────────── */
-const C = {
-  navy:    '#1a3a6b',
-  blue:    '#2563eb',
-  blue2:   '#3b82f6',
-  green:   '#16a34a',
-  green2:  '#22c55e',
-  orange:  '#f59e0b',
-  purple:  '#7c3aed',
-  cyan:    '#0891b2',
-  rose:    '#e11d48',
-  slate:   '#64748b',
-  muted:   '#94a3b8',
-  bg:      '#f1f5fb',
-  surface: '#ffffff',
-  border:  '#e2e8f0',
-};
-
-const CHART_COLORS = [
-  '#2563eb', '#16a34a', '#7c3aed', '#f59e0b',
-  '#0891b2', '#e11d48', '#64748b', '#0d9488',
-];
+import { C, CHART_COLORS } from '../utils/theme';
 
 /* ─── Default filter state ──────────────────────────────────────── */
 const _today = new Date();
@@ -731,7 +710,6 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         transform: hover ? 'translateY(-2px)' : 'none',
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden', position: 'relative',
-        fontFamily: "'Inter', system-ui, sans-serif",
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1533,7 +1511,6 @@ export default function SalesRevenueReport() {
 
       <div className="animate-in" style={{
         padding: '20px 24px 32px',
-        fontFamily: "'Inter', system-ui, sans-serif",
         background: C.bg, minHeight: '100%',
       }}>
 
@@ -1600,14 +1577,7 @@ export default function SalesRevenueReport() {
         )}
 
         {/* ── Filter Bar ── */}
-        <div style={{
-          background: '#fff', borderRadius: 12,
-          border: `1px solid ${C.border}`,
-          padding: '14px 18px', marginBottom: 16,
-          display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'nowrap',
-          overflowX: 'auto',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-        }}>
+        <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
           <FilterField label="Legal Group">
             <select id="filter-legal-group" style={selStyle} value={filters.legalGroup} onChange={e => updateFilter('legalGroup', e.target.value)}>
               {filterOptions.legalGroups.map(o => <option key={o}>{o}</option>)}
@@ -1677,7 +1647,7 @@ export default function SalesRevenueReport() {
         </div>
 
         {/* ── Revenue Dashboard KPI Cards ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
+        <div className="grid-cols-6" style={{ marginBottom: 16 }}>
 
           {/* 1. Total Sales (MTD) */}
           <KPICard
@@ -1786,16 +1756,10 @@ export default function SalesRevenueReport() {
         </div>
 
         {/* ── Main Dashboard Charts Row ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1.2fr', gap: 14, marginBottom: 16 }}>
+        <div className="grid-charts-3" style={{ marginBottom: 16 }}>
           
           {/* 1. Revenue Trend (Line Chart) */}
-          <div style={{
-            background: '#fff', borderRadius: 12,
-            border: `1px solid ${C.border}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-            padding: '16px 20px 12px',
-            display: 'flex', flexDirection: 'column',
-          }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('trend')} endpoint="trend" filters={appliedFilters} />
@@ -1829,13 +1793,7 @@ export default function SalesRevenueReport() {
           </div>
 
           {/* 2. Revenue by Legal Entity (Donut) */}
-          <div style={{
-            background: '#fff', borderRadius: 12,
-            border: `1px solid ${C.border}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-            padding: '16px 20px 12px',
-            display: 'flex', flexDirection: 'column',
-          }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Legal Entity (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={appliedFilters} />
@@ -1856,9 +1814,9 @@ export default function SalesRevenueReport() {
                 <div style={{ width: '45%', paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
                   {legalEntData.slice(0, 5).map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
-                        <span style={{ color: C.slate, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={d.name}>{d.name}</span>
+                        <span style={{ color: C.slate, lineHeight: 1.2 }}>{d.name}</span>
                       </div>
                       <span style={{ fontWeight: 600, color: C.navy, marginLeft: 8 }}>{d.pct.toFixed(1)}%</span>
                     </div>
@@ -1871,13 +1829,7 @@ export default function SalesRevenueReport() {
           </div>
 
           {/* 3. Revenue by Parent Division (Bar) */}
-          <div style={{
-            background: '#fff', borderRadius: 12,
-            border: `1px solid ${C.border}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-            padding: '16px 20px 12px',
-            display: 'flex', flexDirection: 'column',
-          }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Parent Division (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={appliedFilters} />
@@ -1887,12 +1839,13 @@ export default function SalesRevenueReport() {
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : parentDivData.length > 0 ? (
               <ResponsiveContainer width="100%" height={220} minWidth={0}>
-                <BarChart data={parentDivData} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }} barSize={16}>
+                <BarChart data={parentDivData} layout="vertical" margin={{ top: 0, right: 60, left: 0, bottom: 0 }} barSize={16}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4ff" />
                   <XAxis type="number" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} />
-                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} width={80} tickFormatter={v => v.length > 10 ? v.substring(0, 8) + '…' : v} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} width={120} />
                   <Tooltip content={<CustomTooltip />} />
                   <Bar dataKey="value" name="Revenue" radius={[0, 4, 4, 0]}>
+                    <LabelList dataKey="value" position="right" formatter={v => fmtAxisNum(v)} style={{ fill: C.navy, fontSize: 10, fontWeight: 700 }} />
                     {parentDivData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
@@ -1906,7 +1859,7 @@ export default function SalesRevenueReport() {
                 {/* ── Sub-Division Full Width Row ── */}
         <div style={{ marginBottom: 16 }}>
           {/* 1. Subdivision */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
@@ -1937,9 +1890,9 @@ export default function SalesRevenueReport() {
         </div>
 
         {/* ── Secondary Analysis Row (Customers, Salesman) ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+        <div className="grid-charts-2" style={{ marginBottom: 16 }}>
           {/* 2. Top Customers */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
@@ -1961,7 +1914,7 @@ export default function SalesRevenueReport() {
                     {topCustomersData.slice(0, 10).map((c, i) => (
                       <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
                         <td style={{ padding: '6px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, whiteSpace: 'nowrap' }} title={c.name}>{c.name}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize' }} title={c.name}>{(c.name || '').toLowerCase()}</td>
                         <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{Number(c.value).toLocaleString('en-AE')}</td>
                         <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{c.pct != null ? `${Number(c.pct).toFixed(2)}%` : '—'}</td>
                       </tr>
@@ -1980,7 +1933,7 @@ export default function SalesRevenueReport() {
           </div>
 
           {/* 3. Revenue by Salesman */}
-          <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesman (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
@@ -2025,7 +1978,7 @@ export default function SalesRevenueReport() {
         </div>
 
         {/* ── Sales Revenue Detailed View — sourced from /summary-detail ── */}
-        <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: '0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden', marginBottom: 8, marginTop: 14 }}>
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 8, marginTop: 14 }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: '#fff', flexWrap: 'wrap', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -2129,12 +2082,10 @@ export default function SalesRevenueReport() {
               color: '#1e3a8a',
               textAlign: 'center',
               borderBottom: '2px solid #e2e8f0',
-              fontFamily: "'Inter', system-ui, sans-serif",
             };
             const TD_S = {
               fontSize: '0.74rem', padding: '8px 10px',
               color: '#334155', fontWeight: 500, textAlign: 'center',
-              fontFamily: "'Inter', system-ui, sans-serif",
               borderBottom: '1px solid #f1f5f9',
             };
             const TD_FOOT = {
