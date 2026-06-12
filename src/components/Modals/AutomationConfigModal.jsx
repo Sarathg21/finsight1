@@ -341,7 +341,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             }
 
             // Only send supported subtask update fields to backend
-            const allowedFields = ['title', 'description', 'department_id', 'assigned_to_emp_id', 'priority', 'sequence_no'];
+            const allowedFields = ['title', 'description', 'department_id', 'assigned_to_emp_id', 'priority', 'sequence_no', 'due_in_days'];
             const patchPayload = {};
             for (const key of allowedFields) {
                 if (Object.prototype.hasOwnProperty.call(sanitizedUpdates, key)) {
