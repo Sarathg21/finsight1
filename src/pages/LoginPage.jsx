@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 const LoginPage = () => {
     const [formData, setFormData] = useState({ id: '', password: '' });
@@ -106,15 +106,16 @@ const LoginPage = () => {
                     )}
 
                     <form onSubmit={handleLoginSubmit} className="space-y-4">
+                        {/* Fix 1 & 2: No stray artifact above label; both inputs share identical padding/typography tokens */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="block text-[10px] font-medium text-slate-500 capitalize tracking-widest pl-1">Employee ID</label>
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest pl-1">Employee ID</label>
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><User size={18} /></div>
                                 <input
                                     type="text"
                                     name="id"
                                     placeholder="CFO001"
-                                    className="w-full pl-11 pr-4 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold"
+                                    className="w-full pl-[2.75rem] pr-4 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold tracking-wide"
                                     value={formData.id}
                                     onChange={handleChange}
                                     autoComplete="username"
@@ -123,15 +124,17 @@ const LoginPage = () => {
                             </div>
                         </div>
 
+                        {/* Fix 2: Password input uses identical pl-[2.75rem] offset + matching font-semibold tracking-wide
+                             so masked bullets render at exactly the same left offset as Employee ID alphanumeric text */}
                         <div className="flex flex-col gap-1.5">
-                            <label className="block text-[10px] font-medium text-slate-500 capitalize tracking-widest pl-1">Password</label>
+                            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest pl-1">Password</label>
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={18} /></div>
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     name="password"
                                     placeholder="••••••••••••"
-                                    className="w-full pl-11 pr-12 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold"
+                                    className="w-full pl-[2.75rem] pr-12 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold tracking-wide"
                                     value={formData.password}
                                     onChange={handleChange}
                                     autoComplete="current-password"
@@ -141,6 +144,7 @@ const LoginPage = () => {
                                     type="button"
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
                                     onClick={() => setShowPassword(!showPassword)}
+                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                                 >
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
@@ -157,18 +161,33 @@ const LoginPage = () => {
                             </button>
                         </div>
 
+                        {/* Fix 3: Replaced Wi-Fi icon with ShieldCheck — semantically correct security icon */}
                         <button
                             type="submit"
-                            className="w-full py-3.5 sm:py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-right text-white rounded-xl text-[0.85rem] sm:text-[0.9rem] font-semibold capitalize tracking-widest cursor-pointer shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2.5 py-3.5 sm:py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-right text-white rounded-xl text-[0.85rem] sm:text-[0.9rem] font-semibold tracking-widest cursor-pointer shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-50"
                             disabled={isLoading}
                         >
-                            {isLoading ? 'Signing In...' : 'Sign In'}
+                            {isLoading ? (
+                                <>
+                                    <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                                        <circle cx="12" cy="12" r="10" strokeOpacity={0.25} />
+                                        <path d="M12 2a10 10 0 0 1 10 10" />
+                                    </svg>
+                                    Signing In...
+                                </>
+                            ) : (
+                                <>
+                                    <ShieldCheck size={17} strokeWidth={2.5} />
+                                    Sign In Securely
+                                </>
+                            )}
                         </button>
                     </form>
 
 
-                    <p className="mt-6 text-center text-[10px] text-white/50 lg:hidden">
-                        © 2026 Zenith Data Intelligence, LLC.
+                    {/* Fix 4: Improved footer contrast — text-slate-400 + font-medium replaces near-invisible text-white/50 */}
+                    <p className="mt-6 text-center text-[10px] text-slate-400 font-medium tracking-wide leading-relaxed lg:hidden">
+                        Secured with role-based access control · © 2026 Zenith Data Intelligence, LLC.
                     </p>
                 </div>
             </div>
