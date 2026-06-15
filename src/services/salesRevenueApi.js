@@ -535,7 +535,13 @@ async function apiCall(path, params = {}) {
   }
 
   if (!res.ok) {
-    // Capture the full response body for debugging 502s
+    if (res.status === 401) {
+      console.warn('[salesRevenueApi] 401 Unauthorized. Token expired or invalid. Clearing token and falling back to mock data.');
+      localStorage.removeItem('finsight_token');
+      return getMockDataForPath(path);
+    }
+
+    // Capture the full response body for debugging 502s/500s
     const rawBody = await res.text().catch(() => '');
     let body = {};
     try { body = JSON.parse(rawBody); } catch { /* non-JSON body */ }

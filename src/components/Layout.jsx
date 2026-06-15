@@ -34,21 +34,26 @@ export default function Layout() {
     return <Navigate to="/login" replace />;
   }
 
+  const toggle = () => setSidebarOpen(o => !o);
   const collapsed = !sidebarOpen;
 
   return (
-    <div className="app-shell">
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50">
       {/* Mobile backdrop — only visible on small screens when sidebar open */}
       <div
         className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`}
         onClick={() => setSidebarOpen(false)}
       />
 
-      <Sidebar collapsed={collapsed} onToggle={() => setSidebarOpen(o => !o)} />
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={toggle}
+        mobileOpen={sidebarOpen}
+      />
 
-      <div className="main-area">
-        <Topbar onToggleSidebar={() => setSidebarOpen(o => !o)} />
-        <main className="page-content">
+      <div className="flex flex-col flex-1 min-w-0 h-screen overflow-hidden transition-all duration-300 ease-in-out relative">
+        <Topbar />
+        <main className="page-content flex-1 overflow-y-auto overflow-x-hidden relative">
           <Outlet />
         </main>
       </div>

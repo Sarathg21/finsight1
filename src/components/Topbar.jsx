@@ -1,4 +1,4 @@
-import { Menu, Search, Bell, LogOut, Calendar, Globe } from 'lucide-react';
+import { Search, Bell, LogOut, Calendar, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 
@@ -22,23 +22,13 @@ const PAGE_TITLES = {
   '/admin':               { title: 'User & Access Control',      sub: 'Role management & security settings' },
 };
 
-export default function Topbar({ onToggleSidebar }) {
+export default function Topbar() {
   const { user, logout } = useAuth();
   const { pathname } = useLocation();
   const page = PAGE_TITLES[pathname] || { title: 'Finsight', sub: 'FJ Group Finance Intelligence' };
 
   return (
     <header className="topbar">
-      <button
-        className="btn-icon"
-        onClick={onToggleSidebar}
-        id="sidebar-toggle-btn"
-        aria-label="Toggle sidebar"
-        style={{ flexShrink: 0 }}
-      >
-        <Menu size={18} />
-      </button>
-
       {/* Page title */}
       <div className="topbar-title">
         <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--clr-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
