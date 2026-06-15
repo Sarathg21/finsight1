@@ -1,16 +1,71 @@
-# React + Vite
+# Tascade Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository contains the React frontend for the Tascade application. It is built using React, Vite, Tailwind CSS, and Recharts.
 
-Currently, two official plugins are available:
+## Prerequisites
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node.js (v18 or higher recommended)
+- npm (comes with Node.js)
 
-## React Compiler
+## Setup and Installation
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-## Expanding the ESLint configuration
+## Environment Variables
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Create a `.env` file in the root directory. The following environment variables are used:
+
+- `VITE_API_BASE_URL`: The base URL of the backend API.
+  - **Local Development**: Leave this empty so that API calls use relative paths (e.g., `/api/...`) and are intercepted by the Vite dev proxy.
+  - **Production Deployment**: Set this to the full backend URL (e.g., `http://13.233.207.68:8000`).
+
+## Available Scripts
+
+- `npm run dev`: Starts the development server with Hot Module Replacement (HMR).
+- `npm run build`: Compiles the application for production. The output will be placed in the `dist` directory.
+- `npm run preview`: Previews the production build locally.
+- `npm run lint`: Runs ESLint to check for code quality issues.
+
+## Deployment Notes
+
+The application can be deployed using standard static web hosting solutions or via platforms like Vercel.
+
+### Nginx Deployment (Currently used on EC2)
+When deploying via Nginx, it is critical to configure a fallback for the Single Page Application (SPA) routing, so that React Router can handle direct navigation to client-side routes without resulting in a 404 error.
+
+Example Nginx configuration:
+```nginx
+server {
+    listen 80;
+    server_name tascade.fjtco.com;
+
+    # Path to the built Vite dist folder
+    root /var/www/tascade/dist;
+    index index.html;
+
+    # SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Vercel Deployment
+The repository includes a `vercel.json` configuration file which properly sets up rewrites so that `/api/*` requests bypass CORS and route appropriately.
+
+## Pending Issues & Workarounds
+
+- **Proxy/CORS:** In local development, cross-origin requests are handled by the Vite proxy configured in `vite.config.js`. Ensure that `VITE_API_BASE_URL` is unset locally to utilize this.
