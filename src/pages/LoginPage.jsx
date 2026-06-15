@@ -1,198 +1,458 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { DEMO_USERS } from '../context/AuthContext';
+import { Shield, Eye, EyeOff, ChevronDown, Smartphone, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { BACKEND_HOST } from '../services/authApi';
 
-const LoginPage = () => {
-    const [formData, setFormData] = useState({ id: '', password: '' });
-    const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
+/* ── Tiny server status pill (non-blocking) ──────────────────────── */
+function ServerPill({ status }) {
+  const cfg = {
+    checking: { dot: '#6366f1', label: 'Connecting to server…', pulse: true  },
+    online:   { dot: '#10b981', label: 'Live server connected',  pulse: false },
+    offline:  { dot: '#94a3b8', label: `Demo mode · ${BACKEND_HOST} unreachable`, pulse: false },
+  }[status] || { dot: '#94a3b8', label: '', pulse: false };
 
-    const { login } = useAuth();
-    const navigate = useNavigate();
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      marginBottom: 18,
+    }}>
+      <span style={{
+        width: 6, height: 6, borderRadius: '50%',
+        background: cfg.dot, flexShrink: 0, display: 'inline-block',
+        animation: cfg.pulse ? 'ping 1.2s ease-out infinite' : 'none',
+      }} />
+      <span style={{ fontSize: '0.68rem', color: 'var(--clr-text-muted)', fontWeight: 500 }}>
+        {cfg.label}
+      </span>
+    </div>
+  );
+}
 
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-        setError('');
-    };
+/* ── Main LoginPage ────────────────────────────────────────────────── */
+export default function LoginPage() {
+  const { user, verifyCredentials, completeLogin, loginWithBackend, auditLog } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const from      = location.state?.from?.pathname || null;
 
-    const handleLoginSubmit = async (e) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setError('');
-        
-        console.log(`[Login] Attempting login for ID: ${formData.id}`);
-        
-        try {
-            const result = await login(formData.id, formData.password);
-            setIsLoading(false);
-            
-            if (result.success) {
-                console.log(`[Login] Success! Role: ${result.role}`);
-                navigate('/dashboard');
-            } else {
-                console.error(`[Login] Failed: ${result.message}`);
-                setError(result.message);
-            }
-        } catch (err) {
-            setIsLoading(false);
-            console.error(`[Login] Critical Error:`, err);
-            setError('An unexpected error occurred during login. Please check your connection or try again later.');
+  const [email,    setEmail]    = useState('');
+  const [password, setPassword] = useState('');
+  const [showPwd,  setShowPwd]  = useState(false);
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
+
+  // 'checking' only while login is in-flight; 'online' / 'offline' after attempt
+  const [backendStatus, setBackendStatus] = useState('idle');
+
+  // MFA state
+  const [mfaStep,  setMfaStep]  = useState(false);
+  const [mfaCode,  setMfaCode]  = useState('');
+  const [mfaInput, setMfaInput] = useState('');
+  const [mfaUser,  setMfaUser]  = useState(null);
+
+  // ── Redirect if already logged in ───────────────────────────────
+  useEffect(() => {
+    if (user && !mfaStep) navigate(from || user.defaultPage || '/dashboard', { replace: true });
+  }, [user, mfaStep, navigate, from]);
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function generateMfaCode() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+  }
+
+  function goToMfa(sessionUser) {
+    const code = generateMfaCode();
+    setMfaCode(code);
+    setMfaUser(sessionUser);
+    setMfaStep(true);
+  }
+
+  // ── Submit handler ───────────────────────────────────────────────
+  // Strategy: ALWAYS try the real backend first (no pre-check).
+  // If it succeeds → real JWT session.
+  // If it fails with a network/timeout error → silently fall back to demo.
+  // If it fails with 401/403 → show credential error (wrong password).
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    setBackendStatus('checking');
+
+    try {
+      // ── Path A: Try real backend ─────────────────────────────────
+      try {
+        const session = await loginWithBackend(email.trim(), password);
+        setBackendStatus('online');
+        goToMfa(session);
+        return;
+      } catch (backendErr) {
+        console.error('[Login] Backend login failed:', backendErr);
+        const isAuthFailure =
+          backendErr?.isAuthError ||
+          backendErr?.status === 401 ||
+          backendErr?.status === 403;
+
+        if (isAuthFailure) {
+          // Backend is up but credentials are wrong or we got an HTTP error
+          setBackendStatus('online');
+          setError(backendErr.message || 'Invalid email or password');
+          return;
         }
-    };
+        // Network error / timeout → backend is down, fall through to demo
+        console.warn('[Login] Network/Timeout error, falling through to demo mode. Error:', backendErr);
+        setBackendStatus('offline');
+      }
 
+      // ── Path B: Backend unreachable → try demo credentials ───────
+      const result = verifyCredentials(email, password);
+      if (result.success) {
+        goToMfa(result.user);
+      } else {
+        setError('Invalid credentials. Check your email and password.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
 
-    return (
-        <div className="min-h-screen flex relative overflow-auto bg-gradient-to-br from-[#4c00d4] via-[#6d28d9] to-[#a855f7] select-none">
-            {/* Background Effects */}
-            <div className="absolute inset-0 z-[1] pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15)_0%,transparent_60%)]" />
-            <div className="absolute inset-0 z-0 opacity-10 pointer-events-none bg-[repeating-linear-gradient(135deg,transparent,transparent_100px,#ffffff_100px,#ffffff_102px)]" />
+  // ── MFA verify ───────────────────────────────────────────────────
+  function handleMfaVerify(e) {
+    e.preventDefault();
+    if (mfaInput.trim() === mfaCode) {
+      completeLogin(mfaUser);
+      auditLog?.('login_mfa', { userId: mfaUser?.id, userName: mfaUser?.name, userRole: mfaUser?.role });
+      navigate(from || mfaUser?.defaultPage || '/dashboard', { replace: true });
+    } else {
+      auditLog?.('mfa_failed', { userId: mfaUser?.id, userName: mfaUser?.name });
+      setError('Incorrect verification code. Please try again.');
+    }
+  }
 
-            {/* ─── LEFT SIDE (hidden on mobile) ─── */}
-            <div className="flex-[0_0_50%] w-1/2 flex-col justify-between p-14 relative overflow-hidden z-[2] hidden lg:flex">
-                <div className="relative z-[1] flex-1 flex flex-col justify-center items-center text-center">
-                    <div className="w-[120px] h-[120px] flex items-center justify-center mb-8 self-center">
-                        <a
-                            href="http://65.2.177.80/login"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-full h-full flex items-center justify-center"
-                            aria-label="Open Tascade Live Login"
-                        >
-                            <img
-                                src="/images/logo.png"
-                                alt="Tascade Logo"
-                                className="w-[110%] h-[110%] object-contain block"
-                                onError={e => { e.currentTarget.style.display = 'none'; }}
-                            />
-                        </a>
-                    </div>
-                    <h1 className="text-[3.5rem] font-semibold text-white tracking-[-0.02em] mb-1">Tascade®</h1>
-                    <h2 className="text-[1.75rem] font-semibold text-white mb-3 tracking-[-0.01em]">Track. Measure. Succeed.</h2>
-                    <p className="text-base text-white/85 leading-[1.8] max-w-[500px] mx-auto font-normal">
-                        Elevate productivity by tracking and measuring task performance.
-                        Turn goals into achievements with Tascade®.
-                    </p>
-                </div>
-                <p className="text-[0.85rem] text-white/70 m-0 text-left">
-                    © 2026 Zenith Data Intelligence, LLC. All rights reserved.
-                </p>
+  function fillDemo(u) {
+    setEmail(u.email);
+    setPassword(u.password);
+    setShowDemo(false);
+  }
+
+  /* ── Render ─────────────────────────────────────────────────────── */
+  return (
+    <div className="login-page">
+      <div className="login-bg-glow login-bg-glow-1" />
+      <div className="login-bg-glow login-bg-glow-2" />
+
+      {/* ── MFA Step ── */}
+      {mfaStep ? (
+        <div className="login-card animate-in">
+          <div className="login-logo">
+            <div className="logo-mark" style={{ background: 'linear-gradient(135deg,#10b981,#059669)' }}>
+              <Smartphone size={22} color="#fff" />
+            </div>
+            <div className="logo-text">
+              <span className="brand gradient-text">MFA Verification</span>
+              <span className="tagline">Multi-Factor Authentication Required</span>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '0.82rem', color: 'var(--clr-text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
+            A verification code has been sent to your registered device. Enter it below to complete sign-in.
+          </p>
+
+          {/* Demo code badge */}
+          <div style={{
+            background: 'rgba(16,185,129,0.08)', border: '1px dashed rgba(16,185,129,0.4)',
+            borderRadius: 10, padding: '10px 16px', marginBottom: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <div>
+              <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Demo Code (visible for testing)</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 900, letterSpacing: '0.25em', color: '#059669', fontFamily: 'monospace' }}>{mfaCode}</div>
+            </div>
+            <button type="button" onClick={() => { setMfaCode(generateMfaCode()); setMfaInput(''); setError(''); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981' }} title="Regenerate code">
+              <RefreshCw size={16} />
+            </button>
+          </div>
+
+          <form onSubmit={handleMfaVerify}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="mfa-input">6-Digit Verification Code</label>
+              <input
+                id="mfa-input"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                className="form-input"
+                placeholder="000000"
+                value={mfaInput}
+                onChange={e => { setMfaInput(e.target.value.replace(/\D/g, '')); setError(''); }}
+                required
+                autoFocus
+                style={{ letterSpacing: '0.3em', fontSize: '1.3rem', textAlign: 'center', fontFamily: 'monospace' }}
+              />
             </div>
 
-            {/* ─── RIGHT SIDE (full width on mobile) ─── */}
-            <div className="flex-1 flex items-center justify-center z-[2] px-4 py-8 sm:py-12 min-h-screen">
-                <div className="w-full max-w-[480px] bg-white rounded-[20px] sm:rounded-[24px] p-6 sm:p-10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] flex flex-col">
-                    <div className="flex justify-center mb-6 sm:mb-8 self-center">
-                        <img
-                            src="/images/fj1.png.png"
-                            alt="FJ Group logo"
-                            className="h-[180px] w-[180px] sm:h-[240px] sm:w-[240px] object-contain block"
-                            onError={e => { e.currentTarget.style.display = 'none'; }}
-                        />
-                    </div>
+            {error && (
+              <div style={{
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: 'var(--radius-md)', padding: '10px 14px',
+                color: 'var(--clr-danger)', fontSize: '0.82rem', marginBottom: '16px',
+              }}>{error}</div>
+            )}
 
-                    {/* Mobile brand tagline */}
-                    <div className="flex flex-col items-center mb-3 lg:hidden">
-                        <p className="text-[11px] font-semibold text-slate-400 tracking-widest capitalize">Tascade® — Track. Measure. Succeed.</p>
-                    </div>
+            <button id="mfa-verify-btn" type="submit" className="btn btn-primary w-full"
+              style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: '12px' }}>
+              <Shield size={15} /> Verify &amp; Sign In
+            </button>
+          </form>
 
-                    <h1 className="text-2xl sm:text-3xl font-bold text-[#1e1b4b] mb-6 text-center capitalize tracking-tight">Welcome</h1>
-
-                    {error && (
-                        <p className="text-[#ef4444] text-[0.85rem] text-center mb-4 font-bold bg-rose-50 p-2 rounded-lg border border-rose-100">
-                            {error}
-                        </p>
-                    )}
-
-                    <form onSubmit={handleLoginSubmit} className="space-y-4">
-                        {/* Fix 1 & 2: No stray artifact above label; both inputs share identical padding/typography tokens */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest pl-1">Employee ID</label>
-                            <div className="relative">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><User size={18} /></div>
-                                <input
-                                    type="text"
-                                    name="id"
-                                    placeholder="CFO001"
-                                    className="w-full pl-[2.75rem] pr-4 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold tracking-wide"
-                                    value={formData.id}
-                                    onChange={handleChange}
-                                    autoComplete="username"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* Fix 2: Password input uses identical pl-[2.75rem] offset + matching font-semibold tracking-wide
-                             so masked bullets render at exactly the same left offset as Employee ID alphanumeric text */}
-                        <div className="flex flex-col gap-1.5">
-                            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest pl-1">Password</label>
-                            <div className="relative">
-                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Lock size={18} /></div>
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    name="password"
-                                    placeholder="••••••••••••"
-                                    className="w-full pl-[2.75rem] pr-12 py-3 sm:py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-[0.9rem] sm:text-[0.95rem] text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold tracking-wide"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    autoComplete="current-password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 transition-colors"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div className="text-right">
-                            <button
-                                type="button"
-                                className="text-indigo-600 text-xs font-semibold capitalize tracking-wider hover:text-indigo-800"
-                                onClick={() => navigate('/forgot-password')}
-                            >
-                                Forgot password?
-                            </button>
-                        </div>
-
-                        {/* Fix 3: Replaced Wi-Fi icon with ShieldCheck — semantically correct security icon */}
-                        <button
-                            type="submit"
-                            className="w-full flex items-center justify-center gap-2.5 py-3.5 sm:py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-right text-white rounded-xl text-[0.85rem] sm:text-[0.9rem] font-semibold tracking-widest cursor-pointer shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-50"
-                            disabled={isLoading}
-                        >
-                            {isLoading ? (
-                                <>
-                                    <svg className="animate-spin" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                                        <circle cx="12" cy="12" r="10" strokeOpacity={0.25} />
-                                        <path d="M12 2a10 10 0 0 1 10 10" />
-                                    </svg>
-                                    Signing In...
-                                </>
-                            ) : (
-                                <>
-                                    <ShieldCheck size={17} strokeWidth={2.5} />
-                                    Sign In Securely
-                                </>
-                            )}
-                        </button>
-                    </form>
-
-
-                    {/* Fix 4: Improved footer contrast — text-slate-400 + font-medium replaces near-invisible text-white/50 */}
-                    <p className="mt-6 text-center text-[10px] text-slate-400 font-medium tracking-wide leading-relaxed lg:hidden">
-                        Secured with role-based access control · © 2026 Zenith Data Intelligence, LLC.
-                    </p>
-                </div>
-            </div>
+          <button type="button" onClick={() => { setMfaStep(false); setMfaInput(''); setError(''); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--clr-text-muted)', fontSize: '0.78rem', width: '100%', textAlign: 'center', textDecoration: 'underline' }}>
+            ← Back to login
+          </button>
         </div>
-    );
-};
 
-export default LoginPage;
+      ) : (
+        <div className="login-card animate-in">
+          {/* Logo */}
+          <div className="login-logo">
+            <div className="logo-mark">FS</div>
+            <div className="logo-text">
+              <span className="brand gradient-text">Finsight</span>
+              <span className="tagline">FJ Group Finance Intelligence</span>
+            </div>
+          </div>
+
+          <h1 className="login-heading">Welcome back</h1>
+          <p className="login-sub">Sign in to access your financial dashboards</p>
+
+          {/* ── Server status pill (tiny, non-blocking) ── */}
+          <ServerPill status={backendStatus} />
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="login-email">Email Address</label>
+              <input
+                id="login-email"
+                type="email"
+                className="form-input"
+                placeholder="you@fjgroup.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            </div>
+
+            <div className="form-group" style={{ position: 'relative' }}>
+              <label className="form-label" htmlFor="login-password">Password</label>
+              <input
+                id="login-password"
+                type={showPwd ? 'text' : 'password'}
+                className="form-input"
+                placeholder="••••••••"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                style={{ paddingRight: '42px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(v => !v)}
+                style={{
+                  position: 'absolute', right: 12, bottom: 11,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--clr-text-muted)', display: 'flex', alignItems: 'center',
+                }}
+                aria-label="Toggle password visibility"
+              >
+                {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            {/* Forgot password link */}
+            <div style={{ textAlign: 'right', marginTop: -10, marginBottom: 18 }}>
+              <Link
+                to="/forgot-password"
+                id="forgot-password-link"
+                style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--clr-primary)', textDecoration: 'none' }}
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            {error && (
+              <div style={{
+                background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                borderRadius: 'var(--radius-md)', padding: '10px 14px',
+                color: 'var(--clr-danger)', fontSize: '0.82rem', marginBottom: '16px',
+              }}>
+                {error}
+              </div>
+            )}
+
+            <button
+              id="login-submit-btn"
+              type="submit"
+              className="btn btn-primary w-full"
+              style={{ width: '100%', justifyContent: 'center', padding: '12px', marginBottom: '16px' }}
+              disabled={loading}
+            >
+              {loading ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)',
+                    borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+                    display: 'inline-block',
+                  }} />
+                  Signing in…
+                </span>
+              ) : (
+                <><Wifi size={14} /> Sign In Securely</>
+              )}
+            </button>
+          </form>
+
+          {/* ── Demo accounts — tiered ── */}
+          <div style={{ borderTop: '1px solid var(--clr-border)', paddingTop: 16 }}>
+            <button
+              id="demo-accounts-toggle"
+              type="button"
+              onClick={() => setShowDemo(v => !v)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--clr-text-muted)', fontSize: '0.75rem', fontWeight: 700,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+              }}
+            >
+              Demo Accounts – Quick Access
+              <ChevronDown
+                size={14}
+                style={{ transform: showDemo ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              />
+            </button>
+
+            {showDemo && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <TierSection
+                  tier="Board" icon="♛" color="#f59e0b"
+                  gradient="linear-gradient(135deg,#f59e0b,#d97706)"
+                  users={DEMO_USERS.filter(u => u.layer === 0)}
+                  onSelect={fillDemo}
+                />
+                <TierSection
+                  tier="Executive" icon="◆" color="#8b5cf6"
+                  gradient="linear-gradient(135deg,#8b5cf6,#6d28d9)"
+                  users={DEMO_USERS.filter(u => u.layer === 1 || u.layer === 2)}
+                  onSelect={fillDemo}
+                />
+                <TierSection
+                  tier="Management" icon="▲" color="#3b82f6"
+                  gradient="linear-gradient(135deg,#3b82f6,#1d4ed8)"
+                  users={DEMO_USERS.filter(u => u.layer === 3 || u.layer === 4)}
+                  onSelect={fillDemo}
+                />
+                <TierSection
+                  tier="Finance" icon="●" color="#10b981"
+                  gradient="linear-gradient(135deg,#10b981,#059669)"
+                  users={DEMO_USERS.filter(u => u.layer === 5 || u.layer === 6)}
+                  onSelect={fillDemo}
+                />
+              </div>
+            )}
+          </div>
+
+          <p className="login-hint">
+            <Shield size={11} style={{ display: 'inline', marginRight: 4 }} />
+            Secured with role-based access control · FJ Group confidential
+          </p>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin  { to { transform: rotate(360deg); } }
+        @keyframes ping  {
+          0%   { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+          70%  { box-shadow: 0 0 0 6px transparent; opacity: 0.3; }
+          100% { box-shadow: 0 0 0 0 transparent; opacity: 0; }
+        }
+        .tier-user-btn:hover {
+          border-color: var(--clr-border-hover) !important;
+          background: var(--clr-surface-2) !important;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Tier Section component ──────────────────────────────────────── */
+function TierSection({ tier, icon, color, gradient, users, onSelect }) {
+  return (
+    <div style={{ borderRadius: '10px', border: `1px solid ${color}30`, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 12px',
+        background: `${color}18`,
+        borderBottom: `1px solid ${color}28`,
+      }}>
+        <span style={{
+          width: 20, height: 20, background: gradient, borderRadius: '5px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '0.6rem', color: '#fff', flexShrink: 0,
+        }}>{icon}</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 700, color, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          {tier}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: '0.63rem', color: `${color}99`, fontWeight: 500 }}>
+          {users.length} {users.length === 1 ? 'account' : 'accounts'}
+        </span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, padding: '6px' }}>
+        {users.map(u => (
+          <button
+            key={u.id}
+            type="button"
+            className="tier-user-btn"
+            onClick={() => onSelect(u)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '7px 8px', background: 'transparent',
+              border: '1px solid transparent', borderRadius: '7px',
+              cursor: 'pointer', textAlign: 'left',
+              transition: 'all 0.15s', color: 'var(--clr-text)',
+            }}
+          >
+            <div style={{
+              width: 30, height: 30, borderRadius: '50%', background: gradient,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.62rem', fontWeight: 700, color: '#fff', flexShrink: 0,
+              boxShadow: `0 2px 8px ${color}40`,
+            }}>{u.avatar}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '0.8rem', fontWeight: 600, color: 'var(--clr-text)',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>{u.name}</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--clr-text-muted)', marginTop: 1 }}>
+                {u.roleLabel}
+              </div>
+            </div>
+            <div style={{
+              padding: '2px 8px', background: `${color}20`,
+              border: `1px solid ${color}40`, borderRadius: '20px',
+              fontSize: '0.62rem', fontWeight: 700, color, flexShrink: 0,
+            }}>
+              {u.layer === 0 ? 'BOARD' : `L${u.layer}`}
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

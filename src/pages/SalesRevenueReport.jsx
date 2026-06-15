@@ -4,7 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   AreaChart, Area,
   CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LabelList, ReferenceLine, Label,
+  PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
 import {
   fetchFilterOptions,
@@ -56,9 +56,9 @@ function Skeleton({ h = 20, w = '100%', radius = 6 }) {
   return (
     <div style={{
       height: h, width: w, borderRadius: radius,
-      background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)',
+      background: 'linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%)',
       backgroundSize: '200% 100%',
-      animation: 'shimmer 1.6s ease-in-out infinite',
+      animation: 'shimmer 1.4s infinite',
     }} />
   );
 }
@@ -693,10 +693,6 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
 
   const accent = accentColor || '#2563eb';
 
-  const changeText = changePct !== null && changePct !== undefined
-    ? `${Math.abs(changePct).toFixed(2)}% ${changeLabel || ''}`
-    : changeLabel || '—';
-
   return (
     <div
       id={`kpi-${label.replace(/\s+/g, '-').toLowerCase()}`}
@@ -706,90 +702,95 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         background: cardBg || '#fff',
         borderRadius: 12,
         border: `1.5px solid ${hover ? accent + '55' : 'transparent'}`,
-        padding: '12px 14px',
-        boxShadow: hover ? `0 8px 28px ${accent}22` : '0 2px 8px rgba(0,0,0,0.06)',
+        padding: '16px 16px 12px',
+        boxShadow: hover
+          ? `0 8px 28px ${accent}22`
+          : '0 2px 8px rgba(0,0,0,0.06)',
         transition: 'all 0.22s ease',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', flexDirection: 'row',
-        alignItems: 'center', gap: 10,
+        display: 'flex', flexDirection: 'column',
         overflow: 'hidden', position: 'relative',
       }}
     >
-      {/* Icon */}
-      <div style={{
-        width: 34, height: 34, borderRadius: '50%', background: iconBg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: '0.95rem', flexShrink: 0, color: accent,
-      }}>{icon}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Left: Icon */}
+        <div style={{
+          width: 38, height: 38, borderRadius: '50%', background: iconBg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '1.1rem', flexShrink: 0, color: accent,
+        }}>{icon}</div>
 
-      {/* 3 stacked lines */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
-
-        {/* Line 1 — Label */}
-        <span style={{
-          fontSize: '0.58rem', fontWeight: 700, color: accent,
-          lineHeight: 1.2, whiteSpace: 'nowrap',
-          overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{label}</span>
-
-        {/* Line 2 — Value */}
-        {loading ? (
-          <Skeleton h={18} w={80} />
-        ) : error ? (
-          <span style={{ fontSize: '0.72rem', color: C.rose, fontWeight: 600 }}>Error</span>
-        ) : (
-          <div style={{
-            fontSize: numericValue !== null ? '0.98rem' : '0.85rem',
-            fontWeight: 800, color: '#1e293b',
-            lineHeight: 1.25, letterSpacing: '-0.02em',
-            wordBreak: 'break-word',
-          }}>
-            {formattedNum}
-          </div>
-        )}
-
-        {/* Line 3 — Change */}
-        {!loading && (
+        {/* Right: Label and Value */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
           <span style={{
-            fontSize: '0.55rem', fontWeight: 600, lineHeight: 1.2,
-            color: up === true ? C.green : up === false ? C.rose : '#64748b',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {up === true && '▲ '}{up === false && '▼ '}{changeText}
-          </span>
-        )}
+            fontSize: '0.66rem', fontWeight: 700, color: accent,
+            lineHeight: 1.2, display: 'block',
+            whiteSpace: 'nowrap', letterSpacing: '-0.02em'
+          }}>{label}</span>
+          
+          {loading ? (
+            <Skeleton h={22} w={100} />
+          ) : error ? (
+            <span style={{ fontSize: '0.72rem', color: C.rose }}>Error</span>
+          ) : (
+            <div style={{
+              fontSize: numericValue !== null ? '1.1rem' : '0.9rem',
+              fontWeight: 800, color: '#1e293b', lineHeight: 1.2,
+              letterSpacing: '-0.01em',
+              wordBreak: 'break-word',
+            }}>
+              {formattedNum}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Change percentage badge */}
+      {loading ? (
+        <Skeleton h={16} w={120} radius={100} />
+      ) : (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontSize: '0.62rem', fontWeight: 700, marginTop: 6, paddingLeft: 48,
+          color: up === true ? C.green : up === false ? C.rose : '#64748b',
+          whiteSpace: 'nowrap'
+        }}>
+          {up === true && <span>▲</span>}
+          {up === false && <span>▼</span>}
+          <span>{changePct !== null && changePct !== undefined
+            ? `${Math.abs(changePct).toFixed(2)}% ${changeLabel || ''}`
+            : changeLabel || '—'}</span>
+        </div>
+      )}
+
+      {/* Sparkline */}
+      {sparkData && sparkData.length > 1 && (
+        <div style={{ margin: '12px -2px 0' }}>
+          <Sparkline data={sparkData} color={sparkColor} height={30} />
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─── Chart Card ────────────────────────────────────────────────── */
 function ChartCard({ title, children, minHeight, loading, error, onRetry, action }) {
-  const [hover, setHover] = useState(false);
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        background: '#fff', borderRadius: 16,
-        border: `1px solid ${hover ? 'rgba(99,102,241,0.2)' : C.border}`,
-        padding: '18px 20px',
-        boxShadow: hover
-          ? '0 8px 28px rgba(99,102,241,0.1), 0 2px 8px rgba(0,0,0,0.04)'
-          : '0 2px 8px rgba(0,0,0,0.04)',
-        display: 'flex', flexDirection: 'column', minHeight: minHeight || 'auto',
-        transition: 'box-shadow 0.22s ease, border-color 0.22s ease',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <span style={{ fontWeight: 800, fontSize: '0.84rem', color: C.navy, letterSpacing: '-0.01em' }}>{title}</span>
+    <div style={{
+      background: '#fff', borderRadius: 14,
+      border: `1px solid ${C.border}`, padding: '16px 18px',
+      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+      display: 'flex', flexDirection: 'column', minHeight: minHeight || 'auto',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <span style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>{title}</span>
         {action}
       </div>
       {error
         ? <ErrorBanner message={error} onRetry={onRetry} />
         : loading
           ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}>
-              <Skeleton h={14} w="55%" />
+              <Skeleton h={14} w="60%" />
               <Skeleton h={130} />
             </div>
           : <div style={{ flex: 1 }}>{children}</div>
@@ -803,34 +804,21 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
-      background: 'rgba(255,255,255,0.97)',
-      border: '1px solid rgba(99,102,241,0.15)',
-      borderRadius: 14,
-      padding: '12px 16px',
-      boxShadow: '0 16px 48px rgba(0,0,0,0.13), 0 2px 8px rgba(99,102,241,0.08)',
-      fontSize: '0.75rem',
-      minWidth: 170,
-      backdropFilter: 'blur(12px)',
-      animation: 'tooltipIn 0.15s ease forwards',
+      background: '#fff', border: `1px solid ${C.border}`,
+      borderRadius: 10, padding: '10px 14px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.1)', fontSize: '0.75rem',
+      minWidth: 160,
     }}>
-      <div style={{
-        fontWeight: 700, color: C.navy, marginBottom: 8,
-        borderBottom: '1px solid rgba(99,102,241,0.1)',
-        paddingBottom: 7, fontSize: '0.78rem', letterSpacing: '-0.01em',
-      }}>
+      <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6, borderBottom: `1px solid ${C.border}`, paddingBottom: 5 }}>
         {label}
       </div>
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, marginBottom: i < payload.length - 1 ? 6 : 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{
-              width: 9, height: 9, borderRadius: 3,
-              background: p.color, display: 'inline-block',
-              boxShadow: `0 0 6px ${p.color}55`,
-            }} />
-            <span style={{ color: '#64748b', fontWeight: 500 }}>{p.name}</span>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block' }} />
+            <span style={{ color: C.slate }}>{p.name}</span>
           </div>
-          <span style={{ fontWeight: 700, color: C.navy, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>
+          <span style={{ fontWeight: 700, color: C.navy }}>
             AED {Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
@@ -857,22 +845,14 @@ function VarBadge({ val }) {
 /* ─── Legend Dot ────────────────────────────────────────────────── */
 function LegendDot({ color, label, dashed }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      {dashed ? (
-        <span style={{
-          width: 20, height: 0,
-          borderTop: `2.5px dashed ${color}`,
-          display: 'inline-block',
-        }} />
-      ) : (
-        <span style={{
-          width: 20, height: 3,
-          background: `linear-gradient(90deg, ${color}, ${color}bb)`,
-          display: 'inline-block', borderRadius: 99,
-          boxShadow: `0 1px 4px ${color}55`,
-        }} />
-      )}
-      <span style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 600, letterSpacing: '0.01em' }}>{label}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+      <span style={{
+        width: 18, height: 2.5,
+        background: dashed ? 'transparent' : color,
+        borderTop: dashed ? `2.5px dashed ${color}` : 'none',
+        display: 'inline-block', borderRadius: 1,
+      }} />
+      <span style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
@@ -939,6 +919,12 @@ const TH = {
   borderBottom: `2px solid #e2e8f0`, whiteSpace: 'nowrap',
 };
 const TD = { padding: '8px 16px', fontSize: '0.74rem', color: '#334155' };
+const TH_LG = {
+  padding: '10px 16px', fontSize: '0.74rem', fontWeight: 700, color: '#1e3a8a',
+  background: '#f8fafc',
+  borderBottom: `2px solid #e2e8f0`, whiteSpace: 'nowrap',
+};
+const TD_LG = { padding: '8px 16px', fontSize: '0.74rem', color: '#334155' };
 
 /* ─── Axis Number Formatter ─────────────────────────────────────── */
 const fmtAxisNum = (v) => {
@@ -952,340 +938,6 @@ const fmtAxisNum = (v) => {
 /* ═══════════════════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                                  */
 /* ═══════════════════════════════════════════════════════════════ */
-
-/* ─────────────────────────────────────────────────────────────
-   ParentDivBarChart — standalone component so useState is valid
-───────────────────────────────────────────────────────────── */
-const PARENT_DIV_COLORS = [
-  '#6366f1', // indigo  — rank 1
-  '#10b981', // emerald — rank 2
-  '#f59e0b', // amber   — rank 3
-  '#ef4444', // red     — rank 4
-  '#0ea5e9', // sky     — rank 5
-  '#94a3b8', // slate   — Others (neutral, separated)
-];
-
-function ParentDivBarChart({ data, fmtAxisNum }) {
-  const [hoveredBar, setHoveredBar] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const containerRef = useRef(null);
-
-  if (!data || data.length === 0) return null;
-
-  const maxVal = Math.max(...data.map(d => d.value || 0));
-
-  const handleMouseMove = (e, item) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setTooltipPos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-    setHoveredBar(item);
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      className="chart-card-animate"
-      style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}
-      onMouseLeave={() => setHoveredBar(null)}
-    >
-      {/* ── Bar rows ── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1, justifyContent: 'space-evenly' }}>
-        {data.map((item, i) => {
-          const isOthers = (item.name || '').toLowerCase() === 'others';
-          const clr = isOthers
-            ? PARENT_DIV_COLORS[PARENT_DIV_COLORS.length - 1]
-            : PARENT_DIV_COLORS[i % (PARENT_DIV_COLORS.length - 1)];
-          const pct = maxVal > 0 ? (item.value / maxVal) * 100 : 0;
-          const isHovered = hoveredBar?.name === item.name;
-
-          return (
-            <div
-              key={i}
-              onMouseMove={e => handleMouseMove(e, item)}
-              onMouseEnter={e => handleMouseMove(e, item)}
-              style={{ cursor: 'default' }}
-            >
-              {/* Label row */}
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                marginBottom: 5,
-              }}>
-                <span style={{
-                  fontSize: '0.72rem', fontWeight: 700,
-                  color: isHovered ? clr : '#334155',
-                  transition: 'color 0.15s ease',
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                  maxWidth: '65%',
-                }}>
-                  {item.name}
-                </span>
-                <span style={{
-                  fontSize: '0.7rem', fontWeight: 800,
-                  color: isHovered ? clr : '#1e293b',
-                  transition: 'color 0.15s ease',
-                  letterSpacing: '-0.02em',
-                  fontVariantNumeric: 'tabular-nums',
-                  flexShrink: 0, marginLeft: 8,
-                }}>
-                  {fmtAxisNum(item.value)}
-                </span>
-              </div>
-
-              {/* Bar track */}
-              <div style={{
-                width: '100%', height: 10, borderRadius: 99,
-                background: isHovered ? `${clr}18` : 'rgba(0,0,0,0.05)',
-                transition: 'background 0.15s ease',
-                overflow: 'hidden',
-              }}>
-                <div style={{
-                  height: '100%',
-                  width: `${pct}%`,
-                  borderRadius: 99,
-                  background: `linear-gradient(90deg, ${clr}cc, ${clr})`,
-                  boxShadow: isHovered ? `0 2px 10px ${clr}55` : 'none',
-                  transition: 'width 0.7s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease',
-                }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Floating tooltip — never overlaps static content ── */}
-      {hoveredBar && (
-        <div style={{
-          position: 'absolute',
-          left: Math.min(tooltipPos.x + 12, 160),
-          top: Math.max(tooltipPos.y - 72, 0),
-          pointerEvents: 'none',
-          zIndex: 50,
-          background: 'rgba(255,255,255,0.98)',
-          border: '1px solid rgba(99,102,241,0.2)',
-          borderRadius: 10,
-          padding: '8px 12px',
-          boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
-          backdropFilter: 'blur(10px)',
-          minWidth: 160,
-          animation: 'tooltipIn 0.12s ease',
-        }}>
-          <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#1e293b', marginBottom: 6, lineHeight: 1.3 }}>
-            {hoveredBar.name}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '0.63rem', color: '#64748b', fontWeight: 500 }}>Revenue</span>
-            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e293b', fontVariantNumeric: 'tabular-nums' }}>
-              AED {Number(hoveredBar.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-          {hoveredBar.pct != null && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 3 }}>
-              <span style={{ fontSize: '0.63rem', color: '#64748b', fontWeight: 500 }}>Share</span>
-              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#6366f1' }}>
-                {Number(hoveredBar.pct).toFixed(1)}%
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────
-   SubDivBarChart — standalone component to fix vertical chart tooltip tracking
-───────────────────────────────────────────────────────────── */
-const SUB_DIV_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#0ea5e9'];
-
-function SubDivBarChart({ data, fmtAxisNum }) {
-  const [hoveredBar, setHoveredBar] = useState(null);
-  const [showOthers, setShowOthers] = useState(true);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const containerRef = useRef(null);
-
-  if (!data || data.length === 0) return null;
-  const filteredData = showOthers ? data : data.filter(d => (d.name || '').toLowerCase() !== 'others');
-  const maxVal = Math.max(...filteredData.map(d => d.value || 0));
-
-  let ticks = [];
-  let tickMax = 0;
-  if (maxVal > 0) {
-    const power = Math.floor(Math.log10(maxVal));
-    const factor = Math.pow(10, power);
-    const normalizedMax = maxVal / factor;
-    
-    let tickStep;
-    if (normalizedMax <= 1.5) tickStep = 0.25;
-    else if (normalizedMax <= 3) tickStep = 0.5;
-    else if (normalizedMax <= 6) tickStep = 1;
-    else tickStep = 2;
-    
-    const step = tickStep * factor;
-    tickMax = Math.ceil(maxVal / step) * step;
-    
-    for (let i = tickMax; i >= 0; i -= step) {
-      ticks.push(Math.round(i * 10000) / 10000);
-    }
-  } else {
-    ticks = [0];
-    tickMax = 1;
-  }
-
-  const handleMouseMove = (e, item, idx) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    setTooltipPos({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-    setHoveredBar({ ...item, originalIndex: idx });
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, width: '100%', position: 'relative' }}>
-      <div style={{ position: 'absolute', top: -45, right: 36, zIndex: 10 }}>
-        <button 
-          onClick={() => setShowOthers(!showOthers)} 
-          style={{ fontSize: '0.65rem', padding: '4px 10px', borderRadius: 6, background: showOthers ? '#f1f5f9' : '#e2e8f0', color: '#475569', fontWeight: 700, border: '1px solid #cbd5e1', cursor: 'pointer', transition: 'all 0.2s' }}
-        >
-          {showOthers ? 'Exclude "Others"' : 'Include "Others"'}
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', flex: 1, width: '100%' }}>
-        {/* Y-Axis */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingBottom: 48, paddingTop: 30, paddingRight: 10, alignItems: 'flex-end', borderRight: '1px solid #f1f5f9', marginRight: 10 }}>
-          {ticks.map((tick, i) => (
-            <span key={i} style={{ fontSize: '0.65rem', fontWeight: 600, color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
-              {fmtAxisNum(tick)}
-            </span>
-          ))}
-        </div>
-
-        <div
-          ref={containerRef}
-          className="chart-card-animate"
-          style={{ position: 'relative', width: '100%', flex: 1, minHeight: 280, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', paddingTop: 30, paddingBottom: 16 }}
-          onMouseLeave={() => setHoveredBar(null)}
-        >
-          {filteredData.map((item, i) => {
-          const isOthers = (item.name || '').toLowerCase() === 'others';
-          const clr = isOthers ? '#cbd5e1' : SUB_DIV_COLORS[i % SUB_DIV_COLORS.length];
-          const pct = tickMax > 0 ? (item.value / tickMax) * 100 : 0;
-        const isHovered = hoveredBar?.name === item.name;
-
-        return (
-          <div
-            key={i}
-            onMouseMove={e => handleMouseMove(e, item, i)}
-            onMouseEnter={e => handleMouseMove(e, item, i)}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-              height: '100%', flex: 1, position: 'relative', cursor: 'default', padding: '0 6px',
-            }}
-          >
-            {/* Highlight Box */}
-            <div style={{
-              position: 'absolute', top: -30, bottom: 0, left: '5%', right: '5%',
-              background: isHovered ? 'rgba(99,102,241,0.08)' : 'transparent',
-              borderRadius: 8, transition: 'background 0.2s ease', zIndex: 0,
-            }} />
-
-            {/* Top Value Label */}
-            <div style={{
-              fontSize: '0.68rem', fontWeight: 800, color: '#1e293b', marginBottom: 6, zIndex: 1,
-              transition: 'transform 0.2s', transform: isHovered ? 'translateY(-3px)' : 'none', fontVariantNumeric: 'tabular-nums',
-            }}>
-              {fmtAxisNum(item.value)}
-            </div>
-
-            {/* Vertical Bar */}
-            <div style={{
-              width: 36, height: `calc(${pct * 0.9}% + 4px)`,
-              background: `linear-gradient(180deg, ${clr}, ${clr}cc)`,
-              borderRadius: '6px 6px 0 0',
-              boxShadow: isHovered ? `0 4px 14px ${clr}55` : 'none',
-              transition: 'height 0.7s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s', zIndex: 1,
-            }} />
-
-            {/* X-Axis Name */}
-            <div style={{
-              marginTop: 10, textAlign: 'center', zIndex: 1, height: 32, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start',
-              width: '100%', wordBreak: 'keep-all', overflowWrap: 'break-word', lineHeight: 1.15
-            }}>
-              <span style={{ fontSize: '0.6rem', fontWeight: isHovered ? 800 : 600, color: isHovered ? '#1e3a8a' : '#475569', transition: 'all 0.15s' }}>
-                {item.name}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Floating Tooltip */}
-      {hoveredBar && (() => {
-        const isOthers = (hoveredBar.name || '').toLowerCase() === 'others';
-        const clr = isOthers ? '#cbd5e1' : SUB_DIV_COLORS[hoveredBar.originalIndex % SUB_DIV_COLORS.length];
-        const containerWidth = containerRef.current?.offsetWidth || 300;
-        
-        // Smart Edge Anchoring Logic
-        const isNearLeftEdge = tooltipPos.x < 120;
-        const tooltipX = isNearLeftEdge ? tooltipPos.x + 30 : Math.min(Math.max(tooltipPos.x, 80), containerWidth - 80);
-        const transformStyle = isNearLeftEdge ? 'translate(0, -50%)' : 'translate(-50%, -50%)';
-        
-        return (
-          <div style={{
-            position: 'absolute',
-            left: tooltipX,
-            top: tooltipPos.y - (isNearLeftEdge ? 20 : 75),
-            transform: transformStyle,
-            pointerEvents: 'none', background: 'rgba(255,255,255,0.98)',
-            border: `1px solid ${clr}40`, borderRadius: 12, padding: '10px 14px',
-            boxShadow: `0 12px 36px rgba(0,0,0,0.12), 0 2px 8px ${clr}20`,
-            minWidth: 150, backdropFilter: 'blur(10px)', animation: 'tooltipIn 0.15s ease-out forwards', zIndex: 50,
-          }}>
-            <div style={{ fontWeight: 800, color: C.navy, marginBottom: 6, borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: 5, fontSize: '0.74rem', letterSpacing: '-0.01em' }}>
-              {hoveredBar.name}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: clr, display: 'inline-block' }} />
-                <span style={{ fontSize: '0.65rem', color: C.slate, fontWeight: 500 }}>Revenue:</span>
-              </div>
-              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: C.navy, fontVariantNumeric: 'tabular-nums' }}>
-                AED {Number(hoveredBar.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
-              </span>
-            </div>
-            {hoveredBar.pct !== undefined && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 4 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, display: 'inline-block' }} />
-                  <span style={{ fontSize: '0.65rem', color: C.slate, fontWeight: 500 }}>Share:</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: C.navy }}>
-                  {Number(hoveredBar.pct).toFixed(1)}%
-                </span>
-              </div>
-            )}
-            <div style={{
-              position: 'absolute', 
-              ...(isNearLeftEdge 
-                ? { left: -5, top: '50%', transform: 'translateY(-50%) rotate(45deg)', borderBottom: `1px solid ${clr}40`, borderLeft: `1px solid ${clr}40` }
-                : { bottom: -5, left: '50%', transform: 'translateX(-50%) rotate(45deg)', borderRight: `1px solid ${clr}40`, borderBottom: `1px solid ${clr}40` }
-              ),
-              width: 10, height: 10, background: 'rgba(255,255,255,0.98)'
-            }} />
-          </div>
-        );
-      })()}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 export default function SalesRevenueReport() {
   const navigate = useNavigate();
@@ -1352,7 +1004,7 @@ export default function SalesRevenueReport() {
   const fmtCurrency = (v) => v !== null && v !== undefined ? `AED ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
   const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
   const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
-  // const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   /* ── Auth redirect helper ─────────────────────────────────────── */
   const handle401 = useCallback((err) => {
@@ -1732,8 +1384,8 @@ export default function SalesRevenueReport() {
   const grossMarginPct  = grossMarginData?.margin_pct ?? grossMarginData?.gross_margin_pct ?? summary?.gross_margin_pct ?? null;
   const grossMarginChg  = grossMarginData?.mtd_change_pct   ?? grossMarginData?.gross_margin_change_pct ?? summary?.gross_margin_change_pct ?? null;
   // Counts
-  // const totalCustomers  = summary?.total_customers  ?? null;
-  // const totalSalesmen   = summary?.total_salesmen   ?? null;
+  const totalCustomers  = summary?.total_customers  ?? null;
+  const totalSalesmen   = summary?.total_salesmen   ?? null;
   // Highlights
   const topLE           = summary?.top_legal_entity;
   const topPD           = summary?.top_parent_division;
@@ -1750,16 +1402,16 @@ export default function SalesRevenueReport() {
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
-  // const sparkYTD = sparkMTD; // same source — API returns current year only
+  const sparkYTD = sparkMTD; // same source — API returns current year only
 
   /* ── Year labels ─────────────────────────────────────────────── */
   const currentYearLabel  = summary?.current_year_label  || 'Current Year';
-  // const previousYearLabel = summary?.previous_year_label || 'Previous Year';
+  const previousYearLabel = summary?.previous_year_label || 'Previous Year';
 
   /* ── Details pagination derived ───────────────────────────────── */
-  // const totalPages   = Math.max(1, Math.ceil(detailTotalCount / DETAILS_PAGE_SIZE));
-  // const pageStart    = detailPage * DETAILS_PAGE_SIZE + 1;
-  // const pageEnd      = Math.min((detailPage + 1) * DETAILS_PAGE_SIZE, detailTotalCount);
+  const totalPages   = Math.max(1, Math.ceil(detailTotalCount / DETAILS_PAGE_SIZE));
+  const pageStart    = detailPage * DETAILS_PAGE_SIZE + 1;
+  const pageEnd      = Math.min((detailPage + 1) * DETAILS_PAGE_SIZE, detailTotalCount);
 
   /* ── Column definitions for View-All modals ──────────────────── */
   const legalEntityCols = [
@@ -1858,7 +1510,7 @@ export default function SalesRevenueReport() {
       `}</style>
 
       <div className="animate-in" style={{
-        padding: 0, /* Removed double padding as Layout handles it */
+        padding: '20px 24px 32px',
         background: C.bg, minHeight: '100%',
       }}>
 
@@ -1992,9 +1644,6 @@ export default function SalesRevenueReport() {
             fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
             alignSelf: 'flex-end', padding: '7px 8px',
           }}>Reset</button>
-          
-          {/* Invisible spacer to prevent right-edge cutoff on scroll */}
-          <div style={{ flexShrink: 0, width: 16 }}></div>
         </div>
 
         {/* ── Revenue Dashboard KPI Cards ── */}
@@ -2071,7 +1720,7 @@ export default function SalesRevenueReport() {
 
           {/* 5. Top Parent Division */}
           <KPICard
-            label="Top Parent Div"
+            label="Top Parent Division"
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
             changePct={null}
@@ -2109,534 +1758,171 @@ export default function SalesRevenueReport() {
         {/* ── Main Dashboard Charts Row ── */}
         <div className="grid-charts-3" style={{ marginBottom: 16 }}>
           
-          {/* 1. Revenue Trend — Smart adaptive widget */}
-          <div className="card" style={{ padding: '18px 20px 14px', display: 'flex', flexDirection: 'column' }}>
-            {/* Card Header */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, letterSpacing: '-0.01em' }}>Revenue Trend (AED)</div>
-                <div style={{ fontSize: '0.65rem', color: C.slate, marginTop: 2, fontWeight: 500 }}>
-                  {loading.trend
-                    ? 'Loading…'
-                    : trendData.length === 0
-                      ? 'No data for selected filters'
-                      : trendData.length === 1
-                        ? `${trendData[0].period} · Single period view`
-                        : `${trendData.length} periods · ${currentYearLabel || 'Current Year'}`}
-                </div>
-              </div>
+          {/* 1. Revenue Trend (Line Chart) */}
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('trend')} endpoint="trend" filters={appliedFilters} />
             </div>
 
-            {/* ── Loading ── */}
             {loading.trend ? (
-              <div style={{
-                flex: 1, minHeight: 220,
-                background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)',
-                backgroundSize: '200% 100%', animation: 'shimmer 1.6s ease-in-out infinite', borderRadius: 10,
-              }} />
-
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : errors.trend ? (
               <div style={{ textAlign: 'center', color: '#ef4444', fontSize: '0.78rem', paddingTop: 60 }}>⚠ Failed to load</div>
-
             ) : trendData.length === 0 ? (
-              <div style={{
-                flex: 1, display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center', minHeight: 220, gap: 8,
-              }}>
-                <div style={{ fontSize: '1.8rem', opacity: 0.25 }}>📊</div>
-                <div style={{ fontSize: '0.8rem', color: C.muted, fontWeight: 500 }}>No trend data for this period</div>
-                <div style={{ fontSize: '0.68rem', color: C.muted }}>Adjust the date filters to see revenue over time</div>
-              </div>
-
-            ) : trendData.length === 1 ? (
-              /* ════════════════════════════════════════════
-                 SINGLE PERIOD → KPI CARD FALLBACK
-                 A lone dot on a line chart is meaningless.
-                 Show the value prominently instead.
-              ════════════════════════════════════════════ */
-              (() => {
-                const val  = trendData[0].currentYear;
-                const label = trendData[0].period;
-                const fmtVal = `AED ${fmtAxisNum(val)}`;
-                const fullVal = `AED ${Number(val).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-                return (
-                  <div className="chart-card-animate" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    {/* Hero value */}
-                    <div style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center',
-                      justifyContent: 'center', flex: 1, paddingTop: 16, paddingBottom: 8,
-                    }}>
-                      {/* Period badge */}
-                      <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.18)',
-                        borderRadius: 99, padding: '3px 10px', marginBottom: 14,
-                        fontSize: '0.65rem', fontWeight: 700, color: '#6366f1',
-                        letterSpacing: '0.03em',
-                      }}>
-                        📅 {label}
-                      </div>
-
-                      {/* Big AED value */}
-                      <div style={{
-                        fontSize: '1.9rem', fontWeight: 900, color: '#1e293b',
-                        letterSpacing: '-0.04em', lineHeight: 1, fontFamily: 'Inter, system-ui, sans-serif',
-                      }}>
-                        {fmtVal}
-                      </div>
-                      <div style={{
-                        fontSize: '0.68rem', color: '#94a3b8', marginTop: 5, fontWeight: 500,
-                      }}>
-                        {fullVal}
-                      </div>
-
-                      {/* Single vertical bar */}
-                      <div style={{
-                        marginTop: 20, display: 'flex', alignItems: 'flex-end',
-                        justifyContent: 'center', gap: 0, height: 80,
-                      }}>
-                        <div style={{
-                          width: 52, height: '100%', borderRadius: '8px 8px 0 0',
-                          background: 'linear-gradient(180deg, #6366f1 0%, #2563eb 100%)',
-                          boxShadow: '0 6px 20px rgba(99,102,241,0.35)',
-                          position: 'relative',
-                          animation: 'chartFadeIn 0.6s ease forwards',
-                        }}>
-                          {/* Shine overlay */}
-                          <div style={{
-                            position: 'absolute', top: 0, left: 0, right: 0,
-                            height: '40%', borderRadius: '8px 8px 0 0',
-                            background: 'linear-gradient(180deg, rgba(255,255,255,0.2), rgba(255,255,255,0))',
-                          }} />
-                        </div>
-                      </div>
-                      {/* Bar base line */}
-                      <div style={{ width: 120, height: 2, borderRadius: 1, background: 'rgba(99,102,241,0.15)', marginTop: 0 }} />
-                      <div style={{ fontSize: '0.64rem', color: '#94a3b8', marginTop: 6, fontWeight: 600 }}>{label}</div>
-                    </div>
-
-                    {/* Info note */}
-                    <div style={{
-                      marginTop: 8, padding: '7px 12px',
-                      background: 'rgba(99,102,241,0.05)', borderRadius: 8,
-                      fontSize: '0.62rem', color: '#6366f1', fontWeight: 600,
-                      textAlign: 'center', letterSpacing: '0.01em',
-                    }}>
-                      💡 Broaden the date range to see a full revenue trend line
-                    </div>
-                  </div>
-                );
-              })()
-
+              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No trend data available</div>
             ) : (
-              /* ════════════════════════════════════════════
-                 MULTI-PERIOD → AREA TREND CHART
-              ════════════════════════════════════════════ */
-              (() => {
-                /* Dynamic Y-axis: avoid massive whitespace */
-                const vals = trendData.map(d => d.currentYear).filter(Boolean);
-                const dataMax = Math.max(...vals);
-                const dataMin = Math.min(...vals);
-                const yMax = Math.ceil(dataMax * 1.18);  // 18% headroom above max
-                const yMin = dataMin > 0
-                  ? Math.floor(dataMin * 0.72)           // start 28% below min (not at 0)
-                  : 0;
-
-                /* Last point value for the data label */
-                const lastPoint = trendData[trendData.length - 1];
-                const lastVal = lastPoint?.currentYear;
-
-                return (
-                  <div className="chart-card-animate" style={{ marginTop: 8 }}>
-                    <ResponsiveContainer width="100%" height={210} minWidth={0} style={{ overflow: 'visible' }}>
-                      <AreaChart data={trendData} margin={{ top: 24, right: 28, left: -18, bottom: 8 }}>
-                        <defs>
-                          <linearGradient id="trendGradBlue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%"   stopColor="#6366f1" stopOpacity="0.28" />
-                            <stop offset="45%"  stopColor="#2563eb" stopOpacity="0.10" />
-                            <stop offset="100%" stopColor="#2563eb" stopOpacity="0"   />
-                          </linearGradient>
-                        </defs>
-
-                        <CartesianGrid
-                          strokeDasharray="4 4" vertical={false}
-                          stroke="rgba(99,102,241,0.07)"
-                        />
-                        <XAxis
-                          dataKey="period"
-                          tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}
-                          axisLine={false} tickLine={false}
-                          dy={6}
-                          padding={{ left: 16, right: 16 }}
-                          interval={trendData.length > 8 ? 'preserveStartEnd' : 0}
-                        />
-                        <YAxis
-                          tick={{ fill: '#94a3b8', fontSize: 10, fontFamily: 'Inter, sans-serif' }}
-                          axisLine={false} tickLine={false}
-                          tickFormatter={fmtAxisNum}
-                          width={48}
-                          domain={[yMin, yMax]}
-                        />
-                        <Tooltip
-                          content={<CustomTooltip />}
-                          cursor={{ stroke: 'rgba(99,102,241,0.18)', strokeWidth: 1.5, strokeDasharray: '4 2' }}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="currentYear"
-                          name={currentYearLabel || 'Current Year'}
-                          stroke="#4f46e5"
-                          strokeWidth={2.5}
-                          fill="url(#trendGradBlue)"
-                          dot={{ r: 3.5, fill: '#fff', stroke: '#4f46e5', strokeWidth: 2 }}
-                          activeDot={{
-                            r: 7, fill: '#4f46e5', stroke: '#fff', strokeWidth: 3,
-                            filter: 'drop-shadow(0 0 6px rgba(79,70,229,0.5))',
-                          }}
-                          isAnimationActive={true}
-                          animationDuration={900}
-                          animationEasing="ease-out"
-                        >
-                          {/* Label only on the last (most recent) data point */}
-                          <LabelList
-                            dataKey="currentYear"
-                            position="top"
-                            content={({ x, y, value, index }) => {
-                              if (index !== trendData.length - 1) return null;
-                              return (
-                                <g>
-                                  <rect
-                                    x={x - 28} y={y - 24}
-                                    width={56} height={18}
-                                    rx={5} ry={5}
-                                    fill="#4f46e5"
-                                  />
-                                  <text
-                                    x={x} y={y - 11}
-                                    textAnchor="middle"
-                                    fill="#fff"
-                                    fontSize={9}
-                                    fontWeight={700}
-                                    fontFamily="Inter, sans-serif"
-                                  >
-                                    {fmtAxisNum(value)}
-                                  </text>
-                                </g>
-                              );
-                            }}
-                          />
-                        </Area>
-                      </AreaChart>
-                    </ResponsiveContainer>
-
-                    {/* Legend */}
-                    <div style={{
-                      display: 'flex', justifyContent: 'center', alignItems: 'center',
-                      gap: 20, marginTop: 10, paddingTop: 8,
-                      borderTop: '1px solid rgba(99,102,241,0.07)',
-                    }}>
-                      <LegendDot color="#4f46e5" label={currentYearLabel || 'Current Year'} />
-                      {lastVal != null && (
-                        <span style={{
-                          fontSize: '0.68rem', color: '#475569', fontWeight: 600,
-                          letterSpacing: '-0.01em',
-                        }}>
-                          Latest: <span style={{ color: '#4f46e5', fontWeight: 800 }}>AED {fmtAxisNum(lastVal)}</span>
-                        </span>
-                      )}
-                    </div>
+              <>
+                <ResponsiveContainer width="100%" height={220} minWidth={0}>
+                  <LineChart data={trendData} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                    <XAxis dataKey="period" tick={{ fill: C.muted, fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={50} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="currentYear" name="Sales" stroke={C.blue} strokeWidth={2.5} dot={{ r: trendData.length === 1 ? 5 : 4, fill: trendData.length === 1 ? C.blue : '#fff', stroke: C.blue, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: C.slate }}>
+                    <span style={{ width: 12, height: 3, background: C.blue, display: 'inline-block', borderRadius: 2 }} />
+                    {currentYearLabel}
                   </div>
-                );
-              })()
+                </div>
+              </>
             )}
           </div>
 
-          {/* 2. Revenue by Legal Entity (Donut) — Redesigned */}
-          <div className="card" style={{ padding: '18px 20px 16px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, letterSpacing: '-0.01em' }}>Revenue by Legal Entity</div>
-                <div style={{ fontSize: '0.65rem', color: C.slate, marginTop: 2, fontWeight: 500 }}>AED contribution — 100% breakdown</div>
-              </div>
+          {/* 2. Revenue by Legal Entity (Donut) */}
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Legal Entity (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={appliedFilters} />
             </div>
 
             {loading.legalEnt ? (
-              <div style={{ flex: 1, minHeight: 260, background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.6s ease-in-out infinite', borderRadius: 10 }} />
-            ) : legalEntData.length > 0 ? (() => {
-              /* ── derive total for center label ── */
-              const totalVal = legalEntData.reduce((s, d) => s + (d.value || 0), 0);
-              const fmtTotal = totalVal >= 1_000_000
-                ? `AED ${(totalVal / 1_000_000).toFixed(1)}M`
-                : `AED ${fmtAxisNum(totalVal)}`;
-
-              /* ── distinct, high-contrast palette ── */
-              const DONUT_COLORS = [
-                '#6366f1', '#10b981', '#f59e0b', '#ef4444',
-                '#0ea5e9', '#8b5cf6', '#f97316', '#14b8a6',
-              ];
-
-              /* ── active shape for hover scale ── */
-              const ActiveShape = (props) => {
-                const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-                return (
-                  <g>
-                    <sector
-                      cx={cx} cy={cy}
-                      innerRadius={innerRadius - 2}
-                      outerRadius={outerRadius + 6}
-                      startAngle={startAngle} endAngle={endAngle}
-                      fill={fill}
-                      style={{ filter: `drop-shadow(0 4px 12px ${fill}55)` }}
-                    />
-                  </g>
-                );
-              };
-
-              /* ── custom pie tooltip ── */
-              const PieTooltip = ({ active, payload }) => {
-                if (!active || !payload?.length) return null;
-                const d = payload[0];
-                return (
-                  <div style={{
-                    background: 'rgba(255,255,255,0.97)',
-                    border: '1px solid rgba(99,102,241,0.18)',
-                    borderRadius: 12,
-                    padding: '10px 14px',
-                    boxShadow: '0 12px 36px rgba(0,0,0,0.13)',
-                    backdropFilter: 'blur(10px)',
-                    minWidth: 190,
-                    pointerEvents: 'none',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-                      <span style={{
-                        width: 10, height: 10, borderRadius: 3,
-                        background: d.payload.color || DONUT_COLORS[d.payload.index % DONUT_COLORS.length],
-                        display: 'inline-block', flexShrink: 0,
-                      }} />
-                      <span style={{ fontWeight: 700, fontSize: '0.75rem', color: '#1e293b', lineHeight: 1.3 }}>
-                        {d.name}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                      <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Revenue</span>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#1e293b', fontVariantNumeric: 'tabular-nums' }}>
-                        AED {Number(d.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginTop: 3 }}>
-                      <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500 }}>Share</span>
-                      <span style={{ fontSize: '0.7rem', fontWeight: 700, color: d.payload.color || DONUT_COLORS[0] }}>
-                        {(d.payload.pct || ((d.value / totalVal) * 100)).toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                );
-              };
-
-              return (
-                <div className="chart-card-animate">
-                  {/* Donut Chart — with HTML center label overlay */}
-                  <div style={{ position: 'relative', width: '100%', height: 200 }}>
-                    <ResponsiveContainer width="100%" height={200} minWidth={0}>
-                      <PieChart margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
-                        <defs>
-                          {legalEntData.map((_, i) => {
-                            const clr = DONUT_COLORS[i % DONUT_COLORS.length];
-                            return (
-                              <radialGradient key={i} id={`leGrad${i}`} cx="50%" cy="50%" r="50%">
-                                <stop offset="0%" stopColor={clr} stopOpacity="1" />
-                                <stop offset="100%" stopColor={clr} stopOpacity="0.82" />
-                              </radialGradient>
-                            );
-                          })}
-                        </defs>
-                        <Pie
-                          data={legalEntData.map((d, i) => ({ ...d, index: i, color: DONUT_COLORS[i % DONUT_COLORS.length] }))}
-                          cx="50%" cy="50%"
-                          innerRadius={62} outerRadius={86}
-                          paddingAngle={2}
-                          dataKey="value"
-                          stroke="none"
-                          isAnimationActive={true}
-                          animationDuration={850}
-                          animationEasing="ease-out"
-                        >
-                          {legalEntData.map((_, i) => (
-                            <Cell key={i} fill={`url(#leGrad${i})`} style={{ cursor: 'pointer', outline: 'none' }} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<PieTooltip />} wrapperStyle={{ zIndex: 1000 }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-
-                    {/* Center label — HTML overlay, perfectly centered in the donut hole */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%', left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      textAlign: 'center',
-                      pointerEvents: 'none',
-                      userSelect: 'none',
-                      zIndex: 0,
-                    }}>
-                      <div style={{
-                        fontSize: '0.58rem',
-                        fontWeight: 600,
-                        color: '#94a3b8',
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        fontFamily: 'Inter, system-ui, sans-serif',
-                        lineHeight: 1.2,
-                        marginBottom: 3,
-                      }}>
-                        Total
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
+            ) : legalEntData.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', height: 220 }}>
+                <ResponsiveContainer width="55%" height="100%">
+                  <PieChart>
+                    <Pie data={legalEntData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={2} dataKey="value" stroke="none">
+                      {legalEntData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{ width: '45%', paddingLeft: 10, display: 'flex', flexDirection: 'column', gap: 10, justifyContent: 'center' }}>
+                  {legalEntData.slice(0, 5).map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: CHART_COLORS[i % CHART_COLORS.length], flexShrink: 0 }} />
+                        <span style={{ color: C.slate, lineHeight: 1.2 }}>{d.name}</span>
                       </div>
-                      <div style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 800,
-                        color: '#1e293b',
-                        fontFamily: 'Inter, system-ui, sans-serif',
-                        letterSpacing: '-0.02em',
-                        lineHeight: 1.15,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {fmtTotal}
-                      </div>
+                      <span style={{ fontWeight: 600, color: C.navy, marginLeft: 8 }}>{d.pct.toFixed(1)}%</span>
                     </div>
-                  </div>
-
-                  {/* Full Legend — 2-column grid, no truncation */}
-                  <div style={{
-                    marginTop: 14,
-                    paddingTop: 12,
-                    borderTop: '1px solid rgba(99,102,241,0.07)',
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '7px 12px',
-                  }}>
-                    {legalEntData.map((d, i) => {
-                      const clr = DONUT_COLORS[i % DONUT_COLORS.length];
-                      const pct = d.pct || ((d.value / totalVal) * 100);
-                      return (
-                        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, minWidth: 0 }}>
-                          <span style={{
-                            width: 10, height: 10, borderRadius: 3,
-                            background: clr, flexShrink: 0, marginTop: 2,
-                            boxShadow: `0 0 5px ${clr}55`,
-                          }} />
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{
-                              fontSize: '0.67rem', color: '#334155', fontWeight: 600,
-                              lineHeight: 1.3, wordBreak: 'break-word',
-                            }}>
-                              {d.name}
-                            </div>
-                            <div style={{ fontSize: '0.65rem', color: clr, fontWeight: 700, marginTop: 1 }}>
-                              {pct.toFixed(1)}%
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  ))}
                 </div>
-              );
-            })() : (
+              </div>
+            ) : (
               <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
           </div>
 
-
-          {/* 3. Revenue by Parent Division — Custom CSS Bar Chart */}
-          <div className="card" style={{ padding: '18px 20px 16px', display: 'flex', flexDirection: 'column' }}>
+          {/* 3. Revenue by Parent Division (Bar) */}
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, letterSpacing: '-0.01em' }}>Revenue by Parent Division</div>
-                <div style={{ fontSize: '0.65rem', color: C.slate, marginTop: 2, fontWeight: 500 }}>AED — top divisions ranked</div>
-              </div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Parent Division (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={appliedFilters} />
             </div>
 
             {loading.parentDiv ? (
-              <div style={{ flex: 1, minHeight: 220, background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.6s ease-in-out infinite', borderRadius: 10 }} />
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : parentDivData.length > 0 ? (
-              <ParentDivBarChart data={parentDivData} fmtAxisNum={fmtAxisNum} />
+              <ResponsiveContainer width="100%" height={220} minWidth={0}>
+                <BarChart data={parentDivData} layout="vertical" margin={{ top: 0, right: 60, left: 0, bottom: 0 }} barSize={16}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f4ff" />
+                  <XAxis type="number" tick={{ fill: C.muted, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} />
+                  <YAxis dataKey="name" type="category" tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="value" name="Revenue" radius={[0, 4, 4, 0]}>
+                    <LabelList dataKey="value" position="right" formatter={v => fmtAxisNum(v)} style={{ fill: C.navy, fontSize: 10, fontWeight: 700 }} />
+                    {parentDivData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
               <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
           </div>
         </div>
 
-
-                {/* ── Tertiary Analysis Row (Sub-Division, Customers, Salesman) ── */}
-        <div className="grid-charts-3" style={{ marginBottom: 16 }}>
+                {/* ── Sub-Division Full Width Row ── */}
+        <div style={{ marginBottom: 16 }}>
           {/* 1. Subdivision */}
-          <div className="card" style={{ padding: '18px 20px 14px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, letterSpacing: '-0.01em' }}>Revenue by Sub-Division</div>
-                <div style={{ fontSize: '0.65rem', color: C.slate, marginTop: 2, fontWeight: 500 }}>AED — all sub-divisions compared</div>
-              </div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
             </div>
             {loading.subDiv ? (
-              <div style={{ flex: 1, minHeight: 280, background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.6s ease-in-out infinite', borderRadius: 10 }} />
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : subDivData.length > 0 ? (
-              <SubDivBarChart data={subDivData} fmtAxisNum={fmtAxisNum} />
+              <div style={{ flex: 1, position: 'relative', minHeight: 280 }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <BarChart data={subDivData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }} barSize={36}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f4ff" />
+                      <XAxis interval={0} dataKey="name" tick={{ fill: '#475569', fontSize: 12, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={v => v.replace(/\n/g, ' ')} />
+                      <YAxis tick={{ fill: C.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar dataKey="value" name="Revenue" radius={[4, 4, 0, 0]}>
+                        <LabelList dataKey="value" position="top" formatter={v => fmtAxisNum(v)} style={{ fill: C.navy, fontSize: 10, fontWeight: 700 }} />
+                        {subDivData.map((entry, i) => <Cell key={i} fill={entry.color || CHART_COLORS[i % CHART_COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             ) : (
               <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
           </div>
+        </div>
+
+        {/* ── Secondary Analysis Row (Customers, Salesman) ── */}
+        <div className="grid-charts-2" style={{ marginBottom: 16 }}>
           {/* 2. Top Customers */}
-          <div className="card" style={{ padding: '18px 20px 14px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, letterSpacing: '-0.01em' }}>Top 10 Customers by Sales</div>
-                <div style={{ fontSize: '0.65rem', color: C.slate, marginTop: 2, fontWeight: 500 }}>AED — ranked by total revenue</div>
-              </div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
             </div>
             {loading.topCustomers ? (
-              <div style={{ flex: 1, minHeight: 200, background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.6s ease-in-out infinite', borderRadius: 10 }} />
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : topCustomersData.length > 0 ? (
-              <div style={{ flex: 1, overflowX: 'hidden', borderRadius: 8, border: `1px solid ${C.border}` }}>
-                <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', tableLayout: 'fixed' }}>
+              <div style={{ flex: 1, overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
                   <thead style={{ background: '#f8fafc', color: '#1e3a8a', borderBottom: `2px solid ${C.border}` }}>
                     <tr>
-                      <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700, width: '8%' }}>#</th>
-                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700, width: '35%' }}>Customer Name</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, width: '30%', whiteSpace: 'nowrap' }}>Sales (AED)</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, width: '27%' }}>% Contribution</th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>Customer Name</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>Sales (AED)</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>% Contribution</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {topCustomersData.slice(0, 10).map((c, i) => {
-                      const totalCustomerSales = topCustomersData.reduce((s, curr) => s + (Number(curr.value) || 0), 0);
-                      const calculatedPct = totalCustomerSales > 0 ? ((Number(c.value) || 0) / totalCustomerSales) * 100 : 0;
-                      return (
-                        <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
+                    {topCustomersData.slice(0, 10).map((c, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
                         <td style={{ padding: '6px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, textTransform: 'capitalize' }} title={c.name}>
-                          <div style={{ wordBreak: 'break-word' }}>
-                            {(c.name || '').toLowerCase()}
-                          </div>
-                        </td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate, whiteSpace: 'nowrap' }}>{Number(c.value).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{calculatedPct.toFixed(2)}%</td>
-                        </tr>
-                      );
-                    })}
+                        <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, whiteSpace: 'nowrap', textTransform: 'capitalize' }} title={c.name}>{(c.name || '').toLowerCase()}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{Number(c.value).toLocaleString('en-AE')}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{c.pct != null ? `${Number(c.pct).toFixed(2)}%` : '—'}</td>
+                      </tr>
+                    ))}
                     <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#1e3a8a' }}>
                       <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>Total</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (Number(c.value) || 0), 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>
-                        {topCustomersData.slice(0, 10).reduce((s, c) => {
-                           const t = topCustomersData.reduce((sum, curr) => sum + (Number(curr.value) || 0), 0);
-                           return s + (t > 0 ? ((Number(c.value) || 0) / t) * 100 : 0);
-                        }, 0).toFixed(2)}%
-                      </td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.value || 0), 0).toLocaleString('en-AE')}</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{topCustomersData.slice(0, 10).reduce((s, c) => s + (c.pct || 0), 0).toFixed(2)}%</td>
                     </tr>
                   </tbody>
                 </table>
@@ -2647,25 +1933,22 @@ export default function SalesRevenueReport() {
           </div>
 
           {/* 3. Revenue by Salesman */}
-          <div className="card" style={{ padding: '18px 20px 14px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy, letterSpacing: '-0.01em' }}>Revenue by Salesman</div>
-                <div style={{ fontSize: '0.65rem', color: C.slate, marginTop: 2, fontWeight: 500 }}>AED — top 10 salespeople</div>
-              </div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesman (AED)</div>
               <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
             </div>
             {loading.salesmanSummary ? (
-              <div style={{ flex: 1, minHeight: 200, background: 'linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #eef2fb 60%, #f1f5f9 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.6s ease-in-out infinite', borderRadius: 10 }} />
+              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : salesmanSummaryData.length > 0 ? (
-              <div style={{ flex: 1, overflowX: 'hidden', borderRadius: 8, border: `1px solid ${C.border}` }}>
-                <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', tableLayout: 'fixed' }}>
+              <div style={{ flex: 1, overflowX: 'auto', borderRadius: 8, border: `1px solid ${C.border}` }}>
+                <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
                   <thead style={{ background: '#f8fafc', color: '#1e3a8a', borderBottom: `2px solid ${C.border}` }}>
                     <tr>
-                      <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700, width: '8%' }}>#</th>
-                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700, width: '35%' }}>Salesman</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, width: '30%', whiteSpace: 'nowrap' }}>Sales (AED)</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, width: '27%' }}>% Contribution</th>
+                      <th style={{ padding: '8px', textAlign: 'center', fontWeight: 700, width: 30 }}>#</th>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 700, whiteSpace: 'nowrap' }}>Salesman</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>Sales (AED)</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>% Contribution</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2674,32 +1957,17 @@ export default function SalesRevenueReport() {
                       return (
                         <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: '#fff' }}>
                           <td style={{ padding: '6px 8px', textAlign: 'center', color: C.slate, fontWeight: 600 }}>{i + 1}</td>
-                          <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600 }} title={name}>
-                            <div style={{ wordBreak: 'break-word' }}>
-                              {name}
-                            </div>
-                          </td>
-                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate, whiteSpace: 'nowrap' }}>{Number(c.sales_aed).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.percentage != null ? `${Number(c.percentage).toFixed(2)}%` : '—'}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'left', color: C.navy, fontWeight: 600, whiteSpace: 'nowrap' }} title={name}>{name}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{Number(c.sales_aed).toLocaleString('en-AE')}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate }}>{c.percentage != null ? `${Number(c.percentage).toFixed(2)}%` : '—'}</td>
                         </tr>
                       );
                     })}
                     <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#1e3a8a' }}>
-                      <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>Total (Top 10)</td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                      <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>Total</td>
+                      <td style={{ padding: '8px', textAlign: 'right' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0).toLocaleString('en-AE')}</td>
                       <td style={{ padding: '8px', textAlign: 'right' }}>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.percentage) || 0), 0).toFixed(2)}%</td>
                     </tr>
-                    {salesmanSummaryData.length > 10 && (
-                      <tr style={{ background: '#fcfcfd' }}>
-                        <td colSpan={2} style={{ padding: '6px 8px', textAlign: 'center', color: C.slate, fontWeight: 500, fontStyle: 'italic', fontSize: '0.68rem' }}>Others / Remaining Team</td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate, fontWeight: 500, fontStyle: 'italic', fontSize: '0.68rem' }}>
-                          {salesmanSummaryData.slice(10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0).toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td style={{ padding: '6px 8px', textAlign: 'right', color: C.slate, fontWeight: 500, fontStyle: 'italic', fontSize: '0.68rem' }}>
-                          {Math.max(0, 100 - salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.percentage) || 0), 0)).toFixed(2)}%
-                        </td>
-                      </tr>
-                    )}
                   </tbody>
                 </table>
               </div>

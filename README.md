@@ -1,44 +1,16 @@
-<<<<<<< HEAD
-# Role-Based Task & Performance Evaluation System
+# React + Vite
 
-A professional enterprise-style internal performance management system built with React.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Features
-- **Role-Based Access Control**: Employee, Manager, Admin dashboards.
-- **Performance Engine**: Weighted scoring based on completion, quality, timeliness, and productivity.
-- **Task Management**: Create, assign, and update tasks with severity levels.
-- **Analytics**: Visualization of performance trends and department comparisons.
+Currently, two official plugins are available:
 
-## Tech Stack
-- React + Vite
-- Tailwind-like CSS Variables (Custom Enterprise Theme)
-- Recharts (Data Visualization)
-- Lucide React (Icons)
-- Context API (State Management)
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Getting Started
+## React Compiler
 
-1. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-2. **Run Development Server**
-   ```bash
-   npm run dev
-   ```
+## Expanding the ESLint configuration
 
-3. **Login Credentials (Demo)**
-   - **Admin**: `ADMIN001` / `password123`
-   - **Manager**: `MGR001` / `password123` (Engineering), `MGR002` / `password123` (Sales)
-   - **Employee**: `EMP001` / `password123` (Engineering), `EMP004` / `password123` (Sales)
-
-## Project Structure
-- `/src/components`: Reusable UI and Layout components.
-- `/src/pages`: Main application pages.
-- `/src/context`: Authentication state management.
-- `/src/utils`: Performance and ranking logic engines.
-- `/src/data`: Mock data for users and tasks.
-=======
-# student-management-system
->>>>>>> 8738c25fd8d1a05c835d9a5b43894a6b91440d48
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

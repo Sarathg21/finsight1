@@ -1,209 +1,80 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import Layout from './components/Layout/Layout';
+import { AuditProvider } from './context/AuditContext';
+import { FilterProvider } from './context/FilterContext';
+import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import { Toaster } from 'react-hot-toast';
-
-// Pages
-// Pages
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
-import DashboardPage from './pages/DashboardPage';
-import TaskPage from './pages/TaskPage';
-import AssignTaskPage from './pages/AssignTaskPage';
-import AdminPage from './pages/AdminPage';
-import ProfilePage from './pages/ProfilePage';
-import OrgTreePage from './pages/OrgTreePage';
-import TeamTasksPage from './pages/TeamTasksPage';
-import DeptHealthMatrixPage from './pages/DeptHealthMatrixPage';
-import OKRDashboardPage from './pages/OKRDashboardPage';
-import OKRSubTaskPage from './pages/OKRSubTaskPage';
-import RecurringTasksPage from './pages/RecurringTasksPage';
-import ManagerRecurringTasksPage from './pages/ManagerRecurringTasksPage';
-import OKRActionsPage from './pages/OKRActionsPage';
-import EmployeePerformanceDashboard from './pages/EmployeePerformanceDashboard';
-import DepartmentsPage from './pages/DepartmentsPage';
-import AccessDeniedPage from './pages/AccessDeniedPage';
+import CFODashboard from './pages/CFODashboard';
+import ExecDashboard from './pages/ExecDashboard';
+import PLAnalytics from './pages/PLAnalytics';
+import ARDashboard from './pages/ARDashboard';
+import WCDashboard from './pages/WCDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import ExcelConsolidator from './pages/ExcelConsolidator';
+import FinSightDashboard from './pages/FinSightDashboard';
+import SalesRevenueReport from './pages/SalesRevenueReport';
+
+// Placeholder for yet-to-be-built pages
+const PlaceholderPage = ({ title }) => (
+  <div className="animate-in">
+    <div className="page-header">
+      <div>
+        <h1 className="page-header-title">{title}</h1>
+        <p className="page-header-subtitle">Module development in progress...</p>
+      </div>
+    </div>
+    <div className="card" style={{ padding: '60px', textAlign: 'center' }}>
+      <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🏗️</div>
+      <h2 style={{ marginBottom: '10px' }}>Advanced Analytics Coming Soon</h2>
+      <p style={{ color: 'var(--clr-text-muted)', maxWidth: '400px', margin: '0 auto' }}>
+        This reporting module is currently being mapped to the Oracle Fusion ERP data streams.
+      </p>
+    </div>
+  </div>
+);
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
-        <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-
-          <Route
-            path="dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['Employee', 'Manager', 'CFO', 'Admin']}>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="tasks"
-            element={
-              <ProtectedRoute>
-                <TaskPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="tasks/assign"
-            element={
-              <ProtectedRoute allowedRoles={['Manager', 'Admin', 'CFO']}>
-                <AssignTaskPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="tasks/team"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Admin', 'Manager']}>
-                <TeamTasksPage />
-              </ProtectedRoute>
-            }
-          />
-
-
-          <Route
-            path="admin"
-            element={
-              <ProtectedRoute allowedRoles={['Admin', 'CFO']}>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="org-tree"
-            element={
-              <ProtectedRoute allowedRoles={['Admin', 'CFO']}>
-                <OrgTreePage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="health-matrix"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Admin']}>
-                <DeptHealthMatrixPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="okr-dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Employee', 'Admin']}>
-                <OKRDashboardPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="okr-subtask"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Employee', 'Admin']}>
-                <OKRSubTaskPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="okr-actions"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Admin']}>
-                <OKRActionsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="cfo/okr-actions"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Admin']}>
-                <OKRActionsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="manager/okr-actions"
-            element={
-              <ProtectedRoute allowedRoles={['Manager', 'Admin']}>
-                <OKRActionsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="okr-subtask/:okrId"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Employee', 'Admin']}>
-                <OKRSubTaskPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="departments"
-            element={
-              <ProtectedRoute allowedRoles={['Admin', 'CFO']}>
-                <DepartmentsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="recurring-tasks"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Admin']}>
-                <RecurringTasksPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="manager/recurring-tasks"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Manager', 'Admin']}>
-                <ManagerRecurringTasksPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="performance-dashboard"
-            element={
-              <ProtectedRoute allowedRoles={['CFO', 'Admin', 'Manager', 'Employee']}>
-                <EmployeePerformanceDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-        </Route>
-
-        <Route path="/access-denied" element={<AccessDeniedPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <AuditProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            
+            <Route element={<FilterProvider><Layout /></FilterProvider>}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Each route is guarded by ProtectedRoute with its pageKey */}
+              <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} />
+              <Route path="/exec-dashboard"     element={<ProtectedRoute pageKey="exec-dashboard"     element={<ExecDashboard />} />} />
+              <Route path="/finsight-dashboard" element={<FinSightDashboard />} />
+              <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} />
+              <Route path="/working-capital"    element={<ProtectedRoute pageKey="working-capital"    element={<WCDashboard />} />} />
+              <Route path="/division"           element={<ProtectedRoute pageKey="division"           element={<PlaceholderPage title="Division-wise Reporting" />} />} />
+              <Route path="/salesman"           element={<ProtectedRoute pageKey="salesman"           element={<PlaceholderPage title="Salesman-wise Reporting" />} />} />
+              <Route path="/bu-pack"            element={<ProtectedRoute pageKey="bu-pack"            element={<PlaceholderPage title="BU Financial Pack" />} />} />
+              <Route path="/pl"                 element={<ProtectedRoute pageKey="pl"                 element={<PLAnalytics />} />} />
+              <Route path="/balance-sheet"      element={<ProtectedRoute pageKey="balance-sheet"      element={<PlaceholderPage title="Balance Sheet" />} />} />
+              <Route path="/revenue"            element={<ProtectedRoute pageKey="revenue"            element={<SalesRevenueReport />} />} />
+              <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} />
+              <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} />
+              <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} />
+              <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} />
+              <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} />
+              <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} />
+              <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
+              {/* Admin – segregated, board & CFO only */}
+              <Route path="/admin"              element={<ProtectedRoute pageKey="admin"              element={<AdminDashboard />} />} />
+            </Route>
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuditProvider>
     </AuthProvider>
   );
 }
