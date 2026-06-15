@@ -1286,7 +1286,7 @@ export default function SalesRevenueReport() {
       const mapped = d.data.map(c => ({
         name: c.customer_name || c.name || 'Unknown',
         value: Number(c.sales_aed ?? c.value ?? 0),
-        pct: Number(c.contribution_pct ?? c.pct ?? 0),
+        pct: Number(c.percentage ?? c.contribution_pct ?? c.pct ?? 0),
       }));
       setTopCustomersData(mapped);
     });
