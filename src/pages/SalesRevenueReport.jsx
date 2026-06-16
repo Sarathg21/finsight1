@@ -1640,7 +1640,7 @@ export default function SalesRevenueReport() {
       `}</style>
 
       <div className="animate-in" style={{
-        padding: '20px 24px 32px',
+        padding: '20px 0 32px',
         background: C.bg, minHeight: '100%',
       }}>
 
@@ -1963,10 +1963,10 @@ export default function SalesRevenueReport() {
                     {/* Single bar */}
                     <div style={{ width: '100%', marginTop: 24, marginBottom: 12 }}>
                       <ResponsiveContainer width="100%" height={180} minWidth={0}>
-                        <BarChart data={[singlePt]} margin={{ top: 20, right: 40, left: 40, bottom: 0 }} maxBarSize={64}>
+                        <BarChart data={[singlePt]} margin={{ top: 20, right: 40, left: 0, bottom: 0 }} maxBarSize={64}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="transparent" />
                           <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0', strokeWidth: 2 }} tickLine={false} dy={8} />
-                          <YAxis hide />
+                          <YAxis tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
                           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
                           <Bar dataKey="currentYear" name="Sales" radius={[8, 8, 0, 0]} className="animate-bar-grow" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out">
                             <Cell fill="url(#trendBarGrad)" filter="url(#barGlow)" />

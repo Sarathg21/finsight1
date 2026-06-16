@@ -1,6 +1,6 @@
 {
-  "name": "Tascade Financial Intelligence",
-  "short_name": "Tascade",
+  "name": "FinSight Financial Intelligence",
+  "short_name": "FinSight",
   "description": "FJ Group Finance Dashboard Reporting Tool.",
   "start_url": "/",
   "display": "standalone",

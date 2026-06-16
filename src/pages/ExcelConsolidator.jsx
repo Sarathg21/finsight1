@@ -79,7 +79,7 @@ const ExcelConsolidator = () => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "tascade_consolidated_report.csv");
+    link.setAttribute("download", "finsight_consolidated_report.csv");
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

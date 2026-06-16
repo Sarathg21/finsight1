@@ -1,6 +1,6 @@
-# Tascade Frontend
+# FinSight Frontend
 
-This repository contains the React frontend for the Tascade application. It is built using React, Vite, Tailwind CSS, and Recharts.
+This repository contains the React frontend for the FinSight application. It is built using React, Vite, Tailwind CSS, and Recharts.
 
 ## Prerequisites
 

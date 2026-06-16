@@ -18,39 +18,83 @@ const SP_EBITM  = [12,13,13.5,14,14.2,14.4,14.5,14.6,14.64,14.65,14.66,14.66];
 const KPI_CARDS = [
   {
     id: 'total-rev', label: 'Total Revenue (MTD)',
-    value: '₹ 125.75 Cr', change: '18.86% vs Mar 2024', up: true,
-    iconBg: 'linear-gradient(135deg,#dbeafe,#bfdbfe)', icon: '📈',
-    spark: SP_REV, sparkColor: C.blue,
+    value: '125.75', change: '18.86%', changeLabel: 'vs Mar 2024',
+    iconBg: '#eff6ff', color: '#2563eb',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="m19 9-5 5-4-4-3 3" />
+        <path d="M19 9v6" />
+        <path d="M19 9h-6" />
+      </svg>
+    ),
+    spark: SP_REV, sparkColor: '#3b82f6',
   },
   {
     id: 'gross-profit', label: 'Gross Profit (MTD)',
-    value: '₹ 28.35 Cr', change: '17.11% vs Mar 2024', up: true,
-    iconBg: 'linear-gradient(135deg,#dcfce7,#bbf7d0)', icon: '💰',
-    spark: SP_GP, sparkColor: C.green,
+    value: '28.35', change: '17.11%', changeLabel: 'vs Mar 2024',
+    iconBg: '#f0fdf4', color: '#16a34a',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" fillOpacity="0.5"/>
+        <path d="M6 4h12v4H6z"/>
+        <circle cx="12" cy="14" r="2" fill="#fff"/>
+        <rect x="10" y="18" width="4" height="2" fill="#fff"/>
+      </svg>
+    ),
+    spark: SP_GP, sparkColor: '#22c55e',
   },
   {
     id: 'ebitda', label: 'EBITDA (MTD)',
-    value: '₹ 18.42 Cr', change: '15.46% vs Mar 2024', up: true,
-    iconBg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)', icon: '📊',
-    spark: SP_EBITDA, sparkColor: C.purple,
+    value: '18.42', change: '15.45%', changeLabel: 'vs Mar 2024',
+    iconBg: '#faf5ff', color: '#9333ea',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="M18 17V9" />
+        <path d="M13 17V5" />
+        <path d="M8 17v-3" />
+        <path d="M13 5l5 4" strokeOpacity="0.5" />
+      </svg>
+    ),
+    spark: SP_EBITDA, sparkColor: '#a855f7',
   },
   {
     id: 'net-profit', label: 'Net Profit (MTD)',
-    value: '₹ 10.25 Cr', change: '23.11% vs Mar 2024', up: true,
-    iconBg: 'linear-gradient(135deg,#fff7ed,#fed7aa)', icon: '🏆',
-    spark: SP_NP, sparkColor: C.orange,
+    value: '10.25', change: '23.11%', changeLabel: 'vs Mar 2024',
+    iconBg: '#fff7ed', color: '#ea580c',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        <circle cx="12" cy="12" r="4.5" fill="#fff" />
+      </svg>
+    ),
+    spark: SP_NP, sparkColor: '#f97316',
   },
   {
     id: 'np-margin', label: 'Net Profit Margin (MTD)',
-    value: '8.15%', change: '0.79% vs Mar 2024', up: true,
-    iconBg: 'linear-gradient(135deg,#e0f2fe,#bae6fd)', icon: '📉',
-    spark: SP_NPM, sparkColor: C.cyan,
+    value: '8.15%', change: '0.73%', changeLabel: 'vs Mar 2024',
+    iconBg: '#f0fdfa', color: '#0d9488',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l8.29-8.29c.94-.94.94-2.48 0-3.42L12 2Z" fillOpacity="0.4"/>
+        <circle cx="7" cy="7" r="2.5" fill="#fff"/>
+        <path d="M12 2l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    ),
+    spark: SP_NPM, sparkColor: '#14b8a6',
   },
   {
     id: 'ebitda-margin', label: 'EBITDA Margin (MTD)',
-    value: '14.66%', change: '0.62% vs Mar 2024', up: true,
-    iconBg: 'linear-gradient(135deg,#fce7f3,#fbcfe8)', icon: '⏰',
-    spark: SP_EBITM, sparkColor: '#e879a0',
+    value: '14.66%', change: '0.62%', changeLabel: 'vs Mar 2024',
+    iconBg: '#fdf2f8', color: '#db2777',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.15" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+    spark: SP_EBITM, sparkColor: '#ec4899',
   },
 ];
 
@@ -58,10 +102,10 @@ const KPI_CARDS = [
 const PL_TREND = [
   { month: 'Nov', Revenue: 95,  'Gross Profit': 22, 'Net Profit': 8  },
   { month: 'Dec', Revenue: 132, 'Gross Profit': 29, 'Net Profit': 12 },
-  { month: 'Jan', Revenue: 88,  'Gross Profit': 20, 'Net Profit': 7  },
-  { month: 'Feb', Revenue: 142, 'Gross Profit': 31, 'Net Profit': 13 },
-  { month: 'Mar', Revenue: 118, 'Gross Profit': 26, 'Net Profit': 10 },
-  { month: 'Apr', Revenue: 126, 'Gross Profit': 28, 'Net Profit': 10 },
+  { month: 'Jan', Revenue: 110, 'Gross Profit': 24, 'Net Profit': 9  },
+  { month: 'Feb', Revenue: 115, 'Gross Profit': 26, 'Net Profit': 10 },
+  { month: 'Mar', Revenue: 120, 'Gross Profit': 27, 'Net Profit': 11 },
+  { month: 'Apr', Revenue: 125.75, 'Gross Profit': 28.35, 'Net Profit': 10.25 },
 ];
 
 /* ─── P&L Comparison chart ─────────────────────────────────────── */
@@ -140,84 +184,102 @@ function useCounter(target, duration = 1000) {
   return count;
 }
 
-/* ─── Mini Sparkline ─────────────────────────────────────────────── */
-function Sparkline({ data, color, height = 38 }) {
-  if (!data) return null;
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const w = 100, h = height;
-  const xs = data.map((_, i) => (i / (data.length - 1)) * w);
-  const ys = data.map(v => h - ((v - min) / (max - min || 1)) * h * 0.82 - h * 0.09);
-  const pts = xs.map((x, i) => `${x},${ys[i]}`).join(' ');
-  const area = `0,${h} ${pts} ${w},${h}`;
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height, display: 'block', overflow: 'visible' }}>
-      <defs>
-        <linearGradient id={`spg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={area} fill={`url(#spg-${color.replace('#','')})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={xs[xs.length-1]} cy={ys[ys.length-1]} r="2.8" fill={color} />
-    </svg>
-  );
-}
-
 /* ─── KPI Infolet Card (matches reference image style) ─────────── */
-function KPICard({ id, label, value, change, up, icon, iconBg, spark, sparkColor }) {
+function KPICard({ id, label, value, change, changeLabel, color, iconBg, icon, spark, sparkColor }) {
   const [hover, setHover] = useState(false);
+  const accent = color || '#2563eb';
+
+  // Format spark points for SVG polyline
+  const max = Math.max(...spark);
+  const min = Math.min(...spark);
+  const W = 110, H = 16;
+  const pointsData = spark.map((v, i) => {
+    const x = (i / (spark.length - 1)) * W;
+    const y = H - ((v - min) / (max - min || 1)) * (H - 2) - 1;
+    return { x, y };
+  });
+  const svgPoints = pointsData.map(p => `${p.x},${p.y}`).join(' ');
+
   return (
     <div
       id={`kpi-${id}`}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        background: '#fff',
+        flex: 1, minWidth: 145,
+        background: `linear-gradient(145deg, #fff 0%, ${iconBg} 50%, ${accent}15 100%)`,
         borderRadius: 12,
-        border: `1px solid ${hover ? '#c7d7f7' : C.border}`,
-        padding: '14px 14px 10px',
-        boxShadow: hover ? '0 8px 28px rgba(37,99,235,0.12)' : '0 2px 6px rgba(0,0,0,0.05)',
-        transition: 'all 0.22s ease',
+        padding: '12px 14px',
+        boxShadow: hover ? `0 8px 24px ${accent}20` : '0 2px 8px rgba(0,0,0,0.04)',
+        border: '1px solid rgba(0,0,0,0.04)',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', flexDirection: 'column', gap: 4,
-        overflow: 'hidden', position: 'relative',
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: 12,
+        overflow: 'hidden', 
+        position: 'relative',
+        minHeight: 82,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {label}
-          </div>
-          <div style={{ fontSize: '1.05rem', fontWeight: 800, color: C.navy, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {value}
-          </div>
-        </div>
-        <div style={{
-          width: 34, height: 34, borderRadius: 10,
-          background: iconBg,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1rem', flexShrink: 0,
-        }}>
-          {icon}
-        </div>
-      </div>
-      {spark && (
-        <div style={{ margin: '2px -2px 0' }}>
-          <Sparkline data={spark} color={sparkColor} height={34} />
-        </div>
-      )}
+      {/* Left: Icon */}
       <div style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        fontSize: '0.6rem', fontWeight: 700,
-        color: up ? C.green : C.rose,
-        background: up ? '#f0fdf4' : '#fff1f2',
-        borderRadius: 100, padding: '2px 7px',
-        width: 'fit-content',
+        width: 44, height: 44, borderRadius: '50%', background: iconBg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, color: accent, fontSize: '1.2rem',
       }}>
-        <span>{up ? '▲' : '▼'}</span>
-        <span>{change}</span>
+        {icon}
+      </div>
+
+      {/* Right: Text Stack + Sparkline */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1, justifyContent: 'center' }}>
+        <span style={{
+          fontSize: '0.68rem', fontWeight: 700, color: accent,
+          lineHeight: 1.2,
+          whiteSpace: 'nowrap'
+        }}>
+          {label}
+        </span>
+        
+        <div style={{
+          fontSize: '1.05rem',
+          fontWeight: 800, color: '#0f172a', lineHeight: 1.1,
+          letterSpacing: '-0.02em',
+          display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word',
+          marginTop: 1,
+        }}>
+          {value.includes('%') ? value : `₹ ${value} Cr`}
+        </div>
+
+        {(change || changeLabel) && (
+          <div style={{
+            fontSize: '0.62rem', fontWeight: 600, color: '#64748b',
+            lineHeight: 1.1, marginTop: 1,
+            whiteSpace: 'nowrap'
+          }}>
+            {change && <span style={{ color: !change?.toString().startsWith('-') ? '#16a34a' : '#dc2626', marginRight: 3 }}>
+              {!change?.toString().startsWith('-') ? '▲' : '▼'} {change.replace('-', '')}
+            </span>}
+            {changeLabel}
+          </div>
+        )}
+
+        {/* Sparkline at bottom */}
+        <div style={{ marginTop: 6 }}>
+          <svg width="100%" height={H} preserveAspectRatio="none" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+            <polyline
+              points={svgPoints}
+              fill="none"
+              stroke={sparkColor}
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            {pointsData.map((p, i) => (
+              <circle key={i} cx={p.x} cy={p.y} r={1.5} fill={sparkColor} />
+            ))}
+          </svg>
+        </div>
       </div>
     </div>
   );
@@ -427,7 +489,7 @@ export default function PLAnalytics() {
   }), [scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="animate-in" style={{ padding: '20px 24px 32px', background: C.bg, minHeight: '100%' }}>
+    <div className="animate-in" style={{ padding: '20px 0 32px', background: C.bg, minHeight: '100%' }}>
 
       {/* ── Page Header ── */}
       <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
