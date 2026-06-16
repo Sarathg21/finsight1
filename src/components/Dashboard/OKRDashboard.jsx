@@ -625,11 +625,14 @@ const OKRDashboard = () => {
                 }
             });
 
-            // Always use the computed map — never let a stale API field suppress it
-            data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
-                department_name: name,
-                subtask_count: count
-            }));
+            // Prefer the API's department_contribution as the authoritative source (it perfectly matches the 220 subtasks sum)
+            // Only use our frontend computed map if the backend data is missing or empty
+            if (!Array.isArray(data.department_contribution) || data.department_contribution.length === 0) {
+                data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
+                    department_name: name,
+                    subtask_count: count
+                }));
+            }
 
             setMetrics([
                 { label: 'TOTAL OBJECTIVES', value: data.total_objectives, color: 'indigo', icon: Target },
