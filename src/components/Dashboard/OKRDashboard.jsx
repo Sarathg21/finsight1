@@ -543,7 +543,9 @@ const OKRDashboard = () => {
             data.avg_health_score = summaryData.avg_health_score ?? summaryData.avg_health ?? (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
             
             if (summaryData.department_contribution && summaryData.department_contribution.length > 0) {
-                data.department_contribution = summaryData.department_contribution;
+                if (!Array.isArray(data.department_contribution) || data.department_contribution.length === 0) {
+                    data.department_contribution = summaryData.department_contribution;
+                }
             }
 
             // ── Build department contribution for the DEPARTMENTAL LOAD donut chart ──
