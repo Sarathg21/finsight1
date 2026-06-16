@@ -1002,6 +1002,13 @@ console.log(
     }
 
     const centerValue = displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0);
+    const centerValueRef = React.useRef(null);
+    
+    useEffect(() => {
+        console.log("Rendered DOM text:", centerValueRef.current?.textContent);
+        console.log("Computed centerValue:", centerValue);
+    }, [centerValue]);
+
     console.log("Center label value:", centerValue);
     console.log("Pie data total:",
         displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
@@ -1124,7 +1131,7 @@ console.log(
                                     console.log("displayedTableData.length", displayedTableData.length);
                                     return null;
                                 })()}
-                                <span className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
+                                <span ref={centerValueRef} className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
                                     {centerValue}
                                 </span>
                             </div>
