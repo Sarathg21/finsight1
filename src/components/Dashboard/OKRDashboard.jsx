@@ -712,7 +712,30 @@ const OKRDashboard = () => {
                 name: d.department_name || d.department || d.name || 'Dept',
                 value: d.subtask_count || d.count || 0,
                 fill: deptColors[idx % deptColors.length]
+                
             }));
+            console.log("department_contribution:", data.department_contribution);
+console.log(
+  "department total:",
+  (data.department_contribution || []).reduce(
+    (sum, d) => sum + Number(d.subtask_count || 0),
+    0
+  )
+);console.log("deptContributionData", deptContributionData);
+console.log(
+    "deptContributionData total",
+    deptContributionData.reduce((a, b) => a + b.value, 0)
+);
+
+console.log("displayedDeptContributionData", displayedDeptContributionData);
+console.log(
+    "displayed total",
+    displayedDeptContributionData.reduce((a, b) => a + b.value, 0)
+);
+
+            console.log("Setting deptContributionData", deptData);
+            console.log("Setting total", deptData.reduce((a,b)=>a+b.value,0));
+
             setDeptContributionData(deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
                 name: o.name,
                 value: Math.max(1, Math.round(o.value / 10)),
@@ -859,6 +882,22 @@ const OKRDashboard = () => {
     useEffect(() => {
         fetchDashboardData();
     }, [filters]);
+
+    useEffect(() => {
+        console.log("deptContributionData state", deptContributionData);
+        console.log(
+            "deptContributionData total",
+            deptContributionData.reduce((a,b)=>a+b.value,0)
+        );
+    }, [deptContributionData]);
+
+    useEffect(() => {
+        console.log("displayedDeptContributionData", displayedDeptContributionData);
+        console.log(
+            "displayed total",
+            displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
+        );
+    }, [displayedDeptContributionData]);
 
     const displayedTableData = React.useMemo(() => {
         if (!filters.department || filters.department === 'All') return tableData;
@@ -1057,6 +1096,11 @@ const OKRDashboard = () => {
                         <div className="relative flex-shrink-0" style={{ height: 200 }}>
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 pointer-events-none">
                                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TASKS</span>
+                                {(() => {
+                                    console.log("filters.department", filters.department);
+                                    console.log("displayedTableData.length", displayedTableData.length);
+                                    return null;
+                                })()}
                                 <span className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
                                     {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
                                 </span>
