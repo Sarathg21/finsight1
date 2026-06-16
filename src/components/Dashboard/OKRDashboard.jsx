@@ -729,11 +729,6 @@ console.log(
     deptContributionData.reduce((a, b) => a + b.value, 0)
 );
 
-console.log("displayedDeptContributionData", displayedDeptContributionData);
-console.log(
-    "displayed total",
-    displayedDeptContributionData.reduce((a, b) => a + b.value, 0)
-);
 
             const dataPassed = deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
                 name: o.name,
@@ -920,13 +915,6 @@ console.log(
         );
     }, [deptContributionData]);
 
-    useEffect(() => {
-        console.log("displayedDeptContributionData", displayedDeptContributionData);
-        console.log(
-            "displayed total",
-            displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
-        );
-    }, [displayedDeptContributionData]);
 
     const displayedTableData = React.useMemo(() => {
         if (!filters.department || filters.department === 'All') return tableData;
