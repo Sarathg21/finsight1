@@ -733,14 +733,19 @@ console.log(
     displayedDeptContributionData.reduce((a, b) => a + b.value, 0)
 );
 
-            console.log("Setting deptContributionData", deptData);
-            console.log("Setting total", deptData.reduce((a,b)=>a+b.value,0));
-
-            setDeptContributionData(deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
+            const dataPassed1 = deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
                 name: o.name,
                 value: Math.max(1, Math.round(o.value / 10)),
                 fill: deptColors[idx % deptColors.length]
-            })));
+            }));
+            
+            console.log("CALLING setDeptContributionData");
+            console.trace();
+            console.log(dataPassed1);
+            console.log(
+                dataPassed1.reduce((a,b)=>a+(b.value||b.subtask_count||0),0)
+            );
+            setDeptContributionData(dataPassed1);
 
             const riskItems = serverObjs.map(o => ({
                 label: o.objective_title || o.title || 'Objective',
@@ -870,7 +875,14 @@ console.log(
             ]);
             setTableData([]);
             setObjCompletionData([]);
-            setDeptContributionData([]);
+            const dataPassed2 = [];
+            console.log("CALLING setDeptContributionData");
+            console.trace();
+            console.log(dataPassed2);
+            console.log(
+                dataPassed2.reduce((a,b)=>a+(b.value||b.subtask_count||0),0)
+            );
+            setDeptContributionData(dataPassed2);
             setRiskOverview([]);
             setTrendData([]);
             setOverdueTasks([]);
@@ -884,9 +896,10 @@ console.log(
     }, [filters]);
 
     useEffect(() => {
-        console.log("deptContributionData state", deptContributionData);
+        console.log("STATE UPDATED");
+        console.trace();
+        console.log(deptContributionData);
         console.log(
-            "deptContributionData total",
             deptContributionData.reduce((a,b)=>a+b.value,0)
         );
     }, [deptContributionData]);
@@ -1106,6 +1119,14 @@ console.log(
                                 </span>
                             </div>
                             <ResponsiveContainer width="100%" height={200} minHeight={1} minWidth={1}>
+                                {(() => {
+                                    console.log(
+                                        "Pie receives",
+                                        displayedDeptContributionData,
+                                        displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
+                                    );
+                                    return null;
+                                })()}
                                 <PieChart>
                                     <Pie
                                         data={displayedDeptContributionData}
