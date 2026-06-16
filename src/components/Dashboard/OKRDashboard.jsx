@@ -992,6 +992,14 @@ console.log(
         }];
     }, [displayedTableData, deptContributionData, filters.department]);
 
+    const centerValueRef = React.useRef(null);
+    const centerValue = displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0);
+    
+    useEffect(() => {
+        console.log("Rendered DOM text:", centerValueRef.current?.textContent);
+        console.log("Computed centerValue:", centerValue);
+    }, [centerValue]);
+
     if (loading && isInitialLoad) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[600px] bg-[#f8fafc] gap-4">
@@ -1001,13 +1009,7 @@ console.log(
         );
     }
 
-    const centerValue = displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0);
-    const centerValueRef = React.useRef(null);
-    
-    useEffect(() => {
-        console.log("Rendered DOM text:", centerValueRef.current?.textContent);
-        console.log("Computed centerValue:", centerValue);
-    }, [centerValue]);
+    console.log("Center label value:", centerValue);
 
     console.log("Center label value:", centerValue);
     console.log("Pie data total:",
