@@ -539,6 +539,10 @@ const OKRDashboard = () => {
             data.overall_progress = summaryData.overall_progress ?? (data.total_subtasks > 0 ? Math.round((data.completed_tasks / data.total_subtasks) * 100) : 0);
             data.at_risk = summaryData.at_risk ?? serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length ?? 0;
             data.avg_health_score = summaryData.avg_health_score ?? summaryData.avg_health ?? (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
+            
+            if (summaryData.department_contribution && summaryData.department_contribution.length > 0) {
+                data.department_contribution = summaryData.department_contribution;
+            }
 
             // ── Build department contribution for the DEPARTMENTAL LOAD donut chart ──
             // Strategy:
