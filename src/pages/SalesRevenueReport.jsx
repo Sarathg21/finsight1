@@ -1851,7 +1851,7 @@ export default function SalesRevenueReport() {
 
           {/* 5. Top Parent Division */}
           <KPICard
-            label="Top Division"
+            label="Top Parent Division"
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
             changePct={null}
