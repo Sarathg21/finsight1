@@ -982,14 +982,29 @@ console.log(
     }, [displayedTableData, riskOverview, filters.department]);
 
     const displayedDeptContributionData = React.useMemo(() => {
-        if (!filters.department || filters.department === 'All') return deptContributionData;
-        let totalSubs = 0;
-        displayedTableData.forEach(row => totalSubs += (row.subTotal || 0));
-        return [{
-            name: filters.department,
-            value: totalSubs || displayedTableData.length,
-            fill: '#3b82f6'
-        }];
+        let returnedData;
+        if (!filters.department || filters.department === 'All') {
+            returnedData = deptContributionData;
+        } else {
+            let totalSubs = 0;
+            displayedTableData.forEach(row => totalSubs += (row.subTotal || 0));
+            returnedData = [{
+                name: filters.department,
+                value: totalSubs || displayedTableData.length,
+                fill: '#3b82f6'
+            }];
+        }
+
+        console.log("=== DISPLAYED DEPT CONTRIBUTION DATA MEMO ===");
+        console.log({
+            filter: filters.department,
+            totalSubs: !filters.department || filters.department === 'All' ? 'N/A' : (function(){let t=0;displayedTableData.forEach(r=>t+=(r.subTotal||0));return t;})(),
+            displayedTableDataLength: displayedTableData.length,
+            returnedData,
+            total: returnedData.reduce((acc, d) => acc + (d.value||0), 0)
+        });
+
+        return returnedData;
     }, [displayedTableData, deptContributionData, filters.department]);
 
     const centerValueRef = React.useRef(null);
