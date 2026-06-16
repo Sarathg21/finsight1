@@ -982,49 +982,25 @@ console.log(
     }, [displayedTableData, riskOverview, filters.department]);
 
     const displayedDeptContributionData = React.useMemo(() => {
-        let returnedData;
-        if (!filters.department || filters.department === 'All') {
-            returnedData = deptContributionData;
-        } else {
-            let totalSubs = 0;
-            displayedTableData.forEach(row => totalSubs += (row.subTotal || 0));
-            returnedData = [{
-                name: filters.department,
-                value: totalSubs || displayedTableData.length,
-                fill: '#3b82f6'
-            }];
+        if (!filters.department || filters.department === 'All') return deptContributionData;
+        
+        const deptFilterLower = filters.department.trim().toLowerCase();
+        const selectedDept = deptContributionData.find(d => 
+            d.name.toLowerCase() === deptFilterLower
+        );
+        
+        if (selectedDept) {
+            return [selectedDept];
         }
+        
+        return [{
+            name: filters.department,
+            value: 0,
+            fill: '#3b82f6'
+        }];
+    }, [deptContributionData, filters.department]);
 
-        console.log("=== DISPLAYED DEPT CONTRIBUTION DATA MEMO ===");
-        console.log({
-            filter: filters.department,
-            totalSubs: !filters.department || filters.department === 'All' ? 'N/A' : (function(){let t=0;displayedTableData.forEach(r=>t+=(r.subTotal||0));return t;})(),
-            displayedTableDataLength: displayedTableData.length,
-            returnedData,
-            total: returnedData.reduce((acc, d) => acc + (d.value||0), 0)
-        });
-
-        return returnedData;
-    }, [displayedTableData, deptContributionData, filters.department]);
-
-    const centerValueRef = React.useRef(null);
     const centerValue = displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0);
-    
-    useEffect(() => {
-        console.log("Rendered DOM text:", centerValueRef.current?.textContent);
-        console.log("Computed centerValue:", centerValue);
-    }, [centerValue]);
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            console.log("Center DOM:", centerValueRef.current?.textContent);
-            const piePaths = document.querySelectorAll(".recharts-sector");
-            console.log("Pie sectors:", piePaths.length);
-            const svg = document.querySelector(".recharts-wrapper svg");
-            console.log("SVG exists:", !!svg);
-            console.log(svg?.outerHTML);
-        }, 0);
-        return () => clearTimeout(timer);
-    });
 
     if (loading && isInitialLoad) {
         return (
@@ -1034,20 +1010,6 @@ console.log(
             </div>
         );
     }
-
-    console.log("=== FINAL RENDER ===");
-    console.log({
-        filtersDepartment: filters.department,
-        deptContributionData,
-        displayedDeptContributionData,
-        centerValue,
-        renderedCenterText: centerValueRef.current?.textContent
-    });
-
-    console.log("Pie props", {
-        data: displayedDeptContributionData,
-        total: displayedDeptContributionData.reduce((s, d) => s + d.value, 0)
-    });
 
     return (
         <div className={`flex flex-col gap-4 bg-[#f1f5f9] min-h-screen p-4 sm:p-6 text-slate-800 font-sans animate-fade-in ${loading ? 'opacity-60 pointer-events-none' : ''} transition-opacity duration-300`}>
@@ -1159,16 +1121,11 @@ console.log(
                     <div className="p-4 flex flex-col flex-1 min-h-0">
                         {/* Donut Chart */}
                         <div className="relative flex-shrink-0" style={{ height: 200 }}>
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 pointer-events-none">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TASKS</span>
-                                {(() => {
-                                    console.log("filters.department", filters.department);
-                                    console.log("displayedTableData.length", displayedTableData.length);
-                                    return null;
-                                })()}
-                                <span ref={centerValueRef} className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                                <span className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
                                     {centerValue}
                                 </span>
+                                <span className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-[0.2em]">TASKS</span>
                             </div>
                             <ResponsiveContainer width="100%" height={200} minHeight={1} minWidth={1}>
                                 <PieChart>
