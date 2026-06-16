@@ -26,6 +26,23 @@ const formatDate = (value) => {
     return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const formatBranchTriggerDate = (branch) => {
+    if (branch?.trigger_date) {
+        return formatDate(branch.trigger_date);
+    }
+    return formatTriggerDate(branch);
+};
+
+const formatBranchDueDate = (branch) => {
+    if (branch?.due_date) {
+        return formatDate(branch.due_date);
+    }
+    if (branch?.calculated_due_date) {
+        return formatDate(branch.calculated_due_date);
+    }
+    return computeDueDate(branch);
+};
+
 // Human-readable label for the task trigger date (day within the recurrence cycle)
 const formatTriggerDate = (branch) => {
     const freq = String(branch.frequency || '').toUpperCase();
@@ -51,47 +68,14 @@ const formatTriggerDate = (branch) => {
     return '—';
 };
 
-// Due date = trigger date of the current recurrence cycle + due_in_days
+// Fallback due date when backend does not return a calculated due date
 const computeDueDate = (branch) => {
+    const startRaw = branch.start_date;
     const dueInDays = Number(branch.due_in_days);
-    if (!Number.isFinite(dueInDays) || dueInDays < 0) return '—';
-
-    const freq = String(branch.frequency || '').toUpperCase();
-    const now = new Date();
-    let base;
-
-    if (freq === 'MONTHLY') {
-        const triggerDay = Number(branch.monthly_day);
-        if (!triggerDay) return '—';
-        // Use the trigger day in the current month; if it hasn't occurred yet this month keep
-        // it in the current month, otherwise advance to next month.
-        const candidate = new Date(now.getFullYear(), now.getMonth(), triggerDay);
-        base = candidate > now
-            ? candidate
-            : new Date(now.getFullYear(), now.getMonth(), triggerDay);
-    } else if (freq === 'WEEKLY') {
-        const triggerDow = Number(branch.weekly_day); // 1=Mon … 7=Sun
-        if (!triggerDow) return '—';
-        // ISO weekday: getDay() returns 0=Sun … 6=Sat; convert to 1=Mon … 7=Sun
-        const todayDow = now.getDay() === 0 ? 7 : now.getDay();
-        const diff = ((triggerDow - todayDow) % 7 + 7) % 7;
-        base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
-    } else if (freq === 'YEARLY') {
-        const triggerMonth = Number(branch.yearly_month); // 1=Jan … 12=Dec
-        const triggerDay = Number(branch.yearly_day);
-        if (!triggerMonth || !triggerDay) return '—';
-        // Use this year's occurrence; if already past, use next year
-        let candidate = new Date(now.getFullYear(), triggerMonth - 1, triggerDay);
-        if (candidate < now) candidate = new Date(now.getFullYear() + 1, triggerMonth - 1, triggerDay);
-        base = candidate;
-    } else {
-        // Fallback: use start_date if frequency is not recognised
-        const startRaw = branch.start_date;
-        if (!startRaw) return '—';
-        base = new Date(String(startRaw).trim().slice(0, 10));
-        if (Number.isNaN(base.getTime())) return '—';
-    }
-
+    if (!startRaw || !Number.isFinite(dueInDays) || dueInDays < 0) return '—';
+    const iso = String(startRaw).trim().slice(0, 10);
+    const base = new Date(iso);
+    if (Number.isNaN(base.getTime())) return '—';
     base.setDate(base.getDate() + dueInDays);
     return base.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
@@ -345,8 +329,8 @@ const ManagerRecurringTasksView = ({
                                             <td className="px-3 py-3 text-slate-600 uppercase text-xs">{branch.frequency || '—'}</td>
                                             <td className="px-3 py-3 text-slate-600">{branch.due_in_days ?? 0}</td>
                                             <td className="px-3 py-3"><StatusBadge active={branch.is_active} /></td>
-                                            <td className="px-3 py-3 text-slate-600 text-xs">{formatTriggerDate(branch)}</td>
-                                            <td className="px-3 py-3 text-slate-600 text-xs">{computeDueDate(branch)}</td>
+                                            <td className="px-3 py-3 text-slate-600 text-xs">{formatBranchTriggerDate(branch)}</td>
+                                            <td className="px-3 py-3 text-slate-600 text-xs">{formatBranchDueDate(branch)}</td>
                                             <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
                                                 <button type="button" onClick={() => onViewBranch(branch)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-blue-600" title="View branch">
                                                     <Eye size={16} />
@@ -488,8 +472,8 @@ const ManagerRecurringTasksView = ({
                         <div><dt className="text-slate-500">Child branch</dt><dd>{viewBranch.child_title}</dd></div>
                         <div><dt className="text-slate-500">Frequency</dt><dd>{viewBranch.frequency || '—'}</dd></div>
                         <div><dt className="text-slate-500">Due in (days)</dt><dd>{viewBranch.due_in_days ?? '—'}</dd></div>
-                        <div><dt className="text-slate-500">Task Trigger Date</dt><dd>{formatTriggerDate(viewBranch)}</dd></div>
-                        <div><dt className="text-slate-500">Due Date</dt><dd>{computeDueDate(viewBranch)}</dd></div>
+                        <div><dt className="text-slate-500">Task Trigger Date</dt><dd>{formatBranchTriggerDate(viewBranch)}</dd></div>
+                        <div><dt className="text-slate-500">Due Date</dt><dd>{formatBranchDueDate(viewBranch)}</dd></div>
                         {viewBranch.child_description && (
                             <div><dt className="text-slate-500">Description</dt><dd className="whitespace-pre-wrap mt-0.5">{viewBranch.child_description}</dd></div>
                         )}

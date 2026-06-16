@@ -180,6 +180,8 @@ const OKRDashboard = () => {
 
 
     const fetchDashboardData = async () => {
+        console.log("FETCH START");
+        console.trace();
         setLoading(true);
         const extractTasks = (res) => {
             if (!res || res.status !== 'fulfilled' || !res.value) return [];
@@ -539,6 +541,12 @@ const OKRDashboard = () => {
             data.overall_progress = summaryData.overall_progress ?? (data.total_subtasks > 0 ? Math.round((data.completed_tasks / data.total_subtasks) * 100) : 0);
             data.at_risk = summaryData.at_risk ?? serverObjs.filter(o => (o.risk_rating === 'High' || o.risk_rating === 'Medium')).length ?? 0;
             data.avg_health_score = summaryData.avg_health_score ?? summaryData.avg_health ?? (serverObjs.length > 0 ? Math.round(serverObjs.reduce((acc, o) => acc + (o.progress_pct || 0), 0) / serverObjs.length) : (data.overall_progress || 0));
+            
+            if (summaryData.department_contribution && summaryData.department_contribution.length > 0) {
+                if (!Array.isArray(data.department_contribution) || data.department_contribution.length === 0) {
+                    data.department_contribution = summaryData.department_contribution;
+                }
+            }
 
             // ── Build department contribution for the DEPARTMENTAL LOAD donut chart ──
             // Strategy:
@@ -591,43 +599,48 @@ const OKRDashboard = () => {
                 return null;
             };
 
-            // Step 3 — Aggregate task counts by department
+            // ── Build department contribution for the DEPARTMENTAL LOAD donut chart ──
+            // To ensure the pie chart sum always matches TOTAL SUBTASKS (e.g. 220),
+            // we aggregate the `total_subtasks` from serverObjs, distributed by department.
             const deptMap = {};
-            allTasks.forEach(t => {
-                const dName = resolveDeptName(t);
-                if (dName) deptMap[dName] = (deptMap[dName] || 0) + 1;
+
+            serverObjs.forEach(o => {
+                const count = o.total_subtasks || 1;
+                
+                // Collect possible department names for this objective
+                const depts = new Set();
+                if (Array.isArray(o.department_names) && o.department_names.length > 0) {
+                    o.department_names.forEach(d => d && depts.add(String(d).trim()));
+                } else if (o.department_name) {
+                    depts.add(String(o.department_name).trim());
+                } else if (Array.isArray(o.deptsArray) && o.deptsArray.length > 0) {
+                    o.deptsArray.forEach(d => d && depts.add(String(d).trim()));
+                }
+                
+                // Filter out generic names
+                const validDepts = Array.from(depts).filter(d => 
+                    d && d.toLowerCase() !== 'general' && d.toLowerCase() !== 'corporate'
+                );
+                
+                if (validDepts.length > 0) {
+                    // Assign the total subtasks to the primary department to ensure the pie chart sum matches the total 220 exactly.
+                    const primaryDept = validDepts[0];
+                    deptMap[primaryDept] = (deptMap[primaryDept] || 0) + count;
+                } else {
+                    // Fallback to objective title if no department could be resolved
+                    const label = (o.objective_title || o.title || 'Objective').trim();
+                    deptMap[label] = (deptMap[label] || 0) + count;
+                }
             });
 
-            // Step 4a — Fallback: use objectives' deptsArray if task resolution gave <= 1 bucket
-            if (Object.keys(deptMap).length <= 1 && serverObjs.length > 0) {
-                serverObjs.forEach(o => {
-                    (o.deptsArray || []).forEach(d => {
-                        if (!d) return;
-                        const dName = String(d).trim();
-                        if (!dName || dName.toLowerCase() === 'general') return;
-                        deptMap[dName] = (deptMap[dName] || 0) + (o.total_subtasks || 1);
-                    });
-                });
+            // Prefer the API's department_contribution as the authoritative source (it perfectly matches the 220 subtasks sum)
+            // Only use our frontend computed map if the backend data is missing or empty
+            if (!Array.isArray(data.department_contribution) || data.department_contribution.length === 0) {
+                data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
+                    department_name: name,
+                    subtask_count: count
+                }));
             }
-
-            // Step 4b — Fallback: distribute by parent objective title if still <= 1 bucket
-            if (Object.keys(deptMap).length <= 1 && serverObjs.length > 1) {
-                // Clear any single-bucket entry that might be misleading
-                Object.keys(deptMap).forEach(k => delete deptMap[k]);
-                serverObjs.forEach(o => {
-                    const label = (o.objective_title || o.title || 'Objective').trim();
-                    // Shorten to first ~20 chars for legend readability
-                    const short = label.length > 22 ? label.slice(0, 20) + '…' : label;
-                    const count = o.total_subtasks || 1;
-                    deptMap[short] = (deptMap[short] || 0) + count;
-                });
-            }
-
-            // Always use the computed map — never let a stale API field suppress it
-            data.department_contribution = Object.entries(deptMap).map(([name, count]) => ({
-                department_name: name,
-                subtask_count: count
-            }));
 
             setMetrics([
                 { label: 'TOTAL OBJECTIVES', value: data.total_objectives, color: 'indigo', icon: Target },
@@ -703,12 +716,40 @@ const OKRDashboard = () => {
                 name: d.department_name || d.department || d.name || 'Dept',
                 value: d.subtask_count || d.count || 0,
                 fill: deptColors[idx % deptColors.length]
+                
             }));
-            setDeptContributionData(deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
+            console.log("department_contribution:", data.department_contribution);
+console.log(
+  "department total:",
+  (data.department_contribution || []).reduce(
+    (sum, d) => sum + Number(d.subtask_count || 0),
+    0
+  )
+);console.log("deptContributionData", deptContributionData);
+console.log(
+    "deptContributionData total",
+    deptContributionData.reduce((a, b) => a + b.value, 0)
+);
+
+
+            const dataPassed = deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
                 name: o.name,
                 value: Math.max(1, Math.round(o.value / 10)),
                 fill: deptColors[idx % deptColors.length]
-            })));
+            }));
+            
+            console.log("=== BEFORE setDeptContributionData ===");
+            console.trace();
+            console.log(dataPassed);
+            console.log(
+                "Total:",
+                dataPassed.reduce(
+                    (a,b)=>a+(b.value ?? b.subtask_count ?? 0),
+                    0
+                )
+            );
+            
+            setDeptContributionData(dataPassed);
 
             const riskItems = serverObjs.map(o => ({
                 label: o.objective_title || o.title || 'Objective',
@@ -838,7 +879,19 @@ const OKRDashboard = () => {
             ]);
             setTableData([]);
             setObjCompletionData([]);
-            setDeptContributionData([]);
+            const dataPassed = [];
+            console.log("=== BEFORE setDeptContributionData ===");
+            console.trace();
+            console.log(dataPassed);
+            console.log(
+                "Total:",
+                dataPassed.reduce(
+                    (a,b)=>a+(b.value ?? b.subtask_count ?? 0),
+                    0
+                )
+            );
+            
+            setDeptContributionData(dataPassed);
             setRiskOverview([]);
             setTrendData([]);
             setOverdueTasks([]);
@@ -850,6 +903,20 @@ const OKRDashboard = () => {
     useEffect(() => {
         fetchDashboardData();
     }, [filters]);
+
+    useEffect(() => {
+        console.log("=== STATE UPDATED ===");
+        console.trace();
+        console.log(deptContributionData);
+        console.log(
+            "State total:",
+            deptContributionData.reduce(
+                (a,b)=>a+(b.value ?? 0),
+                0
+            )
+        );
+    }, [deptContributionData]);
+
 
     const displayedTableData = React.useMemo(() => {
         if (!filters.department || filters.department === 'All') return tableData;
@@ -918,14 +985,24 @@ const OKRDashboard = () => {
 
     const displayedDeptContributionData = React.useMemo(() => {
         if (!filters.department || filters.department === 'All') return deptContributionData;
-        let totalSubs = 0;
-        displayedTableData.forEach(row => totalSubs += (row.subTotal || 0));
+        
+        const deptFilterLower = filters.department.trim().toLowerCase();
+        const selectedDept = deptContributionData.find(d => 
+            d.name.toLowerCase() === deptFilterLower
+        );
+        
+        if (selectedDept) {
+            return [selectedDept];
+        }
+        
         return [{
             name: filters.department,
-            value: totalSubs || displayedTableData.length,
+            value: 0,
             fill: '#3b82f6'
         }];
-    }, [displayedTableData, deptContributionData, filters.department]);
+    }, [deptContributionData, filters.department]);
+
+    const centerValue = displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0);
 
     if (loading && isInitialLoad) {
         return (
@@ -1016,9 +1093,9 @@ const OKRDashboard = () => {
                     <div className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-6">
                         {displayedTableData.map((row, i) => (
                             <div key={i} className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-[11px] font-black text-slate-700 truncate max-w-[80%]" title={row.objective}>{row.objective}</span>
-                                    <span className="text-[10px] font-black text-blue-600">{row.progress}%</span>
+                                <div className="flex justify-between items-center gap-2">
+                                    <span className="text-[11px] font-black text-slate-700 truncate flex-1 min-w-0" title={row.objective}>{row.objective}</span>
+                                    <span className="text-[10px] font-black text-blue-600 flex-shrink-0">{row.progress}%</span>
                                 </div>
                                 <div className="h-4 bg-slate-50 rounded-full overflow-hidden border border-slate-100 p-0.5">
                                     <div
@@ -1046,11 +1123,11 @@ const OKRDashboard = () => {
                     <div className="p-4 flex flex-col flex-1 min-h-0">
                         {/* Donut Chart */}
                         <div className="relative flex-shrink-0" style={{ height: 200 }}>
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 pointer-events-none">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">TASKS</span>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                                 <span className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
-                                    {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
+                                    {centerValue}
                                 </span>
+                                <span className="text-[10px] font-black text-slate-400 mt-1 uppercase tracking-[0.2em]">TASKS</span>
                             </div>
                             <ResponsiveContainer width="100%" height={200} minHeight={1} minWidth={1}>
                                 <PieChart>
@@ -1074,12 +1151,12 @@ const OKRDashboard = () => {
                             </ResponsiveContainer>
                         </div>
                         {/* Custom Legend — scrollable */}
-                        <div className="flex-1 overflow-y-auto custom-scrollbar mt-2 min-h-0">
+                        <div className="flex-1 overflow-y-auto custom-scrollbar mt-2 min-h-0 pr-2">
                             <div className="flex flex-col gap-y-2 px-1">
                                 {displayedDeptContributionData.map((entry, idx) => (
                                     <div key={idx} className="flex items-start gap-2 min-w-0">
                                         <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0 mt-[3px]" style={{ backgroundColor: entry.fill }} />
-                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight flex-1">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide leading-tight flex-1 truncate" title={entry.name}>
                                             {entry.name}
                                         </span>
                                         <span className="text-[10px] font-black text-slate-700 ml-auto flex-shrink-0">{entry.value}</span>
@@ -1099,9 +1176,9 @@ const OKRDashboard = () => {
                     </div>
                     <div className="p-6 space-y-3 overflow-y-auto pr-2 flex-1 custom-scrollbar">
                         {displayedRiskOverview.map((r, i) => (
-                            <div key={i} className="flex justify-between items-center p-3 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-white transition-all group border-l-4 border-l-transparent hover:border-l-blue-500">
-                                <span className="text-[11px] font-black text-slate-700 truncate flex-1 uppercase tracking-tight" title={r.label}>{r.label}</span>
-                                <div className="flex items-center gap-4">
+                            <div key={i} className="flex justify-between items-center p-3 gap-2 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-white transition-all group border-l-4 border-l-transparent hover:border-l-blue-500 min-w-0">
+                                <span className="text-[11px] font-black text-slate-700 truncate flex-1 uppercase tracking-tight min-w-0" title={r.label}>{r.label}</span>
+                                <div className="flex items-center flex-shrink-0">
                                     <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm ${r.color}`}>
                                         {r.status}
                                     </span>
