@@ -1014,6 +1014,17 @@ console.log(
         console.log("Rendered DOM text:", centerValueRef.current?.textContent);
         console.log("Computed centerValue:", centerValue);
     }, [centerValue]);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            console.log("Center DOM:", centerValueRef.current?.textContent);
+            const piePaths = document.querySelectorAll(".recharts-sector");
+            console.log("Pie sectors:", piePaths.length);
+            const svg = document.querySelector(".recharts-wrapper svg");
+            console.log("SVG exists:", !!svg);
+            console.log(svg?.outerHTML);
+        }, 0);
+        return () => clearTimeout(timer);
+    });
 
     if (loading && isInitialLoad) {
         return (
@@ -1024,12 +1035,19 @@ console.log(
         );
     }
 
-    console.log("Center label value:", centerValue);
+    console.log("=== FINAL RENDER ===");
+    console.log({
+        filtersDepartment: filters.department,
+        deptContributionData,
+        displayedDeptContributionData,
+        centerValue,
+        renderedCenterText: centerValueRef.current?.textContent
+    });
 
-    console.log("Center label value:", centerValue);
-    console.log("Pie data total:",
-        displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
-    );
+    console.log("Pie props", {
+        data: displayedDeptContributionData,
+        total: displayedDeptContributionData.reduce((s, d) => s + d.value, 0)
+    });
 
     return (
         <div className={`flex flex-col gap-4 bg-[#f1f5f9] min-h-screen p-4 sm:p-6 text-slate-800 font-sans animate-fade-in ${loading ? 'opacity-60 pointer-events-none' : ''} transition-opacity duration-300`}>
