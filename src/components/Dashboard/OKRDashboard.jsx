@@ -180,6 +180,8 @@ const OKRDashboard = () => {
 
 
     const fetchDashboardData = async () => {
+        console.log("FETCH START");
+        console.trace();
         setLoading(true);
         const extractTasks = (res) => {
             if (!res || res.status !== 'fulfilled' || !res.value) return [];
@@ -733,19 +735,24 @@ console.log(
     displayedDeptContributionData.reduce((a, b) => a + b.value, 0)
 );
 
-            const dataPassed1 = deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
+            const dataPassed = deptData.length > 0 ? deptData : objCompletion.map((o, idx) => ({
                 name: o.name,
                 value: Math.max(1, Math.round(o.value / 10)),
                 fill: deptColors[idx % deptColors.length]
             }));
             
-            console.log("CALLING setDeptContributionData");
+            console.log("=== BEFORE setDeptContributionData ===");
             console.trace();
-            console.log(dataPassed1);
+            console.log(dataPassed);
             console.log(
-                dataPassed1.reduce((a,b)=>a+(b.value||b.subtask_count||0),0)
+                "Total:",
+                dataPassed.reduce(
+                    (a,b)=>a+(b.value ?? b.subtask_count ?? 0),
+                    0
+                )
             );
-            setDeptContributionData(dataPassed1);
+            
+            setDeptContributionData(dataPassed);
 
             const riskItems = serverObjs.map(o => ({
                 label: o.objective_title || o.title || 'Objective',
@@ -875,14 +882,19 @@ console.log(
             ]);
             setTableData([]);
             setObjCompletionData([]);
-            const dataPassed2 = [];
-            console.log("CALLING setDeptContributionData");
+            const dataPassed = [];
+            console.log("=== BEFORE setDeptContributionData ===");
             console.trace();
-            console.log(dataPassed2);
+            console.log(dataPassed);
             console.log(
-                dataPassed2.reduce((a,b)=>a+(b.value||b.subtask_count||0),0)
+                "Total:",
+                dataPassed.reduce(
+                    (a,b)=>a+(b.value ?? b.subtask_count ?? 0),
+                    0
+                )
             );
-            setDeptContributionData(dataPassed2);
+            
+            setDeptContributionData(dataPassed);
             setRiskOverview([]);
             setTrendData([]);
             setOverdueTasks([]);
@@ -896,11 +908,15 @@ console.log(
     }, [filters]);
 
     useEffect(() => {
-        console.log("STATE UPDATED");
+        console.log("=== STATE UPDATED ===");
         console.trace();
         console.log(deptContributionData);
         console.log(
-            deptContributionData.reduce((a,b)=>a+b.value,0)
+            "State total:",
+            deptContributionData.reduce(
+                (a,b)=>a+(b.value ?? 0),
+                0
+            )
         );
     }, [deptContributionData]);
 
@@ -996,6 +1012,15 @@ console.log(
             </div>
         );
     }
+
+    console.log(
+        "Pie receives:",
+        displayedDeptContributionData,
+        displayedDeptContributionData.reduce(
+            (a,b)=>a+(b.value ?? 0),
+            0
+        )
+    );
 
     return (
         <div className={`flex flex-col gap-4 bg-[#f1f5f9] min-h-screen p-4 sm:p-6 text-slate-800 font-sans animate-fade-in ${loading ? 'opacity-60 pointer-events-none' : ''} transition-opacity duration-300`}>
@@ -1119,14 +1144,6 @@ console.log(
                                 </span>
                             </div>
                             <ResponsiveContainer width="100%" height={200} minHeight={1} minWidth={1}>
-                                {(() => {
-                                    console.log(
-                                        "Pie receives",
-                                        displayedDeptContributionData,
-                                        displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
-                                    );
-                                    return null;
-                                })()}
                                 <PieChart>
                                     <Pie
                                         data={displayedDeptContributionData}
