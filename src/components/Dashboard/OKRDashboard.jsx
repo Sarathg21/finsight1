@@ -1001,13 +1001,10 @@ console.log(
         );
     }
 
-    console.log(
-        "Pie receives:",
-        displayedDeptContributionData,
-        displayedDeptContributionData.reduce(
-            (a,b)=>a+(b.value ?? 0),
-            0
-        )
+    const centerValue = displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0);
+    console.log("Center label value:", centerValue);
+    console.log("Pie data total:",
+        displayedDeptContributionData.reduce((a,b)=>a+b.value,0)
     );
 
     return (
@@ -1128,7 +1125,7 @@ console.log(
                                     return null;
                                 })()}
                                 <span className="text-2xl font-black text-[#1E1B4B] tabular-nums leading-none">
-                                    {displayedDeptContributionData.reduce((acc, d) => acc + d.value, 0)}
+                                    {centerValue}
                                 </span>
                             </div>
                             <ResponsiveContainer width="100%" height={200} minHeight={1} minWidth={1}>
