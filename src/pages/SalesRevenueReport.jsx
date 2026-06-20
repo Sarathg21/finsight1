@@ -40,7 +40,6 @@ const FIRST_DAY = `${_y}-${pad(_m + 1)}-01`;
 const LAST_DAY  = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())}`;
 
 const DEFAULT_FILTERS = {
-  legalGroup:  'All',
   legalEntity: 'All',
   parentDiv:   'All',
   subDiv:      'All',
@@ -1057,7 +1056,6 @@ export default function SalesRevenueReport() {
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
-    legalGroups:    ['All'],
     legalEntities:  ['All'],
     parentDivs:     ['All'],
     subDivs:        ['All'],
@@ -1136,7 +1134,6 @@ export default function SalesRevenueReport() {
       .then(data => {
         setFilterOptions(prev => ({
           ...prev,
-          legalGroups:   ['All', ...(data.legal_groups   || [])],
           legalEntities: ['All', ...(data.legal_entities || [])],
           parentDivs:    ['All', ...(data.parent_divisions || [])],
           subDivs:       ['All', ...(data.sub_divisions  || [])],
@@ -1708,13 +1705,7 @@ export default function SalesRevenueReport() {
         )}
 
         {/* ── Filter Bar ── */}
-        <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
-          <FilterField label="Legal Group">
-            <select id="filter-legal-group" style={selStyle} value={filters.legalGroup} onChange={e => updateFilter('legalGroup', e.target.value)}>
-              {filterOptions.legalGroups.map(o => <option key={o}>{o}</option>)}
-            </select>
-          </FilterField>
-
+        <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
           <FilterField label="Legal Entity">
             <select id="filter-legal-entity" style={selStyle} value={filters.legalEntity} onChange={e => updateFilter('legalEntity', e.target.value)}>
               {filterOptions.legalEntities.map(o => <option key={o}>{o}</option>)}
@@ -1767,13 +1758,13 @@ export default function SalesRevenueReport() {
           </FilterField>
 
           <button id="btn-apply-filter" onClick={handleApply} style={{
-            ...headerBtn(C.blue, '#fff'), alignSelf: 'flex-end',
+            ...headerBtn(C.blue, '#fff'), alignSelf: 'center',
             padding: '7px 20px', fontWeight: 700, borderRadius: 8,
           }}>Apply</button>
           <button id="btn-reset-filter" onClick={handleReset} style={{
             background: 'none', border: 'none', color: C.slate,
             fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-            alignSelf: 'flex-end', padding: '7px 8px',
+            alignSelf: 'center', padding: '7px 8px',
           }}>Reset</button>
         </div>
 

@@ -897,14 +897,22 @@ tbody tr:hover { background: #f8fafc; }
   box-shadow: var(--shadow-lg);
 }
 
-.login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
 .login-logo .logo-mark { width: 44px; height: 44px; font-size: 0.95rem; }
-.login-logo .brand  { font-size: 1.45rem; font-weight: 900; }
-.login-logo .tagline { font-size: 0.7rem; }
+.login-logo .logo-text { display: flex; flex-direction: column; gap: 2px; }
+.login-logo .brand  { font-size: 1.45rem; font-weight: 900; line-height: 1; }
+.login-logo .tagline {
+  font-size: 0.68rem;
+  color: var(--clr-text-muted);
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
 
 .login-heading { font-size: 1.45rem; font-weight: 800; color: var(--clr-text); margin-bottom: 6px; }
-.login-sub     { font-size: 0.82rem; color: var(--clr-text-muted); margin-bottom: 28px; }
-.login-hint    { font-size: 0.72rem; color: var(--clr-text-dim); margin-top: 20px; text-align: center; }
+.login-sub     { font-size: 0.82rem; color: var(--clr-text-muted); margin-bottom: 22px; }
+.login-hint    { font-size: 0.72rem; color: var(--clr-text-dim); margin-top: 18px; text-align: center; }
 
 .form-group  { margin-bottom: 18px; }
 .form-label  {
@@ -918,19 +926,20 @@ tbody tr:hover { background: #f8fafc; }
 }
 .form-input {
   width: 100%;
+  box-sizing: border-box;
   background: var(--clr-surface-2);
-  border: 1px solid var(--clr-border);
+  border: 1.5px solid var(--clr-border);
   border-radius: var(--radius-md);
   color: var(--clr-text);
   font-family: var(--font-sans);
   font-size: 0.88rem;
   padding: 11px 14px;
   outline: none;
-  transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
 }
 .form-input:focus {
   border-color: var(--clr-primary);
-  box-shadow: 0 0 0 3px var(--clr-primary-dim);
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
 }
 .form-input::placeholder { color: var(--clr-text-dim); }
 

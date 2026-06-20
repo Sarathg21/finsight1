@@ -508,7 +508,7 @@ async function apiCall(path, params = {}) {
   }
 
   const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
   ).toString();
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
@@ -653,7 +653,7 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
   };
 
   const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
   ).toString();
 
   const url = `${API_BASE}/api/sales-revenue/${endpoint}/export${qs ? `?${qs}` : ''}`;
