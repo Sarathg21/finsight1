@@ -1233,203 +1233,224 @@ export default function BalanceSheet() {
         </div>
       </div>
 
-      {/* ══ CHARTS ROW ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr 1fr', gap: 14, marginBottom: 18 }}>
-
-        {/* Trend Chart */}
-        <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Balance Sheet Trend</div>
-              <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>
-                {trendData?.from_period || '—'} → {trendData?.to_period || '—'} | {trendData?.section || 'APPLICATION OF FUNDS'}
-              </div>
-            </div>
-            <KebabMenu id="menu-bs-trend" items={trendMenuItems} />
-          </div>
-
-          {errors.trend ? (
-            <ErrorBanner message={errors.trend} onRetry={() => fetchAll(appliedFilters)} />
-          ) : loading.trend ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
-              {[...Array(5)].map((_, i) => <Skeleton key={i} h={20} />)}
-            </div>
-          ) : trendSeries.length === 0 ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
-              No trend data available
-            </div>
-          ) : (
-            <>
-              {/* Trend legend */}
-              <div style={{ display: 'flex', gap: 14, marginBottom: 8, paddingLeft: 4 }}>
-                {[{ color: C.primary, label: trendData?.account_name || trendData?.section || 'Balance' }].map(l => (
-                  <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', fontWeight: 600, color: C.slate }}>
-                    <div style={{ width: 20, height: 2.5, borderRadius: 1, background: l.color }} />
-                    {l.label}
-                  </div>
-                ))}
-              </div>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={trendSeries} margin={{ top: 5, right: 16, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="period" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" />
-                  <YAxis tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={48} />
-                  <Tooltip content={<ChartTooltip currency={currency} />} />
-                  <Line type="monotone" dataKey="balance" name={trendData?.account_name || trendData?.section || 'Balance'} stroke={C.primary} strokeWidth={2.5} dot={{ r: 3, fill: C.primary }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-              {trendData?.summary && (
-                <div style={{ display: 'flex', gap: 16, marginTop: 8, padding: '8px 12px', background: '#f8fafc', borderRadius: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>OPENING</div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: C.navy }}>{fmtKPI(trendData.summary.opening_balance, currency)}</div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>CLOSING</div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: C.primary }}>{fmtKPI(trendData.summary.closing_balance, currency)}</div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>CHANGE</div>
-                    <div style={{ fontSize: '0.78rem', fontWeight: 800, color: (trendData.summary.period_change ?? 0) >= 0 ? C.green : C.rose }}>
-                      {trendData.summary.period_pct != null ? `${trendData.summary.period_pct >= 0 ? '+' : ''}${Number(trendData.summary.period_pct).toFixed(2)}%` : '—'}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* ── Assets Composition Donut ── */}
-        {(() => {
-          // Derive current vs non-current from summary sections
-          const appSection = summaryData?.sections?.find(s => s.section === 'APPLICATION OF FUNDS');
-          const nonCurrentSub = appSection?.sub_sections?.find(s => /NON.CURRENT/i.test(s.sub_section));
-          const currentSub    = appSection?.sub_sections?.find(s => /CURRENT/i.test(s.sub_section) && !/NON/i.test(s.sub_section));
-          const nonCurrent = nonCurrentSub ? Math.abs(nonCurrentSub.sub_total) : 0;
-          const current    = currentSub    ? Math.abs(currentSub.sub_total)    : 0;
-          const total      = nonCurrent + current;
-          const pctNon     = total ? ((nonCurrent / total) * 100).toFixed(1) : 0;
-          const pctCur     = total ? ((current    / total) * 100).toFixed(1) : 0;
-          const COLORS      = ['#2563eb', '#10b981'];
-          const donutData   = [
-            { name: 'Non-Current Assets', value: nonCurrent, pct: pctNon, color: COLORS[0] },
-            { name: 'Current Assets',     value: current,    pct: pctCur, color: COLORS[1] },
-          ];
+      {/* ══ CHARTS ROW: Trend | Assets Composition | Liabilities Composition ══ */}
+      {(() => {
+        /* ── Shared DonutCard renderer ── */
+        const DonutCard = ({ title, subtitle, segments, isLoading }) => {
+          const total = segments.reduce((s, d) => s + d.value, 0);
+          // Key on segment count so React fully remounts (and re-animates) the
+          // moment real API data replaces the empty/loading state.
+          const chartKey = `donut-${segments.length}-${Math.round(total)}`;
           return (
             <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 4 }}>Assets Composition</div>
-              <div style={{ fontSize: '0.65rem', color: C.muted, marginBottom: 10 }}>Current vs Non-Current ({currency})</div>
-              {loading.summary ? (
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 3 }}>{title}</div>
+              <div style={{ fontSize: '0.65rem', color: C.muted, marginBottom: 10 }}>{subtitle}</div>
+              {isLoading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {[...Array(4)].map((_, i) => <Skeleton key={i} h={24} />)}
+                  {[...Array(4)].map((_, i) => <Skeleton key={i} h={22} />)}
                 </div>
               ) : total === 0 ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
-                  No assets data
+                  No data available
                 </div>
               ) : (
                 <>
-                  {/* Donut */}
-                  <div style={{ position: 'relative', height: 180 }}>
-                    <ResponsiveContainer width="100%" height={180}>
+                  <div style={{ position: 'relative', height: 170 }}>
+                    {/* key forces a clean remount + fresh draw-in animation once data is ready */}
+                    <ResponsiveContainer key={chartKey} width="100%" height={170}>
                       <PieChart>
                         <Pie
-                          data={donutData}
+                          data={segments}
                           cx="50%" cy="50%"
-                          innerRadius={54} outerRadius={78}
+                          innerRadius={50} outerRadius={72}
                           dataKey="value"
                           paddingAngle={3}
                           startAngle={90} endAngle={-270}
+                          isAnimationActive={true}
+                          animationBegin={0}
+                          animationDuration={1000}
                         >
-                          {donutData.map((entry, idx) => (
-                            <Cell key={entry.name} fill={entry.color} stroke="none" />
+                          {segments.map(d => (
+                            <Cell key={d.name} fill={d.color} stroke="none" />
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(val, name) => [fmtKPI(val, currency), name]}
+                          formatter={(v, n) => [fmtKPI(v, currency), n]}
                           contentStyle={{ fontSize: 11, borderRadius: 8, border: `1px solid ${C.border}` }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
-                    {/* Centre label */}
-                    <div style={{
-                      position: 'absolute', top: '50%', left: '50%',
-                      transform: 'translate(-50%,-50%)',
-                      textAlign: 'center', pointerEvents: 'none',
-                    }}>
-                      <div style={{ fontSize: '0.62rem', color: C.muted, fontWeight: 600 }}>Total</div>
-                      <div style={{ fontSize: '0.88rem', fontWeight: 900, color: C.navy }}>{fmtKPI(total, currency)}</div>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                      <div style={{ fontSize: '0.58rem', color: C.muted, fontWeight: 600 }}>Total</div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 900, color: C.navy }}>{fmtKPI(total, currency)}</div>
                     </div>
                   </div>
-                  {/* Legend */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                    {donutData.map(d => (
-                      <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.7rem', color: C.slate, fontWeight: 600 }}>{d.name}</span>
+                    {segments.map(d => {
+                      const pct = total ? ((d.value / total) * 100).toFixed(1) : '0.0';
+                      return (
+                        <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 9, height: 9, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.67rem', color: C.slate, fontWeight: 600 }}>{d.name}</span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 800, color: C.navy }}>{pct}%</span>
+                            <span style={{ fontSize: '0.6rem', color: C.muted, marginLeft: 4 }}>({fmtKPI(d.value, currency)})</span>
+                          </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy }}>{d.pct}%</span>
-                          <span style={{ fontSize: '0.63rem', color: C.muted, marginLeft: 5 }}>({fmtKPI(d.value, currency)})</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </>
               )}
             </div>
           );
-        })()}
+        };
 
-        {/* Reconciliation Panel */}
-        <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+
+        const appSection = summaryData?.sections?.find(s => s.section === 'APPLICATION OF FUNDS');
+        const srcSection = summaryData?.sections?.find(s => s.section === 'SOURCES OF FUNDS');
+        const assetSegments = (appSection?.sub_sections || []).map((sub, i) => ({
+          name: sub.sub_section.replace(/^[A-Z]\.\s*/, ''),
+          value: Math.abs(sub.sub_total || 0),
+          color: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'][i % 4],
+        }));
+        const liabSegments = (srcSection?.sub_sections || []).map((sub, i) => ({
+          name: sub.sub_section.replace(/^[A-Z]\.\s*/, ''),
+          value: Math.abs(sub.sub_total || 0),
+          color: ['#9333ea', '#f59e0b', '#ef4444', '#0d9488'][i % 4],
+        }));
+
+        return (
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+
+            {/* ── Balance Sheet Trend ── */}
+            <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Balance Sheet Trend</div>
+                  <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>
+                    {trendData?.from_period || '—'} → {trendData?.to_period || '—'} | {trendData?.section || 'APPLICATION OF FUNDS'}
+                  </div>
+                </div>
+                <KebabMenu id="menu-bs-trend" items={trendMenuItems} />
+              </div>
+              {errors.trend ? (
+                <ErrorBanner message={errors.trend} onRetry={() => fetchAll(appliedFilters)} />
+              ) : loading.trend ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
+                  {[...Array(5)].map((_, i) => <Skeleton key={i} h={20} />)}
+                </div>
+              ) : trendSeries.length === 0 ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
+                  No trend data available
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: 14, marginBottom: 8, paddingLeft: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', fontWeight: 600, color: C.slate }}>
+                      <div style={{ width: 20, height: 2.5, borderRadius: 1, background: C.primary }} />
+                      {trendData?.account_name || trendData?.section || 'Balance'}
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={trendSeries} margin={{ top: 5, right: 16, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="period" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" />
+                      <YAxis tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={48} />
+                      <Tooltip content={<ChartTooltip currency={currency} />} />
+                      <Line type="monotone" dataKey="balance" name={trendData?.account_name || trendData?.section || 'Balance'}
+                        stroke={C.primary} strokeWidth={2.5} dot={{ r: 3, fill: C.primary }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                  {trendData?.summary && (
+                    <div style={{ display: 'flex', gap: 16, marginTop: 8, padding: '8px 12px', background: '#f8fafc', borderRadius: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>OPENING</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: C.navy }}>{fmtKPI(trendData.summary.opening_balance, currency)}</div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>CLOSING</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: C.primary }}>{fmtKPI(trendData.summary.closing_balance, currency)}</div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>CHANGE</div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: (trendData.summary.period_change ?? 0) >= 0 ? C.green : C.rose }}>
+                          {trendData.summary.period_pct != null ? `${trendData.summary.period_pct >= 0 ? '+' : ''}${Number(trendData.summary.period_pct).toFixed(2)}%` : '—'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* ── Assets Composition ── */}
+            <DonutCard
+              title="Assets Composition"
+              subtitle={`Application of Funds — ${currency}`}
+              segments={assetSegments}
+              isLoading={loading.summary}
+            />
+
+            {/* ── Liabilities Composition ── */}
+            <DonutCard
+              title="Liabilities Composition"
+              subtitle={`Sources of Funds — ${currency}`}
+              segments={liabSegments}
+              isLoading={loading.summary}
+            />
+          </div>
+        );
+      })()}
+
+      {/* ══ RECONCILIATION ROW ══ */}
+      <div style={{ marginBottom: 18 }}>
+        <div className="card" style={{ padding: '16px 18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Reconciliation Status</div>
               <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>Period-wise BALANCED / VARIANCE status</div>
             </div>
             <KebabMenu id="menu-bs-recon" items={reconMenuItems} />
           </div>
-
           {errors.reconciliation ? (
             <ErrorBanner message={errors.reconciliation} onRetry={() => fetchAll(appliedFilters)} />
           ) : loading.reconciliation ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[...Array(5)].map((_, i) => <Skeleton key={i} h={36} />)}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[...Array(6)].map((_, i) => <div key={i} style={{ flex: 1 }}><Skeleton h={52} /></div>)}
             </div>
           ) : reconciliationRows.length === 0 ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem', padding: '20px 0' }}>
               No reconciliation data available
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', maxHeight: 280 }}>
-              {reconciliationRows.slice(0, 8).map((row, i) => {
+            <div style={{ display: 'flex', gap: 8 }}>
+              {reconciliationRows.map((row, i) => {
                 const isBalanced = row.balance_status === 'BALANCED';
                 return (
                   <div key={i} style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '7px 12px', borderRadius: 8,
+                    flex: 1,
+                    padding: '9px 14px', borderRadius: 9,
                     background: isBalanced ? '#f0fdf4' : '#fff7ed',
                     border: `1px solid ${isBalanced ? '#d1fae5' : '#fed7aa'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    minWidth: 0,
                   }}>
-                    <div>
-                      <div style={{ fontSize: '0.73rem', fontWeight: 700, color: C.navy }}>{row.period_name || row.period}</div>
-                      <div style={{ fontSize: '0.64rem', color: C.slate, marginTop: 1 }}>{row.currency}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{row.period_name || row.period}</div>
+                      <div style={{ fontSize: '0.62rem', color: C.slate }}>{row.currency}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{
-                        fontSize: '0.66rem', fontWeight: 700, padding: '2px 8px',
-                        borderRadius: 10,
-                        background: isBalanced ? '#dcfce7' : '#ffedd5',
-                        color: isBalanced ? '#15803d' : '#c2410c',
-                      }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <span style={{ fontSize: '0.63rem', fontWeight: 700, padding: '2px 7px', borderRadius: 8,
+                        background: isBalanced ? '#dcfce7' : '#ffedd5', color: isBalanced ? '#15803d' : '#c2410c',
+                        whiteSpace: 'nowrap' }}>
                         {row.balance_status}
                       </span>
                       {!isBalanced && row.net_variance != null && (
-                        <div style={{ fontSize: '0.64rem', color: '#c2410c', marginTop: 3, fontWeight: 600 }}>
-                          Var: {fmtKPI(Math.abs(row.net_variance), row.currency)}
+                        <div style={{ fontSize: '0.6rem', color: '#c2410c', marginTop: 2, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {fmtKPI(Math.abs(row.net_variance), row.currency)}
                         </div>
                       )}
                     </div>
