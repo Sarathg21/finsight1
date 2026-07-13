@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import {
   fetchBSFilters,
@@ -1233,7 +1234,7 @@ export default function BalanceSheet() {
       </div>
 
       {/* ══ CHARTS ROW ══ */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr 1fr', gap: 14, marginBottom: 18 }}>
 
         {/* Trend Chart */}
         <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
@@ -1298,6 +1299,89 @@ export default function BalanceSheet() {
             </>
           )}
         </div>
+
+        {/* ── Assets Composition Donut ── */}
+        {(() => {
+          // Derive current vs non-current from summary sections
+          const appSection = summaryData?.sections?.find(s => s.section === 'APPLICATION OF FUNDS');
+          const nonCurrentSub = appSection?.sub_sections?.find(s => /NON.CURRENT/i.test(s.sub_section));
+          const currentSub    = appSection?.sub_sections?.find(s => /CURRENT/i.test(s.sub_section) && !/NON/i.test(s.sub_section));
+          const nonCurrent = nonCurrentSub ? Math.abs(nonCurrentSub.sub_total) : 0;
+          const current    = currentSub    ? Math.abs(currentSub.sub_total)    : 0;
+          const total      = nonCurrent + current;
+          const pctNon     = total ? ((nonCurrent / total) * 100).toFixed(1) : 0;
+          const pctCur     = total ? ((current    / total) * 100).toFixed(1) : 0;
+          const COLORS      = ['#2563eb', '#10b981'];
+          const donutData   = [
+            { name: 'Non-Current Assets', value: nonCurrent, pct: pctNon, color: COLORS[0] },
+            { name: 'Current Assets',     value: current,    pct: pctCur, color: COLORS[1] },
+          ];
+          return (
+            <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 4 }}>Assets Composition</div>
+              <div style={{ fontSize: '0.65rem', color: C.muted, marginBottom: 10 }}>Current vs Non-Current ({currency})</div>
+              {loading.summary ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {[...Array(4)].map((_, i) => <Skeleton key={i} h={24} />)}
+                </div>
+              ) : total === 0 ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
+                  No assets data
+                </div>
+              ) : (
+                <>
+                  {/* Donut */}
+                  <div style={{ position: 'relative', height: 180 }}>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie
+                          data={donutData}
+                          cx="50%" cy="50%"
+                          innerRadius={54} outerRadius={78}
+                          dataKey="value"
+                          paddingAngle={3}
+                          startAngle={90} endAngle={-270}
+                        >
+                          {donutData.map((entry, idx) => (
+                            <Cell key={entry.name} fill={entry.color} stroke="none" />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(val, name) => [fmtKPI(val, currency), name]}
+                          contentStyle={{ fontSize: 11, borderRadius: 8, border: `1px solid ${C.border}` }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Centre label */}
+                    <div style={{
+                      position: 'absolute', top: '50%', left: '50%',
+                      transform: 'translate(-50%,-50%)',
+                      textAlign: 'center', pointerEvents: 'none',
+                    }}>
+                      <div style={{ fontSize: '0.62rem', color: C.muted, fontWeight: 600 }}>Total</div>
+                      <div style={{ fontSize: '0.88rem', fontWeight: 900, color: C.navy }}>{fmtKPI(total, currency)}</div>
+                    </div>
+                  </div>
+                  {/* Legend */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                    {donutData.map(d => (
+                      <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '0.7rem', color: C.slate, fontWeight: 600 }}>{d.name}</span>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: C.navy }}>{d.pct}%</span>
+                          <span style={{ fontSize: '0.63rem', color: C.muted, marginLeft: 5 }}>({fmtKPI(d.value, currency)})</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Reconciliation Panel */}
         <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
