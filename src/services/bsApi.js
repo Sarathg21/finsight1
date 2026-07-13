@@ -279,6 +279,12 @@ async function apiCall(path, params = {}) {
         return getMockDataForPath(path);
       }
 
+      // 5xx — backend is up but erroring. Fall back to demo data silently.
+      if (res.status >= 500) {
+        console.warn(`[bsApi] ${res.status} on ${path} — backend error. Falling back to mock data.`);
+        return getMockDataForPath(path);
+      }
+
       const rawBody = await res.text().catch(() => '');
       let body = {};
       try { body = JSON.parse(rawBody); } catch { /* non-JSON */ }
