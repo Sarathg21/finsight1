@@ -156,13 +156,19 @@ function DemoModeBanner() {
 }
 
 function ErrorBanner({ message, onRetry }) {
+  const text = typeof message === 'string'
+    ? message
+    : typeof message === 'object' && message !== null
+    ? (message.message || message.msg || JSON.stringify(message))
+    : String(message || 'An error occurred');
+
   return (
     <div style={{
       background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 10,
       padding: '10px 16px', display: 'flex', alignItems: 'center',
       justifyContent: 'space-between', gap: 12, fontSize: '0.78rem', color: '#be123c', marginTop: 8,
     }}>
-      <span>⚠ {message}</span>
+      <span>⚠ {text}</span>
       {onRetry && (
         <button onClick={onRetry} style={{
           background: '#be123c', color: '#fff', border: 'none',
@@ -874,8 +880,8 @@ export default function BalanceSheet() {
         ...prev,
         periods,
         currencies:    ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-        legalEntities: [{ id: '', name: 'All' }, ...(data?.legal_entities || [])],
-        ledgers:       ['All', ...(data?.ledgers || [])],
+        legalEntities: [{ id: '', name: 'All' }, ...(data?.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All' && e.id !== ''))],
+        ledgers:       ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
       // Auto-select first period
       if (periods.length) {
@@ -1253,9 +1259,11 @@ export default function BalanceSheet() {
             onChange={e => setFilters(prev => ({ ...prev, legalEntityId: e.target.value }))}
             disabled={loading.filters}
           >
-            {filterOptions.legalEntities.map(le => (
-              <option key={le.id ?? ''} value={le.id ?? ''}>{le.name || 'All'}</option>
-            ))}
+            {filterOptions.legalEntities.map((le, idx) => {
+              const val = typeof le === 'object' ? (le?.id ?? '') : (le === 'All' ? '' : le);
+              const label = typeof le === 'object' ? (le?.name || (val === '' ? 'All' : val)) : le;
+              return <option key={`${val}-${idx}`} value={val}>{label}</option>;
+            })}
           </select>
         </FilterField>
 

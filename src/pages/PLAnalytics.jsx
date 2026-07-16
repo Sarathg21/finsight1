@@ -731,10 +731,10 @@ export default function PLAnalytics() {
           setAppliedFilters(f => ({ ...f, periodName: f.periodName || periods[0] || '', comparePeriodName: f.comparePeriodName || periods[1] || '' }));
           return {
             ...prev,
-            legalGroups:     ['All', ...(data.legal_groups     || [])],
-            legalEntities:   ['All', ...(data.legal_entities   || [])],
-            parentDivisions: ['All', ...(data.parent_divisions || [])],
-            subdivisions:    ['All', ...(data.subdivisions     || [])],
+            legalGroups:     ['All', ...(data.legal_groups     || []).filter(e => e && e !== 'All')],
+            legalEntities:   ['All', ...(data.legal_entities   || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
+            parentDivisions: ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
+            subdivisions:    ['All', ...(data.subdivisions     || []).filter(e => e && e !== 'All')],
             periods,
           };
         });

@@ -11,6 +11,7 @@
  */
 
 // Keep ?? (not ||) — empty string means relative paths (Vite proxy), not fallback to default
+import { LEGAL_ENTITIES } from '../data/masterData';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /* ── Auth headers ───────────────────────────────────────────────── */
@@ -243,12 +244,15 @@ async function apiCall(path, params = {}) {
       let body = {};
       try { body = JSON.parse(rawBody); } catch { /* non-JSON */ }
 
-      const message =
-        body?.detail || body?.message || body?.error ||
-        rawBody.slice(0, 120) || res.statusText;
+      let message = body?.error?.message || body?.message;
+      if (!message && body?.detail) {
+        message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? body.detail.map(d => typeof d === 'object' ? (d.msg || JSON.stringify(d)) : String(d)).join(', ') : JSON.stringify(body.detail);
+      }
+      if (!message && body?.error && typeof body.error === 'string') message = body.error;
+      if (!message) message = rawBody.slice(0, 120) || res.statusText || 'Error occurred';
 
       console.error(`[plApi] ${res.status} on ${url}\nBody:`, rawBody.slice(0, 500));
-      throw { status: res.status, message, rawBody: rawBody.slice(0, 300) };
+      throw { status: res.status, message: String(message), rawBody: rawBody.slice(0, 300) };
     }
 
     let json = await res.json();
@@ -384,7 +388,18 @@ export async function fetchPLFilters(params = {}) {
   if (params.legalEntity   && params.legalEntity   !== 'All') apiParams.legal_entity   = params.legalEntity;
   if (params.parentDivision&& params.parentDivision!== 'All') apiParams.parent_division= params.parentDivision;
 
-  return apiCall('/api/pl/filters', apiParams);
+  const raw = await apiCall('/api/pl/filters', apiParams);
+  const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.periods !== undefined ? r : (r.data || r.result || r))) || r;
+  const res = unwrap(raw) || {};
+  let leList = res.legal_entities || [];
+  if (!Array.isArray(leList)) leList = [];
+  const valid = leList
+    .map(e => typeof e === 'object' ? (e.name || e.id || '') : e)
+    .filter(e => e && typeof e === 'string' && e.toLowerCase() !== 'all');
+
+  const set = new Set([...LEGAL_ENTITIES.map(le => le.name), ...valid]);
+  res.legal_entities = Array.from(set).sort();
+  return res;
 }
 
 /**

@@ -1134,10 +1134,10 @@ export default function SalesRevenueReport() {
       .then(data => {
         setFilterOptions(prev => ({
           ...prev,
-          legalEntities: ['All', ...(data.legal_entities || [])],
-          parentDivs:    ['All', ...(data.parent_divisions || [])],
-          subDivs:       ['All', ...(data.sub_divisions  || [])],
-          salesmen:      ['All', ...(data.salesmen        || [])],
+          legalEntities: ['All', ...(data.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
+          parentDivs:    ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
+          subDivs:       ['All', ...(data.sub_divisions  || []).filter(e => e && e !== 'All')],
+          salesmen:      ['All', ...(data.salesmen        || []).filter(e => e && e !== 'All')],
           invoiceCurrencies: ['AED', ...(data.currencies || data.invoice_currencies || []).filter(c => c !== 'AED')],
         }));
       })

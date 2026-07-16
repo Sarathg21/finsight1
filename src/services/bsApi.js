@@ -23,6 +23,7 @@
  */
 
 // Keep ?? (not ||) — empty string means relative paths (Vite proxy)
+import { LEGAL_ENTITIES } from '../data/masterData';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /* ── Auth headers ─────────────────────────────────────────────────── */
@@ -310,12 +311,15 @@ async function apiCall(path, params = {}) {
       let body = {};
       try { body = JSON.parse(rawBody); } catch { /* non-JSON */ }
 
-      const message =
-        body?.error?.message || body?.detail || body?.message || body?.error ||
-        rawBody.slice(0, 120) || res.statusText;
+      let message = body?.error?.message || body?.message;
+      if (!message && body?.detail) {
+        message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? body.detail.map(d => typeof d === 'object' ? (d.msg || JSON.stringify(d)) : String(d)).join(', ') : JSON.stringify(body.detail);
+      }
+      if (!message && body?.error && typeof body.error === 'string') message = body.error;
+      if (!message) message = rawBody.slice(0, 120) || res.statusText || 'Error occurred';
 
       console.error(`[bsApi] ${res.status} on ${url}\nBody:`, rawBody.slice(0, 500));
-      throw { status: res.status, message, rawBody: rawBody.slice(0, 300) };
+      throw { status: res.status, message: String(message), rawBody: rawBody.slice(0, 300) };
     }
 
     let json = await res.json();
@@ -373,11 +377,19 @@ function buildBSParams(filters = {}) {
   const active = (val) =>
     val && val !== 'All' && val !== 'all' ? val : undefined;
 
+  let leId = undefined;
+  if (filters.legalEntityId && filters.legalEntityId !== 'All' && filters.legalEntityId !== '') {
+    const num = Number(filters.legalEntityId);
+    if (!isNaN(num) && num > 0) {
+      leId = num;
+    }
+  }
+
   return {
     period:          active(filters.period),
     compare_period:  active(filters.comparePeriod),
     currency:        active(filters.currency),
-    legal_entity_id: filters.legalEntityId ? Number(filters.legalEntityId) : undefined,
+    legal_entity_id: leId,
     ledger:          active(filters.ledger),
     section:         active(filters.section),
     sub_section:     active(filters.subSection),
@@ -467,7 +479,39 @@ export async function fetchBSFilters(params = {}) {
     return r;
   };
 
-  return unwrap(raw);
+  const res = unwrap(raw) || {};
+  let leList = res.legal_entities || [];
+  if (!Array.isArray(leList)) leList = [];
+  
+  // Filter out any string/object whose value/name is 'All'
+  const valid = leList
+    .map(e => typeof e === 'string' ? { name: e } : e)
+    .filter(e => e && e.name && e.name.toLowerCase() !== 'all' && e.id !== '' && e.id !== 'All');
+
+  const map = new Map();
+  const dbIds = new Set();
+
+  // First, add all active database entities with their real database IDs
+  valid.forEach(item => {
+    const id = (item.id !== undefined && item.id !== '' && !isNaN(Number(item.id)))
+      ? Number(item.id)
+      : (item.name.toLowerCase() === 'fj group' ? 1 : 99);
+    map.set(item.name.toLowerCase(), { id, name: item.name });
+    dbIds.add(id);
+  });
+
+  // Second, add master entities that are NOT yet in the database, offset by +100 so their IDs never collide with database IDs (e.g. ID 1)
+  LEGAL_ENTITIES.forEach(le => {
+    if (!map.has(le.name.toLowerCase())) {
+      const uniqueId = dbIds.has(le.id) ? (100 + Number(le.id)) : Number(le.id);
+      map.set(le.name.toLowerCase(), { id: uniqueId, name: le.name });
+      dbIds.add(uniqueId);
+    }
+  });
+
+  res.legal_entities = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+  return res;
 }
 
 /**

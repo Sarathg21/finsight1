@@ -140,25 +140,27 @@ export async function loginWithBackend(email, password) {
   if (!res.ok) {
     if (res.status >= 500) {
       _online = false;
-      const message =
-        body?.detail ||
-        body?.message ||
-        body?.error ||
-        `Backend server unavailable (${res.status}).`;
+      let message = body?.error?.message || body?.message;
+      if (!message && body?.detail) {
+        message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? body.detail.map(d => typeof d === 'object' ? (d.msg || JSON.stringify(d)) : String(d)).join(', ') : JSON.stringify(body.detail);
+      }
+      if (!message && body?.error && typeof body.error === 'string') message = body.error;
+      if (!message) message = `Backend server unavailable (${res.status}).`;
+
       console.warn(`[authApi] Server error (${res.status}) during login:`, message);
-      throw { status: res.status, message, isNetworkError: true, isAuthError: false };
+      throw { status: res.status, message: String(message), isNetworkError: true, isAuthError: false };
     }
 
-    const message =
-      body?.detail ||
-      body?.message ||
-      body?.error ||
-      (res.status === 401 || res.status === 403
-        ? 'Invalid email or password'
-        : `Authentication failed (${res.status})`);
+    let message = body?.error?.message || body?.message;
+    if (!message && body?.detail) {
+      message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? body.detail.map(d => typeof d === 'object' ? (d.msg || JSON.stringify(d)) : String(d)).join(', ') : JSON.stringify(body.detail);
+    }
+    if (!message && body?.error && typeof body.error === 'string') message = body.error;
+    if (!message) message = (res.status === 401 || res.status === 403 ? 'Invalid email or password' : `Authentication failed (${res.status})`);
+
     throw {
       status: res.status,
-      message,
+      message: String(message),
       isAuthError: res.status === 401 || res.status === 403 || res.status === 400 || res.status === 422,
       isNetworkError: false,
     };

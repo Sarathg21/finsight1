@@ -7,9 +7,7 @@
  */
 
 // IMPORTANT: Keep ?? (not ||) here.
-// When VITE_API_BASE_URL is empty (""), API_BASE stays "" so all requests use
-// relative paths (/api/...) intercepted by the Vite dev proxy → backend.
-// Using || would bypass the proxy and cause CORS errors from the browser.
+import { LEGAL_ENTITIES } from '../data/masterData';
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /* ── JWT helpers ───────────────────────────────────────────────── */
@@ -551,19 +549,19 @@ async function apiCall(path, params = {}) {
     let body = {};
     try { body = JSON.parse(rawBody); } catch { /* non-JSON body */ }
 
-    const message =
-      body?.detail ||
-      body?.message ||
-      body?.error ||
-      rawBody.slice(0, 120) ||
-      res.statusText;
+    let message = body?.error?.message || body?.message;
+    if (!message && body?.detail) {
+      message = typeof body.detail === 'string' ? body.detail : Array.isArray(body.detail) ? body.detail.map(d => typeof d === 'object' ? (d.msg || JSON.stringify(d)) : String(d)).join(', ') : JSON.stringify(body.detail);
+    }
+    if (!message && body?.error && typeof body.error === 'string') message = body.error;
+    if (!message) message = rawBody.slice(0, 120) || res.statusText || 'Error occurred';
 
     console.error(
       `[salesRevenueApi] ${res.status} on ${url}`,
       '\nBody:', rawBody.slice(0, 500)
     );
 
-    throw { status: res.status, message, rawBody: rawBody.slice(0, 300) };
+    throw { status: res.status, message: String(message), rawBody: rawBody.slice(0, 300) };
   }
 
   const json = await res.json();
@@ -716,7 +714,18 @@ export async function fetchFilterOptions(params = {}) {
   if (params.parentDiv && params.parentDiv !== 'All') apiParams.parent_division = params.parentDiv;
   if (params.subDiv && params.subDiv !== 'All') apiParams.subdivision = params.subDiv;
   
-  return apiCall('/api/sales-revenue/filter-options', apiParams);
+  const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
+  const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
+  const res = unwrap(raw) || {};
+  let leList = res.legal_entities || [];
+  if (!Array.isArray(leList)) leList = [];
+  const valid = leList
+    .map(e => typeof e === 'object' ? (e.name || e.id || '') : e)
+    .filter(e => e && typeof e === 'string' && e.toLowerCase() !== 'all');
+
+  const set = new Set([...LEGAL_ENTITIES.map(le => le.name), ...valid]);
+  res.legal_entities = Array.from(set).sort();
+  return res;
 }
 
 /* ── View-All Detail APIs (new endpoints) ──────────────────────── */
