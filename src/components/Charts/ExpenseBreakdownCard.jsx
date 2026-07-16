@@ -139,9 +139,10 @@ export default function ExpenseBreakdownCard({ data = [], loading = false, curre
 
       {/* Content */}
       <div style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        {error ? (
-          ErrorBanner ? <ErrorBanner message={error} onRetry={onRetry} /> : <div style={{ color: 'red', fontSize: '0.8rem' }}>{error}</div>
-        ) : loading ? (
+        {error ? (() => {
+          const errText = typeof error === 'string' ? error : (typeof error === 'object' && error !== null ? (error.message || error.msg || JSON.stringify(error)) : String(error));
+          return ErrorBanner ? <ErrorBanner message={errText} onRetry={onRetry} /> : <div style={{ color: 'red', fontSize: '0.8rem' }}>{errText}</div>;
+        })() : loading ? (
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', padding: '10px 0' }}>
             {Skeleton && <Skeleton h={150} w={150} radius={999} />}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
