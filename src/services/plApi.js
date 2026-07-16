@@ -234,6 +234,11 @@ async function apiCall(path, params = {}) {
         return getMockDataForPath(path, params);
       }
 
+      if (res.status >= 500) {
+        console.warn(`[plApi] ${res.status} server error on ${url} → mock fallback.`);
+        return getMockDataForPath(path, params);
+      }
+
       const rawBody = await res.text().catch(() => '');
       let body = {};
       try { body = JSON.parse(rawBody); } catch { /* non-JSON */ }

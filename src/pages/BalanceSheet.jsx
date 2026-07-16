@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
 import {
   LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -91,8 +91,67 @@ function Skeleton({ h = 20, w = '100%', radius = 6 }) {
     <div style={{
       height: h, width: w, borderRadius: radius,
       background: 'linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%)',
-      backgroundSize: '200% 100%', animation: 'bs-shimmer 1.4s infinite',
+      backgroundSize: '200% 100%', animation: 'bs-shimmer 1.4s linear infinite',
     }} />
+  );
+}
+
+/* ── Demo / Fallback Mode Banner (FIX C4) ────────────────────────────────
+   Listens for 'bsFallbackActive' CustomEvent dispatched by bsApi.js when
+   a 5xx / network error / missing token causes a mock-data fallback.
+   Shows an amber strip so users know they are seeing demo data.
+──────────────────────────────────────────────────────────────────────── */
+function DemoModeBanner() {
+  const [visible, setVisible] = useState(false);
+  const [reason, setReason]   = useState('');
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const r = e.detail?.reason || 'backend-unavailable';
+      setReason(r);
+      setVisible(true);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setVisible(false), 12000);
+    };
+    window.addEventListener('bsFallbackActive', handler);
+    return () => {
+      window.removeEventListener('bsFallbackActive', handler);
+      clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  const reasonText =
+    reason === 'no-token'       ? 'No authentication token \u2014 demo mode active' :
+    reason === 'network-error'  ? 'Backend server unreachable \u2014 showing demo data' :
+    reason.startsWith('server') ? `Backend returned ${reason.replace('server-', '')} error \u2014 showing demo data` :
+                                  'Backend unavailable \u2014 showing demo data';
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10000,
+      background: 'linear-gradient(90deg,#fef3c7,#fde68a)',
+      borderBottom: '2px solid #f59e0b',
+      padding: '7px 20px',
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      fontSize: '0.76rem', fontWeight: 700, color: '#78350f',
+      animation: 'bs-fadeIn 0.3s ease',
+      boxShadow: '0 2px 8px rgba(245,158,11,0.25)',
+    }}>
+      <span>&#9888;&#65039;&nbsp;&nbsp;{reasonText}. Values shown are sample figures only.</span>
+      <button
+        onClick={() => setVisible(false)}
+        style={{
+          background: 'rgba(0,0,0,0.08)', border: 'none', borderRadius: 6,
+          padding: '2px 10px', cursor: 'pointer', fontSize: '0.72rem',
+          fontWeight: 800, color: '#78350f',
+        }}
+      >
+        Dismiss
+      </button>
+    </div>
   );
 }
 
@@ -509,9 +568,9 @@ function StatementViewAll({ summaryData, currency }) {
           const secKey = sec.section;
           const isExpanded = expanded[secKey] !== false; // default expanded
           return (
-            <>
+            // FIX C1: keyed Fragment prevents React reconciliation warning in <tbody>
+            <Fragment key={secKey}>
               <tr
-                key={secKey}
                 onClick={() => toggle(secKey)}
                 style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', cursor: 'pointer', borderBottom: `2px solid ${C.border}` }}
               >
@@ -524,8 +583,8 @@ function StatementViewAll({ summaryData, currency }) {
                 </td>
               </tr>
               {isExpanded && sec.sub_sections.map((sub) => (
-                <>
-                  <tr key={sub.sub_section} style={{ background: '#f8fafc' }}>
+                <Fragment key={sub.sub_section}>
+                  <tr style={{ background: '#f8fafc' }}>
                     <td colSpan={5} style={{ padding: '6px 14px 6px 28px', fontSize: '0.68rem', fontWeight: 700, color: '#3730a3', borderBottom: '1px solid #e2e8f0' }}>
                       {sub.sub_section}
                       <span style={{ marginLeft: 8, fontSize: '0.64rem', color: C.slate, fontWeight: 500 }}>
@@ -549,9 +608,9 @@ function StatementViewAll({ summaryData, currency }) {
                       <td style={MTD}>{acct.variance != null ? <VarBadge v={acct.variance} /> : '—'}</td>
                     </tr>
                   ))}
-                </>
+                </Fragment>
               ))}
-            </>
+            </Fragment>
           );
         })}
       </tbody>
@@ -660,9 +719,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
+            {rows.map((row) => (
               <tr
-                key={i}
+                key={row.sub_division_id ?? row.sub_division_code}
                 onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -781,26 +840,29 @@ export default function BalanceSheet() {
 
   /* ── Toast ─────────────────────────────────────────────────────── */
   const [toast, setToast] = useState(null);
-  const showToast = (msg, type = 'success') => {
+  // FIX M4: memoize showToast so it is stable across renders
+  const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
-  };
+  }, []);
 
   /* ── ViewAll modal ─────────────────────────────────────────────── */
   // 'statement' | 'subdivision' | 'trend' | 'reconciliation' | null
   const [openModal, setOpenModal] = useState(null);
-  const closeModal = () => setOpenModal(null);
+  const closeModal = useCallback(() => setOpenModal(null), []);
 
   /* ── Export ────────────────────────────────────────────────────── */
   const [exporting, setExporting] = useState(null);
-  const handleExport = (format, section = 'summary') => {
+  // FIX M5: memoize handleExport so KebabMenu items don't change reference every render
+  const handleExport = useCallback((format, section = 'summary') => {
     if (exporting) return;
     setExporting(`${section}-${format}`);
     exportBS(format, section, appliedFilters)
       .then(() => showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success'))
       .catch(err => showToast(`Export failed: ${err?.message || 'Unknown error'}. Please try again.`, 'error'))
       .finally(() => setExporting(null));
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exporting, appliedFilters, showToast]);
 
   /* ── Load filter options ───────────────────────────────────────── */
   const loadFilterOptions = useCallback(async () => {
@@ -856,11 +918,19 @@ export default function BalanceSheet() {
     });
   }, []);
 
-  /* ── Trigger fetch when appliedFilters.period is ready ─────────── */
+  /* ── Trigger fetch when applied filters change ─────────────────── */
+  // FIX M2/C3: depend on a stable serialised key of the full applied filter set so
+  // changes to any filter field (entity, ledger, comparePeriod) also trigger a
+  // reload. We do NOT call fetchAll inside handleApply to avoid double-fetching.
+  const appliedKey = useMemo(
+    () => JSON.stringify(appliedFilters),
+    [appliedFilters],
+  );
   useEffect(() => {
     if (appliedFilters.period) fetchAll(appliedFilters);
+    // appliedKey is the stable serialised version of appliedFilters — safe single dep
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilters.period, appliedFilters.currency]);
+  }, [appliedKey]);
 
   /* ── Drilldown handler ─────────────────────────────────────────── */
   const handleDrilldown = async (account) => {
@@ -883,11 +953,13 @@ export default function BalanceSheet() {
   };
 
   /* ── Apply / Reset ─────────────────────────────────────────────── */
-  const handleApply = () => { setAppliedFilters({ ...filters }); fetchAll({ ...filters }); };
-  const handleReset = () => {
+  // FIX M2: removed redundant fetchAll() call — the useEffect above handles it
+  // when appliedFilters changes, preventing a double API request.
+  const handleApply = useCallback(() => { setAppliedFilters({ ...filters }); }, [filters]);
+  const handleReset = useCallback(() => {
     const reset = { ...DEFAULT_FILTERS, period: filterOptions.periods[0] || '', comparePeriod: filterOptions.periods[1] || '', currency: 'AED' };
-    setFilters(reset); setAppliedFilters(reset); fetchAll(reset);
-  };
+    setFilters(reset); setAppliedFilters(reset);
+  }, [filterOptions.periods]);
 
   /* ── Derived values ────────────────────────────────────────────── */
   const currency    = appliedFilters.currency || 'AED';
@@ -928,14 +1000,19 @@ export default function BalanceSheet() {
   const subdivRows = subdivisionData?.data || [];
 
   /* ── Kebab menu items ──────────────────────────────────────────── */
-  const makeExportItems = (section) => [
-    { icon: '📊', label: 'Export Excel', action: () => handleExport('excel', section) },
-    { icon: '📄', label: 'Export PDF',   action: () => handleExport('pdf',   section) },
-  ];
-  const summaryMenuItems   = [{ icon: '🔎', label: 'View All', action: () => setOpenModal('statement') },   ...makeExportItems('summary')];
-  const subdivMenuItems    = [{ icon: '🔎', label: 'View All', action: () => setOpenModal('subdivision') }, ...makeExportItems('subdivision')];
-  const trendMenuItems     = [{ icon: '🔎', label: 'View All', action: () => setOpenModal('trend') }];
-  const reconMenuItems     = [{ icon: '🔎', label: 'View All', action: () => setOpenModal('reconciliation') }];
+  // FIX M6: memoize menu item arrays — prevents KebabMenu re-renders on every keystroke
+  const summaryMenuItems = useMemo(() => [
+    { icon: '🔎', label: 'View All',    action: () => setOpenModal('statement')  },
+    { icon: '📊', label: 'Export Excel', action: () => handleExport('excel', 'summary') },
+    { icon: '📄', label: 'Export PDF',   action: () => handleExport('pdf',   'summary') },
+  ], [handleExport]);
+  const subdivMenuItems = useMemo(() => [
+    { icon: '🔎', label: 'View All',    action: () => setOpenModal('subdivision') },
+    { icon: '📊', label: 'Export Excel', action: () => handleExport('excel', 'subdivision') },
+    { icon: '📄', label: 'Export PDF',   action: () => handleExport('pdf',   'subdivision') },
+  ], [handleExport]);
+  const trendMenuItems  = useMemo(() => [{ icon: '🔎', label: 'View All', action: () => setOpenModal('trend') }], []);
+  const reconMenuItems  = useMemo(() => [{ icon: '🔎', label: 'View All', action: () => setOpenModal('reconciliation') }], []);
 
   /* ── KPI Card definitions ──────────────────────────────────────── */
   const kpiCards = [
@@ -1017,8 +1094,12 @@ export default function BalanceSheet() {
         @keyframes bs-fadeIn   { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
         @keyframes bs-menuPop  { from { opacity: 0; transform: scale(0.94) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes bs-modalPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+        @media (max-width: 900px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 560px) { .bs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } .bs-chart-grid { grid-template-columns: 1fr !important; } .bs-recon-row { flex-wrap: wrap !important; } }
       `}</style>
 
+      {/* FIX C4: visible amber banner when backend is unavailable and mock data is active */}
+      <DemoModeBanner />
       {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
       {/* ══ DRILLDOWN MODAL ══ */}
@@ -1221,19 +1302,33 @@ export default function BalanceSheet() {
             />
           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-          {kpiCards.map(kpi => (
-            <KPICard
-              key={kpi.id}
-              {...kpi}
-              loading={kpi.id.startsWith('total') || kpi.id === 'balance-status' ? loading.summary : kpi.id === 'total-periods' ? loading.trend : loading.subdivision}
-              error={kpi.id.startsWith('total') || kpi.id === 'balance-status' ? errors.summary : kpi.id === 'total-periods' ? errors.trend : errors.subdivision}
-            />
-          ))}
+        {/* FIX m4: auto-fill responsive KPI grid; bs-kpi-grid class applies media-query breakpoints */}
+        <div className="bs-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+          {kpiCards.map(kpi => {
+            // FIX M1: explicit ID→loadingKey map prevents total-periods from hitting loading.summary
+            const loadingKeyMap = {
+              'total-assets':       'summary',
+              'total-liabilities':  'summary',
+              'total-equity':       'summary',
+              'balance-status':     'summary',
+              'total-periods':      'trend',
+              'subdivisions':       'subdivision',
+            };
+            const lk = loadingKeyMap[kpi.id] ?? 'summary';
+            return (
+              <KPICard
+                key={kpi.id}
+                {...kpi}
+                loading={loading[lk]}
+                error={errors[lk]}
+              />
+            );
+          })}
         </div>
       </div>
 
       {/* ══ CHARTS ROW: Trend | Assets Composition | Liabilities Composition ══ */}
+      {/* FIX m5: bs-chart-grid responsive class applied via media-query above */}
       {(() => {
         /* ── Shared DonutCard renderer ── */
         const DonutCard = ({ title, subtitle, segments, isLoading }) => {
@@ -1323,7 +1418,7 @@ export default function BalanceSheet() {
         }));
 
         return (
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
+          <div className="bs-chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
 
             {/* ── Balance Sheet Trend ── */}
             <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
@@ -1426,17 +1521,18 @@ export default function BalanceSheet() {
               No reconciliation data available
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 8 }}>
+            /* bs-recon-row: responsive flex wrap + minWidth 120 (media-query above) */
+            <div className="bs-recon-row" style={{ display: 'flex', gap: 8 }}>
               {reconciliationRows.map((row, i) => {
                 const isBalanced = row.balance_status === 'BALANCED';
                 return (
-                  <div key={i} style={{
+                  <div key={row.period || i} style={{
                     flex: 1,
                     padding: '9px 14px', borderRadius: 9,
                     background: isBalanced ? '#f0fdf4' : '#fff7ed',
                     border: `1px solid ${isBalanced ? '#d1fae5' : '#fed7aa'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                    minWidth: 0,
+                    minWidth: 120,
                   }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{row.period_name || row.period}</div>
@@ -1507,17 +1603,16 @@ export default function BalanceSheet() {
                   const secKey = sec.section;
                   const isExpanded = sectionExpanded[secKey] !== false; // default open
                   return (
-                    <>
+                    // FIX m2: keyed Fragment prevents React key warning inside <tbody>
+                    <Fragment key={secKey}>
                       <SectionHeader
-                        key={`sec-${secKey}`}
                         label={`${secKey} — ${fmtNum(Math.abs(sec.section_total), currency)}`}
                         expanded={isExpanded}
                         onToggle={() => setSectionExpanded(prev => ({ ...prev, [secKey]: !isExpanded }))}
                       />
                       {isExpanded && sec.sub_sections.map((sub) => (
-                        <>
+                        <Fragment key={sub.sub_section}>
                           <SubSectionHeader
-                            key={`sub-${sub.sub_section}`}
                             label={`${sub.sub_section} — ${fmtNum(Math.abs(sub.sub_total), currency)}`}
                           />
                           {sub.accounts.map((acct) => (
@@ -1542,7 +1637,7 @@ export default function BalanceSheet() {
                             </td>
                             <td style={TD}>—</td>
                           </tr>
-                        </>
+                        </Fragment>
                       ))}
                       {/* Section total row */}
                       <tr style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', borderTop: `2px solid ${C.border}` }}>
@@ -1558,7 +1653,7 @@ export default function BalanceSheet() {
                         </td>
                         <td style={TD}>{sec.variance != null ? <VarBadge v={sec.variance} /> : '—'}</td>
                       </tr>
-                    </>
+                    </Fragment>
                   );
                 })}
                 {/* Grand Total */}
@@ -1624,13 +1719,16 @@ export default function BalanceSheet() {
                 </tr>
               </thead>
               <tbody>
-                {subdivRows.map((row, i) => {
+                {subdivRows.map((row) => {
                   const sources = row.section_totals?.['SOURCES OF FUNDS'] ?? 0;
                   const applic  = row.section_totals?.['APPLICATION OF FUNDS'] ?? 0;
                   const net     = row.grand_total ?? 0;
+                  // FIX M9: use stable sub_division_id/code as key (not array index)
+                  // FIX M10: net color is sign-based (positive=navy, negative=rose) not threshold-based
+                  const netColor = net >= 0 ? C.navy : C.rose;
                   return (
                     <tr
-                      key={i}
+                      key={row.sub_division_id ?? row.sub_division_code}
                       onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
@@ -1638,9 +1736,9 @@ export default function BalanceSheet() {
                       <td style={{ ...TD, fontFamily: 'monospace', fontSize: '0.67rem', color: C.slate }}>{row.sub_division_code}</td>
                       <td style={{ ...TD, color: C.rose }}>{fmtNum(Math.abs(sources), currency)}</td>
                       <td style={{ ...TD, color: C.green }}>{fmtNum(Math.abs(applic), currency)}</td>
-                      <td style={{ ...TD, fontWeight: 700, color: Math.abs(net) < 1000 ? C.green : C.navy }}>
+                      <td style={{ ...TD, fontWeight: 700, color: netColor }}>
                         {fmtNum(Math.abs(net), currency)}
-                        {Math.abs(net) >= 1000 && (
+                        {net < 0 && (
                           <span style={{ marginLeft: 4, fontSize: '0.6rem', color: C.rose, fontWeight: 600 }}>Δ</span>
                         )}
                       </td>

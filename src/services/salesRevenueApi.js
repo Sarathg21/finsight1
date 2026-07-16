@@ -541,6 +541,11 @@ async function apiCall(path, params = {}) {
       return getMockDataForPath(path);
     }
 
+    if (res.status >= 500) {
+      console.warn(`[salesRevenueApi] ${res.status} server error on ${url}. Falling back to mock data.`);
+      return getMockDataForPath(path);
+    }
+
     // Capture the full response body for debugging 502s/500s
     const rawBody = await res.text().catch(() => '');
     let body = {};

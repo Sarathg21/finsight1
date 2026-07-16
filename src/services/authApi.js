@@ -105,8 +105,8 @@ export async function loginWithBackend(email, password) {
       body: JSON.stringify({ email, username: email, password }),
     });
 
-    // Fallback for OAuth2 backends that strictly require Form-Encoded data
-    if (res.status === 422 || res.status === 401) {
+    // Fallback for OAuth2 backends that strictly require Form-Encoded data (415 Unsupported Media Type or 422 validation error)
+    if (res.status === 415 || res.status === 422) {
       const formData = new URLSearchParams();
       formData.append('username', email);
       formData.append('password', password);
@@ -129,6 +129,7 @@ export async function loginWithBackend(email, password) {
       status: 503,
       message: 'Connection to server timed out. Please try again.',
       isNetworkError: true,
+      isAuthError: false,
     };
   }
 
@@ -137,6 +138,17 @@ export async function loginWithBackend(email, password) {
   console.log('[authApi] Login response status:', res.status, 'body:', body, 'isFormData:', isFormData);
 
   if (!res.ok) {
+    if (res.status >= 500) {
+      _online = false;
+      const message =
+        body?.detail ||
+        body?.message ||
+        body?.error ||
+        `Backend server unavailable (${res.status}).`;
+      console.warn(`[authApi] Server error (${res.status}) during login:`, message);
+      throw { status: res.status, message, isNetworkError: true, isAuthError: false };
+    }
+
     const message =
       body?.detail ||
       body?.message ||
@@ -144,7 +156,12 @@ export async function loginWithBackend(email, password) {
       (res.status === 401 || res.status === 403
         ? 'Invalid email or password'
         : `Authentication failed (${res.status})`);
-    throw { status: res.status, message, isAuthError: true };
+    throw {
+      status: res.status,
+      message,
+      isAuthError: res.status === 401 || res.status === 403 || res.status === 400 || res.status === 422,
+      isNetworkError: false,
+    };
   }
 
   const token = body?.access_token || body?.token;
@@ -154,6 +171,7 @@ export async function loginWithBackend(email, password) {
       status: 500,
       message: 'Server returned an invalid auth response (no token).',
       isNetworkError: true, // triggers Demo fallback
+      isAuthError: false,
     };
   }
 

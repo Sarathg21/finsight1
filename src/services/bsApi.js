@@ -233,6 +233,19 @@ function getMockDataForPath(path) {
 const apiCache = new Map();
 
 /**
+ * FIX C4: When the backend is unavailable (5xx / network error / no token),
+ * the service silently falls back to demo data.  This function dispatches a
+ * browser CustomEvent so any UI component can surface a visible warning.
+ *
+ * BalanceSheet.jsx listens for 'bsFallbackActive' and shows a banner.
+ */
+function notifyFallback(reason) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('bsFallbackActive', { detail: { reason } }));
+  }
+}
+
+/**
  * Central GET request handler — mirrors plApi.js exactly.
  * @param {string} path   e.g. '/api/bs/summary'
  * @param {object} params  query-string key/value pairs
@@ -243,7 +256,9 @@ async function apiCall(path, params = {}) {
 
   // Demo mode — no token present
   if (!token) {
-    console.warn(`[bsApi] Token missing. Returning mock fallback for: ${path}`);
+    if (import.meta.env.DEV)
+      console.warn(`[bsApi] Token missing. Returning mock fallback for: ${path}`);
+    notifyFallback('no-token');
     return new Promise((resolve) => {
       setTimeout(() => resolve(getMockDataForPath(path)), 300);
     });
@@ -254,10 +269,11 @@ async function apiCall(path, params = {}) {
   ).toString();
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
-  console.log('[bsApi] Request:', url, '| cache hit:', apiCache.has(url));
 
   // Dedup concurrent identical requests (React Strict Mode double-renders)
+  // Log AFTER the cache check so the 2nd StrictMode call never emits a log line.
   if (apiCache.has(url)) return apiCache.get(url);
+  if (import.meta.env.DEV) console.log('[bsApi] Request:', url);
 
   const fetchPromise = (async () => {
     let res;
@@ -267,21 +283,26 @@ async function apiCall(path, params = {}) {
         headers: getAuthHeaders(),
       });
     } catch (networkErr) {
-      const err = { status: 0, message: `Network error: ${networkErr.message}` };
-      console.error('[bsApi] Network error on', url, networkErr);
-      throw err;
+      // FIX C4 (network path): Remote server unreachable → fall back to demo data gracefully.
+      if (import.meta.env.DEV)
+        console.warn('[bsApi] Network error → mock fallback:', networkErr.message);
+      notifyFallback('network-error');
+      return getMockDataForPath(path);
     }
 
     if (!res.ok) {
       if (res.status === 401) {
-        console.warn('[bsApi] 401 Unauthorized. Clearing token → mock fallback.');
+        if (import.meta.env.DEV)
+          console.warn('[bsApi] 401 — clearing token, using mock fallback.');
         localStorage.removeItem('finsight_token');
         return getMockDataForPath(path);
       }
 
-      // 5xx — backend is up but erroring. Fall back to demo data silently.
+      // 5xx — backend erroring. Fall back to demo data and notify the UI banner.
       if (res.status >= 500) {
-        console.warn(`[bsApi] ${res.status} on ${path} — backend error. Falling back to mock data.`);
+        if (import.meta.env.DEV)
+          console.warn(`[bsApi] ${res.status} on ${path} — falling back to mock data.`);
+        notifyFallback(`server-${res.status}`);
         return getMockDataForPath(path);
       }
 
@@ -433,7 +454,9 @@ export async function fetchBSFilters(params = {}) {
   if (params.analysisCode) apiParams.analysis_code = params.analysisCode;
 
   const raw = await apiCall('/api/bs/filters', apiParams);
-  console.log('[bsApi] fetchBSFilters raw:', raw);
+  // DEV-only: log raw filters response for debugging. Fires once per real request
+  // (StrictMode double-invoke is deduped at the apiCall cache level).
+  if (import.meta.env.DEV) console.log('[bsApi] fetchBSFilters raw:', raw);
 
   // Unwrap envelope if present
   const unwrap = (r) => {
@@ -530,7 +553,39 @@ export async function fetchBSDrilldown(filters) {
     sort_dir:     filters.sortDir || 'desc',
   };
   const res = await apiCall('/api/bs/drilldown', params);
-  return res?.data ?? res;
+  const raw = res?.data ?? res;
+  if (!raw || typeof raw !== 'object') return raw;
+
+  // Normalise live-backend field names → frontend-expected names.
+  // Backend (bs_repo.py fetch_bs_drilldown) returns:
+  //   { period, currency, account_code, account_name, section, sub_section,
+  //     total_amount, subdivision_count, rows: [{sub_division_id, sub_division_code,
+  //     sub_division_name, parent_division, business_unit, balance_amount, dr_cr}] }
+  // DrilldownModal reads:
+  //   data.data (rows), data.consolidated_balance, data.period_name,
+  //   row.ledger_code, row.abs_pct_of_total
+
+  const totalAmt = raw.consolidated_balance ?? raw.total_amount ?? 0;
+  const sourceRows = raw.data ?? raw.rows ?? [];
+
+  const normRows = sourceRows.map((row) => ({
+    ...row,
+    // abs_pct_of_total: derive from balance_amount / total for the progress bar
+    abs_pct_of_total: totalAmt !== 0
+      ? Math.round((Math.abs(row.balance_amount) / Math.abs(totalAmt)) * 100 * 10) / 10
+      : 0,
+    // ledger_code: not returned per-row from backend; show parent_division as context
+    ledger_code: row.ledger_code || row.parent_division || '—',
+  }));
+
+  return {
+    ...raw,
+    // Bridge field names
+    consolidated_balance: totalAmt,
+    data:                 normRows,
+    // period_name may not be in drilldown response; fall back to period
+    period_name:          raw.period_name || raw.period,
+  };
 }
 
 /**
@@ -550,5 +605,22 @@ export async function fetchBSReconciliation(filters = {}) {
   const res = await apiCall('/api/bs/reconciliation', params);
   // May be { status: 'ok', data: [...] } or a plain array
   const raw = res?.data ?? res;
-  return Array.isArray(raw) ? raw : [];
+  if (!Array.isArray(raw)) return [];
+
+  // Normalise live-backend field names → frontend-expected names.
+  // Backend schema (bs_schema.py BSReconciliationRow):
+  //   period_code, period_name, currency_code, status,
+  //   sources_total, applications_total, combined_total, absolute_variance
+  // Frontend (BalanceSheet.jsx) reads:
+  //   period, period_name, currency, balance_status, net_variance,
+  //   sources_total, applications_total
+  return raw.map((row) => ({
+    // Pass through all original fields first
+    ...row,
+    // Map backend names → frontend names (no-op if already correct / mock data)
+    period:         row.period         ?? row.period_code,
+    currency:       row.currency       ?? row.currency_code,
+    balance_status: row.balance_status ?? (row.status === 'BALANCED' ? 'BALANCED' : 'UNBALANCED'),
+    net_variance:   row.net_variance   ?? row.absolute_variance,
+  }));
 }

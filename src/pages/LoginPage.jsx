@@ -383,12 +383,23 @@ export default function LoginPage() {
     e.preventDefault();
     setError(''); setLoading(true); setBackendStatus('checking'); setReady(false);
     try {
+      const demoResult = verifyCredentials(email, password);
       try {
         const session = await loginWithBackend(email.trim(), password);
         setBackendStatus('online');
         goToMfa(session);
         return;
       } catch (backendErr) {
+        if (demoResult.success) {
+          if (backendErr?.isNetworkError || backendErr?.status >= 500) {
+            setBackendStatus('offline');
+          } else {
+            setBackendStatus('online');
+          }
+          goToMfa(demoResult.user);
+          return;
+        }
+
         const isAuthFailure =
           backendErr?.isAuthError || backendErr?.status === 401 || backendErr?.status === 403;
         if (isAuthFailure) {
@@ -398,8 +409,7 @@ export default function LoginPage() {
         }
         setBackendStatus('offline');
       }
-      const result = verifyCredentials(email, password);
-      if (result.success) goToMfa(result.user);
+      if (demoResult.success) goToMfa(demoResult.user);
       else setError('Invalid credentials. Check your email and password.');
     } finally {
       setLoading(false);
