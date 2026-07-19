@@ -166,7 +166,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
           transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)',
           display: 'flex',
           flexDirection: 'column',
-          background: '#fff',
+          background: '#061B45',
           borderRight: '1px solid var(--clr-border)',
           flexShrink: 0,
           zIndex: 110,
@@ -201,8 +201,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
               width: isExpanded ? 'auto' : 0,
               pointerEvents: isExpanded ? 'auto' : 'none',
             }}>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>FJ Group</div>
-              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
+              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>FJ Group</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700,color: '#cbd5e1', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
             </div>
           </div>
 
@@ -265,7 +265,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                 {/* Section label */}
                 <div style={{
                   fontSize: '0.6rem', fontWeight: 700,
-                  color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em',
+                  color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.1em',
                   padding: isExpanded ? '10px 8px 4px' : '10px 0 4px',
                   textAlign: isExpanded ? 'left' : 'center',
                   whiteSpace: 'nowrap', overflow: 'hidden',
@@ -311,7 +311,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                           transition: 'background 0.18s, box-shadow 0.18s',
                           position: 'relative',
                         }}
-                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#f1f5f9'; }}
+                          onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#7c3aed'; }}
                           onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                         >
                           {/* Icon */}
@@ -329,7 +329,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                             ) : (
                               <Icon
                                 size={15}
-                                color={isActive ? '#fff' : '#64748b'}
+                              color={isActive ? '#fff' : '#e2e8f0'}
                                 strokeWidth={isActive ? 2.5 : 1.8}
                               />
                             )}
@@ -339,7 +339,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                           <span style={{
                             fontSize: '0.82rem',
                             fontWeight: isActive ? 700 : 500,
-                            color: isActive ? '#fff' : '#334155',
+                           color: isActive ? '#fff' : '#ffffff',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -376,7 +376,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
             {/* Empty search state */}
             {query && Object.keys(grouped).length === 0 && (
-              <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.76rem', paddingTop: 24 }}>
+              <div style={{ textAlign: 'center', color: '#cbd5e1', fontSize: '0.76rem', paddingTop: 24 }}>
                 No results for "{query}"
               </div>
             )}
@@ -405,10 +405,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             {/* Name & email */}
             {isExpanded && (
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700,color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.name || 'User'}
                 </div>
-                <div style={{ fontSize: '0.62rem', color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '0.62rem',color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.email || user?.roleLabel || ''}
                 </div>
               </div>
@@ -423,7 +423,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                   flexShrink: 0, border: 'none', background: 'none',
                   cursor: 'pointer', display: 'flex', alignItems: 'center',
                   justifyContent: 'center', width: 28, height: 28,
-                  borderRadius: 7, color: '#94a3b8',
+                  borderRadius: 7, color: '#cbd5e1',
                   transition: 'background 0.15s, color 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
@@ -454,7 +454,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             transition: 'background 0.15s, border-color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--clr-primary)'; e.currentTarget.style.borderColor = 'var(--clr-primary)'; e.currentTarget.querySelector('svg').style.stroke = '#fff'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = 'var(--clr-border)'; e.currentTarget.querySelector('svg').style.stroke = '#64748b'; }}
+          onMouseLeave={e => {e.currentTarget.style.background = '#fff';e.currentTarget.style.borderColor = 'var(--clr-border)'; e.currentTarget.querySelector('svg').style.stroke = '#64748b'; }}
         >
           <ChevronLeft
             size={13}

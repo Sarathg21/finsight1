@@ -3,23 +3,23 @@ import { useAuth } from '../context/AuthContext';
 import { useLocation } from 'react-router-dom';
 
 const PAGE_TITLES = {
-  '/dashboard':           { title: 'CFO Dashboard',              sub: 'Executive financial command centre' },
-  '/exec-dashboard':      { title: 'Exec Finance Dashboard',     sub: 'Enterprise financial overview across all divisions' },
-  '/finsight-dashboard':  { title: 'Executive Dashboard',        sub: 'Comprehensive financial performance overview' },
-  '/pl':                  { title: 'Profit & Loss Report',       sub: 'Income statement analysis' },
-  '/ar':                  { title: 'Receivables Aging',          sub: 'AR aging & collection tracking' },
-  '/ap':                  { title: 'Payables Aging',             sub: 'AP aging & cash planning' },
-  '/inventory':           { title: 'Inventory Aging',            sub: 'Stock movement & slow-moving analysis' },
-  '/working-capital':     { title: 'Working Capital Dashboard',  sub: 'DSO / DIO / DPO & NWC trend' },
-  '/balance-sheet':       { title: 'Balance Sheet',              sub: 'Assets, liabilities & equity' },
-  '/cash-collection':     { title: 'Cash Collection Report',     sub: 'Collections vs. targets' },
-  '/fixed-assets':        { title: 'Fixed Asset Register',       sub: 'NBV, depreciation & movements' },
-  '/country-performance': { title: 'Country Performance',        sub: 'Cross-country KPI comparison' },
-  '/salesman':            { title: 'Salesman Dashboard',         sub: 'Individual performance & AR tracking' },
-  '/revenue':             { title: 'Revenue Analysis',           sub: 'Revenue by segment, product & period' },
-  '/division':            { title: 'Division Reports',           sub: 'Division-wise financial performance' },
-  '/bu-pack':             { title: 'BU Financial Pack',          sub: 'Business unit reporting pack' },
-  '/admin':               { title: 'User & Access Control',      sub: 'Role management & security settings' },
+  '/dashboard': { title: 'CFO Dashboard', sub: 'Executive financial command centre' },
+  '/exec-dashboard': { title: 'Exec Finance Dashboard', sub: 'Enterprise financial overview across all divisions' },
+  '/finsight-dashboard': { title: 'Executive Dashboard', sub: 'Comprehensive financial performance overview' },
+  '/pl': { title: 'Profit & Loss Report', sub: 'Income statement analysis' },
+  '/ar': { title: 'Receivables Aging', sub: 'AR aging & collection tracking' },
+  '/ap': { title: 'Payables Aging', sub: 'AP aging & cash planning' },
+  '/inventory': { title: 'Inventory Aging', sub: 'Stock movement & slow-moving analysis' },
+  '/working-capital': { title: 'Working Capital Dashboard', sub: 'DSO / DIO / DPO & NWC trend' },
+  '/balance-sheet': { title: 'Balance Sheet', sub: 'Assets, liabilities & equity' },
+  '/cash-collection': { title: 'Cash Collection Report', sub: 'Collections vs. targets' },
+  '/fixed-assets': { title: 'Fixed Asset Register', sub: 'NBV, depreciation & movements' },
+  '/country-performance': { title: 'Country Performance', sub: 'Cross-country KPI comparison' },
+  '/salesman': { title: 'Salesman Dashboard', sub: 'Individual performance & AR tracking' },
+  '/revenue': { title: 'Revenue Analysis', sub: 'Revenue by segment, product & period' },
+  '/division': { title: 'Division Reports', sub: 'Division-wise financial performance' },
+  '/bu-pack': { title: 'BU Financial Pack', sub: 'Business unit reporting pack' },
+  '/admin': { title: 'User & Access Control', sub: 'Role management & security settings' },
 };
 
 export default function Topbar() {
@@ -28,7 +28,12 @@ export default function Topbar() {
   const page = PAGE_TITLES[pathname] || { title: 'Finsight', sub: 'FJ Group Finance Intelligence' };
 
   return (
-    <header className="topbar">
+    <header className="topbar"
+      style={{
+        minHeight: "40px",
+        height: "40px",
+        padding: "0 16px",
+      }}>
       {/* Page title */}
       <div className="topbar-title">
         <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--clr-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
