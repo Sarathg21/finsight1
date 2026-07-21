@@ -10,7 +10,7 @@ const selectFilters = [
 
 export default function Filters() {
   return (
-   <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm flex flex-wrap items-end gap-2">
+   <div className="filter-bar">
 
   {selectFilters.map((f, i) => (
     <div key={i} className="flex-1 min-w-32">
@@ -19,7 +19,7 @@ export default function Filters() {
         {f.label}
       </label>
 
-      <select className="w-full h-8 text-[10px] font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500">
+      <select className="filter-select w-full">
         <option>{f.defaultVal}</option>
       </select>
 
@@ -42,11 +42,11 @@ export default function Filters() {
   {/* BUTTONS */}
   <div className="flex gap-1.5 shrink-0 ml-auto w-full sm:w-auto">
 
-    <button className="h-8 px-3 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-semibold rounded-md transition">
+    <button className="btn btn-primary">
       Apply
     </button>
 
-    <button className="h-8 px-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-[10px] font-semibold rounded-md transition">
+    <button className="btn btn-ghost">
       Reset
     </button>
 

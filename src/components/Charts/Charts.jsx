@@ -18,7 +18,7 @@ import {
 
 export function AgingSummaryCard({ title, data, total }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex flex-col h-40">
+    <div className="card flex flex-col h-40">
 
       <h3 className="text-[11px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
         <span>{title}</span>
@@ -92,7 +92,7 @@ export function AgingSummaryCard({ title, data, total }) {
 export function OverDueSummaryCard({ title, data, total }) {
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex flex-col h-52">
+  <div className="card flex flex-col h-52">
 
       <h3 className="text-[11px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
         <span>{title}</span>
@@ -169,7 +169,7 @@ export function OverDueSummaryCard({ title, data, total }) {
 
 export function PayablesTrendCard({ data , title}) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm flex flex-col h-40">
+   <div className="card flex flex-col h-40">
 
       {/* Header */}
       <h3 className="text-[11px] font-bold text-[#081B46] mb-3">
@@ -328,9 +328,9 @@ export function PayablesTrendCard({ data , title}) {
 
 export function ParentDivisionCard({ data ,title}) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex flex-col h-40">
+    <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-xs flex flex-col h-40">
 
-      <h3 className="text-[11px] font-bold text-[#081B46] mb-2">
+      <h3 className="text-[10px] font-bold text-[#081B46] mb-1">
        {title}
       </h3>
 
@@ -356,7 +356,7 @@ export function ParentDivisionCard({ data ,title}) {
             </div>
 
             {/* VALUE */}
-            <span className="text-gray-900 font-semibold w-14 text-right">
+            <span className="text-gray-900 font-semibold w-20 text-right">
               {item.value.toFixed(2)}
               <span className="text-gray-400 font-normal">
                 ({item.percentage})

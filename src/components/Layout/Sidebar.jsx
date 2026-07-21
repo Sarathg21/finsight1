@@ -37,25 +37,25 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                     ${isCollapsed ? 'justify-center px-0 mx-2 py-3.5' : 'gap-3 px-3.5 py-2.5 mx-2.5'}
                     ${active
                         ? 'active bg-white/10 text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)]'
-                        : 'text-indigo-100/60 hover:text-white hover:bg-white/[0.05]'
+                        : 'text-indigo-100/60 hover:text-white hover:bg-white/5'
                     }
                     rounded-2xl
                 `}
             >
                 {/* Active indicator line - subtle */}
                 {active && !isCollapsed && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-indigo-300 rounded-r-full" />
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.75 h-4 bg-indigo-300 rounded-r-full" />
                 )}
 
                 <span className={`
-                    flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all
+                    shrink-0 w-8 h-8 rounded-xl flex items-center justify-center transition-all
                     ${active ? 'bg-indigo-500/30 text-white border border-white/20' : 'bg-white/5 text-indigo-200/50 group-hover:bg-white/10 group-hover:text-white border border-white/5'}
                 `}>
                     <Icon size={16} strokeWidth={active ? 2.5 : 2} />
                 </span>
 
                 {!isCollapsed && (
-                    <span className={`flex-1 text-[13px] ${active ? 'font-[750]' : 'font-[600]'} tracking-tight`}>
+                    <span className={`flex-1 text-[13px] ${active ? 'font-[750]' : 'font-semibold'} tracking-tight`}>
                         {label}
                     </span>
                 )}
@@ -77,7 +77,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
         <aside className={`sidebar cfo-sidebar flex flex-col ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''} border-r border-white/5`}>
 
             {/* ── Header: Logo & Toggle ── */}
-            <div className={`flex items-center px-4 py-4 flex-shrink-0 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
+            <div className={`flex items-center px-4 py-4 shrink-0 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
 
                 {/* Logo */}
                 {!isCollapsed && (
@@ -85,7 +85,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                         <img
                             src="/images/fj.png.png"
                             alt="FJ logo"
-                            className="absolute -left-2 top-1/2 -translate-y-1/2 w-[160px] h-[160px] object-contain object-left transform scale-[1.2]"
+                            className="absolute -left-2 top-1/2 -translate-y-1/2 w-40 h-40 object-contain object-left transform scale-[1.2]"
                         />
                     </div>
                 )}
@@ -112,7 +112,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
             </div>
 
             {/* ── Divider ── */}
-            <div className="mx-3.5 h-px bg-gradient-to-r from-transparent via-indigo-200/15 to-transparent mb-1 flex-shrink-0" />
+            <div className="mx-3.5 h-px bg-linear-to-r from-transparent via-indigo-200/15 to-transparent mb-1 shrink-0" />
 
             {/* ── Nav ── */}
             <nav className="flex-1 overflow-y-auto overflow-x-hidden py-1 space-y-0.5">
@@ -134,7 +134,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                         <SectionLabel label="General" />
                         <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" />
                         <NavItem to="/performance-dashboard" icon={TrendingUp} label="Performance" />
-                         <NavItem  to="/payables"  icon={BarChart3}  label="Payables Dashboard" />
                         <NavItem to="/tasks/team"   icon={Users}           label="Team Tasks" />
                         <NavItem to="/org-tree"     icon={Network}         label="Organization Tree" />
                         <SectionLabel label="Strategic OKRs" />
@@ -171,17 +170,17 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
             </nav>
 
             {/* ── User Panel ── */}
-            <div className={`flex-shrink-0 m-2.5 rounded-2xl border border-white/10 bg-white/[0.05] backdrop-blur-sm ${isCollapsed ? 'p-2' : 'p-3.5'}`}>
+            <div className={`shrink-0 m-2.5 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm ${isCollapsed ? 'p-2' : 'p-3.5'}`}>
                 {!isCollapsed ? (
                     <>
                         <div className="flex items-center gap-2.5 mb-3">
-                            <div className="w-8 h-8 rounded-full shrink-0 bg-gradient-to-br from-indigo-400 to-violet-600 border border-white/20 flex items-center justify-center text-white text-xs font-[800]">
+                            <div className="w-8 h-8 rounded-full shrink-0 bg-linear-to-br from-indigo-400 to-violet-600 border border-white/20 flex items-center justify-center text-white text-xs font-extrabold">
                                 {(user.name || 'U').charAt(0).toUpperCase()}
                             </div>
                             <div className="overflow-hidden flex-1">
-                                <p className="text-[12.5px] font-[700] text-white truncate leading-tight">{user.name}</p>
+                                <p className="text-[12.5px] font-bold text-white truncate leading-tight">{user.name}</p>
                                 <div className="flex items-center gap-1 mt-0.5">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />
                                     <p className="text-[10px] text-indigo-200/60 truncate">{user.role} · {user.department || 'All Depts'}</p>
                                 </div>
                             </div>
@@ -196,7 +195,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                     </>
                 ) : (
                     <div className="flex flex-col items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-600 border border-white/20 flex items-center justify-center text-white text-xs font-[800]" title={user.name}>
+                        <div className="w-8 h-8 rounded-full bg-linear-to-br from-indigo-400 to-violet-600 border border-white/20 flex items-center justify-center text-white text-xs font-extrabold" title={user.name}>
                             {(user.name || 'U').charAt(0).toUpperCase()}
                         </div>
                         <button

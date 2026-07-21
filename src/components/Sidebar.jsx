@@ -28,6 +28,7 @@ const ROUTE_ICON = {
   '/division':            PieChart,
   '/bu-pack':             Briefcase,
   '/salesman':            UserCheck,
+  '/payables':            CreditCard,
 };
 
 /* ── Nav item definitions per role ─────────────────────────────── */
@@ -53,6 +54,7 @@ const NAV_BY_ROLE = {
     { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
     { to: '/ap',                 label: 'Payables Aging',                      group: 'Working Capital'  },
+    { to: '/payables',           label: 'Payables Dashboard',                  group: 'Working Capital'  },
     { to: '/inventory',          label: 'Inventory Aging',                     group: 'Working Capital'  },
     { to: '/working-capital',    label: 'Overview',                            group: 'Working Capital'  },
     { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Treasury'         },
