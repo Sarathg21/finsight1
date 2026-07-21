@@ -167,7 +167,7 @@ export function OverDueSummaryCard({ title, data, total }) {
   );
 }
 
-export function PayablesTrendCard({ data , title}) {
+export function PayablesTrendCard({ data , title, charttitle}) {
   return (
    <div className="card flex flex-col h-40">
 
@@ -279,7 +279,7 @@ export function PayablesTrendCard({ data , title}) {
               fill="#2563EB"
               radius={[4, 4, 0, 0]}
               barSize={20}
-              name="Total Payables (₹ Cr)"
+              name={charttitle}
             >
               {data.map((entry, index) => (
                 <Cell
@@ -326,46 +326,43 @@ export function PayablesTrendCard({ data , title}) {
 }
 
 
-export function ParentDivisionCard({ data ,title}) {
+export function ParentDivisionCard({ data, title }) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-xs flex flex-col h-40">
-
-      <h3 className="text-[10px] font-bold text-[#081B46] mb-1">
-       {title}
+    <div className="parent-division-card">
+      <h3 className="parent-division-title">
+        {title}
       </h3>
 
-      <div className="flex-1 space-y-1  pr-1">
-
+      <div className="parent-division-list">
         {data.map((item, idx) => (
           <div
             key={idx}
-            className="flex items-center gap-2 text-[11px]"
+            className="parent-division-row"
           >
-
             {/* NAME */}
-            <span className="text-gray-600 w-24 truncate">
+            <span className="parent-division-name">
               {item.name}
             </span>
 
             {/* BAR */}
-            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="parent-division-progress">
               <div
-                className="bg-blue-600 h-full rounded-full"
-                style={{ width: item.percentage }}
+                className="parent-division-progress-bar"
+                style={{
+                  width: item.percentage
+                }}
               />
             </div>
 
             {/* VALUE */}
-            <span className="text-gray-900 font-semibold w-20 text-right">
+            <span className="parent-division-value">
               {item.value.toFixed(2)}
-              <span className="text-gray-400 font-normal">
+              <span className="parent-division-percent">
                 ({item.percentage})
               </span>
             </span>
-
           </div>
         ))}
-
       </div>
     </div>
   );

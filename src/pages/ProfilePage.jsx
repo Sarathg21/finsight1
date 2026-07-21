@@ -245,7 +245,7 @@ const ProfilePage = () => {
 
             {/* Conditional Content */}
             {activeTab === 'overview' && (
-                <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
                     <div className="p-6 border-b border-slate-100 bg-slate-50/50">
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 rounded-[1.25rem] bg-violet-100 flex items-center justify-center text-violet-600 text-2xl font-black shadow-sm">
@@ -303,7 +303,7 @@ const ProfilePage = () => {
             )}
 
             {activeTab === 'security' && (
-                <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
                     <div className="p-6 border-b border-slate-100 flex items-center gap-3">
                         <div className="p-2.5 bg-emerald-50 rounded-xl">
                             <Shield size={18} className="text-emerald-600" />
@@ -414,7 +414,7 @@ const ProfilePage = () => {
             )}
 
             {activeTab === 'organisation' && (
-                <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-slide-up">
                     <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                         <div className="flex items-center gap-4">
                             <div className="p-3 bg-violet-100 rounded-xl shadow-sm">

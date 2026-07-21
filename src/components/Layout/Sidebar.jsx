@@ -35,9 +35,9 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                     cfo-nav-item relative flex items-center
                     transition-all duration-300 group
                     ${isCollapsed ? 'justify-center px-0 mx-2 py-3.5' : 'gap-3 px-3.5 py-2.5 mx-2.5'}
-                    ${active
-                        ? 'active bg-white/10 text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)]'
-                        : 'text-indigo-100/60 hover:text-white hover:bg-white/5'
+                   ${active
+                        ? 'active bg-purple-600 text-white shadow-[0_4px_12px_rgba(124,58,237,0.3)]'
+                        : 'text-indigo-100/60 hover:text-white hover:bg-purple-600/30'
                     }
                     rounded-2xl
                 `}
@@ -74,7 +74,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
     const userRole = (user.role || '').toUpperCase();
 
     return (
-        <aside className={`sidebar cfo-sidebar flex flex-col ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''} border-r border-white/5`}>
+        <aside className={`sidebar cfo-sidebar flex flex-col bg-[#081B46] ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''} border-r border-white/10`}>
 
             {/* ── Header: Logo & Toggle ── */}
             <div className={`flex items-center px-4 py-4 shrink-0 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -120,10 +120,10 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                 {userRole === 'ADMIN' && (
                     <>
                         <SectionLabel label="Core" />
-                        <NavItem to="/dashboard"  icon={LayoutDashboard} label="Dashboard" />
-                        <NavItem to="/admin"      icon={Users}           label="Employees" />
-                        <NavItem to="/departments" icon={Building2}      label="Departments" />
-                        <NavItem to="/org-tree"   icon={Network}         label="Organization Tree" />
+                        <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+                        <NavItem to="/admin" icon={Users} label="Employees" />
+                        <NavItem to="/departments" icon={Building2} label="Departments" />
+                        <NavItem to="/org-tree" icon={Network} label="Organization Tree" />
                         <SectionLabel label="Strategy" />
                         <NavItem to="/recurring-tasks" icon={RefreshCw} label="Recurring Tasks" />
                     </>
@@ -132,37 +132,37 @@ const Sidebar = ({ isCollapsed, toggleSidebar, isMobileOpen, closeMobileSidebar 
                 {userRole === 'CFO' && (
                     <>
                         <SectionLabel label="General" />
-                        <NavItem to="/dashboard"    icon={LayoutDashboard} label="Dashboard" />
+                        <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
                         <NavItem to="/performance-dashboard" icon={TrendingUp} label="Performance" />
-                        <NavItem to="/tasks/team"   icon={Users}           label="Team Tasks" />
-                        <NavItem to="/org-tree"     icon={Network}         label="Organization Tree" />
+                        <NavItem to="/tasks/team" icon={Users} label="Team Tasks" />
+                        <NavItem to="/org-tree" icon={Network} label="Organization Tree" />
                         <SectionLabel label="Strategic OKRs" />
-                        <NavItem to="/okr-dashboard"   icon={Target}     label="OKR Dashboard" />
-                        <NavItem to="/okr-subtask"     icon={Layers}     label="Sub-task Tracking" />
-                        <NavItem to="/okr-actions"     icon={Activity}   label="Action Tracking" />
-                        <NavItem to="/recurring-tasks"  icon={RefreshCw} label="Automated Tasks" />
+                        <NavItem to="/okr-dashboard" icon={Target} label="OKR Dashboard" />
+                        <NavItem to="/okr-subtask" icon={Layers} label="Sub-task Tracking" />
+                        <NavItem to="/okr-actions" icon={Activity} label="Action Tracking" />
+                        <NavItem to="/recurring-tasks" icon={RefreshCw} label="Automated Tasks" />
                     </>
                 )}
 
                 {(userRole === 'MANAGER' || userRole === 'EMPLOYEE') && (
                     <>
                         <SectionLabel label="Workspace" />
-                        <NavItem to="/dashboard"          icon={LayoutDashboard} label="Dashboard" />
-                        <NavItem to="/tasks?mode=personal" icon={CheckSquare}    label="My Tasks" />
+                        <NavItem to="/dashboard" icon={LayoutDashboard} label="Dashboard" />
+                        <NavItem to="/tasks?mode=personal" icon={CheckSquare} label="My Tasks" />
 
                         {userRole === 'MANAGER' && (
                             <>
                                 <SectionLabel label="Team Management" />
-                                <NavItem to="/tasks/team"   icon={Users}     label="Team Tasks" />
+                                <NavItem to="/tasks/team" icon={Users} label="Team Tasks" />
                                 <NavItem to="/manager/recurring-tasks" icon={RefreshCw} label="Recurring Tasks" />
                                 <SectionLabel label="Action Tracking" />
-                                <NavItem to="/okr-actions"   icon={Activity} label="Action Tracking" />
+                                <NavItem to="/okr-actions" icon={Activity} label="Action Tracking" />
                             </>
                         )}
 
                         {userRole === 'EMPLOYEE' && (
                             <>
-                                <NavItem to="/performance-dashboard" icon={TrendingUp}    label="My Performance" />
+                                <NavItem to="/performance-dashboard" icon={TrendingUp} label="My Performance" />
                             </>
                         )}
                     </>

@@ -396,8 +396,7 @@ export const kpiDataReceivable = [
   {
     id: 5,
 
-    title: "DSO (Days Payable Outstanding)",
-
+    title: "Days Receivable Outstanding",
     value: "46 Days",
 
     icon: FiPercent,

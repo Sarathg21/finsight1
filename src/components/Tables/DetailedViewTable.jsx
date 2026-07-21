@@ -62,31 +62,31 @@ export default function DetailedViewTable({ data, title }) {
                   <td>
                     {r.bu}
                   </td>
-                  <td className="text-right font-bold">
+                  <td className="text-left font-bold">
                     {r.current.toFixed(2)}
                   </td>
-                  <td className="text-right">
+                  <td className="text-left">
                     {r.m1.toFixed(2)}
                   </td>
-                  <td className="text-right">
+                  <td className="text-left">
                     {r.m2.toFixed(2)}
                   </td>
-                  <td className="text-right">
+                  <td className="text-left">
                     {r.m3.toFixed(2)}
                   </td>
-                  <td className="text-right">
+                  <td className="text-left">
                     {r.m4.toFixed(2)}
                   </td>
 
-                  <td className="text-right">
+                  <td className="text-left">
                     {r.m5.toFixed(2)}
                   </td>
 
-                  <td className="text-right font-bold text-blue-600">
+                  <td className="text-left font-bold text-blue-600">
                     {r.total.toFixed(2)}
                   </td>
 
-                  <td className="text-right font-bold">
+                  <td className="text-left font-bold">
                     {r.dpo}
                   </td>
                 </tr>

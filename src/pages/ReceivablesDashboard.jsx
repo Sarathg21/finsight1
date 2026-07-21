@@ -1,7 +1,11 @@
 import React from "react";
+import { useState } from "react";
 
 import Filters from "../components/Filters/Filters";
-
+import {
+  Download,
+  CalendarClock
+} from "lucide-react";
 import {
   AgingSummaryCard,
   OverDueSummaryCard,
@@ -17,39 +21,33 @@ import {
 import DetailedViewTable from "../components/Tables/DetailedViewTable";
 
 import KPICards from "../components/Cards/KPICards";
-
-import { kpiData } from "../data/kpiData";
+import { kpiDataReceivable } from "../data/kpiData";
 
 import {
-  agingData,
-  trendData,
-  divisionData,
-  topVendors,
-  overdueData,
-  businessUnitData,
-  detailedViewData,
-} from "../data/dashboardData";
-import {
-  Download,
-  CalendarClock
-} from "lucide-react";
+    agingData,
+    trendData,
+    divisionData,
+    topVendors,
+    overdueData,
+    businessUnitData,
+    detailedViewData,
+} from '../data/dashboardData';
 
-
-export default function PayablesDashboard() {
-  return (
-
+export default function ReceivablesDashboard() {
+ return (
     <div className="page-content">
       {/* Page Header */}
       <div className="page-header">
+          {/* Left Content */}
         <div>
           <h1 className="page-header-title">
-            Payables Dashboard
+            Receivable Dashboard
           </h1>
           <p className="page-header-subtitle">
-            Track payables,aging ,overdue and payment performance
+            Tracking receivables,aging,overdue and collection performance.
           </p>
         </div>
-         {/* Actions */}
+          {/* Actions */}
            <div className="topbar-actions">
              <button className="btn btn-ghost">
                <Download size={14}/>
@@ -63,7 +61,6 @@ export default function PayablesDashboard() {
          </div>
       </div>
 
-
       {/* Main Content */}
 
       <div className="flex flex-col gap-2">
@@ -73,28 +70,27 @@ export default function PayablesDashboard() {
 
 
         {/* KPI Cards */}
-
-        <KPICards
-          data={kpiData}
-        />
+          <KPICards data={kpiDataReceivable} />
 
         {/* Charts Row 1 */}
 
         <div className="grid-cols-3">
           <AgingSummaryCard
-            title="Payables Aging Summary (₹ Cr)"
+            title="Receivables Aging Summary (₹ Cr)"
             data={agingData}
             total="58.75"
           />
           <PayablesTrendCard
-            title="Payables Trend"
-             charttitle="Total Payable(Cr)"
+            title="Receivables Trend"
+            charttitle="Total Receivables(Cr)"
             data={trendData}
           />
+         
           <ParentDivisionCard
-            title="Payables by Parent Division (₹ Cr)"
+            title="Receivables by Parent Division (₹ Cr)"
             data={divisionData}
           />
+        
 
         </div>
 
@@ -103,8 +99,8 @@ export default function PayablesDashboard() {
         <div className="grid-cols-3">
 
           <TopVendorsTable
-            title="Top 10 Vendors by Payables (₹ Cr)"
-              tabletitle="Payable"
+            title="Top 10 Vendors by Receivables (₹ Cr)"
+            tabletitle="Receivable"
             data={topVendors}
           />
 
@@ -115,8 +111,8 @@ export default function PayablesDashboard() {
           />
 
           <BusinessUnitTable
-            title="Payables by Business Unit (₹ Cr)"
-             tabletitle="Payable"
+            title="Receivables by Business Unit (₹ Cr)"
+             tabletitle="Receivable"
             data={businessUnitData}
           />
 
@@ -125,7 +121,7 @@ export default function PayablesDashboard() {
 
         {/* Detailed Table */}
         <DetailedViewTable
-          title="Payables Detailed View"
+          title="Receivables Detailed View"
           data={detailedViewData}
         />
       </div>
@@ -148,3 +144,10 @@ export default function PayablesDashboard() {
 
   );
 }
+
+
+
+
+
+
+    
