@@ -17,6 +17,7 @@ import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
+import PayablesDashboard from './pages/PayablesDashboard';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -66,6 +67,7 @@ function App() {
               <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} />
               <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} />
               <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} />
+             <Route path="/payables"           element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} />
               <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} />
               <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
               {/* Admin – segregated, board & CFO only */}
