@@ -821,6 +821,9 @@ body {
   line-height: 1.2;
 }
 
+.salesman_table .compact-table tbody td {
+  padding: 5px 6px;
+}
 .card .compact-table tbody td {
   padding: 5px 8px;
   font-size: 9px;

@@ -88,6 +88,7 @@ export default function PayablesDashboard() {
           />
           <PayablesTrendCard
             title="Payables Trend"
+             daysname = "Dpo (days)"
              charttitle="Total Payable(Cr)"
             data={trendData}
           />
@@ -104,7 +105,8 @@ export default function PayablesDashboard() {
 
           <TopVendorsTable
             title="Top 10 Vendors by Payables (₹ Cr)"
-              tabletitle="Payable"
+             tabletitle1="Vendor Name"
+              tabletitle2="Payable"
             data={topVendors}
           />
 

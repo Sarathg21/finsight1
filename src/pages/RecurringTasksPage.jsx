@@ -420,7 +420,7 @@ const RecurringTasksPage = () => {
             </div>
 
             {/* ── MAIN TABLE CARD ── */}
-            <div className="bg-white/70 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-200/20 border border-white overflow-hidden mb-8 min-h-[500px] flex flex-col">
+            <div className="bg-white/70 backdrop-blur-3xl rounded-[2.5rem] shadow-2xl shadow-indigo-200/20 border border-white overflow-hidden mb-8 min-h-125 flex flex-col">
                 <div className="overflow-x-auto flex-1">
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-[#fbfcff]/50 text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-indigo-50/50">
@@ -472,7 +472,7 @@ const RecurringTasksPage = () => {
                                                             <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600" />
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className={`text-[15px] font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-700'} tracking-tight max-w-[300px] truncate`}>
+                                                            <span className={`text-[15px] font-bold ${isSelected ? 'text-indigo-700' : 'text-slate-700'} tracking-tight max-w-75 truncate`}>
                                                                 {t.title}
                                                             </span>
                                                         </div>

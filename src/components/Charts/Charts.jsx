@@ -167,7 +167,7 @@ export function OverDueSummaryCard({ title, data, total }) {
   );
 }
 
-export function PayablesTrendCard({ data , title, charttitle}) {
+export function PayablesTrendCard({ data , title, charttitle,daysname}) {
   return (
    <div className="card flex flex-col h-40">
 
@@ -314,7 +314,7 @@ export function PayablesTrendCard({ data , title, charttitle}) {
               activeDot={{
                 r: 4,
               }}
-              name="DPO (Days)"
+              name={daysname}
             />
 
           </BarChart>

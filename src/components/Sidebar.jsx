@@ -56,7 +56,7 @@ const NAV_BY_ROLE = {
     { to: '/ar', label: 'Receivables Aging', group: 'Working Capital' },
     { to: '/ap', label: 'Payables Aging', group: 'Working Capital' },
     { to: '/payables', label: 'Payables Report', group: 'Working Capital' },
-    { to: '/receivables', label: 'Receivable Report', group: 'Working Capital' },
+    { to: '/receivables', label: 'Receivables Report', group: 'Working Capital' },
     { to: '/inventory', label: 'Inventory Aging', group: 'Working Capital' },
     { to: '/working-capital', label: 'Overview', group: 'Working Capital' },
     { to: '/cash-collection', label: 'Cash Collection', group: 'Treasury' },
@@ -318,16 +318,30 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                           onMouseEnter={e => {
                             if (!isActive) {
                               e.currentTarget.style.background = '#7C3AED';
-                              e.currentTarget.querySelector('.nav-label').style.color = '#000';
-                              e.currentTarget.querySelector('.nav-icon').style.color = '#000';
+                              const label = e.currentTarget.querySelector('.nav-label');
+                              const icon = e.currentTarget.querySelector('.nav-icon');
+
+                              if (label) {
+                                label.style.color = '#000';
+                              }
+
+                              if (icon) {
+                                icon.style.color = '#000';
+                              }
                             }
                           }}
 
                           onMouseLeave={e => {
                             if (!isActive) {
                               e.currentTarget.style.background = 'transparent';
-                              e.currentTarget.querySelector('.nav-label').style.color = '#fff';
-                              e.currentTarget.querySelector('.nav-icon').style.color = '#fff';
+                              const label = e.currentTarget.querySelector('.nav-label');
+                              const icon = e.currentTarget.querySelector('.nav-icon');
+                              if (label) {
+                                label.style.color = '#fff';
+                              }
+                              if (icon) {
+                                icon.style.color = '#fff';
+                              }
                             }
                           }}
                         >
@@ -356,7 +370,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                           <span style={{
                             fontSize: '0.82rem',
                             fontWeight: isActive ? 700 : 500,
-                            color: isActive ? '#fff' : '#334155',
+                            // color: isActive ? '#fff' : '#334155',
                             color: '#ffffff',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',

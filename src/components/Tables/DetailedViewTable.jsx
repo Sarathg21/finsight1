@@ -1,18 +1,18 @@
 import React from "react";
 
 const columns = [
+  "Customer",
+  "Customer Type",
+  "Currency",
+  "Country",
+  "Invoice No",
+  "Invoice Date",
+  "Due Date",
+  "Outstanding",
+  "Aging Bucket",
+  "Salesman",
+  "Division",
   "Legal Entity",
-  "Parent Division",
-  "Sub-Division",
-  "Business Unit",
-  "Current (₹ Cr)",
-  "1 - 30 Days (₹ Cr)",
-  "31 - 60 Days (₹ Cr)",
-  "61 - 90 Days (₹ Cr)",
-  "91 - 120 Days (₹ Cr)",
-  "> 120 Days (₹ Cr)",
-  "Total (₹ Cr)",
-  "DPO (Days)",
 ];
 
 
@@ -33,7 +33,7 @@ export default function DetailedViewTable({ data, title }) {
           <thead>
             <tr>
               {
-                columns.map((col, i)=>(
+                columns.map((col, i) => (
                   <th
                     key={i}
                     className={i >= 4 ? "text-right" : ""}
@@ -47,52 +47,37 @@ export default function DetailedViewTable({ data, title }) {
 
           {/* BODY */}
           <tbody>
-            {
-              data.map((r,i)=>(
-                <tr key={i}>
-                  <td className="font-semibold text-slate-900">
-                    {r.entity}
-                  </td>
-                  <td>
-                    {r.parent}
-                  </td>
-                  <td>
-                    {r.sub}
-                  </td>
-                  <td>
-                    {r.bu}
-                  </td>
-                  <td className="text-left font-bold">
-                    {r.current.toFixed(2)}
-                  </td>
-                  <td className="text-left">
-                    {r.m1.toFixed(2)}
-                  </td>
-                  <td className="text-left">
-                    {r.m2.toFixed(2)}
-                  </td>
-                  <td className="text-left">
-                    {r.m3.toFixed(2)}
-                  </td>
-                  <td className="text-left">
-                    {r.m4.toFixed(2)}
-                  </td>
+            {data.map((r, i) => (
+              <tr key={i}>
+                <td>{r.customer_name}</td>
 
-                  <td className="text-left">
-                    {r.m5.toFixed(2)}
-                  </td>
+                <td>{r.customer_type || "-"}</td>
 
-                  <td className="text-left font-bold text-blue-600">
-                    {r.total.toFixed(2)}
-                  </td>
+                <td>{r.currency}</td>
 
-                  <td className="text-left font-bold">
-                    {r.dpo}
-                  </td>
-                </tr>
+                <td>{r.country || "-"}</td>
 
-              ))
-            }
+                <td>{r.invoice_number || "-"}</td>
+
+                <td>{r.invoice_date || "-"}</td>
+
+                <td>{r.due_date || "-"}</td>
+
+                <td className="text-right font-bold">
+                  {r.outstanding_amount != null
+                    ? Number(r.outstanding_amount).toFixed(2)
+                    : "-"}
+                </td>
+
+                <td>{r.aging_bucket}</td>
+
+                <td>{r.salesman || "-"}</td>
+
+                <td>{r.division || "-"}</td>
+
+                <td>{r.legal_entity || "-"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
