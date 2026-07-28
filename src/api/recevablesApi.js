@@ -33,32 +33,26 @@ export const getReceivableDivisionWise = (params = {}) => {
    TOP CUSTOMERS
 =========================== */
 
-export const getReceivableTopCustomers = (params = {}) => {
-  return api.get("/receivables/top-customers", {
-    params: {
-      limit: 10,
-      sort_by: "total_outstanding",
-      sort_dir: "desc",
-      ...params,
-    },
-  });
+export const getReceivableTopCustomers = (filters = {}) => {
+    const params = {
+        limit: 10,
+        sort_by: "total_outstanding",
+        sort_dir: "desc",
+        ...filters
+    };
+    return api.get("/receivables/top-customers", {
+        params
+    });
 };
 
 /* ===========================
    DETAILS TABLE
 =========================== */
 
-export const getReceivableDetails = (params = {}) => {
-  return api.get("/receivables/details", {
-    params: {
-      page: 1,
-      page_size: 50,
-      sort_by: "outstanding_amount",
-      sort_dir: "desc",
-      ...params,
-    },
+export const getReceivableDetails = (params) =>
+  api.get("/receivables/details", {
+    params,
   });
-};
 
 /* ===========================
    BUSINESS UNIT
@@ -87,14 +81,17 @@ export const getReceivableTrend = (params = {}) => {
 =========================== */
 
 export const getSalesmanPerformance = (filters) =>
-  api.get("/receivables/salesman", {params: filters,});
+  api.get("/receivables/salesman", { params: filters, });
 
 /* ===========================
    EXPORT
 =========================== */
-export const getReceivableExport = (filters) =>
+export const getReceivableExport = (type, filters = {}) =>
   api.get("/receivables/export", {
-    params: filters,
+    params: {
+      ...filters,
+      type,
+    },
     responseType: "blob",
   });
 

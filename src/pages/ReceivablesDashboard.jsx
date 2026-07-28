@@ -1,4 +1,9 @@
 import React from "react";
+import { LuBuilding2 } from "react-icons/lu";
+import { IoWalletOutline, IoHourglassOutline, IoAlertCircleOutline, } from "react-icons/io5";
+import {
+    FiPercent, FiRefreshCw,
+} from "react-icons/fi";
 import { useState, useEffect } from "react";
 import Filters from "../components/Filters/Filters";
 import { Download, CalendarClock } from "lucide-react";
@@ -6,13 +11,15 @@ import { AgingSummaryCard, OverDueSummaryCard, PayablesTrendCard, ParentDivision
 import { TopVendorsTable, BusinessUnitTable, SalesmanTable, } from "../components/Tables/Tables";
 import DetailedViewTable from "../components/Tables/DetailedViewTable";
 import KPICards from "../components/Cards/KPICards";
-import { kpiDataReceivable } from "../data/kpiData";
 import { agingData, trendData, divisionData, topVendors, overdueData, businessUnitData, detailedViewData, } from '../data/dashboardData';
 import {
     getReceivableFilters, getReceivableSummary, getReceivableAgingSummary, getReceivableTrend, getSalesmanPerformance,
     getReceivableDivisionWise, getReceivableTopCustomers, getReceivableDetails,
     getReceivableOverdueSummary, getReceivableBusinessUnit, getReceivableExport
 } from "../api/recevablesApi"
+import ExportButtons from "../components/Common/ExportButtons";
+import PageHeader from "../components/Common/PageHeader";
+import FooterNote from "../components/FooterNote";
 
 export default function ReceivablesDashboard() {
 
@@ -26,8 +33,10 @@ export default function ReceivablesDashboard() {
         business_units: [],
         salesmen: [],
     });
+    const [filters, setFilters] = useState({});
     const [summary, setSummary] = useState(null);
     const [agingSummary, setAgingSummary] = useState([]);
+    const [agingTotal, setAgingTotal] = useState(0);
     const [divisionData, setDivisionData] = useState([]);
     const [topCustomers, setTopCustomers] = useState([]);
     const [trendData, setTrendData] = useState([]);
@@ -35,122 +44,264 @@ export default function ReceivablesDashboard() {
     const [overdueTotal, setOverdueTotal] = useState(0);
     const [businessUnitData, setBusinessUnitData] = useState([]);
     const [exporting, setExporting] = useState("");
+    const [loading, setLoading] = useState(true);
 
     {/*------------Details table--------------------*/ }
     const [detailsData, setDetailsData] = useState([]);
-    const [totalCount, setTotalCount] = useState(0);
-    const [totalOutstanding, setTotalOutstanding] = useState(0);
+    const [detailsPage, setDetailsPage] = useState(1);
+    const [detailsPageSize] = useState(50);
+    const [detailsTotalCount, setDetailsTotalCount] = useState(0);
+    const [detailsSort, setDetailsSort] = useState({
+        sort_by: "outstanding_amount",
+        sort_dir: "desc"
+    });
+
     const [salesmanData, setSalesmanData] = useState([]);
 
+
+    {/*-----------Currency Format--------------------*/ }
+
+    const formatCurrency = (value) => {
+        if (value == null) return "-";
+
+        const amount = Number(value);
+
+        if (amount >= 1_000_000) {
+            return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+        }
+
+        if (amount >= 1_000) {
+            return `AED ${(amount / 1_000).toFixed(2)}K`;
+        }
+
+        return `AED ${amount.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
+    };
     {/*-------------Array For Summary--------------------*/ }
+
     const receivableKpiData = summary ? [
         {
-            id: 1,
-            title: "Total Receivables",
-            value: summary.total_receivables,
+            id: 1, title: "Total Receivables", value: formatCurrency(summary.total_receivables), icon: LuBuilding2, titleColor: "#2563EB", iconColor: "#2563EB", iconBackground: "#EAF2FF",
+            cardBackground: "#FFFFFF", borderColor: "#E8EDF5", trend: "up", trendValue: "9.42%", comparisonText: "vs 31 Mar 2024", trendColor: "#16A34A",
+            sparklineColor: "#2563EB",
+            sparklineData: [
+                6, 8, 7, 11, 6,
+                9, 13, 7, 9, 15,
+                8, 14, 10, 16, 7,
+                11, 15, 9, 12, 10,
+                14, 11]
         },
         {
-            id: 2,
-            title: "Current",
-            value: summary.current,
+            id: 2, title: "Current Receivables", value: formatCurrency(summary.current), icon: IoWalletOutline, titleColor: "#16A34A", iconColor: "#16A34A",
+            iconBackground: "#ECFDF5", cardBackground: "#FFFFFF", borderColor: "#E8EDF5", trend: "up", trendValue: "7.31%",
+            comparisonText: "vs 31 Mar 2024",
+            trendColor: "#16A34A",
+            sparklineColor: "#16A34A",
+            sparklineData: [
+                7, 8, 7, 9, 8,
+                10, 9, 11, 8, 10,
+                12, 9, 11, 10, 12,
+                9, 11, 8, 10, 9,
+                11, 8]
         },
+
         {
-            id: 3,
-            title: "Overdue",
-            value: summary.overdue,
+            id: 3, title: "Overdue Receivables", value: formatCurrency(summary.overdue), icon: IoHourglassOutline, titleColor: "#F59E0B", iconColor: "#F59E0B",
+            iconBackground: "#FFF7ED", cardBackground: "#FFFFFF", borderColor: "#E8EDF5", trend: "down", trendValue: "14.85%",
+            comparisonText: "vs 31 Mar 2024", trendColor: "#DC2626", sparklineColor: "#F59E0B",
+            sparklineData: [
+                9, 10, 8, 11, 9,
+                8, 12, 9, 10, 8,
+                11, 9, 8, 10, 9,
+                8, 11, 9, 10, 8,
+                9, 8
+            ]
         },
+
         {
-            id: 4,
-            title: "Customers",
-            value: summary.no_of_customers,
+            id: 4, title: "Overdue > 90 Days",
+            value: formatCurrency(summary.provision_exposure_over_365),
+            icon: IoAlertCircleOutline,
+            titleColor: "#EC4899",
+            iconColor: "#EC4899",
+            iconBackground: "#FDF2F8",
+            cardBackground: "#FFFFFF",
+            borderColor: "#E8EDF5",
+            trend: "down",
+            trendValue: "21.10%",
+            comparisonText: "vs 31 Mar 2024",
+            trendColor: "#DC2626",
+            sparklineColor: "#EC4899",
+            sparklineData: [
+                7, 8, 7, 9, 8,
+                7, 10, 8, 9, 7,
+                8, 10, 7, 9, 8,
+                7, 10, 8, 9, 8,
+                10, 9
+            ]
         },
+
         {
             id: 5,
-            title: "Average Collection Days",
-            value: summary.average_collection_days ?? "-",
+            title: "DSO (Days)",
+            value: "46 days",
+            icon: FiPercent,
+            titleColor: "#06B6D4",
+            iconColor: "#06B6D4",
+            iconBackground: "#ECFEFF",
+            cardBackground: "#FFFFFF",
+            borderColor: "#E8EDF5",
+            trend: "up",
+            trendValue: "3 Days",
+            comparisonText: "vs 31 Mar 2024",
+            trendColor: "#16A34A",
+            sparklineColor: "#06B6D4",
+            sparklineData: [
+                8, 9, 8, 10, 9,
+                8, 11, 9, 10, 8,
+                10, 9, 11, 8, 10,
+                9, 11, 9, 10, 9,
+                10, 9
+            ]
         },
+
         {
             id: 6,
-            title: "Provision >365",
-            value: summary.provision_exposure_over_365,
+            title: "Invoice Settlement Efficiency",
+            value: "92.35%",
+            icon: FiRefreshCw,
+            titleColor: "#8B5CF6",
+            iconColor: "#8B5CF6",
+            iconBackground: "#F5F3FF",
+            cardBackground: "#FFFFFF",
+            borderColor: "#E8EDF5",
+            trend: "up",
+            trendValue: "4.12%",
+            comparisonText: "vs 31 Mar 2024",
+            trendColor: "#16A34A",
+            sparklineColor: "#8B5CF6",
+            sparklineData: [
+                8, 10, 8, 11, 9,
+                8, 12, 9, 11, 8,
+                10, 12, 9, 11, 8,
+                10, 12, 9, 11, 10,
+                12, 10
+            ]
         },
-    ]
-        : [];
+    ] : [];
+
+    const loadDashboardData = async () => {
+        try {
+            setLoading(true);
+            await Promise.all([
+                fetchFilters(),
+                fetchSummary(),
+                fetchAgingSummary(),
+                fetchDivisionWise(),
+                fetchTopCustomers(),
+                fetchDetails(),
+                fetchTrend(),
+                fetchOverdueSummary(),
+                fetchBusinessUnits(),
+                loadSalesman(),
+            ]);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
 
     {/*-------------Load Filter Data--------------------*/ }
-    const fetchFilters = async () => {
+    const fetchFilters = async (filters = {}) => {
         try {
             const response = await getReceivableFilters();
-            console.log(response.data);
             setFilterOptions(response.data.data);
         } catch (error) {
-            console.log("Status:", error.response?.status);
-            console.log("URL:", error.config?.baseURL + error.config?.url);
-            console.log("Response:", error.response?.data);
+            console.log("Error is", error)
         }
     };
 
     {/*-------------Load SummaryCards--------------------*/ }
-    const fetchSummary = async () => {
+
+    const fetchSummary = async (filters = {}) => {
         try {
-            const response = await getReceivableSummary();
-            console.log(response.data);
+            const response = await getReceivableSummary(filters);
             setSummary(response.data.data);
         } catch (error) {
-            console.error(error);
+            console.error("Error is", error);
         }
     };
 
     {/*-------------Load AgingSummary--------------------*/ }
-    const fetchAgingSummary = async () => {
+    const fetchAgingSummary = async (filters = {}) => {
         try {
-            const response = await getReceivableAgingSummary();
-            console.log("Aging Summary:", response.data);
-            setAgingSummary(response.data.data.buckets);
+            const response = await getReceivableAgingSummary(filters);
+            const result = response.data.data;
+            setAgingSummary(result.buckets || []);
+            setAgingTotal(result.total_amount || 0);
         } catch (error) {
-            console.error(error);
+            console.error("Error is", error);
         }
     };
     {/*-------------Load parent division--------------------*/ }
-    const fetchDivisionWise = async () => {
+    const fetchDivisionWise = async (filters = {}) => {
         try {
-            const response = await getReceivableDivisionWise();
-            console.log("Division Wise:", response.data);
+            const response = await getReceivableDivisionWise(filters);
             setDivisionData(response.data.data);
         } catch (error) {
-            console.error(error);
+            console.error("Error is", error);
         }
     };
     {/*-------------Top Customers--------------------*/ }
-    const fetchTopCustomers = async () => {
+    const fetchTopCustomers = async (filters = {}) => {
         try {
-            const response = await getReceivableTopCustomers();
-            console.log("Top Customers", response.data);
+            const response = await getReceivableTopCustomers(filters);
             setTopCustomers(response.data.data);
         } catch (error) {
-            console.error(error);
+            console.error("Error is", error);
         }
     };
 
     {/*------------details fetch --------------------*/ }
-    const fetchDetails = async () => {
+    const fetchDetails = async (
+        filters = {},
+        page = detailsPage,
+        sort = detailsSort
+    ) => {
         try {
-            const response = await getReceivableDetails();
-            console.log(response.data);
-            setDetailsData(response.data.data.rows);
-            setTotalCount(response.data.data.total_count);
-            setTotalOutstanding(response.data.data.total_outstanding);
-
+            const params = {
+                ...filters,
+                page,
+                page_size: detailsPageSize,
+                sort_by: sort.sort_by,
+                sort_dir: sort.sort_dir
+            };
+            const response = await getReceivableDetails(params);
+            console.log(
+                "Details API Response",
+                response.data
+            );
+            setDetailsData(
+                response.data.data.rows || []
+            );
+            setDetailsTotalCount(
+                response.data.data.total_count || 0
+            );
         } catch (error) {
+
             console.error(error);
+
         }
     };
 
     {/*------------trend  --------------------*/ }
-    const fetchTrend = async () => {
+    const fetchTrend = async (filters = {}) => {
         try {
-            const response = await getReceivableTrend();
-            console.log("Trend API:", response.data);
+            const response = await getReceivableTrend(filters);
             setTrendData(response.data.data);
         } catch (error) {
             console.error(error);
@@ -158,175 +309,161 @@ export default function ReceivablesDashboard() {
     };
 
     {/*------------Overdue Summary  --------------------*/ }
-    const fetchOverdueSummary = async () => {
+    const fetchOverdueSummary = async (filters = {}) => {
         try {
-            const response = await getReceivableOverdueSummary();
+            const response = await getReceivableOverdueSummary(filters);
             const data = response.data.data;
-            setOverdueTotal(data.total_overdue);
+            setOverdueTotal(
+                Number(data.current || 0) + Number(data.total_overdue || 0)
+            );
+            const total = (data.current || 0) + (data.total_overdue || 0);
+
             const chartData = [
                 {
                     name: "Current",
-                    value: data.current,
+                    value: Number(data.current || 0),
+                    percentage: `${((data.current / total) * 100).toFixed(1)}%`,
                     color: "#22C55E",
                 },
                 {
                     name: "1-30",
-                    value: data["1_30_days"],
+                    value: Number(data["1_30_days"] || 0),
+                    percentage: `${((data["1_30_days"] / total) * 100).toFixed(1)}%`,
                     color: "#3B82F6",
                 },
                 {
                     name: "31-60",
-                    value: data["31_60_days"],
-                    color: "#F59E0B",
+                    value: Number(data["31_60_days"] || 0),
+                    percentage: `${((data["31_60_days"] / total) * 100).toFixed(1)}%`,
+                    color: "#FACC15",
                 },
                 {
                     name: "61-90",
-                    value: data["61_90_days"],
-                    color: "#EF4444",
+                    value: Number(data["61_90_days"] || 0),
+                    percentage: `${((data["61_90_days"] / total) * 100).toFixed(1)}%`,
+                    color: "#FB923C",
                 },
                 {
                     name: "91-120",
-                    value: data["91_120_days"],
-                    color: "#8B5CF6",
+                    value: Number(data["91_120_days"] || 0),
+                    percentage: `${((data["91_120_days"] / total) * 100).toFixed(1)}%`,
+                    color: "#EF4444",
                 },
                 {
                     name: ">120",
-                    value: data.above_120_days,
-                    color: "#6B7280",
+                    value: Number(data.above_120_days || 0),
+                    percentage: `${((data.above_120_days / total) * 100).toFixed(1)}%`,
+                    color: "#A855F7",
                 },
             ];
             setOverdueData(chartData);
+
         } catch (error) {
             console.error(error);
         }
     };
 
     {/*------------Business Unit --------------------*/ }
-    const fetchBusinessUnits = async () => {
+    const fetchBusinessUnits = async (filters = {}) => {
 
         try {
-            const response = await getReceivableBusinessUnit();
+            const response = await getReceivableBusinessUnit(filters);
             const apiData = response.data.data;
             const totalAmount = apiData.reduce(
-                (sum, item) => sum + item.amount,
+                (sum, item) => sum + Number(item.amount || 0),
                 0
             );
-            const chartData = apiData.map((item) => ({
-                name: item.business_unit,
-                value: item.amount,
+
+            const tableData = apiData.map((item) => ({
+                business_unit: item.business_unit,
+                amount: Number(item.amount || 0),
                 percentage:
                     totalAmount > 0
-                        ? (
-                            (item.amount / totalAmount) * 100
-                        ).toFixed(1) + "%"
-                        : "0%",
+                        ? ((item.amount / totalAmount) * 100).toFixed(1)
+                        : "0.0",
             }));
-            setBusinessUnitData(chartData);
+
+            setBusinessUnitData(tableData);
         } catch (error) {
-            console.error(error);
+            console.error("Error is", error);
         }
     };
 
     {/*------------Fetch SalesMan --------------------*/ }
-    // const loadSalesman = async () => {
-    //     try {
-    //         const res = await getSalesmanPerformance(filters);
-    //         setSalesmanData(res.data);
-    //     } catch (err) {
-    //         console.log(err);
-    //     }
-    // };
+    const loadSalesman = async (filters = {}) => {
+        try {
+            const res = await getSalesmanPerformance(filters);
+            setSalesmanData(res.data.data || res.data);
+        } catch (err) {
+            console.log(err);
+        }
+    };
+    const handleApply = async (selectedFilters) => {
 
-    {/*------------Dummy data of SalesMan --------------------*/ }
-    const salesmanDummyData = [
-        {
-            salesman: "Ahmed",
-            customer_count: 45,
-            outstanding_amount: 8.75,
-            overdue_amount: 2.10,
-            collection_percentage: 92.4,
-            dso: 41,
-        },
-        {
-            salesman: "Rahul",
-            customer_count: 30,
-            outstanding_amount: 6.10,
-            overdue_amount: 1.30,
-            collection_percentage: 88.2,
-            dso: 46,
-        },
-        {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
-         {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
+        setFilters(selectedFilters);
+        setLoading(true);
 
-         {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
+        try {
+            await Promise.all([
+                fetchSummary(selectedFilters),
+                fetchAgingSummary(selectedFilters),
+                fetchDivisionWise(selectedFilters),
+                fetchTopCustomers(selectedFilters),
+                fetchDetails(selectedFilters, 1, detailsSort),
+                fetchTrend(selectedFilters),
+                fetchOverdueSummary(selectedFilters),
+                fetchBusinessUnits(selectedFilters),
+                loadSalesman(selectedFilters)
+            ]);
+        }
+        finally {
+            setLoading(false);
+        }
+    };
 
-         {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
-        {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
+    const handleDetailsPageChange = (page) => {
+        setDetailsPage(page);
+        fetchDetails(
+            filters,
+            page,
+            detailsSort
+        );
+    };
 
-         {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
-        {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
+    const handleDetailsSort = (field) => {
+        let direction = "desc";
+        if (
+            detailsSort.sort_by === field &&
+            detailsSort.sort_dir === "desc"
+        ) {
+            direction = "asc";
+        }
+        const newSort = {
+            sort_by: field,
+            sort_dir: direction
+        };
+        setDetailsSort(newSort);
+        fetchDetails(
+            filters,
+            1,
+            newSort
+        );
+        setDetailsPage(1);
+    };
 
-         {
-            salesman: "John",
-            customer_count: 18,
-            outstanding_amount: 3.25,
-            overdue_amount: 0.55,
-            collection_percentage: 95.8,
-            dso: 37,
-        },
+    const handleReset = () => {
+        setFilters({});
 
-
-    ];
-
+        fetchSummary();
+        fetchAgingSummary();
+        fetchDivisionWise();
+        fetchTopCustomers();
+        fetchDetails();
+        fetchTrend();
+        fetchOverdueSummary();
+        fetchBusinessUnits();
+        loadSalesman();
+    };
     const bucketColors = {
         CURRENT: "#22C55E",
         "1_30": "#3B82F6",
@@ -339,29 +476,40 @@ export default function ReceivablesDashboard() {
     };
 
     {/*-------------Create a new array for aging summary--------------------*/ }
-    const agingChartData = agingSummary.map((item) => ({
+    // For the PIE chart (only non-zero slices)
+    const pieData = agingSummary
+        .filter(item => Number(item.amount) > 0)
+        .map(item => ({
+            name: item.bucket_name,
+            value: Number(item.amount),
+            percentage: Number(item.percentage),
+            color: bucketColors[item.bucket_code] || "#9CA3AF",
+        }));
+
+    // For the LEGEND (all buckets)
+    const legendData = agingSummary.map(item => ({
         name: item.bucket_name,
-        value: item.amount,
-        percentage: `${item.percentage}%`,
+        value: Number(item.amount),
+        percentage: Number(item.percentage),
         color: bucketColors[item.bucket_code] || "#9CA3AF",
     }));
 
 
-
     {/*----------Parent division------------------*/ }
     const divisionTotalOutstanding = divisionData.reduce(
-        (sum, item) => sum + item.outstanding_amount,
+        (sum, item) => sum + Number(item.outstanding_amount || 0),
         0
     );
     const divisionChartData = divisionData.map((item) => ({
-        name: item.division_name,
-        value: item.outstanding_amount,
+        name: item.division_name || "-",
+        value: Number(item.outstanding_amount || 0),
         percentage:
             divisionTotalOutstanding > 0
-                ? (
-                    (item.outstanding_amount / divisionTotalOutstanding) *
+                ? `${(
+                    (Number(item.outstanding_amount || 0) /
+                        divisionTotalOutstanding) *
                     100
-                ).toFixed(1) + "%"
+                ).toFixed(1)}%`
                 : "0%",
     }));
 
@@ -369,56 +517,50 @@ export default function ReceivablesDashboard() {
     const topCustomerTableData = topCustomers.map((customer, index) => ({
         id: index + 1,
         name: customer.customer_name,
-        amount: customer.total_outstanding,
-        pct: `${customer.percentage_of_total}%`,
-    }));
-
-    const detailedTableData = detailsData.map((item, index) => ({
-        id: index + 1,
-        customerName: item.customer_name,
-        customerType: item.customer_type,
-        currency: item.currency,
-        country: item.country,
-        invoiceNumber: item.invoice_number,
-        invoiceDate: item.invoice_date,
-        dueDate: item.due_date,
-        outstandingAmount: item.outstanding_amount,
-        agingBucket: item.aging_bucket,
-        salesman: item.salesman,
-        division: item.division,
-        legalEntity: item.legal_entity,
-    }));
+        amount: Number(customer.total_outstanding || 0),
+        pct: Number(customer.percentage_of_total || 0)
+    })
+    );
+    // const detailedTableData = detailsData.map((item, index) => ({
+    //     id: index + 1,
+    //     customerName: item.customer_name,
+    //     customerType: item.customer_type,
+    //     currency: item.currency,
+    //     country: item.country,
+    //     invoiceNumber: item.invoice_number,
+    //     invoiceDate: item.invoice_date,
+    //     dueDate: item.due_date,
+    //     outstandingAmount: item.outstanding_amount,
+    //     agingBucket: item.aging_bucket,
+    //     salesman: item.salesman,
+    //     division: item.division,
+    //     legalEntity: item.legal_entity,
+    // }));
 
     const receivableTrendChart = trendData.map(item => ({
-        month: new Date(item.snapshot_date).toLocaleString("default", {
+        month: new Date(item.as_on_date).toLocaleString("default", {
             month: "short",
         }),
-        payables: item.total_receivables,
-        dpo: item.average_collection_days ?? 0,
+
+        // Bar expects payables
+        payables: Number(item.total_receivables || 0),
+
+        // Line expects dpo
+        dpo: 0,
+
+        current: Number(item.current || 0),
+        overdue: Number(item.amount_1_30 || 0),
     }));
 
     useEffect(() => {
-        fetchFilters();
-        fetchSummary();
-        fetchAgingSummary();
-        fetchDivisionWise();
-        fetchTopCustomers();
-        fetchDetails();
-        fetchTrend();
-        fetchOverdueSummary();
-        fetchBusinessUnits();
+        loadDashboardData();
     }, []);
 
-    // useEffect(() => {
-    //     loadSalesman();
-    // }, [filters]);
 
     const handleExport = async (type) => {
         try {
             setExporting(type);
-
-            const response = await getReceivableExport(type);
-
+            const response = await getReceivableExport(type, filters);
             const blob = new Blob([response.data], {
                 type:
                     type === "excel"
@@ -427,10 +569,8 @@ export default function ReceivablesDashboard() {
             });
 
             const url = window.URL.createObjectURL(blob);
-
             const link = document.createElement("a");
             link.href = url;
-
             link.download =
                 type === "excel"
                     ? "Receivables_Report.xlsx"
@@ -438,149 +578,140 @@ export default function ReceivablesDashboard() {
 
             document.body.appendChild(link);
             link.click();
-
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch (err) {
             console.error(err);
-            alert("Export Failed");
+            if (type === "excel") {
+                alert("Export Failed");
+            }
+            else {
+                alert("PDF Download Failed");
+            }
         } finally {
             setExporting("");
         }
     };
 
     return (
-        <div className="page-content">
-            {/* Page Header */}
-            <div className="page-header">
-                {/* Left Content */}
-                <div>
-                    <h1 className="page-header-title">
-                        Receivable Dashboard
-                    </h1>
-                    <p className="page-header-subtitle">
-                        Tracking receivables,aging,overdue and collection performance.
-                    </p>
-                </div>
-                {/* Actions */}
-                <div className="topbar-actions">
-                    <button id="btn-pl-export-excel"
-                        onClick={() => handleExport("excel")}
-                        disabled={exporting !== ""}
-                        style={{
-                            display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
-                            background: exporting === "excel" ? "#d1fae5" : "#f0fdf4",
-                            color: "#15803d", border: "1px solid #bbf7d0", borderRadius: 8,
-                            fontSize: "0.76rem", fontWeight: 700,
-                            cursor: exporting ? "not-allowed" : "pointer",
-                            opacity: exporting ? 0.7 : 1,
-                        }}> {exporting === "excel" ? "⏳" : "📊"} Excel
-                    </button>
+        <div className="page-content relative">
 
-                    <button
-                        onClick={() => handleExport("pdf")}
-                        disabled={exporting !== ""}
-                        style={{
-                            display: "flex",
-                            alignItems: "center", gap: 5, padding: "7px 14px",
-                            background: exporting === "pdf" ? "#fee2e2" : "#fef2f2",
-                            color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8,
-                            fontSize: "0.76rem", fontWeight: 700,
-                            cursor: exporting ? "not-allowed" : "pointer", opacity: exporting ? 0.7 : 1,
-                        }}> {exporting === "pdf" ? "⏳" : "📄"} PDF
-                    </button>
+            {loading && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-3">
+
+                        <div className="w-10 h-10 border-4 border-[#081B46] border-t-transparent rounded-full animate-spin"></div>
+
+                        <p className="text-sm font-semibold text-[#081B46]">
+                            Loading Receivables Dashboard...
+                        </p>
+
+                    </div>
                 </div>
-            </div>
+            )}
+
+            <PageHeader
+                title="Receivables Dashboard"
+                subtitle="Tracking receivables, aging, overdue and collection performance.">
+
+                <ExportButtons
+                    endpoint="receivables"
+                    exporting={exporting}
+                    handleExport={handleExport}
+                />
+            </PageHeader>
 
             {/* Main Content */}
 
             <div className="flex flex-col gap-2">
+                {/* ----Filters---- */}
+                <Filters
+                    filterOptions={filterOptions}
+                    onApply={handleApply}
+                    onReset={handleReset}
+                />
+                {/* -----KPI Cards----- */}
+                <div style={{ marginTop: "-18px" }}>
+                    <KPICards data={receivableKpiData} />
+                </div>
 
-                {/* Filters */}
-                <Filters filterOptions={filterOptions} />
-
-
-                {/* KPI Cards */}
-                {/* <KPICards data={receivableKpiData} /> */}
-                <KPICards data={kpiDataReceivable} />
 
                 {/* Charts Row 1 */}
-
-                <div className="grid-cols-3">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     <AgingSummaryCard
-                        title="Receivables Aging Summary (₹ Cr)"
-                        data={agingChartData}
-                        total={summary?.total_receivables}
+                        title="Receivables Aging Summary"
+                        data={pieData}
+                        date={filters.as_on_date}
+                        legendData={legendData}
+                        total={agingTotal}
                     />
                     <PayablesTrendCard
                         title="Receivables Trend"
-                        daysname="DSO (days)"
-                        charttitle="Total Receivables(Cr)"
+                        daysname="DSO (Days)"
+                        charttitle="Total Receivables"
                         data={receivableTrendChart}
+                        currency="AED"
+                        datakey="receivables"
                     />
 
                     <ParentDivisionCard
-                        title="Receivables by Parent Division (₹ Cr)"
+                        title="Receivables by Parent Division"
                         data={divisionChartData}
                     />
 
-
                 </div>
+
 
                 {/* Charts Row 2 */}
 
-                <div className="grid-cols-3">
-
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                     <TopVendorsTable
-                        title="Top 10 Customers by Receivables (₹ Cr)"
+                        title="Top 10 Customers by Receivables"
                         tabletitle1="Customer Name"
                         tabletitle2="Receivable"
                         data={topCustomerTableData}
                     />
-
                     <OverDueSummaryCard
-                        title="Overdue Summary (₹ Cr)"
+                        title="Overdue Summary"
                         data={overdueData}
-                        total={overdueTotal.toFixed(2)}
+                        total={Number(overdueTotal).toFixed(2)}
                     />
-
                     <BusinessUnitTable
-                        title="Receivables by Business Unit (₹ Cr)"
+                        title="Receivables by Business Unit"
                         tabletitle="Receivable"
                         data={businessUnitData}
                     />
-
                 </div>
                 <div className="mt-20">
                     <SalesmanTable
                         title="Salesman Performance"
-                        data={salesmanDummyData}
+                        data={salesmanData}
                     />
                 </div>
                 <div className="mt-20">
                     <DetailedViewTable
                         title="Receivables Detailed View"
-                        data={detailedTableData}
+                        data={detailsData}
+                        currency="AED"
+                        page={detailsPage}
+                        pageSize={detailsPageSize}
+                        totalCount={detailsTotalCount}
+                        onPageChange={handleDetailsPageChange}
+                        onSort={handleDetailsSort}
                     />
                 </div>
             </div>
 
             {/* Footer */}
-
-            <footer
-                className="fixed bottom-0 left-58 right-2 h-6 bg-white border-t border-gray-20 px-3 flex items-cente 
-                          justify-between text-[10px] text-gray-600 z-50">
-                <span>
-                    All values are in INR (₹ Cr) | Data as on 30 Apr 2024
-                </span>
-
-                <span>
-                    Source: Oracle Fusion Cloud
-                </span>
-
-            </footer>
+            <div className="fixed bottom-0 left-58 right-2 z-50 bg-white border-t border-gray-200 p-2">
+                <FooterNote
+                    title="Note:"
+                    message="All values are in AED | ☁️ Source: Oracle Fusion Cloud"
+                    lastUpdated={filters.as_on_date || filterOptions.as_on_dates?.[0]}
+                    showRefresh={false}
+                />
+            </div>
         </div>
-
     );
 }
 

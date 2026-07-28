@@ -16,14 +16,30 @@ import {
   Legend, LabelList,
 } from 'recharts';
 
-export function AgingSummaryCard({ title, data, total }) {
+export function AgingSummaryCard({ title, data, legendData = [], total, date, }) {
+  const formatAmount = (value) => {
+    const amount = Number(value);
+
+    if (amount >= 1_000_000) {
+      return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+    }
+
+    if (amount >= 1_000) {
+      return `AED ${(amount / 1_000).toFixed(2)}K`;
+    }
+
+    return `AED ${amount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
   return (
-    <div className="card flex flex-col h-40">
+<div className="card flex flex-col h-80 w-full min-w-0">
 
       <h3 className="text-[11px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
         <span>{title}</span>
         <span className="text-[9px] text-gray-400 font-medium">
-          As on 30 Apr 2024
+          {date}
         </span>
       </h3>
 
@@ -35,8 +51,8 @@ export function AgingSummaryCard({ title, data, total }) {
             <PieChart>
               <Pie
                 data={data}
-                innerRadius={32}
-                outerRadius={50}
+                innerRadius={60}
+                outerRadius={85}
                 paddingAngle={1}
                 dataKey="value"
               >
@@ -44,16 +60,35 @@ export function AgingSummaryCard({ title, data, total }) {
                   <Cell key={idx} fill={entry.color} />
                 ))}
               </Pie>
+              <Tooltip
+                formatter={(value, name, props) => [
+                  `₹ ${Number(value).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  props.payload.name,
+                  props.payload.percentage,
+                ]}
+                contentStyle={{
+                  borderRadius: "8px",
+                  border: "1px solid #E2E8F0",
+                  fontSize: "11px",
+                }}
+              />
 
             </PieChart>
 
           </ResponsiveContainer>
 
-          <div className="absolute text-center">
-            <p className="text-[13px] font-extrabold text-gray-800 leading-none">
-              ₹ {total}
+          <div className="absolute text-center" style={{ pointerEvents: "none" }}>
+            <p className="text-[9px] font-extrabold text-gray-900 leading-none">
+              AED {Number(total || 0).toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
-            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+
+            <span className="text-[8px] font-bold text-gray-600 uppercase tracking-wider">
               Total
             </span>
           </div>
@@ -61,9 +96,9 @@ export function AgingSummaryCard({ title, data, total }) {
 
 
         {/* LEGEND */}
-        <div className="w-1/2 space-y-1">
+           <div className="w-1/2 flex flex-col justify-center gap-2">
 
-          {data.map((item, idx) => (
+          {legendData.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between text-[10px] font-medium">
 
               <div className="flex items-center gap-1.5">
@@ -77,7 +112,7 @@ export function AgingSummaryCard({ title, data, total }) {
               </div>
 
               <span className="text-gray-900 font-semibold text-[10px]">
-                {item.value.toFixed(2)} ({item.percentage})
+                {item.percentage}% ({formatAmount(item.value)})
               </span>
 
             </div>
@@ -91,8 +126,24 @@ export function AgingSummaryCard({ title, data, total }) {
 
 export function OverDueSummaryCard({ title, data, total }) {
 
+  const formatAmount = (value) => {
+    const amount = Number(value);
+
+    if (amount >= 1_000_000) {
+      return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+    }
+
+    if (amount >= 1_000) {
+      return `AED ${(amount / 1_000).toFixed(2)}K`;
+    }
+
+    return `AED ${amount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
   return (
-  <div className="card flex flex-col h-52">
+    <div className="card flex flex-col ">
 
       <h3 className="text-[11px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
         <span>{title}</span>
@@ -106,8 +157,8 @@ export function OverDueSummaryCard({ title, data, total }) {
             <PieChart>
               <Pie
                 data={data}
-                innerRadius={32}
-                outerRadius={50}
+                innerRadius={60}
+                outerRadius={85}
                 paddingAngle={1}
                 dataKey="value"
               >
@@ -115,31 +166,50 @@ export function OverDueSummaryCard({ title, data, total }) {
                   <Cell key={idx} fill={entry.color} />
                 ))}
               </Pie>
+
+              <Tooltip
+                formatter={(value, name, props) => [
+                  `₹ ${Number(value).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}`,
+                  props.payload.name,
+                  props.payload.percentage,
+                ]}
+                contentStyle={{
+                  borderRadius: "8px",
+                  border: "1px solid #E2E8F0",
+                  fontSize: "11px",
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
 
           <div className="absolute text-center">
-            <p className="text-[13px] font-extrabold text-gray-800 leading-none">
-              ₹ {total}
+            <p className="text-[9px] font-extrabold text-gray-900 leading-none">
+              AED {Number(total || 0).toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </p>
 
             <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
-              Total
+              Total overdue
             </span>
           </div>
         </div>
 
 
         {/* LEGEND */}
-        <div className="w-1/2 space-y-1">
+         <div className="w-1/2 flex flex-col justify-center gap-3">
 
           {data.map((item, idx) => (
             <div
               key={idx}
-              className="flex items-center justify-between text-[10px] font-medium"
+              className="flex items-center justify-between text-[10px] font-medium py-1"
             >
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
 
                 <span
                   className="w-2 h-2 rounded-sm shrink-0"
@@ -151,11 +221,9 @@ export function OverDueSummaryCard({ title, data, total }) {
                 </span>
 
               </div>
-
               <span className="text-gray-900 font-semibold text-[10px]">
-                {item.value.toFixed(2)} ({item.percentage})
+                {item.percentage}% ({formatAmount(item.value)})
               </span>
-
             </div>
           ))}
 
@@ -167,10 +235,26 @@ export function OverDueSummaryCard({ title, data, total }) {
   );
 }
 
-export function PayablesTrendCard({ data , title, charttitle,daysname}) {
-  return (
-   <div className="card flex flex-col h-40">
+export function PayablesTrendCard({ data, title, charttitle, daysname, currency = "AED", datakey, }) {
+  const formatAmount = (value) => {
+    if (value == null) return "";
 
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(2)}M`;
+    }
+
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(2)}K`;
+    }
+
+    return Number(value).toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  return (
+   <div className="card flex flex-col h-80 w-full min-w-0">
       {/* Header */}
       <h3 className="text-[11px] font-bold text-[#081B46] mb-3">
         {title}
@@ -205,7 +289,7 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
               tickLine={false}
               tick={{
                 fontSize: 9,
-                fill: "#64748B",
+                fill: "#64748B",fontWeight:800,
               }}
             />
 
@@ -216,16 +300,19 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
               tickLine={false}
               tick={{
                 fontSize: 9,
-                fill: "#64748B",
+                fill: "#64748B",fontWeight:800,
               }}
+              tickFormatter={formatAmount}
               label={{
-                value: "₹ Cr",
+                value: currency,
                 angle: 0,
                 position: "insideTopLeft",
-                dy: -12,
+                dx: 10,
+                dy: -18,
                 style: {
                   fontSize: 9,
                   fill: "#64748B",
+                  fontWeight: 900,
                 },
               }}
             />
@@ -238,22 +325,28 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
               tickLine={false}
               tick={{
                 fontSize: 9,
-                fill: "#64748B",
+                fill: "#64748B",fontWeight:800,
               }}
               label={{
                 value: "Days",
                 angle: 0,
                 position: "insideTopRight",
-                dy: -12,
+                dx: 0,
+                dy: -20,
                 style: {
                   fontSize: 9,
                   fill: "#64748B",
+                  fontWeight: 900,
                 },
               }}
             />
 
             {/* Tooltip */}
             <Tooltip
+              formatter={(value, name) => [
+                formatAmount(value),
+                name,
+              ]}
               contentStyle={{
                 borderRadius: 8,
                 border: "1px solid #E2E8F0",
@@ -272,7 +365,7 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
               }}
             />
 
-            {/* Bars */}
+            {/* Bar */}
             <Bar
               yAxisId="left"
               dataKey="payables"
@@ -291,7 +384,7 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
               <LabelList
                 dataKey="payables"
                 position="top"
-                formatter={(value) => value.toFixed(2)}
+                formatter={formatAmount}
                 style={{
                   fontSize: 9,
                   fill: "#0F172A",
@@ -300,7 +393,7 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
               />
             </Bar>
 
-            {/* DPO Line */}
+            {/* Line */}
             <Line
               yAxisId="right"
               type="monotone"
@@ -325,44 +418,121 @@ export function PayablesTrendCard({ data , title, charttitle,daysname}) {
   );
 }
 
+export function ParentDivisionCard({
+  data = [],
+  title,
+}) {
 
-export function ParentDivisionCard({ data, title }) {
+  const formatCurrency = (value) => {
+    if (value == null) return "-";
+
+    const amount = Number(value);
+
+    if (amount >= 1_000_000) {
+      return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+    }
+
+    if (amount >= 1_000) {
+      return `AED ${(amount / 1_000).toFixed(2)}K`;
+    }
+
+    return `AED ${amount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
   return (
-    <div className="parent-division-card">
-      <h3 className="parent-division-title">
-        {title}
-      </h3>
+   <div className="card flex flex-col h-80 w-full min-w-0">
+      {/* Header */}
+      <div className="mb-3">
+        <h3 className="text-[11px] font-extrabold text-[#081B46]">
+          {title}(AED)
+        </h3>
+      </div>
 
-      <div className="parent-division-list">
-        {data.map((item, idx) => (
-          <div
-            key={idx}
-            className="parent-division-row"
+      {/* Chart */}
+      <div className="flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{
+              top: 5,
+              right: 70,
+              left: 15,
+              bottom: 5,
+            }}
+            barCategoryGap="28%"
           >
-            {/* NAME */}
-            <span className="parent-division-name">
-              {item.name}
-            </span>
+            <CartesianGrid
+              stroke="#EEF2F7"
+              strokeDasharray="3 3"
+              horizontal={false}
+            />
 
-            {/* BAR */}
-            <div className="parent-division-progress">
-              <div
-                className="parent-division-progress-bar"
+            {/* X Axis */}
+            <XAxis
+              type="number"
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fontSize: 10,
+                fill: "#64748B",fontWeight:800,
+              }}
+              tickFormatter={(value) => {
+                if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
+                if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+                return value;
+              }}
+            />
+
+            {/* Y Axis */}
+            <YAxis
+              type="category"
+              dataKey="name"
+              width={110}
+              axisLine={false}
+              tickLine={false}
+              tick={{
+                fontSize: 10,
+                fill: "#334155",fontWeight:800,
+              }}
+            />
+
+            {/* Tooltip */}
+            <Tooltip
+              formatter={(value) => [
+                formatCurrency(value),
+                "Outstanding",
+              ]}
+
+              contentStyle={{
+                borderRadius: 8,
+                border: "1px solid #E2E8F0",
+                fontSize: 11,
+              }}
+            />
+
+            {/* Bars */}
+            <Bar
+              dataKey="value"
+              fill="#2563EB"
+              radius={[0, 6, 6, 0]}
+              barSize={18}
+            >
+              <LabelList
+                dataKey="value"
+                position="right"
+                formatter={(value) => formatCurrency(value)}
                 style={{
-                  width: item.percentage
+                  fontSize: 10,
+                  fill: "#0F172A",
+                  fontWeight: 600,
                 }}
               />
-            </div>
-
-            {/* VALUE */}
-            <span className="parent-division-value">
-              {item.value.toFixed(2)}
-              <span className="parent-division-percent">
-                ({item.percentage})
-              </span>
-            </span>
-          </div>
-        ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

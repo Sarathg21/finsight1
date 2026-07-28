@@ -15,9 +15,8 @@ const api = axios.create({
 //localStorage.setItem("token", response.data.access_token);
 localStorage.setItem(
     "token",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ6ZW5pdGhAZmp0Y28uY29tIiwidXNlcl9pZCI6Miwicm9sZSI6IkFkbWluIiwiZnVsbF9uYW1lIjoiWmVuaXRoIFVzZXIiLCJleHAiOjE3ODQ2NjkwMjR9.lgiDC7k9Fgwkf2pwrx0MRijWGKZsa7S6dGjeiUn6IZ8"
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ6ZW5pdGhAZmp0Y28uY29tIiwidXNlcl9pZCI6Niwicm9sZSI6IkNGTyIsImZ1bGxfbmFtZSI6Ilplbml0aCBVc2VyIiwiZXhwIjoxNzg1MzA1MTk1fQ.MhEkGzuCmbjfhPopKyVYxDZNiLF_EoMSjwW5ivVWGH0"
 );
-
 // Request Interceptor
 api.interceptors.request.use(
     (config) => {

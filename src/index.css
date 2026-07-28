@@ -786,7 +786,7 @@ body {
 .parent-division-value {
   width: 80px;
   text-align: right;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   color: #0f172a;
 }
@@ -807,11 +807,11 @@ body {
 }
 
 .compact-table thead th {
-  padding: 4px 6px;
+  padding: 11px 7px;
   background: #f8fafc;
   font-size: 10px;
-  font-weight: 700;
-  color: #64748b;
+  font-weight: 600;
+  color: #081B46;
   border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
 }
@@ -824,6 +824,7 @@ body {
 .salesman_table .compact-table tbody td {
   padding: 5px 6px;
 }
+
 .card .compact-table tbody td {
   padding: 5px 8px;
   font-size: 9px;
@@ -835,12 +836,49 @@ body {
 }
 
 .compact-table tbody td {
-  padding: 2px 5px;
-  font-size: 9px;
-  color: #334155;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.03);
-  line-height: 1;
+  padding: 12px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+  line-height: 3;
 }
+
+.card .detailed-table tbody td {
+  font-size: 12px;
+
+}
+
+.business-unit-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.business-unit-table thead th {
+  padding: 11px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #081B46;
+  background: #f8fafc;
+}
+
+.business-unit-table tbody td {
+  padding: 14px 10px !important;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 2.5;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.business-unit-table tbody tr {
+  height: 50px;
+}
+
+.business-unit-table tbody tr:hover {
+  background: #f8fafc;
+}
+
 
 .compact-table tbody tr:last-child td {
   border-bottom: none;
@@ -1148,7 +1186,7 @@ tbody tr:hover {
 /* ══════════════════════════════════════════════════════════
    GRID UTILITIES
 ══════════════════════════════════════════════════════════ */
-
+/* 
 
 .grid-cols-1 {
   display: grid;
@@ -1214,7 +1252,7 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--card-gap);
-}
+} */
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE
@@ -1377,6 +1415,68 @@ tbody tr:hover {
     display: none;
   }
 }
+
+/* =========================================
+   RECEIVABLE DASHBOARD RESPONSIVE
+========================================= */
+
+.receivable-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* Tablet */
+@media (max-width: 1200px) {
+  .receivable-kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Small Tablet */
+@media (max-width: 768px) {
+  .receivable-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+/* Mobile */
+@media (max-width: 480px) {
+  .receivable-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.receivable-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+
+}
+
+.kpi-grid-responsive {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .kpi-grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-grid-responsive {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 /* ══════════════════════════════════════════════════════════
    MOBILE SIDEBAR BACKDROP
