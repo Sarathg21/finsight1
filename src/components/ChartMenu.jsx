@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { getReceivableExport } from "../api/recevablesApi";
 
@@ -14,9 +15,7 @@ function ChartMenu({ onViewAll, endpoint, filters = {} }) {
         setOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handler);
-
     return () => {
       document.removeEventListener("mousedown", handler);
     };

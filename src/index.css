@@ -887,15 +887,30 @@ body {
 .compact-table tbody tr:hover {
   background: #f8fafc;
 }
+.receivables-title {
+    margin-left: 20px;
+}
 
 .detailed-view-table thead th {
   color: #07247b !important;
+    padding-right: 12px !important;
 }
 
 .detailed-view-table tbody td {
   font-size: 12px !important;
   line-height: 1;
 }
+
+.inventory-head h3{
+    margin-left: 20px;
+  color: #07247b !important;
+}
+
+.inventory-details-table thead th {
+  color: #07247b !important;
+    padding-right: 12px !important;
+}
+
 /* ══════════════════════════════════════════════════════════
    TABLES
 ══════════════════════════════════════════════════════════ */
@@ -1503,7 +1518,25 @@ tbody tr:hover {
   }
 }
 
+/*For Inventory page */
+.inventory-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1.32fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
 
+@media (max-width: 1200px) {
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .inventory-grid {
+    grid-template-columns: 1fr;
+  }
+}
 /* ══════════════════════════════════════════════════════════
    MOBILE SIDEBAR BACKDROP
 ══════════════════════════════════════════════════════════ */

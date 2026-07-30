@@ -1,22 +1,11 @@
 
 import React from 'react';
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Line,
-  LineChart,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+  ResponsiveContainer, BarChart, Bar, Line, LineChart, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, LabelList,
 } from 'recharts';
 
-export function AgingSummaryCard({ title, data, legendData = [], total, date, }) {
+export function AgingSummaryCard({ title, data, legendData = [], total, date, showSummaryHeader = false, }) {
   const formatAmount = (value) => {
     const amount = Number(value);
 
@@ -42,6 +31,42 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
           {date}
         </span>
       </h3>
+
+      {showSummaryHeader && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            width: "130px",
+            marginLeft: "auto",
+            marginBottom: "4px",
+          }}
+        >
+          <span
+            style={{
+              width: "40px",
+              textAlign: "right",
+              fontSize: "10px",
+              fontWeight: "700",
+              color: "#64748B",
+            }}
+          >
+            %
+          </span>
+
+          <span
+            style={{
+              width: "90px",
+              textAlign: "right",
+              fontSize: "10px",
+              fontWeight: "700",
+              color: "#64748B",
+            }}
+          >
+            Amount
+          </span>
+        </div>
+      )}
 
       <div className="flex-1 flex items-center justify-between gap-1">
 
@@ -81,7 +106,7 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
           </ResponsiveContainer>
 
           <div className="absolute text-center" style={{ pointerEvents: "none" }}>
-             <p className="text-[13px] font-extrabold text-gray-900 leading-none">
+            <p className="text-[13px] font-extrabold text-gray-900 leading-none">
               AED {(Number(total || 0) / 1_000_000).toFixed(2)}M
             </p>
 
@@ -109,10 +134,42 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
                 </span>
               </div>
 
-              <span className="text-gray-900 font-semibold text-[10px]">
-                {item.percentage}% ({formatAmount(item.value)})
-              </span>
+              {showSummaryHeader ? (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    width: "130px",
+                    marginLeft: "auto",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: "40px",
+                      textAlign: "right",
+                      fontSize: "10px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {item.percentage}%
+                  </span>
 
+                  <span
+                    style={{
+                      width: "90px",
+                      textAlign: "right",
+                      fontSize: "10px",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {formatAmount(item.value)}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-gray-900 font-semibold text-[10px]">
+                  {item.percentage}% ({formatAmount(item.value)})
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -122,7 +179,7 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
   );
 }
 
-export function OverDueSummaryCard({ title, data, total }) {
+export function OverDueSummaryCard({ title, data, total, Centerlabel }) {
 
   const formatAmount = (value) => {
     const amount = Number(value);
@@ -189,7 +246,7 @@ export function OverDueSummaryCard({ title, data, total }) {
             </p>
 
             <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
-              Total overdue
+              {Centerlabel}
             </span>
           </div>
         </div>
@@ -413,11 +470,7 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
   );
 }
 
-export function ParentDivisionCard({
-  data = [],
-  title,
-}) {
-
+export function ParentDivisionCard({ data = [], title, }) {
   const formatCurrency = (value) => {
     if (value == null) return "-";
 
@@ -529,6 +582,85 @@ export function ParentDivisionCard({
           </BarChart>
         </ResponsiveContainer>
       </div>
+    </div>
+  );
+}
+
+
+export function InventoryValueTrend({ data, title }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-80"
+      style={{ padding: "18px 20px" }}>
+      <h3 className="text-[13px] font-bold text-[#081B46] mb-4" style={{ marginBottom: "18px" }}>
+        {title}
+      </h3>
+
+      <ResponsiveContainer width="100%" height="90%">
+        <LineChart
+          data={data}
+          margin={{
+            top: 10,
+            right: 20,
+            left: 15,
+            bottom: 20,
+          }}
+        >
+          <CartesianGrid
+            stroke="#EEF2F7"
+            vertical={false}
+          />
+
+          <XAxis
+            dataKey="month"
+            axisLine={false}
+            tickLine={false}
+            padding={{ left: 20, right: 20 }}
+            tick={{
+              fontSize: 11,
+              fill: "#64748B",
+            }}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            dx={-8}
+            tick={{
+              fontSize: 11,
+              fill: "#64748B",
+            }}
+          />
+          <Tooltip />
+
+          <Legend
+            verticalAlign="top"
+            align="center"
+            wrapperStyle={{
+              fontSize: 12,
+              paddingBottom: 10,
+            }}
+          />
+
+          <Line
+            type="monotone"
+            dataKey="fy2324"
+            name="FY 23-24"
+            stroke="#2563EB"
+            strokeWidth={3}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+          />
+
+          <Line
+            type="monotone"
+            dataKey="fy2425"
+            name="FY 24-25"
+            stroke="#16A34A"
+            strokeWidth={3}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
     </div>
   );
 }

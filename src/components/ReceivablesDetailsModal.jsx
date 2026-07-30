@@ -164,7 +164,7 @@ export default function ReceivablesDetailsModal({
 
                 <div className="flex items-center justify-between rounded-xl border border-slate-200 px-6 py-4">
 
-                    <div className="flex flex-col">
+                    <div className="flex flex-col receivables-title">
 
                         <h2 className="text-[22px] font-bold text-[#081B46] leading-none">
                             Receivables Detailed View

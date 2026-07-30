@@ -16,8 +16,15 @@ export function TopVendorsTable({ data, title, tabletitle1, tabletitle2 }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex flex-col">
-      <h3 className="text-[14px] font-bold text-[#081B46] mb-2" style={{ paddingLeft: "14px" }}>
-        {title}(AED)
+      <h3
+        style={{
+          padding: "12px 16px",
+          fontSize: "14px",
+          fontWeight: 700,
+          color: "#081B46",
+        }}
+      >
+        {title} (AED)
       </h3>
 
       <div className="flex-1 overflow-auto border border-gray-100 rounded-lg">
@@ -243,7 +250,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
             overflowX: "hidden",
           }}
         >
-           <table className="business-unit-table"
+          <table className="business-unit-table"
             style={{
               width: "100%",
               borderCollapse: "collapse",
@@ -362,7 +369,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
                   style={{
                     padding: "8px",
                     textAlign: "center",
-                     fontWeight: 900, color: "#64748B",
+                    fontWeight: 900, color: "#64748B",
                   }}
                 >
                   Total
@@ -372,7 +379,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
                   style={{
                     padding: "8px",
                     textAlign: "right",
-                     fontWeight: 900, color: "#64748B",
+                    fontWeight: 900, color: "#64748B",
                   }}
                 >
                   {Number(grandTotal).toLocaleString("en-GB", {
@@ -385,7 +392,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
                   style={{
                     padding: "8px",
                     textAlign: "right",
-                     fontWeight: 900, color: "#64748B",
+                    fontWeight: 900, color: "#64748B",
                   }}
                 >
                   100.00%
@@ -477,13 +484,12 @@ export function SalesmanTable({ data = [], title }) {
       <h3
         style={{
           padding: "12px 16px",
-          fontSize: "11px",
+          fontSize: "14px",
           fontWeight: 700,
           color: "#081B46",
-          borderBottom: "1px solid #E2E8F0",
         }}
       >
-        {title}
+        {title} (AED)
       </h3>
 
       {/* Table */}
@@ -822,6 +828,436 @@ export function SalesmanTable({ data = [], title }) {
           >
             {">>"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+{/*....... inventory slow moving items table ............*/ }
+
+export function InventoryTable({data = [],title }) {
+  return (
+    <div
+      className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col w-full h-80"
+      style={{
+       
+        boxShadow: "0 1px 4px rgba(15,23,42,.06)",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          height: 42,
+          display: "flex",
+          alignItems: "center",
+          padding: "0 16px",
+          borderBottom: "1px solid #E8EDF5",
+          fontSize: 14,
+          fontWeight: 700,
+          color: "#112B6B",
+          background: "#fff",
+        }}
+      >
+        {title}
+      </div>
+
+      {/* Table */}
+      <div
+        className="flex-1"
+        style={{
+          overflowY: "auto",
+        }}
+      >
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            tableLayout: "fixed",
+            fontSize: 11,
+          }}
+        >
+          <thead
+            style={{
+              position: "sticky",
+              top: 0,
+              background: "#F8FAFD",
+              zIndex: 5,
+            }}
+          >
+            <tr>
+              <th
+                style={{
+                  width: "7%",
+                  padding: "8px 8px",
+                  textAlign: "center",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                }}
+              >
+                #
+              </th>
+
+              <th
+                style={{
+                  width: "34%",
+                  padding: "12px 10px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                }}
+              >
+                Item Description
+              </th>
+
+              <th
+                style={{
+                  width: "17%",
+                 padding: "12px 10px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                }}
+              >
+                Item Code
+              </th>
+
+              <th
+                style={{
+                  width: "14%",
+                  padding: "12px 10px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                }}
+              >
+                Qty 
+              </th>
+
+              <th
+                style={{
+                  width: "17%",
+                  padding: "12px 10px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                }}
+              >
+                Value 
+              </th>
+
+              <th
+                style={{
+                  width: "11%",
+                  padding: "12px 10px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                }}
+              >
+                Days
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {data.length ? (
+              data.map((item, index) => (
+                <tr
+                  key={index}
+                  style={{
+                    height: 34,
+                    background: index % 2 === 0 ? "#FFFFFF" : "#FBFCFE",
+                    borderBottom: "1px solid #EEF2F7",
+                  }}
+                >
+                  <td
+                    style={{
+                      textAlign: "center",
+                      color: "#64748B",
+                      fontWeight: 600,
+                      padding: "6px 8px",
+                    }}
+                  >
+                    {index + 1}
+                  </td>
+
+                  <td
+                    style={{
+                     padding: "10px 10px",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {item.item}
+                  </td>
+
+                  <td
+                    style={{
+                     padding: "10px 10px",
+                      textAlign: "left",
+                     color: "#0F172A",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {item.code}
+                  </td>
+
+                  <td
+                    style={{
+                    padding: "10px 10px",
+                      textAlign: "left",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {Number(item.qty).toLocaleString()}
+                  </td>
+
+                  <td
+                    style={{
+                    padding: "10px 10px",
+                      textAlign: "left",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {Number(item.value).toFixed(2)}
+                  </td>
+
+                  <td
+                    style={{
+                     padding: "10px 10px",
+                      textAlign: "left",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {item.days}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={6}
+                  style={{
+                    textAlign: "center",
+                    padding: "40px",
+                    color: "#64748B",
+                  }}
+                >
+                  No records found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/*Inventory Location */
+export  function InventoryLocationTable({data = [], title }) {
+
+  const grandTotal = data.reduce(
+    (acc, curr) => acc + Number(curr.value || 0),
+    0
+  );
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-80">
+      {/* Header */}
+      <h3
+        style={{
+          padding: "12px 16px",
+          fontSize: "13px",
+          fontWeight: 700,
+          color: "#081B46",
+        }}
+      >
+        {title}
+      </h3>
+
+      {/* Table */}
+      <div className="flex-1 border border-gray-100 rounded-lg overflow-hidden">
+        <div
+          style={{
+            overflowY: "auto",
+            overflowX: "hidden",
+          }}
+        >
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              tableLayout: "fixed",
+              fontSize: "0.74rem",
+            }}
+          >
+            <thead
+              style={{
+                position: "sticky",
+                top: 0,
+                background: "#F8FAFC",
+                zIndex: 10,
+              }}
+            >
+              <tr>
+                <th
+                  style={{
+                    width: "50%",
+                    textAlign: "left",
+                    padding: "10px",
+                    fontWeight: 700,
+                    color:"#1E3A8A",
+                  }}
+                >
+                  Location
+                </th>
+
+                <th
+                  style={{
+                    width: "30%",
+                    textAlign: "left",
+                    padding: "10px",
+                    fontWeight: 700, color:"#1E3A8A",
+                  }}
+                >
+                  Value (AED)
+                </th>
+
+                <th
+                  style={{
+                    width: "20%",
+                    textAlign: "left",
+                    padding: "10px",
+                    fontWeight: 700, color:"#1E3A8A",
+                  }}
+                >
+                  % Share
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {data.length > 0 ? (
+                data.map((item, index) => (
+                  <tr
+                    key={index}
+                    style={{
+                      borderBottom: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <td
+                      style={{
+                        padding: "10px",
+                        fontWeight: 600,
+                        color: "#0F172A",
+                      }}
+                    >
+                      {item.location}
+                    </td>
+
+                    <td
+                      style={{
+                        padding: "10px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {Number(item.value).toLocaleString("en-GB", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+
+                    <td
+                      style={{
+                        padding: "10px",
+                        textAlign: "left",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {grandTotal > 0
+                        ? ((Number(item.value) / grandTotal) * 100).toFixed(2)
+                        : "0.00"}
+                      %
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={3}
+                    style={{
+                      textAlign: "center",
+                      padding: "40px",
+                    }}
+                  >
+                    No records found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+
+            <tfoot>
+              <tr
+                style={{
+                  position: "sticky",
+                  bottom: 0,
+                  background: "#F8FAFC",
+                  borderTop: "1px solid #E2E8F0",
+                  zIndex: 5,
+                }}
+              >
+                <td
+                  style={{
+                    padding: "10px",
+                    fontWeight: 900,
+                    color: "#07247b",
+                  }}
+                >
+                  Total
+                </td>
+
+                <td
+                  style={{
+                    padding: "10px",
+                    textAlign: "left",
+                    fontWeight: 900,
+                    color: "#07247b",
+                  }}
+                >
+                  {grandTotal.toLocaleString("en-GB", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+
+                <td
+                  style={{
+                    padding: "10px",
+                    textAlign: "left",
+                    fontWeight: 900,
+                    color: "#07247b",
+                  }}
+                >
+                  100.00%
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
     </div>

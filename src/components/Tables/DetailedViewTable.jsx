@@ -1,5 +1,4 @@
 
-
 import React from "react";
 import { useState } from "react";
 
@@ -56,8 +55,8 @@ export default function DetailedViewTable({
   return (
   <div className="flex flex-col h-full overflow-hidden p-2">
       {/* TABLE */}
-   <div className="h-[calc(100%-55px)] overflow-y-auto border border-slate-200 rounded-lg">
-        <table className="detailed-view-table w-full table-fixed border-collapse">
+      <div className="h-[calc(100%-55px)] overflow-y-auto border border-slate-200 rounded-lg">
+        <table className="detailed-view-table w-full table-fixed border-collapse" >
           {/* HEADER */}
           <thead className="sticky top-0 bg-slate-50 z-20">
             <tr>

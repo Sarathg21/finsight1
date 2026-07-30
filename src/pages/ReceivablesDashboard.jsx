@@ -681,6 +681,7 @@ export default function ReceivablesDashboard() {
                         title="Overdue Summary"
                         data={overdueData}
                         total={Number(overdueTotal).toFixed(2)}
+                        Centerlabel="Total Overdue"
                     />
                     <BusinessUnitTable
                         title="Receivables by Business Unit"
