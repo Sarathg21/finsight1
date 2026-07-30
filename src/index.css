@@ -888,6 +888,14 @@ body {
   background: #f8fafc;
 }
 
+.detailed-view-table thead th {
+  color: #07247b !important;
+}
+
+.detailed-view-table tbody td {
+  font-size: 12px !important;
+  line-height: 1;
+}
 /* ══════════════════════════════════════════════════════════
    TABLES
 ══════════════════════════════════════════════════════════ */
@@ -1186,7 +1194,7 @@ tbody tr:hover {
 /* ══════════════════════════════════════════════════════════
    GRID UTILITIES
 ══════════════════════════════════════════════════════════ */
-/* 
+
 
 .grid-cols-1 {
   display: grid;
@@ -1252,7 +1260,7 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--card-gap);
-} */
+}
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE
@@ -1424,6 +1432,24 @@ tbody tr:hover {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
+}
+
+.receivables-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .receivables-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .receivables-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* Tablet */

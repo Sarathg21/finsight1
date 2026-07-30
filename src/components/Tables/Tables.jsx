@@ -16,7 +16,7 @@ export function TopVendorsTable({ data, title, tabletitle1, tabletitle2 }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-xs flex flex-col">
-      <h3 className="text-[11px] font-bold text-[#081B46] mb-2" style={{ paddingLeft: "14px" }}>
+      <h3 className="text-[14px] font-bold text-[#081B46] mb-2" style={{ paddingLeft: "14px" }}>
         {title}(AED)
       </h3>
 
@@ -228,7 +228,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
       <h3
         style={{
           padding: "12px 16px",
-          fontSize: "11px",
+          fontSize: "14px",
           fontWeight: 700,
           color: "#081B46",
         }}

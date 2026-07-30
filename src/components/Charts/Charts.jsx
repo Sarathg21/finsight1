@@ -34,9 +34,9 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
     })}`;
   };
   return (
-<div className="card flex flex-col h-80 w-full min-w-0">
+    <div className="card flex flex-col h-80 w-full min-w-0">
 
-      <h3 className="text-[11px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
+      <h3 className="text-[14px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
         <span>{title}</span>
         <span className="text-[9px] text-gray-400 font-medium">
           {date}
@@ -81,14 +81,12 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
           </ResponsiveContainer>
 
           <div className="absolute text-center" style={{ pointerEvents: "none" }}>
-            <p className="text-[9px] font-extrabold text-gray-900 leading-none">
-              AED {Number(total || 0).toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+             <p className="text-[13px] font-extrabold text-gray-900 leading-none">
+              AED {(Number(total || 0) / 1_000_000).toFixed(2)}M
             </p>
 
-            <span className="text-[8px] font-bold text-gray-600 uppercase tracking-wider">
+
+            <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
               Total
             </span>
           </div>
@@ -96,7 +94,7 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, })
 
 
         {/* LEGEND */}
-           <div className="w-1/2 flex flex-col justify-center gap-2">
+        <div className="w-1/2 flex flex-col justify-center gap-2">
 
           {legendData.map((item, idx) => (
             <div key={idx} className="flex items-center justify-between text-[10px] font-medium">
@@ -145,7 +143,7 @@ export function OverDueSummaryCard({ title, data, total }) {
   return (
     <div className="card flex flex-col ">
 
-      <h3 className="text-[11px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
+      <h3 className="text-[14px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
         <span>{title}</span>
       </h3>
 
@@ -186,14 +184,11 @@ export function OverDueSummaryCard({ title, data, total }) {
           </ResponsiveContainer>
 
           <div className="absolute text-center">
-            <p className="text-[9px] font-extrabold text-gray-900 leading-none">
-              AED {Number(total || 0).toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+            <p className="text-[13px] font-extrabold text-gray-900 leading-none">
+              AED {(Number(total || 0) / 1_000_000).toFixed(2)}M
             </p>
 
-            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">
+            <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
               Total overdue
             </span>
           </div>
@@ -201,7 +196,7 @@ export function OverDueSummaryCard({ title, data, total }) {
 
 
         {/* LEGEND */}
-         <div className="w-1/2 flex flex-col justify-center gap-3">
+        <div className="w-1/2 flex flex-col justify-center gap-3">
 
           {data.map((item, idx) => (
             <div
@@ -254,9 +249,9 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
   };
 
   return (
-   <div className="card flex flex-col h-80 w-full min-w-0">
+    <div className="card flex flex-col h-80 w-full min-w-0">
       {/* Header */}
-      <h3 className="text-[11px] font-bold text-[#081B46] mb-3">
+      <h3 className="text-[14px] font-bold text-[#081B46] mb-3">
         {title}
       </h3>
 
@@ -289,7 +284,7 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
               tickLine={false}
               tick={{
                 fontSize: 9,
-                fill: "#64748B",fontWeight:800,
+                fill: "#64748B", fontWeight: 800,
               }}
             />
 
@@ -300,7 +295,7 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
               tickLine={false}
               tick={{
                 fontSize: 9,
-                fill: "#64748B",fontWeight:800,
+                fill: "#64748B", fontWeight: 800,
               }}
               tickFormatter={formatAmount}
               label={{
@@ -325,7 +320,7 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
               tickLine={false}
               tick={{
                 fontSize: 9,
-                fill: "#64748B",fontWeight:800,
+                fill: "#64748B", fontWeight: 800,
               }}
               label={{
                 value: "Days",
@@ -442,10 +437,10 @@ export function ParentDivisionCard({
     })}`;
   };
   return (
-   <div className="card flex flex-col h-80 w-full min-w-0">
+    <div className="card flex flex-col h-80 w-full min-w-0">
       {/* Header */}
       <div className="mb-3">
-        <h3 className="text-[11px] font-extrabold text-[#081B46]">
+        <h3 className="text-[14px] font-extrabold text-[#081B46]">
           {title}(AED)
         </h3>
       </div>
@@ -477,7 +472,7 @@ export function ParentDivisionCard({
               tickLine={false}
               tick={{
                 fontSize: 10,
-                fill: "#64748B",fontWeight:800,
+                fill: "#64748B", fontWeight: 800,
               }}
               tickFormatter={(value) => {
                 if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
@@ -495,7 +490,7 @@ export function ParentDivisionCard({
               tickLine={false}
               tick={{
                 fontSize: 10,
-                fill: "#334155",fontWeight:800,
+                fill: "#334155", fontWeight: 800,
               }}
             />
 

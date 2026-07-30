@@ -2837,10 +2837,10 @@ export default function SalesRevenueReport() {
           })()}
 
           {/* Footer note */}
-          <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
+          {/* <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
             <span>All values are in <strong>AED</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
             <span>Source: Oracle Fusion Cloud</span>
-          </div>
+          </div> */}
         </div>
         {/* ── Footer ── */}
         <div style={{

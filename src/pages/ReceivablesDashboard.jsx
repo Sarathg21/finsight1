@@ -5,6 +5,8 @@ import {
     FiPercent, FiRefreshCw,
 } from "react-icons/fi";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import ChartMenu from "../components/ChartMenu";
 import Filters from "../components/Filters/Filters";
 import { Download, CalendarClock } from "lucide-react";
 import { AgingSummaryCard, OverDueSummaryCard, PayablesTrendCard, ParentDivisionCard, } from "../components/Charts/Charts";
@@ -20,6 +22,7 @@ import {
 import ExportButtons from "../components/Common/ExportButtons";
 import PageHeader from "../components/Common/PageHeader";
 import FooterNote from "../components/FooterNote";
+import ReceivablesDetailsModal from "../components/ReceivablesDetailsModal"
 
 export default function ReceivablesDashboard() {
 
@@ -33,6 +36,7 @@ export default function ReceivablesDashboard() {
         business_units: [],
         salesmen: [],
     });
+    const navigate = useNavigate();
     const [filters, setFilters] = useState({});
     const [summary, setSummary] = useState(null);
     const [agingSummary, setAgingSummary] = useState([]);
@@ -55,7 +59,7 @@ export default function ReceivablesDashboard() {
         sort_by: "outstanding_amount",
         sort_dir: "desc"
     });
-
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [salesmanData, setSalesmanData] = useState([]);
 
 
@@ -83,8 +87,8 @@ export default function ReceivablesDashboard() {
 
     const receivableKpiData = summary ? [
         {
-            id: 1, title: "Total Receivables", value: formatCurrency(summary.total_receivables), icon: LuBuilding2, titleColor: "#2563EB", iconColor: "#2563EB", iconBackground: "#EAF2FF",
-            cardBackground: "#FFFFFF", borderColor: "#E8EDF5", trend: "up", trendValue: "9.42%", comparisonText: "vs 31 Mar 2024", trendColor: "#16A34A",
+            id: 1, title: "Total Receivables", value: formatCurrency(summary.total_receivables), icon: LuBuilding2, titleColor: "#2563EB", titleBackground: "#EFF6FF",  iconColor: "#2563EB", iconBackground: "#EAF2FF",
+            cardBackground: "#F3F8FF", borderColor: "#E8EDF5", trend: "up", trendValue: "9.42%", comparisonText: "vs 31 Mar 2024", trendColor: "#16A34A",
             sparklineColor: "#2563EB",
             sparklineData: [
                 6, 8, 7, 11, 6,
@@ -95,7 +99,7 @@ export default function ReceivablesDashboard() {
         },
         {
             id: 2, title: "Current Receivables", value: formatCurrency(summary.current), icon: IoWalletOutline, titleColor: "#16A34A", iconColor: "#16A34A",
-            iconBackground: "#ECFDF5", cardBackground: "#FFFFFF", borderColor: "#E8EDF5", trend: "up", trendValue: "7.31%",
+            iconBackground: "#ECFDF5", cardBackground: "#F0FDF4", borderColor: "#E8EDF5", trend: "up", trendValue: "7.31%",
             comparisonText: "vs 31 Mar 2024",
             trendColor: "#16A34A",
             sparklineColor: "#16A34A",
@@ -109,7 +113,7 @@ export default function ReceivablesDashboard() {
 
         {
             id: 3, title: "Overdue Receivables", value: formatCurrency(summary.overdue), icon: IoHourglassOutline, titleColor: "#F59E0B", iconColor: "#F59E0B",
-            iconBackground: "#FFF7ED", cardBackground: "#FFFFFF", borderColor: "#E8EDF5", trend: "down", trendValue: "14.85%",
+            iconBackground: "#FFF7ED", cardBackground: "#FFF7ED", borderColor: "#E8EDF5", trend: "down", trendValue: "14.85%",
             comparisonText: "vs 31 Mar 2024", trendColor: "#DC2626", sparklineColor: "#F59E0B",
             sparklineData: [
                 9, 10, 8, 11, 9,
@@ -127,7 +131,7 @@ export default function ReceivablesDashboard() {
             titleColor: "#EC4899",
             iconColor: "#EC4899",
             iconBackground: "#FDF2F8",
-            cardBackground: "#FFFFFF",
+            cardBackground: "#FEF2F2",
             borderColor: "#E8EDF5",
             trend: "down",
             trendValue: "21.10%",
@@ -151,7 +155,7 @@ export default function ReceivablesDashboard() {
             titleColor: "#06B6D4",
             iconColor: "#06B6D4",
             iconBackground: "#ECFEFF",
-            cardBackground: "#FFFFFF",
+            cardBackground: "#EFF6FF",
             borderColor: "#E8EDF5",
             trend: "up",
             trendValue: "3 Days",
@@ -175,7 +179,7 @@ export default function ReceivablesDashboard() {
             titleColor: "#8B5CF6",
             iconColor: "#8B5CF6",
             iconBackground: "#F5F3FF",
-            cardBackground: "#FFFFFF",
+            cardBackground: "#FAF5FF",
             borderColor: "#E8EDF5",
             trend: "up",
             trendValue: "4.12%",
@@ -191,6 +195,16 @@ export default function ReceivablesDashboard() {
             ]
         },
     ] : [];
+    const handleViewDetails = () => {
+        setShowDetailsModal(true);
+    };
+    const handleExportExcel = () => {
+        console.log("Export Excel");
+    };
+
+    const handleExportPdf = () => {
+        console.log("Export PDF");
+    };
 
     const loadDashboardData = async () => {
         try {
@@ -270,34 +284,26 @@ export default function ReceivablesDashboard() {
     const fetchDetails = async (
         filters = {},
         page = detailsPage,
-        sort = detailsSort
+        sort = detailsSort,
+        pageSize = 10
     ) => {
         try {
             const params = {
                 ...filters,
                 page,
-                page_size: detailsPageSize,
+                page_size: pageSize,
                 sort_by: sort.sort_by,
-                sort_dir: sort.sort_dir
+                sort_dir: sort.sort_dir,
             };
+
             const response = await getReceivableDetails(params);
-            console.log(
-                "Details API Response",
-                response.data
-            );
-            setDetailsData(
-                response.data.data.rows || []
-            );
-            setDetailsTotalCount(
-                response.data.data.total_count || 0
-            );
-        } catch (error) {
 
-            console.error(error);
-
+            setDetailsData(response.data.data.rows || []);
+            setDetailsTotalCount(response.data.data.total_count || 0);
+        } catch (err) {
+            console.error(err);
         }
     };
-
     {/*------------trend  --------------------*/ }
     const fetchTrend = async (filters = {}) => {
         try {
@@ -637,7 +643,7 @@ export default function ReceivablesDashboard() {
 
 
                 {/* Charts Row 1 */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="receivables-grid gap-3">
                     <AgingSummaryCard
                         title="Receivables Aging Summary"
                         data={pieData}
@@ -664,7 +670,7 @@ export default function ReceivablesDashboard() {
 
                 {/* Charts Row 2 */}
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="receivables-grid gap-3">
                     <TopVendorsTable
                         title="Top 10 Customers by Receivables"
                         tabletitle1="Customer Name"
@@ -688,7 +694,25 @@ export default function ReceivablesDashboard() {
                         data={salesmanData}
                     />
                 </div>
-                <div className="mt-20">
+                <div className="card mt-20" style={{ padding: 0, overflow: "hidden" }}>
+                    {/* Header */}
+                    <div
+                        className="flex items-center justify-between px-5 py-4 border-b bg-white" >
+                        <div className="flex items-center gap-3">
+                            <span className="text-[15px] font-extrabold text-[#081B46]">
+                                Receivables Detailed View
+                            </span>
+                            <span className="text-[11px] px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+                                Amounts in AED
+                            </span>
+                        </div>
+                        <ChartMenu
+                            onViewAll={handleViewDetails}
+                            endpoint="receivables-detail"
+                            filters={filters}
+                        />
+                    </div>
+
                     <DetailedViewTable
                         title="Receivables Detailed View"
                         data={detailsData}
@@ -697,8 +721,20 @@ export default function ReceivablesDashboard() {
                         pageSize={detailsPageSize}
                         totalCount={detailsTotalCount}
                         onPageChange={handleDetailsPageChange}
+                        showPagination={false}
                         onSort={handleDetailsSort}
+                        
+                        onViewDetails={handleViewDetails}
+                        onExportExcel={handleExportExcel}
+                        onExportPdf={handleExportPdf}
                     />
+                    <ReceivablesDetailsModal
+                        open={showDetailsModal}
+                        onClose={() => setShowDetailsModal(false)}
+                        filters={filters}
+                    />
+
+
                 </div>
             </div>
 
