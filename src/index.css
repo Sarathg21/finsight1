@@ -887,28 +887,58 @@ body {
 .compact-table tbody tr:hover {
   background: #f8fafc;
 }
+
 .receivables-title {
-    margin-left: 20px;
+  margin-left: 22px;
 }
 
 .detailed-view-table thead th {
   color: #07247b !important;
-    padding-right: 12px !important;
+  padding-right: 12px !important;
 }
 
 .detailed-view-table tbody td {
   font-size: 12px !important;
   line-height: 1;
+}  
+
+/*------inventory styling---------*/
+
+.inventory-details-table {
+  table-layout: fixed;
+  min-width: 1600px;
 }
 
-.inventory-head h3{
-    margin-left: 20px;
+.inventory-details-table th,
+.inventory-details-table td {
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.sticky-col {
+  position: sticky;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+}
+
+thead .sticky-col {
+  background: #F8FAFC;
+  z-index: 30;
+}
+
+tfoot .sticky-col {
+  background: #F8FAFC;
+  z-index: 30;
+}
+
+.inventory-head h3 {
+  margin-left: 20px;
   color: #07247b !important;
 }
 
 .inventory-details-table thead th {
-  color: #07247b !important;
-    padding-right: 12px !important;
+  padding: 8px 12px !important;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1537,6 +1567,7 @@ tbody tr:hover {
     grid-template-columns: 1fr;
   }
 }
+
 /* ══════════════════════════════════════════════════════════
    MOBILE SIDEBAR BACKDROP
 ══════════════════════════════════════════════════════════ */

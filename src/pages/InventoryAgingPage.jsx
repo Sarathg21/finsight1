@@ -10,6 +10,8 @@ import { IoCubeOutline, IoTimerOutline, IoWarningOutline, } from "react-icons/io
 import { InventoryValueTrend, OverDueSummaryCard, ParentDivisionCard, AgingSummaryCard } from "../components/Charts/Charts";
 import { InventoryTable, InventoryLocationTable } from "../components/Tables/Tables";
 import InventoryDetailedViewTable from "../components/Tables/InventoryDetailedViewTable"
+import InventoryDetailsModal from "../components/InventoryDetailsModal";
+import ChartMenu from "../components/ChartMenu";
 
 
 export default function InventoryAgingPage() {
@@ -26,14 +28,19 @@ export default function InventoryAgingPage() {
     });
     const [exporting, setExporting] = useState("");
     const [loading, setLoading] = useState(true);
+    const [showDetailsModal, setShowDetailsModal] = useState(false);
 
+
+    const handleViewDetails = () => {
+        setShowDetailsModal(true);
+    };
 
     {/*------------Inventory kpi crads mockdata------------------*/ }
     const inventoryKpiData = [
         {
             id: 1,
             title: "Total Inventory Value",
-            value: "₹ 472.35 Cr",
+            value: "AED 472.35M",
             icon: LuPackage,
             titleColor: "#2563EB",
             iconColor: "#2563EB",
@@ -79,7 +86,7 @@ export default function InventoryAgingPage() {
         {
             id: 3,
             title: "Avg. Inventory Value",
-            value: "₹ 2.78 Cr",
+            value: "AED 2.78M",
             icon: IoCubeOutline,
             titleColor: "#7C3AED",
             iconColor: "#7C3AED",
@@ -102,7 +109,7 @@ export default function InventoryAgingPage() {
         {
             id: 4,
             title: "Inventory Turnover (TTM)",
-            value: "5.42 Times",
+            value: "5.42x",
             icon: LuChartLine,
             titleColor: "#EA580C",
             iconColor: "#EA580C",
@@ -148,7 +155,7 @@ export default function InventoryAgingPage() {
         {
             id: 6,
             title: "Obsolete / Slow Moving",
-            value: "₹ 28.45 Cr",
+            value: "AED 28.45M",
             icon: IoWarningOutline,
             titleColor: "#E11D48",
             iconColor: "#E11D48",
@@ -440,6 +447,41 @@ export default function InventoryAgingPage() {
         },
     ];
 
+    const handleExport = async (type) => {
+        try {
+            setExporting(type);
+            const response = await getReceivableExport(type, filters);
+            const blob = new Blob([response.data], {
+                type:
+                    type === "excel"
+                        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        : "application/pdf",
+            });
+
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download =
+                type === "excel"
+                    ? "Receivables_Report.xlsx"
+                    : "Receivables_Report.pdf";
+
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error(err);
+            if (type === "excel") {
+                alert("Export Failed");
+            }
+            else {
+                alert("PDF Download Failed");
+            }
+        } finally {
+            setExporting("");
+        }
+    };
     return (
         <div className="page-content relative">
             <PageHeader
@@ -501,11 +543,14 @@ export default function InventoryAgingPage() {
                         data={inventoryLocationData}
                     />
                 </div>
+
                 <InventoryDetailedViewTable
                     title="Inventory Detailed View"
                     data={inventoryDetailsData}
+                    onViewAll={handleViewDetails}
+                    onExportExcel={() => handleExport("excel")}
+                    onExportPdf={() => handleExport("pdf")}
                 />
-
             </div>
 
             {/* Footer */}
@@ -516,6 +561,11 @@ export default function InventoryAgingPage() {
                     showRefresh={false}
                 />
             </div>
+            <InventoryDetailsModal
+                open={showDetailsModal}
+                onClose={() => setShowDetailsModal(false)}
+                data={inventoryDetailsData}
+            />
         </div>
 
     );

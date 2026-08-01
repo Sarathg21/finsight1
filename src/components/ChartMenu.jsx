@@ -1,8 +1,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
-import { getReceivableExport } from "../api/recevablesApi";
 
-function ChartMenu({ onViewAll, endpoint, filters = {} }) {
+
+function ChartMenu({
+  onViewAll,
+  onExportExcel,
+  onExportPdf,
+}) {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(null);
   const ref = useRef(null);
@@ -39,34 +43,21 @@ function ChartMenu({ onViewAll, endpoint, filters = {} }) {
     window.URL.revokeObjectURL(url);
   };
 
-
   const handleExport = async (format) => {
     try {
       setExporting(format);
 
-      const response = await getReceivableExport(
-        format,
-        {
-          ...filters,
-          endpoint,
-        }
-      );
+      if (format === "excel") {
+        await onExportExcel?.();
+      } else {
+        await onExportPdf?.();
+      }
 
-      downloadFile(
-        response.data,
-        format === "excel"
-          ? "Receivables.xlsx"
-          : "Receivables.pdf"
-      );
-
-    } catch (e) {
-      console.error("Export failed:", e);
     } finally {
       setExporting(null);
       setOpen(false);
     }
   };
-
 
   const menuItems = [
     ...(onViewAll

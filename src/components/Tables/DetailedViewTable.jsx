@@ -53,7 +53,7 @@ export default function DetailedViewTable({
   };
 
   return (
-  <div className="flex flex-col h-full overflow-hidden p-2">
+    <div className="flex flex-col h-full overflow-hidden p-2">
       {/* TABLE */}
       <div className="h-[calc(100%-55px)] overflow-y-auto border border-slate-200 rounded-lg">
         <table className="detailed-view-table w-full table-fixed border-collapse" >
@@ -61,9 +61,8 @@ export default function DetailedViewTable({
           <thead className="sticky top-0 bg-slate-50 z-20">
             <tr>
               {columns.map((col) => (
-                <th style={{ color: "#061644" }}
+                <th style={{ color: "#061644", width: col.width }}
                   key={col.field}
-                  style={{ width: col.width }}
                   onClick={() => onSort && onSort(col.field)}
                   className={`
                      cursor-pointer

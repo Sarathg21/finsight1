@@ -87,7 +87,7 @@ export default function ReceivablesDashboard() {
 
     const receivableKpiData = summary ? [
         {
-            id: 1, title: "Total Receivables", value: formatCurrency(summary.total_receivables), icon: LuBuilding2, titleColor: "#2563EB", titleBackground: "#EFF6FF",  iconColor: "#2563EB", iconBackground: "#EAF2FF",
+            id: 1, title: "Total Receivables", value: formatCurrency(summary.total_receivables), icon: LuBuilding2, titleColor: "#2563EB", titleBackground: "#EFF6FF", iconColor: "#2563EB", iconBackground: "#EAF2FF",
             cardBackground: "#F3F8FF", borderColor: "#E8EDF5", trend: "up", trendValue: "9.42%", comparisonText: "vs 31 Mar 2024", trendColor: "#16A34A",
             sparklineColor: "#2563EB",
             sparklineData: [
@@ -709,8 +709,8 @@ export default function ReceivablesDashboard() {
                         </div>
                         <ChartMenu
                             onViewAll={handleViewDetails}
-                            endpoint="receivables-detail"
-                            filters={filters}
+                            onExportExcel={() => handleExport("excel")}
+                            onExportPdf={() => handleExport("pdf")}
                         />
                     </div>
 
@@ -724,7 +724,7 @@ export default function ReceivablesDashboard() {
                         onPageChange={handleDetailsPageChange}
                         showPagination={false}
                         onSort={handleDetailsSort}
-                        
+
                         onViewDetails={handleViewDetails}
                         onExportExcel={handleExportExcel}
                         onExportPdf={handleExportPdf}

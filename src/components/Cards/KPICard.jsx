@@ -30,8 +30,18 @@ export default function KPICard({
   useEffect(() => {
     if (!value) return;
 
+    const text = String(value);
+
+    if (
+      text.includes("x") ||
+      text.toLowerCase().includes("day") ||
+      text.toLowerCase().includes("nos")
+    ) {
+      return;
+    }
+
     const number = Number(
-      String(value)
+      text
         .replace("AED", "")
         .replace("M", "")
         .replace("K", "")
@@ -67,14 +77,34 @@ export default function KPICard({
 
     if (!value) return value;
 
-    if (String(value).includes("M")) {
+    const text = String(value);
+
+    // Inventory Turnover
+    if (text.includes("x")) {
+      return text;
+    }
+
+    // Stock Holding Days
+    if (text.toLowerCase().includes("day")) {
+      return text;
+    }
+
+    // Quantity
+    if (text.toLowerCase().includes("nos")) {
+      return text;
+    }
+
+    // Currency in Millions
+    if (text.includes("M")) {
       return `AED ${displayValue.toFixed(2)}M`;
     }
 
-    if (String(value).includes("K")) {
+    // Currency in Thousands
+    if (text.includes("K")) {
       return `AED ${displayValue.toFixed(2)}K`;
     }
 
+    // Normal Currency
     return `AED ${displayValue.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

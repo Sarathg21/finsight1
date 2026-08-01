@@ -888,7 +888,7 @@ export function InventoryTable({data = [],title }) {
             <tr>
               <th
                 style={{
-                  width: "7%",
+                  width: "5%",
                   padding: "8px 8px",
                   textAlign: "center",
                   color: "#1E3A8A",
@@ -940,7 +940,7 @@ export function InventoryTable({data = [],title }) {
 
               <th
                 style={{
-                  width: "17%",
+                  width: "14%",
                   padding: "12px 10px",
                   textAlign: "left",
                   color: "#1E3A8A",
@@ -953,7 +953,7 @@ export function InventoryTable({data = [],title }) {
 
               <th
                 style={{
-                  width: "11%",
+                  width: "16%",
                   padding: "12px 10px",
                   textAlign: "left",
                   color: "#1E3A8A",
@@ -961,7 +961,7 @@ export function InventoryTable({data = [],title }) {
                   borderBottom: "1px solid #E8EDF5",
                 }}
               >
-                Days
+               Age(days)
               </th>
             </tr>
           </thead>
@@ -994,7 +994,7 @@ export function InventoryTable({data = [],title }) {
                       color: "#0F172A",
                       fontWeight: 500,
                       whiteSpace: "nowrap",
-                      overflow: "hidden",
+                      overflow: "hidden",  textAlign: "left",
                       textOverflow: "ellipsis",
                     }}
                   >
