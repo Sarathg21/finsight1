@@ -34,15 +34,15 @@ export const getReceivableDivisionWise = (params = {}) => {
 =========================== */
 
 export const getReceivableTopCustomers = (filters = {}) => {
-    const params = {
-        limit: 10,
-        sort_by: "total_outstanding",
-        sort_dir: "desc",
-        ...filters
-    };
-    return api.get("/receivables/top-customers", {
-        params
-    });
+  const params = {
+    limit: 10,
+    sort_by: "total_outstanding",
+    sort_dir: "desc",
+    ...filters
+  };
+  return api.get("/receivables/top-customers", {
+    params
+  });
 };
 
 /* ===========================
@@ -57,9 +57,17 @@ export const getReceivableDetails = (params) =>
 /* ===========================
    BUSINESS UNIT
 =========================== */
-export const getReceivableBusinessUnit = (params = {}) => {
-  return api.get("/receivables/business-unit", { params });
-};
+// export const getReceivableBusinessUnit = (params = {}) => {
+//   return api.get("/receivables/business-unit", { params });
+// };
+
+
+/* ===========================
+   SUB DIVISIONS
+=========================== */
+export const getReceivableSubDivision = (params = {}) => {
+  return api.get("/receivables/sub-division", { params });
+}
 
 /* ===========================
    OVERDUE SUMMARY

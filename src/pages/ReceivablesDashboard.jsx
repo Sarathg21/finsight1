@@ -10,14 +10,14 @@ import ChartMenu from "../components/ChartMenu";
 import Filters from "../components/Filters/Filters";
 import { Download, CalendarClock } from "lucide-react";
 import { AgingSummaryCard, OverDueSummaryCard, PayablesTrendCard, ParentDivisionCard, } from "../components/Charts/Charts";
-import { TopVendorsTable, BusinessUnitTable, SalesmanTable, } from "../components/Tables/Tables";
+import { TopVendorsTable,  SubDivisionTable, SalesmanTable, } from "../components/Tables/Tables";
 import DetailedViewTable from "../components/Tables/DetailedViewTable";
 import KPICards from "../components/Cards/KPICards";
 import { agingData, trendData, divisionData, topVendors, overdueData, businessUnitData, detailedViewData, } from '../data/dashboardData';
 import {
     getReceivableFilters, getReceivableSummary, getReceivableAgingSummary, getReceivableTrend, getSalesmanPerformance,
     getReceivableDivisionWise, getReceivableTopCustomers, getReceivableDetails,
-    getReceivableOverdueSummary, getReceivableBusinessUnit, getReceivableExport
+    getReceivableOverdueSummary, getReceivableSubDivision, getReceivableExport
 } from "../api/recevablesApi"
 import ExportButtons from "../components/Common/ExportButtons";
 import PageHeader from "../components/Common/PageHeader";
@@ -46,7 +46,7 @@ export default function ReceivablesDashboard() {
     const [trendData, setTrendData] = useState([]);
     const [overdueData, setOverdueData] = useState([]);
     const [overdueTotal, setOverdueTotal] = useState(0);
-    const [businessUnitData, setBusinessUnitData] = useState([]);
+    const [subDivisionData, setSubDivisionData] = useState([]);
     const [exporting, setExporting] = useState("");
     const [loading, setLoading] = useState(true);
 
@@ -218,7 +218,7 @@ export default function ReceivablesDashboard() {
                 fetchDetails(),
                 fetchTrend(),
                 fetchOverdueSummary(),
-                fetchBusinessUnits(),
+                fetchSubDivisions(),
                 loadSalesman(),
             ]);
         } catch (error) {
@@ -369,29 +369,28 @@ export default function ReceivablesDashboard() {
         }
     };
 
-    {/*------------Business Unit --------------------*/ }
-    const fetchBusinessUnits = async (filters = {}) => {
+    {/*------------Fetch Subdivisions --------------------*/ }
+    const fetchSubDivisions = async (filters = {}) => {
 
         try {
-            const response = await getReceivableBusinessUnit(filters);
+            const response = await getReceivableSubDivision(filters);
             const apiData = response.data.data;
             const totalAmount = apiData.reduce(
                 (sum, item) => sum + Number(item.amount || 0),
                 0
             );
-
             const tableData = apiData.map((item) => ({
-                business_unit: item.business_unit,
+                subdivision: item.subdivision,
                 amount: Number(item.amount || 0),
                 percentage:
                     totalAmount > 0
                         ? ((item.amount / totalAmount) * 100).toFixed(1)
                         : "0.0",
             }));
+            setSubDivisionData(tableData);
 
-            setBusinessUnitData(tableData);
         } catch (error) {
-            console.error("Error is", error);
+            console.error(error);
         }
     };
 
@@ -418,7 +417,7 @@ export default function ReceivablesDashboard() {
                 fetchDetails(selectedFilters, 1, detailsSort),
                 fetchTrend(selectedFilters),
                 fetchOverdueSummary(selectedFilters),
-                fetchBusinessUnits(selectedFilters),
+                fetchSubDivisions(selectedFilters),
                 loadSalesman(selectedFilters)
             ]);
         }
@@ -467,7 +466,7 @@ export default function ReceivablesDashboard() {
         fetchDetails();
         fetchTrend();
         fetchOverdueSummary();
-        fetchBusinessUnits();
+        fetchSubDivisions();
         loadSalesman();
     };
     const bucketColors = {
@@ -683,10 +682,10 @@ export default function ReceivablesDashboard() {
                         total={Number(overdueTotal).toFixed(2)}
                         Centerlabel="Total Overdue"
                     />
-                    <BusinessUnitTable
-                        title="Receivables by Business Unit"
+                    <SubDivisionTable
+                        title="Receivables by Sub Division"
                         tabletitle="Receivable"
-                        data={businessUnitData}
+                        data={subDivisionData}
                     />
                 </div>
                 <div className="mt-20">

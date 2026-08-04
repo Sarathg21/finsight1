@@ -215,7 +215,7 @@ export function TopVendorsTable({ data, title, tabletitle1, tabletitle2 }) {
   );
 }
 
-export function BusinessUnitTable({ data = [], title, tabletitle, }) {
+export function SubDivisionTable({ data = [], title, tabletitle }) {
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
@@ -228,8 +228,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
   const endIndex = startIndex + rowsPerPage;
   const paginatedData = data.slice(startIndex, endIndex);
 
-  console.log("BUSINESS DATA", data);
-  console.log("TOTAL", grandTotal);
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
       <h3
@@ -275,7 +274,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
                     fontWeight: 700,
                   }}
                 >
-                  Business Unit
+                   Sub Division
                 </th>
 
                 <th
@@ -318,7 +317,7 @@ export function BusinessUnitTable({ data = [], title, tabletitle, }) {
                         color: "#0F172A",
                       }}
                     >
-                      {b.business_unit || "-"}
+                     {b.subdivision || "-"}
                     </td>
 
                     <td
@@ -836,12 +835,12 @@ export function SalesmanTable({ data = [], title }) {
 
 {/*....... inventory slow moving items table ............*/ }
 
-export function InventoryTable({data = [],title }) {
+export function InventoryTable({ data = [], title }) {
   return (
     <div
       className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col w-full h-80"
       style={{
-       
+
         boxShadow: "0 1px 4px rgba(15,23,42,.06)",
       }}
     >
@@ -915,7 +914,7 @@ export function InventoryTable({data = [],title }) {
               <th
                 style={{
                   width: "17%",
-                 padding: "12px 10px",
+                  padding: "12px 10px",
                   textAlign: "left",
                   color: "#1E3A8A",
                   fontWeight: 700,
@@ -935,7 +934,7 @@ export function InventoryTable({data = [],title }) {
                   borderBottom: "1px solid #E8EDF5",
                 }}
               >
-                Qty 
+                Qty
               </th>
 
               <th
@@ -948,7 +947,7 @@ export function InventoryTable({data = [],title }) {
                   borderBottom: "1px solid #E8EDF5",
                 }}
               >
-                Value 
+                Value
               </th>
 
               <th
@@ -961,7 +960,7 @@ export function InventoryTable({data = [],title }) {
                   borderBottom: "1px solid #E8EDF5",
                 }}
               >
-               Age(days)
+                Age(days)
               </th>
             </tr>
           </thead>
@@ -990,11 +989,11 @@ export function InventoryTable({data = [],title }) {
 
                   <td
                     style={{
-                     padding: "10px 10px",
+                      padding: "10px 10px",
                       color: "#0F172A",
                       fontWeight: 500,
                       whiteSpace: "nowrap",
-                      overflow: "hidden",  textAlign: "left",
+                      overflow: "hidden", textAlign: "left",
                       textOverflow: "ellipsis",
                     }}
                   >
@@ -1003,9 +1002,9 @@ export function InventoryTable({data = [],title }) {
 
                   <td
                     style={{
-                     padding: "10px 10px",
+                      padding: "10px 10px",
                       textAlign: "left",
-                     color: "#0F172A",
+                      color: "#0F172A",
                       fontWeight: 500,
                     }}
                   >
@@ -1014,7 +1013,7 @@ export function InventoryTable({data = [],title }) {
 
                   <td
                     style={{
-                    padding: "10px 10px",
+                      padding: "10px 10px",
                       textAlign: "left",
                       color: "#0F172A",
                       fontWeight: 500,
@@ -1025,7 +1024,7 @@ export function InventoryTable({data = [],title }) {
 
                   <td
                     style={{
-                    padding: "10px 10px",
+                      padding: "10px 10px",
                       textAlign: "left",
                       color: "#0F172A",
                       fontWeight: 500,
@@ -1036,7 +1035,7 @@ export function InventoryTable({data = [],title }) {
 
                   <td
                     style={{
-                     padding: "10px 10px",
+                      padding: "10px 10px",
                       textAlign: "left",
                       color: "#0F172A",
                       fontWeight: 500,
@@ -1068,7 +1067,7 @@ export function InventoryTable({data = [],title }) {
 }
 
 /*Inventory Location */
-export  function InventoryLocationTable({data = [], title }) {
+export function InventoryLocationTable({ data = [], title }) {
 
   const grandTotal = data.reduce(
     (acc, curr) => acc + Number(curr.value || 0),
@@ -1120,7 +1119,7 @@ export  function InventoryLocationTable({data = [], title }) {
                     textAlign: "left",
                     padding: "10px",
                     fontWeight: 700,
-                    color:"#1E3A8A",
+                    color: "#1E3A8A",
                   }}
                 >
                   Location
@@ -1131,7 +1130,7 @@ export  function InventoryLocationTable({data = [], title }) {
                     width: "30%",
                     textAlign: "left",
                     padding: "10px",
-                    fontWeight: 700, color:"#1E3A8A",
+                    fontWeight: 700, color: "#1E3A8A",
                   }}
                 >
                   Value (AED)
@@ -1142,7 +1141,7 @@ export  function InventoryLocationTable({data = [], title }) {
                     width: "20%",
                     textAlign: "left",
                     padding: "10px",
-                    fontWeight: 700, color:"#1E3A8A",
+                    fontWeight: 700, color: "#1E3A8A",
                   }}
                 >
                   % Share
@@ -1260,6 +1259,529 @@ export  function InventoryLocationTable({data = [], title }) {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+
+/*------------Working Capital Current Assets breakdown table + Current Liabilities breakdown table --------------- */
+
+export function BreakdownTable({
+  title,
+  rows = [],
+  totalRow,
+}) {
+  const formatNumber = (value) => {
+    return Number(value).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        minWidth: 0,
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        padding: "6px 8px 7px 8px",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
+      {/* TITLE */}
+      <div
+        style={{
+          height: "17px",
+          lineHeight: "17px",
+          fontSize: "11px",
+          fontWeight: 700,
+          color: "#07247b",
+          marginBottom: "3px",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {title}
+      </div>
+
+      {/* TABLE */}
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          tableLayout: "fixed",
+          fontSize: "9px",
+          lineHeight: "1",
+        }}
+      >
+        {/* HEADER */}
+        <thead>
+          <tr
+            style={{
+              height: "19px",
+              borderBottom: "1px solid #dfe5ee",
+            }}
+          >
+            <th
+              style={{
+                width: "34%",
+                textAlign: "left",
+                padding: "2px 4px",
+                color: "#07247b",
+                fontSize: "9px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+              }}
+            >
+              Particular
+            </th>
+
+            <th
+              style={{
+                width: "17%",
+                textAlign: "right",
+                padding: "2px 3px",
+                color: "#07247b",
+                fontSize: "9px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              31 Mar 2024
+            </th>
+
+            <th
+              style={{
+                width: "17%",
+                textAlign: "right",
+                padding: "2px 3px",
+                color: "#07247b",
+                fontSize: "9px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              30 Apr 2024
+            </th>
+
+            <th
+              style={{
+                width: "18%",
+                textAlign: "right",
+                padding: "2px 3px",
+                color: "#07247b",
+                fontSize: "9px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Variance (AED)
+            </th>
+
+            <th
+              style={{
+                width: "14%",
+                textAlign: "right",
+                padding: "2px 3px",
+                color: "#07247b",
+                fontSize: "9px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Variance (%)
+            </th>
+          </tr>
+        </thead>
+
+        {/* BODY */}
+        <tbody>
+          {rows.map((row, index) => {
+            const negative = Number(row.variance) < 0;
+
+            return (
+              <tr
+                key={row.particular || index}
+                style={{
+                  height: "21px",
+                  borderBottom: "1px solid #f1f3f6",
+                }}
+              >
+                {/* PARTICULAR */}
+                <td
+                  style={{
+                    padding: "2px 4px",
+                    color: "#1f2937",
+                    fontSize: "10px",
+                    fontWeight: 500,
+                    textAlign: "left",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {row.particular}
+                </td>
+
+                {/* MAR */}
+                <td
+                  style={{
+                    padding: "2px 3px",
+                    color: "#374151",
+                    fontSize: "9px",
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatNumber(row.mar31)}
+                </td>
+
+                {/* APR */}
+                <td
+                  style={{
+                    padding: "2px 3px",
+                    color: "#374151",
+                    fontSize: "9px",
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatNumber(row.apr30)}
+                </td>
+
+                {/* VARIANCE */}
+                <td
+                  style={{
+                    padding: "2px 3px",
+                    color: negative
+                      ? "#ef4444"
+                      : "#166534",
+                    fontSize: "9px",
+                    fontWeight: 500,
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatNumber(row.variance)}
+                </td>
+
+                {/* VARIANCE % */}
+                <td
+                  style={{
+                    padding: "2px 3px",
+                    color: negative
+                      ? "#ef4444"
+                      : "#166534",
+                    fontSize: "9px",
+                    fontWeight: 500,
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {Number(row.variancePct).toFixed(2)}%
+                </td>
+              </tr>
+            );
+          })}
+
+          {/* TOTAL */}
+          {totalRow && (
+            <tr
+              style={{
+                height: "23px",
+                background: "#f4f7ff",
+                borderTop: "1px solid #dbe3ef",
+              }}
+            >
+              <td
+                style={{
+                  padding: "3px 4px",
+                  color: "#07247b",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  textAlign: "left",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {totalRow.particular}
+              </td>
+
+              <td
+                style={{
+                  padding: "3px",
+                  color: "#07247b",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  textAlign: "right",
+                }}
+              >
+                {formatNumber(totalRow.mar31)}
+              </td>
+
+              <td
+                style={{
+                  padding: "3px",
+                  color: "#07247b",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  textAlign: "right",
+                }}
+              >
+                {formatNumber(totalRow.apr30)}
+              </td>
+
+              <td
+                style={{
+                  padding: "3px",
+                  color:
+                    Number(totalRow.variance) < 0
+                      ? "#ef4444"
+                      : "#166534",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  textAlign: "right",
+                }}
+              >
+                {formatNumber(totalRow.variance)}
+              </td>
+
+              <td
+                style={{
+                  padding: "3px",
+                  color:
+                    Number(totalRow.variancePct) < 0
+                      ? "#ef4444"
+                      : "#166534",
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  textAlign: "right",
+                }}
+              >
+                {Number(totalRow.variancePct).toFixed(2)}%
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function KeyLiquidityRatios({
+  title = "Key Liquidity Ratios",
+  rows = [],
+}) {
+  const formatValue = (value) => Number(value).toFixed(2);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        minWidth: 0,
+        background: "#ffffff",
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        padding: "6px 7px 7px 7px",
+        boxSizing: "border-box",
+        overflow: "hidden",
+      }}
+    >
+      {/* TITLE */}
+      <div
+        style={{
+          height: "17px",
+          lineHeight: "17px",
+          fontSize: "11px",
+          fontWeight: 700,
+          color: "#07247b",
+          marginBottom: "4px",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {title}
+      </div>
+
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+          tableLayout: "fixed",
+          fontSize: "9px",
+        }}
+      >
+        <thead>
+          <tr
+            style={{
+              height: "20px",
+              borderBottom: "1px solid #dfe5ee",
+            }}
+          >
+            {/* RATIO */}
+            <th
+              style={{
+                width: "38%",
+                textAlign: "left",
+                padding: "2px 3px",
+                color: "#07247b",
+                fontSize: "9px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Ratio
+            </th>
+
+            {/* CURRENT DATE */}
+            <th
+              style={{
+                width: "22%",
+                textAlign: "right",
+                padding: "2px 2px",
+                color: "#07247b",
+                fontSize: "8px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              30 Apr 2024
+            </th>
+
+            {/* PREVIOUS DATE */}
+            <th
+              style={{
+                width: "22%",
+                textAlign: "right",
+                padding: "2px 2px",
+                color: "#07247b",
+                fontSize: "8px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              31 Mar 2024
+            </th>
+
+            {/* VARIANCE */}
+            <th
+              style={{
+                width: "18%",
+                textAlign: "right",
+                padding: "2px 2px",
+                color: "#07247b",
+                fontSize: "8.5px",
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Variance
+            </th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {rows.map((row, index) => {
+            const variance = Number(row.variance);
+            const negative = variance < 0;
+
+            return (
+              <tr
+                key={row.ratio || index}
+                style={{
+                  height: "25px",
+                  borderBottom:
+                    index === rows.length - 1
+                      ? "none"
+                      : "1px solid #f1f3f6",
+                }}
+              >
+                {/* RATIO */}
+                <td
+                  style={{
+                    padding: "2px 3px",
+                    color: "#1f2937",
+                    fontSize: "10px",
+                    fontWeight: 500,
+                    textAlign: "left",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {row.ratio}
+                </td>
+
+                {/* CURRENT */}
+                <td
+                  style={{
+                    padding: "2px 2px",
+                    color: "#374151",
+                    fontSize: "9px",
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatValue(row.current)}
+                </td>
+
+                {/* PREVIOUS */}
+                <td
+                  style={{
+                    padding: "2px 2px",
+                    color: "#374151",
+                    fontSize: "9px",
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatValue(row.previous)}
+                </td>
+
+                {/* VARIANCE */}
+                <td
+                  style={{
+                    padding: "2px 2px",
+                    color: negative
+                      ? "#ef4444"
+                      : "#16834b",
+                    fontSize: "9px",
+                    fontWeight: 600,
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      gap: "2px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "9px",
+                      }}
+                    >
+                      {negative ? "▼" : "▲"}
+                    </span>
+
+                    {Math.abs(variance).toFixed(2)}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -28,6 +28,7 @@ const ROUTE_ICON = {
   '/division': PieChart,
   '/bu-pack': Briefcase,
   '/salesman': UserCheck,
+  '/workingcapital-report': LayoutGrid,
   '/payables': CreditCard,
   '/receivables': CreditCard,
 };
@@ -58,6 +59,8 @@ const NAV_BY_ROLE = {
     { to: '/payables', label: 'Payables Report', group: 'Working Capital' },
     { to: '/receivables', label: 'Receivables Report', group: 'Working Capital' },
     { to: '/inventory', label: 'Inventory Aging', group: 'Working Capital' },
+    { to: '/workingcapital-report', label: 'WorkingCapital Report', group: 'Working Capital' },
+
     { to: '/working-capital', label: 'Overview', group: 'Working Capital' },
     { to: '/cash-collection', label: 'Cash Collection', group: 'Treasury' },
     { to: '/excel-consolidator', label: 'Excel Consolidator', group: 'Utilities' },

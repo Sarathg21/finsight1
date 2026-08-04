@@ -10,6 +10,7 @@ const PAGE_TITLES = {
   '/ar':                  { title: 'Receivables Aging',          sub: 'AR aging & collection tracking' },
   '/ap':                  { title: 'Payables Aging',             sub: 'AP aging & cash planning' },
   '/inventory':           { title: 'Inventory Aging',            sub: 'Stock movement & slow-moving analysis' },
+  '/workingcapital-report': { title: 'Working Capital Performance',sub: 'Monitor liquidity, assets, liabilities, and cash conversion performance'},
   '/working-capital':     { title: 'Working Capital Dashboard',  sub: 'DSO / DIO / DPO & NWC trend' },
   '/balance-sheet':       { title: 'Balance Sheet',              sub: 'Assets, liabilities & equity' },
   '/cash-collection':     { title: 'Cash Collection Report',     sub: 'Collections vs. targets' },

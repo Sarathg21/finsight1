@@ -21,6 +21,7 @@ import PayablesDashboard from './pages/PayablesDashboard';
 import ReceivablesDashboard from "./pages/ReceivablesDashboard";
 import ReceivablesDetailedPage from "./pages/ReceivablesDetailedPage";
 import InventoryAgingPage from "./pages/InventoryAgingPage";
+import WorkingCapitalReport from './pages/WorkingCapitalReport';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -73,7 +74,8 @@ function App() {
               <Route path="/payables"           element={<ProtectedRoute pageKey="payables"           element={<PayablesDashboard />} />} />
               <Route path="receivables"         element={<ProtectedRoute pageKey="receivables"        element={<ReceivablesDashboard />} />} />
               <Route path="receivables/details" element={<ProtectedRoute pageKey="receivables"        element={<ReceivablesDetailedPage />}/> }/>
-             <Route  path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<InventoryAgingPage />}/> }/>
+              <Route  path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<InventoryAgingPage />}/> }/>
+              <Route  path="/workingcapital-report"  element={<ProtectedRoute pageKey="workingcapital-report"    element={<WorkingCapitalReport/>}/> }/>
               <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
               {/* Admin – segregated, board & CFO only */}
               <Route path="/admin"              element={<ProtectedRoute pageKey="admin"              element={<AdminDashboard />} />} />

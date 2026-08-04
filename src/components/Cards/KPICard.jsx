@@ -21,7 +21,7 @@ export default function KPICard({
   sparklineData = [],
 
   trendColor = "#16A34A",
-  cardBackground = "#FFFFFF", titleBackground = "transparent",
+  cardBackground = "#FFFFFF", titleBackground = "transparent", isCurrency = true,
 }) {
 
   const isUp = trend === "up";
@@ -73,25 +73,24 @@ export default function KPICard({
     return () => clearInterval(timer);
 
   }, [value]);
-  const formattedValue = () => {
 
+  const formattedValue = () => {
     if (!value) return value;
 
     const text = String(value);
 
     // Inventory Turnover
-    if (text.includes("x")) {
-      return text;
-    }
+    if (text.includes("x")) return text;
 
-    // Stock Holding Days
-    if (text.toLowerCase().includes("day")) {
-      return text;
-    }
+    // Days
+    if (text.toLowerCase().includes("day")) return text;
 
     // Quantity
-    if (text.toLowerCase().includes("nos")) {
-      return text;
+    if (text.toLowerCase().includes("nos")) return text;
+
+    // Working Capital page ratios (don't add AED)
+    if (!isCurrency) {
+      return displayValue.toFixed(2);
     }
 
     // Currency in Millions

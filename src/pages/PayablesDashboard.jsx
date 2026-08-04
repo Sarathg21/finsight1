@@ -11,7 +11,7 @@ import {
 
 import {
   TopVendorsTable,
-  BusinessUnitTable,
+  SubDivisionTable,
 } from "../components/Tables/Tables";
 
 import DetailedViewTable from "../components/Tables/DetailedViewTable";
@@ -49,18 +49,18 @@ export default function PayablesDashboard() {
             Track payables,aging ,overdue and payment performance
           </p>
         </div>
-         {/* Actions */}
-           <div className="topbar-actions">
-             <button className="btn btn-ghost">
-               <Download size={14}/>
-               Export
-             </button>
-         
-             <button className="btn btn-primary">
-               <CalendarClock size={14}/>
-               Schedule
-             </button>
-         </div>
+        {/* Actions */}
+        <div className="topbar-actions">
+          <button className="btn btn-ghost">
+            <Download size={14} />
+            Export
+          </button>
+
+          <button className="btn btn-primary">
+            <CalendarClock size={14} />
+            Schedule
+          </button>
+        </div>
       </div>
 
 
@@ -88,8 +88,8 @@ export default function PayablesDashboard() {
           />
           <PayablesTrendCard
             title="Payables Trend"
-             daysname = "Dpo (days)"
-             charttitle="Total Payable(Cr)"
+            daysname="Dpo (days)"
+            charttitle="Total Payable(Cr)"
             data={trendData}
           />
           <ParentDivisionCard
@@ -105,8 +105,8 @@ export default function PayablesDashboard() {
 
           <TopVendorsTable
             title="Top 10 Vendors by Payables (₹ Cr)"
-             tabletitle1="Vendor Name"
-              tabletitle2="Payable"
+            tabletitle1="Vendor Name"
+            tabletitle2="Payable"
             data={topVendors}
           />
 
@@ -116,9 +116,9 @@ export default function PayablesDashboard() {
             total="9.60"
           />
 
-          <BusinessUnitTable
+          <SubDivisionTable
             title="Payables by Business Unit (₹ Cr)"
-             tabletitle="Payable"
+            tabletitle="Payable"
             data={businessUnitData}
           />
 
