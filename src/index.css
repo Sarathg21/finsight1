@@ -143,7 +143,7 @@ body {
 
 .page-content {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: visible;
   padding: var(--page-padding);
   background: var(--clr-bg);
 }
@@ -152,6 +152,8 @@ body {
    TOPBAR
 ══════════════════════════════════════════════════════════ */
 .topbar {
+  position: sticky;
+  top: 0;
   height: var(--topbar-h);
   background: var(--clr-surface);
   border-bottom: 1px solid var(--clr-border);
@@ -435,6 +437,15 @@ body {
   line-height: 1.4;
 }
 
+.sticky-filter {
+  position: sticky;
+  top: 64px;
+  /* height of application header */
+  z-index: 40;
+  background: white;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
 
 
 /* ══════════════════════════════════════════════════════════
@@ -900,7 +911,7 @@ body {
 .detailed-view-table tbody td {
   font-size: 12px !important;
   line-height: 1;
-}  
+}
 
 /*------inventory styling---------*/
 
@@ -934,11 +945,13 @@ tfoot .sticky-col {
 
 .inventory-head h3 {
   margin-left: 20px;
-  color: #07247b !important;
+  color: #081B46 !important;
 }
 
 .inventory-details-table thead th {
   padding: 8px 12px !important;
+  color: #102d72 !important;
+  font-weight: 700;
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1491,12 +1504,6 @@ tbody tr:hover {
   }
 }
 
-@media (min-width: 1024px) {
-  .receivables-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 /* Tablet */
 @media (max-width: 1200px) {
   .receivable-kpi-grid {
@@ -1556,16 +1563,20 @@ tbody tr:hover {
   align-items: stretch;
 }
 
-@media (max-width: 1200px) {
+
+/* Tablet */
+@media(max-width:1200px) {
   .inventory-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 768px) {
+/* Mobile */
+@media(max-width:768px) {
   .inventory-grid {
     grid-template-columns: 1fr;
   }
+
 }
 
 /* ══════════════════════════════════════════════════════════

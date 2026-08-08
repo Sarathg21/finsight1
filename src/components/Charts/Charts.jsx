@@ -2,27 +2,34 @@
 import React from 'react';
 import {
   ResponsiveContainer, BarChart, Bar, Line, LineChart, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, LabelList, ComposedChart, ReferenceLine,
+  Legend, LabelList, ComposedChart, ReferenceLine, Label
 } from 'recharts';
 import { Clock3, PackageOpen, CircleDollarSign, RefreshCw, CircleCheck, } from "lucide-react";
 
-export function AgingSummaryCard({ title, data, legendData = [], total, date, showSummaryHeader = false, }) {
+export function AgingSummaryCard({ title, data, legendData = [], total, date, showSummaryHeader = false,
+  wideLegend = false, currency = "AED", }) {
+
   const formatAmount = (value) => {
+    if (value == null) return "-";
+
     const amount = Number(value);
 
+    if (isNaN(amount)) return "-";
+
     if (amount >= 1_000_000) {
-      return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+      return `${currency} ${(amount / 1_000_000).toFixed(2)}M`;
     }
 
     if (amount >= 1_000) {
-      return `AED ${(amount / 1_000).toFixed(2)}K`;
+      return `${currency} ${(amount / 1_000).toFixed(2)}K`;
     }
 
-    return `AED ${amount.toLocaleString("en-US", {
+    return `${currency} ${amount.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
   };
+
   return (
     <div className="card flex flex-col h-80 w-full min-w-0">
 
@@ -33,171 +40,168 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, sh
         </span>
       </h3>
 
-      {showSummaryHeader && (
+      {data.length === 0 ? (
         <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            width: "130px",
-            marginLeft: "auto",
-            marginBottom: "4px",
-          }}
+          className="
+            flex
+            h-57.5
+            items-center
+            justify-center
+            text-sm
+            font-medium
+            text-slate-400
+        "
         >
-          <span
-            style={{
-              width: "40px",
-              textAlign: "right",
-              fontSize: "10px",
-              fontWeight: "700",
-              color: "#64748B",
-            }}
-          >
-            %
-          </span>
-
-          <span
-            style={{
-              width: "90px",
-              textAlign: "right",
-              fontSize: "10px",
-              fontWeight: "700",
-              color: "#64748B",
-            }}
-          >
-            Amount
-          </span>
+          No Data Available
         </div>
-      )}
-
-      <div className="flex-1 flex items-center justify-between gap-1">
-
-        {/* PIE */}
-        <div className="w-1/2 h-full relative flex items-center justify-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                innerRadius={60}
-                outerRadius={85}
-                paddingAngle={1}
-                dataKey="value"
-              >
-                {data.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                formatter={(value, name, props) => [
-                  `₹ ${Number(value).toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`,
-                  props.payload.name,
-                  props.payload.percentage,
-                ]}
-                contentStyle={{
-                  borderRadius: "8px",
-                  border: "1px solid #E2E8F0",
-                  fontSize: "11px",
-                }}
-              />
-
-            </PieChart>
-
-          </ResponsiveContainer>
-
-          <div className="absolute text-center" style={{ pointerEvents: "none" }}>
-            <p className="text-[13px] font-extrabold text-gray-900 leading-none">
-              AED {(Number(total || 0) / 1_000_000).toFixed(2)}M
-            </p>
+      ) : (
 
 
-            <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
-              Total
-            </span>
-          </div>
-        </div>
+        <div className="flex-1 flex items-center justify-between gap-1">
 
-
-        {/* LEGEND */}
-        <div className="w-1/2 flex flex-col justify-center gap-2">
-
-          {legendData.map((item, idx) => (
-            <div key={idx} className="flex items-center justify-between text-[10px] font-medium">
-
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="w-2 h-2 rounded-sm shrink-0"
-                  style={{ backgroundColor: item.color }}
+          {/* PIE */}
+          <div className="w-1/2 h-full relative flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  innerRadius={60}
+                  outerRadius={85}
+                  paddingAngle={1}
+                  dataKey="value"
+                >
+                  {data.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    formatAmount(value),
+                    props.payload.name,
+                  ]}
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "11px",
+                  }}
                 />
-                <span className="text-gray-500 text-[10px] truncate max-w-20">
-                  {item.name}
-                </span>
-              </div>
 
-              {showSummaryHeader ? (
+              </PieChart>
+
+            </ResponsiveContainer>
+
+            <div className="absolute text-center" style={{ pointerEvents: "none" }}>
+              <p className="text-[13px] font-extrabold text-gray-900 leading-none">
+                {formatAmount(total)}
+              </p>
+
+              <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
+                Total
+              </span>
+            </div>
+          </div>
+
+
+          {/* LEGEND */}
+          <div className="w-1/2 flex flex-col justify-center gap-2">
+
+            {legendData.map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "82px 38px 68px",
+                  columnGap: "2px",
+                  width: "100%",
+                  alignItems: "center",
+                }}
+              >
+                {/* Bucket */}
                 <div
                   style={{
                     display: "flex",
-                    justifyContent: "flex-end",
-                    width: "130px",
-                    marginLeft: "auto",
+                    alignItems: "center",
+                    overflow: "hidden", fontWeight: 700,
                   }}
                 >
                   <span
                     style={{
-                      width: "40px",
-                      textAlign: "right",
-                      fontSize: "10px",
-                      fontWeight: "600",
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: item.color,
+                      marginRight: 2,
+                      flexShrink: 0,
                     }}
-                  >
-                    {item.percentage}%
-                  </span>
+                  />
 
                   <span
                     style={{
-                      width: "90px",
-                      textAlign: "right",
-                      fontSize: "10px",
-                      fontWeight: "600",
+                      fontSize: "9px",
+                      color: "#475569",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    {formatAmount(item.value)}
+                    {item.name}
                   </span>
                 </div>
-              ) : (
-                <span className="text-gray-900 font-semibold text-[10px]">
-                  {item.percentage}% ({formatAmount(item.value)})
-                </span>
-              )}
-            </div>
-          ))}
-        </div>
 
-      </div>
+                {/* Percentage */}
+                <span
+                  style={{
+                    textAlign: "center",
+                    fontSize: "9px",
+                    color: "#64748B", fontWeight: 800,
+                  }}
+                >
+                  {Number(item.percentage).toFixed(2)}%
+                </span>
+
+                {/* Amount */}
+                <span
+                  style={{
+                    textAlign: "right",
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatAmount(item.value)}
+                </span>
+              </div>
+            ))}
+
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }
 
-export function OverDueSummaryCard({ title, data, total, Centerlabel }) {
+export function OverDueSummaryCard({ title, data, total, Centerlabel, currency = "AED", }) {
 
   const formatAmount = (value) => {
     const amount = Number(value);
 
+    if (isNaN(amount)) return "-";
+
     if (amount >= 1_000_000) {
-      return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+      return `${currency} ${(amount / 1_000_000).toFixed(2)}M`;
     }
 
     if (amount >= 1_000) {
-      return `AED ${(amount / 1_000).toFixed(2)}K`;
+      return `${currency} ${(amount / 1_000).toFixed(2)}K`;
     }
 
-    return `AED ${amount.toLocaleString("en-US", {
+    return `${currency} ${amount.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
   };
+
   return (
     <div className="card flex flex-col ">
 
@@ -205,84 +209,96 @@ export function OverDueSummaryCard({ title, data, total, Centerlabel }) {
         <span>{title}</span>
       </h3>
 
-      <div className="flex-1 flex items-center justify-between gap-1">
-
-        {/* PIE */}
-        <div className="w-1/2 h-full relative flex items-center justify-center">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                innerRadius={60}
-                outerRadius={85}
-                paddingAngle={1}
-                dataKey="value"
-              >
-                {data.map((entry, idx) => (
-                  <Cell key={idx} fill={entry.color} />
-                ))}
-              </Pie>
-
-              <Tooltip
-                formatter={(value, name, props) => [
-                  `₹ ${Number(value).toLocaleString("en-US", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`,
-                  props.payload.name,
-                  props.payload.percentage,
-                ]}
-                contentStyle={{
-                  borderRadius: "8px",
-                  border: "1px solid #E2E8F0",
-                  fontSize: "11px",
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-
-          <div className="absolute text-center">
-            <p className="text-[13px] font-extrabold text-gray-900 leading-none">
-              AED {(Number(total || 0) / 1_000_000).toFixed(2)}M
-            </p>
-
-            <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
-              {Centerlabel}
-            </span>
-          </div>
+      {data.length === 0 ? (
+        <div
+          className="
+            flex
+            h-57.5
+            items-center
+            justify-center
+            text-sm
+            font-medium
+            text-slate-400
+        "
+        >
+          No Data Available
         </div>
+      ) : (
 
+        <div className="flex-1 flex items-center justify-between gap-1">
 
-        {/* LEGEND */}
-        <div className="w-1/2 flex flex-col justify-center gap-3">
+          {/* PIE */}
+          <div className="w-1/2 h-full relative flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  innerRadius={60}
+                  outerRadius={85}
+                  paddingAngle={1}
+                  dataKey="value"
+                >
+                  {data.map((entry, idx) => (
+                    <Cell key={idx} fill={entry.color} />
+                  ))}
+                </Pie>
 
-          {data.map((item, idx) => (
-            <div
-              key={idx}
-              className="flex items-center justify-between text-[10px] font-medium py-1"
-            >
-
-              <div className="flex items-center gap-2">
-
-                <span
-                  className="w-2 h-2 rounded-sm shrink-0"
-                  style={{ backgroundColor: item.color }}
+                <Tooltip
+                  formatter={(value, name, props) => [
+                    formatAmount(value),
+                    props.payload.name,
+                  ]}
+                  contentStyle={{
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "11px",
+                  }}
                 />
+              </PieChart>
+            </ResponsiveContainer>
 
-                <span className="text-gray-500 text-[10px] truncate max-w-20">
-                  {item.name}
-                </span>
-
-              </div>
-              <span className="text-gray-900 font-semibold text-[10px]">
-                {item.percentage}% ({formatAmount(item.value)})
+            <div className="absolute text-center">
+              <p className="text-[13px] font-extrabold text-gray-900 leading-none">
+                {formatAmount(total)}
+              </p>
+              <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
+                {Centerlabel}
               </span>
             </div>
-          ))}
+          </div>
+
+
+          {/* LEGEND */}
+          <div className="w-1/2 flex flex-col justify-center gap-3">
+
+            {data.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between text-[10px] font-medium py-1"
+              >
+
+                <div className="flex items-center gap-2">
+
+                  <span
+                    className="w-2 h-2 rounded-sm shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+
+                  <span className="text-gray-500 text-[10px] truncate max-w-20">
+                    {item.name}
+                  </span>
+
+                </div>
+                <span className="text-gray-900 font-semibold text-[10px]">
+                  {item.percentage}% ({formatAmount(item.value)})
+                </span>
+              </div>
+            ))}
+
+          </div>
 
         </div>
-
-      </div>
+      )}
 
     </div>
   );
@@ -471,124 +487,136 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
   );
 }
 
-export function ParentDivisionCard({ data = [], title, }) {
+export function ParentDivisionCard({ data = [], title, currency = "AED", }) {
+
   const formatCurrency = (value) => {
     if (value == null) return "-";
 
     const amount = Number(value);
 
+    if (isNaN(amount)) return "-";
+
     if (amount >= 1_000_000) {
-      return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+      return `${currency} ${(amount / 1_000_000).toFixed(2)}M`;
     }
 
     if (amount >= 1_000) {
-      return `AED ${(amount / 1_000).toFixed(2)}K`;
+      return `${currency} ${(amount / 1_000).toFixed(2)}K`;
     }
 
-    return `AED ${amount.toLocaleString("en-US", {
+    return `${currency} ${amount.toLocaleString("en-US", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
   };
+  const hasData = data && data.length > 0;
+
   return (
     <div className="card flex flex-col h-80 w-full min-w-0">
       {/* Header */}
       <div className="mb-3">
         <h3 className="text-[14px] font-extrabold text-[#081B46]">
-          {title}(AED)
+          {title} ({currency})
         </h3>
       </div>
-
-      {/* Chart */}
-      <div className="flex-1">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{
-              top: 5,
-              right: 70,
-              left: 15,
-              bottom: 5,
-            }}
-            barCategoryGap="28%"
-          >
-            <CartesianGrid
-              stroke="#EEF2F7"
-              strokeDasharray="3 3"
-              horizontal={false}
-            />
-
-            {/* X Axis */}
-            <XAxis
-              type="number"
-              axisLine={false}
-              tickLine={false}
-              tick={{
-                fontSize: 10,
-                fill: "#64748B", fontWeight: 800,
-              }}
-              tickFormatter={(value) => {
-                if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
-                if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-                return value;
-              }}
-            />
-
-            {/* Y Axis */}
-            <YAxis
-              type="category"
-              dataKey="name"
-              width={110}
-              axisLine={false}
-              tickLine={false}
-              tick={{
-                fontSize: 10,
-                fill: "#334155", fontWeight: 800,
-              }}
-            />
-
-            {/* Tooltip */}
-            <Tooltip
-              formatter={(value) => [
-                formatCurrency(value),
-                "Outstanding",
-              ]}
-
-              contentStyle={{
-                borderRadius: 8,
-                border: "1px solid #E2E8F0",
-                fontSize: 11,
-              }}
-            />
-
-            {/* Bars */}
-            <Bar
-              dataKey="value"
-              fill="#2563EB"
-              radius={[0, 6, 6, 0]}
-              barSize={18}
-            >
-              <LabelList
-                dataKey="value"
-                position="right"
-                formatter={(value) => formatCurrency(value)}
-                style={{
-                  fontSize: 10,
-                  fill: "#0F172A",
-                  fontWeight: 600,
+      {!hasData ? (
+        <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-slate-400">
+          No Records Found
+        </div>
+      ) : (
+        <>
+          {/* Chart */}
+          <div className="flex-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={data}
+                layout="vertical"
+                margin={{
+                  top: 5,
+                  right: 70,
+                  left: 15,
+                  bottom: 5,
                 }}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+                barCategoryGap="28%"
+              >
+                <CartesianGrid
+                  stroke="#EEF2F7"
+                  strokeDasharray="3 3"
+                  horizontal={false}
+                />
+
+                {/* X Axis */}
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fontSize: 10,
+                    fill: "#64748B", fontWeight: 800,
+                  }}
+                  tickFormatter={(value) => {
+                    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(0)}M`;
+                    if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+                    return value;
+                  }}
+                />
+
+                {/* Y Axis */}
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{
+                    fontSize: 10,
+                    fill: "#334155", fontWeight: 800,
+                  }}
+                />
+
+                {/* Tooltip */}
+                <Tooltip
+                  formatter={(value) => [
+                    formatCurrency(value),
+                    "Amount",
+                  ]}
+
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: "1px solid #E2E8F0",
+                    fontSize: 11,
+                  }}
+                />
+
+                {/* Bars */}
+                <Bar
+                  dataKey="value"
+                  fill="#2563EB"
+                  radius={[0, 6, 6, 0]}
+                  barSize={18}
+                >
+                  <LabelList
+                    dataKey="value"
+                    position="right"
+                    formatter={(value) => formatCurrency(value)}
+                    style={{
+                      fontSize: 10,
+                      fill: "#0F172A",
+                      fontWeight: 600,
+                    }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 
-export function InventoryValueTrend({ data, title }) {
+export function InventoryValueTrend({ title, data, currency = "AED", }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm h-80"
       style={{ padding: "18px 20px" }}>
@@ -596,72 +624,91 @@ export function InventoryValueTrend({ data, title }) {
         {title}
       </h3>
 
-      <ResponsiveContainer width="100%" height="90%">
-        <LineChart
-          data={data}
-          margin={{
-            top: 10,
-            right: 20,
-            left: 15,
-            bottom: 20,
-          }}
-        >
-          <CartesianGrid
-            stroke="#EEF2F7"
-            vertical={false}
-          />
+      {data.length === 0 ? (
+        <div className="
+                h-57.5
+                flex
+                items-center
+                justify-center
+                text-sm
+                text-slate-400
+                font-medium
+            ">
+          No Data Available
+        </div>
+      ) : (
 
-          <XAxis
-            dataKey="month"
-            axisLine={false}
-            tickLine={false}
-            padding={{ left: 20, right: 20 }}
-            tick={{
-              fontSize: 11,
-              fill: "#64748B",
+        <ResponsiveContainer width="100%" height="90%">
+          <LineChart
+            data={data}
+            margin={{
+              top: 10,
+              right: 20,
+              left: 15,
+              bottom: 20,
             }}
-          />
-          <YAxis
-            axisLine={false}
-            tickLine={false}
-            dx={-8}
-            tick={{
-              fontSize: 11,
-              fill: "#64748B",
-            }}
-          />
-          <Tooltip />
+          >
+            <CartesianGrid
+              stroke="#EEF2F7"
+              vertical={false}
+            />
 
-          <Legend
-            verticalAlign="top"
-            align="center"
-            wrapperStyle={{
-              fontSize: 12,
-              paddingBottom: 10,
-            }}
-          />
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              padding={{ left: 20, right: 20 }}
+              tick={{
+                fontSize: 11,
+                fill: "#64748B",
+              }}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              dx={-8}
+              tick={{
+                fontSize: 12,
+                fontWeight: 700,
+                fill: "#081B46",
+              }}
+              tickFormatter={(value) =>
+                `${(value / 1000000).toFixed(0)}M`
+              }
+            >
+              <Label
+                value={currency}
+                position="top"
+                offset={10}
+                style={{
+                  fontSize: 13,
+                  fontWeight: 900,
+                  fill: "#081B46",
+                }}
+              />
+            </YAxis>
 
-          <Line
-            type="monotone"
-            dataKey="fy2324"
-            name="FY 23-24"
-            stroke="#2563EB"
-            strokeWidth={3}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
+            <Legend
+              verticalAlign="top"
+              align="center"
+              wrapperStyle={{
+                fontSize: 12,
+                paddingBottom: 10,
+              }}
+            />
 
-          <Line
-            type="monotone"
-            dataKey="fy2425"
-            name="FY 24-25"
-            stroke="#16A34A"
-            strokeWidth={3}
-            dot={{ r: 4 }}
-            activeDot={{ r: 6 }}
-          />
-        </LineChart>
-      </ResponsiveContainer>
+            <Line
+              type="monotone"
+              dataKey="inventoryValue"
+              name="Inventory Value"
+              stroke="#2563EB"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
@@ -930,8 +977,8 @@ export function WorkingCapitalComponents({
   currency = "AED",
 }) {
   /* -------------------------------------------------------
-     Format amount
-     ------------------------------------------------------- */
+      Format amount
+      ------------------------------------------------------- */
 
   const formatAmount = (value) => {
     const num = Number(value || 0);
@@ -1439,10 +1486,10 @@ export function CashConversionCycle({
             ========================================= */}
       <div
         style={{
-          fontSize: "11px",
+          fontSize: "13px",
           lineHeight: "15px",
           fontWeight: 700,
-          color: "#07247b",
+          color: "#000000",
           marginBottom: "6px",
           whiteSpace: "nowrap",
         }}
@@ -1512,7 +1559,7 @@ export function CashConversionCycle({
                 {/* LABEL */}
                 <div
                   style={{
-                    fontSize: "8px",
+                    fontSize: "9px",
                     lineHeight: "10px",
                     color: "#334155",
                     fontWeight: 800,
@@ -1551,7 +1598,7 @@ export function CashConversionCycle({
                 >
                   <span
                     style={{
-                      fontSize: "6px",
+                      fontSize: "11px",
                       marginRight: "2px",
                     }}
                   >
@@ -1618,10 +1665,10 @@ export function CashConversionTrend({
       {/* TITLE */}
       <div
         style={{
-          fontSize: "11px",
+          fontSize: "13px",
           lineHeight: "15px",
           fontWeight: 700,
-          color: "#07247b",
+          color: "#000000",
           marginBottom: "2px",
           whiteSpace: "nowrap",
         }}
@@ -1686,7 +1733,7 @@ export function CashConversionTrend({
               domain={[0, 60]}
               ticks={[0, 10, 20, 30, 40, 50, 60]}
               tick={{
-                fontSize: 8, fontWeight:700,
+                fontSize: 8, fontWeight: 700,
                 fill: "#64748b",
               }}
               axisLine={false}
@@ -1737,7 +1784,7 @@ export function CashConversionTrend({
 }
 
 export function WorkingCapitalInsights({
-  title = "Insights",
+  title,
   data = [],
 }) {
   return (
@@ -1757,10 +1804,10 @@ export function WorkingCapitalInsights({
       {/* TITLE */}
       <div
         style={{
-          fontSize: "11px",
+          fontSize: "13px",
           lineHeight: "15px",
           fontWeight: 700,
-          color: "#07247b",
+          color: "#000000",
           marginBottom: "7px",
         }}
       >
@@ -1800,9 +1847,9 @@ export function WorkingCapitalInsights({
             <div
               style={{
                 fontSize: "9px",
-                lineHeight: "11px",
+                lineHeight: "12px",
                 color: "#374151",
-                fontWeight: 400,
+                fontWeight: 800,
               }}
             >
               {item.text}

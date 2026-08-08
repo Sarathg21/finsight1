@@ -187,12 +187,20 @@ export default function Filters({
   });
 
   useEffect(() => {
-    if (filterOptions?.as_on_dates?.length) {
+
+    const dates =
+      filterOptions?.available_dates ||
+      filterOptions?.as_on_dates ||
+      [];
+
+
+    if (dates.length) {
       setSelectedFilters((prev) => ({
         ...prev,
-        as_on_date: filterOptions.as_on_dates[0],
+        as_on_date: dates[0],
       }));
     }
+
   }, [filterOptions]);
 
   const handleReset = () => {
@@ -203,7 +211,9 @@ export default function Filters({
       subdivision: "",
       currency: "",
       as_on_date:
-        filterOptions?.as_on_dates?.[0] || "",
+        filterOptions?.as_on_dates?.[0] ||
+        filterOptions?.available_dates?.[0] ||
+        "",
     };
 
     setSelectedFilters(resetFilters);

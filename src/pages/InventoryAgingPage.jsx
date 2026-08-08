@@ -1,5 +1,5 @@
 import React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ExportButtons from "../components/Common/ExportButtons";
 import PageHeader from "../components/Common/PageHeader";
 import FooterNote from "../components/FooterNote";
@@ -12,17 +12,33 @@ import { InventoryTable, InventoryLocationTable } from "../components/Tables/Tab
 import InventoryDetailedViewTable from "../components/Tables/InventoryDetailedViewTable"
 import InventoryDetailsModal from "../components/InventoryDetailsModal";
 import ChartMenu from "../components/ChartMenu";
-
+import {
+    getInventoryFilters, getInventorySummary, getInventoryAgingSummary, getInventoryCategoryWise, getInventoryWarehouseWise, getInventoryTrend,
+    getInventoryTopItems, getInventoryDetails, getInventorySubDivisionWise,
+    getInventorySlowMovingItems, getInventoryExport, getInventoryDivisionWise
+} from "../api/inventoryApi"
 
 export default function InventoryAgingPage() {
 
+    const [inventorySummary, setInventorySummary] = useState(null);
+    const [inventoryTrendData, setInventoryTrendData] = useState([]);
+    const [inventoryData, setInventoryData] = useState([]);
+    const [inventorySubdivision, setinventorySubdivision] = useState([]);
+    const [inventoryAgingData, setInventoryAgingData] = useState([]);
+    const [slowMovingItemsData, setSlowMovingItemsData] = useState([]);
+    const [inventoryLocationData, setInventoryLocationData] = useState([]);
+    const [inventoryDetailsData, setInventoryDetailsData] = useState([]);
+    const [inventoryAgingTotal, setInventoryAgingTotal] = useState(0);
+
+    const [filters, setFilters] = useState({});
+
     const [filterOptions, setFilterOptions] = useState({
-        as_on_dates: [],
-        currencies: [],
         legal_groups: [],
         legal_entities: [],
         parent_divisions: [],
         subdivisions: [],
+        currencies: [],
+        as_on_dates: [],
     });
     const [exporting, setExporting] = useState("");
     const [loading, setLoading] = useState(true);
@@ -33,12 +49,271 @@ export default function InventoryAgingPage() {
         setShowDetailsModal(true);
     };
 
+    // Fetch Filters
+    const fetchFilters = async () => {
+        try {
+            const response = await getInventoryFilters();
+
+            console.log("Raw Filter API:", response.data);
+
+            const data = response.data;
+            setFilterOptions({
+                legal_groups: data.legal_groups || [],
+                legal_entities: data.legal_entities || [],
+                parent_divisions: data.parent_divisions || [],
+                subdivisions: data.subdivisions || [],
+                currencies: data.currencies || [],
+                as_on_dates: data.available_dates || [],
+            });
+
+        } catch (error) {
+            console.error("Filters Error:", error);
+        }
+    };
+    // Fetch KPI Summary
+    const fetchSummary = async () => {
+        try {
+            const response = await getInventorySummary(filters);
+            console.log("Summary:", response.data);
+            setInventorySummary(response.data);
+
+        } catch (error) {
+            console.error("Summary Error:", error);
+        }
+    };
+
+    const agingColors = {
+        "0-30 Days": "#16A34A",
+        "31-60 Days": "#F59E0B",
+        "61-90 Days": "#EF4444",
+        "91-120 Days": "#8B5CF6",
+        "121-180 Days": "#0F766E",
+        "181-365 Days": "#2563EB",
+        "366-730 Days": "#94A3B8",
+        "Above 730 Days": "#64748B",
+    };
+
+    const fetchAgingSummary = async () => {
+        try {
+            const response = await getInventoryAgingSummary(filters);
+
+            const apiData = response.data;
+
+            const total = apiData.reduce(
+                (sum, item) => sum + Number(item.value),
+                0
+            );
+
+            const formattedData = apiData.map((item) => ({
+                name: item.bucket,
+                value: Number(item.value),
+                percentage: (
+                    (Number(item.value) / total) *
+                    100
+                ).toFixed(2), // <-- only 2 decimals
+                color: agingColors[item.bucket] || "#94A3B8",
+            }));
+
+            setInventoryAgingData(formattedData);
+            setInventoryAgingTotal(total);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    // Fetch Warehouse location Wise
+    const fetchWarehouseWise = async () => {
+        try {
+            const response = await getInventoryWarehouseWise(filters);
+
+            console.log("Warehouse Wise:", response.data);
+
+            const formattedData = response.data.map((item) => ({
+                location: item.location_name || item.warehouse,
+                value: Number(item.total_value || 0),
+                quantity: Number(item.total_quantity || 0),
+                percentage: Number(item.share_percent || 0),
+            }));
+
+            setInventoryLocationData(formattedData);
+
+        } catch (error) {
+            console.error("Warehouse Wise Error:", error);
+        }
+    };
+
+    // Fetch Parent Division Wise
+    const fetchDivisionWise = async () => {
+        try {
+
+            const response = await getInventoryDivisionWise(filters);
+            console.log("Division Wise:", response.data);
+
+            const formattedData = response.data.map((item, index) => ({
+                name: item.parent_division,
+                value: Number(item.total_value),
+                percentage: Number(item.share_percent),
+                color: [
+                    "#2563EB",
+                    "#16A34A",
+                    "#F59E0B",
+                    "#EF4444",
+                    "#8B5CF6"
+                ][index % 5]
+            }));
+
+            setInventoryData(formattedData);
+
+
+        } catch (error) {
+            console.error(
+                "Division Wise Error:",
+                error
+            );
+        }
+    };
+
+    // Fetch Trend
+    const fetchTrend = async () => {
+        try {
+            const response = await getInventoryTrend(filters);
+            console.log("Trend API:", response.data);
+
+            const formattedData = response.data.map((item) => ({
+                month: item.month,
+                inventoryValue: Number(item.inventory_value)
+            }));
+            setInventoryTrendData(formattedData);
+        } catch (error) {
+            console.error("Trend Error:", error);
+        }
+    };
+
+    const fetchSubdivisionWise = async () => {
+        try {
+            const response = await getInventorySubDivisionWise(filters);
+
+            console.log("Subdivision API:", response.data);
+
+            const apiData = response.data.data || response.data;
+
+            const formattedData = apiData.map((item, index) => ({
+                name: item.subdivision,
+                value: Number(item.total_value || item.amount || 0),
+                percentage: Number(item.share_percent || 0),
+                color: [
+                    "#2563EB",
+                    "#16A34A",
+                    "#F59E0B",
+                    "#EF4444",
+                    "#8B5CF6"
+                ][index % 5]
+            }));
+
+            console.log("Formatted Subdivision:", formattedData);
+
+            setinventorySubdivision(formattedData);
+
+        } catch (error) {
+            console.error("Subdivision Error:", error);
+        }
+    };
+
+    const fetchslowmovingItems = async () => {
+        try {
+            const response = await getInventorySlowMovingItems(filters);
+
+            const formattedData = response.data.map((item) => ({
+                item: item.item_description,
+                code: item.item_code,
+                qty: item.total_quantity,
+                value: item.total_value,
+                category: item.primary_category,
+            }));
+
+            setSlowMovingItemsData(formattedData);
+
+        } catch (error) {
+            console.error("SlowMoving Items Error:", error);
+        }
+    };
+
+    // Fetch Details
+    const fetchDetails = async () => {
+        try {
+            const response = await getInventoryDetails(filters);
+            const apiData = response.data?.data || [];
+            const formattedData = apiData.map((item) => ({
+                legalEntity: item.legal_entity,
+                subDivision: item.subdivision ?? "-",
+                warehouse: item.warehouse,
+                category: item.primary_category,
+                itemCode: item.item_code,
+                description: item.item_description,
+                quantity: Number(item.quantity),
+                inventoryValue: Number(item.total_cost_value),
+
+                days0to30: Number(item.val_0_30),
+                days31to60: Number(item.val_31_60),
+                days61to90: Number(item.val_61_90),
+                days91to120: Number(item.val_91_120),
+                days121to180: Number(item.val_121_180),
+                days181to365: Number(item.val_181_365),
+                days366to730: Number(item.val_366_730),
+                daysAbove730: Number(item.val_above_730),
+            }));
+
+            setInventoryDetailsData(formattedData);
+        } catch (error) {
+            console.error(error);
+        }
+    };
+    useEffect(() => {
+        fetchFilters();
+    }, []);
+
+
+    useEffect(() => {
+        fetchSummary();
+        fetchAgingSummary();
+        fetchslowmovingItems();
+        fetchWarehouseWise();
+        fetchDivisionWise();
+        fetchTrend();
+        fetchSubdivisionWise();
+        fetchDetails();
+    }, [filters]);
+
+    const formatAED = (value) => {
+        if (value === null || value === undefined) return "-";
+
+        if (value >= 1000000) {
+            return `AED ${(value / 1000000).toFixed(2)}M`;
+        }
+        if (value >= 1000) {
+            return `AED ${(value / 1000).toFixed(2)}K`;
+        }
+        return `AED ${value.toFixed(2)}`;
+    };
+
+    const formatNumber = (value) => {
+        if (value === null || value === undefined) return "-";
+
+        return new Intl.NumberFormat("en-IN").format(value);
+    };
+
+    const selectedCurrency =
+        filters.currency || inventorySummary?.currency || "AED";
+    console.log("Selected Currency:", selectedCurrency);
+
     {/*------------Inventory kpi crads mockdata------------------*/ }
-    const inventoryKpiData = [
+    const InventoryKpiData = [
         {
             id: 1,
             title: "Total Inventory Value",
-            value: "AED 472.35M",
+            value: inventorySummary?.total_inventory_value,
+            formatType: "currency",
+            currency: selectedCurrency,
             icon: LuPackage,
             titleColor: "#2563EB",
             iconColor: "#2563EB",
@@ -61,7 +336,8 @@ export default function InventoryAgingPage() {
         {
             id: 2,
             title: "Total Stock Quantity",
-            value: "2,36,48,520 Nos",
+            value: inventorySummary?.total_stock_quantity,
+            formatType: "number",
             icon: LuBoxes,
             titleColor: "#16A34A",
             iconColor: "#16A34A",
@@ -84,7 +360,9 @@ export default function InventoryAgingPage() {
         {
             id: 3,
             title: "Avg. Inventory Value",
-            value: "AED 2.78M",
+            value: inventorySummary?.average_inventory_value,
+            formatType: "currency",
+            currency: selectedCurrency,
             icon: IoCubeOutline,
             titleColor: "#7C3AED",
             iconColor: "#7C3AED",
@@ -107,7 +385,8 @@ export default function InventoryAgingPage() {
         {
             id: 4,
             title: "Inventory Turnover (TTM)",
-            value: "5.42x",
+            value: inventorySummary?.inventory_turnover_ttm,
+            formatType: "ratio",
             icon: LuChartLine,
             titleColor: "#EA580C",
             iconColor: "#EA580C",
@@ -130,7 +409,8 @@ export default function InventoryAgingPage() {
         {
             id: 5,
             title: "Stock Holding Days",
-            value: "67 Days",
+            value: inventorySummary?.stock_holding_days,
+            formatType: "days",
             icon: IoTimerOutline,
             titleColor: "#0891B2",
             iconColor: "#0891B2",
@@ -153,7 +433,9 @@ export default function InventoryAgingPage() {
         {
             id: 6,
             title: "Obsolete / Slow Moving",
-            value: "AED 28.45M",
+            value: inventorySummary?.obsolete_slow_moving,
+            formatType: "currency",
+            currency: selectedCurrency,
             icon: IoWarningOutline,
             titleColor: "#E11D48",
             iconColor: "#E11D48",
@@ -173,322 +455,75 @@ export default function InventoryAgingPage() {
             ]
         }
     ];
-    {/*------------Inventory trend mockdata------------------*/ }
-    const inventoryTrendData = [
-        {
-            month: "Nov",
-            fy2324: 340,
-            fy2425: 260,
-        },
-        {
-            month: "Dec",
-            fy2324: 410,
-            fy2425: 320,
-        },
-        {
-            month: "Jan",
-            fy2324: 380,
-            fy2425: 285,
-        },
-        {
-            month: "Feb",
-            fy2324: 420,
-            fy2425: 320,
-        },
-        {
-            month: "Mar",
-            fy2324: 425,
-            fy2425: 360,
-        },
-        {
-            month: "Apr",
-            fy2324: 400,
-            fy2425: 455,
-        },
-    ];
 
-    {/*------------Inventory parent division mockdata------------------*/ }
-    const inventoryData = [
-        {
-            name: "Corporate",
-            value: 3200000,
-            percentage: 34,
-            color: "#2563EB",
-        },
-        {
-            name: "Retail",
-            value: 2800000,
-            percentage: 30,
-            color: "#16A34A",
-        },
-        {
-            name: "Trading",
-            value: 1900000,
-            percentage: 20,
-            color: "#F59E0B",
-        },
-        {
-            name: "Projects",
-            value: 1300000,
-            percentage: 16,
-            color: "#EF4444",
-        },
-    ];
+
     {/*------------Total calculation Inventory parent division mockdata------------------*/ }
     const totalInventory = inventoryData.reduce(
         (sum, item) => sum + item.value,
         0
     );
-    {/*------------Inventory business unit mockdata------------------*/ }
-    const inventoryBusinessUnitData = [
-        { name: "Coils BU", value: 158.45 },
-        { name: "Service BU", value: 102.30 },
-        { name: "Fans BU", value: 74.60 },
-        { name: "Gears BU", value: 62.40 },
-        { name: "Valves BU", value: 48.20 },
-        { name: "Others", value: 26.40 },
-    ];
-    {/*------------Inventory aging summary mockdata------------------*/ }
-    const inventoryAgingData = [
-        {
-            name: "0-30 Days",
-            value: 2300000,
-            percentage: 23,
-            color: "#16A34A",
-        },
-        {
-            name: "31-60 Days",
-            value: 1600000,
-            percentage: 16,
-            color: "#F59E0B",
-        },
-        {
-            name: "61-90 Days",
-            value: 900000,
-            percentage: 9,
-            color: "#EF4444",
-        },
-        {
-            name: "91-180 Days",
-            value: 600000,
-            percentage: 6,
-            color: "#8B5CF6",
-        },
-        {
-            name: " > 180 Days",
-            value: 400000,
-            percentage: 4,
-            color: "#0F766E",
-        },
-    ];
 
-    const totalInventoryAging = inventoryAgingData.reduce(
-        (sum, item) => sum + item.value,
-        0
-    );
 
-    {/*------------Inventory Slow moving items Top 5 mockdata------------------*/ }
-    const slowMovingItemsData = [
-        {
-            item: 'Industrial Fan 24"',
-            code: "IF-24-001",
-            qty: 12450,
-            value: 3.85,
-            days: 245,
-        },
-        {
-            item: "Coil CRCA 1.2mm",
-            code: "CRCA-12",
-            qty: 18600,
-            value: 3.25,
-            days: 232,
-        },
-        {
-            item: "Gear Box Helical 40-1",
-            code: "GB-40-1",
-            qty: 8750,
-            value: 2.40,
-            days: 215,
-        },
-        {
-            item: "Motor IE3 7.5 KW",
-            code: "MTR-75",
-            qty: 6320,
-            value: 1.95,
-            days: 210,
-        },
-        {
-            item: 'Valve Gate 4"',
-            code: "VG-04",
-            qty: 4850,
-            value: 1.75,
-            days: 205,
-        },
-    ];
-    {/*------------Inventory Location Top 5 mockdata------------------*/ }
-    const inventoryLocationData = [
-        {
-            location: "Al Ain Warehouse",
-            value: 96.45,
-            percentage: 20.42,
-        },
-        {
-            location: "Jebel Ali Warehouse",
-            value: 85.20,
-            percentage: 18.04,
-        },
-        {
-            location: "Riyadh Warehouse",
-            value: 72.60,
-            percentage: 15.37,
-        },
-        {
-            location: "Dammam Warehouse",
-            value: 63.40,
-            percentage: 13.42,
-        },
-        {
-            location: "Abu Dhabi Warehouse",
-            value: 54.30,
-            percentage: 11.50,
-        },
-    ];
-
-    const inventoryLocationTotal = {
-        value: 371.95,
-        percentage: 78.75,
+    const handleFilterApply = (selectedFilters) => {
+        console.log("Applied Filters:", selectedFilters);
+        setFilters(selectedFilters);
     };
-    const inventoryDetailsData = [
-        {
-            legalEntity: "Alpine Coils LLC",
-            parentDivision: "Alpine",
-            subDivision: "Alpine Coils",
-            businessUnit: "Coils BU",
-            totalQty: 5845210,
-            inventoryValue: 212.45,
-            days0to30: 68.20,
-            days31to60: 48.30,
-            days61to90: 38.10,
-            days91to180: 32.45,
-            daysAbove180: 25.40,
-            slowMoving: 15.60,
-        },
-        {
-            legalEntity: "DC Serve LLC",
-            parentDivision: "DC Serve",
-            subDivision: "DC Serve Equip.",
-            businessUnit: "Service BU",
-            totalQty: 4210850,
-            inventoryValue: 136.80,
-            days0to30: 44.30,
-            days31to60: 31.25,
-            days61to90: 24.70,
-            days91to180: 20.40,
-            daysAbove180: 16.15,
-            slowMoving: 9.85,
-        },
-        {
-            legalEntity: "Filter Fan LLC",
-            parentDivision: "Alpine",
-            subDivision: "Filter Fan - UAE",
-            businessUnit: "Fans BU",
-            totalQty: 3125460,
-            inventoryValue: 74.30,
-            days0to30: 23.60,
-            days31to60: 16.80,
-            days61to90: 12.90,
-            days91to180: 11.50,
-            daysAbove180: 7.80,
-            slowMoving: 4.60,
-        },
-        {
-            legalEntity: "Alpine Gears LLC",
-            parentDivision: "Alpine",
-            subDivision: "Alpine Gears",
-            businessUnit: "Gears BU",
-            totalQty: 2740120,
-            inventoryValue: 62.40,
-            days0to30: 18.90,
-            days31to60: 14.20,
-            days61to90: 10.40,
-            days91to180: 8.95,
-            daysAbove180: 6.35,
-            slowMoving: 3.20,
-        },
-        {
-            legalEntity: "Valves KSA LLC",
-            parentDivision: "DC Serve",
-            subDivision: "Valves KSA",
-            businessUnit: "Valves BU",
-            totalQty: 1985730,
-            inventoryValue: 48.20,
-            days0to30: 15.45,
-            days31to60: 10.30,
-            days61to90: 7.25,
-            days91to180: 6.10,
-            daysAbove180: 4.85,
-            slowMoving: 2.45,
-        },
-        {
-            legalEntity: "Others",
-            parentDivision: "Others",
-            subDivision: "Others",
-            businessUnit: "Others",
-            totalQty: 5741150,
-            inventoryValue: 28.20,
-            days0to30: 8.00,
-            days31to60: 6.75,
-            days61to90: 4.95,
-            days91to180: 3.45,
-            daysAbove180: 5.05,
-            slowMoving: 2.75,
-        },
-    ];
+
+    const handleFilterReset = () => {
+        const resetFilters = {};
+        setFilters(resetFilters);
+    };
 
     const handleExport = async (type) => {
         try {
             setExporting(type);
-            const response = await getReceivableExport(type, filters);
+
+            const response = await getInventoryExport(
+                type === "excel" ? "xlsx" : "pdf",
+                filters
+            );
+
             const blob = new Blob([response.data], {
-                type:
-                    type === "excel"
-                        ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        : "application/pdf",
+                type: response.headers["content-type"],
             });
 
             const url = window.URL.createObjectURL(blob);
+
             const link = document.createElement("a");
             link.href = url;
-            link.download =
+
+            const fileName =
                 type === "excel"
-                    ? "Receivables_Report.xlsx"
-                    : "Receivables_Report.pdf";
+                    ? "Inventory_Detailed_Report.xlsx"
+                    : "Inventory_Detailed_Report.pdf";
+
+            link.setAttribute("download", fileName);
 
             document.body.appendChild(link);
+
             link.click();
+
             link.remove();
+
             window.URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error(err);
-            if (type === "excel") {
-                alert("Export Failed");
-            }
-            else {
-                alert("PDF Download Failed");
-            }
+
+        } catch (error) {
+            console.error("Inventory Export Error:", error);
+            alert("Download Failed");
         } finally {
             setExporting("");
         }
     };
+
     return (
         <div className="page-content relative">
             <PageHeader
                 title="Inventory Overview"
                 subtitle="Track inventory position,movement and aging across all dimensions.">
-
                 <ExportButtons
                     endpoint="inventory"
                     exporting={exporting}
+                    handleExport={handleExport}
                 />
             </PageHeader>
 
@@ -498,15 +533,18 @@ export default function InventoryAgingPage() {
                 {/* ----Filters---- */}
                 <Filters
                     filterOptions={filterOptions}
+                    onApply={handleFilterApply}
+                    onReset={handleFilterReset}
                 />
                 {/* -----KPI Cards----- */}
                 <div style={{ marginTop: "-18px" }}>
-                    <KPICards data={inventoryKpiData} />
+                    <KPICards data={InventoryKpiData} />
                 </div>
                 <div className="receivables-grid gap-3">
                     <InventoryValueTrend
                         title="Inventory Value Trend"
                         data={inventoryTrendData}
+                        currency={selectedCurrency}
                     />
 
                     <OverDueSummaryCard
@@ -514,10 +552,12 @@ export default function InventoryAgingPage() {
                         data={inventoryData}
                         total={totalInventory}
                         Centerlabel="Total Inventory"
+                        currency={selectedCurrency}
                     />
                     <ParentDivisionCard
-                        title="Inventory Value by Business Unit"
-                        data={inventoryBusinessUnitData}
+                        title="Inventory Value by Subdivision"
+                        data={inventorySubdivision || []}
+                        currency={selectedCurrency}
                     />
                 </div>
 
@@ -526,25 +566,29 @@ export default function InventoryAgingPage() {
                         title="Inventory Aging Summary"
                         data={inventoryAgingData}
                         legendData={inventoryAgingData}
-                        total={totalInventoryAging}
+                        total={inventoryAgingTotal}
                         date="31 Mar 2025"
                         showSummaryHeader
+                        wideLegend
+                        currency={selectedCurrency}
                     />
-
                     <InventoryTable
                         title="Slow Moving Items (Top 5)"
                         data={slowMovingItemsData}
+                        currency={selectedCurrency}
                     />
 
                     <InventoryLocationTable
                         title="Inventory by Location (Top 5)"
                         data={inventoryLocationData}
+                        currency={selectedCurrency}
                     />
                 </div>
 
                 <InventoryDetailedViewTable
                     title="Inventory Detailed View"
                     data={inventoryDetailsData}
+                    currency={selectedCurrency}
                     onViewAll={handleViewDetails}
                     onExportExcel={() => handleExport("excel")}
                     onExportPdf={() => handleExport("pdf")}
@@ -555,14 +599,17 @@ export default function InventoryAgingPage() {
             <div className="fixed bottom-0 left-58 right-2 z-50 bg-white border-t border-gray-200 p-2">
                 <FooterNote
                     title="Note:"
-                    message="All values are in AED | ☁️ Source: Oracle Fusion Cloud"
+                    message={`All values are in ${selectedCurrency} | ☁️ Source: Oracle Fusion Cloud`}
                     showRefresh={false}
                 />
             </div>
+
             <InventoryDetailsModal
                 open={showDetailsModal}
                 onClose={() => setShowDetailsModal(false)}
                 data={inventoryDetailsData}
+                onExportExcel={() => handleExport("excel")}
+                onExportPdf={() => handleExport("pdf")}
             />
         </div>
 

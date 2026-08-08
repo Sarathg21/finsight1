@@ -426,14 +426,16 @@ export default function WorkingCapitalReport() {
 
             <div className="flex flex-col gap-2">
                 {/* ----Filters---- */}
-                <Filters
-                    filterOptions={filterOptions}
-                />
-                {/* -----KPI Cards----- */}
-                <div style={{ marginTop: "-18px" }}>
-                    <KPICards data={workingCapitalKpiData} />
+
+                <div className="sticky top-0 z-30 bg-white py-2">
+                    <Filters
+                        filterOptions={filterOptions}
+                    />
                 </div>
 
+                {/* -----KPI Cards----- */}
+                    <KPICards data={workingCapitalKpiData} />
+                
                 {/* -----Working Capital Trend data---- */}
                 <div className="grid grid-cols-16 gap-3 mt-3">
 
@@ -496,14 +498,11 @@ export default function WorkingCapitalReport() {
                 <div
                     style={{
                         display: "grid",
-
                         /* LEFT CCC + RIGHT TREND/INSIGHTS */
                         gridTemplateColumns: "1.05fr 1.95fr",
-
                         gap: "10px",
-
                         width: "100%",
-                        height: "100%",
+                        height: "150px",
                         minWidth: 0,
                     }}
                 >

@@ -274,7 +274,7 @@ export function SubDivisionTable({ data = [], title, tabletitle }) {
                     fontWeight: 700,
                   }}
                 >
-                   Sub Division
+                  Sub Division
                 </th>
 
                 <th
@@ -317,7 +317,7 @@ export function SubDivisionTable({ data = [], title, tabletitle }) {
                         color: "#0F172A",
                       }}
                     >
-                     {b.subdivision || "-"}
+                      {b.subdivision || "-"}
                     </td>
 
                     <td
@@ -835,19 +835,35 @@ export function SalesmanTable({ data = [], title }) {
 
 {/*....... inventory slow moving items table ............*/ }
 
-export function InventoryTable({ data = [], title }) {
+export function InventoryTable({ data = [], title, currency = "AED", }) {
+  const formatAmount = (value) => {
+    const amount = Number(value);
+
+    if (amount >= 1_000_000) {
+      return `${(amount / 1_000_000).toFixed(2)}M`;
+    }
+
+    if (amount >= 1_000) {
+      return `${(amount / 1_000).toFixed(2)}K`;
+    }
+
+    return amount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   return (
     <div
       className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col w-full h-80"
       style={{
-
         boxShadow: "0 1px 4px rgba(15,23,42,.06)",
       }}
     >
       {/* Header */}
       <div
         style={{
-          height: 42,
+          height: 46,
           display: "flex",
           alignItems: "center",
           padding: "0 16px",
@@ -872,6 +888,7 @@ export function InventoryTable({ data = [], title }) {
           style={{
             width: "100%",
             borderCollapse: "collapse",
+            borderSpacing: 0,
             tableLayout: "fixed",
             fontSize: 11,
           }}
@@ -885,82 +902,76 @@ export function InventoryTable({ data = [], title }) {
             }}
           >
             <tr>
-              <th
-                style={{
-                  width: "5%",
-                  padding: "8px 8px",
-                  textAlign: "center",
-                  color: "#1E3A8A",
-                  fontWeight: 700,
-                  borderBottom: "1px solid #E8EDF5",
-                }}
-              >
+              <th style={{
+                width: "4%",
+                padding: "10px 6px",
+                textAlign: "center",
+                color: "#1E3A8A",
+                fontWeight: 700,
+                borderBottom: "1px solid #E8EDF5",
+                whiteSpace: "nowrap", fontSize: "11px",
+              }}>
                 #
               </th>
 
-              <th
-                style={{
-                  width: "34%",
-                  padding: "12px 10px",
-                  textAlign: "left",
-                  color: "#1E3A8A",
-                  fontWeight: 700,
-                  borderBottom: "1px solid #E8EDF5",
-                }}
-              >
+              <th style={{
+                width: "33%",
+                padding: "10px 6px",
+                textAlign: "left",
+                color: "#1E3A8A",
+                fontWeight: 700,
+                borderBottom: "1px solid #E8EDF5",
+                whiteSpace: "nowrap", fontSize: "11px",
+              }}>
                 Item Description
               </th>
 
-              <th
-                style={{
-                  width: "17%",
-                  padding: "12px 10px",
-                  textAlign: "left",
-                  color: "#1E3A8A",
-                  fontWeight: 700,
-                  borderBottom: "1px solid #E8EDF5",
-                }}
-              >
+              <th style={{
+                width: "17%",
+                padding: "10px 6px",
+                textAlign: "left",
+                color: "#1E3A8A",
+                fontWeight: 700,
+                borderBottom: "1px solid #E8EDF5",
+                whiteSpace: "nowrap", fontSize: "11px",
+              }}>
                 Item Code
               </th>
 
-              <th
-                style={{
-                  width: "14%",
-                  padding: "12px 10px",
-                  textAlign: "left",
-                  color: "#1E3A8A",
-                  fontWeight: 700,
-                  borderBottom: "1px solid #E8EDF5",
-                }}
-              >
+              <th style={{
+                width: "14%",
+                padding: "10px 6px",
+                textAlign: "center",
+                color: "#1E3A8A",
+                fontWeight: 700,
+                borderBottom: "1px solid #E8EDF5",
+                whiteSpace: "nowrap", fontSize: "11px",
+              }}>
                 Qty
               </th>
 
-              <th
-                style={{
-                  width: "14%",
-                  padding: "12px 10px",
-                  textAlign: "left",
-                  color: "#1E3A8A",
-                  fontWeight: 700,
-                  borderBottom: "1px solid #E8EDF5",
-                }}
-              >
-                Value
+              <th style={{
+                width: "17%",
+                padding: "10px 6px",
+                textAlign: "right",
+                color: "#1E3A8A",
+                fontWeight: 700,
+                borderBottom: "1px solid #E8EDF5",
+                whiteSpace: "nowrap", fontSize: "11px",
+              }}>
+                Value ({currency})
               </th>
 
-              <th
-                style={{
-                  width: "16%",
-                  padding: "12px 10px",
-                  textAlign: "left",
-                  color: "#1E3A8A",
-                  fontWeight: 700,
-                  borderBottom: "1px solid #E8EDF5",
-                }}
-              >
-                Age(days)
+              <th style={{
+                width: "15%",
+                padding: "10px 6px",
+                textAlign: "left",
+                color: "#1E3A8A",
+                fontWeight: 700,
+                borderBottom: "1px solid #E8EDF5",
+                whiteSpace: "nowrap", fontSize: "11px",
+              }}>
+                Category
               </th>
             </tr>
           </thead>
@@ -971,17 +982,20 @@ export function InventoryTable({ data = [], title }) {
                 <tr
                   key={index}
                   style={{
-                    height: 34,
-                    background: index % 2 === 0 ? "#FFFFFF" : "#FBFCFE",
+                    height: 32,
+                    background:
+                      index % 2 === 0 ? "#FFFFFF" : "#FBFCFE",
                     borderBottom: "1px solid #EEF2F7",
                   }}
                 >
                   <td
                     style={{
+                      padding: "10px",
                       textAlign: "center",
                       color: "#64748B",
                       fontWeight: 600,
-                      padding: "6px 8px",
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
                     }}
                   >
                     {index + 1}
@@ -989,11 +1003,13 @@ export function InventoryTable({ data = [], title }) {
 
                   <td
                     style={{
-                      padding: "10px 10px",
+                      padding: "10px",
                       color: "#0F172A",
                       fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
                       whiteSpace: "nowrap",
-                      overflow: "hidden", textAlign: "left",
+                      overflow: "hidden",
                       textOverflow: "ellipsis",
                     }}
                   >
@@ -1002,10 +1018,11 @@ export function InventoryTable({ data = [], title }) {
 
                   <td
                     style={{
-                      padding: "10px 10px",
-                      textAlign: "left",
+                      padding: "10px",
                       color: "#0F172A",
                       fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
                     }}
                   >
                     {item.code}
@@ -1013,35 +1030,40 @@ export function InventoryTable({ data = [], title }) {
 
                   <td
                     style={{
-                      padding: "10px 10px",
-                      textAlign: "left",
+                      padding: "10px",
+                      textAlign: "right",
                       color: "#0F172A",
                       fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
                     }}
                   >
-                    {Number(item.qty).toLocaleString()}
+                    {Math.round(item.qty).toLocaleString("en-US")}
                   </td>
 
                   <td
                     style={{
-                      padding: "10px 10px",
-                      textAlign: "left",
+                      padding: "10px",
+                      textAlign: "right",
                       color: "#0F172A",
                       fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
                     }}
                   >
-                    {Number(item.value).toFixed(2)}
+                    {formatAmount(item.value)}
                   </td>
 
                   <td
                     style={{
-                      padding: "10px 10px",
-                      textAlign: "left",
+                      padding: "10px",
                       color: "#0F172A",
                       fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
                     }}
                   >
-                    {item.days}
+                    {item.category}
                   </td>
                 </tr>
               ))
@@ -1066,13 +1088,38 @@ export function InventoryTable({ data = [], title }) {
   );
 }
 
-/*Inventory Location */
-export function InventoryLocationTable({ data = [], title }) {
 
-  const grandTotal = data.reduce(
-    (acc, curr) => acc + Number(curr.value || 0),
-    0
-  );
+/*Inventory Location */
+export function InventoryLocationTable({ data = [], title, currency = "AED", }) {
+
+  const grandTotal = data
+    .slice(0, 5)
+    .reduce((acc, curr) => acc + Number(curr.value || 0), 0);
+
+  const totalPercentage = data
+    .slice(0, 5)
+    .reduce(
+      (acc, curr) =>
+        acc + ((Number(curr.value || 0) / grandTotal) * 100),
+      0
+    );
+
+  const formatCurrency = (value) => {
+    const amount = Number(value);
+
+    if (amount >= 1_000_000) {
+      return `${(amount / 1_000_000).toFixed(2)}M`;
+    }
+
+    if (amount >= 1_000) {
+      return `${(amount / 1_000).toFixed(2)}K`;
+    }
+
+    return amount.toLocaleString("en-GB", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-80">
@@ -1133,7 +1180,7 @@ export function InventoryLocationTable({ data = [], title }) {
                     fontWeight: 700, color: "#1E3A8A",
                   }}
                 >
-                  Value (AED)
+                  Value ({currency})
                 </th>
 
                 <th
@@ -1151,13 +1198,8 @@ export function InventoryLocationTable({ data = [], title }) {
 
             <tbody>
               {data.length > 0 ? (
-                data.map((item, index) => (
-                  <tr
-                    key={index}
-                    style={{
-                      borderBottom: "1px solid #E2E8F0",
-                    }}
-                  >
+                data.slice(0, 5).map((item, index) => (
+                  <tr key={index}>
                     <td
                       style={{
                         padding: "10px",
@@ -1175,10 +1217,7 @@ export function InventoryLocationTable({ data = [], title }) {
                         fontWeight: 600,
                       }}
                     >
-                      {Number(item.value).toLocaleString("en-GB", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      {formatCurrency(item.value)}
                     </td>
 
                     <td
@@ -1188,28 +1227,16 @@ export function InventoryLocationTable({ data = [], title }) {
                         fontWeight: 600,
                       }}
                     >
-                      {grandTotal > 0
-                        ? ((Number(item.value) / grandTotal) * 100).toFixed(2)
-                        : "0.00"}
-                      %
+                      {Number(item.percentage).toFixed(2)}%
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan={3}
-                    style={{
-                      textAlign: "center",
-                      padding: "40px",
-                    }}
-                  >
-                    No records found
-                  </td>
+                  <td colSpan={3}>No records found</td>
                 </tr>
               )}
             </tbody>
-
             <tfoot>
               <tr
                 style={{
@@ -1238,10 +1265,7 @@ export function InventoryLocationTable({ data = [], title }) {
                     color: "#07247b",
                   }}
                 >
-                  {grandTotal.toLocaleString("en-GB", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+                  {formatCurrency(grandTotal)}
                 </td>
 
                 <td
@@ -1252,7 +1276,7 @@ export function InventoryLocationTable({ data = [], title }) {
                     color: "#07247b",
                   }}
                 >
-                  100.00%
+                  {totalPercentage.toFixed(2)}%
                 </td>
               </tr>
             </tfoot>
@@ -1297,9 +1321,9 @@ export function BreakdownTable({
         style={{
           height: "17px",
           lineHeight: "17px",
-          fontSize: "11px",
+          fontSize: "13px",
           fontWeight: 700,
-          color: "#07247b",
+          color: "#000000",
           marginBottom: "3px",
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -1309,266 +1333,287 @@ export function BreakdownTable({
         {title}
       </div>
 
-      {/* TABLE */}
-      <table
+      <div
         style={{
           width: "100%",
-          borderCollapse: "collapse",
-          tableLayout: "fixed",
-          fontSize: "9px",
-          lineHeight: "1",
+          overflowX: "auto",
+          overflowY: "hidden",
         }}
       >
-        {/* HEADER */}
-        <thead>
-          <tr
-            style={{
-              height: "19px",
-              borderBottom: "1px solid #dfe5ee",
-            }}
-          >
-            <th
-              style={{
-                width: "34%",
-                textAlign: "left",
-                padding: "2px 4px",
-                color: "#07247b",
-                fontSize: "9px",
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              }}
-            >
-              Particular
-            </th>
 
-            <th
-              style={{
-                width: "17%",
-                textAlign: "right",
-                padding: "2px 3px",
-                color: "#07247b",
-                fontSize: "9px",
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-              }}
-            >
-              31 Mar 2024
-            </th>
-
-            <th
-              style={{
-                width: "17%",
-                textAlign: "right",
-                padding: "2px 3px",
-                color: "#07247b",
-                fontSize: "9px",
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-              }}
-            >
-              30 Apr 2024
-            </th>
-
-            <th
-              style={{
-                width: "18%",
-                textAlign: "right",
-                padding: "2px 3px",
-                color: "#07247b",
-                fontSize: "9px",
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Variance (AED)
-            </th>
-
-            <th
-              style={{
-                width: "14%",
-                textAlign: "right",
-                padding: "2px 3px",
-                color: "#07247b",
-                fontSize: "9px",
-                fontWeight: 700,
-                whiteSpace: "nowrap",
-              }}
-            >
-              Variance (%)
-            </th>
-          </tr>
-        </thead>
-
-        {/* BODY */}
-        <tbody>
-          {rows.map((row, index) => {
-            const negative = Number(row.variance) < 0;
-
-            return (
-              <tr
-                key={row.particular || index}
-                style={{
-                  height: "21px",
-                  borderBottom: "1px solid #f1f3f6",
-                }}
-              >
-                {/* PARTICULAR */}
-                <td
-                  style={{
-                    padding: "2px 4px",
-                    color: "#1f2937",
-                    fontSize: "10px",
-                    fontWeight: 500,
-                    textAlign: "left",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {row.particular}
-                </td>
-
-                {/* MAR */}
-                <td
-                  style={{
-                    padding: "2px 3px",
-                    color: "#374151",
-                    fontSize: "9px",
-                    textAlign: "right",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {formatNumber(row.mar31)}
-                </td>
-
-                {/* APR */}
-                <td
-                  style={{
-                    padding: "2px 3px",
-                    color: "#374151",
-                    fontSize: "9px",
-                    textAlign: "right",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {formatNumber(row.apr30)}
-                </td>
-
-                {/* VARIANCE */}
-                <td
-                  style={{
-                    padding: "2px 3px",
-                    color: negative
-                      ? "#ef4444"
-                      : "#166534",
-                    fontSize: "9px",
-                    fontWeight: 500,
-                    textAlign: "right",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {formatNumber(row.variance)}
-                </td>
-
-                {/* VARIANCE % */}
-                <td
-                  style={{
-                    padding: "2px 3px",
-                    color: negative
-                      ? "#ef4444"
-                      : "#166534",
-                    fontSize: "9px",
-                    fontWeight: 500,
-                    textAlign: "right",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {Number(row.variancePct).toFixed(2)}%
-                </td>
-              </tr>
-            );
-          })}
-
-          {/* TOTAL */}
-          {totalRow && (
+        {/* TABLE */}
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "separate",
+            borderSpacing: "6px 6px",
+            tableLayout: "fixed",
+            fontSize: "9px",
+            lineHeight: "1.4",
+          }}
+        >
+          {/* HEADER */}
+          <thead>
             <tr
               style={{
-                height: "23px",
-                background: "#f4f7ff",
-                borderTop: "1px solid #dbe3ef",
+                height: "32px",
+                borderBottom: "1px solid #dfe5ee",
               }}
             >
-              <td
+              <th
                 style={{
-                  padding: "3px 4px",
-                  color: "#07247b",
-                  fontSize: "9px",
-                  fontWeight: 700,
+                  width: "32%",
+                  position: "sticky",
+                  left: 0,
+                  zIndex: 3,
+                  background: "#ffffff",
                   textAlign: "left",
+                  padding: "6px 4px",
+                  color: "#07247b",
+                  fontSize: "11px",
+                  fontWeight: 700,
                   whiteSpace: "nowrap",
                 }}
               >
-                {totalRow.particular}
-              </td>
+                Particular
+              </th>
 
-              <td
+              <th
                 style={{
-                  padding: "3px",
+                  width: "16%",
+                  textAlign: "right",
+                  padding: "6px 30px 6px 8px",
                   color: "#07247b",
-                  fontSize: "9px",
+                  fontSize: "11px",
                   fontWeight: 700,
-                  textAlign: "right",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {formatNumber(totalRow.mar31)}
-              </td>
+                31 Mar 2024
+              </th>
 
-              <td
+              <th
                 style={{
-                  padding: "3px",
+                  width: "16%",
+                  textAlign: "right",
+                  padding: "6px 30px 6px 8px",
                   color: "#07247b",
-                  fontSize: "9px",
+                  fontSize: "11px",
                   fontWeight: 700,
-                  textAlign: "right",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {formatNumber(totalRow.apr30)}
-              </td>
+                30 Apr 2024
+              </th>
 
-              <td
+              <th
                 style={{
-                  padding: "3px",
-                  color:
-                    Number(totalRow.variance) < 0
-                      ? "#ef4444"
-                      : "#166534",
-                  fontSize: "9px",
-                  fontWeight: 700,
+                  width: "17%",
                   textAlign: "right",
+                  padding: "6px 30px 6px 8px",
+                  color: "#07247b",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
                 }}
               >
-                {formatNumber(totalRow.variance)}
-              </td>
+                Variance (AED)
+              </th>
 
-              <td
+              <th
                 style={{
-                  padding: "3px",
-                  color:
-                    Number(totalRow.variancePct) < 0
-                      ? "#ef4444"
-                      : "#166534",
-                  fontSize: "9px",
-                  fontWeight: 700,
+                  width: "13%",
                   textAlign: "right",
+                  padding: "6px 8px 6px 30px",
+                  color: "#07247b",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
                 }}
               >
-                {Number(totalRow.variancePct).toFixed(2)}%
-              </td>
+                Variance (%)
+              </th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+
+          {/* BODY */}
+          <tbody>
+            {rows.map((row, index) => {
+              const negative = Number(row.variance) < 0;
+
+              return (
+                <tr
+                  key={row.particular || index}
+                  style={{
+                    height: "21px",
+                    borderBottom: "1px solid #f1f3f6",
+                  }}
+                >
+                  {/* PARTICULAR */}
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      zIndex: 2,
+                      background: "#ffffff",
+                      padding: "2px 4px",
+                      color: "#1f2937",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      textAlign: "left",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {row.particular}
+                  </td>
+
+                  {/* MAR */}
+                  <td
+                    style={{
+                      padding: "2px 3px",
+                      color: "#374151",
+                      fontSize: "12px",
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatNumber(row.mar31)}
+                  </td>
+
+                  {/* APR */}
+                  <td
+                    style={{
+                      padding: "2px 3px",
+                      color: "#374151",
+                      fontSize: "12px",
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatNumber(row.apr30)}
+                  </td>
+
+                  {/* VARIANCE */}
+                  <td
+                    style={{
+                      padding: "2px 3px",
+                      color: negative
+                        ? "#ef4444"
+                        : "#166534",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatNumber(row.variance)}
+                  </td>
+
+                  {/* VARIANCE % */}
+                  <td
+                    style={{
+                      padding: "2px 3px",
+                      color: negative
+                        ? "#ef4444"
+                        : "#166534",
+                      fontSize: "12px",
+                      fontWeight: 500,
+                      textAlign: "right",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {Number(row.variancePct).toFixed(2)}%
+                  </td>
+                </tr>
+              );
+            })}
+
+            {/* TOTAL */}
+            {totalRow && (
+              <tr
+                style={{
+                  height: "23px",
+                  background: "#f4f7ff",
+                  borderTop: "1px solid #dbe3ef",
+                }}
+              >
+                <td
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 2,
+                    background: "#f4f7ff",
+                    padding: "3px 4px",
+                    color: "#07247b",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    textAlign: "left",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {totalRow.particular}
+                </td>
+
+                <td
+                  style={{
+                    padding: "3px",
+                    color: "#07247b",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    textAlign: "right",
+                  }}
+                >
+                  {formatNumber(totalRow.mar31)}
+                </td>
+
+                <td
+                  style={{
+                    padding: "3px",
+                    color: "#07247b",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    textAlign: "right",
+                  }}
+                >
+                  {formatNumber(totalRow.apr30)}
+                </td>
+
+                <td
+                  style={{
+                    padding: "3px",
+                    color:
+                      Number(totalRow.variance) < 0
+                        ? "#ef4444"
+                        : "#166534",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    textAlign: "right",
+                  }}
+                >
+                  {formatNumber(totalRow.variance)}
+                </td>
+
+                <td
+                  style={{
+                    padding: "3px",
+                    color:
+                      Number(totalRow.variancePct) < 0
+                        ? "#ef4444"
+                        : "#166534",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    textAlign: "right",
+                  }}
+                >
+                  {Number(totalRow.variancePct).toFixed(2)}%
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1598,9 +1643,9 @@ export function KeyLiquidityRatios({
         style={{
           height: "17px",
           lineHeight: "17px",
-          fontSize: "11px",
+          fontSize: "13px",
           fontWeight: 700,
-          color: "#07247b",
+          color: "#000000",
           marginBottom: "4px",
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -1629,25 +1674,26 @@ export function KeyLiquidityRatios({
             <th
               style={{
                 width: "38%",
+                boxSizing: "border-box",
                 textAlign: "left",
-                padding: "2px 3px",
+                padding: "4px 6px",
                 color: "#07247b",
-                fontSize: "9px",
+                fontSize: "11px",
                 fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
             >
               Ratio
             </th>
-
             {/* CURRENT DATE */}
             <th
               style={{
-                width: "22%",
-                textAlign: "right",
-                padding: "2px 2px",
+                width: "38%",
+                boxSizing: "border-box",
+                textAlign: "left",
+                padding: "4px 6px",
                 color: "#07247b",
-                fontSize: "8px",
+                fontSize: "11px",
                 fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
@@ -1658,11 +1704,12 @@ export function KeyLiquidityRatios({
             {/* PREVIOUS DATE */}
             <th
               style={{
-                width: "22%",
-                textAlign: "right",
-                padding: "2px 2px",
+                width: "38%",
+                boxSizing: "border-box",
+                textAlign: "left",
+                padding: "4px 6px",
                 color: "#07247b",
-                fontSize: "8px",
+                fontSize: "11px",
                 fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
@@ -1673,11 +1720,12 @@ export function KeyLiquidityRatios({
             {/* VARIANCE */}
             <th
               style={{
-                width: "18%",
-                textAlign: "right",
-                padding: "2px 2px",
+                width: "38%",
+                boxSizing: "border-box",
+                textAlign: "left",
+                padding: "4px 6px",
                 color: "#07247b",
-                fontSize: "8.5px",
+                fontSize: "11px",
                 fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
@@ -1708,8 +1756,8 @@ export function KeyLiquidityRatios({
                   style={{
                     padding: "2px 3px",
                     color: "#1f2937",
-                    fontSize: "10px",
-                    fontWeight: 500,
+                    fontSize: "12px",
+                    fontWeight: 700,
                     textAlign: "left",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -1724,8 +1772,9 @@ export function KeyLiquidityRatios({
                   style={{
                     padding: "2px 2px",
                     color: "#374151",
-                    fontSize: "9px",
+                    fontSize: "12px",
                     textAlign: "right",
+                    fontWeight: 700,
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -1737,9 +1786,10 @@ export function KeyLiquidityRatios({
                   style={{
                     padding: "2px 2px",
                     color: "#374151",
-                    fontSize: "9px",
+                    fontSize: "12px",
                     textAlign: "right",
                     whiteSpace: "nowrap",
+                    fontWeight: 700,
                   }}
                 >
                   {formatValue(row.previous)}
@@ -1752,8 +1802,8 @@ export function KeyLiquidityRatios({
                     color: negative
                       ? "#ef4444"
                       : "#16834b",
-                    fontSize: "9px",
-                    fontWeight: 600,
+                    fontSize: "12px",
+                    fontWeight: 700,
                     textAlign: "right",
                     whiteSpace: "nowrap",
                   }}
@@ -1768,7 +1818,7 @@ export function KeyLiquidityRatios({
                   >
                     <span
                       style={{
-                        fontSize: "9px",
+                        fontSize: "12px",
                       }}
                     >
                       {negative ? "▼" : "▲"}

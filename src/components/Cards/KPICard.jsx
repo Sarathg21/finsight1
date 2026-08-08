@@ -22,92 +22,123 @@ export default function KPICard({
 
   trendColor = "#16A34A",
   cardBackground = "#FFFFFF", titleBackground = "transparent", isCurrency = true,
+  formatType = "currency", currency = "AED",
 }) {
 
   const isUp = trend === "up";
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
-    if (!value) return;
-
-    const text = String(value);
-
     if (
-      text.includes("x") ||
-      text.toLowerCase().includes("day") ||
-      text.toLowerCase().includes("nos")
-    ) {
+      value === null ||
+      value === undefined ||
+      value === ""
+    )
       return;
-    }
 
-    const number = Number(
-      text
-        .replace("AED", "")
-        .replace("M", "")
-        .replace("K", "")
-        .replace(/,/g, "")
-        .trim()
-    );
+    const number = Number(value);
 
     if (isNaN(number)) return;
 
+    let start = 0;
+    const duration = 1000;
+    const increment = number / (duration / 16);
+
     setDisplayValue(0);
 
-    let current = 0;
-
-    const duration = 900;
-
-    const step = number / (duration / 16);
-
     const timer = setInterval(() => {
-      current += step;
+      start += increment;
 
-      if (current >= number) {
-        current = number;
+      if (start >= number) {
+        start = number;
         clearInterval(timer);
       }
 
-      setDisplayValue(current);
+      setDisplayValue(start);
     }, 16);
 
     return () => clearInterval(timer);
-
   }, [value]);
 
-  const formattedValue = () => {
-    if (!value) return value;
-
-    const text = String(value);
-
-    // Inventory Turnover
-    if (text.includes("x")) return text;
-
-    // Days
-    if (text.toLowerCase().includes("day")) return text;
-
-    // Quantity
-    if (text.toLowerCase().includes("nos")) return text;
-
-    // Working Capital page ratios (don't add AED)
-    if (!isCurrency) {
-      return displayValue.toFixed(2);
+  const formattedValue = (inputValue) => {
+    if (value === null || value === undefined || value === "") {
+      return "-";
     }
 
-    // Currency in Millions
-    if (text.includes("M")) {
-      return `AED ${displayValue.toFixed(2)}M`;
+
+    const text = String(inputValue);
+
+
+    // Number format (Inventory Quantity)
+    if (formatType === "number") {
+
+      const number = Number(
+        text.replace(/,/g, "")
+      );
+
+      if (isNaN(number)) return text;
+
+      return `${Math.round(number).toLocaleString("en-IN")} Nos`;
     }
 
-    // Currency in Thousands
-    if (text.includes("K")) {
-      return `AED ${displayValue.toFixed(2)}K`;
+
+
+    // Ratio format (Inventory Turnover)
+    if (formatType === "ratio") {
+
+      const number = Number(text);
+
+      if (isNaN(number)) return text;
+
+      return `${number.toFixed(2)}x`;
     }
 
-    // Normal Currency
-    return `AED ${displayValue.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+
+
+    // Days format
+    if (formatType === "days") {
+
+      const number = Number(
+        text.replace(/[^0-9.]/g, "")
+      );
+
+      if (isNaN(number)) return text;
+
+      return `${number.toFixed(0)} Days`;
+    }
+
+
+
+    // Currency format
+    if (formatType === "currency") {
+
+      if (text.match(/^[A-Z]{3}/)) {
+        return text;
+      }
+
+
+      const number = Number(text);
+
+
+      if (isNaN(number)) {
+        return text;
+      }
+
+
+      if (number >= 1000000) {
+        return `${currency} ${(number / 1000000).toFixed(2)}M`;
+      }
+
+      if (number >= 1000) {
+        return `${currency} ${(number / 1000).toFixed(2)}K`;
+      }
+
+      return `${currency} ${number.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    }
+    return text;
   };
 
   return (
@@ -196,7 +227,11 @@ export default function KPICard({
             margin: 0,
           }}
         >
-          {formattedValue()}
+          {formattedValue(
+            displayValue > 0 || Number(value) === 0
+              ? displayValue
+              : value
+          )}
         </h2>
 
         {/* Trend */}

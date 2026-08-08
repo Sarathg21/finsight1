@@ -7,7 +7,8 @@ import ExportButtons from "./Common/ExportButtons";
 export default function InventoryDetailsModal({
     open,
     onClose,
-    data = [],
+    data = [], onExportExcel,
+    onExportPdf,
 }) {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
@@ -94,9 +95,16 @@ export default function InventoryDetailsModal({
         try {
             setExporting(type);
 
-            alert(
-                `${type.toUpperCase()} Export will be connected with backend later.`
-            );
+            if (type === "excel") {
+                await onExportExcel();
+            }
+
+            if (type === "pdf") {
+                await onExportPdf();
+            }
+
+        } catch (error) {
+            console.error("Export Error:", error);
         } finally {
             setExporting("");
         }
