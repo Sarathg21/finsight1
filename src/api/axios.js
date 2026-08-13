@@ -1,23 +1,13 @@
-
 import axios from "axios";
 import { toast } from "react-toastify";
 
 const api = axios.create({
-    baseURL: "http://localhost:8000/api",
+    baseURL: "http://13.233.207.68:8000/api",
     headers: {
         "Content-Type": "application/json",
     },
 });
 
-// Temporary token (remove this in production)
-
-// After successful login
-//localStorage.setItem("token", response.data.access_token);
-localStorage.setItem(
-    "token",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ6ZW5pdGhAZmp0Y28uY29tIiwidXNlcl9pZCI6Niwicm9sZSI6IkNGTyIsImZ1bGxfbmFtZSI6Ilplbml0aCBVc2VyIiwiZXhwIjoxNzg2MjE1MzQxfQ.O808B9eMv7bMOtnS-n13fIJFguPheIlraLQtcg1M470"
-);
-// Request Interceptor
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem("token");
@@ -31,7 +21,6 @@ api.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response Interceptor
 api.interceptors.response.use(
     (response) => response,
 
@@ -39,7 +28,6 @@ api.interceptors.response.use(
         const status = error.response?.status;
 
         switch (status) {
-
             case 401:
                 toast.error("Unauthorized API request");
                 console.log("401 Error:", error.response?.data);

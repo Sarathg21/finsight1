@@ -833,11 +833,18 @@ export function SalesmanTable({ data = [], title }) {
   );
 }
 
-{/*....... inventory slow moving items table ............*/ }
 
-export function InventoryTable({ data = [], title, currency = "AED", }) {
+{/*....... Top 5 High Value Inventory Items table ............*/ }
+
+{/*....... Top 5 High Value Inventory Items table ............*/ }
+
+export function InventoryTable({
+  data = [],
+  title,
+  currency = "AED",
+}) {
   const formatAmount = (value) => {
-    const amount = Number(value);
+    const amount = Number(value) || 0;
 
     if (amount >= 1_000_000) {
       return `${(amount / 1_000_000).toFixed(2)}M`;
@@ -851,6 +858,20 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  };
+
+  const formatQuantity = (value) => {
+    const quantity = Number(value) || 0;
+
+    return quantity.toLocaleString("en-US", {
+      maximumFractionDigits: 2,
+    });
+  };
+
+  const formatPercentage = (value) => {
+    const percentage = Number(value) || 0;
+
+    return `${percentage.toFixed(2)}%`;
   };
 
   return (
@@ -882,6 +903,7 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
         className="flex-1"
         style={{
           overflowY: "auto",
+          overflowX: "auto",
         }}
       >
         <table
@@ -889,7 +911,6 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
             width: "100%",
             borderCollapse: "collapse",
             borderSpacing: 0,
-            tableLayout: "fixed",
             fontSize: 11,
           }}
         >
@@ -902,76 +923,109 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
             }}
           >
             <tr>
-              <th style={{
-                width: "4%",
-                padding: "10px 6px",
-                textAlign: "center",
-                color: "#1E3A8A",
-                fontWeight: 700,
-                borderBottom: "1px solid #E8EDF5",
-                whiteSpace: "nowrap", fontSize: "11px",
-              }}>
-                #
-              </th>
-
-              <th style={{
-                width: "33%",
-                padding: "10px 6px",
-                textAlign: "left",
-                color: "#1E3A8A",
-                fontWeight: 700,
-                borderBottom: "1px solid #E8EDF5",
-                whiteSpace: "nowrap", fontSize: "11px",
-              }}>
-                Item Description
-              </th>
-
-              <th style={{
-                width: "17%",
-                padding: "10px 6px",
-                textAlign: "left",
-                color: "#1E3A8A",
-                fontWeight: 700,
-                borderBottom: "1px solid #E8EDF5",
-                whiteSpace: "nowrap", fontSize: "11px",
-              }}>
+              {/* Item Code */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
                 Item Code
               </th>
 
-              <th style={{
-                width: "14%",
-                padding: "10px 6px",
-                textAlign: "center",
-                color: "#1E3A8A",
-                fontWeight: 700,
-                borderBottom: "1px solid #E8EDF5",
-                whiteSpace: "nowrap", fontSize: "11px",
-              }}>
-                Qty
+              {/* Item Description */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
+                Item Description
               </th>
 
-              <th style={{
-                width: "17%",
-                padding: "10px 6px",
-                textAlign: "right",
-                color: "#1E3A8A",
-                fontWeight: 700,
-                borderBottom: "1px solid #E8EDF5",
-                whiteSpace: "nowrap", fontSize: "11px",
-              }}>
-                Value ({currency})
-              </th>
-
-              <th style={{
-                width: "15%",
-                padding: "10px 6px",
-                textAlign: "left",
-                color: "#1E3A8A",
-                fontWeight: 700,
-                borderBottom: "1px solid #E8EDF5",
-                whiteSpace: "nowrap", fontSize: "11px",
-              }}>
+              {/* Category */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "left",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
                 Category
+              </th>
+
+              {/* UOM */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "center",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
+                UOM
+              </th>
+
+              {/* Quantity */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "right",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
+                Quantity
+              </th>
+
+              {/* Inventory Value */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "right",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
+                Inventory Value ({currency})
+              </th>
+
+              {/* % of Total Inventory */}
+              <th
+                style={{
+                  padding: "10px 8px",
+                  textAlign: "right",
+                  color: "#1E3A8A",
+                  fontWeight: 700,
+                  borderBottom: "1px solid #E8EDF5",
+                  whiteSpace: "nowrap",
+                  fontSize: "11px",
+                }}
+              >
+                % of Total Inventory
               </th>
             </tr>
           </thead>
@@ -980,7 +1034,7 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
             {data.length ? (
               data.map((item, index) => (
                 <tr
-                  key={index}
+                  key={item.id || item.item_code || index}
                   style={{
                     height: 32,
                     background:
@@ -988,19 +1042,7 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
                     borderBottom: "1px solid #EEF2F7",
                   }}
                 >
-                  <td
-                    style={{
-                      padding: "10px",
-                      textAlign: "center",
-                      color: "#64748B",
-                      fontWeight: 600,
-                      lineHeight: "20px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    {index + 1}
-                  </td>
-
+                  {/* Item Code */}
                   <td
                     style={{
                       padding: "10px",
@@ -1009,13 +1051,12 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
                       lineHeight: "20px",
                       verticalAlign: "middle",
                       whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
                     }}
                   >
-                    {item.item}
+                    {item.item_code || "-"}
                   </td>
 
+                  {/* Item Description */}
                   <td
                     style={{
                       padding: "10px",
@@ -1023,37 +1064,13 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
                       fontWeight: 500,
                       lineHeight: "20px",
                       verticalAlign: "middle",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    {item.code}
+                    {item.item_description || "-"}
                   </td>
 
-                  <td
-                    style={{
-                      padding: "10px",
-                      textAlign: "right",
-                      color: "#0F172A",
-                      fontWeight: 500,
-                      lineHeight: "20px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    {Math.round(item.qty).toLocaleString("en-US")}
-                  </td>
-
-                  <td
-                    style={{
-                      padding: "10px",
-                      textAlign: "right",
-                      color: "#0F172A",
-                      fontWeight: 500,
-                      lineHeight: "20px",
-                      verticalAlign: "middle",
-                    }}
-                  >
-                    {formatAmount(item.value)}
-                  </td>
-
+                  {/* Category */}
                   <td
                     style={{
                       padding: "10px",
@@ -1061,16 +1078,77 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
                       fontWeight: 500,
                       lineHeight: "20px",
                       verticalAlign: "middle",
+                      whiteSpace: "nowrap",
                     }}
                   >
-                    {item.category}
+                    {item.category || "-"}
+                  </td>
+
+                  {/* UOM */}
+                  <td
+                    style={{
+                      padding: "10px",
+                      textAlign: "center",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {item.uom || "-"}
+                  </td>
+
+                  {/* Quantity */}
+                  <td
+                    style={{
+                      padding: "10px",
+                      textAlign: "left",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatQuantity(item.quantity)}
+                  </td>
+
+                  {/* Inventory Value */}
+                  <td
+                    style={{
+                      padding: "10px",
+                      textAlign: "left",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatAmount(item.inventory_value)}
+                  </td>
+
+                  {/* % of Total Inventory */}
+                  <td
+                    style={{
+                      padding: "10px",
+                      textAlign: "left",
+                      color: "#0F172A",
+                      fontWeight: 500,
+                      lineHeight: "20px",
+                      verticalAlign: "middle",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatPercentage(item.percent_of_total_inventory)}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     textAlign: "center",
                     padding: "40px",
@@ -1087,8 +1165,6 @@ export function InventoryTable({ data = [], title, currency = "AED", }) {
     </div>
   );
 }
-
-
 /*Inventory Location */
 export function InventoryLocationTable({ data = [], title, currency = "AED", }) {
 

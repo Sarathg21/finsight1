@@ -13,10 +13,10 @@ function _auditWrite(action, payload = {}) {
   let user = null;
   try { user = JSON.parse(localStorage.getItem('finsight_user') || 'null'); } catch { /**/ }
   const entry = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     timestamp: new Date().toISOString(),
     action,
-    userId:   user?.id   || null,
+    userId: user?.id || null,
     userName: user?.name || null,
     userRole: user?.role || null,
     ...payload,
@@ -29,14 +29,14 @@ function _auditWrite(action, payload = {}) {
 
 // ── Master entity list (used for scope filtering) ────────────────────
 export const ALL_ENTITIES = [
-  { id: 1,  name: 'FJ Group HQ',               country: 'UAE',   division: 'Corporate' },
-  { id: 10, name: 'FJ Care UAE',                country: 'UAE',   division: 'FJ Care' },
-  { id: 11, name: 'FJ Care Int\'l',             country: 'UAE',   division: 'FJ Care' },
-  { id: 15, name: 'Flowtech Qatar',             country: 'Qatar', division: 'Flowtech UAE, QTR, OMN' },
-  { id: 16, name: 'Flowtech Oman',              country: 'Oman',  division: 'Flowtech UAE, QTR, OMN' },
-  { id: 20, name: 'FJ Engineering KSA',         country: 'KSA',   division: 'Engineering' },
-  { id: 21, name: 'FJ Contracting KSA',         country: 'KSA',   division: 'Engineering' },
-  { id: 30, name: 'FJ Investments',             country: 'UAE',   division: 'Investments' },
+  { id: 1, name: 'FJ Group HQ', country: 'UAE', division: 'Corporate' },
+  { id: 10, name: 'FJ Care UAE', country: 'UAE', division: 'FJ Care' },
+  { id: 11, name: 'FJ Care Int\'l', country: 'UAE', division: 'FJ Care' },
+  { id: 15, name: 'Flowtech Qatar', country: 'Qatar', division: 'Flowtech UAE, QTR, OMN' },
+  { id: 16, name: 'Flowtech Oman', country: 'Oman', division: 'Flowtech UAE, QTR, OMN' },
+  { id: 20, name: 'FJ Engineering KSA', country: 'KSA', division: 'Engineering' },
+  { id: 21, name: 'FJ Contracting KSA', country: 'KSA', division: 'Engineering' },
+  { id: 30, name: 'FJ Investments', country: 'UAE', division: 'Investments' },
 ];
 
 export const ALL_COUNTRIES = ['UAE', 'Qatar', 'Oman', 'KSA'];
@@ -92,7 +92,7 @@ export const DEMO_USERS = [
     exportRights: 'controlled',
     canManageUsers: false,
     defaultPage: '/exec-dashboard',
-    allowedPages: ['exec-dashboard','dashboard','pl','working-capital','country-performance', 'excel-consolidator'],
+    allowedPages: ['exec-dashboard', 'dashboard', 'pl', 'working-capital', 'country-performance', 'excel-consolidator'],
   },
   // ── Management ─────────────────────────────────────────────────
   {
@@ -104,10 +104,10 @@ export const DEMO_USERS = [
     roleLabel: 'Division General Manager',
     layer: 3,
     avatar: 'AF',
-    scope: { countries: ['UAE','Qatar'], entities: [1,15,10,11], divisions: ['Flowtech UAE, QTR, OMN','FJ Care'] },
+    scope: { countries: ['UAE', 'Qatar'], entities: [1, 15, 10, 11], divisions: ['Flowtech UAE, QTR, OMN', 'FJ Care'] },
     exportRights: 'controlled',
     canManageUsers: false,
-    allowedPages: ['dashboard','division','pl','ar','inventory', 'excel-consolidator'],
+    allowedPages: ['dashboard', 'division', 'pl', 'ar', 'inventory', 'excel-consolidator'],
   },
   {
     id: 'u004',
@@ -118,10 +118,10 @@ export const DEMO_USERS = [
     roleLabel: 'Business Unit Manager',
     layer: 4,
     avatar: 'RM',
-    scope: { countries: ['UAE'], entities: [10,11], divisions: ['FJ Care'] },
+    scope: { countries: ['UAE'], entities: [10, 11], divisions: ['FJ Care'] },
     exportRights: 'controlled',
     canManageUsers: false,
-    allowedPages: ['dashboard','bu-pack','pl','ar','ap','inventory','salesman', 'excel-consolidator'],
+    allowedPages: ['dashboard', 'bu-pack', 'pl', 'ar', 'ap', 'inventory', 'salesman', 'excel-consolidator'],
   },
   // ── Finance ────────────────────────────────────────────────────
   {
@@ -136,7 +136,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE'], entities: [10], divisions: ['FJ Care'] },
     exportRights: 'operational',
     canManageUsers: false,
-    allowedPages: ['pl','balance-sheet','ar','ap','fixed-assets','cash-collection','revenue', 'excel-consolidator'],
+    allowedPages: ['pl', 'balance-sheet', 'ar', 'ap', 'fixed-assets', 'cash-collection', 'revenue', 'excel-consolidator'],
   },
   {
     id: 'u006',
@@ -150,7 +150,7 @@ export const DEMO_USERS = [
     scope: { countries: ['UAE'], entities: [10], divisions: ['FJ Care'], salesman: 'Hassan Al Nuaimi' },
     exportRights: 'limited',
     canManageUsers: false,
-    allowedPages: ['salesman','revenue', 'excel-consolidator'],
+    allowedPages: ['salesman', 'revenue', 'excel-consolidator'],
   },
 ];
 
@@ -168,21 +168,21 @@ export const DEMO_TIERS = [
     icon: '◆',
     color: '#8b5cf6',
     gradient: 'linear-gradient(135deg,#8b5cf6,#6d28d9)',
-    ids: ['u001','u002'],
+    ids: ['u001', 'u002'],
   },
   {
     tier: 'Management',
     icon: '▲',
     color: '#3b82f6',
     gradient: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
-    ids: ['u003','u004'],
+    ids: ['u003', 'u004'],
   },
   {
     tier: 'Finance',
     icon: '●',
     color: '#10b981',
     gradient: 'linear-gradient(135deg,#10b981,#059669)',
-    ids: ['u005','u006'],
+    ids: ['u005', 'u006'],
   },
 ];
 
@@ -256,19 +256,19 @@ export function AuthProvider({ children }) {
     // Build the session object: backend fields take precedence, RBAC from demo map
     const session = {
       // Identity — from backend if available, else demo
-      id:          backendUser?.id   || demoMatch?.id   || `backend-${Date.now()}`,
-      name:        backendUser?.name || backendUser?.full_name || demoMatch?.name || email,
-      email:       backendUser?.email || email,
+      id: backendUser?.id || demoMatch?.id || `backend-${Date.now()}`,
+      name: backendUser?.name || backendUser?.full_name || demoMatch?.name || email,
+      email: backendUser?.email || email,
       // RBAC — from DEMO_USERS map (backend doesn't return RBAC config)
-      role:        backendUser?.role || demoMatch?.role || 'accountant',
-      roleLabel:   backendUser?.roleLabel || demoMatch?.roleLabel || 'User',
-      layer:       demoMatch?.layer ?? 5,
-      avatar:      demoMatch?.avatar || (email.slice(0, 2).toUpperCase()),
-      scope:       demoMatch?.scope || { countries: 'all', entities: 'all', divisions: 'all' },
-      exportRights:   demoMatch?.exportRights || 'controlled',
+      role: backendUser?.role || demoMatch?.role || 'accountant',
+      roleLabel: backendUser?.roleLabel || demoMatch?.roleLabel || 'User',
+      layer: demoMatch?.layer ?? 5,
+      avatar: demoMatch?.avatar || (email.slice(0, 2).toUpperCase()),
+      scope: demoMatch?.scope || { countries: 'all', entities: 'all', divisions: 'all' },
+      exportRights: demoMatch?.exportRights || 'controlled',
       canManageUsers: demoMatch?.canManageUsers ?? false,
-      defaultPage:    demoMatch?.defaultPage || '/dashboard',
-      allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || ['dashboard', 'revenue', 'pl', '*'],
+      defaultPage: demoMatch?.defaultPage || '/dashboard',
+      allowedPages: backendUser?.allowedPages || demoMatch?.allowedPages || ['dashboard', 'revenue', 'pl', '*'],
     };
 
     // NOTE: Do NOT call completeLogin here.
@@ -280,8 +280,14 @@ export function AuthProvider({ children }) {
 
   function canAccess(page) {
     if (!user) return false;
-    if (user.allowedPages.includes('*')) return true;
-    return user.allowedPages.includes(page);
+
+    const allowedPages = Array.isArray(user.allowedPages)
+      ? user.allowedPages
+      : [];
+
+    if (allowedPages.includes('*')) return true;
+
+    return allowedPages.includes(page);
   }
 
   function hasExportRight(type) {
@@ -300,8 +306,8 @@ export function AuthProvider({ children }) {
     return ALL_ENTITIES.filter(e => {
       const countryOk = !scope?.countries || scope.countries === 'all'
         || (Array.isArray(scope.countries) && scope.countries.includes(e.country));
-      const entityOk  = !scope?.entities  || scope.entities  === 'all'
-        || (Array.isArray(scope.entities)  && scope.entities.includes(e.id));
+      const entityOk = !scope?.entities || scope.entities === 'all'
+        || (Array.isArray(scope.entities) && scope.entities.includes(e.id));
       return countryOk && entityOk;
     });
   }

@@ -335,7 +335,7 @@ export default function InventoryAgingPage() {
 
         {
             id: 2,
-            title: "Total Stock Quantity",
+            title: "Inventory Value >365Days",
             value: inventorySummary?.total_stock_quantity,
             formatType: "number",
             icon: LuBoxes,
@@ -573,7 +573,7 @@ export default function InventoryAgingPage() {
                         currency={selectedCurrency}
                     />
                     <InventoryTable
-                        title="Slow Moving Items (Top 5)"
+                        title="Top 5 High Value Inventory Items"
                         data={slowMovingItemsData}
                         currency={selectedCurrency}
                     />
