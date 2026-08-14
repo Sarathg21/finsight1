@@ -3,33 +3,25 @@
  * ────────────────
  * Handles JWT authentication against the Finsight backend.
  *
- * Login endpoint : POST /api/auth/login   (JSON body)
- * Health probe   : POST /api/auth/login   (empty body → 422 = server alive)
- * Token storage  : localStorage.finsight_token
+ * Login endpoint : POST /api/auth/login
+ * Current user    : GET /api/access/me
+ * Token storage   : localStorage.token
  *
- * Base URL is set via .env → VITE_API_BASE_URL
+ * Base URL:
+ * VITE_API_BASE_URL
  */
 
-// IMPORTANT: Keep ?? (not ||) here.
-// When VITE_API_BASE_URL is empty (""), API_BASE stays "" so that all requests
-// use relative paths (/api/...) which are intercepted by the Vite dev proxy
-// → http://13.233.207.68:8000.
-//
-// Using || would bypass the proxy and cause CORS errors because the browser
-// would hit the backend directly.
 export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ?? "";
 
-// Static display constant – always shows the real backend host in the UI
-// regardless of whether API_BASE is empty (proxy mode) or a full URL.
-export const BACKEND_HOST = "13.233.207.68:8000";
+export const FINSIGHT_ORIGIN =
+  import.meta.env.VITE_FINSIGHT_ORIGIN ??
+  window.location.origin;
 
 const LOGIN_URL = `${API_BASE}/api/auth/login`;
+const ACCESS_ME_URL = `${API_BASE}/api/access/me`;
 
-// Health probe
-const HEALTH_PROBE_URL = `${API_BASE}/api/auth/login`;
-
-const TIMEOUT_MS = 15000; // 15 seconds
+const TIMEOUT_MS = 15000;
 
 
 /* ────────────────────────────────────────────────────────────────
@@ -37,33 +29,24 @@ const TIMEOUT_MS = 15000; // 15 seconds
 ──────────────────────────────────────────────────────────────── */
 
 function fetchWithTimeout(url, options = {}) {
-  const ctrl = new AbortController();
+  const controller = new AbortController();
 
-  const tid = setTimeout(() => {
-    ctrl.abort();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
   }, TIMEOUT_MS);
 
   return fetch(url, {
     ...options,
-    signal: ctrl.signal,
+    signal: controller.signal,
   }).finally(() => {
-    clearTimeout(tid);
+    clearTimeout(timeoutId);
   });
 }
 
 
 /* ────────────────────────────────────────────────────────────────
-   Backend health probe
+   Backend health
 ──────────────────────────────────────────────────────────────── */
-
-/**
- * Returns true if the backend is reachable, false otherwise.
- *
- * Strategy:
- *
- * 200 / 401 / 403 / 422 → server is UP
- * Network error / timeout → server is DOWN
- */
 
 let _online = null;
 let _healthPromise = null;
@@ -79,7 +62,7 @@ export async function checkBackendHealth() {
 
   _healthPromise = (async () => {
     try {
-      await fetchWithTimeout(HEALTH_PROBE_URL, {
+      const response = await fetchWithTimeout(LOGIN_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,19 +70,21 @@ export async function checkBackendHealth() {
         body: JSON.stringify({}),
       });
 
-      // Any HTTP response means the server is reachable
+      // Any HTTP response means backend is reachable.
       _online = true;
+
+      return response;
     } catch {
-      // Network error or timeout
       _online = false;
+      return null;
+    } finally {
+      _healthPromise = null;
     }
-
-    _healthPromise = null;
-
-    return _online;
   })();
 
-  return _healthPromise;
+  await _healthPromise;
+
+  return _online;
 }
 
 
@@ -117,343 +102,292 @@ export function resetHealthCache() {
    Login
 ──────────────────────────────────────────────────────────────── */
 
-/**
- * loginWithBackend(email, password)
- *
- * 1. POST /api/auth/login
- * 2. Get access_token
- * 3. Validate token
- * 4. Save JWT in FinSight localStorage
- * 5. Open Payables dashboard
- * 6. Send JWT to Payables using postMessage
- * 7. Return token + raw response
- */
-
 export async function loginWithBackend(email, password) {
-
-  /* ──────────────────────────────────────────────────────────────
-     Step 1: Authenticate
-  ────────────────────────────────────────────────────────────── */
-
-  let res;
-  let isFormData = false;
+  let response;
 
   try {
-
-    // First try JSON request
-    res = await fetchWithTimeout(LOGIN_URL, {
+    response = await fetchWithTimeout(LOGIN_URL, {
       method: "POST",
-
       headers: {
         "Content-Type": "application/json",
       },
-
       body: JSON.stringify({
         email,
-        username: email,
         password,
       }),
     });
-
-
-    /* ────────────────────────────────────────────────────────────
-       OAuth2 fallback
-    ──────────────────────────────────────────────────────────── */
-
-    if (res.status === 415 || res.status === 422) {
-
-      const formData = new URLSearchParams();
-
-      formData.append("username", email);
-      formData.append("password", password);
-
-      const retryRes = await fetchWithTimeout(LOGIN_URL, {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/x-www-form-urlencoded",
-        },
-
-        body: formData,
-      });
-
-      if (retryRes.ok || retryRes.status === 200) {
-        res = retryRes;
-        isFormData = true;
-      }
-    }
-
-  } catch (err) {
-
-    // Timeout or network failure
-
+  } catch (error) {
     _online = false;
 
-    console.warn(
+    console.error(
       "[authApi] Network error during login:",
-      err
+      error
     );
 
     throw {
       status: 503,
-
       message:
         "Connection to server timed out. Please try again.",
-
       isNetworkError: true,
-
       isAuthError: false,
     };
   }
 
-
-  /* ──────────────────────────────────────────────────────────────
-     Step 2: Parse response
-  ────────────────────────────────────────────────────────────── */
-
-  const body = await res.json().catch(() => ({}));
+  const body = await response.json().catch(() => ({}));
 
   console.log(
-    "[authApi] Login response status:",
-    res.status,
-    "body:",
-    body,
-    "isFormData:",
-    isFormData
+    "[authApi] Login response:",
+    response.status,
+    body
   );
 
 
-  /* ──────────────────────────────────────────────────────────────
-     Step 3: Handle unsuccessful response
-  ────────────────────────────────────────────────────────────── */
+  /* ────────────────────────────────────────────────────────────
+     Login failed
+  ──────────────────────────────────────────────────────────── */
 
-  if (!res.ok) {
-
-    /* ────────────────────────────────────────────────────────────
-       Server error
-    ──────────────────────────────────────────────────────────── */
-
-    if (res.status >= 500) {
-
-      _online = false;
-
-      let message =
-        body?.error?.message ||
-        body?.message;
-
-
-      if (!message && body?.detail) {
-
-        message =
-          typeof body.detail === "string"
-            ? body.detail
-            : Array.isArray(body.detail)
-              ? body.detail
-                .map((d) =>
-                  typeof d === "object"
-                    ? d.msg || JSON.stringify(d)
-                    : String(d)
-                )
-                .join(", ")
-              : JSON.stringify(body.detail);
-      }
-
-
-      if (
-        !message &&
-        body?.error &&
-        typeof body.error === "string"
-      ) {
-        message = body.error;
-      }
-
-
-      if (!message) {
-        message =
-          `Backend server unavailable (${res.status}).`;
-      }
-
-
-      console.warn(
-        `[authApi] Server error (${res.status}) during login:`,
-        message
-      );
-
-
-      throw {
-        status: res.status,
-
-        message: String(message),
-
-        isNetworkError: true,
-
-        isAuthError: false,
-      };
-    }
-
-
-    /* ────────────────────────────────────────────────────────────
-       Authentication / validation error
-    ──────────────────────────────────────────────────────────── */
-
+  if (!response.ok) {
     let message =
       body?.error?.message ||
-      body?.message;
+      body?.message ||
+      body?.detail;
 
-
-    if (!message && body?.detail) {
-
-      message =
-        typeof body.detail === "string"
-          ? body.detail
-          : Array.isArray(body.detail)
-            ? body.detail
-              .map((d) =>
-                typeof d === "object"
-                  ? d.msg || JSON.stringify(d)
-                  : String(d)
-              )
-              .join(", ")
-            : JSON.stringify(body.detail);
+    if (Array.isArray(body?.detail)) {
+      message = body.detail
+        .map((item) =>
+          typeof item === "object"
+            ? item.msg || JSON.stringify(item)
+            : String(item)
+        )
+        .join(", ");
     }
-
-
-    if (
-      !message &&
-      body?.error &&
-      typeof body.error === "string"
-    ) {
-      message = body.error;
-    }
-
 
     if (!message) {
-
       message =
-        res.status === 401 ||
-          res.status === 403
+        response.status === 401 ||
+          response.status === 403
           ? "Invalid email or password"
-          : `Authentication failed (${res.status})`;
+          : `Authentication failed (${response.status})`;
     }
 
-
     throw {
-
-      status: res.status,
-
+      status: response.status,
       message: String(message),
-
       isAuthError:
-        res.status === 401 ||
-        res.status === 403 ||
-        res.status === 400 ||
-        res.status === 422,
-
+        response.status === 400 ||
+        response.status === 401 ||
+        response.status === 403 ||
+        response.status === 422,
       isNetworkError: false,
     };
   }
 
 
-  const token = body?.access_token || body?.token;
-  const user = body?.user;
+  /* ────────────────────────────────────────────────────────────
+     Get JWT
+  ──────────────────────────────────────────────────────────── */
 
-  // Validate token first
+  const token = body?.access_token;
+
   if (!token) {
     console.error(
-      "[authApi] Login succeeded but no access_token found!",
+      "[authApi] Login succeeded but no access_token was returned.",
       body
     );
 
     throw {
       status: 500,
-      message: "Server returned an invalid auth response (no token).",
-      isNetworkError: true,
+      message:
+        "Server returned an invalid auth response (no access token).",
+      isNetworkError: false,
       isAuthError: false,
     };
   }
 
-  // Save token
- 
+
+  /* ────────────────────────────────────────────────────────────
+     Get authoritative backend role
+     
+     Backend response:
+     
+     {
+       "access_token": "...",
+       "token_type": "bearer",
+       "user": {
+         "role": "ADMIN",
+         "role_code": "ADMIN"
+       }
+     }
+     
+     Therefore role_code is read from user.role_code.
+  ──────────────────────────────────────────────────────────── */
+
+  const roleCode =
+    body?.role_code ||
+    body?.user?.role_code ||
+    body?.user?.role ||
+    null;
+
+  if (!roleCode) {
+    console.error(
+      "[authApi] Login succeeded but no role_code was returned.",
+      body
+    );
+
+    throw {
+      status: 500,
+      message:
+        "Server returned an invalid auth response (no role_code).",
+      isNetworkError: false,
+      isAuthError: false,
+    };
+  }
+
+
+  /* ────────────────────────────────────────────────────────────
+     Store canonical JWT
+  ──────────────────────────────────────────────────────────── */
+
   localStorage.setItem("token", token);
-
-  // Save user information
-  if (user) {
-    localStorage.setItem(
-      "finsight_user",
-      JSON.stringify(body.user)
-    );
-  }
-
-  console.log("✅ FinSight login successful");
-  console.log("👤 User:", user?.full_name);
-  console.log("🔑 Role:", user?.role);
-
-  // Only Admin can open Payables
-  if (user?.role === "Admin") {
-    const payablesWindow = window.open(
-      "http://localhost:5174/admin/dashboard",
-      "_blank"
-    );
-
-    if (payablesWindow) {
-      setTimeout(() => {
-        payablesWindow.postMessage(
-          {
-            type: "FINSIGHT_AUTH",
-            token,
-          },
-          "http://localhost:5174"
-        );
-
-        console.log(
-          "📤 Admin token sent to Payables"
-        );
-      }, 2000);
-    } else {
-      console.warn(
-        "⚠️ Payables window could not be opened. Please allow popups."
-      );
-    }
-  } else {
-    console.log(
-      "ℹ️ User is not Admin. Payables will not be opened."
-    );
-  }
 
   _online = true;
 
+
+  /* ────────────────────────────────────────────────────────────
+     Normalize user object
+  ──────────────────────────────────────────────────────────── */
+
+  const backendUser = body?.user
+    ? {
+      ...body.user,
+
+      role_code:
+        body.user.role_code ||
+        body.role_code ||
+        body.user.role ||
+        roleCode,
+
+      role:
+        body.user.role ||
+        body.user.role_code ||
+        body.role_code ||
+        roleCode,
+
+      name:
+        body.user.employee_name ||
+        body.user.full_name ||
+        body.user.name ||
+        body.user.email,
+
+      email:
+        body.user.official_email ||
+        body.user.email,
+    }
+    : null;
+
+
+  /* ────────────────────────────────────────────────────────────
+     Return login session
+  ──────────────────────────────────────────────────────────── */
+
   return {
-    token,
-    user,
-    raw: body,
+    ...body,
+
+    access_token: token,
+    token_type: body?.token_type || "bearer",
+
+    // Normalized authoritative role
+    role_code: roleCode,
+
+    // Normalized user
+    user: backendUser,
+
+    access: body?.access ?? null,
   };
 }
-  /* ────────────────────────────────────────────────────────────────
-     Logout
-  ──────────────────────────────────────────────────────────────── */
 
-  export function logoutFromBackend() {
 
-    localStorage.removeItem(
-      "finsight_token"
-    );
+/* ────────────────────────────────────────────────────────────────
+   Logout
+──────────────────────────────────────────────────────────────── */
 
-    localStorage.removeItem(
-      "token"
-    );
+export function logoutFromBackend() {
+  localStorage.removeItem("token");
 
-    _online = null;
+  _online = null;
+}
+
+
+/* ────────────────────────────────────────────────────────────────
+   Current authenticated user
+──────────────────────────────────────────────────────────────── */
+
+export async function getCurrentUser() {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("No authentication token found.");
   }
 
+  let response;
 
-  /* ────────────────────────────────────────────────────────────────
-     Token accessor
-  ──────────────────────────────────────────────────────────────── */
-
-  export function getStoredToken() {
-
-    return localStorage.getItem(
-      "token"
-    );
+  try {
+    response = await fetchWithTimeout(ACCESS_ME_URL, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (error) {
+    throw {
+      status: 503,
+      message:
+        "Unable to connect to authentication server.",
+      isNetworkError: true,
+    };
   }
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw {
+      status: response.status,
+      message:
+        body?.detail ||
+        body?.message ||
+        "Failed to fetch current user.",
+    };
+  }
+
+  /*
+   * Normalize role_code in case /api/access/me
+   * returns role instead of role_code.
+   */
+  return {
+    ...body,
+
+    role_code:
+      body?.role_code ||
+      body?.user?.role_code ||
+      body?.role ||
+      body?.user?.role ||
+      null,
+
+    role:
+      body?.role ||
+      body?.role_code ||
+      body?.user?.role ||
+      body?.user?.role_code ||
+      null,
+  };
+}
+
+
+/* ────────────────────────────────────────────────────────────────
+   Token accessor
+─────────────────────────────────────────────────────────────── */
+
+export function getStoredToken() {
+  return localStorage.getItem("token");
+}

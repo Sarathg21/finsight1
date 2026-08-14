@@ -11,9 +11,9 @@ const api = axios.create({
 
 // Inject JWT Bearer token and user context headers on every request
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('pms_token');
-    const userStr = localStorage.getItem('pms_user');
-    
+    const token = localStorage.getItem('token');
+    const userStr = localStorage.getItem('finsight_user');
+
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
@@ -59,14 +59,14 @@ api.interceptors.request.use((config) => {
                 else if (r.includes('ADMIN')) standardRole = 'ADMIN';
                 else if (r.includes('MANAGER')) standardRole = 'MANAGER';
                 else if (r.includes('EMPLOYEE')) standardRole = 'EMPLOYEE';
-                
+
                 config.headers['X-USER-ROLE'] = standardRole;
             }
         } catch (e) {
             console.warn('[API] Failed to parse user for headers');
         }
     }
-    
+
     return config;
 });
 
@@ -90,8 +90,8 @@ api.interceptors.response.use(
             const skipRedirect = isOnPublicPage() || url.includes('/auth/') || url.includes('reset-password');
 
             if (!skipRedirect) {
-                localStorage.removeItem('pms_token');
-                localStorage.removeItem('pms_user');
+                localStorage.removeItem('token');
+                localStorage.removeItem('finsight_user');
                 window.location.href = '/login';
             }
         } else if (status === 422) {
@@ -113,7 +113,9 @@ api.interceptors.response.use(
             // know their action (like approval or deletion) was not performed.
             // Callers can set skip403Graceful: true to receive the real 403 (e.g. manager recurring).
             try {
-                const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
+                const savedUser = JSON.parse(
+                    localStorage.getItem('finsight_user') || '{}'
+                );
                 const isGet = error.config?.method?.toLowerCase() === 'get';
                 const skipGraceful = error.config?.skip403Graceful === true;
 
@@ -126,7 +128,7 @@ api.interceptors.response.use(
             } catch (e) { /* ignore */ }
 
             // Not authenticated or not a GET request — redirect only if NOT on a public page
-            if (!localStorage.getItem('pms_token') && !isOnPublicPage()) {
+            if (!localStorage.getItem('token') && !isOnPublicPage()) {
                 window.location.href = '/login';
             }
         }
