@@ -16,9 +16,6 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import {
-  loginWithBackend,
-} from '../services/authApi';
 
 /* ═══════════════════════════════════════════════════════════════════
    SERVER STATUS PILL
@@ -681,7 +678,6 @@ export default function LoginPage() {
   const {
     user,
     loginWithBackend,
-    auditLog,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -763,7 +759,9 @@ export default function LoginPage() {
         email.trim(),
         password
       );
-
+      console.log("LOGIN SESSION:", session);
+      console.log("ACCESS TOKEN:", !!session?.access_token);
+      console.log("ROLE CODE:", session?.role_code);
       setBackendStatus('online');
 
       const roleCode =
@@ -790,6 +788,25 @@ export default function LoginPage() {
           );
 
           if (payablesWindow && !payablesWindow.closed) {
+
+
+            console.log(
+              'PAYABLES_READY received from:',
+              event.origin,
+              event.data
+            );
+
+            console.log(
+              'Sending FINSIGHT_AUTH to:',
+              payablesOrigin
+            );
+
+            console.log(
+              'Token available:',
+              !!session?.access_token
+            );
+
+
             payablesWindow.postMessage(
               {
                 type: 'FINSIGHT_AUTH',
@@ -827,6 +844,7 @@ export default function LoginPage() {
 
           return;
         }
+        window.payablesWindow = payablesWindow;
 
         navigate(
           from || '/dashboard',
@@ -835,257 +853,257 @@ export default function LoginPage() {
 
         return;
       }
-    
+
       navigate(
-      from ||
-      session?.defaultPage ||
-      '/dashboard',
-      { replace: true }
-    );
-
-  } catch (backendErr) {
-    const isAuthFailure =
-      backendErr?.isAuthError ||
-      backendErr?.status === 401 ||
-      backendErr?.status === 403 ||
-      backendErr?.status === 422;
-
-    if (isAuthFailure) {
-      setBackendStatus('online');
-      setError(
-        backendErr.message ||
-        'Invalid email or password'
+        from ||
+        session?.defaultPage ||
+        '/dashboard',
+        { replace: true }
       );
-    } else {
-      setBackendStatus('offline');
-      setError(
-        backendErr.message ||
-        'Unable to connect to the authentication server.'
-      );
+
+    } catch (backendErr) {
+      const isAuthFailure =
+        backendErr?.isAuthError ||
+        backendErr?.status === 401 ||
+        backendErr?.status === 403 ||
+        backendErr?.status === 422;
+
+      if (isAuthFailure) {
+        setBackendStatus('online');
+        setError(
+          backendErr.message ||
+          'Invalid email or password'
+        );
+      } else {
+        setBackendStatus('offline');
+        setError(
+          backendErr.message ||
+          'Unable to connect to the authentication server.'
+        );
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
   }
-}
-/* ═══════════════════════════════════════════════════════════════
-   TRUST ITEMS
-═══════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════
+     TRUST ITEMS
+  ═══════════════════════════════════════════════════════════════ */
 
-const TRUST_ITEMS = [
-  {
-    Icon: Lock,
-    label: 'Enterprise Encryption',
-  },
-  {
-    Icon: Users,
-    label: 'Role-Based Access',
-  },
-  {
-    Icon: Shield,
-    label: 'Secure Auth',
-  },
-  {
-    Icon: BarChart2,
-    label: 'Real-Time Monitor',
-  },
-];
+  const TRUST_ITEMS = [
+    {
+      Icon: Lock,
+      label: 'Enterprise Encryption',
+    },
+    {
+      Icon: Users,
+      label: 'Role-Based Access',
+    },
+    {
+      Icon: Shield,
+      label: 'Secure Auth',
+    },
+    {
+      Icon: BarChart2,
+      label: 'Real-Time Monitor',
+    },
+  ];
 
-/* ═══════════════════════════════════════════════════════════════
-   RENDER
-═══════════════════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════════════════
+     RENDER
+  ═══════════════════════════════════════════════════════════════ */
 
-return (
-  <div className="lp-root">
+  return (
+    <div className="lp-root">
 
-    {/* Ambient orbs */}
-    <div className="lp-orb lp-orb-1" />
-    <div className="lp-orb lp-orb-2" />
-    <div className="lp-orb lp-orb-3" />
+      {/* Ambient orbs */}
+      <div className="lp-orb lp-orb-1" />
+      <div className="lp-orb lp-orb-2" />
+      <div className="lp-orb lp-orb-3" />
 
-    <div className="lp-grid">
+      <div className="lp-grid">
 
-      {/* ══════════════════════════════════════════════════════
+        {/* ══════════════════════════════════════════════════════
             LEFT — LOGIN PANEL
         ══════════════════════════════════════════════════════ */}
 
-      <div className="lp-left">
+        <div className="lp-left">
 
-        {/* Brand */}
-        <div className="lp-brand">
-          <div className="lp-brand-mark">
-            FS
-          </div>
-
-          <div className="lp-brand-text">
-            <div className="lp-brand-name">
-              Finsight
+          {/* Brand */}
+          <div className="lp-brand">
+            <div className="lp-brand-mark">
+              FS
             </div>
 
-            <div className="lp-brand-tag">
-              FJ Group · Financial Intelligence Platform
-            </div>
-          </div>
-        </div>
-
-        {/* Login card */}
-        <div className="lp-card">
-          <div className="lp-card-body">
-
-            <div className="lp-heading">
-              Welcome Back
-            </div>
-
-            <p className="lp-sub-text">
-              Access strategic insights, executive dashboards,
-              and real-time financial intelligence.
-            </p>
-
-            <ServerPill
-              status={backendStatus}
-            />
-
-            <form onSubmit={handleSubmit}>
-
-              {/* Email */}
-              <FloatingInput
-                id="login-email"
-                label="Email Address"
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError('');
-                }}
-                autoComplete="username"
-                required
-              />
-
-              {/* Password */}
-              <FloatingInput
-                id="login-password"
-                label="Password"
-                type={
-                  showPwd
-                    ? 'text'
-                    : 'password'
-                }
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError('');
-                }}
-                autoComplete="current-password"
-                required
-              >
-                <button
-                  type="button"
-                  className="lp-eye-btn"
-                  onClick={() =>
-                    setShowPwd(
-                      (value) => !value
-                    )
-                  }
-                  aria-label="Toggle password visibility"
-                  style={{
-                    opacity:
-                      password.length > 0
-                        ? 1
-                        : 0.38,
-                  }}
-                >
-                  {showPwd ? (
-                    <EyeOff size={15} />
-                  ) : (
-                    <Eye size={15} />
-                  )}
-                </button>
-              </FloatingInput>
-
-              {/* Forgot password */}
-              <div className="lp-forgot-row">
-                <Link
-                  to="/forgot-password"
-                  id="forgot-password-link"
-                  className="lp-forgot-link"
-                >
-                  Forgot password?
-                </Link>
+            <div className="lp-brand-text">
+              <div className="lp-brand-name">
+                Finsight
               </div>
 
-              {/* Error */}
-              {error && (
-                <div className="lp-error">
-                  {error}
-                </div>
-              )}
-
-              {/* Login button */}
-              <button
-                id="login-submit-btn"
-                type="submit"
-                className={`lp-cta-btn${ready
-                  ? ' lp-cta-btn--ready'
-                  : ''
-                  }`}
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="lp-loading-row">
-                    <span className="lp-spinner" />
-                    Authenticating…
-                  </span>
-                ) : (
-                  <>
-                    <Lock size={15} />
-                    Access Platform →
-                  </>
-                )}
-              </button>
-
-            </form>
-
-            {/* Trust strip */}
-            <div className="lp-trust-strip">
-              {TRUST_ITEMS.map(
-                ({ Icon, label }) => (
-                  <div
-                    key={label}
-                    className="lp-trust-item"
-                  >
-                    <Icon size={10} />
-                    <span>{label}</span>
-                  </div>
-                )
-              )}
+              <div className="lp-brand-tag">
+                FJ Group · Financial Intelligence Platform
+              </div>
             </div>
-
           </div>
+
+          {/* Login card */}
+          <div className="lp-card">
+            <div className="lp-card-body">
+
+              <div className="lp-heading">
+                Welcome Back
+              </div>
+
+              <p className="lp-sub-text">
+                Access strategic insights, executive dashboards,
+                and real-time financial intelligence.
+              </p>
+
+              <ServerPill
+                status={backendStatus}
+              />
+
+              <form onSubmit={handleSubmit}>
+
+                {/* Email */}
+                <FloatingInput
+                  id="login-email"
+                  label="Email Address"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setError('');
+                  }}
+                  autoComplete="username"
+                  required
+                />
+
+                {/* Password */}
+                <FloatingInput
+                  id="login-password"
+                  label="Password"
+                  type={
+                    showPwd
+                      ? 'text'
+                      : 'password'
+                  }
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  autoComplete="current-password"
+                  required
+                >
+                  <button
+                    type="button"
+                    className="lp-eye-btn"
+                    onClick={() =>
+                      setShowPwd(
+                        (value) => !value
+                      )
+                    }
+                    aria-label="Toggle password visibility"
+                    style={{
+                      opacity:
+                        password.length > 0
+                          ? 1
+                          : 0.38,
+                    }}
+                  >
+                    {showPwd ? (
+                      <EyeOff size={15} />
+                    ) : (
+                      <Eye size={15} />
+                    )}
+                  </button>
+                </FloatingInput>
+
+                {/* Forgot password */}
+                <div className="lp-forgot-row">
+                  <Link
+                    to="/forgot-password"
+                    id="forgot-password-link"
+                    className="lp-forgot-link"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div className="lp-error">
+                    {error}
+                  </div>
+                )}
+
+                {/* Login button */}
+                <button
+                  id="login-submit-btn"
+                  type="submit"
+                  className={`lp-cta-btn${ready
+                    ? ' lp-cta-btn--ready'
+                    : ''
+                    }`}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <span className="lp-loading-row">
+                      <span className="lp-spinner" />
+                      Authenticating…
+                    </span>
+                  ) : (
+                    <>
+                      <Lock size={15} />
+                      Access Platform →
+                    </>
+                  )}
+                </button>
+
+              </form>
+
+              {/* Trust strip */}
+              <div className="lp-trust-strip">
+                {TRUST_ITEMS.map(
+                  ({ Icon, label }) => (
+                    <div
+                      key={label}
+                      className="lp-trust-item"
+                    >
+                      <Icon size={10} />
+                      <span>{label}</span>
+                    </div>
+                  )
+                )}
+              </div>
+
+            </div>
+          </div>
+
+          {/* Footer */}
+          <p className="lp-footer">
+            <Shield size={10} />
+            Protected by enterprise-grade encryption ·
+            FJ Group Confidential
+          </p>
+
         </div>
 
-        {/* Footer */}
-        <p className="lp-footer">
-          <Shield size={10} />
-          Protected by enterprise-grade encryption ·
-          FJ Group Confidential
-        </p>
-
-      </div>
-
-      {/* ══════════════════════════════════════════════════════
+        {/* ══════════════════════════════════════════════════════
             RIGHT — DASHBOARD PREVIEW
         ══════════════════════════════════════════════════════ */}
 
-      <div className="lp-right">
-        <DashboardPreview />
+        <div className="lp-right">
+          <DashboardPreview />
+        </div>
+
       </div>
 
-    </div>
-
-    {/* ════════════════════════════════════════════════════════
+      {/* ════════════════════════════════════════════════════════
           SCOPED STYLES
       ════════════════════════════════════════════════════════ */}
 
-    <style>{`
+      <style>{`
 
         /* ── Root & Background ─────────────────────────────────── */
 
@@ -2031,6 +2049,6 @@ return (
         }
 
       `}</style>
-  </div>
-);
+    </div>
+  );
 }
