@@ -569,7 +569,7 @@ export async function loginWithBackend(email, password) {
     if (!message) {
       message =
         response.status === 401 ||
-        response.status === 403
+          response.status === 403
           ? "Invalid email or password"
           : `Authentication failed (${response.status})`;
     }
@@ -732,6 +732,8 @@ export async function getCurrentUser() {
   if (response.status === 401) {
     localStorage.removeItem("token");
 
+    window.dispatchEvent(new Event("auth:unauthorized"));
+
     throw {
       status: 401,
       message:
@@ -742,7 +744,6 @@ export async function getCurrentUser() {
       isNetworkError: false,
     };
   }
-
 
   /* ─────────────────────────────────────────────────────────────
      Other errors

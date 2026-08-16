@@ -768,7 +768,7 @@ export default function LoginPage() {
         session?.role_code ||
         session?.user?.role_code;
 
-      if (roleCode === 'ADMIN') {
+      if (roleCode === 'ADMIN' || roleCode === 'BU_ACCOUNTANT') {
         const payablesOrigin =
           import.meta.env.VITE_PAYABLES_ORIGIN;
 
