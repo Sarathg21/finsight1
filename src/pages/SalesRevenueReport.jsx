@@ -1030,12 +1030,14 @@ const fmtUniform = (v, maxVal) => {
 
 /* ─── Entity Color Mapping ──────────────────────────────────────── */
 const ENTITY_COLORS = {
-  'Multiplast Dubai LLC': '#6366f1',
-  'DC Serve Equipment Trading LLC': '#10b981',
-  'Future Journey Energy Solutions LLC': '#f59e0b',
-  'Alpha Ducts LLC': '#ef4444',
-  'FJ Care Air Condition Trading LLC': '#0ea5e9',
-  'Others': '#a855f7'
+  'Multiplast Dubai LLC':                    '#6366f1', // indigo
+  'DC Serve Equipment Trading LLC':          '#10b981', // emerald-green
+  'Tawreed Co LLC':                          '#3b82f6', // blue
+  'FJ Trading & Engineering Co WLL':         '#f59e0b', // amber
+  'Future Journey Energy Solutions LLC':     '#8b5cf6', // violet
+  'Alpha Ducts LLC':                         '#0ea5e9', // sky-blue
+  'FJ Care Air Condition Trading LLC':       '#14b8a6', // teal
+  'Others':                                  '#a855f7', // purple
 };
 
 const getEntityColor = (name) => {
@@ -1165,20 +1167,28 @@ export default function SalesRevenueReport() {
       subDiv: filters.subDiv
     })
       .then(data => {
+        // Always show all 6 standard currencies regardless of dim_currency content
+        const REQUIRED_CURRENCIES = ['AED', 'INR', 'OMR', 'QAR', 'SAR', 'USD'];
+        const rawRC = (
+          data.reporting_currencies || data.reportingCurrencies ||
+          (data.data && (data.data.reporting_currencies || data.data.reportingCurrencies)) ||
+          data.currencies || (data.data && data.data.currencies) || []
+        );
+        const fromDb = (Array.isArray(rawRC) ? rawRC : [])
+          .map(o => (typeof o === 'object' ? (o.currency_code || o.currency) : o))
+          .filter(Boolean).map(c => String(c).toUpperCase());
+        const mergedCurrencies = [...new Set([...fromDb, ...REQUIRED_CURRENCIES])].sort();
+
         setFilterOptions(prev => ({
           ...prev,
           legalEntities: ['All', ...(data.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
           parentDivs:    ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
-          subDivs:       ['All', ...(data.sub_divisions  || []).filter(e => e && e !== 'All')],
-          salesmen:      ['All', ...(data.salesmen        || []).filter(e => e && e !== 'All')],
+          // Backend returns 'subdivisions' key (not 'sub_divisions')
+          subDivs:       ['All', ...(data.subdivisions || data.sub_divisions || []).filter(e => e && e !== 'All')],
+          salesmen:      ['All', ...(data.salesmen || []).filter(e => e && e !== 'All')],
           invoiceCurrencies: ['All', ...(data.invoice_currencies || data.invoiceCurrencies || [])],
-      reportingCurrencies: (
-  data.reporting_currencies || data.reportingCurrencies || 
-  (data.data && (data.data.reporting_currencies || data.data.reportingCurrencies)) || 
-  data.currencies || (data.data && data.data.currencies) || 
-  ['AED', 'INR', 'OMR', 'QAR', 'SAR', 'USD']
-),
-      dataAsOf: data.data_as_of || data.dataAsOf || (data.data && (data.data.data_as_of || data.data.dataAsOf)) || null,
+          reportingCurrencies: mergedCurrencies,
+          dataAsOf: data.data_as_of || data.dataAsOf || (data.data && (data.data.data_as_of || data.data.dataAsOf)) || null,
         }));
       })
       .catch(err => {
@@ -1237,8 +1247,8 @@ export default function SalesRevenueReport() {
       if (!d) return;
 
       // Map directly from the exact backend fields
-      const mtd = d.sales_mtd_aed     ?? d.mtd_revenue ?? null;
-      const ytd = d.sales_ytd_aed     ?? d.ytd_revenue ?? null;
+      const mtd = d.sales_mtd ?? d.mtd_revenue ?? d.sales_mtd_aed ?? null;
+      const ytd = d.sales_ytd ?? d.ytd_revenue ?? d.sales_ytd_aed ?? null;
       const prevMtd = d.prev_mtd_revenue ?? d.prev_mtd_sales ?? null;
       const prevYtd = d.prev_ytd_revenue ?? d.prev_ytd_sales ?? null;
 
@@ -1543,11 +1553,11 @@ export default function SalesRevenueReport() {
   const ytdRevenue      = summary?.ytd_revenue      ?? null;
   const mtdChangePct    = summary?.mtd_change_pct   ?? null;
   const ytdChangePct    = summary?.ytd_change_pct   ?? null;
-  // Gross margin — use exact backend fields: gross_margin and margin_pct
-  const grossMargin    = grossMarginData?.gross_margin
-    ?? grossMarginData?.gross_profit_mtd
-    ?? summary?.gross_margin
-    ?? null;
+  // Gross Profit MTD — exclusively from /summary which computes the correct MTD period.
+  // DO NOT fall back to grossMarginData.gross_margin — that is the full-period total,
+  // not the MTD value, and would show an incorrect inflated number (e.g. 5.9M) when
+  // Sales MTD is 0 (no data in the selected month).
+  const grossMargin    = summary?.gross_profit_mtd ?? null;
   const grossMarginPct  = grossMarginData?.margin_pct ?? grossMarginData?.gross_margin_pct ?? summary?.gross_margin_pct ?? null;
   const grossMarginChg  = grossMarginData?.mtd_change_pct   ?? grossMarginData?.gross_margin_change_pct ?? summary?.gross_margin_change_pct ?? null;
   // Counts
@@ -1559,7 +1569,7 @@ export default function SalesRevenueReport() {
   const rawDataAsOf = summary?.data_as_of || summary?.dataAsOf || filterOptions.dataAsOf;
   const dataAsOf = rawDataAsOf
     ? new Date(rawDataAsOf).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-    : appliedFilters.toDate;
+    : '—';
 
   // Top Salesman: directly use the first row from the response as requested
   const topSalesmanRecord = salesmanSummaryData && salesmanSummaryData.length > 0
@@ -1808,7 +1818,10 @@ export default function SalesRevenueReport() {
 
           <FilterField label="Reporting Currency">
             <select id="filter-currency" style={selStyle} value={filters.reportingCurrency} onChange={e => updateFilter('reportingCurrency', e.target.value)}>
-              {filterOptions.reportingCurrencies.map(o => <option key={o} value={o}>{o}</option>)}
+              {filterOptions.reportingCurrencies.map(o => {
+  const val = typeof o === 'object' ? (o.currency_code || o.currency) : o;
+  return <option key={val} value={val}>{val}</option>;
+})}
             </select>
           </FilterField>
           {filterOptions.invoiceCurrencies.length > 1 && (
@@ -2757,10 +2770,10 @@ export default function SalesRevenueReport() {
                 parentDiv:   r.parent_division || r.division || '—',
                 subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
                 bizUnit:     r.business_unit  || r.biz_unit || '—',
-                mtd:         n(r, 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales'),
-                prevMtd:     n(r, 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales'),
-                ytd:         n(r, 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales'),
-                ytdPy:       n(r, 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales'),
+                mtd:         n(r, 'sales_mtd', 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales'),
+                prevMtd:     n(r, 'sales_prev_mtd', 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales'),
+                ytd:         n(r, 'sales_ytd', 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales'),
+                ytdPy:       n(r, 'sales_ytd_py', 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales'),
                 varMtd:      n(r, 'variance_mtd_pct','mtd_var_pct',      'variance_mtd'),
                 varYtd:      n(r, 'variance_ytd_pct','ytd_var_pct',      'variance_ytd'),
             })).sort((a, b) => {
@@ -2842,11 +2855,46 @@ export default function SalesRevenueReport() {
               borderBottom: 'none',
             };
 
+            /* ── Column spec per madam's review ───────────────────────────
+               Legal Entity | Sub-Division | Parent Division |
+               Ledger Currency | Sales in Ledger Currency |
+               Sales in Reporting Currency | % Share
+               MTD / YTD / Variance removed — endpoint doesn't provide them.
+            ─────────────────────────────────────────────────────────────── */
+
+            const rc = appliedFilters.reportingCurrency || 'AED';
+
+            const fmtRC  = v => (v !== null && v !== undefined && !isNaN(v))
+              ? `${rc} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              : '—';
+            const fmtLedger = (v, currency) => (v !== null && v !== undefined && !isNaN(v))
+              ? `${currency || ''} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
+              : '—';
+
             const COLS = [
-              'Legal Entity', 'Parent Division', 'Sub Division',
-              'Revenue (MTD)', 'Revenue (Prev MTD)', 'Revenue (YTD)', 'Revenue (YTD PY)',
-              'Variance % (MTD)', 'Variance % (YTD)',
+              'Legal Entity', 'Sub-Division', 'Parent Division',
+              'Ledger Currency',
+              'Sales in Ledger Currency',
+              `Sales in ${rc}`,
+              '% Share',
             ];
+
+            // Map summaryDetailData rows — field names from /summary-detail endpoint
+            const detailRows2 = [...summaryDetailData].map(r => ({
+              legalEntity:   r.legal_entity   || r.entity_name                 || '—',
+              subDiv:        r.sub_division   || r.subdivision_name || r.subdivision || r.sub_div || '—',
+              parentDiv:     r.parent_division || r.division_name  || r.division    || '—',
+              ledgerCurrency: r.ledger_currency || r.invoice_currency || '—',
+              salesLedger:   r.sales_ledger_currency ?? r.revenue_mtd ?? null,
+              salesRC:       r.sales ?? r.revenue_mtd ?? null,
+              pct:           r.percentage ?? r.contribution_pct ?? null,
+            })).sort((a, b) => {
+              const c1 = a.legalEntity.localeCompare(b.legalEntity);
+              if (c1 !== 0) return c1;
+              const c2 = a.parentDiv.localeCompare(b.parentDiv);
+              if (c2 !== 0) return c2;
+              return a.subDiv.localeCompare(b.subDiv);
+            });
 
             return (
               <div style={{ overflowX: 'auto' }}>
@@ -2854,18 +2902,18 @@ export default function SalesRevenueReport() {
                   <thead>
                     <tr>
                       {COLS.map((h, i) => (
-                        <th key={h} style={{ ...TH_S, textAlign: i === 0 ? 'left' : 'center' }}>{h}</th>
+                        <th key={h} style={{ ...TH_S, textAlign: i < 3 ? 'left' : 'center' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.length === 0 ? (
+                    {detailRows2.length === 0 ? (
                       <tr>
-                        <td colSpan={10} style={{ ...TD_S, textAlign: 'center', color: C.muted, padding: '40px 14px' }}>
+                        <td colSpan={7} style={{ ...TD_S, textAlign: 'center', color: C.muted, padding: '40px 14px' }}>
                           No data available for the selected filters
                         </td>
                       </tr>
-                    ) : rows.map((row, idx) => {
+                    ) : detailRows2.map((row, idx) => {
                       const bgBase = idx % 2 === 0 ? '#fff' : '#fafbfd';
                       return (
                         <tr key={idx}
@@ -2873,47 +2921,20 @@ export default function SalesRevenueReport() {
                           onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = bgBase; }}
                         >
-                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b' }} title={row.legalEntity}>
-                            {row.legalEntity}
-                          </td>
-                          {/* Parent Division */}
-                          <td style={{ ...TD_S }}>{row.parentDiv}</td>
-                          {/* Sub Division */}
-                          <td style={{ ...TD_S }}>{row.subDiv}</td>
-                          {/* Revenue MTD */}
-                          <td style={{ ...TD_S }}>{fmtAED(row.mtd)}</td>
-                          {/* Revenue Prev MTD */}
-                          <td style={{ ...TD_S }}>{fmtAED(row.prevMtd)}</td>
-                          {/* Revenue YTD */}
-                          <td style={{ ...TD_S }}>{fmtAED(row.ytd)}</td>
-                          {/* Revenue YTD PY */}
-                          <td style={{ ...TD_S }}>{fmtAED(row.ytdPy)}</td>
-                          {/* Variance MTD */}
-                          <td style={{ ...TD_S, textAlign: 'center' }}>
-                            <VarBadge val={row.varMtd} />
-                          </td>
-                          {/* Variance YTD */}
-                          <td style={{ ...TD_S, textAlign: 'center' }}>
-                            <VarBadge val={row.varYtd} />
+                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b' }}
+                              title={row.legalEntity}>{row.legalEntity}</td>
+                          <td style={{ ...TD_S, textAlign: 'left' }}>{row.subDiv}</td>
+                          <td style={{ ...TD_S, textAlign: 'left' }}>{row.parentDiv}</td>
+                          <td style={{ ...TD_S, textAlign: 'center', fontWeight: 600 }}>{row.ledgerCurrency}</td>
+                          <td style={{ ...TD_S, textAlign: 'right' }}>{fmtLedger(row.salesLedger, row.ledgerCurrency)}</td>
+                          <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmtRC(row.salesRC)}</td>
+                          <td style={{ ...TD_S, textAlign: 'right' }}>
+                            {row.pct !== null && row.pct !== undefined ? `${Number(row.pct).toFixed(2)}%` : '—'}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
-                  {/* Total footer row */}
-                  <tfoot>
-                    <tr>
-                      <td style={{ ...TD_FOOT, textAlign: 'left', padding: '12px 12px' }}>Total</td>
-                      <td style={{ ...TD_FOOT }}>—</td>
-                      <td style={{ ...TD_FOOT }}>—</td>
-                      <td style={{ ...TD_FOOT }}>{fmtAED(totMTD)}</td>
-                      <td style={{ ...TD_FOOT }}>{fmtAED(totPMTD)}</td>
-                      <td style={{ ...TD_FOOT }}>{fmtAED(totYTD)}</td>
-                      <td style={{ ...TD_FOOT }}>{fmtAED(totYTDPY)}</td>
-                      <td style={{ ...TD_FOOT }}><VarBadge val={calcVar(totMTD, totPMTD)} /></td>
-                      <td style={{ ...TD_FOOT }}><VarBadge val={calcVar(totYTD, totYTDPY)} /></td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             );
@@ -3085,7 +3106,7 @@ export default function SalesRevenueReport() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Period', `${currentYearLabel} Sales ({filters.reportingCurrency})`].map((h, i) => (
+                    {['Period', `${currentYearLabel} Sales (${appliedFilters.reportingCurrency})`].map((h, i) => (
                       <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{h}</th>
                     ))}
                   </tr>

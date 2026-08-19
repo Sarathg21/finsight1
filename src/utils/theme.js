@@ -42,8 +42,18 @@ export const C = {
 
 /* ── Chart Color Palette ──────────────────────────────────── */
 export const CHART_COLORS = [
-  C.primary, C.emerald, C.amber, C.rose,
-  C.cyan, C.purple, C.blue2, C.teal,
+  '#10b981', // emerald-green  (slot 0)
+  '#3b82f6', // blue           (slot 1)
+  '#f59e0b', // amber          (slot 2)
+  '#8b5cf6', // violet         (slot 3)
+  '#0ea5e9', // sky-blue       (slot 4)
+  '#f43f5e', // rose-red       (slot 5)
+  '#14b8a6', // teal           (slot 6)
+  '#f97316', // orange         (slot 7)
+  '#a855f7', // purple         (slot 8)
+  '#06b6d4', // cyan           (slot 9)
+  '#84cc16', // lime           (slot 10)
+  '#ec4899', // pink           (slot 11)
 ];
 
 /* ── Typography Scale ─────────────────────────────────────── */
