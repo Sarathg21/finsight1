@@ -8,6 +8,8 @@ import {
   PieChart, Pie, Cell, Legend, LabelList,
 } from 'recharts';
 import {
+  fetchAccessMe,
+  fetchRolePermissions,
   fetchFilterOptions,
   fetchDetails,
   fetchLegalEntityDetail,
@@ -31,6 +33,7 @@ import {
 
 import { C, CHART_COLORS } from '../utils/theme';
 
+
 /* ─── Default filter state ──────────────────────────────────────── */
 const _today = new Date();
 const _y = _today.getFullYear();
@@ -44,7 +47,8 @@ const DEFAULT_FILTERS = {
   parentDiv:   'All',
   subDiv:      'All',
   salesman:    'All',
-  invoiceCurrency: 'AED',
+  invoiceCurrency: 'All',
+  reportingCurrency: 'AED',
   fromDate:    FIRST_DAY,
   toDate:      LAST_DAY,
 };
@@ -133,7 +137,7 @@ function ExportButtons({ endpoint, filters, size = 'sm' }) {
     if (result && typeof result.then === 'function') {
       result.then(() => finish(true)).catch(e => finish(false, e?.message));
     } else {
-      // Demo / no-token path: fire-and-forget
+
       setTimeout(() => finish(true), 800);
     }
   };
@@ -348,6 +352,7 @@ function InfoTooltip({ text }) {
  */
 function DetailApiModal({
   isOpen,
+  canExport,
   onClose,
   title,
   endpoint,
@@ -473,7 +478,7 @@ function DetailApiModal({
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
               </span>
             )}
-            <ExportButtons endpoint={endpoint} filters={filters} />
+            {canExport && <ExportButtons endpoint={endpoint} filters={filters} />}
           </div>
         </div>
 
@@ -561,8 +566,8 @@ function DetailApiModal({
           background: '#f8fafc', flexWrap: 'wrap', gap: 10
         }}>
           <div style={{ fontSize: '0.72rem', color: C.slate }}>
-            {sorted.length > 0 
-              ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records` 
+            {sorted.length > 0
+              ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records`
               : 'No records'}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -735,7 +740,7 @@ function Sparkline({ data, color, height = 40 }) {
 }
 
 /* ─── KPI Card ──────────────────────────────────────────────────── */
-function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor }) {
+function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency }) {
   const [displayVal, setDisplayVal] = useState(0);
   const [hover, setHover]           = useState(false);
 
@@ -755,7 +760,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
   }, [numericValue]);
 
   const formattedNum = numericValue !== null && numericValue !== undefined
-    ? `AED ${fmtAxisNum(displayVal)}`
+    ? `${currency || ''} ${fmtAxisNum(displayVal)}`
     : textValue || '—';
 
   const accent = accentColor || '#2563eb';
@@ -772,10 +777,10 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         boxShadow: hover ? `0 8px 24px ${accent}20` : 'none',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', 
-        alignItems: 'center', 
+        display: 'flex',
+        alignItems: 'center',
         gap: 14,
-        overflow: 'hidden', 
+        overflow: 'hidden',
         position: 'relative',
         minHeight: 74,
       }}
@@ -798,7 +803,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         }}>
           {label}
         </span>
-        
+
         {loading ? (
           <Skeleton h={18} w={80} />
         ) : error ? (
@@ -814,13 +819,14 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           </div>
         )}
 
-        {changeLabel && !loading && !error && (
+        {(changePct !== undefined || changeLabel) && !loading && !error && (
           <div style={{
+            display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap',
             fontSize: '0.62rem', fontWeight: 600, color: '#64748b',
-            lineHeight: 1.1,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word'
+            lineHeight: 1.1
           }}>
-            {changeLabel}
+            {changePct !== undefined && <VarBadge val={changePct} />}
+            {changeLabel && <span>{changeLabel}</span>}
           </div>
         )}
       </div>
@@ -855,7 +861,7 @@ function ChartCard({ title, children, minHeight, loading, error, onRetry, action
 }
 
 /* ─── Custom Tooltip ────────────────────────────────────────────── */
-const CustomTooltip = ({ active, payload, label }) => {
+const CustomTooltip = ({ active, payload, label, currency }) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{
@@ -875,7 +881,7 @@ const CustomTooltip = ({ active, payload, label }) => {
             <span style={{ color: C.slate }}>{p.name}</span>
           </div>
           <span style={{ fontWeight: 800, color: C.navy }}>
-            AED {Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            {currency || 'AED'} {Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
       ))}
@@ -885,7 +891,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 /* ─── Variance Badge ────────────────────────────────────────────── */
 function VarBadge({ val }) {
-  if (val === null || val === undefined) return <span style={{ color: C.muted }}>—</span>;
+  if (val === null || val === undefined) return <span style={{ color: C.muted }}>N/A</span>;
   const up = val >= 0;
   return (
     <span style={{
@@ -920,12 +926,12 @@ function CustomXAxisTick({ x, y, payload }) {
   const display = text.length > 25 ? text.substring(0, 22) + '...' : text;
   return (
     <g transform={`translate(${x},${y})`}>
-      <text 
-        x={0} 
-        y={0} 
-        dy={10} 
-        textAnchor="end" 
-        fill={C.slate} 
+      <text
+        x={0}
+        y={0}
+        dy={10}
+        textAnchor="end"
+        fill={C.slate}
         fontSize={9}
         transform="rotate(-35)"
       >
@@ -1035,7 +1041,7 @@ const ENTITY_COLORS = {
 const getEntityColor = (name) => {
   if (!name) return CHART_COLORS[0];
   if (ENTITY_COLORS[name]) return ENTITY_COLORS[name];
-  
+
   // Fallback hash
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -1053,6 +1059,17 @@ export default function SalesRevenueReport() {
   /* ── Filter state ─────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+  const [userAccess, setUserAccess] = useState(null);
+  const [permissions, setPermissions] = useState([]);
+
+  const normalizePermissions = (response) => {
+    if (Array.isArray(response)) return response;
+    if (response && Array.isArray(response.data)) return response.data;
+    if (response && Array.isArray(response.permissions)) return response.permissions;
+    if (response && typeof response === 'object') return [response];
+    return [];
+  };
+
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
@@ -1060,7 +1077,9 @@ export default function SalesRevenueReport() {
     parentDivs:     ['All'],
     subDivs:        ['All'],
     salesmen:       ['All'],
-    invoiceCurrencies: ['AED'],
+    invoiceCurrencies: ['All'],
+    reportingCurrencies: ['AED'],
+    dataAsOf: null,
   });
 
   /* ── Chart / KPI data state ───────────────────────────────────── */
@@ -1111,17 +1130,31 @@ export default function SalesRevenueReport() {
   }, [errors, publicIp]);
 
   /* ── Formatters ───────────────────────────────────────────────── */
-  const fmtCurrency = (v) => v !== null && v !== undefined ? `AED ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
-  const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
+  const fmtCurrency = (v) => v !== null && v !== undefined ? `${filters.reportingCurrency} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
+  const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : 'N/A';
   const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
   const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
   /* ── Auth redirect helper ─────────────────────────────────────── */
   const handle401 = useCallback((err) => {
-    if (err?.status === 401 || err?.status === 403 || err?.isAuthError) {
+    if (err?.status === 401 || err?.isAuthError) {
       navigate('/login');
     }
   }, [navigate]);
+
+  /* ── Load Access and Permissions ────────────────────────────── */
+  useEffect(() => {
+    fetchAccessMe()
+      .then(data => {
+        setUserAccess(data);
+        if (data && data.role_code) {
+           return fetchRolePermissions(data.role_code).then(perms => setPermissions(normalizePermissions(perms))).catch(() => setPermissions([]));
+        }
+      })
+      .catch(err => console.warn('Failed to fetch user access:', err));
+  }, []);
+
+  const canExport = permissions.find(p => p.module_code === 'SALES_REVENUE')?.can_export ?? false;
 
   /* ── Load filter options (Cascading) ─────────────────────────── */
   useEffect(() => {
@@ -1134,11 +1167,18 @@ export default function SalesRevenueReport() {
       .then(data => {
         setFilterOptions(prev => ({
           ...prev,
-          legalEntities: ['All', ...(data.legal_entities || [])],
-          parentDivs:    ['All', ...(data.parent_divisions || [])],
-          subDivs:       ['All', ...(data.sub_divisions  || [])],
-          salesmen:      ['All', ...(data.salesmen        || [])],
-          invoiceCurrencies: ['AED', ...(data.currencies || data.invoice_currencies || []).filter(c => c !== 'AED')],
+          legalEntities: ['All', ...(data.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
+          parentDivs:    ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
+          subDivs:       ['All', ...(data.sub_divisions  || []).filter(e => e && e !== 'All')],
+          salesmen:      ['All', ...(data.salesmen        || []).filter(e => e && e !== 'All')],
+          invoiceCurrencies: ['All', ...(data.invoice_currencies || data.invoiceCurrencies || [])],
+      reportingCurrencies: (
+  data.reporting_currencies || data.reportingCurrencies || 
+  (data.data && (data.data.reporting_currencies || data.data.reportingCurrencies)) || 
+  data.currencies || (data.data && data.data.currencies) || 
+  ['AED', 'INR', 'OMR', 'QAR', 'SAR', 'USD']
+),
+      dataAsOf: data.data_as_of || data.dataAsOf || (data.data && (data.data.data_as_of || data.data.dataAsOf)) || null,
         }));
       })
       .catch(err => {
@@ -1199,11 +1239,11 @@ export default function SalesRevenueReport() {
       // Map directly from the exact backend fields
       const mtd = d.sales_mtd_aed     ?? d.mtd_revenue ?? null;
       const ytd = d.sales_ytd_aed     ?? d.ytd_revenue ?? null;
-      const prevMtd = d.prev_mtd_revenue ?? d.prev_mtd_sales_aed ?? null;
-      const prevYtd = d.prev_ytd_revenue ?? d.prev_ytd_sales_aed ?? null;
+      const prevMtd = d.prev_mtd_revenue ?? d.prev_mtd_sales ?? null;
+      const prevYtd = d.prev_ytd_revenue ?? d.prev_ytd_sales ?? null;
 
-      // Real API returns separate _sales_aed fields for value:
-      // top_legal_entity_sales_aed, top_parent_division_sales_aed
+      // Real API returns separate _sales fields for value:
+      // top_legal_entity_sales, top_parent_division_sales
       const normHighlight = (nameVal, salesVal, pctVal) => {
         if (!nameVal) return null;
         const name = typeof nameVal === 'object' ? nameVal.name : nameVal;
@@ -1231,12 +1271,12 @@ export default function SalesRevenueReport() {
         // Highlights — exact backend fields
         top_legal_entity:    normHighlight(
           d.top_legal_entity,
-          d.top_legal_entity_sales_aed,
+          d.top_legal_entity_sales,
           d.top_legal_entity_pct
         ),
         top_parent_division: normHighlight(
           d.top_parent_division,
-          d.top_parent_division_sales_aed,
+          d.top_parent_division_sales,
           d.top_parent_division_pct
         ),
         data_as_of:              d.data_as_of             ?? null,
@@ -1246,20 +1286,20 @@ export default function SalesRevenueReport() {
     });
 
     // 1. Revenue Trend — GET /api/sales-revenue/trend
-    //    API returns: [{ period_name, sales_aed }, ...] (Current Year only)
+    //    API returns: [{ period_name, sales }, ...] (Current Year only)
     guard('trend', fetchTrend(f)).then(d => {
       if (!d) return;
       const arr = Array.isArray(d) ? d : (d?.data || []);
-      
+
       // Generate a 12-month skeleton
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const yearStr = f.fromDate ? String(new Date(f.fromDate).getFullYear()).slice(-2) : String(new Date().getFullYear()).slice(-2);
       const skeleton = months.map(m => ({ period: `${m}-${yearStr}`, currentYear: null }));
-      
+
       let hasCustomPeriods = false;
       arr.forEach(item => {
         const periodStr = item.period_name ?? item.period ?? '';
-        const val = Number(item.sales_aed ?? item.current_year ?? 0);
+        const val = Number(item.sales ?? item.current_year ?? 0);
         const match = skeleton.find(s => periodStr.startsWith(s.period.split('-')[0]));
         if (match) {
           match.currentYear = val;
@@ -1271,7 +1311,7 @@ export default function SalesRevenueReport() {
 
       setTrendData(hasCustomPeriods ? arr.map(item => ({
         period: item.period_name ?? item.period ?? '',
-        currentYear: Number(item.sales_aed ?? item.current_year ?? 0),
+        currentYear: Number(item.sales ?? item.current_year ?? 0),
       })) : skeleton);
     });
 
@@ -1284,7 +1324,7 @@ export default function SalesRevenueReport() {
     // 3. Salesman Summary — GET /api/sales-revenue/salesman-summary
     //    Used for: Top Salesman KPI card + Salesman View All modal
     guard('salesmanSummary', fetchSalesmanSummary(f)).then(d => {
-      // Real API returns a raw array; mock returns { data: [...] }
+
       const rows = Array.isArray(d) ? d : (d?.data ?? []);
       if (!rows.length) return;
       setSalesmanSummaryData(rows);
@@ -1296,7 +1336,7 @@ export default function SalesRevenueReport() {
         })
         .map(row => ({
           name:   row.salesman_name || row.salesman || row.sales_person || 'Unknown',
-          value:  Number(row.sales_aed  || 0),
+          value:  Number(row.sales  || 0),
           target: Number(row.target     || 0),
           pct:    Number(row.percentage || 0),
         }))
@@ -1315,7 +1355,7 @@ export default function SalesRevenueReport() {
       const pctMap  = {};
       arr.forEach(row => {
         const name = row.legal_entity || 'Unknown';
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1348,7 +1388,7 @@ export default function SalesRevenueReport() {
       const pctMap  = {};
       arr.forEach(row => {
         const name = row.parent_division || row.division_name || row.division_code || 'Unknown';
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1376,7 +1416,7 @@ export default function SalesRevenueReport() {
       const pctMap  = {};
       d.data.forEach(row => {
         const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1412,7 +1452,7 @@ export default function SalesRevenueReport() {
       if (!d || !d.data) return;
       const mapped = d.data.map(c => ({
         name: c.customer_name || c.name || 'Unknown',
-        value: Number(c.sales_aed ?? c.value ?? 0),
+        value: Number(c.sales ?? c.value ?? 0),
         pct: Number(c.percentage ?? c.contribution_pct ?? c.pct ?? 0),
       }));
       setTopCustomersData(mapped);
@@ -1516,8 +1556,9 @@ export default function SalesRevenueReport() {
   // Highlights
   const topLE           = summary?.top_legal_entity;
   const topPD           = summary?.top_parent_division;
-  const dataAsOf        = summary?.data_as_of
-    ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  const rawDataAsOf = summary?.data_as_of || summary?.dataAsOf || filterOptions.dataAsOf;
+  const dataAsOf = rawDataAsOf
+    ? new Date(rawDataAsOf).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : appliedFilters.toDate;
 
   // Top Salesman: directly use the first row from the response as requested
@@ -1525,7 +1566,7 @@ export default function SalesRevenueReport() {
     ? salesmanSummaryData[0]
     : null;
   const topSalesmanName  = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
-  const topSalesmanAED   = topSalesmanRecord ? Number(topSalesmanRecord.sales_aed || 0) : null;
+  const topSalesmanValue   = topSalesmanRecord ? Number(topSalesmanRecord.sales || 0) : null;
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
@@ -1543,9 +1584,9 @@ export default function SalesRevenueReport() {
   /* ── Column definitions for View-All modals ──────────────────── */
   const legalEntityCols = [
     { label: 'Legal Entity',       key: 'legal_entity',       align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
-    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: `Total Revenue (${filters.reportingCurrency})`,key: 'sales',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: `MTD Revenue (${filters.reportingCurrency})`,  key: 'mtd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: `YTD Revenue (${filters.reportingCurrency})`,  key: 'ytd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
     { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
     { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
   ];
@@ -1553,28 +1594,27 @@ export default function SalesRevenueReport() {
   const parentDivisionCols = [
     { label: 'Division Code',      key: 'division_code',      align: 'left', fmt: (v, row) => v ?? row.parent_division_code ?? row.code ?? '—'  },
     { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—'  },
-    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: `Total Revenue (${filters.reportingCurrency})`,key: 'sales',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: `MTD Revenue (${filters.reportingCurrency})`,  key: 'mtd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: `YTD Revenue (${filters.reportingCurrency})`,  key: 'ytd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
     { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
     { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
   ];
 
   const subdivisionCols = [
-    { label: 'Sub-Division',       key: 'subdivision',        align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.name ?? '—'  },
-    { label: 'Code',               key: 'subdivision_code',   align: 'left', fmt: (v, row) => v ?? row.code ?? '—'  },
-    { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? '—'  },
-    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
-    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+    { label: 'Legal Entity', key: 'legal_entity', align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
+    { label: 'Sub-Division', key: 'subdivision_name', align: 'left', fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '—' },
+    { label: 'Parent Division', key: 'parent_division', align: 'left', fmt: (v, row) => v ?? row.division_name ?? '—' },
+    { label: 'Ledger Currency', key: 'ledger_currency', align: 'center', fmt: (v, row) => v ?? row.invoice_currency ?? '—' },
+    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right', fmt: (v, row) => (v !== null && v !== undefined) ? `${row.ledger_currency || row.invoice_currency || ''} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—' },
+    { label: `Sales in Reporting Currency`, key: 'sales', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.sales_reporting_currency ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: '% Share', key: 'percentage', align: 'right', fmt: (v, row) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' }
   ];
 
   const customerSummaryCols = [
     { label: 'Customer Name',      key: 'customer_name',      align: 'left'  },
     { label: 'Account Number',     key: 'customer_account_number', align: 'left'  },
-    { label: 'Sales (AED)',        key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
+    { label: `Sales (${filters.reportingCurrency})`,        key: 'sales',          align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin',       key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
     { label: 'Percentage',         key: 'percentage',         align: 'right', fmt: v => fmtPct(v) },
     { label: '# Transactions',     key: 'transaction_count',  align: 'right' },
@@ -1585,16 +1625,15 @@ export default function SalesRevenueReport() {
     { label: 'Account Number',     key: 'customer_account_number', align: 'left' },
     { label: 'Customer Name',      key: 'customer_name',      align: 'left' },
     { label: 'Legal Entity',       key: 'legal_entity',       align: 'left' },
-    { label: 'Business Unit',      key: 'business_unit',      align: 'left' },
-    { label: 'Revenue (AED)',      key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin (AED)', key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
+    { label: `Revenue (${filters.reportingCurrency})`,      key: 'sales',          align: 'right', fmt: fmtCurrency },
+    { label: `Gross Margin (${filters.reportingCurrency})`, key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
     { label: 'Contribution %',     key: 'contribution_pct',   align: 'right', fmt: v => fmtPct(v) },
   ];
 
   // Salesman View All uses salesman-summary (aggregated) endpoint
   const salesmanSummaryCols = [
     { label: 'Sales Person',    key: 'sales_person',      align: 'left'  },
-    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
+    { label: `Sales (${filters.reportingCurrency})`,     key: 'sales',         align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin',    key: 'gross_margin',      align: 'right', fmt: fmtCurrency },
     { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
     { label: '# Transactions',  key: 'transaction_count', align: 'right' },
@@ -1612,9 +1651,8 @@ export default function SalesRevenueReport() {
     { label: 'Legal Entity',      key: 'legal_entity',         align: 'left'  },
     { label: 'Parent Division',   key: 'parent_division',      align: 'left'  },
     { label: 'Subdivision',       key: 'subdivision',          align: 'left'  },
-    { label: 'Business Unit',     key: 'business_unit',        align: 'left'  },
-    { label: 'Revenue (AED)',     key: 'sales_aed',            align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin (AED)', key: 'gross_margin',        align: 'right', fmt: fmtCurrency },
+    { label: `Revenue (${filters.reportingCurrency})`,     key: 'sales',            align: 'right', fmt: fmtCurrency },
+    { label: `Gross Margin (${filters.reportingCurrency})`, key: 'gross_margin',        align: 'right', fmt: fmtCurrency },
     { label: 'Contribution %',    key: 'contribution_pct',     align: 'right',
       fmt: (v, row) => {
         const val = v ?? row?.percentage;
@@ -1652,11 +1690,11 @@ export default function SalesRevenueReport() {
               <br/><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {appliedFilters.fromDate} to {appliedFilters.toDate}</span>
               {dataAsOf && ` • Data as on ${dataAsOf}`}
               &nbsp;|&nbsp;
-              <span style={{ color: C.green, fontWeight: 700 }}>Currency: AED</span>
+              <span style={{ color: C.green, fontWeight: 700 }}>Currency: {filters.reportingCurrency}</span>
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <ExportButtons endpoint="details" filters={appliedFilters} size="md" />
+            {canExport && <ExportButtons endpoint="details" filters={appliedFilters} size="md" />}
           </div>
         </div>
 
@@ -1672,27 +1710,11 @@ export default function SalesRevenueReport() {
             <span style={{ fontSize: '1.25rem', marginTop: -2 }}>⚠️</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#991b1b', marginBottom: 4 }}>
-                Backend Connection Issue (502 Bad Gateway / Network Unreachable)
+                Data Fetch Error
               </div>
               <div style={{ fontSize: '0.74rem', color: '#7f1d1d', lineHeight: 1.5 }}>
-                The frontend development proxy was unable to reach the live API at{' '}
-                <code style={{ background: '#fee2e2', padding: '2px 4px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 600 }}>
-                  13.233.207.68:8000
-                </code>. This typically means the backend server is offline or your current IP is blocked by the AWS Security Group.
+                {Object.values(errors).filter(Boolean).map((e, i) => <div key={i}>{e}</div>)}
               </div>
-              {publicIp && (
-                <div style={{ marginTop: 8, fontSize: '0.74rem', color: '#7f1d1d', fontWeight: 600 }}>
-                  📍 Your Public IP Address:{' '}
-                  <span
-                    style={{ textDecoration: 'underline', color: '#b91c1c', cursor: 'copy' }}
-                    onClick={() => { navigator.clipboard.writeText(publicIp); alert('Copied to clipboard!'); }}
-                    title="Click to copy"
-                  >
-                    {publicIp}
-                  </span>{' '}
-                  (Share this with the backend/IT team to whitelist).
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -1704,28 +1726,76 @@ export default function SalesRevenueReport() {
           </div>
         )}
 
+
+        {/* ── Authorized Scope Banner (For Single-Scope Context) ── */}
+        {(filterOptions.legalEntities.length === 2 || filterOptions.parentDivs.length === 2 || filterOptions.subDivs.length === 2 || filterOptions.salesmen.length === 2) && (
+          <div className="card" style={{ padding: '16px 20px', marginBottom: 16, backgroundColor: '#f8fafc', borderLeft: '4px solid #4f46e5' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <svg style={{ marginRight: 8 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>Your Authorized Scope</span>
+              <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: 'auto' }}>Data shown is restricted to your assigned access scope.</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
+              {filterOptions.legalEntities.length === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Legal Entity</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{filterOptions.legalEntities[1]}</span>
+                </div>
+              )}
+              {filterOptions.parentDivs.length === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Parent Division</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{filterOptions.parentDivs[1]}</span>
+                </div>
+              )}
+              {filterOptions.subDivs.length === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Sub-Division</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{filterOptions.subDivs[1]}</span>
+                </div>
+              )}
+              {filterOptions.salesmen.length === 2 && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Salesman</span>
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                    {typeof filterOptions.salesmen[1] === 'string' ? filterOptions.salesmen[1] : (filterOptions.salesmen[1]?.label || filterOptions.salesmen[1]?.salesman_name || filterOptions.salesmen[1]?.sales_person || String(filterOptions.salesmen[1]))}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Filter Bar ── */}
+
         <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
+          {filterOptions.legalEntities.length > 2 && (
           <FilterField label="Legal Entity">
-            <select id="filter-legal-entity" style={selStyle} value={filters.legalEntity} onChange={e => updateFilter('legalEntity', e.target.value)}>
+            <select id="filter-legal-entity" style={{...selStyle, opacity: filterOptions.legalEntities.length <= 2 ? 0.6 : 1}} disabled={filterOptions.legalEntities.length <= 2} value={filters.legalEntity} onChange={e => updateFilter('legalEntity', e.target.value)}>
               {filterOptions.legalEntities.map(o => <option key={o}>{o}</option>)}
             </select>
           </FilterField>
+          )}
 
+          {filterOptions.parentDivs.length > 2 && (
           <FilterField label="Parent Division">
-            <select id="filter-parent-div" style={selStyle} value={filters.parentDiv} onChange={e => updateFilter('parentDiv', e.target.value)}>
+            <select id="filter-parent-div" style={{...selStyle, opacity: filterOptions.parentDivs.length <= 2 ? 0.6 : 1}} disabled={filterOptions.parentDivs.length <= 2} value={filters.parentDiv} onChange={e => updateFilter('parentDiv', e.target.value)}>
               {filterOptions.parentDivs.map(o => <option key={o}>{o}</option>)}
             </select>
           </FilterField>
+          )}
 
+          {filterOptions.subDivs.length > 2 && (
           <FilterField label="Sub-Division">
-            <select id="filter-sub-div" style={selStyle} value={filters.subDiv} onChange={e => updateFilter('subDiv', e.target.value)}>
+            <select id="filter-sub-div" style={{...selStyle, opacity: filterOptions.subDivs.length <= 2 ? 0.6 : 1}} disabled={filterOptions.subDivs.length <= 2} value={filters.subDiv} onChange={e => updateFilter('subDiv', e.target.value)}>
               {filterOptions.subDivs.map(o => <option key={o}>{o}</option>)}
             </select>
           </FilterField>
+          )}
 
+          {filterOptions.salesmen.length > 2 && (
           <FilterField label="Salesman">
-            <select id="filter-salesman" style={selStyle} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
+            <select id="filter-salesman" style={{...selStyle, opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1}} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
               {filterOptions.salesmen.map((o, idx) => {
                 // Guarantee o is always a string (belt-and-suspenders guard)
                 const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
@@ -1734,12 +1804,20 @@ export default function SalesRevenueReport() {
               })}
             </select>
           </FilterField>
+          )}
 
-          <FilterField label="Currency">
-            <select id="filter-currency" style={selStyle} value={filters.invoiceCurrency} onChange={e => updateFilter('invoiceCurrency', e.target.value)}>
-              {filterOptions.invoiceCurrencies.map(o => <option key={o}>{o}</option>)}
+          <FilterField label="Reporting Currency">
+            <select id="filter-currency" style={selStyle} value={filters.reportingCurrency} onChange={e => updateFilter('reportingCurrency', e.target.value)}>
+              {filterOptions.reportingCurrencies.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </FilterField>
+          {filterOptions.invoiceCurrencies.length > 1 && (
+            <FilterField label="Invoice Currency">
+              <select id="filter-invoice-currency" style={selStyle} value={filters.invoiceCurrency} onChange={e => updateFilter('invoiceCurrency', e.target.value)}>
+                {filterOptions.invoiceCurrencies.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FilterField>
+          )}
 
           <FilterField label="From Date">
             <input
@@ -1772,7 +1850,7 @@ export default function SalesRevenueReport() {
         <div className="grid-cols-6" style={{ marginBottom: 16 }}>
 
           {/* 1. Total Sales (MTD) */}
-          <KPICard
+          <KPICard currency={filters.reportingCurrency}
             label={"Total Sales (MTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
@@ -1789,7 +1867,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 2. Sales (YTD) */}
-          <KPICard
+          <KPICard currency={filters.reportingCurrency}
             label={"Sales (YTD)"}
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
@@ -1806,7 +1884,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 3. Gross Profit (MTD) */}
-          <KPICard
+          <KPICard currency={filters.reportingCurrency}
             label={"Gross Profit (MTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
@@ -1823,12 +1901,12 @@ export default function SalesRevenueReport() {
           />
 
           {/* 4. Top Legal Entity */}
-          <KPICard
+          <KPICard currency={filters.reportingCurrency}
             label="Top Legal Entity"
             numericValue={null}
             textValue={topLE ? topLE.name : '—'}
             changePct={null}
-            changeLabel={topLE?.value ? `AED ${fmtAxisNum(topLE.value)}` : ''}
+            changeLabel={topLE?.value ? `${filters.reportingCurrency} ${fmtAxisNum(topLE.value)}` : ''}
             up={null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
             iconBg="#ffedd5"
@@ -1841,12 +1919,12 @@ export default function SalesRevenueReport() {
           />
 
           {/* 5. Top Parent Division */}
-          <KPICard
+          <KPICard currency={filters.reportingCurrency}
             label="Top Parent Division"
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
             changePct={null}
-            changeLabel={topPD?.value ? `AED ${fmtAxisNum(topPD.value)}` : ''}
+            changeLabel={topPD?.value ? `${filters.reportingCurrency} ${fmtAxisNum(topPD.value)}` : ''}
             up={null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
             iconBg="#cffafe"
@@ -1859,12 +1937,12 @@ export default function SalesRevenueReport() {
           />
 
           {/* 6. Top Salesman */}
-          <KPICard
+          <KPICard currency={filters.reportingCurrency}
             label="Top Salesman"
             numericValue={null}
             textValue={topSalesmanName}
             changePct={null}
-            changeLabel={topSalesmanAED !== null ? `AED ${fmtAxisNum(topSalesmanAED)}` : ''}
+            changeLabel={topSalesmanValue !== null ? `${filters.reportingCurrency} ${fmtAxisNum(topSalesmanValue)}` : ''}
             up={null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
             iconBg="#fce7f3"
@@ -1879,17 +1957,17 @@ export default function SalesRevenueReport() {
 
         {/* ── Main Dashboard Charts Row ── */}
         <div className="grid-charts-3" style={{ marginBottom: 16 }}>
-          
+
           {/* 1. Revenue Trend (Line Chart) */}
-          <motion.div 
+          <motion.div
             whileHover={{ y: -3, boxShadow: "0 12px 30px rgba(0, 0, 0, 0.08)" }}
-            className="card animate-fade-slide-up" 
+            className="card animate-fade-slide-up"
             style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.4s ease' }}
           >
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
               <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend (AED)</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend ({filters.reportingCurrency})</div>
                 {(() => {
                   const activePts = trendData.filter(d => d.currentYear != null && d.currentYear > 0);
                   if (activePts.length === 1) {
@@ -1923,11 +2001,11 @@ export default function SalesRevenueReport() {
                 const fmtBig  = fmtAxisNum(rawVal);
                 const fmtExact = rawVal.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
                 return (
-                  <motion.div 
-                    key={`single-${singlePt.period}`} 
-                    initial={{ opacity: 0, y: 15 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    exit={{ opacity: 0, y: 15 }} 
+                  <motion.div
+                    key={`single-${singlePt.period}`}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 15 }}
                     transition={{ duration: 0.4, ease: "easeOut" }}
                     style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: 8 }}
                   >
@@ -1945,10 +2023,10 @@ export default function SalesRevenueReport() {
 
                       {/* Large amount */}
                       <motion.div whileHover={{ scale: 1.03 }} className="animate-float-glow" style={{ fontSize: '2.4rem', fontWeight: 900, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.5px' }}>
-                        AED <CountUp end={rawVal} formatter={fmtAxisNum} duration={1.5} />
+                        {filters.reportingCurrency} <CountUp end={rawVal} formatter={fmtAxisNum} duration={1.5} />
                       </motion.div>
                     <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 6, fontWeight: 500 }}>
-                      AED <CountUp end={rawVal} duration={1.5} formatter={(v) => v.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} />
+                      {filters.reportingCurrency} <CountUp end={rawVal} duration={1.5} formatter={(v) => v.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} />
                     </div>
 
                     {/* Single bar */}
@@ -1958,7 +2036,7 @@ export default function SalesRevenueReport() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="transparent" />
                           <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0', strokeWidth: 2 }} tickLine={false} dy={8} />
                           <YAxis tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
-                          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
+                          <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
                           <Bar dataKey="currentYear" name="Sales" radius={[8, 8, 0, 0]} className="animate-bar-grow" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out">
                             <Cell fill="url(#trendBarGrad)" filter="url(#barGlow)" />
                           </Bar>
@@ -1992,7 +2070,7 @@ export default function SalesRevenueReport() {
 
               /* ── Multi-period line chart (premium layout) ── */
               return (
-                <motion.div 
+                <motion.div
                   key={`multi-${activePts.length}-${activePts[0]?.period}`}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -2001,7 +2079,7 @@ export default function SalesRevenueReport() {
                   style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
                 >
                   <div style={{ flex: 1, minHeight: 160, width: '100%', marginTop: 8 }}>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={100}>
                     <AreaChart data={activePts} margin={{ top: 24, right: 10, left: -10, bottom: 0 }}>
                       <defs>
                         <filter id="lineShadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -2017,13 +2095,13 @@ export default function SalesRevenueReport() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="grid-fade-in" />
                       <XAxis className="axis-fade-in" dataKey="period" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} dy={8} padding={{ left: 24, right: 34 }} />
                       <YAxis className="axis-fade-in" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="currentYear" 
-                        name="Current Year" 
-                        stroke="#6366f1" 
-                        strokeWidth={3} 
+                      <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
+                      <Area
+                        type="monotone"
+                        dataKey="currentYear"
+                        name="Current Year"
+                        stroke="#6366f1"
+                        strokeWidth={3}
                         fill="url(#areaGradient)"
                         filter="url(#lineShadow)"
                         dot={(props) => {
@@ -2043,24 +2121,24 @@ export default function SalesRevenueReport() {
                         animationDuration={1500}
                         animationEasing="ease-out"
                       >
-                        <LabelList 
-                          dataKey="currentYear" 
-                          position="top" 
+                        <LabelList
+                          dataKey="currentYear"
+                          position="top"
                           content={(props) => {
                             const { x, y, index, value } = props;
                             // Only show label for the last data point
                             if (index === activePts.length - 1 && value !== null) {
                               return (
                                 <g transform={`translate(${x},${y - 16})`}>
-                                  <text 
-                                    x="0" 
-                                    y="0" 
-                                    fill="#4f46e5" 
-                                    fontSize="12" 
-                                    fontWeight="900" 
-                                    textAnchor="middle" 
+                                  <text
+                                    x="0"
+                                    y="0"
+                                    fill="#4f46e5"
+                                    fontSize="12"
+                                    fontWeight="900"
+                                    textAnchor="middle"
                                     dominantBaseline="middle"
-                                    style={{ 
+                                    style={{
                                       textShadow: '0px 0px 4px #fff, 0px 0px 4px #fff, 0px 0px 6px #fff'
                                     }}
                                   >
@@ -2087,7 +2165,7 @@ export default function SalesRevenueReport() {
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
                             <span style={{ color: '#64748b' }}>Latest:</span>
-                            <motion.span whileHover={{ scale: 1.05 }} style={{ color: '#6366f1', fontWeight: 800 }}>AED <CountUp end={latest.currentYear} formatter={fmtAxisNum} duration={1.5} /></motion.span>
+                            <motion.span whileHover={{ scale: 1.05 }} style={{ color: '#6366f1', fontWeight: 800 }}>{filters.reportingCurrency} <CountUp end={latest.currentYear} formatter={fmtAxisNum} duration={1.5} /></motion.span>
                           </div>
                         );
                       }
@@ -2101,14 +2179,14 @@ export default function SalesRevenueReport() {
           </motion.div>
 
 
-          {/* 2. Revenue by Legal Entity (Donut) */}
+          {filterOptions.legalEntities.length > 2 && (
           <div className="card" style={{ padding: '12px 16px 12px', display: 'flex', flexDirection: 'column' }}>
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
               <div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Legal Entity</div>
-                <div style={{ fontSize: '0.72rem', color: '#1e293b', marginTop: 3, fontWeight: 500 }}>AED contribution — 100% breakdown</div>
+                <div style={{ fontSize: '0.72rem', color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{filters.reportingCurrency} contribution — 100% breakdown</div>
               </div>
               <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={appliedFilters} />
             </div>
@@ -2157,10 +2235,10 @@ export default function SalesRevenueReport() {
                           dominantBaseline="middle"
                           style={{ fontSize: '1rem', fontWeight: 900, fill: '#0f172a' }}
                         >
-                          AED {fmtAxisNum(total)}
+                          {filters.reportingCurrency} {fmtAxisNum(total)}
                         </text>
 
-                        <Tooltip content={<CustomTooltip />} />
+                        <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -2214,12 +2292,14 @@ export default function SalesRevenueReport() {
           </div>
 
 
-          {/* 3. Revenue by Parent Division (Bar) */}
+          )}
+
+          {filterOptions.parentDivs.length > 2 && (
           <div className="card" style={{ padding: '12px 16px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Parent Division</div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3, fontWeight: 500 }}>AED — top divisions ranked</div>
+                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3, fontWeight: 500 }}>{filters.reportingCurrency} — top divisions ranked</div>
               </div>
               <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={appliedFilters} />
             </div>
@@ -2248,26 +2328,26 @@ export default function SalesRevenueReport() {
                     const isHovered = hoveredParentDiv === i;
                     const color = d.color || getEntityColor(d.name);
                     const label = (d.name || '').replace(/\n/g, ' ');
-                    
+
                     return (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         style={{ position: 'relative', cursor: 'pointer' }}
                         onMouseEnter={() => setHoveredParentDiv(i)}
                         onMouseLeave={() => setHoveredParentDiv(null)}
                       >
                         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
                           <span style={{
-                            fontSize: '0.85rem', fontWeight: 800, 
+                            fontSize: '0.85rem', fontWeight: 800,
                             color: isHovered ? color : '#1e293b',
                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                             maxWidth: '70%', transition: 'color 0.2s'
                           }}>
                             {label}
                           </span>
-                          <span style={{ 
-                            fontSize: '0.85rem', fontWeight: 900, 
-                            color: isHovered ? color : '#1e293b', 
+                          <span style={{
+                            fontSize: '0.85rem', fontWeight: 900,
+                            color: isHovered ? color : '#1e293b',
                             flexShrink: 0, marginLeft: 8, transition: 'color 0.2s'
                           }}>
                             {fmtAxisNum(d.value)}
@@ -2282,7 +2362,7 @@ export default function SalesRevenueReport() {
                             transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
                           }} />
                         </div>
-                        
+
                         {/* Custom Tooltip */}
                         {isHovered && (
                           <div style={{
@@ -2303,9 +2383,9 @@ export default function SalesRevenueReport() {
                             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', alignItems: 'center' }}>
                               <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Revenue</span>
                               <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.85rem', textAlign: 'right' }}>
-                                AED {Number(d.value || 0).toLocaleString()}
+                                {filters.reportingCurrency} {Number(d.value || 0).toLocaleString()}
                               </span>
-                              
+
                               <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Share</span>
                               <span style={{ fontWeight: 800, color: '#6366f1', fontSize: '0.85rem', textAlign: 'right' }}>
                                 {totalVal > 0 ? ((d.value / totalVal) * 100).toFixed(1) : 0}%
@@ -2329,16 +2409,18 @@ export default function SalesRevenueReport() {
               <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
           </div>
+          )}
         </div>
 
                 {/* ── Tertiary Analysis Row (Sub-Division, Customers, Salesman) ── */}
         <div className="grid-charts-3" style={{ marginBottom: 16, gridTemplateColumns: '1fr 1.1fr 1.1fr' }}>
           {/* 1. Subdivision */}
+          {filterOptions.subDivs.length > 2 && (
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division (AED)</div>
-                <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>AED — all sub-divisions compared</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division ({filters.reportingCurrency})</div>
+                <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{filters.reportingCurrency} — all sub-divisions compared</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <button
@@ -2379,12 +2461,12 @@ export default function SalesRevenueReport() {
             ) : subDivData.length > 0 ? (
               <div style={{ width: '100%', marginTop: 12, flex: 1, minHeight: 260 }}>
                 {(() => {
-                  const filteredSubDivData = excludeOthers 
+                  const filteredSubDivData = excludeOthers
                     ? subDivData.filter(d => d.name.trim().toLowerCase() !== 'others')
                     : subDivData;
 
                   return (
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={100}>
                       <BarChart data={filteredSubDivData} margin={{ top: 20, right: 20, left: 20, bottom: 84 }} maxBarSize={56} barCategoryGap="20%">
                         <defs>
                           {filteredSubDivData.map((entry, index) => {
@@ -2399,10 +2481,10 @@ export default function SalesRevenueReport() {
                           })}
                         </defs>
                         <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
-                          axisLine={{ stroke: '#e2e8f0' }} 
-                          tickLine={false} 
+                        <XAxis
+                          dataKey="name"
+                          axisLine={{ stroke: '#e2e8f0' }}
+                          tickLine={false}
                           interval={0}
                           tick={(props) => {
                             const { x, y, payload, width, index } = props;
@@ -2413,7 +2495,7 @@ export default function SalesRevenueReport() {
                             return (
                               <g transform={`translate(${x},${y + yOffset})`}>
                                 <foreignObject x={-textWidth/2} y={0} width={textWidth} height={50}>
-                                  <div 
+                                  <div
                                     title={payload.value}
                                     style={{
                                       width: '100%',
@@ -2434,15 +2516,15 @@ export default function SalesRevenueReport() {
                             );
                           }}
                         />
-                        <YAxis 
+                        <YAxis
                           axisLine={false}
                           tickLine={false}
                           tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                           tickFormatter={(val) => fmtAxisNum(val)}
                           width={44}
                         />
-                        <Tooltip 
-                          cursor={{ fill: 'rgba(226, 232, 240, 0.5)', rx: 8, ry: 8 }} 
+                        <Tooltip
+                          cursor={{ fill: 'rgba(226, 232, 240, 0.5)', rx: 8, ry: 8 }}
                           offset={24}
                           wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
                           content={(props) => {
@@ -2469,7 +2551,7 @@ export default function SalesRevenueReport() {
                                       Revenue:
                                     </span>
                                     <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.85rem', textAlign: 'right' }}>
-                                      AED {Number(data.value || 0).toLocaleString()}
+                                      {filters.reportingCurrency} {Number(data.value || 0).toLocaleString()}
                                     </span>
                                     <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500, paddingLeft: 14 }}>Share:</span>
                                     <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.85rem', textAlign: 'right' }}>
@@ -2482,8 +2564,8 @@ export default function SalesRevenueReport() {
                             return null;
                           }}
                         />
-                        <Bar 
-                          dataKey="value" 
+                        <Bar
+                          dataKey="value"
                           radius={[8, 8, 0, 0]}
                           isAnimationActive={true}
                           animationDuration={800}
@@ -2492,9 +2574,9 @@ export default function SalesRevenueReport() {
                           {filteredSubDivData.map((entry, index) => {
                             return <Cell key={`cell-${index}`} fill={`url(#grad-${index})`} />;
                           })}
-                          <LabelList 
-                            dataKey="value" 
-                            position="top" 
+                          <LabelList
+                            dataKey="value"
+                            position="top"
                             content={(props) => {
                               const { x, y, width, value } = props;
                               return (
@@ -2514,11 +2596,12 @@ export default function SalesRevenueReport() {
               <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 80 }}>No data</div>
             )}
           </div>
+          )}
 
           {/* 2. Top Customers */}
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales (AED)</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales ({filters.reportingCurrency})</div>
               <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
             </div>
             {loading.topCustomers ? (
@@ -2530,7 +2613,7 @@ export default function SalesRevenueReport() {
                     <tr>
                       <th style={{ textAlign: 'center', width: '10%' }}>#</th>
                       <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal' }}>Customer Name</th>
-                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales (AED)</th>
+                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales ({filters.reportingCurrency})</th>
                       <th style={{ textAlign: 'right', width: '20%', whiteSpace: 'normal' }}>% Share</th>
                     </tr>
                   </thead>
@@ -2584,7 +2667,7 @@ export default function SalesRevenueReport() {
           {/* 3. Revenue by Salesman */}
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesman (AED)</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesman ({filters.reportingCurrency})</div>
               <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
             </div>
             {loading.salesmanSummary ? (
@@ -2596,14 +2679,14 @@ export default function SalesRevenueReport() {
                     <tr>
                       <th style={{ textAlign: 'center', width: '10%' }}>#</th>
                       <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal' }}>Salesman</th>
-                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales (AED)</th>
+                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales ({filters.reportingCurrency})</th>
                       <th style={{ textAlign: 'right', width: '20%', whiteSpace: 'normal' }}>% Share</th>
                     </tr>
                   </thead>
                   <tbody>
                     {salesmanSummaryData.slice(0, 10).map((c, i) => {
                       const name = c.salesman || c.sales_person || c.salesman_name || 'Unknown';
-                      const salesVal = Number(c.sales_aed) || 0;
+                      const salesVal = Number(c.sales) || 0;
                       const pctVal = c.percentage != null ? Number(c.percentage) : null;
                       return (
                         <tr key={i}>
@@ -2622,7 +2705,7 @@ export default function SalesRevenueReport() {
                         <InfoTooltip text="This percentage represents the combined share of the Top 10 salespeople — not 100% of global revenue." />
                       </td>
                       <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0)
+                        {salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales) || 0), 0)
                           .toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td style={{ padding: '8px', textAlign: 'right' }}>
@@ -2648,7 +2731,7 @@ export default function SalesRevenueReport() {
                 Sales Revenue Detailed View
               </span>
               <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500, padding: '2px 8px', background: '#f1f5f9', borderRadius: 12 }}>
-                Amounts in AED
+                Amounts in {filters.reportingCurrency}
               </span>
             </div>
             <ChartMenu onViewAll={() => setOpenModal('summaryDetail')} endpoint="summary-detail" filters={appliedFilters} />
@@ -2674,10 +2757,10 @@ export default function SalesRevenueReport() {
                 parentDiv:   r.parent_division || r.division || '—',
                 subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
                 bizUnit:     r.business_unit  || r.biz_unit || '—',
-                mtd:         n(r, 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales_aed'),
-                prevMtd:     n(r, 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales_aed'),
-                ytd:         n(r, 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales_aed'),
-                ytdPy:       n(r, 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales_aed'),
+                mtd:         n(r, 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales'),
+                prevMtd:     n(r, 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales'),
+                ytd:         n(r, 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales'),
+                ytdPy:       n(r, 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales'),
                 varMtd:      n(r, 'variance_mtd_pct','mtd_var_pct',      'variance_mtd'),
                 varYtd:      n(r, 'variance_ytd_pct','ytd_var_pct',      'variance_ytd'),
             })).sort((a, b) => {
@@ -2693,12 +2776,12 @@ export default function SalesRevenueReport() {
             if (allRows.length > 10) {
               const top10 = allRows.slice(0, 10);
               const others = allRows.slice(10);
-              
+
               const mtd     = others.reduce((s, r) => s + (r.mtd || 0), 0);
               const prevMtd = others.reduce((s, r) => s + (r.prevMtd || 0), 0);
               const ytd     = others.reduce((s, r) => s + (r.ytd || 0), 0);
               const ytdPy   = others.reduce((s, r) => s + (r.ytdPy || 0), 0);
-              
+
               const othersRow = {
                 legalEntity: 'Others',
                 parentDiv: '—',
@@ -2718,12 +2801,12 @@ export default function SalesRevenueReport() {
 
             /* formatters */
             const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `${(v / 1e6).toFixed(2)}M` : '—';
-            
+
             const calcVar = (cur, prev) =>
               (prev > 0 && cur >= 0) ? ((cur - prev) / Math.abs(prev)) * 100 : null;
 
             const VarBadge = ({ pct }) => {
-              if (pct === null || pct === undefined || isNaN(pct)) return <span style={{ color: C.muted }}>—</span>;
+              if (pct === null || pct === undefined || isNaN(pct)) return <span style={{ color: C.muted }}>N/A</span>;
               const up = pct >= 0;
               return (
                 <span style={{
@@ -2807,11 +2890,11 @@ export default function SalesRevenueReport() {
                           <td style={{ ...TD_S }}>{fmtAED(row.ytdPy)}</td>
                           {/* Variance MTD */}
                           <td style={{ ...TD_S, textAlign: 'center' }}>
-                            <VarBadge pct={row.varMtd !== null ? row.varMtd : calcVar(row.mtd, row.prevMtd)} />
+                            <VarBadge val={row.varMtd} />
                           </td>
                           {/* Variance YTD */}
                           <td style={{ ...TD_S, textAlign: 'center' }}>
-                            <VarBadge pct={row.varYtd !== null ? row.varYtd : calcVar(row.ytd, row.ytdPy)} />
+                            <VarBadge val={row.varYtd} />
                           </td>
                         </tr>
                       );
@@ -2827,8 +2910,8 @@ export default function SalesRevenueReport() {
                       <td style={{ ...TD_FOOT }}>{fmtAED(totPMTD)}</td>
                       <td style={{ ...TD_FOOT }}>{fmtAED(totYTD)}</td>
                       <td style={{ ...TD_FOOT }}>{fmtAED(totYTDPY)}</td>
-                      <td style={{ ...TD_FOOT }}><VarBadge pct={calcVar(totMTD, totPMTD)} /></td>
-                      <td style={{ ...TD_FOOT }}><VarBadge pct={calcVar(totYTD, totYTDPY)} /></td>
+                      <td style={{ ...TD_FOOT }}><VarBadge val={calcVar(totMTD, totPMTD)} /></td>
+                      <td style={{ ...TD_FOOT }}><VarBadge val={calcVar(totYTD, totYTDPY)} /></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2838,7 +2921,7 @@ export default function SalesRevenueReport() {
 
           {/* Footer note */}
           <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
-            <span>All values are in <strong>AED</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
+            <span>All values are in <strong>{filters.reportingCurrency}</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
             <span>Source: Oracle Fusion Cloud</span>
           </div>
         </div>
@@ -2849,7 +2932,7 @@ export default function SalesRevenueReport() {
           paddingTop: 10, paddingBottom: 4, flexWrap: 'wrap', gap: 4,
         }}>
           <span>
-            All values are in <strong>AED</strong>&nbsp;|&nbsp;
+            All values are in <strong>{filters.reportingCurrency}</strong>&nbsp;|&nbsp;
             {dataAsOf && `Data as on ${dataAsOf}`}&nbsp;|&nbsp;
             <span style={{ color: C.green, fontWeight: 700 }}>● Live</span>
           </span>
@@ -2862,6 +2945,7 @@ export default function SalesRevenueReport() {
 
       {/* Legal Entity Detail Modal */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'legalEntity'}
         onClose={() => setOpenModal(null)}
         title="Legal Entity — Full Detail View"
@@ -2874,6 +2958,7 @@ export default function SalesRevenueReport() {
 
       {/* Parent Division Detail Modal */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'parentDiv'}
         onClose={() => setOpenModal(null)}
         title="Parent Division — Full Detail View"
@@ -2886,6 +2971,7 @@ export default function SalesRevenueReport() {
 
       {/* Sub-Division Detail Modal */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'subDiv'}
         onClose={() => setOpenModal(null)}
         title="Sub-Division — Full Detail View"
@@ -2898,6 +2984,7 @@ export default function SalesRevenueReport() {
 
       {/* Salesman View All Modal — uses /salesman-summary (aggregated) */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'salesman'}
         onClose={() => setOpenModal(null)}
         title="Salesman Summary — All Salespeople"
@@ -2910,6 +2997,7 @@ export default function SalesRevenueReport() {
 
       {/* Salesman Detail Drill-Down Modal — uses /salesman-detail */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'salesmanDetail'}
         onClose={() => setOpenModal(null)}
         title="Salesman Detail — Transaction Drill-Down"
@@ -2922,6 +3010,7 @@ export default function SalesRevenueReport() {
 
       {/* Customer Summary Modal */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'customerSummary'}
         onClose={() => setOpenModal(null)}
         title="Customer Summary — All Customers"
@@ -2934,6 +3023,7 @@ export default function SalesRevenueReport() {
 
       {/* Customer Detail Drill-Down Modal */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'customerDetail'}
         onClose={() => setOpenModal(null)}
         title="Customer Detail — Full Breakdown"
@@ -2946,6 +3036,7 @@ export default function SalesRevenueReport() {
 
       {/* Summary Detail Drill-Down Modal */}
       <DetailApiModal
+        canExport={canExport}
         isOpen={openModal === 'summaryDetail'}
         onClose={() => setOpenModal(null)}
         title="Sales Revenue Detailed View — All Data"
@@ -2994,7 +3085,7 @@ export default function SalesRevenueReport() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Period', `${currentYearLabel} Sales (AED)`].map((h, i) => (
+                    {['Period', `${currentYearLabel} Sales ({filters.reportingCurrency})`].map((h, i) => (
                       <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{h}</th>
                     ))}
                   </tr>

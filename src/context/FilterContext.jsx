@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useMemo, useEffect } from 'react';
-import { fetchFilters } from '../services/salesRevenueApi';
+import { fetchFilterOptions } from '../services/salesRevenueApi';
 import { useAuth } from './AuthContext';
 import { LEGAL_ENTITIES, COUNTRIES, DIVISIONS, CURRENCIES, PERIODS, SCENARIOS } from '../data/masterData';
 
@@ -65,7 +65,7 @@ export function FilterProvider({ children }) {
   const [salesmenList, setSalesmenList] = useState(['all']);
 
   useEffect(() => {
-    fetchFilters()
+    fetchFilterOptions()
       .then(data => {
         if (data && data.salesmen) {
           setSalesmenList(['all', ...data.salesmen]);

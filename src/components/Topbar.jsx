@@ -24,6 +24,7 @@ const PAGE_TITLES = {
 
 export default function Topbar() {
   const { user, logout } = useAuth();
+  const isRestricted = !['ADMIN', 'FGT_SUPER_ADMIN', 'CEO', 'CFO', 'CFO_GROUP', 'COO', 'MD', 'BOARD', 'EXECUTIVE', 'cfo', 'board', 'executive'].includes(user?.role?.toUpperCase() || '');
   const { pathname } = useLocation();
   const page = PAGE_TITLES[pathname] || { title: 'Finsight', sub: 'FJ Group Finance Intelligence' };
 
@@ -57,7 +58,7 @@ export default function Topbar() {
           <div className="filter-divider" style={{ height: 12, margin: 0 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <Globe size={12} style={{ color: 'var(--clr-emerald)' }} />
-            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>All Entities</span>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>{isRestricted ? 'Authorized Entities' : 'All Entities'}</span>
           </div>
         </div>
 
