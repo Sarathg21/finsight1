@@ -1658,10 +1658,19 @@ export default function SalesRevenueReport() {
     { label: 'Account Number',   key: 'customer_account_number', align: 'left' },
     { label: 'Customer Name',    key: 'customer_name',           align: 'left' },
     { label: 'Legal Entity',     key: 'legal_entity',            align: 'left' },
+    { label: 'Ledger Currency',  key: 'ledger_currency',         align: 'center', fmt: (v) => v ?? '—' },
+    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right',
+      fmt: (v, row) => {
+        const cur = row.ledger_currency || '';
+        return (v !== null && v !== undefined)
+          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
+          : '—';
+      }
+    },
     { label: `Revenue (${rc})`,  key: 'sales',                   align: 'right', fmt: fmtCurrency },
     // Gross Margin currency treatment under review — not changing
     { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
-    { label: 'Contribution %',   key: 'contribution_pct',        align: 'right', fmt: v => fmtPct(v) },
+    { label: '% Share',          key: 'contribution_pct',        align: 'right', fmt: v => fmtPct(v) },
   ];
 
   // Salesman View All — aggregated
@@ -1686,10 +1695,19 @@ export default function SalesRevenueReport() {
     { label: 'Legal Entity',      key: 'legal_entity',         align: 'left'  },
     { label: 'Parent Division',   key: 'parent_division',      align: 'left'  },
     { label: 'Subdivision',       key: 'subdivision',          align: 'left'  },
+    { label: 'Ledger Currency',   key: 'ledger_currency',      align: 'center', fmt: (v) => v ?? '—' },
+    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right',
+      fmt: (v, row) => {
+        const cur = row.ledger_currency || '';
+        return (v !== null && v !== undefined)
+          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
+          : '—';
+      }
+    },
     { label: `Revenue (${rc})`,   key: 'sales',                align: 'right', fmt: fmtCurrency },
     // Gross Margin currency treatment under review — not changing
     { label: `Gross Margin`,      key: 'gross_margin',         align: 'right', fmt: fmtCurrency },
-    { label: 'Contribution %',    key: 'contribution_pct',     align: 'right',
+    { label: '% Share',           key: 'contribution_pct',     align: 'right',
       fmt: (v, row) => {
         const val = v ?? row?.percentage;
         return val != null ? `${Number(val).toFixed(2)}%` : '—';
@@ -3046,7 +3064,7 @@ export default function SalesRevenueReport() {
         searchPlaceholder="Search salespeople..."
       />
 
-      {/* Salesman Detail Drill-Down Modal — uses /salesman-detail (12 cols) */}
+      {/* Salesman Detail Drill-Down Modal — uses /salesman-detail (14 cols) */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'salesmanDetail'}
@@ -3056,7 +3074,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSalesmanDetail}
         columnDefs={salesmanDetailCols}
         filters={appliedFilters}
-        maxWidth={1300}
+        maxWidth={1400}
         searchPlaceholder="Search salesman detail..."
       />
 
@@ -3084,7 +3102,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchCustomerDetail}
         columnDefs={customerDetailCols}
         filters={appliedFilters}
-        maxWidth={1000}
+        maxWidth={1100}
         searchPlaceholder="Search customer detail..."
       />
 
