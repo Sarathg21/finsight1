@@ -360,6 +360,7 @@ function DetailApiModal({
   columnDefs,    // [{ label, key, align, fmt }]
   filters,
   searchPlaceholder = 'Search...',
+  maxWidth = 860,          // override per modal for wide column sets
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -437,7 +438,7 @@ function DetailApiModal({
       `}</style>
       <div style={{
         background: '#fff', borderRadius: 16,
-        width: '92%', maxWidth: 860,
+        width: '96%', maxWidth: maxWidth,
         maxHeight: '82vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
         animation: 'scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
@@ -483,7 +484,7 @@ function DetailApiModal({
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 20px 16px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 16px 16px' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -504,7 +505,7 @@ function DetailApiModal({
                 <tr>
                   {columnDefs.map((col, i) => (
                     <th key={i} onClick={() => handleSort(col.key)} style={{
-                      ...TH, padding: '10px 10px',
+                      ...TH, padding: '9px 8px',
                       position: 'sticky', top: 0,
                       background: '#f8fafc', zIndex: 2,
                       textAlign: col.align || 'left',
@@ -534,7 +535,7 @@ function DetailApiModal({
                     >
                       {columnDefs.map((col, ci) => (
                         <td key={ci} style={{
-                          ...TD, padding: '9px 10px',
+                          ...TD, padding: '8px 8px',
                           textAlign: col.align || 'left',
                           fontWeight: ci === 0 ? 600 : 'normal',
                           color: ci === 0 ? C.navy : '#334155',
@@ -881,7 +882,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
             <span style={{ color: C.slate }}>{p.name}</span>
           </div>
           <span style={{ fontWeight: 800, color: C.navy }}>
-            {currency || 'AED'} {Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            {currency ? `${currency} ` : ''}{Number(p.value).toLocaleString('en-US', { maximumFractionDigits: 0 })}
           </span>
         </div>
       ))}
@@ -1592,65 +1593,89 @@ export default function SalesRevenueReport() {
   const pageEnd      = Math.min((detailPage + 1) * DETAILS_PAGE_SIZE, detailTotalCount);
 
   /* ── Column definitions for View-All modals ──────────────────── */
+  // rc = selected reporting currency (used in all column headers)
+  const rc = appliedFilters.reportingCurrency || filters.reportingCurrency || 'AED';
+
   const legalEntityCols = [
-    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
-    { label: `Total Revenue (${filters.reportingCurrency})`,key: 'sales',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: `MTD Revenue (${filters.reportingCurrency})`,  key: 'mtd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: `YTD Revenue (${filters.reportingCurrency})`,  key: 'ytd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
-    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+    { label: 'Legal Entity',                    key: 'legal_entity',         align: 'left',   fmt: (v, row) => v ?? row.entity_name ?? '—' },
+    { label: `Total Revenue (${rc})`,           key: 'sales',                align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: `MTD Revenue (${rc})`,             key: 'mtd_sales',            align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: `YTD Revenue (${rc})`,             key: 'ytd_sales',            align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    // Ledger currency per entity — from backend ledger_currency field
+    { label: 'Ledger Currency',                 key: 'ledger_currency',      align: 'center', fmt: (v, row) => v ?? '—' },
+    { label: 'Sales in Ledger Currency',        key: 'sales_ledger_currency',align: 'right',
+      fmt: (v, row) => {
+        const cur = row.ledger_currency || '';
+        return (v !== null && v !== undefined)
+          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
+          : '—';
+      }
+    },
+    // # Transactions removed — field not returned by backend endpoint
+    // Currency (generic) removed — replaced by ledger_currency above
   ];
 
   const parentDivisionCols = [
-    { label: 'Division Code',      key: 'division_code',      align: 'left', fmt: (v, row) => v ?? row.parent_division_code ?? row.code ?? '—'  },
-    { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—'  },
-    { label: `Total Revenue (${filters.reportingCurrency})`,key: 'sales',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: `MTD Revenue (${filters.reportingCurrency})`,  key: 'mtd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: `YTD Revenue (${filters.reportingCurrency})`,  key: 'ytd_sales',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
-    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+    // Division Code removed — always blank (backend doesn't return it)
+    { label: 'Parent Division',      key: 'parent_division', align: 'left',  fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—' },
+    { label: `Total Revenue (${rc})`,key: 'sales',           align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: `MTD Revenue (${rc})`,  key: 'mtd_sales',       align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: `YTD Revenue (${rc})`,  key: 'ytd_sales',       align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    // Ledger Currency NOT shown at division level — parent divisions span multiple ledger currencies
+    // # Transactions removed — field not returned by backend endpoint
+    // Currency (generic) removed
   ];
 
   const subdivisionCols = [
-    { label: 'Legal Entity', key: 'legal_entity', align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
-    { label: 'Sub-Division', key: 'subdivision_name', align: 'left', fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '—' },
-    { label: 'Parent Division', key: 'parent_division', align: 'left', fmt: (v, row) => v ?? row.division_name ?? '—' },
-    { label: 'Ledger Currency', key: 'ledger_currency', align: 'center', fmt: (v, row) => v ?? row.invoice_currency ?? '—' },
-    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right', fmt: (v, row) => (v !== null && v !== undefined) ? `${row.ledger_currency || row.invoice_currency || ''} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—' },
-    { label: `Sales in Reporting Currency`, key: 'sales', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.sales_reporting_currency ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: '% Share', key: 'percentage', align: 'right', fmt: (v, row) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' }
+    { label: 'Legal Entity',              key: 'legal_entity',          align: 'left',   fmt: (v, row) => v ?? row.entity_name ?? '—' },
+    { label: 'Sub-Division',              key: 'subdivision_name',       align: 'left',   fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '—' },
+    { label: 'Parent Division',           key: 'parent_division',        align: 'left',   fmt: (v, row) => v ?? row.division_name ?? '—' },
+    { label: 'Ledger Currency',           key: 'ledger_currency',        align: 'center', fmt: (v, row) => v ?? '—' },
+    { label: 'Sales in Ledger Currency',  key: 'sales_ledger_currency',  align: 'right',
+      fmt: (v, row) => {
+        const cur = row.ledger_currency || '';
+        return (v !== null && v !== undefined)
+          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
+          : '—';
+      }
+    },
+    { label: `Sales in ${rc}`,            key: 'sales',                  align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.sales_reporting_currency ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: '% Share',                   key: 'percentage',             align: 'right',  fmt: (v) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
   ];
 
   const customerSummaryCols = [
-    { label: 'Customer Name',      key: 'customer_name',      align: 'left'  },
-    { label: 'Account Number',     key: 'customer_account_number', align: 'left'  },
-    { label: `Sales (${filters.reportingCurrency})`,        key: 'sales',          align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin',       key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
-    { label: 'Percentage',         key: 'percentage',         align: 'right', fmt: v => fmtPct(v) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right' },
-    { label: 'Currency',           key: 'currency',           align: 'center' },
+    { label: 'Customer Name',    key: 'customer_name',           align: 'left'  },
+    { label: 'Account Number',   key: 'customer_account_number', align: 'left'  },
+    { label: `Sales (${rc})`,    key: 'sales',                   align: 'right', fmt: fmtCurrency },
+    // Gross Margin currency treatment under review — not changing
+    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
+    { label: '% Share',          key: 'percentage',              align: 'right', fmt: v => fmtPct(v) },
+    // # Transactions removed — field blank (not returned by endpoint)
+    // Currency removed — field blank (not returned by endpoint)
   ];
 
   const customerDetailCols = [
-    { label: 'Account Number',     key: 'customer_account_number', align: 'left' },
-    { label: 'Customer Name',      key: 'customer_name',      align: 'left' },
-    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left' },
-    { label: `Revenue (${filters.reportingCurrency})`,      key: 'sales',          align: 'right', fmt: fmtCurrency },
-    { label: `Gross Margin (${filters.reportingCurrency})`, key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
-    { label: 'Contribution %',     key: 'contribution_pct',   align: 'right', fmt: v => fmtPct(v) },
+    { label: 'Account Number',   key: 'customer_account_number', align: 'left' },
+    { label: 'Customer Name',    key: 'customer_name',           align: 'left' },
+    { label: 'Legal Entity',     key: 'legal_entity',            align: 'left' },
+    { label: `Revenue (${rc})`,  key: 'sales',                   align: 'right', fmt: fmtCurrency },
+    // Gross Margin currency treatment under review — not changing
+    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
+    { label: 'Contribution %',   key: 'contribution_pct',        align: 'right', fmt: v => fmtPct(v) },
   ];
 
-  // Salesman View All uses salesman-summary (aggregated) endpoint
+  // Salesman View All — aggregated
   const salesmanSummaryCols = [
-    { label: 'Sales Person',    key: 'sales_person',      align: 'left'  },
-    { label: `Sales (${filters.reportingCurrency})`,     key: 'sales',         align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin',    key: 'gross_margin',      align: 'right', fmt: fmtCurrency },
-    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
-    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
-    { label: 'Currency',        key: 'currency',          align: 'center' },
+    { label: 'Sales Person',   key: 'sales_person',     align: 'left'  },
+    { label: `Sales (${rc})`,  key: 'sales',            align: 'right', fmt: fmtCurrency },
+    // Gross Margin currency treatment under review — not changing
+    { label: 'Gross Margin',   key: 'gross_margin',     align: 'right', fmt: fmtCurrency },
+    { label: '% Share',        key: 'percentage',       align: 'right', fmt: v => fmtPct(v) },
+    // # Transactions removed — field blank
+    // Currency removed — field blank
   ];
 
-  // Salesman Detail (drill-down) — 13 columns per spec
+  // Salesman Detail drill-down — 13 columns per spec
   const salesmanDetailCols = [
     { label: 'Emp ID',            key: 'employee_id',          align: 'left'  },
     { label: 'Salesman',          key: 'sales_person',         align: 'left'  },
@@ -1661,8 +1686,9 @@ export default function SalesRevenueReport() {
     { label: 'Legal Entity',      key: 'legal_entity',         align: 'left'  },
     { label: 'Parent Division',   key: 'parent_division',      align: 'left'  },
     { label: 'Subdivision',       key: 'subdivision',          align: 'left'  },
-    { label: `Revenue (${filters.reportingCurrency})`,     key: 'sales',            align: 'right', fmt: fmtCurrency },
-    { label: `Gross Margin (${filters.reportingCurrency})`, key: 'gross_margin',        align: 'right', fmt: fmtCurrency },
+    { label: `Revenue (${rc})`,   key: 'sales',                align: 'right', fmt: fmtCurrency },
+    // Gross Margin currency treatment under review — not changing
+    { label: `Gross Margin`,      key: 'gross_margin',         align: 'right', fmt: fmtCurrency },
     { label: 'Contribution %',    key: 'contribution_pct',     align: 'right',
       fmt: (v, row) => {
         const val = v ?? row?.percentage;
@@ -2884,7 +2910,7 @@ export default function SalesRevenueReport() {
               legalEntity:   r.legal_entity   || r.entity_name                 || '—',
               subDiv:        r.sub_division   || r.subdivision_name || r.subdivision || r.sub_div || '—',
               parentDiv:     r.parent_division || r.division_name  || r.division    || '—',
-              ledgerCurrency: r.ledger_currency || r.invoice_currency || '—',
+              ledgerCurrency: r.ledger_currency || '—',
               salesLedger:   r.sales_ledger_currency ?? r.revenue_mtd ?? null,
               salesRC:       r.sales ?? r.revenue_mtd ?? null,
               pct:           r.percentage ?? r.contribution_pct ?? null,
@@ -2964,7 +2990,7 @@ export default function SalesRevenueReport() {
 
       {/* ── View-All Modals ── */}
 
-      {/* Legal Entity Detail Modal */}
+      {/* Legal Entity Detail Modal — 6 cols (Legal Entity, 3×Revenue, Ledger Currency, Sales in Ledger) */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'legalEntity'}
@@ -2974,10 +3000,11 @@ export default function SalesRevenueReport() {
         fetchFn={fetchLegalEntityDetail}
         columnDefs={legalEntityCols}
         filters={appliedFilters}
+        maxWidth={1100}
         searchPlaceholder="Search legal entities..."
       />
 
-      {/* Parent Division Detail Modal */}
+      {/* Parent Division Detail Modal — 4 cols */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'parentDiv'}
@@ -2987,10 +3014,11 @@ export default function SalesRevenueReport() {
         fetchFn={fetchParentDivisionDetail}
         columnDefs={parentDivisionCols}
         filters={appliedFilters}
+        maxWidth={920}
         searchPlaceholder="Search parent divisions..."
       />
 
-      {/* Sub-Division Detail Modal */}
+      {/* Sub-Division Detail Modal — 7 cols (wide) */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'subDiv'}
@@ -3000,23 +3028,25 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSubdivisionDetail}
         columnDefs={subdivisionCols}
         filters={appliedFilters}
+        maxWidth={1180}
         searchPlaceholder="Search sub-divisions..."
       />
 
       {/* Salesman View All Modal — uses /salesman-summary (aggregated) */}
       <DetailApiModal
         canExport={canExport}
-        isOpen={openModal === 'salesman'}
+        isOpen={openModal === 'salesmanSummary'}
         onClose={() => setOpenModal(null)}
         title="Salesman Summary — All Salespeople"
         endpoint="salesman-summary"
         fetchFn={fetchSalesmanSummary}
         columnDefs={salesmanSummaryCols}
         filters={appliedFilters}
+        maxWidth={860}
         searchPlaceholder="Search salespeople..."
       />
 
-      {/* Salesman Detail Drill-Down Modal — uses /salesman-detail */}
+      {/* Salesman Detail Drill-Down Modal — uses /salesman-detail (12 cols) */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'salesmanDetail'}
@@ -3026,6 +3056,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSalesmanDetail}
         columnDefs={salesmanDetailCols}
         filters={appliedFilters}
+        maxWidth={1300}
         searchPlaceholder="Search salesman detail..."
       />
 
@@ -3039,6 +3070,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchCustomerSummary}
         columnDefs={customerSummaryCols}
         filters={appliedFilters}
+        maxWidth={920}
         searchPlaceholder="Search customers..."
       />
 
@@ -3052,6 +3084,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchCustomerDetail}
         columnDefs={customerDetailCols}
         filters={appliedFilters}
+        maxWidth={1000}
         searchPlaceholder="Search customer detail..."
       />
 
@@ -3063,15 +3096,27 @@ export default function SalesRevenueReport() {
         title="Sales Revenue Detailed View — All Data"
         endpoint="summary-detail"
         fetchFn={fetchSummaryDetail}
-        columnDefs={[
-          { key: 'legal_entity', label: 'Legal Entity', align: 'left', width: '25%' },
-          { key: 'parent_division', label: 'Parent Division', align: 'left', width: '15%' },
-          { key: 'sub_division', label: 'Sub Division', align: 'left', width: '15%' },
-          { key: 'revenue_mtd', label: 'Rev (MTD)', isCurrency: true },
-          { key: 'revenue_prev_mtd', label: 'Rev (Prev MTD)', isCurrency: true },
-          { key: 'revenue_ytd', label: 'Rev (YTD)', isCurrency: true },
-          { key: 'revenue_ytd_py', label: 'Rev (YTD PY)', isCurrency: true },
-        ]}
+        maxWidth={1150}
+        columnDefs={(() => {
+          const cur = appliedFilters.reportingCurrency || 'AED';
+          // Compact formatter: 1.43M / 890K / 4.75K
+          const fmtC = v => {
+            if (v == null) return '—';
+            const n = Number(v);
+            if (Math.abs(n) >= 1_000_000) return `${cur} ${(n / 1_000_000).toFixed(2)}M`;
+            if (Math.abs(n) >= 1_000)     return `${cur} ${(n / 1_000).toFixed(1)}K`;
+            return `${cur} ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+          };
+          return [
+            { key: 'legal_entity',    label: 'Legal Entity',      align: 'left',  width: '20%' },
+            { key: 'parent_division', label: 'Parent Division',    align: 'left',  width: '16%' },
+            { key: 'subdivision',     label: 'Sub Division',       align: 'left',  width: '14%' },
+            { key: 'revenue_mtd',     label: `MTD (${cur})`,       align: 'right', fmt: fmtC },
+            { key: 'revenue_prev_mtd',label: `Prev MTD (${cur})`,  align: 'right', fmt: fmtC },
+            { key: 'revenue_ytd',     label: `YTD (${cur})`,       align: 'right', fmt: fmtC },
+            { key: 'revenue_ytd_py',  label: `YTD PY (${cur})`,    align: 'right', fmt: fmtC },
+          ];
+        })()}
         filters={appliedFilters}
         searchPlaceholder="Search detailed view..."
       />
