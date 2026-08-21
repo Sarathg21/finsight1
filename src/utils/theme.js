@@ -32,12 +32,12 @@ export const C = {
   dim:     '#cbd5e1',
 
   // Surfaces
-  bg:      '#f8f9fd',
+  bg:      '#F6F8FC',
   surface: '#ffffff',
   surface2: '#f1f5fb',
   surface3: '#eef2ff',
-  border:  'rgba(0,0,0,0.06)',
-  borderHover: 'rgba(0,0,0,0.12)',
+  border:  '#E5E7EB',
+  borderHover: '#d1d5db',
 };
 
 /* ── Chart Color Palette ──────────────────────────────────── */

@@ -37,16 +37,16 @@ const _y = _today.getFullYear();
 const _m = _today.getMonth(); // 0-indexed
 const pad = n => String(n).padStart(2, '0');
 const FIRST_DAY = `${_y}-${pad(_m + 1)}-01`;
-const LAST_DAY  = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())}`;
+const LAST_DAY = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())}`;
 
 const DEFAULT_FILTERS = {
   legalEntity: 'All',
-  parentDiv:   'All',
-  subDiv:      'All',
-  salesman:    'All',
+  parentDiv: 'All',
+  subDiv: 'All',
+  salesman: 'All',
   invoiceCurrency: 'AED',
-  fromDate:    FIRST_DAY,
-  toDate:      LAST_DAY,
+  fromDate: FIRST_DAY,
+  toDate: LAST_DAY,
 };
 
 const DETAILS_PAGE_SIZE = 10;
@@ -113,7 +113,7 @@ function ExportToast({ message, type }) {
 /* ─── Export Buttons ─────────────────────────────────────────────── */
 function ExportButtons({ endpoint, filters, size = 'sm' }) {
   const [exporting, setExporting] = useState(null); // 'excel' | 'pdf' | 'error'
-  const [toast,     setToast]     = useState(null);
+  const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -212,7 +212,7 @@ function ChartMenu({ onViewAll, endpoint, filters }) {
   const menuItems = [
     ...(onViewAll ? [{ label: '🔎 View All', action: () => { onViewAll(); setOpen(false); } }] : []),
     { label: exporting === 'excel' ? '⏳ Exporting…' : '📊 Export Excel', action: () => handleExport('excel') },
-    { label: exporting === 'pdf'   ? '⏳ Exporting…' : '📄 Export PDF',   action: () => handleExport('pdf') },
+    { label: exporting === 'pdf' ? '⏳ Exporting…' : '📄 Export PDF', action: () => handleExport('pdf') },
   ];
 
   return (
@@ -356,11 +356,11 @@ function DetailApiModal({
   filters,
   searchPlaceholder = 'Search...',
 }) {
-  const [rows, setRows]         = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState(null);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearch] = useState('');
-  const [page, setPage]         = useState(0);
+  const [page, setPage] = useState(0);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   const pageSize = 15;
 
@@ -561,8 +561,8 @@ function DetailApiModal({
           background: '#f8fafc', flexWrap: 'wrap', gap: 10
         }}>
           <div style={{ fontSize: '0.72rem', color: C.slate }}>
-            {sorted.length > 0 
-              ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records` 
+            {sorted.length > 0
+              ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records`
               : 'No records'}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -689,7 +689,8 @@ function KPIPendingCard({ label, icon, iconBg }) {
             fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700,
             letterSpacing: '-0.02em', marginBottom: 6,
           }}>{label}</div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5,
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
             background: '#fffbeb', border: '1px solid #fde68a',
             borderRadius: 100, padding: '3px 10px',
             fontSize: '0.62rem', fontWeight: 700, color: '#b45309',
@@ -737,7 +738,7 @@ function Sparkline({ data, color, height = 40 }) {
 /* ─── KPI Card ──────────────────────────────────────────────────── */
 function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor }) {
   const [displayVal, setDisplayVal] = useState(0);
-  const [hover, setHover]           = useState(false);
+  const [hover, setHover] = useState(false);
 
   useEffect(() => {
     if (numericValue === null || numericValue === undefined) return;
@@ -772,10 +773,10 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         boxShadow: hover ? `0 8px 24px ${accent}20` : 'none',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', 
-        alignItems: 'center', 
+        display: 'flex',
+        alignItems: 'center',
         gap: 14,
-        overflow: 'hidden', 
+        overflow: 'hidden',
         position: 'relative',
         minHeight: 74,
       }}
@@ -798,7 +799,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         }}>
           {label}
         </span>
-        
+
         {loading ? (
           <Skeleton h={18} w={80} />
         ) : error ? (
@@ -845,9 +846,9 @@ function ChartCard({ title, children, minHeight, loading, error, onRetry, action
         ? <ErrorBanner message={error} onRetry={onRetry} />
         : loading
           ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}>
-              <Skeleton h={14} w="60%" />
-              <Skeleton h={130} />
-            </div>
+            <Skeleton h={14} w="60%" />
+            <Skeleton h={130} />
+          </div>
           : <div style={{ flex: 1 }}>{children}</div>
       }
     </div>
@@ -920,12 +921,12 @@ function CustomXAxisTick({ x, y, payload }) {
   const display = text.length > 25 ? text.substring(0, 22) + '...' : text;
   return (
     <g transform={`translate(${x},${y})`}>
-      <text 
-        x={0} 
-        y={0} 
-        dy={10} 
-        textAnchor="end" 
-        fill={C.slate} 
+      <text
+        x={0}
+        y={0}
+        dy={10}
+        textAnchor="end"
+        fill={C.slate}
         fontSize={9}
         transform="rotate(-35)"
       >
@@ -1007,8 +1008,8 @@ const TD_LG = { padding: '8px 16px', fontSize: '0.74rem', color: '#334155' };
 const fmtAxisNum = (v) => {
   if (v === 0) return '0';
   if (Math.abs(v) >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
-  if (Math.abs(v) >= 1_000_000)     return `${(v / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(v) >= 1_000)         return `${(v / 1_000).toFixed(0)}K`;
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
   return String(v);
 };
 
@@ -1017,8 +1018,8 @@ const fmtUniform = (v, maxVal) => {
   if (v === 0) return '0';
   const absMax = Math.abs(maxVal || v);
   if (absMax >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
-  if (absMax >= 1_000_000)     return `${(v / 1_000_000).toFixed(1)}M`;
-  if (absMax >= 1_000)         return `${(v / 1_000).toFixed(0)}K`;
+  if (absMax >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (absMax >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
   return String(v);
 };
 
@@ -1035,7 +1036,7 @@ const ENTITY_COLORS = {
 const getEntityColor = (name) => {
   if (!name) return CHART_COLORS[0];
   if (ENTITY_COLORS[name]) return ENTITY_COLORS[name];
-  
+
   // Fallback hash
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -1051,36 +1052,36 @@ export default function SalesRevenueReport() {
   const navigate = useNavigate();
 
   /* ── Filter state ─────────────────────────────────────────────── */
-  const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
-    legalEntities:  ['All'],
-    parentDivs:     ['All'],
-    subDivs:        ['All'],
-    salesmen:       ['All'],
+    legalEntities: ['All'],
+    parentDivs: ['All'],
+    subDivs: ['All'],
+    salesmen: ['All'],
     invoiceCurrencies: ['AED'],
   });
 
   /* ── Chart / KPI data state ───────────────────────────────────── */
-  const [summary,             setSummary]             = useState(null);
-  const [trendData,           setTrendData]           = useState([]);
-  const [legalEntData,        setLegalEntData]        = useState([]);
-  const [parentDivData,       setParentDivData]       = useState([]);
-  const [subDivData,          setSubDivData]          = useState([]);
-  const [topCustomersData,    setTopCustomersData]    = useState([]);
-  const [bySalesmanData,      setBySalesmanData]      = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [trendData, setTrendData] = useState([]);
+  const [legalEntData, setLegalEntData] = useState([]);
+  const [parentDivData, setParentDivData] = useState([]);
+  const [subDivData, setSubDivData] = useState([]);
+  const [topCustomersData, setTopCustomersData] = useState([]);
+  const [bySalesmanData, setBySalesmanData] = useState([]);
   const [salesmanSummaryData, setSalesmanSummaryData] = useState([]);
-  const [grossMarginData,     setGrossMarginData]     = useState(null);
+  const [grossMarginData, setGrossMarginData] = useState(null);
   const [legalEntityDetailRaw, setLegalEntityDetailRaw] = useState([]);
-  const [summaryDetailData,   setSummaryDetailData]   = useState([]);
-  const [activeTab,           setActiveTab]           = useState('all');
+  const [summaryDetailData, setSummaryDetailData] = useState([]);
+  const [activeTab, setActiveTab] = useState('all');
 
   /* ── /details pagination state ────────────────────────────────── */
-  const [detailRows,       setDetailRows]       = useState([]);
+  const [detailRows, setDetailRows] = useState([]);
   const [detailTotalCount, setDetailTotalCount] = useState(0);
-  const [detailPage,       setDetailPage]       = useState(0); // 0-indexed
+  const [detailPage, setDetailPage] = useState(0); // 0-indexed
 
   const [hoveredParentDiv, setHoveredParentDiv] = useState(null);
   const [excludeOthers, setExcludeOthers] = useState(false);
@@ -1135,9 +1136,9 @@ export default function SalesRevenueReport() {
         setFilterOptions(prev => ({
           ...prev,
           legalEntities: ['All', ...(data.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
-          parentDivs:    ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
-          subDivs:       ['All', ...(data.sub_divisions  || []).filter(e => e && e !== 'All')],
-          salesmen:      ['All', ...(data.salesmen        || []).filter(e => e && e !== 'All')],
+          parentDivs: ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
+          subDivs: ['All', ...(data.sub_divisions || []).filter(e => e && e !== 'All')],
+          salesmen: ['All', ...(data.salesmen || []).filter(e => e && e !== 'All')],
           invoiceCurrencies: ['AED', ...(data.currencies || data.invoice_currencies || []).filter(c => c !== 'AED')],
         }));
       })
@@ -1197,8 +1198,8 @@ export default function SalesRevenueReport() {
       if (!d) return;
 
       // Map directly from the exact backend fields
-      const mtd = d.sales_mtd_aed     ?? d.mtd_revenue ?? null;
-      const ytd = d.sales_ytd_aed     ?? d.ytd_revenue ?? null;
+      const mtd = d.sales_mtd_aed ?? d.mtd_revenue ?? null;
+      const ytd = d.sales_ytd_aed ?? d.ytd_revenue ?? null;
       const prevMtd = d.prev_mtd_revenue ?? d.prev_mtd_sales_aed ?? null;
       const prevYtd = d.prev_ytd_revenue ?? d.prev_ytd_sales_aed ?? null;
 
@@ -1208,28 +1209,28 @@ export default function SalesRevenueReport() {
         if (!nameVal) return null;
         const name = typeof nameVal === 'object' ? nameVal.name : nameVal;
         const value = salesVal ?? (typeof nameVal === 'object' ? nameVal.value : null);
-        const pct   = pctVal   ?? (typeof nameVal === 'object' ? nameVal.pct   : null);
+        const pct = pctVal ?? (typeof nameVal === 'object' ? nameVal.pct : null);
         return { name, value: value ? Number(value) : null, pct: pct ? Number(pct) : null };
       };
 
       setSummary({
         // Revenue
-        total_revenue:           ytd,
-        mtd_revenue:             mtd,
-        ytd_revenue:             ytd,
-        prev_mtd_revenue:        prevMtd,
-        prev_ytd_revenue:        prevYtd,
-        mtd_change_pct:          d.mtd_change_pct         ?? null,
-        ytd_change_pct:          d.ytd_change_pct         ?? null,
+        total_revenue: ytd,
+        mtd_revenue: mtd,
+        ytd_revenue: ytd,
+        prev_mtd_revenue: prevMtd,
+        prev_ytd_revenue: prevYtd,
+        mtd_change_pct: d.mtd_change_pct ?? null,
+        ytd_change_pct: d.ytd_change_pct ?? null,
         // Gross margin (may not be in summary; falls back to grossMarginData)
-        gross_margin:            d.gross_margin           ?? null,
-        gross_margin_pct:        d.gross_margin_pct       ?? null,
+        gross_margin: d.gross_margin ?? null,
+        gross_margin_pct: d.gross_margin_pct ?? null,
         gross_margin_change_pct: d.gross_margin_change_pct ?? null,
         // Counts
-        total_customers:         d.total_customers        ?? null,
-        total_salesmen:          d.total_salesmen         ?? null,
+        total_customers: d.total_customers ?? null,
+        total_salesmen: d.total_salesmen ?? null,
         // Highlights — exact backend fields
-        top_legal_entity:    normHighlight(
+        top_legal_entity: normHighlight(
           d.top_legal_entity,
           d.top_legal_entity_sales_aed,
           d.top_legal_entity_pct
@@ -1239,9 +1240,9 @@ export default function SalesRevenueReport() {
           d.top_parent_division_sales_aed,
           d.top_parent_division_pct
         ),
-        data_as_of:              d.data_as_of             ?? null,
-        current_year_label:      d.current_year_label     || 'Current Year',
-        previous_year_label:     d.previous_year_label    || 'Previous Year',
+        data_as_of: d.data_as_of ?? null,
+        current_year_label: d.current_year_label || 'Current Year',
+        previous_year_label: d.previous_year_label || 'Previous Year',
       });
     });
 
@@ -1250,12 +1251,12 @@ export default function SalesRevenueReport() {
     guard('trend', fetchTrend(f)).then(d => {
       if (!d) return;
       const arr = Array.isArray(d) ? d : (d?.data || []);
-      
+
       // Generate a 12-month skeleton
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const yearStr = f.fromDate ? String(new Date(f.fromDate).getFullYear()).slice(-2) : String(new Date().getFullYear()).slice(-2);
       const skeleton = months.map(m => ({ period: `${m}-${yearStr}`, currentYear: null }));
-      
+
       let hasCustomPeriods = false;
       arr.forEach(item => {
         const periodStr = item.period_name ?? item.period ?? '';
@@ -1295,10 +1296,10 @@ export default function SalesRevenueReport() {
           return name && name !== '';
         })
         .map(row => ({
-          name:   row.salesman_name || row.salesman || row.sales_person || 'Unknown',
-          value:  Number(row.sales_aed  || 0),
-          target: Number(row.target     || 0),
-          pct:    Number(row.percentage || 0),
+          name: row.salesman_name || row.salesman || row.sales_person || 'Unknown',
+          value: Number(row.sales_aed || 0),
+          target: Number(row.target || 0),
+          pct: Number(row.percentage || 0),
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 15);
@@ -1312,7 +1313,7 @@ export default function SalesRevenueReport() {
       setLegalEntityDetailRaw(arr); // raw rows for summary table
 
       const grouped = {};
-      const pctMap  = {};
+      const pctMap = {};
       arr.forEach(row => {
         const name = row.legal_entity || 'Unknown';
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
@@ -1327,7 +1328,7 @@ export default function SalesRevenueReport() {
       if (chartDataAll.length > 5) {
         const top5 = chartDataAll.slice(0, 5);
         const othersValue = chartDataAll.slice(5).reduce((sum, item) => sum + item.value, 0);
-        const othersPct   = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
+        const othersPct = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
         chartData = [...top5, { name: 'Others', value: othersValue, pct: othersPct }];
       } else {
         chartData = chartDataAll;
@@ -1345,7 +1346,7 @@ export default function SalesRevenueReport() {
       const arr = d.data;
 
       const grouped = {};
-      const pctMap  = {};
+      const pctMap = {};
       arr.forEach(row => {
         const name = row.parent_division || row.division_name || row.division_code || 'Unknown';
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
@@ -1360,7 +1361,7 @@ export default function SalesRevenueReport() {
       if (chartDataAll.length > 5) {
         const top5 = chartDataAll.slice(0, 5);
         const othersValue = chartDataAll.slice(5).reduce((sum, item) => sum + item.value, 0);
-        const othersPct   = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
+        const othersPct = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
         chartData = [...top5, { name: 'Others', value: othersValue, pct: othersPct }];
       } else {
         chartData = chartDataAll;
@@ -1373,7 +1374,7 @@ export default function SalesRevenueReport() {
     guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
       const grouped = {};
-      const pctMap  = {};
+      const pctMap = {};
       d.data.forEach(row => {
         const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || 0);
@@ -1388,7 +1389,7 @@ export default function SalesRevenueReport() {
       if (chartDataAll.length > 5) {
         const top5 = chartDataAll.slice(0, 5);
         const othersValue = chartDataAll.slice(5).reduce((sum, item) => sum + item.value, 0);
-        const othersPct   = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
+        const othersPct = chartDataAll.slice(5).reduce((sum, item) => sum + (item.pct || 0), 0);
         chartData = [...top5, { name: 'Others', value: othersValue, pct: othersPct }];
       } else {
         chartData = chartDataAll;
@@ -1498,25 +1499,25 @@ export default function SalesRevenueReport() {
 
   /* ── Derived KPI values from /summary ─────────────────────────── */
   // Revenue
-  const totalRevenue    = summary?.total_revenue    ?? summary?.ytd_revenue ?? null;
-  const mtdRevenue      = summary?.mtd_revenue      ?? null;
-  const ytdRevenue      = summary?.ytd_revenue      ?? null;
-  const mtdChangePct    = summary?.mtd_change_pct   ?? null;
-  const ytdChangePct    = summary?.ytd_change_pct   ?? null;
+  const totalRevenue = summary?.total_revenue ?? summary?.ytd_revenue ?? null;
+  const mtdRevenue = summary?.mtd_revenue ?? null;
+  const ytdRevenue = summary?.ytd_revenue ?? null;
+  const mtdChangePct = summary?.mtd_change_pct ?? null;
+  const ytdChangePct = summary?.ytd_change_pct ?? null;
   // Gross margin — use exact backend fields: gross_margin and margin_pct
-  const grossMargin    = grossMarginData?.gross_margin
+  const grossMargin = grossMarginData?.gross_margin
     ?? grossMarginData?.gross_profit_mtd
     ?? summary?.gross_margin
     ?? null;
-  const grossMarginPct  = grossMarginData?.margin_pct ?? grossMarginData?.gross_margin_pct ?? summary?.gross_margin_pct ?? null;
-  const grossMarginChg  = grossMarginData?.mtd_change_pct   ?? grossMarginData?.gross_margin_change_pct ?? summary?.gross_margin_change_pct ?? null;
+  const grossMarginPct = grossMarginData?.margin_pct ?? grossMarginData?.gross_margin_pct ?? summary?.gross_margin_pct ?? null;
+  const grossMarginChg = grossMarginData?.mtd_change_pct ?? grossMarginData?.gross_margin_change_pct ?? summary?.gross_margin_change_pct ?? null;
   // Counts
-  const totalCustomers  = summary?.total_customers  ?? null;
-  const totalSalesmen   = summary?.total_salesmen   ?? null;
+  const totalCustomers = summary?.total_customers ?? null;
+  const totalSalesmen = summary?.total_salesmen ?? null;
   // Highlights
-  const topLE           = summary?.top_legal_entity;
-  const topPD           = summary?.top_parent_division;
-  const dataAsOf        = summary?.data_as_of
+  const topLE = summary?.top_legal_entity;
+  const topPD = summary?.top_parent_division;
+  const dataAsOf = summary?.data_as_of
     ? new Date(summary.data_as_of).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : appliedFilters.toDate;
 
@@ -1524,98 +1525,99 @@ export default function SalesRevenueReport() {
   const topSalesmanRecord = salesmanSummaryData && salesmanSummaryData.length > 0
     ? salesmanSummaryData[0]
     : null;
-  const topSalesmanName  = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
-  const topSalesmanAED   = topSalesmanRecord ? Number(topSalesmanRecord.sales_aed || 0) : null;
+  const topSalesmanName = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
+  const topSalesmanAED = topSalesmanRecord ? Number(topSalesmanRecord.sales_aed || 0) : null;
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
   const sparkYTD = sparkMTD; // same source — API returns current year only
 
   /* ── Year labels ─────────────────────────────────────────────── */
-  const currentYearLabel  = summary?.current_year_label  || 'Current Year';
+  const currentYearLabel = summary?.current_year_label || 'Current Year';
   const previousYearLabel = summary?.previous_year_label || 'Previous Year';
 
   /* ── Details pagination derived ───────────────────────────────── */
-  const totalPages   = Math.max(1, Math.ceil(detailTotalCount / DETAILS_PAGE_SIZE));
-  const pageStart    = detailPage * DETAILS_PAGE_SIZE + 1;
-  const pageEnd      = Math.min((detailPage + 1) * DETAILS_PAGE_SIZE, detailTotalCount);
+  const totalPages = Math.max(1, Math.ceil(detailTotalCount / DETAILS_PAGE_SIZE));
+  const pageStart = detailPage * DETAILS_PAGE_SIZE + 1;
+  const pageEnd = Math.min((detailPage + 1) * DETAILS_PAGE_SIZE, detailTotalCount);
 
   /* ── Column definitions for View-All modals ──────────────────── */
   const legalEntityCols = [
-    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
-    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
-    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+    { label: 'Legal Entity', key: 'legal_entity', align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '—' },
+    { label: 'Total Revenue (AED)', key: 'sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: 'MTD Revenue (AED)', key: 'mtd_sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: 'YTD Revenue (AED)', key: 'ytd_sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: '# Transactions', key: 'transaction_count', align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
+    { label: 'Currency', key: 'currency', align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
   ];
 
   const parentDivisionCols = [
-    { label: 'Division Code',      key: 'division_code',      align: 'left', fmt: (v, row) => v ?? row.parent_division_code ?? row.code ?? '—'  },
-    { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—'  },
-    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
-    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+    { label: 'Division Code', key: 'division_code', align: 'left', fmt: (v, row) => v ?? row.parent_division_code ?? row.code ?? '—' },
+    { label: 'Parent Division', key: 'parent_division', align: 'left', fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—' },
+    { label: 'Total Revenue (AED)', key: 'sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: 'MTD Revenue (AED)', key: 'mtd_sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: 'YTD Revenue (AED)', key: 'ytd_sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: '# Transactions', key: 'transaction_count', align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
+    { label: 'Currency', key: 'currency', align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
   ];
 
   const subdivisionCols = [
-    { label: 'Sub-Division',       key: 'subdivision',        align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.name ?? '—'  },
-    { label: 'Code',               key: 'subdivision_code',   align: 'left', fmt: (v, row) => v ?? row.code ?? '—'  },
-    { label: 'Parent Division',    key: 'parent_division',    align: 'left', fmt: (v, row) => v ?? row.division_name ?? '—'  },
-    { label: 'Total Revenue (AED)',key: 'sales_aed',          align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: 'MTD Revenue (AED)',  key: 'mtd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: 'YTD Revenue (AED)',  key: 'ytd_sales_aed',      align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
-    { label: 'Currency',           key: 'currency',           align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
+    { label: 'Sub-Division', key: 'subdivision', align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.name ?? '—' },
+    { label: 'Code', key: 'subdivision_code', align: 'left', fmt: (v, row) => v ?? row.code ?? '—' },
+    { label: 'Parent Division', key: 'parent_division', align: 'left', fmt: (v, row) => v ?? row.division_name ?? '—' },
+    { label: 'Total Revenue (AED)', key: 'sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: 'MTD Revenue (AED)', key: 'mtd_sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
+    { label: 'YTD Revenue (AED)', key: 'ytd_sales_aed', align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
+    { label: '# Transactions', key: 'transaction_count', align: 'right', fmt: (v, row) => v ?? row.transactions ?? row.num_transactions ?? '—' },
+    { label: 'Currency', key: 'currency', align: 'center', fmt: (v, row) => v ?? row.currency_code ?? 'AED' },
   ];
 
   const customerSummaryCols = [
-    { label: 'Customer Name',      key: 'customer_name',      align: 'left'  },
-    { label: 'Account Number',     key: 'customer_account_number', align: 'left'  },
-    { label: 'Sales (AED)',        key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin',       key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
-    { label: 'Percentage',         key: 'percentage',         align: 'right', fmt: v => fmtPct(v) },
-    { label: '# Transactions',     key: 'transaction_count',  align: 'right' },
-    { label: 'Currency',           key: 'currency',           align: 'center' },
+    { label: 'Customer Name', key: 'customer_name', align: 'left' },
+    { label: 'Account Number', key: 'customer_account_number', align: 'left' },
+    { label: 'Sales (AED)', key: 'sales_aed', align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin', key: 'gross_margin', align: 'right', fmt: fmtCurrency },
+    { label: 'Percentage', key: 'percentage', align: 'right', fmt: v => fmtPct(v) },
+    { label: '# Transactions', key: 'transaction_count', align: 'right' },
+    { label: 'Currency', key: 'currency', align: 'center' },
   ];
 
   const customerDetailCols = [
-    { label: 'Account Number',     key: 'customer_account_number', align: 'left' },
-    { label: 'Customer Name',      key: 'customer_name',      align: 'left' },
-    { label: 'Legal Entity',       key: 'legal_entity',       align: 'left' },
-    { label: 'Business Unit',      key: 'business_unit',      align: 'left' },
-    { label: 'Revenue (AED)',      key: 'sales_aed',          align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin (AED)', key: 'gross_margin',       align: 'right', fmt: fmtCurrency },
-    { label: 'Contribution %',     key: 'contribution_pct',   align: 'right', fmt: v => fmtPct(v) },
+    { label: 'Account Number', key: 'customer_account_number', align: 'left' },
+    { label: 'Customer Name', key: 'customer_name', align: 'left' },
+    { label: 'Legal Entity', key: 'legal_entity', align: 'left' },
+    { label: 'Business Unit', key: 'business_unit', align: 'left' },
+    { label: 'Revenue (AED)', key: 'sales_aed', align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin (AED)', key: 'gross_margin', align: 'right', fmt: fmtCurrency },
+    { label: 'Contribution %', key: 'contribution_pct', align: 'right', fmt: v => fmtPct(v) },
   ];
 
   // Salesman View All uses salesman-summary (aggregated) endpoint
   const salesmanSummaryCols = [
-    { label: 'Sales Person',    key: 'sales_person',      align: 'left'  },
-    { label: 'Sales (AED)',     key: 'sales_aed',         align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin',    key: 'gross_margin',      align: 'right', fmt: fmtCurrency },
-    { label: 'Percentage',      key: 'percentage',        align: 'right', fmt: v => fmtPct(v) },
-    { label: '# Transactions',  key: 'transaction_count', align: 'right' },
-    { label: 'Currency',        key: 'currency',          align: 'center' },
+    { label: 'Sales Person', key: 'sales_person', align: 'left' },
+    { label: 'Sales (AED)', key: 'sales_aed', align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin', key: 'gross_margin', align: 'right', fmt: fmtCurrency },
+    { label: 'Percentage', key: 'percentage', align: 'right', fmt: v => fmtPct(v) },
+    { label: '# Transactions', key: 'transaction_count', align: 'right' },
+    { label: 'Currency', key: 'currency', align: 'center' },
   ];
 
   // Salesman Detail (drill-down) — 13 columns per spec
   const salesmanDetailCols = [
-    { label: 'Emp ID',            key: 'employee_id',          align: 'left'  },
-    { label: 'Salesman',          key: 'sales_person',         align: 'left'  },
-    { label: 'Direct Manager',    key: 'direct_manager',       align: 'left'  },
-    { label: 'Manager Level',     key: 'direct_manager_level', align: 'left'  },
-    { label: 'Sales Manager',     key: 'sales_manager',        align: 'left'  },
-    { label: 'Division Manager',  key: 'division_manager',     align: 'left'  },
-    { label: 'Legal Entity',      key: 'legal_entity',         align: 'left'  },
-    { label: 'Parent Division',   key: 'parent_division',      align: 'left'  },
-    { label: 'Subdivision',       key: 'subdivision',          align: 'left'  },
-    { label: 'Business Unit',     key: 'business_unit',        align: 'left'  },
-    { label: 'Revenue (AED)',     key: 'sales_aed',            align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin (AED)', key: 'gross_margin',        align: 'right', fmt: fmtCurrency },
-    { label: 'Contribution %',    key: 'contribution_pct',     align: 'right',
+    { label: 'Emp ID', key: 'employee_id', align: 'left' },
+    { label: 'Salesman', key: 'sales_person', align: 'left' },
+    { label: 'Direct Manager', key: 'direct_manager', align: 'left' },
+    { label: 'Manager Level', key: 'direct_manager_level', align: 'left' },
+    { label: 'Sales Manager', key: 'sales_manager', align: 'left' },
+    { label: 'Division Manager', key: 'division_manager', align: 'left' },
+    { label: 'Legal Entity', key: 'legal_entity', align: 'left' },
+    { label: 'Parent Division', key: 'parent_division', align: 'left' },
+    { label: 'Subdivision', key: 'subdivision', align: 'left' },
+    { label: 'Business Unit', key: 'business_unit', align: 'left' },
+    { label: 'Revenue (AED)', key: 'sales_aed', align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin (AED)', key: 'gross_margin', align: 'right', fmt: fmtCurrency },
+    {
+      label: 'Contribution %', key: 'contribution_pct', align: 'right',
       fmt: (v, row) => {
         const val = v ?? row?.percentage;
         return val != null ? `${Number(val).toFixed(2)}%` : '—';
@@ -1649,7 +1651,7 @@ export default function SalesRevenueReport() {
             </h1>
             <p style={{ fontSize: '0.78rem', color: C.slate, margin: '3px 0 0' }}>
               Track and analyze sales performance across all dimensions
-              <br/><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {appliedFilters.fromDate} to {appliedFilters.toDate}</span>
+              <br /><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {appliedFilters.fromDate} to {appliedFilters.toDate}</span>
               {dataAsOf && ` • Data as on ${dataAsOf}`}
               &nbsp;|&nbsp;
               <span style={{ color: C.green, fontWeight: 700 }}>Currency: AED</span>
@@ -1729,7 +1731,7 @@ export default function SalesRevenueReport() {
               {filterOptions.salesmen.map((o, idx) => {
                 // Guarantee o is always a string (belt-and-suspenders guard)
                 const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
-                const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
+                const val = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
                 return <option key={`salesman-${idx}`} value={val}>{label}</option>;
               })}
             </select>
@@ -1778,7 +1780,7 @@ export default function SalesRevenueReport() {
             changePct={mtdChangePct}
             changeLabel="vs Mar 2024"
             up={mtdChangePct !== null ? mtdChangePct >= 0 : null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" /></svg>}
             iconBg="#dbeafe"
             cardBg="#f0f5ff"
             accentColor="#2563eb"
@@ -1795,7 +1797,7 @@ export default function SalesRevenueReport() {
             changePct={ytdChangePct}
             changeLabel="vs YTD Apr 2023"
             up={ytdChangePct !== null ? ytdChangePct >= 0 : null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2" /><line x1="16" x2="16" y1="2" y2="6" /><line x1="8" x2="8" y1="2" y2="6" /><line x1="3" x2="21" y1="10" y2="10" /></svg>}
             iconBg="#dcfce7"
             cardBg="#f0fdf4"
             accentColor="#16a34a"
@@ -1812,7 +1814,7 @@ export default function SalesRevenueReport() {
             changePct={grossMarginChg}
             changeLabel="vs Mar 2024"
             up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>}
             iconBg="#ede9fe"
             cardBg="#f5f3ff"
             accentColor="#8b5cf6"
@@ -1830,7 +1832,7 @@ export default function SalesRevenueReport() {
             changePct={null}
             changeLabel={topLE?.value ? `AED ${fmtAxisNum(topLE.value)}` : ''}
             up={null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>}
             iconBg="#ffedd5"
             cardBg="#fff7ed"
             accentColor="#ea580c"
@@ -1848,7 +1850,7 @@ export default function SalesRevenueReport() {
             changePct={null}
             changeLabel={topPD?.value ? `AED ${fmtAxisNum(topPD.value)}` : ''}
             up={null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>}
             iconBg="#cffafe"
             cardBg="#ecfeff"
             accentColor="#0891b2"
@@ -1866,7 +1868,7 @@ export default function SalesRevenueReport() {
             changePct={null}
             changeLabel={topSalesmanAED !== null ? `AED ${fmtAxisNum(topSalesmanAED)}` : ''}
             up={null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
+            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 1 0-16 0" /></svg>}
             iconBg="#fce7f3"
             cardBg="#fdf2f8"
             accentColor="#db2777"
@@ -1879,11 +1881,11 @@ export default function SalesRevenueReport() {
 
         {/* ── Main Dashboard Charts Row ── */}
         <div className="grid-charts-3" style={{ marginBottom: 16 }}>
-          
+
           {/* 1. Revenue Trend (Line Chart) */}
-          <motion.div 
+          <motion.div
             whileHover={{ y: -3, boxShadow: "0 12px 30px rgba(0, 0, 0, 0.08)" }}
-            className="card animate-fade-slide-up" 
+            className="card animate-fade-slide-up"
             style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.4s ease' }}
           >
             {/* Header */}
@@ -1906,31 +1908,31 @@ export default function SalesRevenueReport() {
 
             <AnimatePresence mode="wait">
 
-            {loading.trend ? (
-              <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8, margin: '12px 0' }} />
-            ) : errors.trend ? (
-              <div style={{ textAlign: 'center', color: '#ef4444', fontSize: '0.78rem', paddingTop: 60 }}>⚠ Failed to load</div>
-            ) : trendData.length === 0 ? (
-              <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No trend data available</div>
-            ) : (() => {
-              const activePts = trendData.filter(d => d.currentYear != null && d.currentYear > 0);
-              const isSingle  = activePts.length <= 1;
-              const singlePt  = isSingle ? (activePts[0] || trendData[0]) : null;
-              const totalAED  = trendData.reduce((s, d) => s + (d.currentYear || 0), 0);
+              {loading.trend ? (
+                <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8, margin: '12px 0' }} />
+              ) : errors.trend ? (
+                <div style={{ textAlign: 'center', color: '#ef4444', fontSize: '0.78rem', paddingTop: 60 }}>⚠ Failed to load</div>
+              ) : trendData.length === 0 ? (
+                <div style={{ textAlign: 'center', color: C.muted, fontSize: '0.8rem', paddingTop: 60 }}>No trend data available</div>
+              ) : (() => {
+                const activePts = trendData.filter(d => d.currentYear != null && d.currentYear > 0);
+                const isSingle = activePts.length <= 1;
+                const singlePt = isSingle ? (activePts[0] || trendData[0]) : null;
+                const totalAED = trendData.reduce((s, d) => s + (d.currentYear || 0), 0);
 
-              if (isSingle && singlePt) {
-                const rawVal  = singlePt.currentYear || 0;
-                const fmtBig  = fmtAxisNum(rawVal);
-                const fmtExact = rawVal.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                return (
-                  <motion.div 
-                    key={`single-${singlePt.period}`} 
-                    initial={{ opacity: 0, y: 15 }} 
-                    animate={{ opacity: 1, y: 0 }} 
-                    exit={{ opacity: 0, y: 15 }} 
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: 8 }}
-                  >
+                if (isSingle && singlePt) {
+                  const rawVal = singlePt.currentYear || 0;
+                  const fmtBig = fmtAxisNum(rawVal);
+                  const fmtExact = rawVal.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                  return (
+                    <motion.div
+                      key={`single-${singlePt.period}`}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 15 }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                      style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingBottom: 8 }}
+                    >
                       {/* Date pill */}
                       <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1947,156 +1949,156 @@ export default function SalesRevenueReport() {
                       <motion.div whileHover={{ scale: 1.03 }} className="animate-float-glow" style={{ fontSize: '2.4rem', fontWeight: 900, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.5px' }}>
                         AED <CountUp end={rawVal} formatter={fmtAxisNum} duration={1.5} />
                       </motion.div>
-                    <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 6, fontWeight: 500 }}>
-                      AED <CountUp end={rawVal} duration={1.5} formatter={(v) => v.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} />
-                    </div>
+                      <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 6, fontWeight: 500 }}>
+                        AED <CountUp end={rawVal} duration={1.5} formatter={(v) => v.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} />
+                      </div>
 
-                    {/* Single bar */}
-                    <div style={{ width: '100%', marginTop: 24, marginBottom: 12 }}>
-                      <ResponsiveContainer width="100%" height={180} minWidth={0}>
-                        <BarChart data={[singlePt]} margin={{ top: 20, right: 40, left: 0, bottom: 0 }} maxBarSize={64}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="transparent" />
-                          <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0', strokeWidth: 2 }} tickLine={false} dy={8} />
-                          <YAxis tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
-                          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
-                          <Bar dataKey="currentYear" name="Sales" radius={[8, 8, 0, 0]} className="animate-bar-grow" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out">
-                            <Cell fill="url(#trendBarGrad)" filter="url(#barGlow)" />
-                          </Bar>
+                      {/* Single bar */}
+                      <div style={{ width: '100%', marginTop: 24, marginBottom: 12 }}>
+                        <ResponsiveContainer width="100%" height={180} minWidth={0}>
+                          <BarChart data={[singlePt]} margin={{ top: 20, right: 40, left: 0, bottom: 0 }} maxBarSize={64}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="transparent" />
+                            <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0', strokeWidth: 2 }} tickLine={false} dy={8} />
+                            <YAxis tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
+                            <Bar dataKey="currentYear" name="Sales" radius={[8, 8, 0, 0]} className="animate-bar-grow" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out">
+                              <Cell fill="url(#trendBarGrad)" filter="url(#barGlow)" />
+                            </Bar>
+                            <defs>
+                              <linearGradient id="trendBarGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
+                                <stop offset="100%" stopColor="#818cf8" stopOpacity={0.4} />
+                              </linearGradient>
+                              <filter id="barGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#6366f1" floodOpacity="0.3" />
+                              </filter>
+                            </defs>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Hint banner */}
+                      <div style={{
+                        width: 'calc(100% - 32px)', marginTop: 'auto',
+                        padding: '12px 20px', borderRadius: 8,
+                        background: '#f8fafc',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        fontSize: '0.78rem', color: '#4f46e5', fontWeight: 700,
+                      }}>
+                        <span>💡</span>
+                        <span>Broaden the date range to see a full revenue trend line</span>
+                      </div>
+                    </motion.div>
+                  );
+                }
+
+                /* ── Multi-period line chart (premium layout) ── */
+                return (
+                  <motion.div
+                    key={`multi-${activePts.length}-${activePts[0]?.period}`}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 15 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
+                  >
+                    <div style={{ flex: 1, minHeight: 160, width: '100%', marginTop: 8 }}>
+                      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <AreaChart data={activePts} margin={{ top: 24, right: 10, left: -10, bottom: 0 }}>
                           <defs>
-                            <linearGradient id="trendBarGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
-                              <stop offset="100%" stopColor="#818cf8" stopOpacity={0.4} />
-                            </linearGradient>
-                            <filter id="barGlow" x="-20%" y="-20%" width="140%" height="140%">
-                              <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#6366f1" floodOpacity="0.3" />
+                            <filter id="lineShadow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#6366f1" floodOpacity="0.25" />
                             </filter>
+                            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}>
+                                <animate attributeName="stopOpacity" values="0.2;0.5;0.2" dur="3s" repeatCount="indefinite" />
+                              </stop>
+                              <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                            </linearGradient>
                           </defs>
-                        </BarChart>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="grid-fade-in" />
+                          <XAxis className="axis-fade-in" dataKey="period" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} dy={8} padding={{ left: 24, right: 34 }} />
+                          <YAxis className="axis-fade-in" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
+                          <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
+                          <Area
+                            type="monotone"
+                            dataKey="currentYear"
+                            name="Current Year"
+                            stroke="#6366f1"
+                            strokeWidth={3}
+                            fill="url(#areaGradient)"
+                            filter="url(#lineShadow)"
+                            dot={(props) => {
+                              const { cx, cy, index, payload } = props;
+                              if (index === activePts.length - 1 && payload.currentYear !== null) {
+                                return (
+                                  <g key={`dot-${index}`}>
+                                    <circle cx={cx} cy={cy} r={6} fill="#fff" stroke="#6366f1" strokeWidth={3} filter="url(#lineShadow)" />
+                                    <circle cx={cx} cy={cy} r={6} fill="none" stroke="#6366f1" style={{ animation: 'pulse-ripple 2.5s infinite' }} />
+                                  </g>
+                                );
+                              }
+                              return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4} fill="#fff" stroke="#6366f1" strokeWidth={2} />;
+                            }}
+                            activeDot={{ r: 7, stroke: '#6366f1', strokeWidth: 3, fill: '#fff', filter: 'url(#lineShadow)' }}
+                            isAnimationActive={true}
+                            animationDuration={1500}
+                            animationEasing="ease-out"
+                          >
+                            <LabelList
+                              dataKey="currentYear"
+                              position="top"
+                              content={(props) => {
+                                const { x, y, index, value } = props;
+                                // Only show label for the last data point
+                                if (index === activePts.length - 1 && value !== null) {
+                                  return (
+                                    <g transform={`translate(${x},${y - 16})`}>
+                                      <text
+                                        x="0"
+                                        y="0"
+                                        fill="#4f46e5"
+                                        fontSize="12"
+                                        fontWeight="900"
+                                        textAnchor="middle"
+                                        dominantBaseline="middle"
+                                        style={{
+                                          textShadow: '0px 0px 4px #fff, 0px 0px 4px #fff, 0px 0px 6px #fff'
+                                        }}
+                                      >
+                                        <CountUp end={value} formatter={fmtAxisNum} />
+                                      </text>
+                                    </g>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                          </Area>
+                        </AreaChart>
                       </ResponsiveContainer>
                     </div>
-
-                    {/* Hint banner */}
-                    <div style={{
-                      width: 'calc(100% - 32px)', marginTop: 'auto',
-                      padding: '12px 20px', borderRadius: 8,
-                      background: '#f8fafc',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      fontSize: '0.78rem', color: '#4f46e5', fontWeight: 700,
-                    }}>
-                      <span>💡</span>
-                      <span>Broaden the date range to see a full revenue trend line</span>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
+                        <span style={{ width: 20, height: 4, background: '#6366f1', display: 'inline-block', borderRadius: 2 }} />
+                        Current Year
+                      </div>
+                      {(() => {
+                        const latest = [...trendData].reverse().find(d => d.currentYear != null);
+                        if (latest) {
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
+                              <span style={{ color: '#64748b' }}>Latest:</span>
+                              <motion.span whileHover={{ scale: 1.05 }} style={{ color: '#6366f1', fontWeight: 800 }}>AED <CountUp end={latest.currentYear} formatter={fmtAxisNum} duration={1.5} /></motion.span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   </motion.div>
                 );
-              }
-
-              /* ── Multi-period line chart (premium layout) ── */
-              return (
-                <motion.div 
-                  key={`multi-${activePts.length}-${activePts[0]?.period}`}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 15 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
-                >
-                  <div style={{ flex: 1, minHeight: 160, width: '100%', marginTop: 8 }}>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                    <AreaChart data={activePts} margin={{ top: 24, right: 10, left: -10, bottom: 0 }}>
-                      <defs>
-                        <filter id="lineShadow" x="-20%" y="-20%" width="140%" height="140%">
-                          <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#6366f1" floodOpacity="0.25" />
-                        </filter>
-                        <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}>
-                            <animate attributeName="stopOpacity" values="0.2;0.5;0.2" dur="3s" repeatCount="indefinite" />
-                          </stop>
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="grid-fade-in" />
-                      <XAxis className="axis-fade-in" dataKey="period" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} dy={8} padding={{ left: 24, right: 34 }} />
-                      <YAxis className="axis-fade-in" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
-                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
-                      <Area 
-                        type="monotone" 
-                        dataKey="currentYear" 
-                        name="Current Year" 
-                        stroke="#6366f1" 
-                        strokeWidth={3} 
-                        fill="url(#areaGradient)"
-                        filter="url(#lineShadow)"
-                        dot={(props) => {
-                          const { cx, cy, index, payload } = props;
-                          if (index === activePts.length - 1 && payload.currentYear !== null) {
-                            return (
-                              <g key={`dot-${index}`}>
-                                <circle cx={cx} cy={cy} r={6} fill="#fff" stroke="#6366f1" strokeWidth={3} filter="url(#lineShadow)" />
-                                <circle cx={cx} cy={cy} r={6} fill="none" stroke="#6366f1" style={{ animation: 'pulse-ripple 2.5s infinite' }} />
-                              </g>
-                            );
-                          }
-                          return <circle key={`dot-${index}`} cx={cx} cy={cy} r={4} fill="#fff" stroke="#6366f1" strokeWidth={2} />;
-                        }}
-                        activeDot={{ r: 7, stroke: '#6366f1', strokeWidth: 3, fill: '#fff', filter: 'url(#lineShadow)' }}
-                        isAnimationActive={true}
-                        animationDuration={1500}
-                        animationEasing="ease-out"
-                      >
-                        <LabelList 
-                          dataKey="currentYear" 
-                          position="top" 
-                          content={(props) => {
-                            const { x, y, index, value } = props;
-                            // Only show label for the last data point
-                            if (index === activePts.length - 1 && value !== null) {
-                              return (
-                                <g transform={`translate(${x},${y - 16})`}>
-                                  <text 
-                                    x="0" 
-                                    y="0" 
-                                    fill="#4f46e5" 
-                                    fontSize="12" 
-                                    fontWeight="900" 
-                                    textAnchor="middle" 
-                                    dominantBaseline="middle"
-                                    style={{ 
-                                      textShadow: '0px 0px 4px #fff, 0px 0px 4px #fff, 0px 0px 6px #fff'
-                                    }}
-                                  >
-                                      <CountUp end={value} formatter={fmtAxisNum} />
-                                    </text>
-                                </g>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                      </Area>
-                    </AreaChart>
-                  </ResponsiveContainer>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
-                      <span style={{ width: 20, height: 4, background: '#6366f1', display: 'inline-block', borderRadius: 2 }} />
-                      Current Year
-                    </div>
-                    {(() => {
-                      const latest = [...trendData].reverse().find(d => d.currentYear != null);
-                      if (latest) {
-                        return (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
-                            <span style={{ color: '#64748b' }}>Latest:</span>
-                            <motion.span whileHover={{ scale: 1.05 }} style={{ color: '#6366f1', fontWeight: 800 }}>AED <CountUp end={latest.currentYear} formatter={fmtAxisNum} duration={1.5} /></motion.span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </motion.div>
-              );
-            })()}
+              })()}
             </AnimatePresence>
           </motion.div>
 
@@ -2244,77 +2246,77 @@ export default function SalesRevenueReport() {
                   return (
                     <>
                       {parentDivData.map((d, i) => {
-                    const barPct = Math.max((d.value / maxVal) * 100, 3);
-                    const isHovered = hoveredParentDiv === i;
-                    const color = d.color || getEntityColor(d.name);
-                    const label = (d.name || '').replace(/\n/g, ' ');
-                    
-                    return (
-                      <div 
-                        key={i} 
-                        style={{ position: 'relative', cursor: 'pointer' }}
-                        onMouseEnter={() => setHoveredParentDiv(i)}
-                        onMouseLeave={() => setHoveredParentDiv(null)}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <span style={{
-                            fontSize: '0.85rem', fontWeight: 800, 
-                            color: isHovered ? color : '#1e293b',
-                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                            maxWidth: '70%', transition: 'color 0.2s'
-                          }}>
-                            {label}
-                          </span>
-                          <span style={{ 
-                            fontSize: '0.85rem', fontWeight: 900, 
-                            color: isHovered ? color : '#1e293b', 
-                            flexShrink: 0, marginLeft: 8, transition: 'color 0.2s'
-                          }}>
-                            {fmtAxisNum(d.value)}
-                          </span>
-                        </div>
-                        <div style={{ position: 'relative', height: 10, borderRadius: 99, background: isHovered ? '#e0f2fe' : '#f1f5f9', overflow: 'hidden', transition: 'background 0.2s' }}>
-                          <div style={{
-                            position: 'absolute', left: 0, top: 0, bottom: 0,
-                            width: `${barPct}%`,
-                            borderRadius: 99,
-                            background: color,
-                            transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
-                          }} />
-                        </div>
-                        
-                        {/* Custom Tooltip */}
-                        {isHovered && (
-                          <div style={{
-                            position: 'absolute',
-                            left: '20%',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            background: '#fff', border: `1px solid ${C.border}`,
-                            borderRadius: 10, padding: '12px 16px',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                            zIndex: 50,
-                            pointerEvents: 'none',
-                            minWidth: 180,
-                          }}>
-                            <div style={{ fontWeight: 800, color: '#1e293b', marginBottom: 8, fontSize: '0.85rem' }}>
-                              {label}
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', alignItems: 'center' }}>
-                              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Revenue</span>
-                              <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.85rem', textAlign: 'right' }}>
-                                AED {Number(d.value || 0).toLocaleString()}
+                        const barPct = Math.max((d.value / maxVal) * 100, 3);
+                        const isHovered = hoveredParentDiv === i;
+                        const color = d.color || getEntityColor(d.name);
+                        const label = (d.name || '').replace(/\n/g, ' ');
+
+                        return (
+                          <div
+                            key={i}
+                            style={{ position: 'relative', cursor: 'pointer' }}
+                            onMouseEnter={() => setHoveredParentDiv(i)}
+                            onMouseLeave={() => setHoveredParentDiv(null)}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                              <span style={{
+                                fontSize: '0.85rem', fontWeight: 800,
+                                color: isHovered ? color : '#1e293b',
+                                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                maxWidth: '70%', transition: 'color 0.2s'
+                              }}>
+                                {label}
                               </span>
-                              
-                              <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Share</span>
-                              <span style={{ fontWeight: 800, color: '#6366f1', fontSize: '0.85rem', textAlign: 'right' }}>
-                                {totalVal > 0 ? ((d.value / totalVal) * 100).toFixed(1) : 0}%
+                              <span style={{
+                                fontSize: '0.85rem', fontWeight: 900,
+                                color: isHovered ? color : '#1e293b',
+                                flexShrink: 0, marginLeft: 8, transition: 'color 0.2s'
+                              }}>
+                                {fmtAxisNum(d.value)}
                               </span>
                             </div>
+                            <div style={{ position: 'relative', height: 10, borderRadius: 99, background: isHovered ? '#e0f2fe' : '#f1f5f9', overflow: 'hidden', transition: 'background 0.2s' }}>
+                              <div style={{
+                                position: 'absolute', left: 0, top: 0, bottom: 0,
+                                width: `${barPct}%`,
+                                borderRadius: 99,
+                                background: color,
+                                transition: 'width 0.6s cubic-bezier(0.4,0,0.2,1)',
+                              }} />
+                            </div>
+
+                            {/* Custom Tooltip */}
+                            {isHovered && (
+                              <div style={{
+                                position: 'absolute',
+                                left: '20%',
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                background: '#fff', border: `1px solid ${C.border}`,
+                                borderRadius: 10, padding: '12px 16px',
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                                zIndex: 50,
+                                pointerEvents: 'none',
+                                minWidth: 180,
+                              }}>
+                                <div style={{ fontWeight: 800, color: '#1e293b', marginBottom: 8, fontSize: '0.85rem' }}>
+                                  {label}
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', alignItems: 'center' }}>
+                                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Revenue</span>
+                                  <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.85rem', textAlign: 'right' }}>
+                                    AED {Number(d.value || 0).toLocaleString()}
+                                  </span>
+
+                                  <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Share</span>
+                                  <span style={{ fontWeight: 800, color: '#6366f1', fontSize: '0.85rem', textAlign: 'right' }}>
+                                    {totalVal > 0 ? ((d.value / totalVal) * 100).toFixed(1) : 0}%
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    );
+                        );
                       })}
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: 6, marginTop: 2 }}>
                         <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600 }}>0</span>
@@ -2331,7 +2333,7 @@ export default function SalesRevenueReport() {
           </div>
         </div>
 
-                {/* ── Tertiary Analysis Row (Sub-Division, Customers, Salesman) ── */}
+        {/* ── Tertiary Analysis Row (Sub-Division, Customers, Salesman) ── */}
         <div className="grid-charts-3" style={{ marginBottom: 16, gridTemplateColumns: '1fr 1.1fr 1.1fr' }}>
           {/* 1. Subdivision */}
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
@@ -2379,7 +2381,7 @@ export default function SalesRevenueReport() {
             ) : subDivData.length > 0 ? (
               <div style={{ width: '100%', marginTop: 12, flex: 1, minHeight: 260 }}>
                 {(() => {
-                  const filteredSubDivData = excludeOthers 
+                  const filteredSubDivData = excludeOthers
                     ? subDivData.filter(d => d.name.trim().toLowerCase() !== 'others')
                     : subDivData;
 
@@ -2399,10 +2401,10 @@ export default function SalesRevenueReport() {
                           })}
                         </defs>
                         <CartesianGrid vertical={false} stroke="#f1f5f9" strokeDasharray="3 3" />
-                        <XAxis 
-                          dataKey="name" 
-                          axisLine={{ stroke: '#e2e8f0' }} 
-                          tickLine={false} 
+                        <XAxis
+                          dataKey="name"
+                          axisLine={{ stroke: '#e2e8f0' }}
+                          tickLine={false}
                           interval={0}
                           tick={(props) => {
                             const { x, y, payload, width, index } = props;
@@ -2412,8 +2414,8 @@ export default function SalesRevenueReport() {
                             const textWidth = 75;
                             return (
                               <g transform={`translate(${x},${y + yOffset})`}>
-                                <foreignObject x={-textWidth/2} y={0} width={textWidth} height={50}>
-                                  <div 
+                                <foreignObject x={-textWidth / 2} y={0} width={textWidth} height={50}>
+                                  <div
                                     title={payload.value}
                                     style={{
                                       width: '100%',
@@ -2434,15 +2436,15 @@ export default function SalesRevenueReport() {
                             );
                           }}
                         />
-                        <YAxis 
+                        <YAxis
                           axisLine={false}
                           tickLine={false}
                           tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                           tickFormatter={(val) => fmtAxisNum(val)}
                           width={44}
                         />
-                        <Tooltip 
-                          cursor={{ fill: 'rgba(226, 232, 240, 0.5)', rx: 8, ry: 8 }} 
+                        <Tooltip
+                          cursor={{ fill: 'rgba(226, 232, 240, 0.5)', rx: 8, ry: 8 }}
                           offset={24}
                           wrapperStyle={{ zIndex: 100, pointerEvents: 'none' }}
                           content={(props) => {
@@ -2482,8 +2484,8 @@ export default function SalesRevenueReport() {
                             return null;
                           }}
                         />
-                        <Bar 
-                          dataKey="value" 
+                        <Bar
+                          dataKey="value"
                           radius={[8, 8, 0, 0]}
                           isAnimationActive={true}
                           animationDuration={800}
@@ -2492,9 +2494,9 @@ export default function SalesRevenueReport() {
                           {filteredSubDivData.map((entry, index) => {
                             return <Cell key={`cell-${index}`} fill={`url(#grad-${index})`} />;
                           })}
-                          <LabelList 
-                            dataKey="value" 
-                            position="top" 
+                          <LabelList
+                            dataKey="value"
+                            position="top"
                             content={(props) => {
                               const { x, y, width, value } = props;
                               return (
@@ -2591,43 +2593,150 @@ export default function SalesRevenueReport() {
               <div style={{ flex: 1, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8 }} />
             ) : salesmanSummaryData.length > 0 ? (
               <div style={{ flex: 1, overflowX: 'hidden', borderRadius: 8, border: `1px solid ${C.border}` }}>
-                <table style={{ width: '100%', height: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    tableLayout: 'fixed',
+                    borderCollapse: 'collapse',
+                    fontSize: '0.74rem',
+                  }}
+                >
                   <thead>
                     <tr>
-                      <th style={{ textAlign: 'center', width: '10%' }}>#</th>
-                      <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal' }}>Salesman</th>
-                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales (AED)</th>
-                      <th style={{ textAlign: 'right', width: '20%', whiteSpace: 'normal' }}>% Share</th>
+                      <th style={{ textAlign: 'center', width: '10%', padding: '4px 6px' }}>#</th>
+                      <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal', padding: '4px 6px' }}>
+                        Salesman
+                      </th>
+                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal', padding: '4px 6px' }}>
+                        Sales (AED)
+                      </th>
+                      <th style={{ textAlign: 'right', width: '20%', whiteSpace: 'normal', padding: '4px 6px' }}>
+                        % Share
+                      </th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {salesmanSummaryData.slice(0, 10).map((c, i) => {
                       const name = c.salesman || c.sales_person || c.salesman_name || 'Unknown';
                       const salesVal = Number(c.sales_aed) || 0;
                       const pctVal = c.percentage != null ? Number(c.percentage) : null;
+
                       return (
                         <tr key={i}>
-                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{i + 1}</td>
-                          <td style={{ textAlign: 'left', fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', color: '#0f172a' }} title={name}>{name}</td>
-                          <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                            {salesVal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <td
+                            style={{
+                              textAlign: 'center',
+                              fontWeight: 600,
+                              padding: '2px 4px',
+                            }}
+                          >
+                            {i + 1}
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: 600 }}>{pctVal != null ? `${pctVal.toFixed(2)}%` : '—'}</td>
+
+                          <td
+                            style={{
+                              textAlign: 'left',
+                              fontWeight: 600,
+                              wordBreak: 'break-word',
+                              whiteSpace: 'normal',
+                              color: '#0f172a',
+                              padding: '2px 4px',
+                            }}
+                            title={name}
+                          >
+                            {name}
+                          </td>
+
+                          <td
+                            style={{
+                              textAlign: 'right',
+                              fontVariantNumeric: 'tabular-nums',
+                              fontWeight: 600,
+                              padding: '2px 4px',
+                            }}
+                          >
+                            {salesVal.toLocaleString('en-AE', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+
+                          <td
+                            style={{
+                              textAlign: 'right',
+                              fontWeight: 600,
+                              padding: '2px 4px',
+                            }}
+                          >
+                            {pctVal != null ? `${pctVal.toFixed(2)}%` : '—'}
+                          </td>
                         </tr>
                       );
                     })}
-                    <tr style={{ background: '#f8fafc', fontWeight: 800, color: '#1e3a8a' }}>
-                      <td colSpan={2} style={{ padding: '8px', textAlign: 'center' }}>
+
+                    <tr
+                      style={{
+                        background: '#f8fafc',
+                        fontWeight: 800,
+                        color: '#1e3a8a',
+                      }}
+                    >
+                      <td
+                        colSpan={2}
+                        style={{
+                          padding: '5px 6px',
+                          textAlign: 'center',
+                        }}
+                      >
                         <span>Total</span>
                         <InfoTooltip text="This percentage represents the combined share of the Top 10 salespeople — not 100% of global revenue." />
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.sales_aed) || 0), 0)
-                          .toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+                      <td
+                        style={{
+                          padding: '5px 6px',
+                          textAlign: 'right',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {salesmanSummaryData
+                          .slice(0, 10)
+                          .reduce((s, c) => s + (Number(c.sales_aed) || 0), 0)
+                          .toLocaleString('en-AE', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                       </td>
-                      <td style={{ padding: '8px', textAlign: 'right' }}>
-                        <span>{salesmanSummaryData.slice(0, 10).reduce((s, c) => s + (Number(c.percentage) || 0), 0).toFixed(2)}%</span>
-                        <span style={{ display: 'block', fontSize: '8.5px', fontWeight: 500, color: '#6366f1', marginTop: 1, wordBreak: 'break-word', whiteSpace: 'normal' }}>Top 10 Aggregate</span>
+
+                      <td
+                        style={{
+                          padding: '5px 6px',
+                          textAlign: 'right',
+                        }}
+                      >
+                        <span>
+                          {salesmanSummaryData
+                            .slice(0, 10)
+                            .reduce((s, c) => s + (Number(c.percentage) || 0), 0)
+                            .toFixed(2)}
+                          %
+                        </span>
+
+                        <span
+                          style={{
+                            display: 'block',
+                            fontSize: '8.5px',
+                            fontWeight: 500,
+                            color: '#6366f1',
+                            marginTop: 1,
+                            wordBreak: 'break-word',
+                            whiteSpace: 'normal',
+                          }}
+                        >
+                          Top 10 Aggregate
+                        </span>
                       </td>
                     </tr>
                   </tbody>
@@ -2656,7 +2765,7 @@ export default function SalesRevenueReport() {
 
           {/* Table body */}
           {loading.summaryDetail ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 15px' }}>
               {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} h={16} />)}
             </div>
           ) : (() => {
@@ -2670,16 +2779,16 @@ export default function SalesRevenueReport() {
 
             /* Sort alphabetically by Legal Entity > Parent Division > Sub Division */
             const allRows = [...summaryDetailData].map(r => ({
-                legalEntity: r.legal_entity  || r.name || '—',
-                parentDiv:   r.parent_division || r.division || '—',
-                subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
-                bizUnit:     r.business_unit  || r.biz_unit || '—',
-                mtd:         n(r, 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales_aed'),
-                prevMtd:     n(r, 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales_aed'),
-                ytd:         n(r, 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales_aed'),
-                ytdPy:       n(r, 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales_aed'),
-                varMtd:      n(r, 'variance_mtd_pct','mtd_var_pct',      'variance_mtd'),
-                varYtd:      n(r, 'variance_ytd_pct','ytd_var_pct',      'variance_ytd'),
+              legalEntity: r.legal_entity || r.name || '—',
+              parentDiv: r.parent_division || r.division || '—',
+              subDiv: r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
+              bizUnit: r.business_unit || r.biz_unit || '—',
+              mtd: n(r, 'revenue_mtd', 'mtd_revenue', 'sales_mtd_aed', 'mtd_sales_aed'),
+              prevMtd: n(r, 'revenue_prev_mtd', 'prev_mtd_revenue', 'mtd_prev_revenue', 'sales_prev_mtd_aed', 'prev_mtd_sales_aed'),
+              ytd: n(r, 'revenue_ytd', 'ytd_revenue', 'sales_ytd_aed', 'ytd_sales_aed'),
+              ytdPy: n(r, 'revenue_ytd_py', 'revenue_ytd_prev', 'prev_ytd_revenue', 'sales_ytd_py_aed', 'sales_prev_ytd_aed', 'prev_ytd_sales_aed'),
+              varMtd: n(r, 'variance_mtd_pct', 'mtd_var_pct', 'variance_mtd'),
+              varYtd: n(r, 'variance_ytd_pct', 'ytd_var_pct', 'variance_ytd'),
             })).sort((a, b) => {
               const cmp1 = a.legalEntity.localeCompare(b.legalEntity);
               if (cmp1 !== 0) return cmp1;
@@ -2693,12 +2802,12 @@ export default function SalesRevenueReport() {
             if (allRows.length > 10) {
               const top10 = allRows.slice(0, 10);
               const others = allRows.slice(10);
-              
-              const mtd     = others.reduce((s, r) => s + (r.mtd || 0), 0);
+
+              const mtd = others.reduce((s, r) => s + (r.mtd || 0), 0);
               const prevMtd = others.reduce((s, r) => s + (r.prevMtd || 0), 0);
-              const ytd     = others.reduce((s, r) => s + (r.ytd || 0), 0);
-              const ytdPy   = others.reduce((s, r) => s + (r.ytdPy || 0), 0);
-              
+              const ytd = others.reduce((s, r) => s + (r.ytd || 0), 0);
+              const ytdPy = others.reduce((s, r) => s + (r.ytdPy || 0), 0);
+
               const othersRow = {
                 legalEntity: 'Others',
                 parentDiv: '—',
@@ -2706,19 +2815,19 @@ export default function SalesRevenueReport() {
                 bizUnit: '—',
                 mtd, prevMtd, ytd, ytdPy,
                 varMtd: (prevMtd > 0 && mtd >= 0) ? ((mtd - prevMtd) / Math.abs(prevMtd)) * 100 : null,
-                varYtd: (ytdPy > 0 && ytd >= 0)   ? ((ytd - ytdPy)   / Math.abs(ytdPy))   * 100 : null,
+                varYtd: (ytdPy > 0 && ytd >= 0) ? ((ytd - ytdPy) / Math.abs(ytdPy)) * 100 : null,
               };
               rows = [...top10, othersRow];
             }
 
-            const totMTD    = allRows.reduce((s, r) => s + (r.mtd || 0),     0);
-            const totPMTD   = allRows.reduce((s, r) => s + (r.prevMtd || 0), 0);
-            const totYTD    = allRows.reduce((s, r) => s + (r.ytd || 0),     0);
-            const totYTDPY  = allRows.reduce((s, r) => s + (r.ytdPy || 0),   0);
+            const totMTD = allRows.reduce((s, r) => s + (r.mtd || 0), 0);
+            const totPMTD = allRows.reduce((s, r) => s + (r.prevMtd || 0), 0);
+            const totYTD = allRows.reduce((s, r) => s + (r.ytd || 0), 0);
+            const totYTDPY = allRows.reduce((s, r) => s + (r.ytdPy || 0), 0);
 
             /* formatters */
             const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `${(v / 1e6).toFixed(2)}M` : '—';
-            
+
             const calcVar = (cur, prev) =>
               (prev > 0 && cur >= 0) ? ((cur - prev) / Math.abs(prev)) * 100 : null;
 

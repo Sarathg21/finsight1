@@ -47,18 +47,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   --font-mono:      'JetBrains Mono', 'Fira Code', monospace;
 
   /* ── Surfaces ── */
-  --clr-bg:        #f8fafc;
+  --clr-bg:        #F6F8FC;
   --clr-bg-2:      #f1f5f9;
   --clr-surface:   #ffffff;
   --clr-surface-2: #f1f5f9;
   --clr-surface-3: #eef2ff;
-  --clr-border:    rgba(0,0,0,0.04);
-  --clr-border-strong: rgba(0,0,0,0.08);
+  --clr-border:    #E5E7EB;
+  --clr-border-strong: #d1d5db;
 
   /* ── Radius ── */
   --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   16px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
   --radius-xl:   24px;
   --radius-full: 9999px;
 
@@ -71,9 +71,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
   /* ── Spacing ── */
   --page-padding: 16px;
-  --card-padding: 20px 24px;
-  --card-gap:     16px;
-  --section-gap:  20px;
+  --card-padding: 14px 16px;
+  --card-gap:     12px;
+  --section-gap:  12px;
 
   /* ── Layout ── */
   --sidebar-w:         224px;
@@ -326,7 +326,7 @@ html, body {
   border: 1px solid var(--clr-border);
   border-radius: var(--radius-lg);
   padding: var(--card-padding);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   transition: box-shadow var(--tr-base);
   min-width: 0;
 }
@@ -476,20 +476,21 @@ html, body {
   background: var(--clr-surface);
   border: 1px solid var(--clr-border);
   border-radius: var(--radius-lg);
-  padding: 10px 18px;
+  padding: 10px 14px;
   margin-bottom: var(--section-gap);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .filter-select {
-  background: var(--clr-surface-2);
+  background: var(--clr-surface);
   border: 1px solid var(--clr-border);
-  border-radius: var(--radius-md);
-  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  min-height: 32px;
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   font-weight: 500;
   color: var(--clr-text);
   outline: none;
@@ -503,12 +504,13 @@ html, body {
 }
 
 .filter-input {
-  background: var(--clr-surface-2);
+  background: var(--clr-surface);
   border: 1px solid var(--clr-border);
-  border-radius: var(--radius-md);
-  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  min-height: 32px;
   font-family: var(--font-sans);
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   color: var(--clr-text);
   outline: none;
   transition: border-color var(--tr-fast), box-shadow var(--tr-fast);
@@ -770,21 +772,21 @@ tbody tr:hover { background: #f8fafc; }
 
 /* Tighter font size for 6-col KPI grids on large screens */
 .grid-cols-6 .kpi-value {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
 }
 .grid-cols-6 .kpi-card {
-  padding: 16px 18px;
+  padding: 10px 12px;
 }
 .grid-cols-6 .kpi-label {
-  font-size: 0.7rem;
-  padding-right: 36px;
+  font-size: 0.64rem;
+  padding-right: 32px;
 }
 .grid-cols-6 .kpi-icon {
-  width: 34px;
-  height: 34px;
-  top: 14px;
-  right: 14px;
-  border-radius: 9px;
+  width: 30px;
+  height: 30px;
+  top: 12px;
+  right: 12px;
+  border-radius: 8px;
 }
 
 @media (max-width: 1200px) {
