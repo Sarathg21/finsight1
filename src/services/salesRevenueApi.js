@@ -700,6 +700,14 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
  * GET /api/sales-revenue/filters
  * Returns available filter options (dropdown values).
  */
+export async function fetchAccessMe() {
+  return apiCall('/api/access/me');
+}
+
+export async function fetchRolePermissions(roleCode) {
+  return apiCall('/api/admin/roles/' + roleCode + '/permissions');
+}
+
 export async function fetchFilters() {
   return apiCall('/api/sales-revenue/filters', { currency: 'AED' });
 }
