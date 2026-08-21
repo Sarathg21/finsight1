@@ -1274,6 +1274,7 @@ export default function SalesRevenueReport() {
         ytd_change_pct:          d.ytd_change_pct         ?? null,
         // Gross margin (may not be in summary; falls back to grossMarginData)
         gross_margin:            d.gross_margin           ?? null,
+        gross_profit_mtd:        d.gross_profit_mtd       ?? null,
         gross_margin_pct:        d.gross_margin_pct       ?? null,
         gross_margin_change_pct: d.gross_margin_change_pct ?? null,
         // Counts
@@ -1597,33 +1598,33 @@ export default function SalesRevenueReport() {
   const rc = appliedFilters.reportingCurrency || filters.reportingCurrency || 'AED';
 
   const legalEntityCols = [
-    { label: 'Legal Entity',                    key: 'legal_entity',         align: 'left',   fmt: (v, row) => v ?? row.entity_name ?? '—' },
-    { label: `Total Revenue (${rc})`,           key: 'sales',                align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: `MTD Revenue (${rc})`,             key: 'mtd_sales',            align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: `YTD Revenue (${rc})`,             key: 'ytd_sales',            align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    // Ledger currency per entity — from backend ledger_currency field
-    { label: 'Ledger Currency',                 key: 'ledger_currency',      align: 'center', fmt: (v, row) => v ?? '—' },
-    { label: 'Sales in Ledger Currency',        key: 'sales_ledger_currency',align: 'right',
+    { label: 'Legal Entity',                    key: 'legal_entity',          align: 'left'   },
+    { label: `Total Revenue (${rc})`,           key: 'sales',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
+    { label: `MTD Revenue (${rc})`,             key: 'mtd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
+    { label: `YTD Revenue (${rc})`,             key: 'ytd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
+    { label: 'Ledger Currency',                 key: 'ledger_currency',       align: 'center', fmt: v => v ?? '—' },
+    { label: 'Sales in Ledger Currency',        key: 'sales_ledger_currency', align: 'right',
       fmt: (v, row) => {
-        const cur = row.ledger_currency || '';
-        return (v !== null && v !== undefined)
-          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
-          : '—';
+        if (v === null || v === undefined) return '—';
+        const prefix = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
+        return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
       }
     },
-    // # Transactions removed — field not returned by backend endpoint
-    // Currency (generic) removed — replaced by ledger_currency above
+    { label: '% Share',                         key: 'percentage',            align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
   ];
 
   const parentDivisionCols = [
-    // Division Code removed — always blank (backend doesn't return it)
-    { label: 'Parent Division',      key: 'parent_division', align: 'left',  fmt: (v, row) => v ?? row.division_name ?? row.name ?? '—' },
-    { label: `Total Revenue (${rc})`,key: 'sales',           align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.total_revenue ?? row.revenue ?? 0) },
-    { label: `MTD Revenue (${rc})`,  key: 'mtd_sales',       align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.mtd_revenue ?? row.mtd_sales ?? 0) },
-    { label: `YTD Revenue (${rc})`,  key: 'ytd_sales',       align: 'right', fmt: (v, row) => fmtCurrency(v ?? row.ytd_revenue ?? row.ytd_sales ?? 0) },
-    // Ledger Currency NOT shown at division level — parent divisions span multiple ledger currencies
-    // # Transactions removed — field not returned by backend endpoint
-    // Currency (generic) removed
+    { label: 'Parent Division',          key: 'parent_division',        align: 'left'   },
+    { label: 'Ledger Currency',          key: 'ledger_currency',        align: 'center', fmt: v => v ?? '—' },
+    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency',  align: 'right',
+      fmt: (v, row) => {
+        if (v === null || v === undefined) return '—';
+        const prefix = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
+        return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+      }
+    },
+    { label: `Sales (${rc})`,            key: 'sales',                  align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
+    { label: '% Share',                  key: 'percentage',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
   ];
 
   const subdivisionCols = [
@@ -1675,7 +1676,7 @@ export default function SalesRevenueReport() {
 
   // Salesman View All — aggregated
   const salesmanSummaryCols = [
-    { label: 'Sales Person',   key: 'sales_person',     align: 'left'  },
+    { label: 'Sales Person',   key: 'salesman_name',    align: 'left' },
     { label: `Sales (${rc})`,  key: 'sales',            align: 'right', fmt: fmtCurrency },
     // Gross Margin currency treatment under review — not changing
     { label: 'Gross Margin',   key: 'gross_margin',     align: 'right', fmt: fmtCurrency },
@@ -2908,12 +2909,15 @@ export default function SalesRevenueReport() {
 
             const rc = appliedFilters.reportingCurrency || 'AED';
 
-            const fmtRC  = v => (v !== null && v !== undefined && !isNaN(v))
+            const fmtRC = v => (v !== null && v !== undefined && !isNaN(v))
               ? `${rc} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
               : '—';
-            const fmtLedger = (v, currency) => (v !== null && v !== undefined && !isNaN(v))
-              ? `${currency || ''} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
-              : '—';
+            // Only prepend currency if it is a real ISO code (not null / '—')
+            const fmtLedger = (v, currency) => {
+              if (v === null || v === undefined || isNaN(v)) return '—';
+              const prefix = (currency && currency !== '—') ? `${currency} ` : '';
+              return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+            };
 
             const COLS = [
               'Legal Entity', 'Sub-Division', 'Parent Division',
@@ -2924,14 +2928,16 @@ export default function SalesRevenueReport() {
             ];
 
             // Map summaryDetailData rows — field names from /summary-detail endpoint
+            // New backend contract: ledger_currency, sales_ledger_currency, sales, percentage
+            // Fallback: revenue_mtd used for sales-RC column if backend hasn't deployed new fields yet
             const detailRows2 = [...summaryDetailData].map(r => ({
-              legalEntity:   r.legal_entity   || r.entity_name                 || '—',
-              subDiv:        r.sub_division   || r.subdivision_name || r.subdivision || r.sub_div || '—',
-              parentDiv:     r.parent_division || r.division_name  || r.division    || '—',
-              ledgerCurrency: r.ledger_currency || '—',
-              salesLedger:   r.sales_ledger_currency ?? r.revenue_mtd ?? null,
-              salesRC:       r.sales ?? r.revenue_mtd ?? null,
-              pct:           r.percentage ?? r.contribution_pct ?? null,
+              legalEntity:    r.legal_entity   || r.entity_name                              || '—',
+              subDiv:         r.sub_division   || r.subdivision_name || r.subdivision || r.sub_div || '—',
+              parentDiv:      r.parent_division || r.division_name  || r.division             || '—',
+              ledgerCurrency: r.ledger_currency || null,           // null = not yet provided by backend
+              salesLedger:    r.sales_ledger_currency ?? null,     // strictly new contract; no MTD fallback
+              salesRC:        r.sales ?? r.revenue_mtd ?? null,    // fall back to revenue_mtd until backend deploys
+              pct:            r.percentage ?? r.contribution_pct ?? null,
             })).sort((a, b) => {
               const c1 = a.legalEntity.localeCompare(b.legalEntity);
               if (c1 !== 0) return c1;
@@ -2969,7 +2975,9 @@ export default function SalesRevenueReport() {
                               title={row.legalEntity}>{row.legalEntity}</td>
                           <td style={{ ...TD_S, textAlign: 'left' }}>{row.subDiv}</td>
                           <td style={{ ...TD_S, textAlign: 'left' }}>{row.parentDiv}</td>
-                          <td style={{ ...TD_S, textAlign: 'center', fontWeight: 600 }}>{row.ledgerCurrency}</td>
+                          <td style={{ ...TD_S, textAlign: 'center', fontWeight: 600 }}>
+                            {row.ledgerCurrency || '—'}
+                          </td>
                           <td style={{ ...TD_S, textAlign: 'right' }}>{fmtLedger(row.salesLedger, row.ledgerCurrency)}</td>
                           <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmtRC(row.salesRC)}</td>
                           <td style={{ ...TD_S, textAlign: 'right' }}>
@@ -3022,7 +3030,7 @@ export default function SalesRevenueReport() {
         searchPlaceholder="Search legal entities..."
       />
 
-      {/* Parent Division Detail Modal — 4 cols */}
+      {/* Parent Division Detail Modal — 7 cols */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'parentDiv'}
@@ -3032,7 +3040,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchParentDivisionDetail}
         columnDefs={parentDivisionCols}
         filters={appliedFilters}
-        maxWidth={920}
+        maxWidth={1200}
         searchPlaceholder="Search parent divisions..."
       />
 
@@ -3126,13 +3134,23 @@ export default function SalesRevenueReport() {
             return `${cur} ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
           };
           return [
-            { key: 'legal_entity',    label: 'Legal Entity',      align: 'left',  width: '20%' },
-            { key: 'parent_division', label: 'Parent Division',    align: 'left',  width: '16%' },
+            { key: 'legal_entity',    label: 'Legal Entity',      align: 'left',  width: '18%' },
+            { key: 'parent_division', label: 'Parent Division',    align: 'left',  width: '14%' },
             { key: 'subdivision',     label: 'Sub Division',       align: 'left',  width: '14%' },
-            { key: 'revenue_mtd',     label: `MTD (${cur})`,       align: 'right', fmt: fmtC },
-            { key: 'revenue_prev_mtd',label: `Prev MTD (${cur})`,  align: 'right', fmt: fmtC },
-            { key: 'revenue_ytd',     label: `YTD (${cur})`,       align: 'right', fmt: fmtC },
-            { key: 'revenue_ytd_py',  label: `YTD PY (${cur})`,    align: 'right', fmt: fmtC },
+            { key: 'ledger_currency', label: 'Ledger Currency',    align: 'center',width: '12%', fmt: v => v || '—' },
+            { key: 'sales_ledger_currency', label: 'Sales in Ledger Currency', align: 'right', width: '15%',
+              fmt: (v, row) => {
+                // Only prepend ledger currency if it's a real ISO code
+                const ledgerCur = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
+                return (v != null)
+                  ? `${ledgerCur}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                  : '—';
+              }
+            },
+            { key: 'sales',           label: `Sales (${cur})`,     align: 'right', width: '15%', fmt: (v, row) => fmtC(v ?? row.revenue_mtd) },
+            { key: 'percentage',      label: '% Share',            align: 'right', width: '12%',
+              fmt: (v, row) => (v != null || row.contribution_pct != null) ? `${Number(v ?? row.contribution_pct).toFixed(2)}%` : '—'
+            },
           ];
         })()}
         filters={appliedFilters}
