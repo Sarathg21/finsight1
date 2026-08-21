@@ -826,7 +826,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
             fontSize: '0.62rem', fontWeight: 600, color: '#64748b',
             lineHeight: 1.1
           }}>
-            {changePct !== undefined && <VarBadge val={changePct} />}
+            {(changePct !== undefined && changePct !== null) && <VarBadge val={changePct} />}
             {changeLabel && <span>{changeLabel}</span>}
           </div>
         )}
@@ -892,7 +892,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
 
 /* ─── Variance Badge ────────────────────────────────────────────── */
 function VarBadge({ val }) {
-  if (val === null || val === undefined) return <span style={{ color: C.muted }}>N/A</span>;
+  if (val === null || val === undefined) return <span style={{ color: C.muted }}>—</span>;
   const up = val >= 0;
   return (
     <span style={{
@@ -1873,13 +1873,7 @@ export default function SalesRevenueReport() {
 })}
             </select>
           </FilterField>
-          {filterOptions.invoiceCurrencies.length > 1 && (
-            <FilterField label="Invoice Currency">
-              <select id="filter-invoice-currency" style={selStyle} value={filters.invoiceCurrency} onChange={e => updateFilter('invoiceCurrency', e.target.value)}>
-                {filterOptions.invoiceCurrencies.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FilterField>
-          )}
+
 
           <FilterField label="From Date">
             <input
@@ -2882,7 +2876,7 @@ export default function SalesRevenueReport() {
               (prev > 0 && cur >= 0) ? ((cur - prev) / Math.abs(prev)) * 100 : null;
 
             const VarBadge = ({ pct }) => {
-              if (pct === null || pct === undefined || isNaN(pct)) return <span style={{ color: C.muted }}>N/A</span>;
+              if (pct === null || pct === undefined || isNaN(pct)) return <span style={{ color: C.muted }}>—</span>;
               const up = pct >= 0;
               return (
                 <span style={{
