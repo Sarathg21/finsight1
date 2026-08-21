@@ -1091,6 +1091,7 @@ export default function SalesRevenueReport() {
   const [legalEntData,        setLegalEntData]        = useState([]);
   const [parentDivData,       setParentDivData]       = useState([]);
   const [subDivData,          setSubDivData]          = useState([]);
+  const [subdivisionRawData,  setSubdivisionRawData]  = useState([]);  // raw rows from /subdivision-detail
   const [topCustomersData,    setTopCustomersData]    = useState([]);
   const [bySalesmanData,      setBySalesmanData]      = useState([]);
   const [salesmanSummaryData, setSalesmanSummaryData] = useState([]);
@@ -1424,11 +1425,14 @@ export default function SalesRevenueReport() {
     // 6. Sub-Division
     guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
+      // Store raw rows for the inline Detailed View table
+      setSubdivisionRawData(d.data);
+
       const grouped = {};
       const pctMap  = {};
       d.data.forEach(row => {
         const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales) || 0);
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || Number(row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1640,7 +1644,7 @@ export default function SalesRevenueReport() {
           : '—';
       }
     },
-    { label: `Sales in ${rc}`,            key: 'sales',                  align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.sales_reporting_currency ?? row.total_revenue ?? row.revenue ?? 0) },
+    { label: `Sales in ${rc}`,            key: 'sales_aed',              align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.sales ?? row.sales_reporting_currency ?? 0) },
     { label: '% Share',                   key: 'percentage',             align: 'right',  fmt: (v) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
   ];
 
@@ -2794,7 +2798,7 @@ export default function SalesRevenueReport() {
           </div>
         </div>
 
-        {/* ── Sales Revenue Detailed View — sourced from /summary-detail ── */}
+        {/* ── Sales Revenue Detailed View — sourced from /subdivision-detail ── */}
         <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 8, marginTop: 14 }}>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: '#fff', flexWrap: 'wrap', gap: 10 }}>
@@ -2806,11 +2810,11 @@ export default function SalesRevenueReport() {
                 Amounts in {filters.reportingCurrency}
               </span>
             </div>
-            <ChartMenu onViewAll={() => setOpenModal('summaryDetail')} endpoint="summary-detail" filters={appliedFilters} />
+            <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
           </div>
 
           {/* Table body */}
-          {loading.summaryDetail ? (
+          {loading.subDiv ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '16px 20px' }}>
               {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} h={16} />)}
             </div>
@@ -2941,17 +2945,16 @@ export default function SalesRevenueReport() {
               '% Share',
             ];
 
-            // Map summaryDetailData rows — field names from /summary-detail endpoint
-            // New backend contract: ledger_currency, sales_ledger_currency, sales, percentage
-            // Fallback: revenue_mtd used for sales-RC column if backend hasn't deployed new fields yet
-            const detailRows2 = [...summaryDetailData].map(r => ({
+            // Map subdivisionRawData rows — field names from /subdivision-detail endpoint
+            // Fields confirmed by Madam: ledger_currency, sales_ledger_currency, sales_aed, percentage
+            const detailRows2 = [...subdivisionRawData].map(r => ({
               legalEntity:    r.legal_entity   || r.entity_name                              || '—',
-              subDiv:         r.sub_division   || r.subdivision_name || r.subdivision || r.sub_div || '—',
+              subDiv:         r.subdivision    || r.subdivision_name || r.sub_division || r.sub_div || '—',
               parentDiv:      r.parent_division || r.division_name  || r.division             || '—',
-              ledgerCurrency: r.ledger_currency || null,           // null = not yet provided by backend
-              salesLedger:    r.sales_ledger_currency ?? null,     // strictly new contract; no MTD fallback
-              salesRC:        r.sales ?? r.revenue_mtd ?? null,    // fall back to revenue_mtd until backend deploys
-              pct:            r.percentage ?? r.contribution_pct ?? null,
+              ledgerCurrency: r.ledger_currency ?? null,
+              salesLedger:    r.sales_ledger_currency ?? null,
+              salesRC:        r.sales_aed ?? null,
+              pct:            r.percentage ?? null,
             })).sort((a, b) => {
               const c1 = a.legalEntity.localeCompare(b.legalEntity);
               if (c1 !== 0) return c1;
