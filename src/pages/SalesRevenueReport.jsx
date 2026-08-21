@@ -360,7 +360,7 @@ function DetailApiModal({
   columnDefs,    // [{ label, key, align, fmt }]
   filters,
   searchPlaceholder = 'Search...',
-  maxWidth = 860,          // override per modal for wide column sets
+  maxWidth = '96vw',       // override per modal — defaults to near-full width
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -438,9 +438,9 @@ function DetailApiModal({
       `}</style>
       <div style={{
         background: '#fff', borderRadius: 16,
-        width: '96%', maxWidth: maxWidth,
-        maxHeight: '82vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+        width: '96vw', maxWidth: maxWidth,
+        maxHeight: '94vh', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
         animation: 'scaleUp 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
         overflow: 'hidden', border: '1px solid #e2e8f0',
       }}>
@@ -484,7 +484,7 @@ function DetailApiModal({
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '0 16px 16px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 16px' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -2014,13 +2014,14 @@ export default function SalesRevenueReport() {
         </div>
 
         {/* ── Main Dashboard Charts Row ── */}
-        <div className="grid-charts-3" style={{ marginBottom: 16 }}>
+        {/* flex-wrap: hidden charts leave no blank columns */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--card-gap, 16px)', marginBottom: 16, alignItems: 'stretch' }}>
 
           {/* 1. Revenue Trend (Line Chart) */}
           <motion.div
             whileHover={{ y: -3, boxShadow: "0 12px 30px rgba(0, 0, 0, 0.08)" }}
             className="card animate-fade-slide-up"
-            style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.4s ease' }}
+            style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', transition: 'box-shadow 0.4s ease', flex: '1 1 300px', minWidth: 300 }}
           >
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
@@ -2238,7 +2239,7 @@ export default function SalesRevenueReport() {
 
 
           {filterOptions.legalEntities.length > 2 && (
-          <div className="card" style={{ padding: '12px 16px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 16px 16px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
 
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -2253,6 +2254,8 @@ export default function SalesRevenueReport() {
               <div style={{ flex: 1, minHeight: 200, background: 'linear-gradient(90deg,#f8fafc 25%,#f1f5f9 50%,#f8fafc 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.5s infinite', borderRadius: 8, marginTop: 16 }} />
             ) : legalEntData.length > 0 ? (() => {
               const total = legalEntData.reduce((s, d) => s + (d.value || 0), 0);
+              // Fix 2: count active segments to eliminate seam on 100% single-slice
+              const activeSegments = legalEntData.filter(d => d.value > 0).length;
               return (
                 <>
                   {/* ── Large centered donut ── */}
@@ -2265,7 +2268,7 @@ export default function SalesRevenueReport() {
                           cy="50%"
                           innerRadius={64}
                           outerRadius={88}
-                          paddingAngle={2}
+                          paddingAngle={activeSegments === 1 ? 0 : 2}
                           dataKey="value"
                           stroke="none"
                           startAngle={90}
@@ -2312,30 +2315,39 @@ export default function SalesRevenueReport() {
                   }}>
                     {legalEntData.map((d, i) => {
                       const color = getEntityColor(d.name);
+                      const isZero = !d.value || d.value === 0;
+                      const pct = d.pct ?? (total > 0 ? (d.value / total) * 100 : 0);
                       return (
-                        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {/* Swatch + Name */}
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+                        <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, opacity: isZero ? 0.45 : 1 }}>
+                          {/* Fix 5: Swatch + Name with ellipsis + title tooltip */}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, minWidth: 0 }}>
                             <span style={{
                               flexShrink: 0,
                               width: 10, height: 10,
                               borderRadius: 3,
                               background: color,
-                              marginTop: 2,
+                              marginTop: 3,
                             }} />
-                            <span style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 600,
-                              color: '#1e293b',
-                              lineHeight: 1.35,
-                            }}>
+                            <span
+                              title={d.name}
+                              style={{
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                color: '#1e293b',
+                                lineHeight: 1.35,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                minWidth: 0,
+                              }}
+                            >
                               {d.name}
                             </span>
                           </div>
-                          {/* Value & Percentage */}
+                          {/* Fix 4: consistent fmtAxisNum for both zero and non-zero values */}
                           <div style={{ paddingLeft: 17 }}>
                             <span style={{ fontSize: '0.8rem', fontWeight: 800, color }}>
-                              {fmtAxisNum(d.value)} <span style={{ fontWeight: 600, opacity: 0.9 }}>({(d.pct ?? (total > 0 ? (d.value / total) * 100 : 0)).toFixed(1)}%)</span>
+                              {fmtAxisNum(d.value || 0)} <span style={{ fontWeight: 600, opacity: 0.9 }}>({pct.toFixed(1)}%)</span>
                             </span>
                           </div>
                         </div>
@@ -2352,8 +2364,9 @@ export default function SalesRevenueReport() {
 
           )}
 
+
           {filterOptions.parentDivs.length > 2 && (
-          <div className="card" style={{ padding: '12px 16px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '12px 16px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Parent Division</div>
@@ -2471,10 +2484,11 @@ export default function SalesRevenueReport() {
         </div>
 
                 {/* ── Tertiary Analysis Row (Sub-Division, Customers, Salesman) ── */}
-        <div className="grid-charts-3" style={{ marginBottom: 16, gridTemplateColumns: '1fr 1.1fr 1.1fr' }}>
+        {/* Uses flex-wrap so that when any chart is conditionally hidden, remaining cards reflow naturally */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--card-gap, 16px)', marginBottom: 16, alignItems: 'stretch' }}>
           {/* 1. Subdivision */}
           {filterOptions.subDivs.length > 2 && (
-          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division ({filters.reportingCurrency})</div>
@@ -2657,7 +2671,7 @@ export default function SalesRevenueReport() {
           )}
 
           {/* 2. Top Customers */}
-          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales ({filters.reportingCurrency})</div>
               <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
@@ -2723,7 +2737,7 @@ export default function SalesRevenueReport() {
           </div>
 
           {/* 3. Revenue by Salesman */}
-          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesman ({filters.reportingCurrency})</div>
               <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
@@ -3026,7 +3040,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchLegalEntityDetail}
         columnDefs={legalEntityCols}
         filters={appliedFilters}
-        maxWidth={1100}
+
         searchPlaceholder="Search legal entities..."
       />
 
@@ -3040,7 +3054,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchParentDivisionDetail}
         columnDefs={parentDivisionCols}
         filters={appliedFilters}
-        maxWidth={1200}
+
         searchPlaceholder="Search parent divisions..."
       />
 
@@ -3054,7 +3068,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSubdivisionDetail}
         columnDefs={subdivisionCols}
         filters={appliedFilters}
-        maxWidth={1180}
+
         searchPlaceholder="Search sub-divisions..."
       />
 
@@ -3068,7 +3082,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSalesmanSummary}
         columnDefs={salesmanSummaryCols}
         filters={appliedFilters}
-        maxWidth={860}
+
         searchPlaceholder="Search salespeople..."
       />
 
@@ -3082,7 +3096,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSalesmanDetail}
         columnDefs={salesmanDetailCols}
         filters={appliedFilters}
-        maxWidth={1400}
+
         searchPlaceholder="Search salesman detail..."
       />
 
@@ -3096,7 +3110,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchCustomerSummary}
         columnDefs={customerSummaryCols}
         filters={appliedFilters}
-        maxWidth={920}
+
         searchPlaceholder="Search customers..."
       />
 
@@ -3110,7 +3124,7 @@ export default function SalesRevenueReport() {
         fetchFn={fetchCustomerDetail}
         columnDefs={customerDetailCols}
         filters={appliedFilters}
-        maxWidth={1100}
+
         searchPlaceholder="Search customer detail..."
       />
 
@@ -3122,7 +3136,7 @@ export default function SalesRevenueReport() {
         title="Sales Revenue Detailed View — All Data"
         endpoint="summary-detail"
         fetchFn={fetchSummaryDetail}
-        maxWidth={1150}
+
         columnDefs={(() => {
           const cur = appliedFilters.reportingCurrency || 'AED';
           // Compact formatter: 1.43M / 890K / 4.75K
