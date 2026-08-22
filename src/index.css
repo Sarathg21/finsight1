@@ -101,10 +101,16 @@ html, body {
 #root { height: 100%; }
 
 /* ── Scrollbar ── */
-::-webkit-scrollbar       { width: 5px; height: 5px; }
+::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.32); }
+
+/* Modal table scrollbar — wider and more visible */
+.modal-table-scroll::-webkit-scrollbar       { width: 8px; height: 8px; }
+.modal-table-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+.modal-table-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.modal-table-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
 /* ══════════════════════════════════════════════════════════
    LAYOUT

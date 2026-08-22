@@ -361,6 +361,7 @@ function DetailApiModal({
   filters,
   searchPlaceholder = 'Search...',
   maxWidth = '96vw',       // override per modal — defaults to near-full width
+  periodLabel = null,      // e.g. "01-Jun-2026 to 30-Jun-2026"
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -450,9 +451,16 @@ function DetailApiModal({
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'linear-gradient(90deg,#f8fafc,#fff)',
         }}>
-          <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
-            {title}
-          </h3>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
+              {title}
+            </h3>
+            {periodLabel && (
+              <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2, fontWeight: 500 }}>
+                Period: {periodLabel}
+              </div>
+            )}
+          </div>
           <ModalCloseButton onClick={onClose} />
         </div>
 
@@ -484,7 +492,7 @@ function DetailApiModal({
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 16px' }}>
+        <div className="modal-table-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 16px' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -556,6 +564,36 @@ function DetailApiModal({
                   </tr>
                 )}
               </tbody>
+              <tfoot>
+                <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
+                  {columnDefs.map((col, ci) => {
+                    if (ci === 0) {
+                      return (
+                        <td key={ci} style={{ ...TD, padding: '8px 8px', fontWeight: 800, color: C.navy }}>
+                          Total
+                        </td>
+                      );
+                    }
+                    // Only sum numeric columns where all visible sorted rows have numeric values
+                    const numericVals = sorted
+                      .map(row => {
+                        const raw = row[col.key];
+                        return raw != null && !isNaN(Number(raw)) ? Number(raw) : null;
+                      })
+                      .filter(v => v !== null);
+                    if (numericVals.length > 0 && numericVals.length === sorted.length) {
+                      const sum = numericVals.reduce((s, v) => s + v, 0);
+                      const displayed = col.fmt ? col.fmt(sum, {}) : sum.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                      return (
+                        <td key={ci} style={{ ...TD, padding: '8px 8px', textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
+                          {displayed}
+                        </td>
+                      );
+                    }
+                    return <td key={ci} style={{ ...TD, padding: '8px 8px' }}>—</td>;
+                  })}
+                </tr>
+              </tfoot>
             </table>
           )}
         </div>
@@ -1030,28 +1068,76 @@ const fmtUniform = (v, maxVal) => {
 };
 
 /* ─── Entity Color Mapping ──────────────────────────────────────── */
+const DONUT_PALETTE = ['#6366f1', '#10b981', '#f59e0b', '#0ea5e9', '#f43f5e', '#14b8a6', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16', '#ec4899', '#a16207'];
 const ENTITY_COLORS = {
-  'Multiplast Dubai LLC':                    '#6366f1', // indigo
-  'DC Serve Equipment Trading LLC':          '#10b981', // emerald-green
-  'Tawreed Co LLC':                          '#3b82f6', // blue
-  'FJ Trading & Engineering Co WLL':         '#f59e0b', // amber
-  'Future Journey Energy Solutions LLC':     '#8b5cf6', // violet
-  'Alpha Ducts LLC':                         '#0ea5e9', // sky-blue
-  'FJ Care Air Condition Trading LLC':       '#14b8a6', // teal
-  'Others':                                  '#a855f7', // purple
+  'Multiplast Dubai LLC':                    '#6366f1',
+  'DC Serve Equipment Trading LLC':          '#10b981',
+  'Tawreed Co LLC':                          '#3b82f6',
+  'FJ Trading & Engineering Co WLL':         '#f59e0b',
+  'Future Journey Energy Solutions LLC':     '#8b5cf6',
+  'Alpha Ducts LLC':                         '#0ea5e9',
+  'FJ Care Air Condition Trading LLC':       '#14b8a6',
+  'Others':                                  '#94a3b8',
 };
-
+const _entityColorCache = new Map();
+let _entityColorIdx = 0;
 const getEntityColor = (name) => {
-  if (!name) return CHART_COLORS[0];
+  if (!name) return DONUT_PALETTE[0];
   if (ENTITY_COLORS[name]) return ENTITY_COLORS[name];
-
-  // Fallback hash
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return CHART_COLORS[Math.abs(hash) % CHART_COLORS.length];
+  if (_entityColorCache.has(name)) return _entityColorCache.get(name);
+  const usedColors = new Set(Object.values(ENTITY_COLORS));
+  const available = DONUT_PALETTE.filter(c => !usedColors.has(c));
+  const color = available[_entityColorIdx % available.length];
+  _entityColorIdx++;
+  _entityColorCache.set(name, color);
+  return color;
 };
+/* ─── Multi-Select Dropdown ────────────────────────────────────── */
+function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const isAll = !value || value.length === 0 || (value.length === 1 && value[0] === 'All');
+  const toggle = (opt) => {
+    if (opt === 'All') { onChange(['All']); return; }
+    const cur = isAll ? [] : value.filter(v => v !== 'All');
+    const next = cur.includes(opt) ? cur.filter(v => v !== opt) : [...cur, opt];
+    onChange(next.length === 0 ? ['All'] : next);
+  };
+
+  const selectedVals = value.filter(v => v !== 'All');
+  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0] : (selectedVals.length + ' selected');
+
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      <div onClick={() => setOpen(o => !o)} style={{ ...selStyle, backgroundImage: 'none', appearance: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85%' }}>{label}</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+          {options.map(opt => {
+            const selected = opt === 'All' ? isAll : !isAll && value.includes(opt);
+            return (
+              <div key={opt} onClick={() => toggle(opt)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+                <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+                </span>
+                {opt}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════ */
 /*  MAIN COMPONENT                                                  */
 /* ═══════════════════════════════════════════════════════════════ */
@@ -1062,6 +1148,7 @@ export default function SalesRevenueReport() {
   /* ── Filter state ─────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+  const [subDivMulti, setSubDivMulti] = useState(["All"]);
   const [userAccess, setUserAccess] = useState(null);
   const [permissions, setPermissions] = useState([]);
 
@@ -1138,6 +1225,17 @@ export default function SalesRevenueReport() {
   const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : 'N/A';
   const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
   const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+  const fmtDisplayDate = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    if (isNaN(d)) return iso;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+  };
+  const appliedPeriodLabel = (() => {
+    const from = fmtDisplayDate(appliedFilters.fromDate);
+    const to   = fmtDisplayDate(appliedFilters.toDate);
+    return (from && to) ? `${from} to ${to}` : (from || to || null);
+  })();
 
   /* ── Auth redirect helper ─────────────────────────────────────── */
   const handle401 = useCallback((err) => {
@@ -1198,7 +1296,7 @@ export default function SalesRevenueReport() {
         setErrors(prev => ({ ...prev, filters: err.message || 'Failed to load filter options' }));
       })
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
-  }, [filters.legalEntity, filters.parentDiv, filters.subDiv, handle401]);
+  }, [filters.legalEntity, filters.parentDiv, handle401]); // subDiv intentionally excluded — it is the leaf level, not a cascade trigger
 
   /* ── Fetch details page ───────────────────────────────────────── */
   const fetchDetailsPage = useCallback((f, page) => {
@@ -1604,7 +1702,7 @@ export default function SalesRevenueReport() {
   const legalEntityCols = [
     { label: 'Legal Entity',                    key: 'legal_entity',          align: 'left'   },
     { label: `Total Revenue (${rc})`,           key: 'sales',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
-    { label: `MTD Revenue (${rc})`,             key: 'mtd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
+    { label: `PTD Revenue (${rc})`,             key: 'mtd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
     { label: `YTD Revenue (${rc})`,             key: 'ytd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
     { label: 'Ledger Currency',                 key: 'ledger_currency',       align: 'center', fmt: v => v ?? '—' },
     { label: 'Sales in Ledger Currency',        key: 'sales_ledger_currency', align: 'right',
@@ -1827,7 +1925,7 @@ export default function SalesRevenueReport() {
 
         {/* ── Filter Bar ── */}
 
-        <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
+        <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {filterOptions.legalEntities.length > 2 && (
           <FilterField label="Legal Entity">
             <select id="filter-legal-entity" style={{...selStyle, opacity: filterOptions.legalEntities.length <= 2 ? 0.6 : 1}} disabled={filterOptions.legalEntities.length <= 2} value={filters.legalEntity} onChange={e => updateFilter('legalEntity', e.target.value)}>
@@ -1844,11 +1942,18 @@ export default function SalesRevenueReport() {
           </FilterField>
           )}
 
-          {filterOptions.subDivs.length > 2 && (
+          {(filterOptions.subDivs.length > 2 || filters.subDiv !== 'All') && (
           <FilterField label="Sub-Division">
-            <select id="filter-sub-div" style={{...selStyle, opacity: filterOptions.subDivs.length <= 2 ? 0.6 : 1}} disabled={filterOptions.subDivs.length <= 2} value={filters.subDiv} onChange={e => updateFilter('subDiv', e.target.value)}>
-              {filterOptions.subDivs.map(o => <option key={o}>{o}</option>)}
-            </select>
+            <MultiSelect
+              options={filterOptions.subDivs}
+              value={subDivMulti}
+              onChange={(vals) => {
+                setSubDivMulti(vals);
+                const single = vals.includes('All') || vals.length === 0 ? 'All' : vals[0];
+                updateFilter('subDiv', single);
+              }}
+              placeholder="All"
+            />
           </FilterField>
           )}
 
@@ -1875,7 +1980,7 @@ export default function SalesRevenueReport() {
           </FilterField>
 
 
-          <FilterField label="From Date">
+          <FilterField label={`From Date${filters.fromDate ? ': ' + fmtDisplayDate(filters.fromDate) : ''}`}>
             <input
               id="filter-from-date" type="date" value={filters.fromDate}
               onChange={e => updateFilter('fromDate', e.target.value)}
@@ -1883,7 +1988,7 @@ export default function SalesRevenueReport() {
             />
           </FilterField>
 
-          <FilterField label="To Date">
+          <FilterField label={`To Date${filters.toDate ? ': ' + fmtDisplayDate(filters.toDate) : ''}`}>
             <input
               id="filter-to-date" type="date" value={filters.toDate}
               onChange={e => updateFilter('toDate', e.target.value)}
@@ -1905,9 +2010,9 @@ export default function SalesRevenueReport() {
         {/* ── Revenue Dashboard KPI Cards ── */}
         <div className="grid-cols-6" style={{ marginBottom: 16 }}>
 
-          {/* 1. Total Sales (MTD) */}
+          {/* 1. Total Sales (PTD) */}
           <KPICard currency={filters.reportingCurrency}
-            label={"Total Sales (MTD)"}
+            label={"Total Sales (PTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
             changeLabel="vs Mar 2024"
@@ -1939,9 +2044,9 @@ export default function SalesRevenueReport() {
             error={errors.summary}
           />
 
-          {/* 3. Gross Profit (MTD) */}
+          {/* 3. Gross Profit (PTD) */}
           <KPICard currency={filters.reportingCurrency}
-            label={"Gross Profit (MTD)"}
+            label={"Gross Profit (PTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
             changeLabel="vs Mar 2024"
@@ -3039,6 +3144,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search legal entities..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Parent Division Detail Modal — 7 cols */}
@@ -3053,6 +3159,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search parent divisions..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Sub-Division Detail Modal — 7 cols (wide) */}
@@ -3067,6 +3174,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search sub-divisions..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Salesman View All Modal — uses /salesman-summary (aggregated) */}
@@ -3081,6 +3189,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search salespeople..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Salesman Detail Drill-Down Modal — uses /salesman-detail (14 cols) */}
@@ -3095,6 +3204,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search salesman detail..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Customer Summary Modal */}
@@ -3109,6 +3219,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search customers..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Customer Detail Drill-Down Modal */}
@@ -3123,6 +3234,7 @@ export default function SalesRevenueReport() {
         filters={appliedFilters}
 
         searchPlaceholder="Search customer detail..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Summary Detail Drill-Down Modal */}
@@ -3166,6 +3278,7 @@ export default function SalesRevenueReport() {
         })()}
         filters={appliedFilters}
         searchPlaceholder="Search detailed view..."
+        periodLabel={appliedPeriodLabel}
       />
 
       {/* Trend View-All — inline modal reusing old table logic */}
@@ -3189,9 +3302,16 @@ export default function SalesRevenueReport() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: 'linear-gradient(90deg,#f8fafc,#fff)',
             }}>
-              <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
-                Revenue Trend — Full Breakdown
-              </h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
+                  Revenue Trend — Full Breakdown
+                </h3>
+                {appliedPeriodLabel && (
+                  <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2, fontWeight: 500 }}>
+                    Period: {appliedPeriodLabel}
+                  </div>
+                )}
+              </div>
               <ModalCloseButton onClick={() => setOpenModal(null)} />
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 16px' }}>
