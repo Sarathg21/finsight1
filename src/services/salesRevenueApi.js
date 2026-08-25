@@ -505,9 +505,19 @@ async function apiCall(path, params = {}) {
     });
   }
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+    const urlParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
+      v.forEach(item => {
+        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+      });
+    } else {
+      urlParams.append(k, v);
+    }
+  }
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
 
@@ -619,34 +629,23 @@ async function apiCall(path, params = {}) {
  * retained for backward compatibility when IDs are not yet available.
  */
 function buildParams(filters = {}) {
-  // Helper: return value only when it exists and is not a catch-all placeholder
   const active = (val) =>
     val && val !== 'All' && val !== 'all' ? val : undefined;
 
-  // ID-based hierarchy params (preferred per handoff document)
-  const leId  = active(filters.legalEntityId);
-  const pdId  = active(filters.parentDivisionId);
-  const sdId  = active(filters.subdivisionId);
-  const acId  = active(filters.analysisCodeId);
-
   return {
-    // ── Date range ──────────────────────────────────────────────────────────
-    from_date:               filters.fromDate                  || undefined,
-    to_date:                 filters.toDate                    || undefined,
-    // ── ID-based hierarchy filters (primary contract per CFO UAT handoff) ──
-    legal_entity_id:         leId,
-    parent_division_id:      pdId,
-    subdivision_id:          sdId,
-    analysis_code_id:        acId,
-    // ── Reporting currency (controls display conversion on backend) ─────────
-    reporting_currency:      active(filters.reportingCurrency),
-    // ── People / invoice filters ────────────────────────────────────────────
-    sales_person:            active(filters.salesman),
-    invoice_currency:        active(filters.invoiceCurrency),
-    // ── Customer / transaction filters (details endpoint) ──────────────────
-    customer_name:           filters.customerName              || undefined,
-    customer_account_number: filters.customerAccountNumber     || undefined,
-    project_reference:       filters.projectReference         || undefined,
+    from_date: filters.fromDate || undefined,
+    to_date: filters.toDate || undefined,
+    legal_group_id: filters.legalGroupId,
+    legal_entity_id: filters.legalEntityId,
+    parent_division_id: filters.parentDivisionId,
+    subdivision_id: filters.subdivisionId,
+    analysis_code_id: active(filters.analysisCodeId),
+    reporting_currency: active(filters.reportingCurrency),
+    sales_person: active(filters.salesman),
+    invoice_currency: active(filters.invoiceCurrency),
+    customer_name: filters.customerName || undefined,
+    customer_account_number: filters.customerAccountNumber || undefined,
+    project_reference: filters.projectReference || undefined
   };
 }
 
@@ -666,9 +665,19 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
     format,
   };
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+    const urlParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
+      v.forEach(item => {
+        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+      });
+    } else {
+      urlParams.append(k, v);
+    }
+  }
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}/api/sales-revenue/${endpoint}/export${qs ? `?${qs}` : ''}`;
 
@@ -743,16 +752,11 @@ export async function fetchFilters() {
  */
 export async function fetchFilterOptions(params = {}) {
   // Build cascade params using IDs when available, fall back to names
-  const apiParams = {};
-  if (params.legalEntityId && params.legalEntityId !== 'All') {
-    apiParams.legal_entity_id = params.legalEntityId;
-  }
-  if (params.parentDivisionId && params.parentDivisionId !== 'All') {
-    apiParams.parent_division_id = params.parentDivisionId;
-  }
-  if (params.subdivisionId && params.subdivisionId !== 'All') {
-    apiParams.subdivision_id = params.subdivisionId;
-  }
+    const apiParams = {};
+  if (params.legalGroupId) apiParams.legal_group_id = params.legalGroupId;
+  if (params.legalEntityId) apiParams.legal_entity_id = params.legalEntityId;
+  if (params.parentDivisionId) apiParams.parent_division_id = params.parentDivisionId;
+  if (params.subdivisionId) apiParams.subdivision_id = params.subdivisionId;
 
   const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
   const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
@@ -773,6 +777,7 @@ export async function fetchFilterOptions(params = {}) {
   return {
     ...res,
     // Normalized {id, name} arrays for hierarchy dropdowns
+    legal_groups:     normalizeIdName(res.legal_groups),
     legal_entities:   normalizeIdName(res.legal_entities),
     parent_divisions: normalizeIdName(res.parent_divisions),
     subdivisions:     normalizeIdName(res.subdivisions),

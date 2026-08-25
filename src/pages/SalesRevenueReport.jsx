@@ -43,11 +43,12 @@ const FIRST_DAY = `${_y}-${pad(_m + 1)}-01`;
 const LAST_DAY  = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())}`;
 
 const DEFAULT_FILTERS = {
-  // Hierarchy filters — ID-based (preferred per CFO UAT handoff document)
-  legalEntityId:      null,   // numeric ID from filter-options response
-  parentDivisionId:   null,
-  subdivisionId:      null,
-  analysisCodeId:     null,
+  // Hierarchy filters - ID-based (preferred per CFO UAT handoff document)
+  legalGroupId:       ['All'],
+  legalEntityId:      ['All'],
+  parentDivisionId:   ['All'],
+  subdivisionId:      ['All'],
+  analysisCodeId:     'All',
   // People / currency filters
   salesman:           'All',
   invoiceCurrency:    'All',
@@ -1127,32 +1128,40 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
   }, []);
 
   const isAll = !value || value.length === 0 || (value.length === 1 && value[0] === 'All');
-  const toggle = (opt) => {
-    if (opt === 'All') { onChange(['All']); return; }
+  const toggle = (optId) => {
+    if (optId === 'All') { onChange(['All']); return; }
     const cur = isAll ? [] : value.filter(v => v !== 'All');
-    const next = cur.includes(opt) ? cur.filter(v => v !== opt) : [...cur, opt];
+    const next = cur.includes(optId) ? cur.filter(v => v !== optId) : [...cur, optId];
     onChange(next.length === 0 ? ['All'] : next);
   };
 
-  const selectedVals = value.filter(v => v !== 'All');
-  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0] : (selectedVals.length + ' selected');
+  const selectedVals = options.filter(o => value.includes(o.id));
+  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
 
   return (
     <div ref={ref} style={{ position: 'relative', ...style }}>
       <div onClick={() => setOpen(o => !o)} style={{ ...selStyle, backgroundImage: 'none', appearance: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85%' }}>{label}</span>
-        <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '?' : '?'}</span>
       </div>
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+
+          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
+            <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>?</span>}
+            </span>
+            All
+          </div>
+
           {options.map(opt => {
-            const selected = opt === 'All' ? isAll : !isAll && value.includes(opt);
+            const selected = !isAll && value.includes(opt.id);
             return (
-              <div key={opt} onClick={() => toggle(opt)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
                 <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+                  {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>?</span>}
                 </span>
-                {opt}
+                {opt.name}
               </div>
             );
           })}
@@ -1172,7 +1181,6 @@ export default function SalesRevenueReport() {
   /* ── Filter state ─────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
-  const [subDivMulti, setSubDivMulti] = useState(["All"]);
   const [userAccess, setUserAccess] = useState(null);
   const [permissions, setPermissions] = useState([]);
 
@@ -1187,6 +1195,7 @@ export default function SalesRevenueReport() {
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
+    legalGroups:             [],   // [{id, name}]
     legalEntities:           [],   // [{id, name}]
     parentDivs:              [],   // [{id, name}]
     subDivs:                 [],   // [{id, name}]
@@ -1289,7 +1298,8 @@ export default function SalesRevenueReport() {
   useEffect(() => {
     setLoading(prev => ({ ...prev, filters: true }));
     fetchFilterOptions({
-      // Cascade by IDs — the new primary contract per handoff document
+      // Cascade by IDs - the new primary contract per handoff document
+      legalGroupId:     filters.legalGroupId,
       legalEntityId:    filters.legalEntityId,
       parentDivisionId: filters.parentDivisionId,
       subdivisionId:    filters.subdivisionId,
@@ -1309,6 +1319,7 @@ export default function SalesRevenueReport() {
         setFilterOptions(prev => ({
           ...prev,
           // {id, name} arrays — already normalized in fetchFilterOptions
+          legalGroups:   data.legal_groups     || [],
           legalEntities: data.legal_entities   || [],
           parentDivs:    data.parent_divisions  || [],
           subDivs:       data.subdivisions      || [],
@@ -1693,25 +1704,17 @@ export default function SalesRevenueReport() {
     setFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
   };
-  const updateFilter = (key, val) => {
+    const updateFilter = (key, val) => {
     setFilters(prev => {
       const next = { ...prev, [key]: val };
-      // Cascade reset: selecting a parent clears children
-      if (key === 'legalEntityId') {
-        next.parentDivisionId = null;
-        next.subdivisionId = null;
-        next.salesman = 'All';
-      } else if (key === 'parentDivisionId') {
-        next.subdivisionId = null;
-        next.salesman = 'All';
-      } else if (key === 'subdivisionId') {
-        next.salesman = 'All';
-      }
+      // Cascade resets using arrays
+      if (key === 'legalGroupId') { next.legalEntityId = ['All']; next.parentDivisionId = ['All']; next.subdivisionId = ['All']; }
+      if (key === 'legalEntityId') { next.parentDivisionId = ['All']; next.subdivisionId = ['All']; }
+      if (key === 'parentDivisionId') { next.subdivisionId = ['All']; }
       return next;
     });
   };
-
-  /* ── Derived KPI values from /summary ─────────────────────────── */
+/* ── Derived KPI values from /summary ─────────────────────────── */
   // Revenue
   // CFO UAT Update: Use reporting currency values by default
   const totalRevenue    = summary?.sales_ptd ?? summary?.total_revenue ?? summary?.ytd_revenue ?? null;
@@ -1995,34 +1998,48 @@ export default function SalesRevenueReport() {
 
         {/* ── Filter Bar ── */}
 
-        <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {filterOptions.legalEntities.length > 2 && (
+                <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+
+          {filterOptions.legalGroups && filterOptions.legalGroups.length > 0 && (
+          <FilterField label="Legal Group">
+            <MultiSelect
+              options={filterOptions.legalGroups}
+              value={filters.legalGroupId}
+              onChange={(vals) => updateFilter('legalGroupId', vals)}
+              placeholder="All Groups"
+            />
+          </FilterField>
+          )}
+
+          {filterOptions.legalEntities.length > 0 && (
           <FilterField label="Legal Entity">
-            <select id="filter-legal-entity" style={{...selStyle, opacity: filterOptions.legalEntities.length <= 2 ? 0.6 : 1}} disabled={filterOptions.legalEntities.length <= 2} value={filters.legalEntity} onChange={e => updateFilter('legalEntity', e.target.value)}>
-              {filterOptions.legalEntities.map(o => <option key={o}>{o}</option>)}
-            </select>
+            <MultiSelect
+              options={filterOptions.legalEntities}
+              value={filters.legalEntityId}
+              onChange={(vals) => updateFilter('legalEntityId', vals)}
+              placeholder="All Entities"
+            />
           </FilterField>
           )}
 
-          {filterOptions.parentDivs.length > 2 && (
+          {filterOptions.parentDivs.length > 0 && (
           <FilterField label="Parent Division">
-            <select id="filter-parent-div" style={{...selStyle, opacity: filterOptions.parentDivs.length <= 2 ? 0.6 : 1}} disabled={filterOptions.parentDivs.length <= 2} value={filters.parentDiv} onChange={e => updateFilter('parentDiv', e.target.value)}>
-              {filterOptions.parentDivs.map(o => <option key={o}>{o}</option>)}
-            </select>
+            <MultiSelect
+              options={filterOptions.parentDivs}
+              value={filters.parentDivisionId}
+              onChange={(vals) => updateFilter('parentDivisionId', vals)}
+              placeholder="All Divisions"
+            />
           </FilterField>
           )}
 
-          {(filterOptions.subDivs.length > 2 || filters.subDiv !== 'All') && (
+          {(filterOptions.subDivs.length > 0 || filters.subdivisionId !== 'All') && (
           <FilterField label="Sub-Division">
             <MultiSelect
               options={filterOptions.subDivs}
-              value={subDivMulti}
-              onChange={(vals) => {
-                setSubDivMulti(vals);
-                const single = vals.includes('All') || vals.length === 0 ? 'All' : vals[0];
-                updateFilter('subDiv', single);
-              }}
-              placeholder="All"
+              value={filters.subdivisionId}
+              onChange={(vals) => updateFilter('subdivisionId', vals)}
+              placeholder="All Sub-Divs"
             />
           </FilterField>
           )}
@@ -2031,7 +2048,6 @@ export default function SalesRevenueReport() {
           <FilterField label="Salesman">
             <select id="filter-salesman" style={{...selStyle, opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1}} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
               {filterOptions.salesmen.map((o, idx) => {
-                // Guarantee o is always a string (belt-and-suspenders guard)
                 const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
                 const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
                 return <option key={`salesman-${idx}`} value={val}>{label}</option>;
