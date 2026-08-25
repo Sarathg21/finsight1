@@ -20,7 +20,7 @@ export const API_BASE =
 
 // Static display constant – always shows the real backend host in the UI
 // regardless of whether API_BASE is empty (proxy mode) or a full URL.
-export const BACKEND_HOST = '13.233.207.68:8000';
+export const BACKEND_HOST = 'localhost:8000';
 
 const LOGIN_URL = `${API_BASE}/api/auth/login`;
 

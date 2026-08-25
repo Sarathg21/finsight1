@@ -778,21 +778,20 @@ function Sparkline({ data, color, height = 40 }) {
   );
 }
 
-/* ─── KPI Card ──────────────────────────────────────────────────── */
-function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency }) {
+function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, achievementPct, variance }) {
   const [displayVal, setDisplayVal] = useState(0);
   const [hover, setHover]           = useState(false);
 
   useEffect(() => {
     if (numericValue === null || numericValue === undefined) return;
     setDisplayVal(0);
-    const target = numericValue;
+    const targetVal = numericValue;
     const duration = 900;
-    const step = target / (duration / 16);
+    const step = targetVal / (duration / 16);
     let cur = 0;
     const timer = setInterval(() => {
       cur += step;
-      if (cur >= target) { setDisplayVal(target); clearInterval(timer); }
+      if (cur >= targetVal) { setDisplayVal(targetVal); clearInterval(timer); }
       else setDisplayVal(cur);
     }, 16);
     return () => clearInterval(timer);
@@ -858,7 +857,8 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           </div>
         )}
 
-        {(changePct !== undefined || changeLabel) && !loading && !error && (
+        {/* Existing Change Info */}
+        {(changePct !== undefined || changeLabel) && !loading && !error && (!target) && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap',
             fontSize: '0.62rem', fontWeight: 600, color: '#64748b',
@@ -866,6 +866,27 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           }}>
             {(changePct !== undefined && changePct !== null) && <VarBadge val={changePct} />}
             {changeLabel && <span>{changeLabel}</span>}
+          </div>
+        )}
+
+        {/* Target & Achievement Row */}
+        {!loading && !error && target != null && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+            fontSize: '0.65rem', fontWeight: 600, color: '#475569',
+            marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.03)', borderRadius: 6
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+              🎯 <span style={{ color: '#0f172a' }}>{currency || ''} {fmtAxisNum(target)}</span>
+            </span>
+            <span style={{ color: '#cbd5e1' }}>|</span>
+            <span style={{
+              color: achievementPct >= 100 ? '#10b981' : '#f59e0b',
+              display: 'flex', alignItems: 'center', gap: 2
+            }}>
+              {achievementPct >= 100 ? '📈' : '📉'}
+              {achievementPct != null ? `${Number(achievementPct).toFixed(1)}%` : '—'}
+            </span>
           </div>
         )}
       </div>
@@ -1652,16 +1673,24 @@ export default function SalesRevenueReport() {
 
   /* ── Derived KPI values from /summary ─────────────────────────── */
   // Revenue
-  const totalRevenue    = summary?.total_revenue    ?? summary?.ytd_revenue ?? null;
-  const mtdRevenue      = summary?.mtd_revenue      ?? null;
-  const ytdRevenue      = summary?.ytd_revenue      ?? null;
-  const mtdChangePct    = summary?.mtd_change_pct   ?? null;
-  const ytdChangePct    = summary?.ytd_change_pct   ?? null;
+  // CFO UAT Update: Use reporting currency values by default
+  const totalRevenue    = summary?.sales_ptd ?? summary?.total_revenue ?? summary?.ytd_revenue ?? null;
+  const mtdRevenue      = summary?.sales_ptd ?? summary?.mtd_revenue ?? null;
+  const ytdRevenue      = summary?.sales_ytd ?? summary?.ytd_revenue ?? null;
+  // Variance vs Target % is preferred over MoM change if targets exist
+  const mtdChangePct    = summary?.variance_target_ptd_pct ?? summary?.mtd_change_pct ?? null;
+  const ytdChangePct    = summary?.variance_target_ytd_pct ?? summary?.ytd_change_pct ?? null;
+
+  // New Target fields
+  const ptdTarget       = summary?.target_sales_ptd ?? null;
+  const ptdAchievement  = summary?.achievement_ptd_pct ?? null;
+  const ptdVariance     = summary?.variance_target_ptd ?? null;
+
   // Gross Profit MTD — exclusively from /summary which computes the correct MTD period.
   // DO NOT fall back to grossMarginData.gross_margin — that is the full-period total,
   // not the MTD value, and would show an incorrect inflated number (e.g. 5.9M) when
   // Sales MTD is 0 (no data in the selected month).
-  const grossMargin    = summary?.gross_profit_mtd ?? null;
+  const grossMargin    = summary?.gross_profit_ptd ?? summary?.gross_profit_mtd ?? null;
   const grossMarginPct  = grossMarginData?.margin_pct ?? grossMarginData?.gross_margin_pct ?? summary?.gross_margin_pct ?? null;
   const grossMarginChg  = grossMarginData?.mtd_change_pct   ?? grossMarginData?.gross_margin_change_pct ?? summary?.gross_margin_change_pct ?? null;
   // Counts
@@ -1680,7 +1709,7 @@ export default function SalesRevenueReport() {
     ? salesmanSummaryData[0]
     : null;
   const topSalesmanName  = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
-  const topSalesmanValue   = topSalesmanRecord ? Number(topSalesmanRecord.sales || 0) : null;
+  const topSalesmanValue   = topSalesmanRecord ? Number(topSalesmanRecord.sales ?? topSalesmanRecord.sales_ptd ?? 0) : null;
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
@@ -2015,8 +2044,11 @@ export default function SalesRevenueReport() {
             label={"Total Sales (PTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
-            changeLabel="vs Mar 2024"
+            changeLabel={ptdTarget != null ? "vs Target" : "vs Mar 2024"}
             up={mtdChangePct !== null ? mtdChangePct >= 0 : null}
+            target={ptdTarget}
+            achievementPct={ptdAchievement}
+            variance={ptdVariance}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
             iconBg="#dbeafe"
             cardBg="#f0f5ff"
@@ -2032,8 +2064,11 @@ export default function SalesRevenueReport() {
             label={"Sales (YTD)"}
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
-            changeLabel="vs YTD Apr 2023"
+            changeLabel={summary?.target_sales_ytd != null ? "vs Target" : "vs YTD Apr 2023"}
             up={ytdChangePct !== null ? ytdChangePct >= 0 : null}
+            target={summary?.target_sales_ytd ?? null}
+            achievementPct={summary?.achievement_ytd_pct ?? null}
+            variance={summary?.variance_target_ytd ?? null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
             iconBg="#dcfce7"
             cardBg="#f0fdf4"
@@ -2049,8 +2084,10 @@ export default function SalesRevenueReport() {
             label={"Gross Profit (PTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
-            changeLabel="vs Mar 2024"
+            changeLabel={summary?.target_gross_margin_ptd != null ? "vs Target" : "vs Mar 2024"}
             up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
+            target={summary?.target_gross_margin_ptd ?? null}
+            // achievementPct not returned in the schema for Gross Margin explicitly, leaving null unless derived
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
             iconBg="#ede9fe"
             cardBg="#f5f3ff"
@@ -2247,6 +2284,9 @@ export default function SalesRevenueReport() {
                         <filter id="lineShadow" x="-20%" y="-20%" width="140%" height="140%">
                           <feDropShadow dx="0" dy="6" stdDeviation="6" floodColor="#6366f1" floodOpacity="0.25" />
                         </filter>
+                        <filter id="targetShadow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#10b981" floodOpacity="0.4" />
+                        </filter>
                         <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}>
                             <animate attributeName="stopOpacity" values="0.2;0.5;0.2" dur="3s" repeatCount="indefinite" />
@@ -2258,6 +2298,21 @@ export default function SalesRevenueReport() {
                       <XAxis className="axis-fade-in" dataKey="period" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} dy={8} padding={{ left: 24, right: 34 }} />
                       <YAxis className="axis-fade-in" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
                       <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
+
+                      <Line
+                        type="monotone"
+                        dataKey={(d) => d.target_sales ?? d.target_sales_aed ?? null}
+                        name="Target"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        activeDot={{ r: 5, stroke: '#10b981', strokeWidth: 2, fill: '#fff' }}
+                        isAnimationActive={true}
+                        animationDuration={1500}
+                        connectNulls
+                      />
+
                       <Area
                         type="monotone"
                         dataKey="currentYear"
@@ -2321,6 +2376,12 @@ export default function SalesRevenueReport() {
                       <span style={{ width: 20, height: 4, background: '#6366f1', display: 'inline-block', borderRadius: 2 }} />
                       Current Year
                     </div>
+                    {activePts.some(d => d.target_sales || d.target_sales_aed) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
+                        <span style={{ width: 20, height: 4, background: 'repeating-linear-gradient(90deg, #10b981, #10b981 4px, transparent 4px, transparent 8px)', display: 'inline-block', borderRadius: 2 }} />
+                        Target
+                      </div>
+                    )}
                     {(() => {
                       const latest = [...trendData].reverse().find(d => d.currentYear != null);
                       if (latest) {

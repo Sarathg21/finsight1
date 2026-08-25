@@ -377,19 +377,24 @@ function buildBSParams(filters = {}) {
   const active = (val) =>
     val && val !== 'All' && val !== 'all' ? val : undefined;
 
-  let leId = undefined;
+  let leName = undefined;
   if (filters.legalEntityId && filters.legalEntityId !== 'All' && filters.legalEntityId !== '') {
-    const num = Number(filters.legalEntityId);
-    if (!isNaN(num) && num > 0) {
-      leId = num;
+    // We only have the ID in the frontend filter state, so find the name from LEGAL_ENTITIES
+    const le = LEGAL_ENTITIES.find(e => e.id == filters.legalEntityId);
+    if (le) {
+        leName = le.name;
+    } else {
+        // Fallback for dynamic entities not in the static list, if they exist
+        leName = filters.legalEntityName || undefined; // Assuming you might add this if needed
     }
+    // Alternatively, if the backend was updated to accept legal_entity_id, this wouldn't be needed, but per diagnostic, it expects name.
   }
 
   return {
     period:          active(filters.period),
     compare_period:  active(filters.comparePeriod),
     currency:        active(filters.currency),
-    legal_entity_id: leId,
+    legal_entity:    leName || active(filters.legalEntityName), // Use name
     ledger:          active(filters.ledger),
     section:         active(filters.section),
     sub_section:     active(filters.subSection),
@@ -524,8 +529,22 @@ export async function fetchBSFilters(params = {}) {
  */
 export async function fetchBSSummary(filters) {
   const res = await apiCall('/api/bs/summary', buildBSParams(filters));
-  // Backend returns { status: 'ok', data: {...} } — unwrap .data
-  return res?.data ?? res;
+  const raw = res?.data ?? res;
+  if (!raw || !raw.sections) return raw;
+
+  // Normalize backend field names to frontend expected names
+  raw.sections = raw.sections.map(sec => ({
+    ...sec,
+    section: sec.name || sec.section,
+    section_total: sec.total ?? sec.section_total,
+    sub_sections: (sec.sub_sections || []).map(sub => ({
+      ...sub,
+      sub_section: sub.name || sub.sub_section,
+      sub_total: sub.total ?? sub.sub_total,
+    }))
+  }));
+
+  return raw;
 }
 
 /**
@@ -546,7 +565,29 @@ export async function fetchBSSubDivision(filters, pageOpts = {}) {
     sort_dir:  pageOpts.sort_dir  ?? 'asc',
   };
   const res = await apiCall('/api/bs/subdivision', params);
-  return res?.data ?? res;
+  const raw = res?.data ?? res;
+  if (!raw || !Array.isArray(raw.data)) return raw;
+
+  // Pivot flat rows into subdivision groupings
+  const bySubdiv = new Map();
+  raw.data.forEach(row => {
+    const key = row.sub_division_name || 'UNKNOWN';
+    if (!bySubdiv.has(key)) {
+      bySubdiv.set(key, {
+        sub_division_name: key,
+        sub_division_code: row.sub_division_code || '—',
+        section_totals: {},
+        grand_total: 0
+      });
+    }
+    const grp = bySubdiv.get(key);
+    const amt = row.balance_amount || 0;
+    grp.section_totals[row.section] = amt;
+    grp.grand_total += amt;
+  });
+
+  raw.data = Array.from(bySubdiv.values());
+  return raw;
 }
 
 /**
@@ -577,7 +618,17 @@ export async function fetchBSTrend(filters) {
   };
 
   const res = await apiCall('/api/bs/trend', params);
-  return res?.data ?? res;
+  const raw = res?.data ?? res;
+  if (!raw || !Array.isArray(raw.series)) return raw;
+
+  // Extract the balance_amount from the section-named key
+  const sectionKey = base.section || 'APPLICATION OF FUNDS';
+  raw.series = raw.series.map(p => ({
+    ...p,
+    balance_amount: p[sectionKey] ?? p.balance_amount ?? 0
+  }));
+
+  return raw;
 }
 
 /**

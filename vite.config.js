@@ -6,9 +6,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   // ── Backend target ────────────────────────────────────────────────────────────
-  // Override with: set VITE_BACKEND=http://localhost:8000 (for local uvicorn dev)
-  // Default: http://13.233.207.68:8000 (remote dev backend per .env / authApi specs)
-  const BACKEND = process.env.VITE_BACKEND || env.VITE_BACKEND || env.VITE_API_BASE_URL || 'http://13.233.207.68:8000';
+  // Default: http://localhost:8000 (local backend)
+  const BACKEND = process.env.VITE_BACKEND || env.VITE_BACKEND || env.VITE_API_BASE_URL || 'http://localhost:8000';
 
   const proxyConfig = {
     target: BACKEND,
