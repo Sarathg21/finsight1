@@ -579,6 +579,7 @@ function DetailApiModal({
                       );
                     }
                     // Only sum numeric columns where all visible sorted rows have numeric values
+                    if (col.noTotal) return <td key={ci} style={{ ...TD, padding: '8px 8px' }}>-</td>;
                     const numericVals = sorted
                       .map(row => {
                         const raw = row[col.key];
@@ -1829,15 +1830,14 @@ export default function SalesRevenueReport() {
   ];
 
   const customerSummaryCols = [
-    { label: 'Customer Name',    key: 'customer_name',           align: 'left'                                            },
-    { label: 'Account Number',   key: 'customer_account_number', align: 'left'                                            },
-    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '—'                     },
-    { label: `Sales (${rc})`,    key: 'sales',                   align: 'right',  fmt: fmtCurrency                        },
-    // Gross Margin currency treatment under review — not changing
-    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right',  fmt: fmtCurrency                        },
-    { label: '% Share',          key: 'percentage',              align: 'right',  fmt: v => fmtPct(v)                     },
-    // # Transactions removed — field blank (not returned by endpoint)
-    // Currency removed — field blank (not returned by endpoint)
+    { label: 'Customer Name',        key: 'customer_name',           align: 'left' },
+    { label: 'Legal Entity',         key: 'legal_entity',            align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
+    { label: 'Parent Division',      key: 'parent_division',         align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
+    { label: 'Account Number',       key: 'customer_account_number', align: 'left', fmt: v => v ?? '-' },
+    { label: `Sales (${rc})`,        key: 'sales',                   align: 'right', fmt: fmtCurrency },
+    { label: `Gross Margin (${rc})`, key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
+    { label: '% Gross Margin',       key: 'gross_margin_pct',        align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
+    { label: '% Share',              key: 'percentage',              align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
   ];
 
   const customerDetailCols = [
@@ -1862,13 +1862,17 @@ export default function SalesRevenueReport() {
 
   // Salesman View All — aggregated
   const salesmanSummaryCols = [
-    { label: 'Sales Person',   key: 'salesman_name',    align: 'left' },
-    { label: `Sales (${rc})`,  key: 'sales',            align: 'right', fmt: fmtCurrency },
-    // Gross Margin currency treatment under review — not changing
-    { label: 'Gross Margin',   key: 'gross_margin',     align: 'right', fmt: fmtCurrency },
-    { label: '% Share',        key: 'percentage',       align: 'right', fmt: v => fmtPct(v) },
-    // # Transactions removed — field blank
-    // Currency removed — field blank
+    { label: 'Salesperson',          key: 'salesman_name',           align: 'left', fmt: (v, row) => v ?? row.sales_person ?? row.salesman ?? '-' },
+    { label: 'Code',                 key: 'salesman_code',           align: 'center', fmt: (v, row) => v ?? row.employee_id ?? '-' },
+    { label: 'Legal Entity',         key: 'legal_entity',            align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
+    { label: 'Parent Division',      key: 'parent_division',         align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
+    { label: 'Sub Division',         key: 'subdivision',             align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.subdivision ?? '-' },
+    { label: `Sales (${rc})`,        key: 'sales',                   align: 'right', fmt: fmtCurrency },
+    { label: `GM (${rc})`,           key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
+    { label: '% GM',                 key: 'gross_margin_pct',        align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
+    { label: 'Target Sales',         key: 'target_sales',            align: 'right', fmt: fmtCurrency },
+    { label: 'Target GM',            key: 'target_gross_margin',     align: 'right', fmt: fmtCurrency },
+    { label: 'Target % GM',          key: 'target_gross_margin_pct', align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
   ];
 
   // Salesman Detail drill-down — updated for CFO UAT fields
