@@ -539,12 +539,11 @@ async function apiCall(path, params = {}) {
       return getMockDataForPath(path);
     }
 
-    if (res.status >= 500) {
-      console.warn(`[salesRevenueApi] ${res.status} server error on ${url}. Falling back to mock data.`);
-      return getMockDataForPath(path);
-    }
+    // For authenticated requests: do NOT silently replace backend errors with mock data.
+    // 5xx errors must be surfaced to the UI so UAT can detect backend problems.
+    // (Demo mode — no token — uses getMockDataForPath via the early-return above.)
 
-    // Capture the full response body for debugging 502s/500s
+    // Capture the full response body for debugging
     const rawBody = await res.text().catch(() => '');
     let body = {};
     try { body = JSON.parse(rawBody); } catch { /* non-JSON body */ }
@@ -610,29 +609,41 @@ async function apiCall(path, params = {}) {
  * Normalise the filter state object into API-ready query params.
  * Maps frontend camelCase filter keys → exact backend snake_case param names.
  *
- * Backend field names accepted by stg_sales_revenue_detail APIs:
- *   from_date, to_date, legal_entity, division_code, subdivision_code,
- *   business_unit, sales_person, invoice_currency
+ * CFO UAT Update: Hierarchy filters now use IDs as the primary contract.
+ * Backend field names per handoff document:
+ *   from_date, to_date,
+ *   legal_entity_id, parent_division_id, subdivision_id, analysis_code_id,
+ *   sales_person, invoice_currency, reporting_currency
  *
- * NOTE: sales_person is the confirmed backend field name (not 'salesman').
- *       The selected value is passed as-is, e.g. "E002767-Sreejith Prasannan Pillai".
+ * Name-based fallbacks (legal_entity, division_code, subdivision_code) are
+ * retained for backward compatibility when IDs are not yet available.
  */
 function buildParams(filters = {}) {
   // Helper: return value only when it exists and is not a catch-all placeholder
   const active = (val) =>
     val && val !== 'All' && val !== 'all' ? val : undefined;
 
+  // ID-based hierarchy params (preferred per handoff document)
+  const leId  = active(filters.legalEntityId);
+  const pdId  = active(filters.parentDivisionId);
+  const sdId  = active(filters.subdivisionId);
+  const acId  = active(filters.analysisCodeId);
+
   return {
-    // ── Date range ──────────────────────────────────────────────
+    // ── Date range ──────────────────────────────────────────────────────────
     from_date:               filters.fromDate                  || undefined,
     to_date:                 filters.toDate                    || undefined,
-    // ── Dimension filters (stg_sales_revenue_detail) ────────────
-    legal_entity:            active(filters.legalEntity),
-    division_code:           active(filters.parentDiv),
-    subdivision_code:        active(filters.subDiv),
-    sales_person:            active(filters.salesman),          // backend field: sales_person
+    // ── ID-based hierarchy filters (primary contract per CFO UAT handoff) ──
+    legal_entity_id:         leId,
+    parent_division_id:      pdId,
+    subdivision_id:          sdId,
+    analysis_code_id:        acId,
+    // ── Reporting currency (controls display conversion on backend) ─────────
+    reporting_currency:      active(filters.reportingCurrency),
+    // ── People / invoice filters ────────────────────────────────────────────
+    sales_person:            active(filters.salesman),
     invoice_currency:        active(filters.invoiceCurrency),
-    // ── Customer / transaction filters (details endpoint) ───────
+    // ── Customer / transaction filters (details endpoint) ──────────────────
     customer_name:           filters.customerName              || undefined,
     customer_account_number: filters.customerAccountNumber     || undefined,
     project_reference:       filters.projectReference         || undefined,
@@ -714,26 +725,69 @@ export async function fetchFilters() {
 
 /**
  * GET /api/sales-revenue/filter-options
- * Cascading filter options
+ * Returns cascading filter options with ID+name objects for hierarchy levels.
+ *
+ * CFO UAT response shape:
+ * {
+ *   legal_groups:           [{ id, name }],
+ *   legal_entities:         [{ id, name }],
+ *   parent_divisions:       [{ id, name }],
+ *   subdivisions:           [{ id, name }],
+ *   analysis_codes:         [{ id, name }],
+ *   invoice_currencies:     [string],
+ *   reporting_currencies:   [{ currency_code, conversion_rate_to_aed }] or [string],
+ *   currencies:             [string],  // backward-compat
+ *   default_reporting_currency: string,
+ *   salesmen:               [string | { employee_id, salesman_name }],
+ * }
  */
 export async function fetchFilterOptions(params = {}) {
+  // Build cascade params using IDs when available, fall back to names
   const apiParams = {};
-  if (params.legalEntity && params.legalEntity !== 'All') apiParams.legal_entity = params.legalEntity;
-  if (params.parentDiv && params.parentDiv !== 'All') apiParams.parent_division = params.parentDiv;
-  if (params.subDiv && params.subDiv !== 'All') apiParams.subdivision = params.subDiv;
-  
+  if (params.legalEntityId && params.legalEntityId !== 'All') {
+    apiParams.legal_entity_id = params.legalEntityId;
+  }
+  if (params.parentDivisionId && params.parentDivisionId !== 'All') {
+    apiParams.parent_division_id = params.parentDivisionId;
+  }
+  if (params.subdivisionId && params.subdivisionId !== 'All') {
+    apiParams.subdivision_id = params.subdivisionId;
+  }
+
   const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
   const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
   const res = unwrap(raw) || {};
-  let leList = res.legal_entities || [];
-  if (!Array.isArray(leList)) leList = [];
-  const valid = leList
-    .map(e => typeof e === 'object' ? (e.name || e.id || '') : e)
-    .filter(e => e && typeof e === 'string' && e.toLowerCase() !== 'all');
 
-  const set = new Set([...LEGAL_ENTITIES.map(le => le.name), ...valid]);
-  res.legal_entities = Array.from(set).sort();
-  return res;
+  // Normalize each hierarchy list to [{id, name}] objects.
+  // Backend may return strings, {id,name} objects, or mixed.
+  const normalizeIdName = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list.map((e, i) => {
+      if (typeof e === 'object' && e !== null) {
+        return { id: e.id ?? e.legal_entity_id ?? e.parent_division_id ?? e.subdivision_id ?? i, name: e.name || String(e.id || i) };
+      }
+      return { id: e, name: String(e) };
+    }).filter(e => e.name && String(e.name).toLowerCase() !== 'all');
+  };
+
+  return {
+    ...res,
+    // Normalized {id, name} arrays for hierarchy dropdowns
+    legal_entities:   normalizeIdName(res.legal_entities),
+    parent_divisions: normalizeIdName(res.parent_divisions),
+    subdivisions:     normalizeIdName(res.subdivisions),
+    analysis_codes:   normalizeIdName(res.analysis_codes),
+    // Salesmen: may be strings or objects
+    salesmen: Array.isArray(res.salesmen) ? res.salesmen : [],
+    // Invoice currencies: string list
+    invoice_currencies: Array.isArray(res.invoice_currencies || res.invoiceCurrencies)
+      ? (res.invoice_currencies || res.invoiceCurrencies) : [],
+    // Reporting currencies: may be [{currency_code, ...}] or [string]
+    reporting_currencies: Array.isArray(res.reporting_currencies || res.currencies)
+      ? (res.reporting_currencies || res.currencies) : [],
+    // Default reporting currency from backend
+    default_reporting_currency: res.default_reporting_currency || 'AED',
+  };
 }
 
 /* ── View-All Detail APIs (new endpoints) ──────────────────────── */
@@ -967,20 +1021,14 @@ export async function fetchCustomerDetail(filters) {
  *   ]
  * }
  *
- * NOTE: Falls back to local mock data if the backend returns a 5xx error
- * (endpoint may not be implemented yet on the server).
+ * CFO UAT: Backend is now reconciled. All errors propagate to the UI.
+ * Response fields: legal_entity, parent_division, subdivision, ptd_from_date,
+ *   report_date, revenue_ptd, revenue_ytd, revenue_ptd_py, revenue_ytd_py,
+ *   gross_margin_ptd, gross_margin_ytd, gross_margin_pct,
+ *   target_sales_ptd, target_sales_ytd, target_gross_margin_ptd, target_gross_margin_ytd,
+ *   target_gross_margin_pct, variance_target_ptd, variance_target_ytd,
+ *   variance_target_ptd_pct, variance_target_ytd_pct, percentage, reporting_currency
  */
 export async function fetchSummaryDetail(filters) {
-  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters))
-    .catch((err) => {
-      if (err?.status >= 500 || err?.status === 0) {
-        console.warn(
-          `[salesRevenueApi] summary-detail returned ${err?.status ?? 'network error'} — ` +
-          'falling back to local mock data. Backend endpoint may not be implemented yet.'
-        );
-        return MOCK_SUMMARY_DETAIL;
-      }
-      // Re-throw auth errors and other client errors so the caller can handle them
-      throw err;
-    });
+  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters));
 }

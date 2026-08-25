@@ -43,14 +43,17 @@ const FIRST_DAY = `${_y}-${pad(_m + 1)}-01`;
 const LAST_DAY  = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())}`;
 
 const DEFAULT_FILTERS = {
-  legalEntity: 'All',
-  parentDiv:   'All',
-  subDiv:      'All',
-  salesman:    'All',
-  invoiceCurrency: 'All',
-  reportingCurrency: 'AED',
-  fromDate:    FIRST_DAY,
-  toDate:      LAST_DAY,
+  // Hierarchy filters — ID-based (preferred per CFO UAT handoff document)
+  legalEntityId:      null,   // numeric ID from filter-options response
+  parentDivisionId:   null,
+  subdivisionId:      null,
+  analysisCodeId:     null,
+  // People / currency filters
+  salesman:           'All',
+  invoiceCurrency:    'All',
+  reportingCurrency:  'AED', // will be overridden by default_reporting_currency from API on first load
+  fromDate:           FIRST_DAY,
+  toDate:             LAST_DAY,
 };
 
 const DETAILS_PAGE_SIZE = 10;
@@ -1184,12 +1187,14 @@ export default function SalesRevenueReport() {
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
-    legalEntities:  ['All'],
-    parentDivs:     ['All'],
-    subDivs:        ['All'],
-    salesmen:       ['All'],
-    invoiceCurrencies: ['All'],
-    reportingCurrencies: ['AED'],
+    legalEntities:           [],   // [{id, name}]
+    parentDivs:              [],   // [{id, name}]
+    subDivs:                 [],   // [{id, name}]
+    analysisCodes:           [],   // [{id, name}]
+    salesmen:                [],   // strings or {employee_id, salesman_name}
+    invoiceCurrencies:       ['All'],
+    reportingCurrencies:     ['AED'],
+    defaultReportingCurrency:'AED',
     dataAsOf: null,
   });
 
@@ -1280,44 +1285,61 @@ export default function SalesRevenueReport() {
   const canExport = permissions.find(p => p.module_code === 'SALES_REVENUE')?.can_export ?? false;
 
   /* ── Load filter options (Cascading) ─────────────────────────── */
+  const isFirstFilterLoad = useRef(true);
   useEffect(() => {
     setLoading(prev => ({ ...prev, filters: true }));
     fetchFilterOptions({
-      legalEntity: filters.legalEntity,
-      parentDiv: filters.parentDiv,
-      subDiv: filters.subDiv
+      // Cascade by IDs — the new primary contract per handoff document
+      legalEntityId:    filters.legalEntityId,
+      parentDivisionId: filters.parentDivisionId,
+      subdivisionId:    filters.subdivisionId,
     })
       .then(data => {
-        // Always show all 6 standard currencies regardless of dim_currency content
+        // Always include the standard UAT reporting currencies
         const REQUIRED_CURRENCIES = ['AED', 'INR', 'OMR', 'QAR', 'SAR', 'USD'];
-        const rawRC = (
-          data.reporting_currencies || data.reportingCurrencies ||
-          (data.data && (data.data.reporting_currencies || data.data.reportingCurrencies)) ||
-          data.currencies || (data.data && data.data.currencies) || []
-        );
+        const rawRC = data.reporting_currencies || data.currencies || [];
         const fromDb = (Array.isArray(rawRC) ? rawRC : [])
           .map(o => (typeof o === 'object' ? (o.currency_code || o.currency) : o))
           .filter(Boolean).map(c => String(c).toUpperCase());
         const mergedCurrencies = [...new Set([...fromDb, ...REQUIRED_CURRENCIES])].sort();
 
+        // Backend-provided default reporting currency (currently AED)
+        const backendDefault = data.default_reporting_currency || 'AED';
+
         setFilterOptions(prev => ({
           ...prev,
-          legalEntities: ['All', ...(data.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
-          parentDivs:    ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
-          // Backend returns 'subdivisions' key (not 'sub_divisions')
-          subDivs:       ['All', ...(data.subdivisions || data.sub_divisions || []).filter(e => e && e !== 'All')],
-          salesmen:      ['All', ...(data.salesmen || []).filter(e => e && e !== 'All')],
-          invoiceCurrencies: ['All', ...(data.invoice_currencies || data.invoiceCurrencies || [])],
+          // {id, name} arrays — already normalized in fetchFilterOptions
+          legalEntities: data.legal_entities   || [],
+          parentDivs:    data.parent_divisions  || [],
+          subDivs:       data.subdivisions      || [],
+          analysisCodes: data.analysis_codes    || [],
+          salesmen:      data.salesmen          || [],
+          invoiceCurrencies: ['All', ...(data.invoice_currencies || [])],
           reportingCurrencies: mergedCurrencies,
-          dataAsOf: data.data_as_of || data.dataAsOf || (data.data && (data.data.data_as_of || data.data.dataAsOf)) || null,
+          defaultReportingCurrency: backendDefault,
+          dataAsOf: data.data_as_of || null,
         }));
+
+        // Apply backend default currency only on the very first load,
+        // not on cascade refreshes (to preserve user-selected currency).
+        if (isFirstFilterLoad.current) {
+          isFirstFilterLoad.current = false;
+          setFilters(prev => ({
+            ...prev,
+            reportingCurrency: prev.reportingCurrency || backendDefault,
+          }));
+          setAppliedFilters(prev => ({
+            ...prev,
+            reportingCurrency: prev.reportingCurrency || backendDefault,
+          }));
+        }
       })
       .catch(err => {
         handle401(err);
         setErrors(prev => ({ ...prev, filters: err.message || 'Failed to load filter options' }));
       })
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
-  }, [filters.legalEntity, filters.parentDiv, handle401]); // subDiv intentionally excluded — it is the leaf level, not a cascade trigger
+  }, [filters.legalEntityId, filters.parentDivisionId, handle401]); // subdivisionId excluded — leaf level, not a cascade trigger
 
   /* ── Fetch details page ───────────────────────────────────────── */
   const fetchDetailsPage = useCallback((f, page) => {
@@ -1367,14 +1389,6 @@ export default function SalesRevenueReport() {
     guard('summary', fetchSummary(f)).then(d => {
       if (!d) return;
 
-      // Map directly from the exact backend fields
-      const mtd = d.sales_mtd ?? d.mtd_revenue ?? d.sales_mtd_aed ?? null;
-      const ytd = d.sales_ytd ?? d.ytd_revenue ?? d.sales_ytd_aed ?? null;
-      const prevMtd = d.prev_mtd_revenue ?? d.prev_mtd_sales ?? null;
-      const prevYtd = d.prev_ytd_revenue ?? d.prev_ytd_sales ?? null;
-
-      // Real API returns separate _sales fields for value:
-      // top_legal_entity_sales, top_parent_division_sales
       const normHighlight = (nameVal, salesVal, pctVal) => {
         if (!nameVal) return null;
         const name = typeof nameVal === 'object' ? nameVal.name : nameVal;
@@ -1384,41 +1398,56 @@ export default function SalesRevenueReport() {
       };
 
       setSummary({
-        // Revenue
-        total_revenue:           ytd,
-        mtd_revenue:             mtd,
-        ytd_revenue:             ytd,
-        prev_mtd_revenue:        prevMtd,
-        prev_ytd_revenue:        prevYtd,
-        mtd_change_pct:          d.mtd_change_pct         ?? null,
-        ytd_change_pct:          d.ytd_change_pct         ?? null,
-        // Gross margin (may not be in summary; falls back to grossMarginData)
-        gross_margin:            d.gross_margin           ?? null,
-        gross_profit_mtd:        d.gross_profit_mtd       ?? null,
-        gross_margin_pct:        d.gross_margin_pct       ?? null,
-        gross_margin_change_pct: d.gross_margin_change_pct ?? null,
-        // Counts
-        total_customers:         d.total_customers        ?? null,
-        total_salesmen:          d.total_salesmen         ?? null,
-        // Highlights — exact backend fields
-        top_legal_entity:    normHighlight(
-          d.top_legal_entity,
-          d.top_legal_entity_sales,
-          d.top_legal_entity_pct
-        ),
-        top_parent_division: normHighlight(
-          d.top_parent_division,
-          d.top_parent_division_sales,
-          d.top_parent_division_pct
-        ),
-        data_as_of:              d.data_as_of             ?? null,
-        current_year_label:      d.current_year_label     || 'Current Year',
-        previous_year_label:     d.previous_year_label    || 'Previous Year',
+        // ── CFO UAT Primary fields ──────────────────────────────────────
+        sales_ptd:               d.sales_ptd               ?? null,
+        sales_ytd:               d.sales_ytd               ?? null,
+        gross_profit_ptd:        d.gross_profit_ptd        ?? null,
+        gross_profit_ytd:        d.gross_profit_ytd        ?? null,
+        // Target fields
+        target_sales_ptd:        d.target_sales_ptd        ?? null,
+        target_sales_ytd:        d.target_sales_ytd        ?? null,
+        target_gross_margin_ptd: d.target_gross_margin_ptd ?? null,
+        target_gross_margin_ytd: d.target_gross_margin_ytd ?? null,
+        target_gross_margin_pct: d.target_gross_margin_pct ?? null,
+        // Variance fields
+        variance_target_ptd:     d.variance_target_ptd     ?? null,
+        variance_target_ytd:     d.variance_target_ytd     ?? null,
+        variance_target_ptd_pct: d.variance_target_ptd_pct ?? null,
+        variance_target_ytd_pct: d.variance_target_ytd_pct ?? null,
+        // Achievement fields
+        achievement_ptd_pct:     d.achievement_ptd_pct     ?? null,
+        achievement_ytd_pct:     d.achievement_ytd_pct     ?? null,
+
+        // ── Legacy fallbacks for components not yet updated ─────────────
+        total_revenue:           d.sales_ytd               ?? null,
+        mtd_revenue:             d.sales_ptd               ?? null,
+        ytd_revenue:             d.sales_ytd               ?? null,
+        prev_mtd_revenue:        d.sales_ptd_py            ?? null,
+        prev_ytd_revenue:        d.sales_ytd_py            ?? null,
+        mtd_change_pct:          d.variance_ptd_py_pct     ?? null,
+        ytd_change_pct:          d.variance_ytd_py_pct     ?? null,
+
+        gross_margin:            d.gross_profit_ytd        ?? null,
+        gross_margin_pct:        d.gross_margin_pct        ?? null,
+
+        // ── Dimensions / Highlights ─────────────────────────────────────
+        total_customers:         d.total_customers         ?? null,
+        total_salesmen:          d.total_salesmen          ?? null,
+        top_legal_entity:    normHighlight(d.top_legal_entity, d.top_legal_entity_sales, d.top_legal_entity_pct),
+        top_parent_division: normHighlight(d.top_parent_division, d.top_parent_division_sales, d.top_parent_division_pct),
+
+        // ── Metadata ────────────────────────────────────────────────────
+        reporting_currency:      d.reporting_currency      ?? null,
+        data_as_of:              d.data_as_of              ?? null,
+        current_year_label:      d.current_year_label      || 'Current Year',
+        previous_year_label:     d.previous_year_label     || 'Previous Year',
       });
     });
 
     // 1. Revenue Trend — GET /api/sales-revenue/trend
-    //    API returns: [{ period_name, sales }, ...] (Current Year only)
+    //    CFO UAT: API now returns: [{ period_name, sales, sales_py, target_sales, ... }]
+    //    Recommended chart series: Current Year Actual, Previous Year Actual, Target
+    //    Do NOT calculate target in React — use target_sales from backend.
     guard('trend', fetchTrend(f)).then(d => {
       if (!d) return;
       const arr = Array.isArray(d) ? d : (d?.data || []);
@@ -1426,15 +1455,19 @@ export default function SalesRevenueReport() {
       // Generate a 12-month skeleton
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const yearStr = f.fromDate ? String(new Date(f.fromDate).getFullYear()).slice(-2) : String(new Date().getFullYear()).slice(-2);
-      const skeleton = months.map(m => ({ period: `${m}-${yearStr}`, currentYear: null }));
+      const skeleton = months.map(m => ({ period: `${m}-${yearStr}`, currentYear: null, previousYear: null, target_sales: null }));
 
       let hasCustomPeriods = false;
       arr.forEach(item => {
         const periodStr = item.period_name ?? item.period ?? '';
-        const val = Number(item.sales ?? item.current_year ?? 0);
+        const val      = item.sales        != null ? Number(item.sales)        : null;
+        const valPY    = item.sales_py     != null ? Number(item.sales_py)     : null;
+        const valTgt   = item.target_sales != null ? Number(item.target_sales) : null;
         const match = skeleton.find(s => periodStr.startsWith(s.period.split('-')[0]));
         if (match) {
-          match.currentYear = val;
+          match.currentYear  = val;
+          match.previousYear = valPY;
+          match.target_sales = valTgt;
           match.period = periodStr;
         } else {
           hasCustomPeriods = true;
@@ -1442,8 +1475,10 @@ export default function SalesRevenueReport() {
       });
 
       setTrendData(hasCustomPeriods ? arr.map(item => ({
-        period: item.period_name ?? item.period ?? '',
-        currentYear: Number(item.sales ?? item.current_year ?? 0),
+        period:       item.period_name ?? item.period ?? '',
+        currentYear:  item.sales        != null ? Number(item.sales)        : null,
+        previousYear: item.sales_py     != null ? Number(item.sales_py)     : null,
+        target_sales: item.target_sales != null ? Number(item.target_sales) : null,
       })) : skeleton);
     });
 
@@ -1463,14 +1498,15 @@ export default function SalesRevenueReport() {
       // Populate bySalesmanData chart
       const chartData = rows
         .filter(row => {
-          const name = row.salesman_name || row.salesman || row.sales_person;
+          const name = row.salesman_name || row.sales_person || row.salesman;
           return name && name !== '';
         })
         .map(row => ({
-          name:   row.salesman_name || row.salesman || row.sales_person || 'Unknown',
-          value:  Number(row.sales  || 0),
-          target: Number(row.target     || 0),
-          pct:    Number(row.percentage || 0),
+          name:  row.salesman_name || row.sales_person || row.salesman || 'Unknown',
+          // Use sales_ptd as primary per CFO UAT handoff; fall back to sales for backward compat
+          value: Number(row.sales_ptd ?? row.sales ?? 0),
+          // Do NOT fabricate target — salesperson target allocation not available
+          pct:   Number(row.percentage || 0),
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 15);
@@ -1481,13 +1517,14 @@ export default function SalesRevenueReport() {
     guard('legalEnt', fetchLegalEntityDetail(f)).then(d => {
       if (!d || !d.data) return;
       const arr = d.data;
-      setLegalEntityDetailRaw(arr); // raw rows for summary table
+      setLegalEntityDetailRaw(arr); // raw rows for summary table (new field names)
 
       const grouped = {};
       const pctMap  = {};
       arr.forEach(row => {
         const name = row.legal_entity || 'Unknown';
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales) || 0);
+        // CFO UAT: use sales_ptd as primary; fall back to legacy sales field
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_ptd ?? row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1520,7 +1557,8 @@ export default function SalesRevenueReport() {
       const pctMap  = {};
       arr.forEach(row => {
         const name = row.parent_division || row.division_name || row.division_code || 'Unknown';
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales) || 0);
+        // CFO UAT: use sales_ptd as primary
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_ptd ?? row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1551,7 +1589,8 @@ export default function SalesRevenueReport() {
       const pctMap  = {};
       d.data.forEach(row => {
         const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
-        grouped[name] = (grouped[name] || 0) + (Number(row.sales_aed) || Number(row.sales) || 0);
+        // CFO UAT: use sales_ptd as primary
+        grouped[name] = (grouped[name] || 0) + (Number(row.sales_ptd ?? row.sales_aed ?? row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
       });
 
@@ -1657,14 +1696,15 @@ export default function SalesRevenueReport() {
   const updateFilter = (key, val) => {
     setFilters(prev => {
       const next = { ...prev, [key]: val };
-      if (key === 'legalEntity') {
-        next.parentDiv = 'All';
-        next.subDiv = 'All';
+      // Cascade reset: selecting a parent clears children
+      if (key === 'legalEntityId') {
+        next.parentDivisionId = null;
+        next.subdivisionId = null;
         next.salesman = 'All';
-      } else if (key === 'parentDiv') {
-        next.subDiv = 'All';
+      } else if (key === 'parentDivisionId') {
+        next.subdivisionId = null;
         next.salesman = 'All';
-      } else if (key === 'subDiv') {
+      } else if (key === 'subdivisionId') {
         next.salesman = 'All';
       }
       return next;
@@ -1729,40 +1769,50 @@ export default function SalesRevenueReport() {
   const rc = appliedFilters.reportingCurrency || filters.reportingCurrency || 'AED';
 
   const legalEntityCols = [
-    { label: 'Legal Entity',                    key: 'legal_entity',          align: 'left'   },
-    { label: `Total Revenue (${rc})`,           key: 'sales',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
-    { label: `PTD Revenue (${rc})`,             key: 'mtd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
-    { label: `YTD Revenue (${rc})`,             key: 'ytd_sales',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
-    { label: 'Ledger Currency',                 key: 'ledger_currency',       align: 'center', fmt: v => v ?? '—' },
-    { label: 'Sales in Ledger Currency',        key: 'sales_ledger_currency', align: 'right',
+    { label: 'Legal Entity',                           key: 'legal_entity',              align: 'left'                                                                                                },
+    { label: `PTD Sales (${rc})`,                      key: 'sales_ptd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
+    { label: `YTD Sales (${rc})`,                      key: 'sales_ytd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
+    { label: `PY PTD (${rc})`,                         key: 'sales_ptd_py',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
+    { label: `Target PTD (${rc})`,                     key: 'target_sales_ptd',          align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
+    { label: 'Variance vs Target %',                   key: 'variance_target_ptd_pct',   align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—'              },
+    { label: 'Ledger Currency',                        key: 'ledger_currency',            align: 'center', fmt: v => v ?? '—'                                                                        },
+    { label: 'Sales in Ledger Currency',               key: 'sales_ledger_currency',      align: 'right',
       fmt: (v, row) => {
         if (v === null || v === undefined) return '—';
         const prefix = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
         return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
       }
     },
-    { label: '% Share',                         key: 'percentage',            align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
+    { label: '% Share',                                key: 'percentage',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—'             },
   ];
 
   const parentDivisionCols = [
-    { label: 'Parent Division',          key: 'parent_division',        align: 'left'   },
-    { label: 'Ledger Currency',          key: 'ledger_currency',        align: 'center', fmt: v => v ?? '—' },
-    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency',  align: 'right',
+    { label: 'Parent Division',          key: 'parent_division',           align: 'left'                                                                                         },
+    { label: `PTD Sales (${rc})`,        key: 'sales_ptd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
+    { label: `YTD Sales (${rc})`,        key: 'sales_ytd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
+    { label: `PY PTD (${rc})`,           key: 'sales_ptd_py',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
+    { label: `Target PTD (${rc})`,       key: 'target_sales_ptd',          align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
+    { label: 'Variance vs Target %',     key: 'variance_target_ptd_pct',   align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—'       },
+    { label: 'Ledger Currency',          key: 'ledger_currency',            align: 'center', fmt: v => v ?? '—'                                                                  },
+    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency',      align: 'right',
       fmt: (v, row) => {
         if (v === null || v === undefined) return '—';
         const prefix = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
         return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
       }
     },
-    { label: `Sales (${rc})`,            key: 'sales',                  align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—' },
-    { label: '% Share',                  key: 'percentage',             align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
+    { label: '% Share',                  key: 'percentage',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—'       },
   ];
 
   const subdivisionCols = [
-    { label: 'Legal Entity',              key: 'legal_entity',          align: 'left',   fmt: (v, row) => v ?? row.entity_name ?? '—' },
-    { label: 'Sub-Division',              key: 'subdivision_name',       align: 'left',   fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '—' },
-    { label: 'Parent Division',           key: 'parent_division',        align: 'left',   fmt: (v, row) => v ?? row.division_name ?? '—' },
-    { label: 'Ledger Currency',           key: 'ledger_currency',        align: 'center', fmt: (v, row) => v ?? '—' },
+    { label: 'Legal Entity',              key: 'legal_entity',          align: 'left',   fmt: (v, row) => v ?? row.entity_name ?? '—'                                                                    },
+    { label: 'Sub-Division',              key: 'subdivision_name',       align: 'left',   fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '—'                                                        },
+    { label: 'Parent Division',           key: 'parent_division',        align: 'left',   fmt: (v, row) => v ?? row.division_name ?? '—'                                                                   },
+    { label: `PTD Sales (${rc})`,         key: 'sales_ptd',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                                                },
+    { label: `YTD Sales (${rc})`,         key: 'sales_ytd',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                                                },
+    { label: `Target PTD (${rc})`,        key: 'target_sales_ptd',       align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                                                },
+    { label: 'Variance vs Target %',      key: 'variance_target_ptd_pct',align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—'                                    },
+    { label: 'Ledger Currency',           key: 'ledger_currency',        align: 'center', fmt: (v, row) => v ?? '—'                                                                                        },
     { label: 'Sales in Ledger Currency',  key: 'sales_ledger_currency',  align: 'right',
       fmt: (v, row) => {
         const cur = row.ledger_currency || '';
@@ -1771,17 +1821,18 @@ export default function SalesRevenueReport() {
           : '—';
       }
     },
-    { label: `Sales in ${rc}`,            key: 'sales_aed',              align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.sales ?? row.sales_reporting_currency ?? 0) },
-    { label: '% Share',                   key: 'percentage',             align: 'right',  fmt: (v) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
+    { label: `Sales in ${rc}`,            key: 'sales_aed',              align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.sales_ptd ?? row.sales ?? row.sales_reporting_currency ?? 0)               },
+    { label: '% Share',                   key: 'percentage',             align: 'right',  fmt: (v) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—'                                  },
   ];
 
   const customerSummaryCols = [
-    { label: 'Customer Name',    key: 'customer_name',           align: 'left'  },
-    { label: 'Account Number',   key: 'customer_account_number', align: 'left'  },
-    { label: `Sales (${rc})`,    key: 'sales',                   align: 'right', fmt: fmtCurrency },
+    { label: 'Customer Name',    key: 'customer_name',           align: 'left'                                            },
+    { label: 'Account Number',   key: 'customer_account_number', align: 'left'                                            },
+    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '—'                     },
+    { label: `Sales (${rc})`,    key: 'sales',                   align: 'right',  fmt: fmtCurrency                        },
     // Gross Margin currency treatment under review — not changing
-    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
-    { label: '% Share',          key: 'percentage',              align: 'right', fmt: v => fmtPct(v) },
+    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right',  fmt: fmtCurrency                        },
+    { label: '% Share',          key: 'percentage',              align: 'right',  fmt: v => fmtPct(v)                     },
     // # Transactions removed — field blank (not returned by endpoint)
     // Currency removed — field blank (not returned by endpoint)
   ];
@@ -1789,6 +1840,7 @@ export default function SalesRevenueReport() {
   const customerDetailCols = [
     { label: 'Account Number',   key: 'customer_account_number', align: 'left' },
     { label: 'Customer Name',    key: 'customer_name',           align: 'left' },
+    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '—' },
     { label: 'Legal Entity',     key: 'legal_entity',            align: 'left' },
     { label: 'Ledger Currency',  key: 'ledger_currency',         align: 'center', fmt: (v) => v ?? '—' },
     { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right',
@@ -1816,35 +1868,24 @@ export default function SalesRevenueReport() {
     // Currency removed — field blank
   ];
 
-  // Salesman Detail drill-down — 13 columns per spec
+  // Salesman Detail drill-down — updated for CFO UAT fields
   const salesmanDetailCols = [
-    { label: 'Emp ID',            key: 'employee_id',          align: 'left'  },
-    { label: 'Salesman',          key: 'sales_person',         align: 'left'  },
-    { label: 'Direct Manager',    key: 'direct_manager',       align: 'left'  },
-    { label: 'Manager Level',     key: 'direct_manager_level', align: 'left'  },
-    { label: 'Sales Manager',     key: 'sales_manager',        align: 'left'  },
-    { label: 'Division Manager',  key: 'division_manager',     align: 'left'  },
-    { label: 'Legal Entity',      key: 'legal_entity',         align: 'left'  },
-    { label: 'Parent Division',   key: 'parent_division',      align: 'left'  },
-    { label: 'Subdivision',       key: 'subdivision',          align: 'left'  },
-    { label: 'Ledger Currency',   key: 'ledger_currency',      align: 'center', fmt: (v) => v ?? '—' },
-    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right',
-      fmt: (v, row) => {
-        const cur = row.ledger_currency || '';
-        return (v !== null && v !== undefined)
-          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
-          : '—';
-      }
-    },
-    { label: `Revenue (${rc})`,   key: 'sales',                align: 'right', fmt: fmtCurrency },
-    // Gross Margin currency treatment under review — not changing
-    { label: `Gross Margin`,      key: 'gross_margin',         align: 'right', fmt: fmtCurrency },
-    { label: '% Share',           key: 'contribution_pct',     align: 'right',
-      fmt: (v, row) => {
-        const val = v ?? row?.percentage;
-        return val != null ? `${Number(val).toFixed(2)}%` : '—';
-      }
-    },
+    { label: 'Emp ID',            key: 'employee_id',            align: 'left'  },
+    { label: 'Salesman',          key: 'salesman_name',          align: 'left'  }, // renamed from sales_person
+    { label: 'Direct Manager',    key: 'direct_manager_name',    align: 'left',  fmt: (v, row) => v || row.direct_manager || '—' },
+    { label: 'Manager Level',     key: 'direct_manager_level',   align: 'center',fmt: v => v || '—' },
+    { label: 'Sales Manager',     key: 'sales_manager_name',     align: 'left',  fmt: (v, row) => v || row.sales_manager || '—'  },
+    { label: 'Division Manager',  key: 'division_manager_name',  align: 'left',  fmt: (v, row) => v || row.division_manager || '—' },
+    { label: 'Legal Entity',      key: 'legal_entity',           align: 'left'  },
+    { label: 'Parent Division',   key: 'parent_division',        align: 'left'  },
+    { label: 'Subdivision',       key: 'subdivision',            align: 'left'  },
+    { label: `PTD Sales (${rc})`, key: 'sales_ptd',              align: 'right', fmt: fmtCurrency },
+    { label: `YTD Sales (${rc})`, key: 'sales_ytd',              align: 'right', fmt: fmtCurrency },
+    { label: `PY PTD (${rc})`,    key: 'sales_ptd_py',           align: 'right', fmt: fmtCurrency },
+    { label: 'Variance PY %',     key: 'variance_ptd_py_pct',    align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—' },
+    { label: `PTD GM (${rc})`,    key: 'gross_margin_ptd',       align: 'right', fmt: fmtCurrency },
+    { label: 'PTD GM %',          key: 'gross_margin_ptd_pct',   align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—' },
+    { label: '% Share',           key: 'percentage',             align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
   ];
 
   /* ────────────────────────────────────────────────────────────── */
@@ -2987,74 +3028,6 @@ export default function SalesRevenueReport() {
               return null;
             };
 
-            /* Sort alphabetically by Legal Entity > Parent Division > Sub Division */
-            const allRows = [...summaryDetailData].map(r => ({
-                legalEntity: r.legal_entity  || r.name || '—',
-                parentDiv:   r.parent_division || r.division || '—',
-                subDiv:      r.sub_division || r.subdivision || r.sub_division_name || r.subdivision_name || r.sub_div || r.sub_division_code || r.subdivision_code || '—',
-                bizUnit:     r.business_unit  || r.biz_unit || '—',
-                mtd:         n(r, 'sales_mtd', 'revenue_mtd',     'mtd_revenue',      'sales_mtd_aed',      'mtd_sales'),
-                prevMtd:     n(r, 'sales_prev_mtd', 'revenue_prev_mtd','prev_mtd_revenue', 'mtd_prev_revenue',   'sales_prev_mtd_aed', 'prev_mtd_sales'),
-                ytd:         n(r, 'sales_ytd', 'revenue_ytd',     'ytd_revenue',      'sales_ytd_aed',      'ytd_sales'),
-                ytdPy:       n(r, 'sales_ytd_py', 'revenue_ytd_py',  'revenue_ytd_prev', 'prev_ytd_revenue',   'sales_ytd_py_aed',   'sales_prev_ytd_aed', 'prev_ytd_sales'),
-                varMtd:      n(r, 'variance_mtd_pct','mtd_var_pct',      'variance_mtd'),
-                varYtd:      n(r, 'variance_ytd_pct','ytd_var_pct',      'variance_ytd'),
-            })).sort((a, b) => {
-              const cmp1 = a.legalEntity.localeCompare(b.legalEntity);
-              if (cmp1 !== 0) return cmp1;
-              const cmp2 = a.parentDiv.localeCompare(b.parentDiv);
-              if (cmp2 !== 0) return cmp2;
-              return a.subDiv.localeCompare(b.subDiv);
-            });
-
-            /* Aggregate top 10 + Others */
-            let rows = allRows;
-            if (allRows.length > 10) {
-              const top10 = allRows.slice(0, 10);
-              const others = allRows.slice(10);
-
-              const mtd     = others.reduce((s, r) => s + (r.mtd || 0), 0);
-              const prevMtd = others.reduce((s, r) => s + (r.prevMtd || 0), 0);
-              const ytd     = others.reduce((s, r) => s + (r.ytd || 0), 0);
-              const ytdPy   = others.reduce((s, r) => s + (r.ytdPy || 0), 0);
-
-              const othersRow = {
-                legalEntity: 'Others',
-                parentDiv: '—',
-                subDiv: '—',
-                bizUnit: '—',
-                mtd, prevMtd, ytd, ytdPy,
-                varMtd: (prevMtd > 0 && mtd >= 0) ? ((mtd - prevMtd) / Math.abs(prevMtd)) * 100 : null,
-                varYtd: (ytdPy > 0 && ytd >= 0)   ? ((ytd - ytdPy)   / Math.abs(ytdPy))   * 100 : null,
-              };
-              rows = [...top10, othersRow];
-            }
-
-            const totMTD    = allRows.reduce((s, r) => s + (r.mtd || 0),     0);
-            const totPMTD   = allRows.reduce((s, r) => s + (r.prevMtd || 0), 0);
-            const totYTD    = allRows.reduce((s, r) => s + (r.ytd || 0),     0);
-            const totYTDPY  = allRows.reduce((s, r) => s + (r.ytdPy || 0),   0);
-
-            /* formatters */
-            const fmtAED = v => (v !== null && v !== undefined && !isNaN(v)) ? `${(v / 1e6).toFixed(2)}M` : '—';
-
-            const calcVar = (cur, prev) =>
-              (prev > 0 && cur >= 0) ? ((cur - prev) / Math.abs(prev)) * 100 : null;
-
-            const VarBadge = ({ pct }) => {
-              if (pct === null || pct === undefined || isNaN(pct)) return <span style={{ color: C.muted }}>—</span>;
-              const up = pct >= 0;
-              return (
-                <span style={{
-                  color: up ? '#16a34a' : '#dc2626',
-                  fontWeight: 600, fontSize: '0.72rem',
-                  display: 'inline-flex', alignItems: 'center', gap: 2,
-                }}>
-                  {up ? '▲' : '▼'} {Math.abs(pct).toFixed(2)}%
-                </span>
-              );
-            };
-
             const TH_S = {
               background: '#f8fafc',
               fontSize: '0.74rem',
@@ -3107,13 +3080,14 @@ export default function SalesRevenueReport() {
 
             // Map subdivisionRawData rows — field names from /subdivision-detail endpoint
             // Fields confirmed by Madam: ledger_currency, sales_ledger_currency, sales_aed, percentage
+            // CFO UAT Update: Reporting currency value is sales_ptd (or sales).
             const detailRows2 = [...subdivisionRawData].map(r => ({
               legalEntity:    r.legal_entity   || r.entity_name                              || '—',
               subDiv:         r.subdivision    || r.subdivision_name || r.sub_division || r.sub_div || '—',
               parentDiv:      r.parent_division || r.division_name  || r.division             || '—',
               ledgerCurrency: r.ledger_currency ?? null,
               salesLedger:    r.sales_ledger_currency ?? null,
-              salesRC:        r.sales_aed ?? null,
+              salesRC:        r.sales_ptd ?? r.sales_aed ?? r.sales ?? null,
               pct:            r.percentage ?? null,
             })).sort((a, b) => {
               const c1 = a.legalEntity.localeCompare(b.legalEntity);
@@ -3318,21 +3292,17 @@ export default function SalesRevenueReport() {
             return `${cur} ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
           };
           return [
-            { key: 'legal_entity',    label: 'Legal Entity',      align: 'left',  width: '18%' },
-            { key: 'parent_division', label: 'Parent Division',    align: 'left',  width: '14%' },
-            { key: 'subdivision',     label: 'Sub Division',       align: 'left',  width: '14%' },
-            { key: 'ledger_currency', label: 'Ledger Currency',    align: 'center',width: '12%', fmt: v => v || '—' },
-            { key: 'sales_ledger_currency', label: 'Sales in Ledger Currency', align: 'right', width: '15%',
-              fmt: (v, row) => {
-                // Only prepend ledger currency if it's a real ISO code
-                const ledgerCur = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
-                return (v != null)
-                  ? `${ledgerCur}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-                  : '—';
-              }
-            },
-            { key: 'sales',           label: `Sales (${cur})`,     align: 'right', width: '15%', fmt: (v, row) => fmtC(v ?? row.revenue_mtd) },
-            { key: 'percentage',      label: '% Share',            align: 'right', width: '12%',
+            { key: 'legal_entity',    label: 'Legal Entity',      align: 'left',  width: '12%' },
+            { key: 'parent_division', label: 'Parent Division',   align: 'left',  width: '12%' },
+            { key: 'subdivision',     label: 'Sub Division',      align: 'left',  width: '12%' },
+            // Removed Business Unit (not in API response)
+            { key: 'revenue_ptd',     label: `PTD Sales (${cur})`, align: 'right', width: '10%', fmt: (v) => fmtC(v) },
+            { key: 'revenue_ytd',     label: `YTD Sales (${cur})`, align: 'right', width: '10%', fmt: (v) => fmtC(v) },
+            { key: 'revenue_ptd_py',  label: `PY PTD (${cur})`,    align: 'right', width: '10%', fmt: (v) => fmtC(v) },
+            { key: 'variance_ptd_py_pct', label: 'Variance PY %', align: 'right', width: '8%',  fmt: (v) => v != null ? `${Number(v).toFixed(1)}%` : '—' },
+            { key: 'target_sales_ptd',label: `Target PTD (${cur})`,align: 'right', width: '10%', fmt: (v) => fmtC(v) },
+            { key: 'variance_target_ptd_pct', label: 'Var vs Tgt %', align: 'right', width: '8%',  fmt: (v) => v != null ? `${Number(v).toFixed(1)}%` : '—' },
+            { key: 'percentage',      label: '% Share',           align: 'right', width: '8%',
               fmt: (v, row) => (v != null || row.contribution_pct != null) ? `${Number(v ?? row.contribution_pct).toFixed(2)}%` : '—'
             },
           ];
@@ -3379,9 +3349,10 @@ export default function SalesRevenueReport() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Period', `${currentYearLabel} Sales (${appliedFilters.reportingCurrency})`].map((h, i) => (
-                      <th key={h} style={{ ...TH, textAlign: i === 0 ? 'left' : 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{h}</th>
-                    ))}
+                    <th style={{ ...TH, textAlign: 'left', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>Period</th>
+                    <th style={{ ...TH, textAlign: 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>Target ({appliedFilters.reportingCurrency})</th>
+                    <th style={{ ...TH, textAlign: 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{previousYearLabel} Sales</th>
+                    <th style={{ ...TH, textAlign: 'right', position: 'sticky', top: 0, background: '#fff', zIndex: 2, borderBottom: '2px solid #e2e8f0' }}>{currentYearLabel} Sales</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3391,13 +3362,21 @@ export default function SalesRevenueReport() {
                       onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
                     >
                       <td style={{ ...TD, fontWeight: 600, color: C.navy }}>{row.period}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 500 }}>{fmtCurrency(row.target_sales)}</td>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 500 }}>{fmtCurrency(row.previousYear)}</td>
                       <td style={{ ...TD, textAlign: 'right', fontWeight: 700, color: C.green }}>{fmtCurrency(row.currentYear)}</td>
                     </tr>
                   ))}
                   {trendData.length > 0 && (
                     <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
                       <td style={{ ...TD, fontWeight: 800, color: C.navy }}>Total</td>
-                      <td style={{ ...TD, textAlign: 'right', fontWeight: 800, color: C.navy }}>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 800 }}>
+                        {fmtCurrency(trendData.reduce((s, r) => s + (r.target_sales || 0), 0))}
+                      </td>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 800 }}>
+                        {fmtCurrency(trendData.reduce((s, r) => s + (r.previousYear || 0), 0))}
+                      </td>
+                      <td style={{ ...TD, textAlign: 'right', fontWeight: 800, color: C.green }}>
                         {fmtCurrency(trendData.reduce((s, r) => s + (r.currentYear || 0), 0))}
                       </td>
                     </tr>
