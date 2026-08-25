@@ -366,6 +366,8 @@ function DetailApiModal({
   searchPlaceholder = 'Search...',
   maxWidth = '96vw',       // override per modal — defaults to near-full width
   periodLabel = null,      // e.g. "01-Jun-2026 to 30-Jun-2026"
+
+  headerGroups = null,
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -1773,60 +1775,41 @@ export default function SalesRevenueReport() {
   const rc = appliedFilters.reportingCurrency || filters.reportingCurrency || 'AED';
 
   const legalEntityCols = [
-    { label: 'Legal Entity',                           key: 'legal_entity',              align: 'left'                                                                                                },
-    { label: `PTD Sales (${rc})`,                      key: 'sales_ptd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
-    { label: `YTD Sales (${rc})`,                      key: 'sales_ytd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
-    { label: `PY PTD (${rc})`,                         key: 'sales_ptd_py',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
-    { label: `Target PTD (${rc})`,                     key: 'target_sales_ptd',          align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                          },
-    { label: 'Variance vs Target %',                   key: 'variance_target_ptd_pct',   align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—'              },
-    { label: 'Ledger Currency',                        key: 'ledger_currency',            align: 'center', fmt: v => v ?? '—'                                                                        },
-    { label: 'Sales in Ledger Currency',               key: 'sales_ledger_currency',      align: 'right',
-      fmt: (v, row) => {
-        if (v === null || v === undefined) return '—';
-        const prefix = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
-        return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-      }
-    },
-    { label: '% Share',                                key: 'percentage',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—'             },
+    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left' },
+    { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', fmt: v => v ?? '-' },
+    { label: 'PTD',                          key: 'sales_ledger_currency',     align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-' },
+    { label: 'YTD',                          key: 'sales_ledger_currency_ytd', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-' },
+    { label: 'PTD',                          key: 'sales_ptd',                 align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'YTD',                          key: 'sales_ytd',                 align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'YTD',                          key: 'target_sales_ytd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
   ];
 
   const parentDivisionCols = [
-    { label: 'Parent Division',          key: 'parent_division',           align: 'left'                                                                                         },
-    { label: `PTD Sales (${rc})`,        key: 'sales_ptd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
-    { label: `YTD Sales (${rc})`,        key: 'sales_ytd',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
-    { label: `PY PTD (${rc})`,           key: 'sales_ptd_py',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
-    { label: `Target PTD (${rc})`,       key: 'target_sales_ptd',          align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                   },
-    { label: 'Variance vs Target %',     key: 'variance_target_ptd_pct',   align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—'       },
-    { label: 'Ledger Currency',          key: 'ledger_currency',            align: 'center', fmt: v => v ?? '—'                                                                  },
-    { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency',      align: 'right',
-      fmt: (v, row) => {
-        if (v === null || v === undefined) return '—';
-        const prefix = (row.ledger_currency && row.ledger_currency !== '—') ? `${row.ledger_currency} ` : '';
-        return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-      }
-    },
-    { label: '% Share',                  key: 'percentage',                 align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—'       },
+    { label: 'LE',                           key: 'legal_entity',              align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
+    { label: 'SD',                           key: 'subdivision_name',          align: 'left', fmt: (v, row) => v ?? row.subdivision ?? '-' },
+    { label: 'PD',                           key: 'parent_division',           align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
+    { label: 'Sales (AED)',                  key: 'sales',                     align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
+    { label: 'GM (AED)',                     key: 'gross_margin',              align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'GM %',                         key: 'gross_margin_pct',          align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
+    { label: 'Target GM',                    key: 'target_gross_margin',       align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'Target GM %',                  key: 'target_gross_margin_pct',   align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
   ];
 
   const subdivisionCols = [
-    { label: 'Legal Entity',              key: 'legal_entity',          align: 'left',   fmt: (v, row) => v ?? row.entity_name ?? '—'                                                                    },
-    { label: 'Sub-Division',              key: 'subdivision_name',       align: 'left',   fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '—'                                                        },
-    { label: 'Parent Division',           key: 'parent_division',        align: 'left',   fmt: (v, row) => v ?? row.division_name ?? '—'                                                                   },
-    { label: `PTD Sales (${rc})`,         key: 'sales_ptd',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                                                },
-    { label: `YTD Sales (${rc})`,         key: 'sales_ytd',              align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                                                },
-    { label: `Target PTD (${rc})`,        key: 'target_sales_ptd',       align: 'right',  fmt: v => (v !== null && v !== undefined) ? fmtCurrency(v) : '—'                                                },
-    { label: 'Variance vs Target %',      key: 'variance_target_ptd_pct',align: 'right',  fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—'                                    },
-    { label: 'Ledger Currency',           key: 'ledger_currency',        align: 'center', fmt: (v, row) => v ?? '—'                                                                                        },
-    { label: 'Sales in Ledger Currency',  key: 'sales_ledger_currency',  align: 'right',
-      fmt: (v, row) => {
-        const cur = row.ledger_currency || '';
-        return (v !== null && v !== undefined)
-          ? `${cur} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`.trim()
-          : '—';
-      }
-    },
-    { label: `Sales in ${rc}`,            key: 'sales_aed',              align: 'right',  fmt: (v, row) => fmtCurrency(v ?? row.sales_ptd ?? row.sales ?? row.sales_reporting_currency ?? 0)               },
-    { label: '% Share',                   key: 'percentage',             align: 'right',  fmt: (v) => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—'                                  },
+    { label: 'Sub Division',                 key: 'subdivision_name',          align: 'left', fmt: (v, row) => v ?? row.subdivision ?? row.name ?? '-' },
+    { label: 'PD',                           key: 'parent_division',           align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
+    { label: 'LE',                           key: 'legal_entity',              align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
+    { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', fmt: v => v ?? '-' },
+    { label: 'PTD',                          key: 'sales_ledger_currency',     align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-' },
+    { label: 'YTD',                          key: 'sales_ledger_currency_ytd', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-' },
+    { label: 'PTD',                          key: 'sales_ptd',                 align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'YTD',                          key: 'sales_ytd',                 align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: 'YTD',                          key: 'target_sales_ytd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
+    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
   ];
 
   const customerSummaryCols = [
