@@ -188,3 +188,152 @@ export const KPI_SUMMARY = {
   totalFacility:   { value: 310.0, change: '0%',     dir: 'neutral' },
   facilityUtil:    { value: '73%', change: '+2pp',   dir: 'down' },
 };
+
+
+
+import {
+  Users,
+  Building2,
+  GitBranch,
+  Network,
+  Boxes,
+  Code2,
+  CircleDollarSign,
+} from "lucide-react";
+
+ export const masterCards = [
+  {
+    label: "Legal Groups",
+    icon: Users,
+    value: 8,
+    description: "Active",
+    color: "blue",
+  },
+  {
+    label: "Legal Entities",
+    icon: Building2,
+     value: 24,
+    description: "Active",
+    color: "green",
+  },
+  {
+    label: "Parent Divisions",
+    icon: GitBranch,
+     value: 37,
+    description: "Active",
+    color: "purple",
+  },
+  {
+    label: "Subdivisions",
+    icon: Network,
+     value: 85,
+    description: "Active",
+    color: "blue",
+  },
+  {
+    label: "Business Units",
+    icon: Boxes,
+     value: 126,
+    description: "Active",
+    color: "blue",
+  },
+  {
+    label: "Analysis Codes",
+    icon: Code2,
+     value: 312,
+    description: "Active",
+    color: "purple",
+  },
+  {
+    label: "Currencies",
+    icon: CircleDollarSign,
+     value: 9,
+    description: "Active",
+    color: "green",
+  },
+];
+export const legalGroups = [
+  {
+    id: 1,
+    code: "FJ",
+    name: "FJ Group",
+    description: "FJ Group of Companies",
+    status: "Active",
+    legalEntities: 12,
+  },
+  {
+    id: 2,
+    code: "RKME",
+    name: "RKME Group",
+    description: "RKME Operations",
+    status: "Active",
+    legalEntities: 6,
+  },
+  {
+    id: 3,
+    code: "ZEN",
+    name: "Zenith Group",
+    description: "Zenith Investments",
+    status: "Active",
+    legalEntities: 2,
+  },
+  {
+    id: 4,
+    code: "ABC",
+    name: "ABC Holdings",
+    description: "ABC Holdings Limited",
+    status: "Active",
+    legalEntities: 1,
+  },
+  {
+    id: 5,
+    code: "XYZ",
+    name: "XYZ Group",
+    description: "XYZ Group of Companies",
+    status: "Inactive",
+    legalEntities: 0,
+  },
+  {
+    id: 6,
+    code: "GLO",
+    name: "Global Ventures",
+    description: "Global Ventures Limited",
+    status: "Active",
+    legalEntities: 1,
+  },
+  {
+    id: 7,
+    code: "OMC",
+    name: "OMC Group",
+    description: "OMC Group Operations",
+    status: "Active",
+    legalEntities: 1,
+  },
+  {
+    id: 8,
+    code: "INT",
+    name: "International Division",
+    description: "International Business Division",
+    status: "Active",
+    legalEntities: 0,
+  },
+];
+
+export const legalGroupMock = {
+  code: "FJ",
+  name: "FJ Group",
+  subtitle: "FJ Group of Companies",
+  initials: "FJ",
+  description: "FJ Group of Companies",
+  status: "Active",
+  legalEntityCount: 12,
+  createdBy: "Super Admin",
+  createdOn: "15 Jan 2022 09:30 AM",
+  updatedBy: "Super Admin",
+  updatedOn: "20 Jun 2026 09:15 AM",
+};
+export const legalEntitiesMock = [
+  { code: "FJLLC", name: "Future Journey LLC", status: "Active" },
+  { code: "FJFE", name: "Future Journey FZE", status: "Active" },
+  { code: "FJIND", name: "Future Journey India Pvt Ltd", status: "Active" },
+];

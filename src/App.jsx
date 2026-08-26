@@ -12,7 +12,14 @@ import ExecDashboard from './pages/ExecDashboard';
 import PLAnalytics from './pages/PLAnalytics';
 import ARDashboard from './pages/ARDashboard';
 import WCDashboard from './pages/WCDashboard';
-import AdminDashboard from './pages/AdminDashboard';
+
+import AdminLayout from './components/layout/AdminLayout';
+import AdminMainDashboard from './pages/AdminMainDashboard';
+import UsersDashboard from './pages/UsersDashboard';
+import RolesDashboard from './pages/RolesDashboard';
+import UserAccessManagement from './pages/UserAccessManagement';
+import MasterDataDashboard from './pages/MasterDataDashboard';
+
 import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
@@ -46,7 +53,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            
+
             <Route element={<FilterProvider><Layout /></FilterProvider>}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
@@ -69,9 +76,20 @@ function App() {
               <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} />
               <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
               {/* Admin – segregated, board & CFO only */}
-              <Route path="/admin"              element={<ProtectedRoute pageKey="admin"              element={<AdminDashboard />} />} />
+              {/* Old Admin route removed */}
             </Route>
-            
+
+
+            {/* New Admin Module Routes - Uses its own layout */}
+            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<AdminLayout />} />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminMainDashboard />} />
+              <Route path="users" element={<UsersDashboard />} />
+              <Route path="roles" element={<RolesDashboard />} />
+              <Route path="useraccess" element={<UserAccessManagement />} />
+              <Route path="master-data" element={<MasterDataDashboard />} />
+            </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

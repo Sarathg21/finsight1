@@ -1,0 +1,30 @@
+import {
+  LayoutDashboard,
+  DollarSign,
+  Wallet,
+  CreditCard,
+  Boxes,
+  Landmark,
+  TrendingUp,
+  Scale,
+  Banknote,
+  Building2,
+  FileText,
+  Users,
+} from "lucide-react";
+
+export const moduleIcons = {
+  Dashboard: LayoutDashboard,
+  "Sales Revenue": DollarSign,
+  Receivables: Wallet,
+  Payables: CreditCard,
+  Inventory: Boxes,
+  "Working Capital": Landmark,
+  "Profit & Loss": TrendingUp,
+  "Balance Sheet": Scale,
+  "Cash Flow": Banknote,
+  "Fixed Assets": Building2,
+  "Bank Facilities": Landmark,
+  "Report Configuration": FileText,
+  "User Management": Users,
+};
