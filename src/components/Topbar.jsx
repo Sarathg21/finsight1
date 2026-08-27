@@ -20,9 +20,12 @@ const PAGE_TITLES = {
   '/revenue': { title: 'Revenue Analysis', sub: 'Revenue by Entity, Division, SubDivision, Salesman and Period' },
   '/division': { title: 'Division Reports', sub: 'Division-wise financial performance' },
   '/bu-pack': { title: 'BU Financial Pack', sub: 'Business unit reporting pack' },
-  '/admin': { title: 'User & Access Control', sub: 'Role management & security settings' },
+  '/admin/dashboard': { title: 'Admin Dashboard', sub: 'System overview and metrics' },
+  '/admin/users': { title: 'Users', sub: 'Manage system users' },
+  '/admin/roles': { title: 'Roles & Permissions', sub: 'Configure access levels' },
+  '/admin/useraccess': { title: 'User Access', sub: 'Manage user access mapping' },
+  '/admin/master-data': { title: 'Master Data', sub: 'System master data management' },
 };
-
 export default function Topbar() {
   const { user, logout } = useAuth();
   const isRestricted = !['ADMIN', 'FGT_SUPER_ADMIN', 'CEO', 'CFO', 'CFO_GROUP', 'COO', 'MD', 'BOARD', 'EXECUTIVE', 'cfo', 'board', 'executive'].includes(user?.role?.toUpperCase() || '');

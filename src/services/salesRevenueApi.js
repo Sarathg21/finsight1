@@ -642,6 +642,7 @@ function buildParams(filters = {}) {
     analysis_code_id: active(filters.analysisCodeId),
     reporting_currency: active(filters.reportingCurrency),
     sales_person: active(filters.salesman),
+    customer_type: active(filters.customerType),
     invoice_currency: active(filters.invoiceCurrency),
     customer_name: filters.customerName || undefined,
     customer_account_number: filters.customerAccountNumber || undefined,

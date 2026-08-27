@@ -31,7 +31,7 @@ export default function NavbarAdmin({
           {activePage}
         </span>
       </nav>
-      <div className="ml-auto flex items-center gap-3">
+      <div className="flex-1 flex justify-end items-center gap-3">
         <button className="hidden sm:flex items-center gap-2 h-9 px-3 rounded-md border border-gray-200">
           {company}
           <ChevronDown className="w-4 h-4 text-gray-400" />

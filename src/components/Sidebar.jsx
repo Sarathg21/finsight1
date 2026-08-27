@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
   FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,
-  UserCheck, ChevronLeft, LogOut, Search, X,
+  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog,
 } from 'lucide-react';
 
 /* ── Icon map per route ─────────────────────────────────────────── */
@@ -24,6 +24,11 @@ const ROUTE_ICON = {
   '/cash-collection':     Wallet,
   '/excel-consolidator':  FileSpreadsheet,
   '/admin':               Shield,
+  '/admin/dashboard':     LayoutDashboard,
+  '/admin/users':         Users,
+  '/admin/roles':         Shield,
+  '/admin/useraccess':    UserCog,
+  '/admin/master-data':   Layers,
   '/country-performance': Globe,
   '/division':            PieChart,
   '/bu-pack':             Briefcase,
@@ -41,7 +46,11 @@ const NAV_BY_ROLE = {
     { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
     { to: '/working-capital',    label: 'Overview',                            group: 'Reports'          },
     { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin',              label: 'User & Access Control',               group: 'Admin'            },
+    { to: '/admin/dashboard',    label: 'Dashboard',                           group: 'Admin'            },
+    { to: '/admin/users',        label: 'Users',                               group: 'Admin'            },
+    { to: '/admin/roles',        label: 'Roles & Permissions',                 group: 'Admin'            },
+    { to: '/admin/useraccess',   label: 'User Access',                         group: 'Admin'            },
+    { to: '/admin/master-data',  label: 'Master Data',                         group: 'Admin'            },
   ],
   cfo: [
     { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
@@ -57,7 +66,11 @@ const NAV_BY_ROLE = {
     { to: '/working-capital',    label: 'Overview',                            group: 'Working Capital'  },
     { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Treasury'         },
     { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin',              label: 'User & Access Control',               group: 'Admin'            },
+    { to: '/admin/dashboard',    label: 'Dashboard',                           group: 'Admin'            },
+    { to: '/admin/users',        label: 'Users',                               group: 'Admin'            },
+    { to: '/admin/roles',        label: 'Roles & Permissions',                 group: 'Admin'            },
+    { to: '/admin/useraccess',   label: 'User Access',                         group: 'Admin'            },
+    { to: '/admin/master-data',  label: 'Master Data',                         group: 'Admin'            },
   ],
   executive: [
     { to: '/finsight-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },

@@ -1,11 +1,10 @@
-
+import { useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import SidebarAdmin from "./SidebarAdmin";
+import Sidebar from "../Sidebar";
 import NavbarAdmin from "./NavbarAdmin";
 
 export default function AdminLayout({
   activeMenu = "",
-  breadcrumbs = [],
   company = "FJ Group",
   initials = "SA",
   userName = "Super Admin",
@@ -13,24 +12,34 @@ export default function AdminLayout({
   notificationCount = 0,
 }) {
   const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const toggle = () => setSidebarOpen(o => !o);
+  const collapsed = !sidebarOpen;
 
   const breadcrumbMap = {
     "/admin/dashboard": ["Admin", "Dashboard"],
     "/admin/users": ["Admin", "Security", "Users"],
     "/admin/roles": ["Admin", "Security", "Roles"],
-    "/admin/userAccess": ["Admin", "Security", "User Access"],
+    "/admin/useraccess": ["Admin", "Security", "User Access"],
     "/admin/master-data": ["Admin", "Master Data"],
   };
 
-  const currentBreadcrumbs =
-    breadcrumbMap[location.pathname] || ["Admin"];
+  const currentBreadcrumbs = breadcrumbMap[location.pathname] || ["Admin"];
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-50">
+    <div className="flex h-screen w-full overflow-hidden bg-gray-50 relative">
+
+      {/* Mobile backdrop */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
 
       {/* Sidebar */}
-      <SidebarAdmin
-        activeMenu={activeMenu}
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={toggle}
+        mobileOpen={sidebarOpen}
       />
 
       {/* Right Content */}

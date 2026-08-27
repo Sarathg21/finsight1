@@ -75,12 +75,9 @@ function App() {
               <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} />
               <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} />
               <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
-              {/* Admin – segregated, board & CFO only */}
-              {/* Old Admin route removed */}
             </Route>
 
-
-            {/* New Admin Module Routes - Uses its own layout */}
+            {/* Admin Module Routes - Uses AdminLayout (which now wraps main Sidebar + NavbarAdmin) */}
             <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<AdminLayout />} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminMainDashboard />} />
