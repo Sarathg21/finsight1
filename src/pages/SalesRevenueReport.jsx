@@ -1985,22 +1985,17 @@ export default function SalesRevenueReport() {
 
   // Salesman Detail drill-down — updated for CFO UAT fields
   const salesmanDetailCols = [
-    { label: 'Emp ID',            key: 'employee_id',            align: 'left'  },
-    { label: 'Salesperson',          key: 'salesman_name',          align: 'left'  }, // renamed from sales_person
-    { label: 'Direct Manager',    key: 'direct_manager_name',    align: 'left',  fmt: (v, row) => v || row.direct_manager || '—' },
-    { label: 'Manager Level',     key: 'direct_manager_level',   align: 'center',fmt: v => v || '—' },
-    { label: 'Sales Manager',     key: 'sales_manager_name',     align: 'left',  fmt: (v, row) => v || row.sales_manager || '—'  },
-    { label: 'Division Manager',  key: 'division_manager_name',  align: 'left',  fmt: (v, row) => v || row.division_manager || '—' },
-    { label: 'Legal Entity',      key: 'legal_entity',           align: 'left'  },
-    { label: 'Parent Division',   key: 'parent_division',        align: 'left'  },
-    { label: 'Subdivision',       key: 'subdivision',            align: 'left'  },
-    { label: `PTD Sales (${rc})`, key: 'sales_ptd',              align: 'right', fmt: fmtCurrency },
-    { label: `YTD Sales (${rc})`, key: 'sales_ytd',              align: 'right', fmt: fmtCurrency },
-    { label: `PY PTD (${rc})`,    key: 'sales_ptd_py',           align: 'right', fmt: fmtCurrency },
-    { label: 'Variance PY %',     key: 'variance_ptd_py_pct',    align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—' },
-    { label: `PTD GM (${rc})`,    key: 'gross_margin_ptd',       align: 'right', fmt: fmtCurrency },
-    { label: 'PTD GM %',          key: 'gross_margin_ptd_pct',   align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '—' },
-    { label: '% Share',           key: 'percentage',             align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(2)}%` : '—' },
+    { label: 'Salesperson',          key: 'salesman_name',          align: 'left'  },
+    { label: 'Code',                 key: 'employee_id',            align: 'left'  },
+    { label: 'Legal Entity',         key: 'legal_entity',           align: 'left'  },
+    { label: 'Parent Division',      key: 'parent_division',        align: 'left'  },
+    { label: 'Sub-Division',         key: 'subdivision',            align: 'left'  },
+    { label: 'Sales (AED)',          key: 'sales_aed',              align: 'right', fmt: fmtCurrency, totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_aed) || 0), 0)) },
+    { label: 'GM (AED)',             key: 'gross_margin_aed',       align: 'right', fmt: fmtCurrency, totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.gross_margin_aed) || 0), 0)) },
+    { label: 'GM %',                 key: 'gross_margin_ptd_pct',   align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '-' },
+    { label: 'Target Sales',         key: 'target_sales_dummy',     align: 'right', fmt: v => '-' },
+    { label: 'Target GM',            key: 'target_gm_dummy',        align: 'right', fmt: v => '-' },
+    { label: 'Target GM %',          key: 'target_gm_pct_dummy',    align: 'right', fmt: v => '-' },
   ];
 
   /* ────────────────────────────────────────────────────────────── */
@@ -3387,8 +3382,21 @@ export default function SalesRevenueReport() {
         endpoint="salesman-detail"
         fetchFn={fetchSalesmanDetail}
         columnDefs={salesmanDetailCols}
+        headerGroups={[
+          { label: 'Salesperson', colSpan: 1 },
+          { label: 'Code', colSpan: 1 },
+          { label: 'Legal Entity', colSpan: 1 },
+          { label: 'Parent Division', colSpan: 1 },
+          { label: 'Sub-Division', colSpan: 1 },
+          { label: 'Achievement', colSpan: 3 },
+          { label: 'Target', colSpan: 3 },
+        ]}
         filters={appliedFilters}
-
+        localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
         searchPlaceholder="Search salesperson detail..."
         periodLabel={appliedPeriodLabel}
       />
@@ -3445,14 +3453,14 @@ export default function SalesRevenueReport() {
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
         headerGroups={[
-          { label: 'Legal Entity',              colSpan: 1 },
+          { label: 'LE',                        colSpan: 1 },
           { label: 'Parent Division',           colSpan: 1 },
           { label: 'Sub Division',              colSpan: 1 },
-          { label: 'Sales Revenue (AED)',        colSpan: 2 },
-          { label: 'Target Sales Revenue (AED)', colSpan: 2 },
+          { label: 'Sales Revenue (AED)',       colSpan: 2 },
+          { label: 'Target Sales Revenue (AED)',colSpan: 2 },
           { label: 'Change %',                  colSpan: 1 },
-          { label: 'Gross Margin (AED)',         colSpan: 3 },
-          { label: 'Target Gross Margin (AED)',  colSpan: 3 },
+          { label: 'Gross Margin (AED)',        colSpan: 3 },
+          { label: 'Target Gross Margin (AED)', colSpan: 3 },
           { label: 'Change %',                  colSpan: 1 },
         ]}
         columnDefs={(() => {
@@ -3463,82 +3471,61 @@ export default function SalesRevenueReport() {
             if (Math.abs(n) >= 1_000)     return `AED ${(n / 1_000).toFixed(1)}K`;
             return `AED ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
           };
-          const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—';
+          const fmtPct = v => (v != null && !isNaN(v)) ? `${Number(v).toFixed(1)}%` : '—';
           const sumKey = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
 
           return [
             // Identity
-            { key: 'legal_entity',                 label: 'Legal Entity',    align: 'left',  noTotal: true },
+            { key: 'legal_entity',                  label: 'LE',              align: 'left',  noTotal: true },
             { key: 'parent_division',               label: 'Parent Division', align: 'left',  noTotal: true },
             { key: 'subdivision',                   label: 'Sub Division',    align: 'left',  noTotal: true, groupEnd: true },
+
             // Sales Revenue
-            { key: 'revenue_ptd_aed',               label: 'PTD',             align: 'right', fmt: fmtAED },
-            { key: 'revenue_ytd_aed',               label: 'YTD',             align: 'right', fmt: fmtAED, groupEnd: true },
+            { key: 'revenue_ptd_aed',               label: 'PTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'revenue_ptd_aed')) },
+            { key: 'revenue_ytd_aed',               label: 'YTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'revenue_ytd_aed')), groupEnd: true },
+            
             // Target Sales Revenue
-            { key: 'target_sales_ptd_aed',          label: 'PTD',             align: 'right', fmt: fmtAED },
-            { key: 'target_sales_ytd_aed',          label: 'YTD',             align: 'right', fmt: fmtAED, groupEnd: true },
+            { key: 'target_sales_ptd_aed',          label: 'PTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'target_sales_ptd_aed')) },
+            { key: 'target_sales_ytd_aed',          label: 'YTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'target_sales_ytd_aed')), groupEnd: true },
+            
             // Sales Change %
-            {
-              key: 'variance_target_ytd_pct',
-              label: 'Change %',
-              align: 'right',
-              fmt: fmtPct,
-              groupEnd: true,
-              totalFn: rows => {
-                const actYTD = sumKey(rows, 'revenue_ytd_aed');
-                const tgtYTD = sumKey(rows, 'target_sales_ytd_aed');
-                if (!tgtYTD) return '—';
-                return fmtPct(((actYTD - tgtYTD) / tgtYTD) * 100);
-              },
-            },
+            { key: 'variance_target_ytd_pct',       label: 'Change %',        align: 'right', fmt: fmtPct, totalFn: rows => {
+                const sY = sumKey(rows, 'revenue_ytd_aed');
+                const tY = sumKey(rows, 'target_sales_ytd_aed');
+                if (!tY) return '—';
+                return fmtPct(((sY - tY) / Math.abs(tY)) * 100);
+            }, groupEnd: true },
+
             // Gross Margin
-            { key: 'gross_margin_ptd_aed',          label: 'PTD',             align: 'right', fmt: fmtAED },
-            { key: 'gross_margin_ytd_aed',          label: 'YTD',             align: 'right', fmt: fmtAED },
-            {
-              key: 'gross_margin_pct',
-              label: 'GM %',
-              align: 'right',
-              fmt: fmtPct,
-              groupEnd: true,
-              totalFn: rows => {
-                const gm  = sumKey(rows, 'gross_margin_ytd_aed');
-                const rev = sumKey(rows, 'revenue_ytd_aed');
-                if (!rev) return '—';
-                return fmtPct((gm / rev) * 100);
-              },
-            },
+            { key: 'gross_margin_ptd_aed',          label: 'PTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'gross_margin_ptd_aed')) },
+            { key: 'gross_margin_ytd_aed',          label: 'YTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'gross_margin_ytd_aed')) },
+            { key: 'gross_margin_pct',              label: 'GM %',            align: 'right', fmt: fmtPct, totalFn: rows => {
+                const s = sumKey(rows, 'revenue_ytd_aed');
+                const g = sumKey(rows, 'gross_margin_ytd_aed');
+                if (!s) return '—';
+                return fmtPct((g / s) * 100);
+            }, groupEnd: true },
+
             // Target Gross Margin
-            { key: 'target_gross_margin_ptd_aed',   label: 'PTD',             align: 'right', fmt: fmtAED },
-            { key: 'target_gross_margin_ytd_aed',   label: 'YTD',             align: 'right', fmt: fmtAED },
-            {
-              key: 'target_gross_margin_pct',
-              label: 'GM %',
-              align: 'right',
-              fmt: fmtPct,
-              groupEnd: true,
-              totalFn: rows => {
-                const tgm  = sumKey(rows, 'target_gross_margin_ytd_aed');
-                const trev = sumKey(rows, 'target_sales_ytd_aed');
-                if (!trev) return '—';
-                return fmtPct((tgm / trev) * 100);
-              },
-            },
+            { key: 'target_gross_margin_ptd_aed',   label: 'PTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'target_gross_margin_ptd_aed')) },
+            { key: 'target_gross_margin_ytd_aed',   label: 'YTD',             align: 'right', fmt: fmtAED, totalFn: rows => fmtAED(sumKey(rows, 'target_gross_margin_ytd_aed')) },
+            { key: 'target_gross_margin_pct',       label: 'GM %',            align: 'right', fmt: fmtPct, totalFn: rows => {
+                const s = sumKey(rows, 'target_sales_ytd_aed');
+                const g = sumKey(rows, 'target_gross_margin_ytd_aed');
+                if (!s) return '—';
+                return fmtPct((g / s) * 100);
+            }, groupEnd: true },
+
             // GM Change %
-            {
-              key: '_gm_change_pct',
-              label: 'Change %',
-              align: 'right',
-              fmt: () => '—',   // row-level not available; derive at total level only
-              noTotal: false,
-              totalFn: rows => {
-                const gm  = sumKey(rows, 'gross_margin_ytd_aed');
-                const tgm = sumKey(rows, 'target_gross_margin_ytd_aed');
-                if (!tgm) return '—';
-                return fmtPct(((gm - tgm) / tgm) * 100);
-              },
-            },
+            { key: 'variance_gm_ytd_pct',           label: 'Change %',        align: 'right', fmt: fmtPct, totalFn: rows => {
+                const gY = sumKey(rows, 'gross_margin_ytd_aed');
+                const tY = sumKey(rows, 'target_gross_margin_ytd_aed');
+                if (!tY) return '—';
+                return fmtPct(((gY - tY) / Math.abs(tY)) * 100);
+            } }
           ];
         })()}
+
         searchPlaceholder="Search consolidated report..."
         periodLabel={appliedPeriodLabel}
       />
