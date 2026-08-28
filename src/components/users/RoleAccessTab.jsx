@@ -87,12 +87,7 @@ export default function RoleAccessTab({ user, access, loading, }) {
 
     return (
         <div
-            style={{
-                maxHeight: "330px",
-                overflowY: "auto",
-                overflowX: "hidden",
-            }}
-            className="space-y-2 p-2 pr-3"
+            className="max-h-[330px] overflow-y-auto overflow-x-hidden space-y-2 p-2 pr-3"
         >
 
             {/* ASSIGNED ROLE */}
@@ -284,7 +279,7 @@ export default function RoleAccessTab({ user, access, loading, }) {
                     {showPermission && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
 
-                            <div className="w-212.5 rounded-lg bg-white p-4">
+                            <div className="w-[850px] max-w-[calc(100vw-2rem)] rounded-lg bg-white p-4">
 
                                 <div className="flex items-center justify-between">
 

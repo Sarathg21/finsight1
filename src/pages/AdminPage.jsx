@@ -255,11 +255,304 @@ const AdminPage = () => {
     }
   };
 
-  const itemsPerPage = 7;
+  const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
   const paginated = filteredEmployees.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const roleOptions = ["All", "ADMIN", "CFO", "MANAGER", "EMPLOYEE"];
+
+  const totalUsers    = employees.length;
+  const activeUsers   = employees.filter(e => e.active).length;
+  const inactiveUsers = employees.filter(e => !e.active).length;
+  const noRoleUsers   = employees.filter(e => !e.role || e.role === '').length;
+
+  const statCards = [
+    { label: 'Total Users',       value: totalUsers,    icon: '👥', color: 'text-blue-600',   bg: 'bg-blue-50'   },
+    { label: 'Active Users',      value: activeUsers,   icon: '✅', color: 'text-green-600',  bg: 'bg-green-50'  },
+    { label: 'Inactive Users',    value: inactiveUsers, icon: '🚫', color: 'text-red-500',    bg: 'bg-red-50'    },
+    { label: 'Users Without Role',value: noRoleUsers,   icon: '⚠️', color: 'text-orange-500', bg: 'bg-orange-50' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+
+      {/* ── Add/Edit Employee Modal ── */}
+      {(showAddModal || editingEmployee) && (
+        <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 bg-slate-900/40 backdrop-blur-sm overflow-y-auto pt-16 pb-24">
+          <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl relative mb-12">
+            <EmployeeFormModal
+              onClose={() => { setShowAddModal(false); setEditingEmployee(null); }}
+              onAdd={handleAddEmployee}
+              onEdit={(data, originalId) => handleUpdateEmployee(data, originalId || editingEmployee?.emp_id || editingEmployee?.id)}
+              initialData={editingEmployee}
+              managers={employees.filter(e => ['ADMIN', 'CFO', 'MANAGER'].includes(String(e.role || '').toUpperCase()))}
+              departments={departments}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── Employee Detail Side Panel ── */}
+      {selectedEmployee && (
+        <EmployeeDetailModal
+          employee={selectedEmployee}
+          departments={departments}
+          allEmployees={employees}
+          onClose={() => setSelectedEmployee(null)}
+          onEditClick={(emp) => { setSelectedEmployee(null); setEditingEmployee(emp); }}
+          onResetPassword={handleResetPassword}
+          onToggleStatus={(emp) => { handleToggleStatus(emp); setSelectedEmployee(null); }}
+        />
+      )}
+
+      <ConfirmationModal
+        isOpen={confirmConfig.isOpen}
+        onClose={() => setConfirmConfig(p => ({ ...p, isOpen: false }))}
+        onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        type={confirmConfig.type}
+        confirmText={confirmConfig.confirmText}
+      />
+
+      {/* ── Page Header ── */}
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage application users, their roles and account status.</p>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+        >
+          <Plus size={16} strokeWidth={2.5} /> Add User
+        </button>
+      </div>
+
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {statCards.map((card) => (
+          <div key={card.label} className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-full ${card.bg} flex items-center justify-center text-lg shrink-0`}>
+              {card.icon}
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
+              <div className="text-xs text-gray-500">{card.label}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Filter Bar ── */}
+      <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex flex-wrap items-center gap-3 mb-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by name, email or employee code..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            className="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md outline-none focus:border-blue-400 w-64"
+          />
+        </div>
+
+        {/* Status filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Status</span>
+          <select className="text-sm border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400 bg-white">
+            <option>All</option>
+            <option>Active</option>
+            <option>Inactive</option>
+          </select>
+        </div>
+
+        {/* Role filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Role</span>
+          <select
+            value={roleFilter}
+            onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
+            className="text-sm border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400 bg-white"
+          >
+            {roleOptions.map(r => <option key={r} value={r}>{r === 'All' ? 'All' : r}</option>)}
+          </select>
+        </div>
+
+        {/* Department filter */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">Dept</span>
+          <select
+            value={deptFilter}
+            onChange={(e) => { setDeptFilter(e.target.value); setCurrentPage(1); }}
+            className="text-sm border border-gray-200 rounded-md px-2 py-1.5 outline-none focus:border-blue-400 bg-white"
+          >
+            <option value="All">All</option>
+            {departments.map(d => {
+              const val = d.department_id || d.id || d.dept_id || (typeof d === 'string' ? d : d.name);
+              const label = d.name || d.dept_name || d.department || (typeof d === 'string' ? d : 'Unknown');
+              return <option key={val} value={val}>{label}</option>;
+            })}
+          </select>
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => { setSearchTerm(''); setRoleFilter('All'); setDeptFilter('All'); setCurrentPage(1); }}
+            className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors"
+          >
+            Reset
+          </button>
+          <button className="flex items-center gap-1.5 text-sm text-gray-600 border border-gray-200 rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors">
+            <RefreshCw size={13} /> More Filters
+          </button>
+        </div>
+      </div>
+
+      {/* ── Table ── */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-gray-100 text-sm text-gray-600 font-medium">
+          Users List ({filteredEmployees.length})
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead className="bg-gray-50 text-xs text-gray-500 font-semibold uppercase tracking-wide border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 w-8">
+                  <input type="checkbox" className="rounded border-gray-300" />
+                </th>
+                <th className="px-4 py-3">Emp Code</th>
+                <th className="px-4 py-3">Employee Name</th>
+                <th className="px-4 py-3">Email</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Last Login</th>
+                <th className="px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr><td colSpan={8} className="py-16 text-center">
+                  <Loader2 className="animate-spin text-blue-500 mx-auto" size={28} />
+                </td></tr>
+              ) : paginated.length === 0 ? (
+                <tr><td colSpan={8} className="py-16 text-center text-sm text-gray-400">No matching records found.</td></tr>
+              ) : paginated.map(emp => (
+                <tr
+                  key={emp.emp_id}
+                  className="hover:bg-blue-50/30 transition-colors cursor-pointer"
+                  onClick={() => setSelectedEmployee(emp)}
+                >
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <input type="checkbox" className="rounded border-gray-300" />
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{emp.emp_id}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+                        {(emp.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium text-gray-800">{emp.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{emp.email || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                      {emp.role || '—'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${emp.active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${emp.active ? 'bg-green-500' : 'bg-red-500'}`} />
+                      {emp.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-400">—</td>
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => setSelectedEmployee(emp)}
+                        className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        title="View"
+                      >
+                        <Eye size={15} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingEmployee(emp); }}
+                        className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
+                        title="Edit"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setOpenActionMenuId(openActionMenuId === emp.emp_id ? null : emp.emp_id); }}
+                          className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 transition-colors"
+                          title="More"
+                        >
+                          <MoreHorizontal size={15} />
+                        </button>
+                        {openActionMenuId === emp.emp_id && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setOpenActionMenuId(null)} />
+                            <div className="absolute right-0 top-8 w-44 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50">
+                              <button onClick={(e) => { e.stopPropagation(); handleResetPassword(emp); setOpenActionMenuId(null); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-600 hover:bg-amber-50 transition-colors font-medium">
+                                <KeyRound size={13} /> Reset Password
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(emp); setOpenActionMenuId(null); }} className={`w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors ${emp.active ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}>
+                                <Power size={13} /> {emp.active ? 'Deactivate' : 'Activate'}
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── Pagination ── */}
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">
+          <p className="text-xs text-gray-500">
+            Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredEmployees.length)}–{Math.min(currentPage * itemsPerPage, filteredEmployees.length)} of {filteredEmployees.length} users
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors"
+            >
+              ‹
+            </button>
+            {[...Array(Math.min(totalPages, 7))].map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentPage(i + 1)}
+                className={`w-7 h-7 text-xs rounded-md transition-colors ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors"
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminPage;
+
 
   return (
     <div className="min-h-screen bg-[#f3edfd] p-8 md:p-12 animate-in fade-in duration-1000 selection:bg-indigo-100 selection:text-indigo-900 rounded-[3rem] mx-2 my-2 shadow-[inset_0_0_80px_rgba(139,92,246,0.05)]">

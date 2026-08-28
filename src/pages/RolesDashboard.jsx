@@ -259,7 +259,7 @@ export default function RolesDashboard() {
         }}
       />
       {/* KPI CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-0.75">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
         {dashboardStats.map((item, index) => (
           <StatCard
             key={item.title}
@@ -270,10 +270,10 @@ export default function RolesDashboard() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-x-0.75 gap-y-0.75 mt-0.75 ">
+      <div className="mt-3 grid grid-cols-1 xl:grid-cols-12 gap-3">
 
         {/* LEFT : 40% */}
-        <div className="xl:col-span-5 flex flex-col gap-0.75 min-h-0">
+        <div className="xl:col-span-5 flex flex-col gap-3 min-h-0">
 
           {/* FILTER BAR */}
           <FilterBar
@@ -312,7 +312,7 @@ export default function RolesDashboard() {
           <div
             className="
               h-[calc(100vh-320px)]
-              min-h-112.5
+              min-h-[450px]
               rounded-xl
               border
               border-gray-200

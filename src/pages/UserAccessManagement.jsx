@@ -8,7 +8,7 @@ import ConfirmationModel from "../components/common/ConfirmationModel";
 
 import HierarchyTree from "../components/userAccess/HierarchyTree";
 import toast from "react-hot-toast";
-import AdminLayout from "../components/layout/AdminLayout";
+
 import PageHeader from "../components/common/PageHeader";
 import FilterBar from "../components/common/FilterBar";
 import StatCard from "../components/StatCard";
@@ -789,7 +789,7 @@ export default function UserAccessMangement() {
                     </div>
                     {/* ================= USER DETAILS 30% ================= */}
 
-                    <div className="w-92.5 h-full min-h-0 overflow-hidden">
+                    <div className="w-[370px] max-w-full h-full min-h-0 overflow-hidden">
                         {
                             selectedUser && (
                                 <SelectedUserCard

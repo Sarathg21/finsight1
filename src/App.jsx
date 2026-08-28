@@ -13,7 +13,7 @@ import PLAnalytics from './pages/PLAnalytics';
 import ARDashboard from './pages/ARDashboard';
 import WCDashboard from './pages/WCDashboard';
 
-import AdminLayout from './components/layout/AdminLayout';
+
 import AdminMainDashboard from './pages/AdminMainDashboard';
 import UsersDashboard from './pages/UsersDashboard';
 import RolesDashboard from './pages/RolesDashboard';
@@ -77,8 +77,8 @@ function App() {
               <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
             </Route>
 
-            {/* Admin Module Routes - Uses AdminLayout (which now wraps main Sidebar + NavbarAdmin) */}
-            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<AdminLayout />} />}>
+            {/* Admin Module Routes - Uses main Layout */}
+            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<Layout />} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminMainDashboard />} />
               <Route path="users" element={<UsersDashboard />} />
