@@ -629,16 +629,42 @@ async function apiCall(path, params = {}) {
  * retained for backward compatibility when IDs are not yet available.
  */
 function buildParams(filters = {}) {
-  const active = (val) =>
-    val && val !== 'All' && val !== 'all' && val !== 'All Customers' ? val : undefined;
+  const active = (val) => {
+    if (!val) return undefined;
+    const actualVal = Array.isArray(val) ? val[0] : val;
+    if (
+      actualVal === undefined ||
+      actualVal === null ||
+      actualVal === '' ||
+      actualVal === 'All' ||
+      actualVal === 'all' ||
+      actualVal === 'All Customers' ||
+      actualVal === 'All Type'
+    ) {
+      return undefined;
+    }
+    return actualVal;
+  };
+
+  // Converts a MultiSelect value array to an array of integers only.
+  // Strips 'All', 'all', empty strings, and any non-numeric string values
+  // (e.g. "Alpha Ducts LLC") that would cause FastAPI int_parsing 422 errors.
+  const activeIds = (arr) => {
+    if (!arr || !Array.isArray(arr)) return undefined;
+    const ids = arr
+      .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
+      .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
+      .filter(v => !isNaN(v));
+    return ids.length > 0 ? ids : undefined;
+  };
 
   return {
     from_date: filters.fromDate || undefined,
     to_date: filters.toDate || undefined,
-    legal_group_id: filters.legalGroupId,
-    legal_entity_id: filters.legalEntityId,
-    parent_division_id: filters.parentDivisionId,
-    subdivision_id: filters.subdivisionId,
+    legal_group_id:     activeIds(filters.legalGroupId),
+    legal_entity_id:    activeIds(filters.legalEntityId),
+    parent_division_id: activeIds(filters.parentDivisionId),
+    subdivision_id:     activeIds(filters.subdivisionId),
     analysis_code_id: active(filters.analysisCodeId),
     reporting_currency: active(filters.reportingCurrency),
     sales_person: active(filters.salesman),
@@ -753,24 +779,47 @@ export async function fetchFilters() {
  */
 export async function fetchFilterOptions(params = {}) {
   // Build cascade params using IDs when available, fall back to names
-    const apiParams = {};
-  if (params.legalGroupId) apiParams.legal_group_id = params.legalGroupId;
-  if (params.legalEntityId) apiParams.legal_entity_id = params.legalEntityId;
-  if (params.parentDivisionId) apiParams.parent_division_id = params.parentDivisionId;
-  if (params.subdivisionId) apiParams.subdivision_id = params.subdivisionId;
+  // Build cascade params — send only valid integer IDs, strip 'All' and string names
+  const toIntIds = (arr) => {
+    if (!arr || !Array.isArray(arr)) return undefined;
+    const ids = arr
+      .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
+      .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
+      .filter(v => !isNaN(v));
+    return ids.length > 0 ? ids : undefined;
+  };
+  const apiParams = {};
+  const gIds = toIntIds(params.legalGroupId);
+  const eIds = toIntIds(params.legalEntityId);
+  const pIds = toIntIds(params.parentDivisionId);
+  const sIds = toIntIds(params.subdivisionId);
+  if (gIds) apiParams.legal_group_id     = gIds;
+  if (eIds) apiParams.legal_entity_id    = eIds;
+  if (pIds) apiParams.parent_division_id = pIds;
+  if (sIds) apiParams.subdivision_id     = sIds;
 
   const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
   const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
   const res = unwrap(raw) || {};
 
   // Normalize each hierarchy list to [{id, name}] objects.
-  // Backend may return strings, {id,name} objects, or mixed.
+  // Backend now returns {label, value} where value is the numeric hierarchy ID.
+  // Also handles legacy {id, name} and plain string fallbacks.
   const normalizeIdName = (list) => {
     if (!Array.isArray(list)) return [];
     return list.map((e, i) => {
       if (typeof e === 'object' && e !== null) {
-        return { id: e.id ?? e.legal_entity_id ?? e.parent_division_id ?? e.subdivision_id ?? i, name: e.name || String(e.id || i) };
+        // ── New contract: { label: "Alpha Ducts LLC", value: 4 } ──
+        if (e.value !== undefined && e.label !== undefined) {
+          const numId = typeof e.value === 'number' ? e.value : parseInt(e.value, 10);
+          return { id: isNaN(numId) ? e.value : numId, name: e.label };
+        }
+        // ── Legacy contract: { id, name } or field-specific id keys ──
+        const rawId = e.id ?? e.legal_entity_id ?? e.parent_division_id ?? e.subdivision_id ?? e.legal_group_id ?? i;
+        const numId = typeof rawId === 'number' ? rawId : parseInt(rawId, 10);
+        return { id: isNaN(numId) ? rawId : numId, name: e.name || e.label || String(rawId) };
       }
+      // plain string — use as display name only; no numeric ID available
       return { id: e, name: String(e) };
     }).filter(e => e.name && String(e.name).toLowerCase() !== 'all');
   };

@@ -517,19 +517,37 @@ function DetailApiModal({
                 fontSize: '0.78rem', minWidth: 200, outline: 'none',
               }}
             />
-            {localFiltersConfig && localFiltersConfig.map((cfg, idx) => (
-              <div key={idx} style={{ width: 180, position: 'relative', zIndex: 10 }}>
-                <MultiSelect
-                  options={cfg.options}
-                  value={localFiltersState[cfg.key] || ['All']}
-                  onChange={(vals) => {
-                    setLocalFiltersState(prev => ({ ...prev, [cfg.key]: vals }));
-                    setPage(0);
-                  }}
-                  placeholder={`All ${cfg.label || ''}`}
-                />
-              </div>
-            ))}
+            {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
+              const selectedValue = (localFiltersState[cfg.key] && localFiltersState[cfg.key][0]) || 'All';
+              return (
+                <div key={idx} style={{ width: 180, position: 'relative' }}>
+                  <select
+                    style={selStyle}
+                    value={selectedValue}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalFiltersState(prev => ({ 
+                        ...prev, 
+                        [cfg.key]: [val] 
+                      }));
+                      setPage(0);
+                    }}
+                  >
+                    <option value="All">All {cfg.label || ''}</option>
+                    {cfg.options && cfg.options.map((o, oIdx) => {
+                      const val = typeof o === 'string' ? o : String(o.id);
+                      const name = typeof o === 'string' ? o : o.name;
+                      if (val === 'All') return null;
+                      return (
+                        <option key={oIdx} value={val} title={name}>
+                          {truncateLabel(name)}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              );
+            })}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {!loading && sorted.length > 0 && (
@@ -1108,6 +1126,15 @@ const selStyle = {
   borderRadius: 7, cursor: 'pointer', outline: 'none', width: '100%',
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
   backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  maxWidth: 180,
+};
+
+const truncateLabel = (str, maxLen = 40) => {
+  if (!str) return '';
+  return str.length > maxLen ? str.substring(0, maxLen) + '...' : str;
 };
 
 function FilterField({ label, children }) {
@@ -1202,17 +1229,24 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const normOptions = options.map(o => typeof o === 'string' ? { id: o, name: o } : o);
+  const normOptions = options.map(o => {
+    if (typeof o === 'string') return { id: o, name: o };
+    const id = o.value !== undefined ? o.value : o.id;
+    const name = o.label !== undefined ? o.label : o.name;
+    return { id, name };
+  });
 
-  const isAll = !value || value.length === 0 || (value.length === 1 && value[0] === 'All');
+  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
   const toggle = (optId) => {
-    if (optId === 'All') { onChange(['All']); return; }
-    const cur = isAll ? [] : value.filter(v => v !== 'All');
-    const next = cur.includes(optId) ? cur.filter(v => v !== optId) : [...cur, optId];
+    if (String(optId) === 'All') { onChange(['All']); return; }
+    const cur = isAll ? [] : value.filter(v => String(v) !== 'All');
+    const next = cur.some(v => String(v) === String(optId))
+      ? cur.filter(v => String(v) !== String(optId))
+      : [...cur, optId];
     onChange(next.length === 0 ? ['All'] : next);
   };
 
-  const selectedVals = normOptions.filter(o => value.includes(o.id));
+  const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
   const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
 
   return (
@@ -1222,20 +1256,20 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
         <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '\u25B2' : '\u25BC'}</span>
       </div>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '100%', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
 
-          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'nowrap' }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
+          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
             <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>\u2713</span>}
+              {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
             </span>
             All
           </div>
 
           {normOptions.map(opt => {
             if (opt.id === 'All') return null;
-            const selected = !isAll && value.includes(opt.id);
+            const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
             return (
-              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'nowrap' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
                 <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
                 </span>
@@ -1335,7 +1369,11 @@ export default function SalesRevenueReport() {
   }, [errors, publicIp]);
 
   /* ── Formatters ───────────────────────────────────────────────── */
-  const fmtCurrency = (v) => v !== null && v !== undefined ? `${filters.reportingCurrency} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
+  const fmtCurrency = (v) => {
+    if (v === null || v === undefined) return '—';
+    const numStr = Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return filters.reportingCurrency === 'AED' ? numStr : `${filters.reportingCurrency} ${numStr}`;
+  };
   const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : 'N/A';
   const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
   const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -1343,7 +1381,7 @@ export default function SalesRevenueReport() {
     if (!iso) return '';
     const d = new Date(iso + 'T00:00:00');
     if (isNaN(d)) return iso;
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
   const appliedPeriodLabel = (() => {
     const from = fmtDisplayDate(appliedFilters.fromDate);
@@ -1546,7 +1584,14 @@ export default function SalesRevenueReport() {
       // Generate a 12-month skeleton
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const yearStr = f.fromDate ? String(new Date(f.fromDate).getFullYear()).slice(-2) : String(new Date().getFullYear()).slice(-2);
-      const skeleton = months.map(m => ({ period: `${m}-${yearStr}`, currentYear: null, previousYear: null, target_sales: null }));
+      const skeleton = months.map(m => ({
+        period: `${m}-${yearStr}`,
+        currentYear: null,
+        previousYear: null,
+        target_sales: null,
+        variance_py_pct: null,
+        variance_target_pct: null
+      }));
 
       let hasCustomPeriods = false;
       arr.forEach(item => {
@@ -1559,6 +1604,8 @@ export default function SalesRevenueReport() {
           match.currentYear  = val;
           match.previousYear = valPY;
           match.target_sales = valTgt;
+          match.variance_py_pct = item.variance_py_pct != null ? Number(item.variance_py_pct) : null;
+          match.variance_target_pct = item.variance_target_pct != null ? Number(item.variance_target_pct) : null;
           match.period = periodStr;
         } else {
           hasCustomPeriods = true;
@@ -1864,8 +1911,8 @@ export default function SalesRevenueReport() {
   const legalEntityCols = [
     { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left' },
     { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', fmt: v => v ?? '-', groupEnd: true },
-    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-' },
-    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true },
+    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
+    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
     { label: 'PTD',                          key: 'sales_ptd_aed',             align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
     { label: 'YTD',                          key: 'sales_ytd_aed',             align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
     { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
@@ -1905,8 +1952,8 @@ export default function SalesRevenueReport() {
     { label: 'Parent Division',              key: 'parent_division',           align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
     { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
     { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', fmt: v => v ?? '-', groupEnd: true },
-    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-' },
-    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true },
+    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
+    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
     { label: 'PTD',                          key: 'sales_ptd_aed',             align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
     { label: 'YTD',                          key: 'sales_ytd_aed',             align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
     { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
@@ -1917,8 +1964,8 @@ export default function SalesRevenueReport() {
   const customerSummaryCols = [
     { label: 'Customer Name',       key: 'customer_name',           align: 'left', noTotal: true },
     { label: 'Account No.',         key: 'customer_account_number', align: 'left', fmt: v => v ?? '-', noTotal: true },
-    { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', noTotal: true },
-    { label: 'Parent Division',     key: 'parent_division',         align: 'left', noTotal: true },
+    { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
+    { label: 'Parent Division',     key: 'parent_division',         align: 'left', fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
     { label: 'Sales Revenue (AED)', key: 'sales_aed',               align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin (AED)',  key: 'gross_margin_aed',        align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin %',      key: 'gross_margin_pct',        align: 'right',
@@ -1958,9 +2005,9 @@ export default function SalesRevenueReport() {
   const salesmanSummaryCols = [
     { label: 'Salesperson',     key: 'salesman_name',       align: 'left',   fmt: (v, row) => v ?? row.sales_person ?? row.salesman ?? '—', noTotal: true },
     { label: 'Code',            key: 'employee_id',         align: 'center', fmt: v => v ?? '—', noTotal: true },
-    { label: 'Legal Entity',    key: 'legal_entity',        align: 'left',   fmt: v => v ?? '—', noTotal: true },
-    { label: 'Parent Division', key: 'parent_division',     align: 'left',   fmt: v => v ?? '—', noTotal: true },
-    { label: 'Sub-Division',    key: 'subdivision',         align: 'left',   fmt: v => v ?? '—', noTotal: true, groupEnd: true },
+    { label: 'Legal Entity',    key: 'legal_entity',        align: 'left',   fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
+    { label: 'Parent Division', key: 'parent_division',     align: 'left',   fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
+    { label: 'Sub-Division',    key: 'subdivision',         align: 'left',   fmt: (v, row) => { const x = row.subdivisions || row.subdivision; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true, groupEnd: true },
     // Achievement
     { label: `Sales (AED)`,     key: 'sales_aed',           align: 'right',  fmt: fmtCurrency },
     { label: `GM (AED)`,        key: 'gross_margin_aed',    align: 'right',  fmt: fmtCurrency },
@@ -2024,14 +2071,13 @@ export default function SalesRevenueReport() {
             </h1>
             <p style={{ fontSize: '0.78rem', color: C.slate, margin: '3px 0 0' }}>
               Track and analyze sales performance across all dimensions
-              <br/><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {appliedFilters.fromDate} to {appliedFilters.toDate}</span>
+              <br/><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {fmtDisplayDate(appliedFilters.fromDate)} to {fmtDisplayDate(appliedFilters.toDate)}</span>
               {dataAsOf && ` • Data as on ${dataAsOf}`}
               &nbsp;|&nbsp;
               <span style={{ color: C.green, fontWeight: 700 }}>Currency: {filters.reportingCurrency}</span>
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {canExport && <ExportButtons endpoint="details" filters={appliedFilters} size="md" />}
           </div>
         </div>
 
@@ -2109,47 +2155,75 @@ export default function SalesRevenueReport() {
 
 
           {filterOptions.legalGroups && filterOptions.legalGroups.length > 0 && (
-          <FilterField label="Legal Group">
-            <MultiSelect
-              options={filterOptions.legalGroups}
-              value={filters.legalGroupId}
-              onChange={(vals) => updateFilter('legalGroupId', vals)}
-              placeholder="All Groups"
-            />
-          </FilterField>
+            <FilterField label="Legal Group">
+              <select
+                id="filter-legal-group"
+                style={selStyle}
+                value={filters.legalGroupId[0] || 'All'}
+                onChange={e => updateFilter('legalGroupId', [e.target.value])}
+              >
+                <option value="All">All Groups</option>
+                {filterOptions.legalGroups.map((o, idx) => (
+                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
+                    {truncateLabel(o.label ?? o.name)}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
           )}
 
           {filterOptions.legalEntities.length > 0 && (
-          <FilterField label="Legal Entity">
-            <MultiSelect
-              options={filterOptions.legalEntities}
-              value={filters.legalEntityId}
-              onChange={(vals) => updateFilter('legalEntityId', vals)}
-              placeholder="All Entities"
-            />
-          </FilterField>
+            <FilterField label="Legal Entity">
+              <select
+                id="filter-legal-entity"
+                style={selStyle}
+                value={filters.legalEntityId[0] || 'All'}
+                onChange={e => updateFilter('legalEntityId', [e.target.value])}
+              >
+                <option value="All">All Entities</option>
+                {filterOptions.legalEntities.map((o, idx) => (
+                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
+                    {truncateLabel(o.label ?? o.name)}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
           )}
 
           {filterOptions.parentDivs.length > 0 && (
-          <FilterField label="Parent Division">
-            <MultiSelect
-              options={filterOptions.parentDivs}
-              value={filters.parentDivisionId}
-              onChange={(vals) => updateFilter('parentDivisionId', vals)}
-              placeholder="All Divisions"
-            />
-          </FilterField>
+            <FilterField label="Parent Division">
+              <select
+                id="filter-parent-division"
+                style={selStyle}
+                value={filters.parentDivisionId[0] || 'All'}
+                onChange={e => updateFilter('parentDivisionId', [e.target.value])}
+              >
+                <option value="All">All Divisions</option>
+                {filterOptions.parentDivs.map((o, idx) => (
+                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
+                    {truncateLabel(o.label ?? o.name)}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
           )}
 
-          {(filterOptions.subDivs.length > 0 || filters.subdivisionId !== 'All') && (
-          <FilterField label="Sub-Division">
-            <MultiSelect
-              options={filterOptions.subDivs}
-              value={filters.subdivisionId}
-              onChange={(vals) => updateFilter('subdivisionId', vals)}
-              placeholder="All Sub-Divs"
-            />
-          </FilterField>
+          {(filterOptions.subDivs.length > 0 || (filters.subdivisionId && filters.subdivisionId[0] !== 'All')) && (
+            <FilterField label="Sub-Division">
+              <select
+                id="filter-subdivision"
+                style={selStyle}
+                value={filters.subdivisionId[0] || 'All'}
+                onChange={e => updateFilter('subdivisionId', [e.target.value])}
+              >
+                <option value="All">All Sub-Divs</option>
+                {filterOptions.subDivs.map((o, idx) => (
+                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
+                    {truncateLabel(o.label ?? o.name)}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
           )}
 
           {filterOptions.salesmen.length > 2 && (
@@ -2158,7 +2232,7 @@ export default function SalesRevenueReport() {
               {filterOptions.salesmen.map((o, idx) => {
                 const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
                 const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
-                return <option key={`salesman-${idx}`} value={val}>{label}</option>;
+                return <option key={`salesman-${idx}`} value={val} title={label}>{truncateLabel(label)}</option>;
               })}
             </select>
           </FilterField>
@@ -3195,13 +3269,13 @@ export default function SalesRevenueReport() {
 
             const rc = appliedFilters.reportingCurrency || 'AED';
 
-            const fmtRC = v => (v !== null && v !== undefined && !isNaN(v))
-              ? `${rc} ${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+            const fmtAED = v => (v !== null && v !== undefined && !isNaN(v))
+              ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
               : '—';
-            // Only prepend currency if it is a real ISO code (not null / '—')
+            // Only prepend currency if it is a real ISO code (not null / '—' / 'AED')
             const fmtLedger = (v, currency) => {
               if (v === null || v === undefined || isNaN(v)) return '—';
-              const prefix = (currency && currency !== '—') ? `${currency} ` : '';
+              const prefix = (currency && currency !== '—' && currency !== 'AED') ? `${currency} ` : '';
               return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
             };
 
@@ -3209,20 +3283,18 @@ export default function SalesRevenueReport() {
               'Legal Entity', 'Sub-Division', 'Parent Division',
               'Ledger Currency',
               'Sales in Ledger Currency',
-              `Sales in ${rc}`,
+              'Sales in AED',
               '% Share',
             ];
 
             // Map subdivisionRawData rows — field names from /subdivision-detail endpoint
-            // Fields confirmed by Madam: ledger_currency, sales_ledger_currency, sales_aed, percentage
-            // CFO UAT Update: Reporting currency value is sales_ptd (or sales).
             const detailRows2 = [...subdivisionRawData].map(r => ({
-              legalEntity:    r.legal_entity   || r.entity_name                              || '—',
-              subDiv:         r.subdivision    || r.subdivision_name || r.sub_division || r.sub_div || '—',
-              parentDiv:      r.parent_division || r.division_name  || r.division             || '—',
+              legalEntity:    r.legal_entity ?? '—',
+              subDiv:         r.subdivision ?? '—',
+              parentDiv:      r.parent_division ?? '—',
               ledgerCurrency: r.ledger_currency ?? null,
-              salesLedger:    r.sales_ledger_currency ?? null,
-              salesRC:        r.sales_ptd ?? r.sales_aed ?? r.sales ?? null,
+              salesLedger:    r.sales_ptd_ledger_currency ?? null,
+              salesRC:        r.sales_ptd_aed ?? null,
               pct:            r.percentage ?? null,
             })).sort((a, b) => {
               const c1 = a.legalEntity.localeCompare(b.legalEntity);
@@ -3265,7 +3337,7 @@ export default function SalesRevenueReport() {
                             {row.ledgerCurrency || '—'}
                           </td>
                           <td style={{ ...TD_S, textAlign: 'right' }}>{fmtLedger(row.salesLedger, row.ledgerCurrency)}</td>
-                          <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmtRC(row.salesRC)}</td>
+                          <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmtAED(row.salesRC)}</td>
                           <td style={{ ...TD_S, textAlign: 'right' }}>
                             {row.pct !== null && row.pct !== undefined ? `${Number(row.pct).toFixed(2)}%` : '—'}
                           </td>
@@ -3467,9 +3539,9 @@ export default function SalesRevenueReport() {
           const fmtAED = v => {
             if (v == null) return '—';
             const n = Number(v);
-            if (Math.abs(n) >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(2)}M`;
-            if (Math.abs(n) >= 1_000)     return `AED ${(n / 1_000).toFixed(1)}K`;
-            return `AED ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+            if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+            if (Math.abs(n) >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
+            return `${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
           };
           const fmtPct = v => (v != null && !isNaN(v)) ? `${Number(v).toFixed(1)}%` : '—';
           const sumKey = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
