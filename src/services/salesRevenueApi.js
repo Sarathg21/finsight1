@@ -630,7 +630,7 @@ async function apiCall(path, params = {}) {
  */
 function buildParams(filters = {}) {
   const active = (val) =>
-    val && val !== 'All' && val !== 'all' ? val : undefined;
+    val && val !== 'All' && val !== 'all' && val !== 'All Customers' ? val : undefined;
 
   return {
     from_date: filters.fromDate || undefined,

@@ -51,7 +51,7 @@ const DEFAULT_FILTERS = {
   analysisCodeId:     'All',
   // People / currency filters
   salesman:           'All',
-  customerType:       'All',
+  customerType:       'All Customers',
   invoiceCurrency:    'All',
   reportingCurrency:  'AED', // will be overridden by default_reporting_currency from API on first load
   fromDate:           FIRST_DAY,
@@ -642,8 +642,17 @@ function DetailApiModal({
                         </td>
                       );
                     }
-                    // Only sum numeric columns where all visible sorted rows have numeric values
-                    if (col.noTotal) return <td key={ci} style={{ ...TD, padding: '8px 8px' }}>-</td>;
+                    // totalFn: receives all sorted rows, returns formatted string
+                    if (col.totalFn) {
+                      return (
+                        <td key={ci} style={{ ...TD, padding: '8px 8px', textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
+                          {col.totalFn(sorted)}
+                        </td>
+                      );
+                    }
+                    // noTotal: show dash
+                    if (col.noTotal) return <td key={ci} style={{ ...TD, padding: '8px 8px', color: C.muted }}>—</td>;
+                    // Auto-sum numeric columns
                     const numericVals = sorted
                       .map(row => {
                         const raw = row[col.key];
@@ -659,7 +668,7 @@ function DetailApiModal({
                         </td>
                       );
                     }
-                    return <td key={ci} style={{ ...TD, padding: '8px 8px' }}>—</td>;
+                    return <td key={ci} style={{ ...TD, padding: '8px 8px', color: C.muted }}>—</td>;
                   })}
                 </tr>
               </tfoot>
@@ -1103,15 +1112,16 @@ const selStyle = {
 
 function FilterField({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 110, flex: '1 1 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 100, flex: '0 0 auto' }}>
       <span style={{
         fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700,
-        letterSpacing: '-0.02em',
+        letterSpacing: '-0.02em', whiteSpace: 'nowrap',
       }}>{label}</span>
       {children}
     </div>
   );
 }
+
 
 function headerBtn(bg, color, border) {
   return {
@@ -1946,18 +1956,32 @@ export default function SalesRevenueReport() {
 
   // Salesman View All — aggregated
   const salesmanSummaryCols = [
-    { label: 'Salesperson',          key: 'salesman_name',           align: 'left', fmt: (v, row) => v ?? row.sales_person ?? row.salesman ?? '-' },
-    { label: 'Code',                 key: 'salesman_code',           align: 'center', fmt: (v, row) => v ?? row.employee_id ?? '-' },
-    { label: 'Legal Entity',         key: 'legal_entity',            align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
-    { label: 'Parent Division',      key: 'parent_division',         align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
-    { label: 'Sub Division',         key: 'subdivision',             align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.subdivision ?? '-' },
-    { label: `Sales (${rc})`,        key: 'sales',                   align: 'right', fmt: fmtCurrency },
-    { label: `GM (${rc})`,           key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
-    { label: '% GM',                 key: 'gross_margin_pct',        align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
-    { label: 'Target Sales',         key: 'target_sales',            align: 'right', fmt: fmtCurrency },
-    { label: 'Target GM',            key: 'target_gross_margin',     align: 'right', fmt: fmtCurrency },
-    { label: 'Target % GM',          key: 'target_gross_margin_pct', align: 'right', fmt: v => (v !== null && v !== undefined) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
+    { label: 'Salesperson',     key: 'salesman_name',       align: 'left',   fmt: (v, row) => v ?? row.sales_person ?? row.salesman ?? '—', noTotal: true },
+    { label: 'Code',            key: 'employee_id',         align: 'center', fmt: v => v ?? '—', noTotal: true },
+    { label: 'Legal Entity',    key: 'legal_entity',        align: 'left',   fmt: v => v ?? '—', noTotal: true },
+    { label: 'Parent Division', key: 'parent_division',     align: 'left',   fmt: v => v ?? '—', noTotal: true },
+    { label: 'Sub-Division',    key: 'subdivision',         align: 'left',   fmt: v => v ?? '—', noTotal: true, groupEnd: true },
+    // Achievement
+    { label: `Sales (AED)`,     key: 'sales_aed',           align: 'right',  fmt: fmtCurrency },
+    { label: `GM (AED)`,        key: 'gross_margin_aed',    align: 'right',  fmt: fmtCurrency },
+    { label: 'GM %',            key: 'gross_margin_ptd_pct',align: 'right',  fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '—', noTotal: true, groupEnd: true },
+    // Target — not allocated at salesperson level
+    { label: 'Target Sales',    key: '_target_sales',       align: 'right',  fmt: () => '—', noTotal: true },
+    { label: 'Target GM',       key: '_target_gm',          align: 'right',  fmt: () => '—', noTotal: true },
+    { label: 'Target GM %',     key: '_target_gm_pct',      align: 'right',  fmt: () => '—', noTotal: true },
   ];
+
+  // Header groups for salesman summary modal (2-row thead)
+  const salesmanSummaryHeaderGroups = [
+    { label: 'Salesperson',  colSpan: 1 },
+    { label: 'Code',         colSpan: 1 },
+    { label: 'Legal Entity', colSpan: 1 },
+    { label: 'Parent Division', colSpan: 1 },
+    { label: 'Sub-Division', colSpan: 1 },
+    { label: 'Achievement',  colSpan: 3 },
+    { label: 'Target',       colSpan: 3 },
+  ];
+
 
   // Salesman Detail drill-down — updated for CFO UAT fields
   const salesmanDetailCols = [
@@ -2086,7 +2110,8 @@ export default function SalesRevenueReport() {
 
         {/* ── Filter Bar ── */}
 
-                <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <div className="card" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'nowrap', overflowX: 'auto' }}>
+
 
           {filterOptions.legalGroups && filterOptions.legalGroups.length > 0 && (
           <FilterField label="Legal Group">
@@ -2144,15 +2169,20 @@ export default function SalesRevenueReport() {
           </FilterField>
           )}
 
-          {filterOptions.customerTypes.length > 1 && (
+
           <FilterField label="Customer Type">
-            <select id="filter-customerType" style={selStyle} value={filters.customerType} onChange={e => updateFilter('customerType', e.target.value)}>
-              {filterOptions.customerTypes.map((o, idx) => (
-                <option key={`ctype-${idx}`} value={o}>{o}</option>
-              ))}
+            <select
+              id="filter-customerType"
+              style={selStyle}
+              value={filters.customerType}
+              onChange={e => updateFilter('customerType', e.target.value)}
+            >
+              <option value="All Customers">All Customers</option>
+              <option value="Internal">Internal</option>
+              <option value="External">External</option>
             </select>
           </FilterField>
-          )}
+
 
           <FilterField label="Reporting Currency">
             <select id="filter-currency" style={selStyle} value={filters.reportingCurrency} onChange={e => updateFilter('reportingCurrency', e.target.value)}>
@@ -2181,15 +2211,16 @@ export default function SalesRevenueReport() {
           </FilterField>
 
           <button id="btn-apply-filter" onClick={handleApply} style={{
-            ...headerBtn(C.blue, '#fff'), alignSelf: 'center',
-            padding: '7px 20px', fontWeight: 700, borderRadius: 8,
+            ...headerBtn(C.blue, '#fff'), alignSelf: 'flex-end',
+            padding: '6px 18px', fontWeight: 700, borderRadius: 8, whiteSpace: 'nowrap', flexShrink: 0,
           }}>Apply</button>
           <button id="btn-reset-filter" onClick={handleReset} style={{
             background: 'none', border: 'none', color: C.slate,
             fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-            alignSelf: 'center', padding: '7px 8px',
+            alignSelf: 'flex-end', padding: '6px 6px', whiteSpace: 'nowrap', flexShrink: 0,
           }}>Reset</button>
         </div>
+
 
         {/* ── Revenue Dashboard KPI Cards ── */}
         <div className="grid-cols-6" style={{ marginBottom: 16 }}>
@@ -3332,12 +3363,17 @@ export default function SalesRevenueReport() {
         canExport={canExport}
         isOpen={openModal === 'salesmanSummary'}
         onClose={() => setOpenModal(null)}
-        title="Sales Revenue by Sales Person"
+        title="Revenue by Salesperson — Full Detail View"
         endpoint="salesman-summary"
         fetchFn={fetchSalesmanSummary}
         columnDefs={salesmanSummaryCols}
+        headerGroups={salesmanSummaryHeaderGroups}
         filters={appliedFilters}
-
+        localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
         searchPlaceholder="Search salespeople..."
         periodLabel={appliedPeriodLabel}
       />
@@ -3356,6 +3392,7 @@ export default function SalesRevenueReport() {
         searchPlaceholder="Search salesperson detail..."
         periodLabel={appliedPeriodLabel}
       />
+
 
       {/* Customer Summary Modal */}
       <DetailApiModal
@@ -3393,45 +3430,120 @@ export default function SalesRevenueReport() {
         periodLabel={appliedPeriodLabel}
       />
 
-      {/* Summary Detail Drill-Down Modal */}
+      {/* Summary Detail — Sales Revenue Consolidated Report */}
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'summaryDetail'}
         onClose={() => setOpenModal(null)}
-        title="Sales Revenue Detailed View — All Data"
+        title="Sales Revenue Consolidated Report"
         endpoint="summary-detail"
         fetchFn={fetchSummaryDetail}
-
+        filters={appliedFilters}
+        localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
+        headerGroups={[
+          { label: 'Legal Entity',              colSpan: 1 },
+          { label: 'Parent Division',           colSpan: 1 },
+          { label: 'Sub Division',              colSpan: 1 },
+          { label: 'Sales Revenue (AED)',        colSpan: 2 },
+          { label: 'Target Sales Revenue (AED)', colSpan: 2 },
+          { label: 'Change %',                  colSpan: 1 },
+          { label: 'Gross Margin (AED)',         colSpan: 3 },
+          { label: 'Target Gross Margin (AED)',  colSpan: 3 },
+          { label: 'Change %',                  colSpan: 1 },
+        ]}
         columnDefs={(() => {
-          const cur = appliedFilters.reportingCurrency || 'AED';
-          // Compact formatter: 1.43M / 890K / 4.75K
-          const fmtC = v => {
+          const fmtAED = v => {
             if (v == null) return '—';
             const n = Number(v);
-            if (Math.abs(n) >= 1_000_000) return `${cur} ${(n / 1_000_000).toFixed(2)}M`;
-            if (Math.abs(n) >= 1_000)     return `${cur} ${(n / 1_000).toFixed(1)}K`;
-            return `${cur} ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+            if (Math.abs(n) >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(2)}M`;
+            if (Math.abs(n) >= 1_000)     return `AED ${(n / 1_000).toFixed(1)}K`;
+            return `AED ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
           };
+          const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—';
+          const sumKey = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
+
           return [
-            { key: 'legal_entity',    label: 'Legal Entity',      align: 'left',  width: '12%' },
-            { key: 'parent_division', label: 'Parent Division',   align: 'left',  width: '12%' },
-            { key: 'subdivision',     label: 'Sub Division',      align: 'left',  width: '12%' },
-            // Removed Business Unit (not in API response)
-            { key: 'revenue_ptd',     label: `PTD Sales (${cur})`, align: 'right', width: '10%', fmt: (v) => fmtC(v) },
-            { key: 'revenue_ytd',     label: `YTD Sales (${cur})`, align: 'right', width: '10%', fmt: (v) => fmtC(v) },
-            { key: 'revenue_ptd_py',  label: `PY PTD (${cur})`,    align: 'right', width: '10%', fmt: (v) => fmtC(v) },
-            { key: 'variance_ptd_py_pct', label: 'Variance PY %', align: 'right', width: '8%',  fmt: (v) => v != null ? `${Number(v).toFixed(1)}%` : '—' },
-            { key: 'target_sales_ptd',label: `Target PTD (${cur})`,align: 'right', width: '10%', fmt: (v) => fmtC(v) },
-            { key: 'variance_target_ptd_pct', label: 'Var vs Tgt %', align: 'right', width: '8%',  fmt: (v) => v != null ? `${Number(v).toFixed(1)}%` : '—' },
-            { key: 'percentage',      label: '% Share',           align: 'right', width: '8%',
-              fmt: (v, row) => (v != null || row.contribution_pct != null) ? `${Number(v ?? row.contribution_pct).toFixed(2)}%` : '—'
+            // Identity
+            { key: 'legal_entity',                 label: 'Legal Entity',    align: 'left',  noTotal: true },
+            { key: 'parent_division',               label: 'Parent Division', align: 'left',  noTotal: true },
+            { key: 'subdivision',                   label: 'Sub Division',    align: 'left',  noTotal: true, groupEnd: true },
+            // Sales Revenue
+            { key: 'revenue_ptd_aed',               label: 'PTD',             align: 'right', fmt: fmtAED },
+            { key: 'revenue_ytd_aed',               label: 'YTD',             align: 'right', fmt: fmtAED, groupEnd: true },
+            // Target Sales Revenue
+            { key: 'target_sales_ptd_aed',          label: 'PTD',             align: 'right', fmt: fmtAED },
+            { key: 'target_sales_ytd_aed',          label: 'YTD',             align: 'right', fmt: fmtAED, groupEnd: true },
+            // Sales Change %
+            {
+              key: 'variance_target_ytd_pct',
+              label: 'Change %',
+              align: 'right',
+              fmt: fmtPct,
+              groupEnd: true,
+              totalFn: rows => {
+                const actYTD = sumKey(rows, 'revenue_ytd_aed');
+                const tgtYTD = sumKey(rows, 'target_sales_ytd_aed');
+                if (!tgtYTD) return '—';
+                return fmtPct(((actYTD - tgtYTD) / tgtYTD) * 100);
+              },
+            },
+            // Gross Margin
+            { key: 'gross_margin_ptd_aed',          label: 'PTD',             align: 'right', fmt: fmtAED },
+            { key: 'gross_margin_ytd_aed',          label: 'YTD',             align: 'right', fmt: fmtAED },
+            {
+              key: 'gross_margin_pct',
+              label: 'GM %',
+              align: 'right',
+              fmt: fmtPct,
+              groupEnd: true,
+              totalFn: rows => {
+                const gm  = sumKey(rows, 'gross_margin_ytd_aed');
+                const rev = sumKey(rows, 'revenue_ytd_aed');
+                if (!rev) return '—';
+                return fmtPct((gm / rev) * 100);
+              },
+            },
+            // Target Gross Margin
+            { key: 'target_gross_margin_ptd_aed',   label: 'PTD',             align: 'right', fmt: fmtAED },
+            { key: 'target_gross_margin_ytd_aed',   label: 'YTD',             align: 'right', fmt: fmtAED },
+            {
+              key: 'target_gross_margin_pct',
+              label: 'GM %',
+              align: 'right',
+              fmt: fmtPct,
+              groupEnd: true,
+              totalFn: rows => {
+                const tgm  = sumKey(rows, 'target_gross_margin_ytd_aed');
+                const trev = sumKey(rows, 'target_sales_ytd_aed');
+                if (!trev) return '—';
+                return fmtPct((tgm / trev) * 100);
+              },
+            },
+            // GM Change %
+            {
+              key: '_gm_change_pct',
+              label: 'Change %',
+              align: 'right',
+              fmt: () => '—',   // row-level not available; derive at total level only
+              noTotal: false,
+              totalFn: rows => {
+                const gm  = sumKey(rows, 'gross_margin_ytd_aed');
+                const tgm = sumKey(rows, 'target_gross_margin_ytd_aed');
+                if (!tgm) return '—';
+                return fmtPct(((gm - tgm) / tgm) * 100);
+              },
             },
           ];
         })()}
-        filters={appliedFilters}
-        searchPlaceholder="Search detailed view..."
+        searchPlaceholder="Search consolidated report..."
         periodLabel={appliedPeriodLabel}
       />
+
+
 
       {/* Trend View-All — inline modal reusing old table logic */}
       {openModal === 'trend' && (
