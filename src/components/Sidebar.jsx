@@ -65,6 +65,7 @@ const NAV_BY_ROLE = {
     { to: '/cash-collection', label: 'Cash Collection', group: 'Treasury' },
     { to: '/excel-consolidator', label: 'Excel Consolidator', group: 'Utilities' },
     { to: '/admin', label: 'User & Access Control', group: 'Admin' },
+  
   ],
   executive: [
     { to: '/finsight-dashboard', label: 'Executive Dashboard', pinned: true, group: 'Overview' },

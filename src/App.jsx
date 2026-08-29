@@ -22,6 +22,7 @@ import ReceivablesDashboard from "./pages/ReceivablesDashboard";
 import ReceivablesDetailedPage from "./pages/ReceivablesDetailedPage";
 import InventoryAgingPage from "./pages/InventoryAgingPage";
 import WorkingCapitalReport from './pages/WorkingCapitalReport';
+import MyProfile from './pages/MyProfile'
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -56,6 +57,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
               <Route path="/dashboard" element={<ProtectedRoute pageKey="dashboard" element={<CFODashboard />} />} />
+              <Route path="/profile" element={<MyProfile />} />
               <Route path="/exec-dashboard" element={<ProtectedRoute pageKey="exec-dashboard" element={<ExecDashboard />} />} />
               <Route path="/finsight-dashboard" element={<FinSightDashboard />} />
               <Route path="/country-performance" element={<ProtectedRoute pageKey="country-performance" element={<PlaceholderPage title="Country Performance" />} />} />
@@ -72,7 +74,7 @@ function App() {
               <Route path="/ar" element={<ProtectedRoute pageKey="ar" element={<ARDashboard />} />} />
               <Route path="/ap" element={<ProtectedRoute pageKey="ap" element={<PlaceholderPage title="AP Aging Report" />} />} />
               <Route path="/payables" element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} />
-              <Route path="receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} />
+              <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} />
               <Route path="receivables/details" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDetailedPage />} />} />
               <Route path="/inventory" element={<ProtectedRoute pageKey="inventory" element={<InventoryAgingPage />} />} />
               <Route path="/workingcapital-report" element={<ProtectedRoute pageKey="workingcapital-report" element={<WorkingCapitalReport />} />} />
