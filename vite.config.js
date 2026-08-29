@@ -23,6 +23,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [tailwindcss(), react()],
+    build: {
+      chunkSizeWarningLimit: 3000,
+    },
     server: {
       // Serve index.html for all routes so React Router handles them client-side.
       historyApiFallback: true,
