@@ -253,6 +253,8 @@ export function AuthProvider({ children }) {
       u => u.email.toLowerCase() === trimmedEmail
     );
 
+    const resolvedRole = backendUser?.role || demoMatch?.role || 'accountant';
+
     // Build the session object: backend fields take precedence, RBAC from demo map
     const session = {
       // Identity — from backend if available, else demo
@@ -260,7 +262,7 @@ export function AuthProvider({ children }) {
       name:        backendUser?.name || backendUser?.full_name || demoMatch?.name || email,
       email:       backendUser?.email || email,
       // RBAC — from DEMO_USERS map (backend doesn't return RBAC config)
-      role:        backendUser?.role || demoMatch?.role || 'accountant',
+      role:        resolvedRole,
       roleLabel:   backendUser?.roleLabel || demoMatch?.roleLabel || 'User',
       layer:       demoMatch?.layer ?? 5,
       avatar:      demoMatch?.avatar || (email.slice(0, 2).toUpperCase()),
@@ -268,7 +270,8 @@ export function AuthProvider({ children }) {
       exportRights:   demoMatch?.exportRights || 'controlled',
       canManageUsers: demoMatch?.canManageUsers ?? false,
       defaultPage:    demoMatch?.defaultPage || '/dashboard',
-      allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || ['dashboard', 'revenue', 'pl', '*'],
+      allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || 
+                      (['ADMIN', 'cfo', 'board'].includes(resolvedRole) ? ['*'] : ['dashboard', 'revenue', 'pl']),
     };
 
     // NOTE: Do NOT call completeLogin here.
