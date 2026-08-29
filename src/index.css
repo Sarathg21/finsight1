@@ -554,7 +554,6 @@ thead th {
   color: var(--clr-text-muted);
   border-bottom: 1px solid var(--clr-border-strong);
   white-space: nowrap;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 

@@ -518,33 +518,21 @@ function DetailApiModal({
               }}
             />
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
-              const selectedValue = (localFiltersState[cfg.key] && localFiltersState[cfg.key][0]) || 'All';
+              const selectedValues = localFiltersState[cfg.key] || ['All'];
               return (
                 <div key={idx} style={{ width: 180, position: 'relative' }}>
-                  <select
-                    style={selStyle}
-                    value={selectedValue}
-                    onChange={(e) => {
-                      const val = e.target.value;
+                  <MultiSelect
+                    options={cfg.options}
+                    value={selectedValues}
+                    onChange={(vals) => {
                       setLocalFiltersState(prev => ({ 
                         ...prev, 
-                        [cfg.key]: [val] 
+                        [cfg.key]: vals
                       }));
                       setPage(0);
                     }}
-                  >
-                    <option value="All">All {cfg.label || ''}</option>
-                    {cfg.options && cfg.options.map((o, oIdx) => {
-                      const val = typeof o === 'string' ? o : String(o.id);
-                      const name = typeof o === 'string' ? o : o.name;
-                      if (val === 'All') return null;
-                      return (
-                        <option key={oIdx} value={val} title={name}>
-                          {truncateLabel(name)}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    placeholder={`All ${cfg.label || ''}`}
+                  />
                 </div>
               );
             })}
@@ -2476,7 +2464,7 @@ export default function SalesRevenueReport() {
                       </div>
 
                       {/* Large amount */}
-                      <motion.div whileHover={{ scale: 1.03 }} className="animate-float-glow" style={{ fontSize: '2.4rem', fontWeight: 900, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.5px' }}>
+                      <motion.div whileHover={{ scale: 1.01 }} className="animate-float-glow" style={{ fontSize: '1.60rem', fontWeight: 500, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.2px' }}>
                         {filters.reportingCurrency} <CountUp end={rawVal} formatter={fmtAxisNum} duration={1.5} />
                       </motion.div>
                     <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 6, fontWeight: 500 }}>
@@ -3385,7 +3373,10 @@ export default function SalesRevenueReport() {
         columnDefs={legalEntityCols}
         headerGroups={legalEntityHeaderGroups}
         filters={appliedFilters}
-
+        localFiltersConfig={[
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
         searchPlaceholder="Search legal entities..."
         periodLabel={appliedPeriodLabel}
       />
@@ -3401,7 +3392,10 @@ export default function SalesRevenueReport() {
         columnDefs={parentDivisionCols}
         headerGroups={parentDivisionHeaderGroups}
         filters={appliedFilters}
-
+        localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
         searchPlaceholder="Search parent divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -3418,9 +3412,10 @@ export default function SalesRevenueReport() {
         headerGroups={subDivisionHeaderGroups}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'subdivisionId', label: 'Sub-Divs', options: filterOptions.subDivs }
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
-
         searchPlaceholder="Search sub-divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -3505,7 +3500,11 @@ export default function SalesRevenueReport() {
         fetchFn={fetchCustomerDetail}
         columnDefs={customerDetailCols}
         filters={appliedFilters}
-
+        localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
         searchPlaceholder="Search customer detail..."
         periodLabel={appliedPeriodLabel}
       />
