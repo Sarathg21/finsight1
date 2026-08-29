@@ -24,6 +24,7 @@ import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
+import MyProfile from './pages/MyProfile';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -58,6 +59,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
               <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} />
+              <Route path="/profile"            element={<MyProfile />} />
               <Route path="/exec-dashboard"     element={<ProtectedRoute pageKey="exec-dashboard"     element={<ExecDashboard />} />} />
               <Route path="/finsight-dashboard" element={<FinSightDashboard />} />
               <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} />

@@ -278,7 +278,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                 {/* Section label */}
                 <div style={{
                   fontSize: '0.6rem', fontWeight: 700,
-                  color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.1em',
+                  color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.1em',
                   padding: isExpanded ? '10px 8px 4px' : '10px 0 4px',
                   textAlign: isExpanded ? 'left' : 'center',
                   whiteSpace: 'nowrap', overflow: 'hidden',
@@ -287,11 +287,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                   {isExpanded ? (
                     <>
                       <span>{group}</span>
-                      <span style={{ flex: 1, height: 1, background: '#f1f5f9', display: 'inline-block' }} />
+                      <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.25)', display: 'inline-block' }} />
                     </>
                   ) : (
                     <span style={{
-                      width: 20, height: 1, background: '#e2e8f0',
+                      width: 20, height: 1, background: 'rgba(255,255,255,0.25)',
                       display: 'inline-block', margin: '0 auto',
                     }} />
                   )}

@@ -331,6 +331,16 @@ export function AuthProvider({ children }) {
     _auditWrite(action, payload);
   }
 
+  // ── Compat shim for MyProfile.jsx ────────────────────────────────
+  // MyProfile expects getAccessScopes() from useAuth().
+  // Returns the user's allowedPages as an array of scope strings so
+  // that MyProfile can display what this user has access to.
+  // This does NOT change any existing RBAC logic.
+  function getAccessScopes() {
+    if (!user) return [];
+    return Array.isArray(user.allowedPages) ? user.allowedPages : [];
+  }
+
   return (
     <AuthContext.Provider value={{
       user, login, logout, canAccess, hasExportRight, loading,
@@ -338,6 +348,7 @@ export function AuthProvider({ children }) {
       loginWithBackend,
       getScopedEntities, getScopedCountries, getScopedSalesperson,
       hasSensitiveAccess, auditLog,
+      getAccessScopes,
     }}>
       {children}
     </AuthContext.Provider>

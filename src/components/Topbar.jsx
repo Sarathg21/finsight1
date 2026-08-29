@@ -33,6 +33,22 @@ export default function Topbar() {
   const navigate = useNavigate();
   const page = PAGE_TITLES[pathname] || { title: 'Finsight', sub: 'FJ Group Finance Intelligence' };
 
+  const handleProfileClick = () => {
+    if (pathname === '/profile') {
+      navigate('/dashboard');
+    } else {
+      navigate('/profile');
+    }
+  };
+
+  const getInitials = (name = '') => {
+    const words = name.trim().split(/\s+/);
+    if (words.length >= 2) {
+      return `${words[0][0]}${words[1][0]}`.toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase() || '?';
+  };
+
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const searchRef = useRef(null);
@@ -185,15 +201,26 @@ export default function Topbar() {
         <div className="filter-divider" />
 
         {/* User */}
-        <div className="user-menu-wrap">
+        <div
+          className="user-menu-wrap"
+          onClick={handleProfileClick}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') handleProfileClick();
+          }}
+          style={{ cursor: 'pointer' }}
+          title="My Profile"
+        >
           <div style={{
             width: 30, height: 30, borderRadius: '50%',
             background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '0.62rem', fontWeight: 800, color: '#fff', flexShrink: 0,
             boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+            textTransform: 'uppercase',
           }}>
-            {user?.avatar || '?'}
+            {getInitials(user?.name || 'Zenith User')}
           </div>
           <div className="hide-on-tablet" style={{ lineHeight: 1.25 }}>
             <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--clr-text)', whiteSpace: 'nowrap' }}>
@@ -205,7 +232,7 @@ export default function Topbar() {
           </div>
           <button
             className="btn-icon btn-icon-danger"
-            onClick={logout}
+            onClick={(e) => { e.stopPropagation(); logout(); }}
             title="Logout"
             id="logout-btn"
             aria-label="Logout"
