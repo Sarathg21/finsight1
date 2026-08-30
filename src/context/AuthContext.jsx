@@ -257,6 +257,7 @@ export function AuthProvider({ children }) {
 
     // Build the session object: backend fields take precedence, RBAC from demo map
     const session = {
+      ...(backendUser || {}),
       // Identity — from backend if available, else demo
       id:          backendUser?.id   || demoMatch?.id   || `backend-${Date.now()}`,
       name:        backendUser?.name || backendUser?.full_name || demoMatch?.name || email,
@@ -341,6 +342,7 @@ export function AuthProvider({ children }) {
   // This does NOT change any existing RBAC logic.
   function getAccessScopes() {
     if (!user) return [];
+    if (Array.isArray(user.access_scopes)) return user.access_scopes;
     return Array.isArray(user.allowedPages) ? user.allowedPages : [];
   }
 
