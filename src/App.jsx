@@ -23,6 +23,7 @@ import ReceivablesDetailedPage from "./pages/ReceivablesDetailedPage";
 import InventoryAgingPage from "./pages/InventoryAgingPage";
 import WorkingCapitalReport from './pages/WorkingCapitalReport';
 import MyProfile from './pages/MyProfile'
+import AdminMainDashboard from './pages/AdminMainDashboard';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -86,7 +87,7 @@ function App() {
                   <ProtectedRoute
                     pageKey="admin"
                     adminOnly={true}
-                    element={<AdminDashboard />}
+                    element={<AdminMainDashboard />}
                   />
                 }
               />
