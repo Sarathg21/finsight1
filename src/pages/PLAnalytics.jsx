@@ -853,7 +853,7 @@ export default function PLAnalytics() {
       .catch(err => setErrors(prev => ({ ...prev, filters: err?.message || 'Failed to load filters' })))
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.legalGroup, filters.legalEntity, filters.parentDivision]);
+  }, [filters.legalGroupId, filters.legalEntityId, filters.parentDivisionId]);
 
   /* ── Fetch all data ───────────────────────────────────────────── */
   const fetchAll = useCallback((f) => {
