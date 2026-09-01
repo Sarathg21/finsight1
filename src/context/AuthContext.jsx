@@ -269,10 +269,10 @@ export function AuthProvider({ children }) {
       avatar:      demoMatch?.avatar || (email.slice(0, 2).toUpperCase()),
       scope:       demoMatch?.scope || { countries: 'all', entities: 'all', divisions: 'all' },
       exportRights:   demoMatch?.exportRights || 'controlled',
-      canManageUsers: demoMatch?.canManageUsers ?? false,
-      defaultPage:    demoMatch?.defaultPage || '/dashboard',
-      allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || 
-                      (['ADMIN', 'cfo', 'board'].includes(resolvedRole) ? ['*'] : ['dashboard', 'revenue', 'pl']),
+        canManageUsers: demoMatch?.canManageUsers ?? (['admin', 'cfo', 'board'].includes(String(resolvedRole).toLowerCase()) ? true : false),
+        defaultPage:    demoMatch?.defaultPage || '/dashboard',
+        allowedPages:   backendUser?.allowedPages || demoMatch?.allowedPages || 
+                        (['admin', 'cfo', 'board'].includes(String(resolvedRole).toLowerCase()) ? ['*'] : ['dashboard', 'revenue', 'pl', 'profile']),
     };
 
     // NOTE: Do NOT call completeLogin here.
