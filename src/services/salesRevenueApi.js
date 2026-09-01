@@ -658,6 +658,15 @@ function buildParams(filters = {}) {
     return ids.length > 0 ? ids : undefined;
   };
 
+  const activeStrings = (arr) => {
+    if (!arr || !Array.isArray(arr)) {
+      if (arr === 'All' || arr === 'All Customers' || !arr) return undefined;
+      return [arr];
+    }
+    const strs = arr.filter(v => v !== 'All' && v !== 'all' && v !== 'All Customers' && v !== '' && v != null);
+    return strs.length > 0 ? strs : undefined;
+  };
+
   return {
     from_date: filters.fromDate || undefined,
     to_date: filters.toDate || undefined,
@@ -667,8 +676,8 @@ function buildParams(filters = {}) {
     subdivision_id:     activeIds(filters.subdivisionId),
     analysis_code_id: active(filters.analysisCodeId),
     reporting_currency: active(filters.reportingCurrency),
-    sales_person: active(filters.salesman),
-    customer_type: active(filters.customerType),
+    sales_person: activeStrings(filters.salesman),
+    customer_type: activeStrings(filters.customerType),
     invoice_currency: active(filters.invoiceCurrency),
     customer_name: filters.customerName || undefined,
     customer_account_number: filters.customerAccountNumber || undefined,
@@ -789,6 +798,14 @@ export async function fetchFilterOptions(params = {}) {
     return ids.length > 0 ? ids : undefined;
   };
   const apiParams = {};
+  const activeStrings = (arr) => {
+    if (!arr || !Array.isArray(arr)) {
+      if (arr === 'All' || arr === 'All Customers' || !arr) return undefined;
+      return [arr];
+    }
+    const strs = arr.filter(v => v !== 'All' && v !== 'all' && v !== 'All Customers' && v !== '' && v != null);
+    return strs.length > 0 ? strs : undefined;
+  };
   const gIds = toIntIds(params.legalGroupId);
   const eIds = toIntIds(params.legalEntityId);
   const pIds = toIntIds(params.parentDivisionId);
@@ -798,7 +815,11 @@ export async function fetchFilterOptions(params = {}) {
   if (pIds) apiParams.parent_division_id = pIds;
   if (sIds) apiParams.subdivision_id     = sIds;
 
-  const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
+    const sStrs = activeStrings(params.salesman);
+  const cStrs = activeStrings(params.customerType);
+  if (sStrs) apiParams.salesman = sStrs;
+  if (cStrs) apiParams.customer_type = cStrs;
+const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
   const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
   const res = unwrap(raw) || {};
 
@@ -1087,3 +1108,4 @@ export async function fetchCustomerDetail(filters) {
 export async function fetchSummaryDetail(filters) {
   return apiCall('/api/sales-revenue/summary-detail', buildParams(filters));
 }
+

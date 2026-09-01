@@ -1,5 +1,5 @@
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect, useState } from "react";
 import {
     UserRound,
     ShieldCheck,
@@ -165,17 +165,19 @@ const normalizeModulePermissions = (modulePermissions) => {
                 item.module_code
         )
         .map((item) => {
-            const actions = Array.isArray(item.actions)
-                ? item.actions
+            // Prefer an explicit actions[] array from the backend.
+            // Fallback: derive actions from boolean flags
+            // (can_view, can_export, can_upload, can_admin)
+            // so Permissions always displays correctly regardless
+            // of whether the backend sends actions[] or boolean flags.
+            let actions;
+            if (Array.isArray(item.actions) && item.actions.length > 0) {
+                actions = item.actions
                     .map((action) => {
                         if (typeof action === "string") {
                             return action.toUpperCase();
                         }
-
-                        if (
-                            action &&
-                            typeof action === "object"
-                        ) {
+                        if (action && typeof action === "object") {
                             return (
                                 action.action ||
                                 action.name ||
@@ -183,11 +185,17 @@ const normalizeModulePermissions = (modulePermissions) => {
                                 ""
                             ).toUpperCase();
                         }
-
                         return "";
                     })
-                    .filter(Boolean)
-                : [];
+                    .filter(Boolean);
+            } else {
+                // Derive from boolean flags
+                actions = [];
+                if (item.can_view)   actions.push("VIEW");
+                if (item.can_export) actions.push("EXPORT");
+                if (item.can_upload) actions.push("UPLOAD");
+                if (item.can_admin)  actions.push("ADMIN");
+            }
 
             return {
                 moduleCode: String(item.module_code),
@@ -317,29 +325,60 @@ export default function Profile() {
 
 
     // =====================================================
-    // AUTHORITATIVE ACCESS SCOPES
+    // LIVE PROFILE DATA — fetched from /api/access/me
     //
-    // Still comes from /api/access/me.
+    // This is the authoritative source for:
+    //   - access_scopes (legal group, entity, division...)
+    //   - module_permissions (which modules the role can see)
+    //   - designation, department, role_name
+    //
+    // Do NOT rely on the static login-time user object for these.
     // =====================================================
 
-    const accessScopes = getAccessScopes();
+    const [profileData, setProfileData] = useState(null);
+    const [profileError, setProfileError] = useState(null);
+
+    useEffect(() => {
+        async function fetchProfile() {
+            try {
+                const token = localStorage.getItem("finsight_token");
+                if (!token) return;
+
+                const res = await fetch("/api/access/me", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (!res.ok) {
+                    console.warn("[MyProfile] /api/access/me returned", res.status);
+                    setProfileError(res.status);
+                    return;
+                }
+
+                const data = await res.json();
+                setProfileData(data);
+            } catch (err) {
+                console.warn("[MyProfile] Failed to fetch /api/access/me:", err);
+                setProfileError(true);
+            }
+        }
+        fetchProfile();
+    }, []);
 
 
-    // =====================================================
-    // AUTHORITATIVE MODULE PERMISSIONS
-    //
-    // IMPORTANT:
-    // DO NOT use {} here.
-    //
-    // The backend now returns:
-    //
-    // user.module_permissions
-    // =====================================================
+    // Access scopes: prefer live API data, fall back to auth context
+    const accessScopes = Array.isArray(profileData?.access_scopes)
+        ? profileData.access_scopes
+        : getAccessScopes();
 
-    const modulePermissions =
-        Array.isArray(user?.module_permissions)
-            ? user.module_permissions
-            : [];
+    // Module permissions: from live API data only (not in login-time session)
+    const modulePermissions = Array.isArray(profileData?.module_permissions)
+        ? profileData.module_permissions
+        : Array.isArray(user?.module_permissions)
+        ? user.module_permissions
+        : [];
 
 
     // =====================================================
@@ -349,15 +388,20 @@ export default function Profile() {
     const userData = useMemo(() => {
 
         const currentUser = user || {};
+        const live = profileData || {};
 
         return {
             fullName:
+                live.employee_name ||
+                live.full_name ||
                 currentUser.full_name ||
                 currentUser.employee_name ||
                 currentUser.name ||
                 "—",
 
             employeeId:
+                live.employee_code ||
+                live.employee_id ||
                 currentUser.employee_id ||
                 currentUser.employee_code ||
                 currentUser.user_id ||
@@ -365,36 +409,44 @@ export default function Profile() {
                 "—",
 
             email:
+                live.official_email ||
+                live.email ||
                 currentUser.official_email ||
                 currentUser.email ||
                 currentUser.email_address ||
                 "—",
 
             designation:
+                live.designation ||
+                live.job_title ||
                 currentUser.designation ||
                 currentUser.job_title ||
                 "—",
 
             department:
+                live.department ||
                 currentUser.department ||
                 "—",
 
             accountStatus:
+                live.account_status ||
+                live.status ||
+                (live.active === false ? "Inactive" : null) ||
                 currentUser.account_status ||
                 currentUser.status ||
-                (
-                    currentUser.active === false
-                        ? "Inactive"
-                        : "Active"
-                ),
+                (currentUser.active === false ? "Inactive" : "Active"),
 
             applicationRole:
+                live.role_name ||
+                live.role_code ||
+                live.role ||
                 currentUser.role_name ||
                 currentUser.role_code ||
                 currentUser.role ||
                 "—",
 
             roleCode:
+                live.role_code ||
                 currentUser.role_code ||
                 "—",
 
@@ -409,7 +461,7 @@ export default function Profile() {
                 "—",
         };
 
-    }, [user]);
+    }, [user, profileData]);
 
 
     // =====================================================

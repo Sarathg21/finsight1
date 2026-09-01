@@ -862,7 +862,7 @@ function Sparkline({ data, color, height = 40 }) {
   );
 }
 
-function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, achievementPct, variance }) {
+function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, variancePct, variance, hideTargetUI }) {
   const [displayVal, setDisplayVal] = useState(0);
   const [hover, setHover]           = useState(false);
 
@@ -954,22 +954,22 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         )}
 
         {/* Target & Achievement Row */}
-        {!loading && !error && target != null && (
+        {!loading && !error && target != null && !hideTargetUI && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
             fontSize: '0.65rem', fontWeight: 600, color: '#475569',
             marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.03)', borderRadius: 6
           }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              🎯 <span style={{ color: '#0f172a' }}>{currency || ''} {fmtAxisNum(target)}</span>
+              Target: <span style={{ color: '#0f172a' }}>{currency || ''} {fmtAxisNum(target)}</span>
             </span>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <span style={{
-              color: achievementPct >= 100 ? '#10b981' : '#f59e0b',
+              color: variancePct >= 0 ? '#10b981' : '#ef4444',
               display: 'flex', alignItems: 'center', gap: 2
             }}>
-              {achievementPct >= 100 ? '📈' : '📉'}
-              {achievementPct != null ? `${Number(achievementPct).toFixed(1)}%` : '—'}
+              {variancePct >= 0 ? '📈' : '📉'}
+              {variancePct != null ? `${Math.abs(Number(variancePct)).toFixed(1)}%` : '—'}
             </span>
           </div>
         )}
@@ -1281,6 +1281,11 @@ export default function SalesRevenueReport() {
   /* ── Filter state ─────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
+
+  // Hide all target-related UI when Customer Type = Internal or External.
+  // Targets are maintained at full-group level only, not split by customer type.
+  const hideTargetUI = appliedFilters.customerType === 'Internal' || appliedFilters.customerType === 'External';
+
   const [userAccess, setUserAccess] = useState(null);
   const [permissions, setPermissions] = useState([]);
 
@@ -1362,7 +1367,18 @@ export default function SalesRevenueReport() {
     const numStr = Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     return filters.reportingCurrency === 'AED' ? numStr : `${filters.reportingCurrency} ${numStr}`;
   };
-  const fmtPct = (v) => v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : 'N/A';
+  const fmtPctCol = (v, digits = 1) => {
+    if (v == null || isNaN(v)) return '-';
+    const num = Number(v);
+    return num < 0 ? <span style={{ color: '#ef4444' }}>{num.toFixed(digits)}%</span> : `${num.toFixed(digits)}%`;
+  };
+
+  const fmtPct = (v) => {
+    if (v === null || v === undefined) return 'N/A';
+    const num = Number(v);
+    if (isNaN(num)) return 'N/A';
+    return num < 0 ? <span style={{ color: '#ef4444' }}>{num.toFixed(1)}%</span> : `${num.toFixed(1)}%`;
+  };
   const fmtTableNum = (v) => v !== null && v !== undefined ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '—';
   const fmtDate = (v) => v ? new Date(v).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
   const fmtDisplayDate = (iso) => {
@@ -1403,11 +1419,12 @@ export default function SalesRevenueReport() {
   useEffect(() => {
     setLoading(prev => ({ ...prev, filters: true }));
     fetchFilterOptions({
-      // Cascade by IDs - the new primary contract per handoff document
       legalGroupId:     filters.legalGroupId,
       legalEntityId:    filters.legalEntityId,
       parentDivisionId: filters.parentDivisionId,
       subdivisionId:    filters.subdivisionId,
+      salesman:         filters.salesman,
+      customerType:     filters.customerType,
     })
       .then(data => {
         // Always include the standard UAT reporting currencies
@@ -1892,12 +1909,12 @@ export default function SalesRevenueReport() {
     { label: '', colSpan: 2 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
     { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: 'Target Revenue', colSpan: 2 },
+    { label: `Target Revenue (${filters.reportingCurrency || 'AED'})`, colSpan: 2 },
     { label: '', colSpan: 1 }
   ];
 
   const legalEntityCols = [
-    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left' },
+    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-', groupEnd: true },
     { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', fmt: v => v ?? '-', groupEnd: true },
     { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
     { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
@@ -1905,13 +1922,18 @@ export default function SalesRevenueReport() {
     { label: 'YTD',                          key: 'sales_ytd_aed',             align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
     { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
     { label: 'YTD',                          key: 'target_sales_ytd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
-    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
+    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => fmtPctCol(v, 2),
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.percentage) || 0), 0);
+        return fmtPctCol(s, 2);
+      }
+    },
   ];
 
   const parentDivisionHeaderGroups = [
     { label: '', colSpan: 1 },
     { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: 'Target Revenue', colSpan: 2 },
+    { label: `Target Revenue (${filters.reportingCurrency || 'AED'})`, colSpan: 2 },
     { label: 'Variance vs Target', colSpan: 2 },
     { label: '', colSpan: 1 }
   ];
@@ -1922,20 +1944,39 @@ export default function SalesRevenueReport() {
     { label: 'YTD',             key: 'sales_ytd_aed',         align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
     { label: 'PTD',             key: 'target_sales_ptd',      align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
     { label: 'YTD',             key: 'target_sales_ytd',      align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
-    { label: 'PTD %',           key: 'variance_target_ptd_pct', align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true },
-    { label: 'YTD %',           key: 'variance_target_ytd_pct', align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '-', noTotal: true, groupEnd: true },
-    { label: '% Share',         key: 'percentage',            align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
+    { label: 'PTD %',           key: 'variance_target_ptd_pct', align: 'right', fmt: v => fmtPctCol(v, 1),
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.sales_ptd_aed) || 0), 0);
+        const t = rows.reduce((acc, r) => acc + (Number(r.target_sales_ptd) || 0), 0);
+        if (!t) return '-';
+        return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
+      }
+    },
+    { label: 'YTD %',           key: 'variance_target_ytd_pct', align: 'right', fmt: v => fmtPctCol(v, 1), groupEnd: true,
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.sales_ytd_aed) || 0), 0);
+        const t = rows.reduce((acc, r) => acc + (Number(r.target_sales_ytd) || 0), 0);
+        if (!t) return '-';
+        return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
+      }
+    },
+    { label: '% Share',         key: 'percentage',            align: 'right', fmt: v => fmtPctCol(v, 2),
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.percentage) || 0), 0);
+        return fmtPctCol(s, 2);
+      }
+    },
   ];
 
   const subDivisionHeaderGroups = [
     { label: '', colSpan: 4 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
     { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: 'Target Revenue', colSpan: 2 },
+    { label: `Target Revenue (${filters.reportingCurrency || 'AED'})`, colSpan: 2 },
     { label: '', colSpan: 1 }
   ];
 
-  const subdivisionCols = [
+    const subdivisionCols = [
     { label: 'Sub-Division',                 key: 'subdivision',               align: 'left', fmt: (v, row) => v ?? row.subdivision_name ?? row.name ?? '-' },
     { label: 'Parent Division',              key: 'parent_division',           align: 'left', fmt: (v, row) => v ?? row.division_name ?? '-' },
     { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', fmt: (v, row) => v ?? row.entity_name ?? '-' },
@@ -1946,7 +1987,20 @@ export default function SalesRevenueReport() {
     { label: 'YTD',                          key: 'sales_ytd_aed',             align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
     { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-' },
     { label: 'YTD',                          key: 'target_sales_ytd',          align: 'right', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true },
-    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
+    { label: 'YTD %',                        key: 'variance_target_ytd_pct',   align: 'right', fmt: v => fmtPctCol(v, 1), groupEnd: true,
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.sales_ytd_aed) || 0), 0);
+        const t = rows.reduce((acc, r) => acc + (Number(r.target_sales_ytd) || 0), 0);
+        if (!t) return '-';
+        return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
+      }
+    },
+    { label: '% Share',                      key: 'percentage',                align: 'right', fmt: v => fmtPctCol(v, 2),
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.percentage) || 0), 0);
+        return fmtPctCol(s, 2);
+      }
+    },
   ];
 
   const customerSummaryCols = [
@@ -1962,10 +2016,10 @@ export default function SalesRevenueReport() {
         const s = Number(row.sales_aed) || 0;
         const gm = Number(row.gross_margin_aed) || 0;
         if (s === 0) return '-';
-        return `${((gm / s) * 100).toFixed(1)}%`;
+        return fmtPctCol(((gm / s) * 100), 1);
      }, noTotal: true
     },
-    { label: '% Share of Sales',    key: 'percentage',              align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(2)}%` : '-', noTotal: true },
+    { label: '% Share of Sales',    key: 'percentage',              align: 'right', fmt: v => fmtPctCol(v, 2), noTotal: true },
   ];
 
   const customerDetailCols = [
@@ -2027,7 +2081,7 @@ export default function SalesRevenueReport() {
     { label: 'Sub-Division',         key: 'subdivision',            align: 'left'  },
     { label: 'Sales (AED)',          key: 'sales_aed',              align: 'right', fmt: fmtCurrency, totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_aed) || 0), 0)) },
     { label: 'GM (AED)',             key: 'gross_margin_aed',       align: 'right', fmt: fmtCurrency, totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.gross_margin_aed) || 0), 0)) },
-    { label: 'GM %',                 key: 'gross_margin_ptd_pct',   align: 'right', fmt: v => (v != null) ? `${Number(v).toFixed(1)}%` : '-' },
+    { label: 'GM %',                 key: 'gross_margin_ptd_pct',   align: 'right', fmt: v => fmtPctCol(v, 1) },
     { label: 'Target Sales',         key: 'target_sales_dummy',     align: 'right', fmt: v => '-' },
     { label: 'Target GM',            key: 'target_gm_dummy',        align: 'right', fmt: v => '-' },
     { label: 'Target GM %',          key: 'target_gm_pct_dummy',    align: 'right', fmt: v => '-' },
@@ -2252,19 +2306,25 @@ export default function SalesRevenueReport() {
 
 
           <FilterField label={`From Date${filters.fromDate ? ': ' + fmtDisplayDate(filters.fromDate) : ''}`}>
-            <input
-              id="filter-from-date" type="date" value={filters.fromDate}
-              onChange={e => updateFilter('fromDate', e.target.value)}
-              style={{ ...selStyle, paddingRight: 10, backgroundImage: 'none', cursor: 'pointer' }}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+              <svg width="15" height="15" style={{ position: 'absolute', left: 10, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <input
+                id="filter-from-date" type="date" value={filters.fromDate}
+                onChange={e => updateFilter('fromDate', e.target.value)}
+                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', WebkitAppearance: 'none' }}
+              />
+            </div>
           </FilterField>
 
           <FilterField label={`To Date${filters.toDate ? ': ' + fmtDisplayDate(filters.toDate) : ''}`}>
-            <input
-              id="filter-to-date" type="date" value={filters.toDate}
-              onChange={e => updateFilter('toDate', e.target.value)}
-              style={{ ...selStyle, paddingRight: 10, backgroundImage: 'none', cursor: 'pointer' }}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+              <svg width="15" height="15" style={{ position: 'absolute', left: 10, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <input
+                id="filter-to-date" type="date" value={filters.toDate}
+                onChange={e => updateFilter('toDate', e.target.value)}
+                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', WebkitAppearance: 'none' }}
+              />
+            </div>
           </FilterField>
 
           <button id="btn-apply-filter" onClick={handleApply} style={{
@@ -2283,14 +2343,14 @@ export default function SalesRevenueReport() {
         <div className="grid-cols-6" style={{ marginBottom: 16 }}>
 
           {/* 1. Total Sales (PTD) */}
-          <KPICard currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label={"Total Sales (PTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
             changeLabel={ptdTarget != null ? "vs Target" : "vs Mar 2024"}
             up={mtdChangePct !== null ? mtdChangePct >= 0 : null}
             target={ptdTarget}
-            achievementPct={ptdAchievement}
+            variancePct={summary?.variance_target_ptd_pct ?? null}
             variance={ptdVariance}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
             iconBg="#dbeafe"
@@ -2303,14 +2363,14 @@ export default function SalesRevenueReport() {
           />
 
           {/* 2. Sales (YTD) */}
-          <KPICard currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label={"Sales (YTD)"}
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
             changeLabel={summary?.target_sales_ytd != null ? "vs Target" : "vs YTD Apr 2023"}
             up={ytdChangePct !== null ? ytdChangePct >= 0 : null}
             target={summary?.target_sales_ytd ?? null}
-            achievementPct={summary?.achievement_ytd_pct ?? null}
+            variancePct={summary?.variance_target_ytd_pct ?? null}
             variance={summary?.variance_target_ytd ?? null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
             iconBg="#dcfce7"
@@ -2323,14 +2383,14 @@ export default function SalesRevenueReport() {
           />
 
           {/* 3. Gross Profit (PTD) */}
-          <KPICard currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label={"Gross Profit (PTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
             changeLabel={summary?.target_gross_margin_ptd != null ? "vs Target" : "vs Mar 2024"}
             up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
             target={summary?.target_gross_margin_ptd ?? null}
-            // achievementPct not returned in the schema for Gross Margin explicitly, leaving null unless derived
+            variancePct={summary?.variance_target_ptd_pct ?? null}
             icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
             iconBg="#ede9fe"
             cardBg="#f5f3ff"
@@ -2342,7 +2402,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 4. Top Legal Entity */}
-          <KPICard currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label="Top Legal Entity"
             numericValue={null}
             textValue={topLE ? topLE.name : '—'}
@@ -2360,7 +2420,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 5. Top Parent Division */}
-          <KPICard currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label="Top Parent Division"
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
@@ -2378,7 +2438,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 6. Top Salesman */}
-          <KPICard currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label="Top Salesperson"
             numericValue={null}
             textValue={topSalesmanName}
@@ -2867,7 +2927,7 @@ export default function SalesRevenueReport() {
 
                               <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Share</span>
                               <span style={{ fontWeight: 800, color: '#6366f1', fontSize: '0.85rem', textAlign: 'right' }}>
-                                {totalVal > 0 ? ((d.value / totalVal) * 100).toFixed(1) : 0}%
+                                {fmtPctCol(totalVal > 0 ? (d.value / totalVal) * 100 : 0, 1)}
                               </span>
                             </div>
                           </div>
@@ -3106,9 +3166,9 @@ export default function SalesRevenueReport() {
                             <td style={{ textAlign: 'center', fontWeight: 600 }}>{i + 1}</td>
                             <td style={{ textAlign: 'left', fontWeight: 600, textTransform: 'capitalize', wordBreak: 'break-word', whiteSpace: 'normal', color: '#0f172a' }} title={c.name}>{(c.name || '').toLowerCase()}</td>
                             <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                              {salesVal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {salesVal.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                             </td>
-                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{`${pctVal.toFixed(2)}%`}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{fmtPctCol(pctVal, 2)}</td>
                           </tr>
                         );
                       });
@@ -3126,7 +3186,7 @@ export default function SalesRevenueReport() {
                           <td style={{ padding: '8px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                             {totalSales.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
-                          <td style={{ padding: '8px', textAlign: 'right' }}>{totalPct.toFixed(2)}%</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>{fmtPctCol(totalPct, 2)}</td>
                         </tr>
                       );
                     })()}
@@ -3167,7 +3227,7 @@ export default function SalesRevenueReport() {
                           <td style={{ textAlign: 'center', fontWeight: 600 }}>{i + 1}</td>
                           <td style={{ textAlign: 'left', fontWeight: 600, wordBreak: 'break-word', whiteSpace: 'normal', color: '#0f172a' }} title={name}>{name}</td>
                           <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                            {salesVal.toLocaleString('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            {salesVal.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 600 }}>{pctVal != null ? `${pctVal.toFixed(2)}%` : '—'}</td>
                         </tr>
@@ -3370,8 +3430,8 @@ export default function SalesRevenueReport() {
         title="Sales Revenue by Legal Entity - Detailed View"
         endpoint="legal-entity-detail"
         fetchFn={fetchLegalEntityDetail}
-        columnDefs={legalEntityCols}
-        headerGroups={legalEntityHeaderGroups}
+        columnDefs={legalEntityCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
+        headerGroups={legalEntityHeaderGroups.filter(g => !hideTargetUI || !(g.label || '').includes('Target'))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
@@ -3389,8 +3449,8 @@ export default function SalesRevenueReport() {
         title="Sales Revenue Consolidated Report"
         endpoint="parent-division-detail"
         fetchFn={fetchParentDivisionDetail}
-        columnDefs={parentDivisionCols}
-        headerGroups={parentDivisionHeaderGroups}
+        columnDefs={parentDivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
+        headerGroups={parentDivisionHeaderGroups.filter(g => !hideTargetUI || !(g.label || '').includes('Target'))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -3408,8 +3468,8 @@ export default function SalesRevenueReport() {
         title="Sales Revenue by Sub Division - Detailed View"
         endpoint="subdivision-detail"
         fetchFn={fetchSubdivisionDetail}
-        columnDefs={subdivisionCols}
-        headerGroups={subDivisionHeaderGroups}
+        columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
+        headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || !(g.label || '').includes('Target'))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -3428,8 +3488,8 @@ export default function SalesRevenueReport() {
         title="Revenue by Salesperson — Full Detail View"
         endpoint="salesman-summary"
         fetchFn={fetchSalesmanSummary}
-        columnDefs={salesmanSummaryCols}
-        headerGroups={salesmanSummaryHeaderGroups}
+        columnDefs={salesmanSummaryCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
+        headerGroups={salesmanSummaryHeaderGroups.filter(g => !hideTargetUI || !(g.label || '').includes('Target'))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -3448,7 +3508,7 @@ export default function SalesRevenueReport() {
         title="Salesperson Detail - Transaction Drill-Down"
         endpoint="salesman-detail"
         fetchFn={fetchSalesmanDetail}
-        columnDefs={salesmanDetailCols}
+        columnDefs={salesmanDetailCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={[
           { label: 'Salesperson', colSpan: 1 },
           { label: 'Code', colSpan: 1 },
@@ -3477,7 +3537,7 @@ export default function SalesRevenueReport() {
         title="Sales Revenue by Customers - Detailed View"
         endpoint="customer-summary"
         fetchFn={fetchCustomerSummary}
-        columnDefs={customerSummaryCols}
+        columnDefs={customerSummaryCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId', label: 'Entities', options: filterOptions.legalEntities },
@@ -3498,7 +3558,7 @@ export default function SalesRevenueReport() {
         title="Customer Detail — Full Breakdown"
         endpoint="customer-detail"
         fetchFn={fetchCustomerDetail}
-        columnDefs={customerDetailCols}
+        columnDefs={customerDetailCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
@@ -3542,7 +3602,11 @@ export default function SalesRevenueReport() {
             if (Math.abs(n) >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
             return `${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
           };
-          const fmtPct = v => (v != null && !isNaN(v)) ? `${Number(v).toFixed(1)}%` : '—';
+          const fmtPct = v => {
+              if (v == null || isNaN(v)) return '—';
+              const num = Number(v);
+              return num < 0 ? <span style={{ color: '#ef4444' }}>{num.toFixed(1)}%</span> : `${num.toFixed(1)}%`;
+            };
           const sumKey = (rows, key) => rows.reduce((s, r) => s + (Number(r[key]) || 0), 0);
 
           return [
