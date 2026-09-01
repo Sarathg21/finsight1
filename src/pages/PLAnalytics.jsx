@@ -768,6 +768,16 @@ function StatementViewAll({ statementData, currency, periodName, comparePeriodNa
 export default function PLAnalytics() {
 
   /* ── Filter state ─────────────────────────────────────────────── */
+  /* ── Dropdown options ─────────────────────────────────────────── */
+  const [filterOptions, setFilterOptions] = useState({
+    legalGroups:     [],
+    legalEntities:   [],
+    parentDivisions: [],
+    subdivisions:    [],
+    periods:         [],
+    currencies:      ['AED', 'USD', 'EUR'],
+  });
+
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
 
@@ -780,7 +790,6 @@ export default function PLAnalytics() {
     }
   }, [filters.periodName, filterOptions.periods, initialLoaded]);
 
-
   const updateFilter = (key, val) => {
     setFilters(prev => {
       const next = { ...prev, [key]: val };
@@ -790,16 +799,6 @@ export default function PLAnalytics() {
       return next;
     });
   };
-
-  /* ── Dropdown options ─────────────────────────────────────────── */
-  const [filterOptions, setFilterOptions] = useState({
-    legalGroups:     [],
-    legalEntities:   [],
-    parentDivisions: [],
-    subdivisions:    [],
-    periods:         [],
-    currencies:      ['AED', 'USD', 'EUR'],
-  });
 
   /* ── Data state ───────────────────────────────────────────────── */
   const [summary,        setSummary]        = useState(null);

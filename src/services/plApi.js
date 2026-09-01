@@ -427,7 +427,7 @@ export function exportPL(format, filters = {}) {
  */
 export async function fetchPLFilters(filters = {}) {
   const token = localStorage.getItem('finsight_token');
-  if (!token) return Promise.resolve(MOCK_FILTERS);
+  if (!token) return Promise.resolve({ legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], periods: [], comparePeriods: [] });
 
   const apiParams = {
     ...buildPLParams(filters),
@@ -441,15 +441,18 @@ export async function fetchPLFilters(filters = {}) {
 
   const normalizeIdName = (list) => {
     if (!Array.isArray(list)) return [];
-    return list.map((e, i) => {
+    const mapped = list.map((e, i) => {
       if (typeof e === 'object' && e !== null) {
         return {
-          id: e.value !== undefined ? e.value : (e.id !== undefined ? e.id : String(i)),
-          name: e.label !== undefined ? e.label : (e.name !== undefined ? e.name : String(e))
+          id: String(e.value !== undefined ? e.value : (e.id !== undefined ? e.id : String(i))),
+          name: String(e.label !== undefined ? e.label : (e.name !== undefined ? e.name : String(e)))
         };
       }
       return { id: String(e), name: String(e) };
     });
+    
+    // Filter out the backend's dummy 'All' options (often value -1 or label 'All')
+    return mapped.filter(item => item.name.toLowerCase() !== 'all' && item.id !== '-1');
   };
 
   return {
@@ -457,7 +460,7 @@ export async function fetchPLFilters(filters = {}) {
     legalEntities:   normalizeIdName(res.legal_entities),
     parentDivisions: normalizeIdName(res.parent_divisions),
     subdivisions:    normalizeIdName(res.subdivisions),
-    periods:         res.periods || MOCK_FILTERS.periods,
+    periods:         res.periods || [],
     comparePeriods:  res.compare_periods || [],
   };
 }
