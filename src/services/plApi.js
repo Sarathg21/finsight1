@@ -309,16 +309,46 @@ function cleanNumbers(obj) {
  * Only includes non-empty / non-"All" values.
  */
 function buildPLParams(filters = {}) {
-  const active = (val) =>
-    val && val !== 'All' && val !== 'all' ? val : undefined;
+  const active = (val) => {
+    if (!val) return undefined;
+    const actualVal = Array.isArray(val) ? val[0] : val;
+    if (
+      actualVal === undefined ||
+      actualVal === null ||
+      actualVal === '' ||
+      actualVal === 'All' ||
+      actualVal === 'all'
+    ) {
+      return undefined;
+    }
+    return actualVal;
+  };
+
+  const activeIds = (arr) => {
+    if (!arr || !Array.isArray(arr)) return undefined;
+    const ids = arr
+      .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
+      .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
+      .filter(v => !isNaN(v));
+    return ids.length > 0 ? ids : undefined;
+  };
+
+  const activeStrings = (arr) => {
+    if (!arr || !Array.isArray(arr)) {
+      if (arr === 'All' || !arr) return undefined;
+      return [arr];
+    }
+    const strs = arr.filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null);
+    return strs.length > 0 ? strs : undefined;
+  };
 
   return {
-    legal_group:         active(filters.legalGroup),
-    legal_entity:        active(filters.legalEntity),
-    parent_division:     active(filters.parentDivision),
-    subdivision:         active(filters.subdivision),
-    period_name:         filters.periodName         || undefined,
-    compare_period_name: filters.comparePeriodName  || undefined,
+    legal_group_id:     activeIds(filters.legalGroupId),
+    legal_entity_id:    activeIds(filters.legalEntityId),
+    parent_division_id: activeIds(filters.parentDivisionId),
+    subdivision_id:     activeIds(filters.subdivisionId),
+    period_name:         filters.periodName || undefined,
+    compare_period_name: filters.comparePeriodName || undefined,
     currency:            active(filters.currency),
   };
 }
@@ -334,40 +364,53 @@ function buildPLParams(filters = {}) {
  */
 export function exportPL(format, filters = {}) {
   const token = localStorage.getItem('finsight_token');
-  const params = { ...buildPLParams(filters), format };
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+  const params = {
+    ...buildPLParams(filters),
+    format,
+  };
+
+  const urlParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
+      v.forEach(item => {
+        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+      });
+    } else {
+      urlParams.append(k, v);
+    }
+  }
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}/api/pl/export${qs ? `?${qs}` : ''}`;
 
+  const a = document.createElement('a');
+  a.href = url;
   if (token) {
-    // JWT-protected: fetch blob then create object URL
     return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => {
+      .then(res => {
         if (!res.ok) throw new Error(`Export failed: ${res.status} ${res.statusText}`);
         return res.blob();
       })
-      .then((blob) => {
-        const ext = format === 'excel' ? 'xlsx' : 'pdf';
-        const objectUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = objectUrl;
-        link.download = `pl_report_export.${ext}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(objectUrl);
+      .then(blob => {
+        const _url = window.URL.createObjectURL(blob);
+        const _a = document.createElement('a');
+        _a.href = _url;
+        _a.download = `PL_Export_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+        document.body.appendChild(_a);
+        _a.click();
+        _a.remove();
+        window.URL.revokeObjectURL(_url);
       });
   } else {
-    // Demo mode — open URL directly
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pl_report_export.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    // Demo fallback
+    a.download = `PL_Export_Mock.${format === 'excel' ? 'xlsx' : 'pdf'}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    return Promise.resolve();
   }
 }
 
@@ -382,24 +425,41 @@ export function exportPL(format, filters = {}) {
  * @param {object} params  Optional: { legal_group, legal_entity, parent_division }
  * @returns {{ legal_groups, legal_entities, parent_divisions, subdivisions, periods }}
  */
-export async function fetchPLFilters(params = {}) {
-  const apiParams = {};
-  if (params.legalGroup    && params.legalGroup    !== 'All') apiParams.legal_group    = params.legalGroup;
-  if (params.legalEntity   && params.legalEntity   !== 'All') apiParams.legal_entity   = params.legalEntity;
-  if (params.parentDivision&& params.parentDivision!== 'All') apiParams.parent_division= params.parentDivision;
+export async function fetchPLFilters(filters = {}) {
+  const token = localStorage.getItem('finsight_token');
+  if (!token) return Promise.resolve(MOCK_FILTERS);
 
-  const raw = await apiCall('/api/pl/filters', apiParams);
-  const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.periods !== undefined ? r : (r.data || r.result || r))) || r;
+  const apiParams = {
+    ...buildPLParams(filters),
+    // override period names to undefined for filter fetching if needed,
+    // though usually they don't impact hierarchy.
+  };
+
+  const raw = await apiCall('/api/pl/filter-options', apiParams);
+  const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
   const res = unwrap(raw) || {};
-  let leList = res.legal_entities || [];
-  if (!Array.isArray(leList)) leList = [];
-  const valid = leList
-    .map(e => typeof e === 'object' ? (e.name || e.id || '') : e)
-    .filter(e => e && typeof e === 'string' && e.toLowerCase() !== 'all');
 
-  const set = new Set([...LEGAL_ENTITIES.map(le => le.name), ...valid]);
-  res.legal_entities = Array.from(set).sort();
-  return res;
+  const normalizeIdName = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list.map((e, i) => {
+      if (typeof e === 'object' && e !== null) {
+        return {
+          id: e.value !== undefined ? e.value : (e.id !== undefined ? e.id : String(i)),
+          name: e.label !== undefined ? e.label : (e.name !== undefined ? e.name : String(e))
+        };
+      }
+      return { id: String(e), name: String(e) };
+    });
+  };
+
+  return {
+    legalGroups:     normalizeIdName(res.legal_groups),
+    legalEntities:   normalizeIdName(res.legal_entities),
+    parentDivisions: normalizeIdName(res.parent_divisions),
+    subdivisions:    normalizeIdName(res.subdivisions),
+    periods:         res.periods || MOCK_FILTERS.periods,
+    comparePeriods:  res.compare_periods || [],
+  };
 }
 
 /**

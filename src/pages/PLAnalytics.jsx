@@ -22,10 +22,10 @@ import ExpenseBreakdownCard from '../components/Charts/ExpenseBreakdownCard';
    CONSTANTS & DEFAULTS
 ══════════════════════════════════════════════════════════════════ */
 const DEFAULT_FILTERS = {
-  legalGroup:        'All',
-  legalEntity:       'All',
-  parentDivision:    'All',
-  subdivision:       'All',
+  legalGroupId:       ['All'],
+  legalEntityId:      ['All'],
+  parentDivisionId:   ['All'],
+  subdivisionId:      ['All'],
   periodName:        '',
   comparePeriodName: '',
   currency:          'AED',
@@ -188,6 +188,98 @@ function KebabMenu({ id, items }) {
 }
 
 /* ── View All Modal ───────────────────────────────────────────── */
+function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const normOptions = options.map(o => {
+    if (typeof o === 'string') return { id: o, name: o };
+    const id = o.value !== undefined ? o.value : o.id;
+    const name = o.label !== undefined ? o.label : o.name;
+    return { id, name };
+  });
+
+  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+  const toggle = (optId) => {
+    if (String(optId) === 'All') { onChange(['All']); return; }
+    const cur = isAll ? [] : value.filter(v => String(v) !== 'All');
+    const next = cur.some(v => String(v) === String(optId))
+      ? cur.filter(v => String(v) !== String(optId))
+      : [...cur, optId];
+    onChange(next.length === 0 ? ['All'] : next);
+  };
+
+  const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
+  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
+
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      <div onClick={() => setOpen(o => !o)} style={{ ...selStyle, backgroundImage: 'none', appearance: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85%' }}>{label}</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '\u25B2' : '\u25BC'}</span>
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+
+          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
+            <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+            </span>
+            All
+          </div>
+
+          {normOptions.map(opt => {
+            if (opt.id === 'All') return null;
+            const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
+            return (
+              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+                <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+                </span>
+                {opt.name}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModalCloseButton({ onClick }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: hover ? '#f1f5f9' : 'none',
+        border: 'none',
+        fontSize: '0.85rem',
+        color: C.slate,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 28,
+        height: 28,
+        borderRadius: '50%',
+        transition: 'all 0.15s',
+        outline: 'none',
+      }}
+      title="Close"
+    >
+      ✕
+    </button>
+  );
+}
+
 function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
   useEffect(() => {
     if (!isOpen) return;
@@ -679,12 +771,32 @@ export default function PLAnalytics() {
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
 
+  // Auto-apply filters on first load once periods are loaded
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  useEffect(() => {
+    if (!initialLoaded && filters.periodName && filterOptions.periods.length > 0) {
+      setAppliedFilters(filters);
+      setInitialLoaded(true);
+    }
+  }, [filters.periodName, filterOptions.periods, initialLoaded]);
+
+
+  const updateFilter = (key, val) => {
+    setFilters(prev => {
+      const next = { ...prev, [key]: val };
+      if (key === 'legalGroupId') { next.legalEntityId = ['All']; next.parentDivisionId = ['All']; next.subdivisionId = ['All']; }
+      if (key === 'legalEntityId') { next.parentDivisionId = ['All']; next.subdivisionId = ['All']; }
+      if (key === 'parentDivisionId') { next.subdivisionId = ['All']; }
+      return next;
+    });
+  };
+
   /* ── Dropdown options ─────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
-    legalGroups:     ['All'],
-    legalEntities:   ['All'],
-    parentDivisions: ['All'],
-    subdivisions:    ['All'],
+    legalGroups:     [],
+    legalEntities:   [],
+    parentDivisions: [],
+    subdivisions:    [],
     periods:         [],
     currencies:      ['AED', 'USD', 'EUR'],
   });
@@ -766,9 +878,9 @@ export default function PLAnalytics() {
   }, [appliedFilters.periodName]);
 
   /* ── Filter handlers ──────────────────────────────────────────── */
-  const handleLegalGroupChange  = (v) => setFilters(p => ({ ...p, legalGroup: v, legalEntity: 'All', parentDivision: 'All', subdivision: 'All' }));
-  const handleLegalEntityChange = (v) => setFilters(p => ({ ...p, legalEntity: v, parentDivision: 'All', subdivision: 'All' }));
-  const handleParentDivChange   = (v) => setFilters(p => ({ ...p, parentDivision: v, subdivision: 'All' }));
+  
+  
+  
 
   const handleApply = () => { setAppliedFilters({ ...filters }); fetchAll({ ...filters }); };
   const handleReset = () => {
@@ -803,12 +915,12 @@ export default function PLAnalytics() {
 
   /* ── KPI card definitions ─────────────────────────────────────── */
   const kpiCards = [
-    { id: 'total-rev',     label: 'Total Revenue (MTD)',       value: fmtKPI(summary?.total_revenue, currency),        subValue: null,                                                            changePct: summary?.revenue_variance_pct,       compareLabel: compareLbl, color: '#2563eb', iconBg: '#eff6ff', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg> },
-    { id: 'gross-profit',  label: 'Gross Profit (MTD)',        value: fmtKPI(summary?.gross_profit, currency),          subValue: summary?.gross_profit_pct ? `Margin: ${fmtPct(summary.gross_profit_pct)}` : null,  changePct: summary?.gross_profit_variance_pct,  compareLabel: compareLbl, color: '#16a34a', iconBg: '#f0fdf4', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" fillOpacity="0.85"/></svg> },
-    { id: 'ebitda',        label: 'EBITDA (MTD)',               value: fmtKPI(summary?.ebitda, currency),                subValue: summary?.ebitda_pct ? `Margin: ${fmtPct(summary.ebitda_pct)}` : null,              changePct: summary?.ebitda_variance_pct,        compareLabel: compareLbl, color: '#7c3aed', iconBg: '#faf5ff', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> },
-    { id: 'net-profit',    label: 'Net Profit (MTD)',           value: fmtKPI(summary?.net_profit, currency),            subValue: null,                                                            changePct: summary?.net_profit_variance_pct,    compareLabel: compareLbl, color: '#ea580c', iconBg: '#fff7ed', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M12 18V6"/></svg> },
-    { id: 'np-margin',     label: 'Net Profit Margin (MTD)',    value: fmtPct(summary?.net_profit_pct),                  subValue: null,                                                            changePct: summary && summary.net_profit_pct != null && summary.compare_net_profit_pct != null ? +(summary.net_profit_pct - summary.compare_net_profit_pct).toFixed(2) : null, compareLabel: compareLbl, color: '#0d9488', iconBg: '#f0fdfa', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 4.5C4.5 4.5 2 7 2 10s2.5 5.5 5.5 5.5S13 13 13 10 10.5 4.5 7.5 4.5zm0 9C5.57 13.5 4 11.93 4 10s1.57-3.5 3.5-3.5S11 8.07 11 10s-1.57 3.5-3.5 3.5z" fillOpacity="0.9"/><path d="M19 8l-7 8M14 4h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></svg> },
-    { id: 'ebitda-margin', label: 'EBITDA Margin (MTD)',        value: fmtPct(summary?.ebitda_pct),                      subValue: null,                                                            changePct: summary && summary.ebitda_pct != null && summary.compare_ebitda_pct != null ? +(summary.ebitda_pct - summary.compare_ebitda_pct).toFixed(2) : null,       compareLabel: compareLbl, color: '#db2777', iconBg: '#fdf2f8', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.12"/><polyline points="12 6 12 12 16 14"/></svg> },
+    { id: 'total-rev',     label: 'Total Revenue (PTD)',       value: fmtKPI(summary?.total_revenue, currency),        subValue: null,                                                            changePct: summary?.revenue_variance_pct,       compareLabel: compareLbl, color: '#2563eb', iconBg: '#eff6ff', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg> },
+    { id: 'gross-profit',  label: 'Gross Profit (PTD)',        value: fmtKPI(summary?.gross_profit, currency),          subValue: summary?.gross_profit_pct ? `Margin: ${fmtPct(summary.gross_profit_pct)}` : null,  changePct: summary?.gross_profit_variance_pct,  compareLabel: compareLbl, color: '#16a34a', iconBg: '#f0fdf4', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" fillOpacity="0.85"/></svg> },
+    { id: 'ebitda',        label: 'EBITDA (PTD)',               value: fmtKPI(summary?.ebitda, currency),                subValue: summary?.ebitda_pct ? `Margin: ${fmtPct(summary.ebitda_pct)}` : null,              changePct: summary?.ebitda_variance_pct,        compareLabel: compareLbl, color: '#7c3aed', iconBg: '#faf5ff', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> },
+    { id: 'net-profit',    label: 'Net Profit (PTD)',           value: fmtKPI(summary?.net_profit, currency),            subValue: null,                                                            changePct: summary?.net_profit_variance_pct,    compareLabel: compareLbl, color: '#ea580c', iconBg: '#fff7ed', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M12 18V6"/></svg> },
+    { id: 'np-margin',     label: 'Net Profit Margin (PTD)',    value: fmtPct(summary?.net_profit_pct),                  subValue: null,                                                            changePct: summary && summary.net_profit_pct != null && summary.compare_net_profit_pct != null ? +(summary.net_profit_pct - summary.compare_net_profit_pct).toFixed(2) : null, compareLabel: compareLbl, color: '#0d9488', iconBg: '#f0fdfa', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 4.5C4.5 4.5 2 7 2 10s2.5 5.5 5.5 5.5S13 13 13 10 10.5 4.5 7.5 4.5zm0 9C5.57 13.5 4 11.93 4 10s1.57-3.5 3.5-3.5S11 8.07 11 10s-1.57 3.5-3.5 3.5z" fillOpacity="0.9"/><path d="M19 8l-7 8M14 4h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none"/></svg> },
+    { id: 'ebitda-margin', label: 'EBITDA Margin (PTD)',        value: fmtPct(summary?.ebitda_pct),                      subValue: null,                                                            changePct: summary && summary.ebitda_pct != null && summary.compare_ebitda_pct != null ? +(summary.ebitda_pct - summary.compare_ebitda_pct).toFixed(2) : null,       compareLabel: compareLbl, color: '#db2777', iconBg: '#fdf2f8', icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.12"/><polyline points="12 6 12 12 16 14"/></svg> },
   ];
 
   /* ── Kebab menu definitions ───────────────────────────────────── */
@@ -885,26 +997,18 @@ export default function PLAnalytics() {
 
       {/* ══ FILTER BAR ══ */}
       <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'nowrap', overflowX: 'auto' }}>
-        <FilterField label="Legal Group">
-          <select id="filter-pl-legal-group" style={selStyle} value={filters.legalGroup} onChange={e => handleLegalGroupChange(e.target.value)} disabled={loading.filters}>
-            {filterOptions.legalGroups.map(o => <option key={o}>{o}</option>)}
-          </select>
-        </FilterField>
-        <FilterField label="Legal Entity">
-          <select id="filter-pl-legal-entity" style={selStyle} value={filters.legalEntity} onChange={e => handleLegalEntityChange(e.target.value)} disabled={loading.filters}>
-            {filterOptions.legalEntities.map(o => <option key={o}>{o}</option>)}
-          </select>
-        </FilterField>
-        <FilterField label="Parent Division">
-          <select id="filter-pl-parent-div" style={selStyle} value={filters.parentDivision} onChange={e => handleParentDivChange(e.target.value)} disabled={loading.filters}>
-            {filterOptions.parentDivisions.map(o => <option key={o}>{o}</option>)}
-          </select>
-        </FilterField>
-        <FilterField label="Sub-Division">
-          <select id="filter-pl-sub-div" style={selStyle} value={filters.subdivision} onChange={e => setFilters(prev => ({ ...prev, subdivision: e.target.value }))} disabled={loading.filters}>
-            {filterOptions.subdivisions.map(o => <option key={o}>{o}</option>)}
-          </select>
-        </FilterField>
+          <FilterField label="Legal Group">
+            <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroupId} onChange={v => updateFilter('legalGroupId', v)} style={{width:160}} />
+          </FilterField>
+          <FilterField label="Legal Entity">
+            <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntityId} onChange={v => updateFilter('legalEntityId', v)} style={{width:160}} />
+          </FilterField>
+          <FilterField label="Parent Division">
+            <MultiSelect options={filterOptions.parentDivisions} value={filters.parentDivisionId} onChange={v => updateFilter('parentDivisionId', v)} style={{width:160}} />
+          </FilterField>
+          <FilterField label="Sub-Division">
+            <MultiSelect options={filterOptions.subdivisions} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{width:160}} />
+          </FilterField>
         <FilterField label="Period">
           <select id="filter-pl-period" style={selStyle} value={filters.periodName} onChange={e => setFilters(prev => ({ ...prev, periodName: e.target.value }))} disabled={loading.filters}>
             {filterOptions.periods.length === 0 && <option key="loading" value="">Loading…</option>}
