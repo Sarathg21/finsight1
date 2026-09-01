@@ -501,7 +501,7 @@ const MTH = {
   borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1,
 };
 const MTH_L = { ...MTH, textAlign: 'left' };
-const MTD   = { padding: '9px 14px', textAlign: 'right', fontSize: '0.74rem', color: '#334155', borderBottom: '1px solid #f1f5f9' };
+const MTD   = { padding: '9px 14px', textAlign: 'right', fontSize: '0.74rem', color: '#334155', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' };
 const MTD_L = { ...MTD, textAlign: 'left', color: C.navy };
 
 /* ── Section Header (collapsible table row) ───────────────────── */
