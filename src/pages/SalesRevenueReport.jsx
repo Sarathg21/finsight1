@@ -111,7 +111,7 @@ function ExportToast({ message, type }) {
       borderRadius: 10, padding: '10px 18px',
       fontSize: '0.78rem', fontWeight: 700,
       boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: 'center', gap: 4,
       animation: 'fadeIn 0.2s ease',
     }}>
       {isError ? '⚠ ' : '✓ '}{message}
@@ -502,11 +502,11 @@ function DetailApiModal({
         {/* Search & Export Bar */}
         <div style={{
           padding: '10px 20px', borderBottom: '1px solid #f1f5f9',
-          display: 'flex', gap: 10, alignItems: 'center',
+          display: 'flex', gap: 4, alignItems: 'center',
           justifyContent: 'space-between', flexWrap: 'wrap',
           background: '#fafbfc',
         }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
@@ -537,7 +537,7 @@ function DetailApiModal({
               );
             })}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {!loading && sorted.length > 0 && (
               <span style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 600 }}>
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
@@ -550,7 +550,7 @@ function DetailApiModal({
         {/* Table */}
         <div className="modal-table-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 16px' }}>
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 24 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 24 }}>
               {Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} h={18} />
               ))}
@@ -686,14 +686,14 @@ function DetailApiModal({
         <div style={{
           padding: '12px 20px', borderTop: '1px solid #f1f5f9',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          background: '#f8fafc', flexWrap: 'wrap', gap: 10
+          background: '#f8fafc', flexWrap: 'wrap', gap: 4
         }}>
           <div style={{ fontSize: '0.72rem', color: C.slate }}>
             {sorted.length > 0
               ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records`
               : 'No records'}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={page === 0}
@@ -737,7 +737,7 @@ function ErrorBanner({ message, onRetry }) {
       background: '#fff1f2', border: '1px solid #fecdd3',
       borderRadius: 10, padding: '10px 16px',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 12, fontSize: '0.78rem', color: '#be123c',
+      gap: 4, fontSize: '0.78rem', color: '#be123c',
     }}>
       <span>⚠ {message}</span>
       {onRetry && (
@@ -768,7 +768,7 @@ function PendingCard({ title, icon, minHeight = 180 }) {
         backdropFilter: 'blur(2px)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: 10, zIndex: 2,
+        gap: 4, zIndex: 2,
       }}>
         <div style={{
           width: 44, height: 44, borderRadius: '50%',
@@ -788,9 +788,9 @@ function PendingCard({ title, icon, minHeight = 180 }) {
       </div>
       <div style={{ opacity: 0.25 }}>
         <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 12 }}>{title}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {[80, 60, 90, 50, 70].map((w, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <div style={{ width: 12, height: 12, borderRadius: 2, background: CHART_COLORS[i] }} />
               <div style={{ height: 8, width: `${w}%`, borderRadius: 4, background: '#cbd5e1' }} />
             </div>
@@ -994,7 +994,7 @@ function ChartCard({ title, children, minHeight, loading, error, onRetry, action
       {error
         ? <ErrorBanner message={error} onRetry={onRetry} />
         : loading
-          ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 8 }}>
+          ? <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 8 }}>
               <Skeleton h={14} w="60%" />
               <Skeleton h={130} />
             </div>
@@ -1019,7 +1019,7 @@ const CustomTooltip = ({ active, payload, label, currency }) => {
         {label}
       </div>
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block' }} />
             <span style={{ color: C.slate }}>{p.name}</span>
@@ -1127,7 +1127,7 @@ const truncateLabel = (str, maxLen = 40) => {
 
 function FilterField({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 100, flex: '0 0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 85, flex: '0 0 auto' }}>
       <span style={{
         fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700,
         letterSpacing: '-0.02em', whiteSpace: 'nowrap',
@@ -1246,7 +1246,7 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
 
-          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
+          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
             <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
             </span>
@@ -1257,7 +1257,7 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
             if (opt.id === 'All') return null;
             const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
             return (
-              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
                 <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
                 </span>
@@ -1344,7 +1344,7 @@ export default function SalesRevenueReport() {
     filters: true, summary: true, trend: true,
     legalEnt: true, parentDiv: true, subDiv: true, details: true,
     topCustomers: true, bySalesman: true, grossMargin: true,
-    salesmanSummary: true, summaryDetail: true,
+    salesmanSummary: true,
   });
 
   /* ── Error state ──────────────────────────────────────────────── */
@@ -1457,16 +1457,18 @@ export default function SalesRevenueReport() {
         // Apply backend default currency only on the very first load,
         // not on cascade refreshes (to preserve user-selected currency).
         if (isFirstFilterLoad.current) {
-          isFirstFilterLoad.current = false;
-          setFilters(prev => ({
-            ...prev,
-            reportingCurrency: prev.reportingCurrency || backendDefault,
-          }));
-          setAppliedFilters(prev => ({
-            ...prev,
-            reportingCurrency: prev.reportingCurrency || backendDefault,
-          }));
-        }
+            isFirstFilterLoad.current = false;
+            setFilters(prev => {
+              const newCur = prev.reportingCurrency || backendDefault;
+              if (prev.reportingCurrency === newCur) return prev;
+              return { ...prev, reportingCurrency: newCur };
+            });
+            setAppliedFilters(prev => {
+              const newCur = prev.reportingCurrency || backendDefault;
+              if (prev.reportingCurrency === newCur) return prev;
+              return { ...prev, reportingCurrency: newCur };
+            });
+          }
       })
       .catch(err => {
         handle401(err);
@@ -1500,7 +1502,7 @@ export default function SalesRevenueReport() {
       filters: false, summary: true, trend: true, legalEnt: true,
       parentDiv: true, subDiv: true, details: true,
       topCustomers: true, bySalesman: false, grossMargin: true,
-      salesmanSummary: true, summaryDetail: true,
+      salesmanSummary: true,
     });
     setErrors({});
     setDetailPage(0);
@@ -1519,8 +1521,14 @@ export default function SalesRevenueReport() {
         })
         .finally(() => setLoading(prev => ({ ...prev, [key]: false })));
 
-    // 0. Summary — GET /api/sales-revenue/summary
-    guard('summary', fetchSummary(f)).then(d => {
+    
+    // =========================================================================
+    // STAGE 1: Critical KPIs (Summary, Trend, Gross Margin)
+    // =========================================================================
+    Promise.all([
+      (async () => {
+        // 0. Summary — GET /api/sales-revenue/summary
+    return guard('summary', fetchSummary(f)).then(d => {
       if (!d) return;
 
       const normHighlight = (nameVal, salesVal, pctVal) => {
@@ -1577,12 +1585,13 @@ export default function SalesRevenueReport() {
         previous_year_label:     d.previous_year_label     || 'Previous Year',
       });
     });
-
-    // 1. Revenue Trend — GET /api/sales-revenue/trend
+      })(),
+      (async () => {
+        // 1. Revenue Trend — GET /api/sales-revenue/trend
     //    CFO UAT: API now returns: [{ period_name, sales, sales_py, target_sales, ... }]
     //    Recommended chart series: Current Year Actual, Previous Year Actual, Target
     //    Do NOT calculate target in React — use target_sales from backend.
-    guard('trend', fetchTrend(f)).then(d => {
+    return guard('trend', fetchTrend(f)).then(d => {
       if (!d) return;
       const arr = Array.isArray(d) ? d : (d?.data || []);
 
@@ -1626,40 +1635,22 @@ export default function SalesRevenueReport() {
         variance_target_pct:  item.variance_target_pct != null ? Number(item.variance_target_pct) : null,
       })) : skeleton);
     });
-
-    // 2. Gross Margin — GET /api/sales-revenue/gross-margin
-    guard('grossMargin', fetchGrossMargin(f)).then(d => {
+      })(),
+      (async () => {
+        // 2. Gross Margin — GET /api/sales-revenue/gross-margin
+    return guard('grossMargin', fetchGrossMargin(f)).then(d => {
       if (!d) return;
       setGrossMarginData(d);
     });
-
-    // 3. Salesman Summary — GET /api/sales-revenue/salesman-summary
-    //    Used for: Top Salesman KPI card + Salesman View All modal
-    guard('salesmanSummary', fetchSalesmanSummary(f)).then(d => {
-
-      const rows = Array.isArray(d) ? d : (d?.data ?? []);
-      if (!rows.length) return;
-      setSalesmanSummaryData(rows);
-      // Populate bySalesmanData chart
-      const chartData = rows
-        .filter(row => {
-          const name = row.salesman_name || row.sales_person || row.salesman;
-          return name && name !== '';
-        })
-        .map(row => ({
-          name:  row.salesman_name || row.sales_person || row.salesman || 'Unknown',
-          // Use sales_ptd as primary per CFO UAT handoff; fall back to sales for backward compat
-          value: Number(row.sales_ptd ?? row.sales ?? 0),
-          // Do NOT fabricate target — salesperson target allocation not available
-          pct:   Number(row.percentage || 0),
-        }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 15);
-      setBySalesmanData(chartData);
-    });
-
-    // 4. Legal Entity
-    guard('legalEnt', fetchLegalEntityDetail(f)).then(d => {
+      })()
+    ]).then(() => {
+      // =========================================================================
+      // STAGE 2: Hierarchy Charts (Legal Entity, Parent Div, Sub-Div)
+      // =========================================================================
+      Promise.all([
+        (async () => {
+          // 4. Legal Entity
+    return guard('legalEnt', fetchLegalEntityDetail(f)).then(d => {
       if (!d || !d.data) return;
       const arr = d.data;
       setLegalEntityDetailRaw(arr); // raw rows for summary table (new field names)
@@ -1692,9 +1683,10 @@ export default function SalesRevenueReport() {
         color: CHART_COLORS[i % CHART_COLORS.length],
       })));
     });
-
-    // 5. Parent Division
-    guard('parentDiv', fetchParentDivisionDetail(f)).then(d => {
+        })(),
+        (async () => {
+          // 5. Parent Division
+    return guard('parentDiv', fetchParentDivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
       const arr = d.data;
 
@@ -1723,9 +1715,10 @@ export default function SalesRevenueReport() {
 
       setParentDivData(chartData);
     });
-
-    // 6. Sub-Division
-    guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
+        })(),
+        (async () => {
+          // 6. Sub-Division
+    return guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
       // Store raw rows for the inline Detailed View table
       setSubdivisionRawData(d.data);
@@ -1758,15 +1751,37 @@ export default function SalesRevenueReport() {
         color: CHART_COLORS[i % CHART_COLORS.length],
       })));
     });
+        })()
+      ]).then(() => {
+        // =========================================================================
+        // STAGE 3: Heavy Dimensions (Salesman, Customers)
+        // =========================================================================
+        // 3. Salesman Summary — GET /api/sales-revenue/salesman-summary
+    //    Used for: Top Salesman KPI card + Salesman View All modal
+    guard('salesmanSummary', fetchSalesmanSummary(f)).then(d => {
 
-    // 7. Details (page 0)
-    guard('details', fetchDetails(f, DETAILS_PAGE_SIZE, 0)).then(d => {
-      if (!d || !d.data) return;
-      setDetailRows(d.data);
-      setDetailTotalCount(d.total_count || d.total || d.count || d.data.length);
+      const rows = Array.isArray(d) ? d : (d?.data ?? []);
+      if (!rows.length) return;
+      setSalesmanSummaryData(rows);
+      // Populate bySalesmanData chart
+      const chartData = rows
+        .filter(row => {
+          const name = row.salesman_name || row.sales_person || row.salesman;
+          return name && name !== '';
+        })
+        .map(row => ({
+          name:  row.salesman_name || row.sales_person || row.salesman || 'Unknown',
+          // Use sales_ptd as primary per CFO UAT handoff; fall back to sales for backward compat
+          value: Number(row.sales_ptd ?? row.sales ?? 0),
+          // Do NOT fabricate target — salesperson target allocation not available
+          pct:   Number(row.percentage || 0),
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 15);
+      setBySalesmanData(chartData);
     });
-
-    // 8. Top Customers
+        
+        // 8. Top Customers
     guard('topCustomers', fetchTopCustomers(f)).then(d => {
       if (!d || !d.data) return;
       const mapped = d.data.map(c => ({
@@ -1776,20 +1791,16 @@ export default function SalesRevenueReport() {
       }));
       setTopCustomersData(mapped);
     });
-
-    // 9. Summary Detail — GET /api/sales-revenue/summary-detail
-    guard('summaryDetail', fetchSummaryDetail(f))
-      .then(d => {
-        if (!d) return;
-        const rows = Array.isArray(d) ? d : (d?.data ?? []);
-        setSummaryDetailData(rows);
-      })
-      .catch(err => {
-        // 500 from backend — log but don't crash; table will show empty state
-        console.warn('[SalesRevenueReport] summary-detail failed, using empty data:', err?.message || err);
-        setSummaryDetailData([]);
-        // Don't propagate to global error banner — this section degrades gracefully
+        
+        // 7. Details (page 0)
+    guard('details', fetchDetails(f, DETAILS_PAGE_SIZE, 0)).then(d => {
+      if (!d || !d.data) return;
+      setDetailRows(d.data);
+      setDetailTotalCount(d.total_count || d.total || d.count || d.data.length);
+    });
       });
+    });
+
   }, [handle401]);
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
@@ -2106,9 +2117,9 @@ export default function SalesRevenueReport() {
       }}>
 
         {/* ── Page Header ── */}
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 4 }}>
           <div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: C.navy, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: C.navy, margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ fontSize: '1.3rem' }}>💹</span> Sales Revenue Report
             </h1>
             <p style={{ fontSize: '0.78rem', color: C.slate, margin: '3px 0 0' }}>
@@ -2119,7 +2130,7 @@ export default function SalesRevenueReport() {
               <span style={{ color: C.green, fontWeight: 700 }}>Currency: {filters.reportingCurrency}</span>
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           </div>
         </div>
 
@@ -2129,7 +2140,7 @@ export default function SalesRevenueReport() {
             background: 'rgba(239, 68, 68, 0.04)',
             border: '1px solid rgba(239, 68, 68, 0.25)',
             borderRadius: 12, padding: '14px 18px', marginBottom: 16,
-            display: 'flex', gap: 12, alignItems: 'flex-start',
+            display: 'flex', gap: 4, alignItems: 'flex-start',
             boxShadow: '0 2px 8px rgba(239,68,68,0.04)',
           }}>
             <span style={{ fontSize: '1.25rem', marginTop: -2 }}>⚠️</span>
@@ -2193,79 +2204,31 @@ export default function SalesRevenueReport() {
 
         {/* ── Filter Bar ── */}
 
-                <div className="card" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'nowrap', overflowX: 'auto' }}>
+                <div className="card" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 4, flexWrap: 'nowrap' }}>
 
 
           {filterOptions.legalGroups && filterOptions.legalGroups.length > 0 && (
             <FilterField label="Legal Group">
-              <select
-                id="filter-legal-group"
-                style={selStyle}
-                value={filters.legalGroupId[0] || 'All'}
-                onChange={e => updateFilter('legalGroupId', [e.target.value])}
-              >
-                <option value="All">All Groups</option>
-                {filterOptions.legalGroups.map((o, idx) => (
-                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
-                    {truncateLabel(o.label ?? o.name)}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
+            <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroupId} onChange={v => updateFilter('legalGroupId', v)} style={{width:105}} />
+          </FilterField>
           )}
 
           {filterOptions.legalEntities.length > 0 && (
             <FilterField label="Legal Entity">
-              <select
-                id="filter-legal-entity"
-                style={selStyle}
-                value={filters.legalEntityId[0] || 'All'}
-                onChange={e => updateFilter('legalEntityId', [e.target.value])}
-              >
-                <option value="All">All Entities</option>
-                {filterOptions.legalEntities.map((o, idx) => (
-                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
-                    {truncateLabel(o.label ?? o.name)}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
+            <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntityId} onChange={v => updateFilter('legalEntityId', v)} style={{width:105}} />
+          </FilterField>
           )}
 
           {filterOptions.parentDivs.length > 0 && (
             <FilterField label="Parent Division">
-              <select
-                id="filter-parent-division"
-                style={selStyle}
-                value={filters.parentDivisionId[0] || 'All'}
-                onChange={e => updateFilter('parentDivisionId', [e.target.value])}
-              >
-                <option value="All">All Divisions</option>
-                {filterOptions.parentDivs.map((o, idx) => (
-                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
-                    {truncateLabel(o.label ?? o.name)}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
+            <MultiSelect options={filterOptions.parentDivs} value={filters.parentDivisionId} onChange={v => updateFilter('parentDivisionId', v)} style={{width:105}} />
+          </FilterField>
           )}
 
           {(filterOptions.subDivs.length > 0 || (filters.subdivisionId && filters.subdivisionId[0] !== 'All')) && (
             <FilterField label="Sub-Division">
-              <select
-                id="filter-subdivision"
-                style={selStyle}
-                value={filters.subdivisionId[0] || 'All'}
-                onChange={e => updateFilter('subdivisionId', [e.target.value])}
-              >
-                <option value="All">All Sub-Divs</option>
-                {filterOptions.subDivs.map((o, idx) => (
-                  <option key={idx} value={String(o.value ?? o.id)} title={o.label ?? o.name}>
-                    {truncateLabel(o.label ?? o.name)}
-                  </option>
-                ))}
-              </select>
-            </FilterField>
+            <MultiSelect options={filterOptions.subDivs} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{width:105}} />
+          </FilterField>
           )}
 
           {filterOptions.salesmen.length > 2 && (
@@ -2311,7 +2274,7 @@ export default function SalesRevenueReport() {
               <input
                 id="filter-from-date" type="date" value={filters.fromDate}
                 onChange={e => updateFilter('fromDate', e.target.value)}
-                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', WebkitAppearance: 'none' }}
+                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', minWidth: 120, WebkitAppearance: 'none' }}
               />
             </div>
           </FilterField>
@@ -2322,7 +2285,7 @@ export default function SalesRevenueReport() {
               <input
                 id="filter-to-date" type="date" value={filters.toDate}
                 onChange={e => updateFilter('toDate', e.target.value)}
-                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', WebkitAppearance: 'none' }}
+                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', minWidth: 120, WebkitAppearance: 'none' }}
               />
             </div>
           </FilterField>
@@ -2675,12 +2638,12 @@ export default function SalesRevenueReport() {
                   </ResponsiveContainer>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
                       <span style={{ width: 20, height: 4, background: '#6366f1', display: 'inline-block', borderRadius: 2 }} />
                       Current Year
                     </div>
                     {activePts.some(d => d.target_sales || d.target_sales_aed) && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
                         <span style={{ width: 20, height: 4, background: 'repeating-linear-gradient(90deg, #10b981, #10b981 4px, transparent 4px, transparent 8px)', display: 'inline-block', borderRadius: 2 }} />
                         Target
                       </div>
@@ -2844,7 +2807,7 @@ export default function SalesRevenueReport() {
             </div>
 
             {loading.parentDiv ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 4 }}>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div key={i}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -2962,11 +2925,11 @@ export default function SalesRevenueReport() {
                 <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division ({filters.reportingCurrency})</div>
                 <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{filters.reportingCurrency} — all sub-divisions compared</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
                   onClick={() => setExcludeOthers(!excludeOthers)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
+                    display: 'flex', alignItems: 'center', gap: 4,
                     padding: '4px 10px', borderRadius: 20,
                     background: !excludeOthers ? '#eef2ff' : '#f8fafc',
                     border: `1px solid ${!excludeOthers ? '#c7d2fe' : '#e2e8f0'}`,
@@ -3259,8 +3222,8 @@ export default function SalesRevenueReport() {
         {/* ── Sales Revenue Detailed View — sourced from /subdivision-detail ── */}
         <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 8, marginTop: 14 }}>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: '#fff', flexWrap: 'wrap', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: `1px solid ${C.border}`, background: '#fff', flexWrap: 'wrap', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1e1b4b' }}>
                 Sales Revenue Detailed View
               </span>
