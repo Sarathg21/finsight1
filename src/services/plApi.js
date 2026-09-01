@@ -206,9 +206,19 @@ async function apiCall(path, params = {}) {
     });
   }
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+  const urlParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
+      v.forEach(item => {
+        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+      });
+    } else {
+      urlParams.append(k, v);
+    }
+  }
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
 

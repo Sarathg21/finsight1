@@ -73,7 +73,7 @@ function ErrorBanner({ message, onRetry }) {
     <div style={{
       background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 10,
       padding: '10px 16px', display: 'flex', alignItems: 'center',
-      justifyContent: 'space-between', gap: 12, fontSize: '0.78rem', color: '#be123c', marginTop: 8,
+      justifyContent: 'space-between', gap: 4, fontSize: '0.78rem', color: '#be123c', marginTop: 8,
     }}>
       <span>⚠ {message}</span>
       {onRetry && (
@@ -112,7 +112,7 @@ function ExportToast({ message, type }) {
       borderRadius: 10, padding: '10px 18px',
       fontSize: '0.78rem', fontWeight: 700,
       boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-      display: 'flex', alignItems: 'center', gap: 8,
+      display: 'flex', alignItems: 'center', gap: 4,
       animation: 'fadeIn 0.2s ease', maxWidth: 380,
     }}>
       {icon}{message}
@@ -165,7 +165,7 @@ function KebabMenu({ id, items }) {
               onClick={() => { item.action(); setOpen(false); }}
               disabled={item.disabled}
               style={{
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', gap: 4,
                 width: '100%', textAlign: 'left',
                 padding: '9px 14px', background: 'none', border: 'none',
                 fontSize: '0.74rem', fontWeight: 600, color: item.danger ? '#be123c' : '#334155',
@@ -226,7 +226,7 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
 
-          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
+          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
             <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
             </span>
@@ -237,7 +237,7 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
             if (opt.id === 'All') return null;
             const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
             return (
-              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
                 <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
                 </span>
@@ -404,7 +404,7 @@ const ChartTooltip = ({ active, payload, label, currency = 'AED' }) => {
         {label}
       </div>
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 3 }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginBottom: 3 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 8, height: 8, borderRadius: 2, background: p.color, display: 'inline-block' }} />
             <span style={{ color: C.slate }}>{p.name}</span>
@@ -456,7 +456,7 @@ function KPICard({ id, label, value, subValue, changePct, compareLabel, color, i
         border: `1px solid ${hover ? accent + '30' : 'rgba(0,0,0,0.04)'}`,
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 4,
         overflow: 'hidden', position: 'relative', minHeight: 82,
       }}
     >
@@ -652,7 +652,7 @@ function ExpenseViewAll({ data, totalExpenses, currency }) {
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
             <td style={MTD_L}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: EXPENSE_COLORS[i % EXPENSE_COLORS.length], display: 'inline-block', flexShrink: 0 }} />
                 {item.name}
               </div>
@@ -971,14 +971,14 @@ export default function PLAnalytics() {
       </ViewAllModal>
 
       {/* ══ PAGE HEADER ══ */}
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 4 }}>
         <div>
           <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.navy, margin: 0 }}>Profit &amp; Loss Account</h1>
           <p style={{ fontSize: '0.76rem', color: C.slate, margin: '3px 0 0' }}>
             Analyze profitability metrics and track financial performance across periods
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <select id="pl-currency" value={filters.currency} onChange={e => setFilters(prev => ({ ...prev, currency: e.target.value }))}
             style={{ ...selStyle, width: 80, fontSize: '0.74rem', padding: '7px 22px 7px 8px' }} title="Select currency">
             {filterOptions.currencies.map(c => <option key={c}>{c}</option>)}
@@ -995,18 +995,18 @@ export default function PLAnalytics() {
       </div>
 
       {/* ══ FILTER BAR ══ */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'nowrap', overflowX: 'auto' }}>
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 4, flexWrap: 'nowrap' }}>
           <FilterField label="Legal Group">
-            <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroupId} onChange={v => updateFilter('legalGroupId', v)} style={{width:160}} />
+            <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroupId} onChange={v => updateFilter('legalGroupId', v)} style={{width:105}} />
           </FilterField>
           <FilterField label="Legal Entity">
-            <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntityId} onChange={v => updateFilter('legalEntityId', v)} style={{width:160}} />
+            <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntityId} onChange={v => updateFilter('legalEntityId', v)} style={{width:105}} />
           </FilterField>
           <FilterField label="Parent Division">
-            <MultiSelect options={filterOptions.parentDivisions} value={filters.parentDivisionId} onChange={v => updateFilter('parentDivisionId', v)} style={{width:160}} />
+            <MultiSelect options={filterOptions.parentDivisions} value={filters.parentDivisionId} onChange={v => updateFilter('parentDivisionId', v)} style={{width:105}} />
           </FilterField>
           <FilterField label="Sub-Division">
-            <MultiSelect options={filterOptions.subdivisions} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{width:160}} />
+            <MultiSelect options={filterOptions.subdivisions} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{width:105}} />
           </FilterField>
         <FilterField label="Period">
           <select id="filter-pl-period" style={selStyle} value={filters.periodName} onChange={e => setFilters(prev => ({ ...prev, periodName: e.target.value }))} disabled={loading.filters}>
@@ -1032,7 +1032,7 @@ export default function PLAnalytics() {
           <span style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Key Performance Indicators</span>
           <KebabMenu id="menu-kpi" items={kpiMenuItems} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 4 }}>
           {kpiCards.map(kpi => <KPICard key={kpi.id} {...kpi} loading={loading.summary} error={errors.summary} />)}
         </div>
       </div>
@@ -1099,7 +1099,7 @@ export default function PLAnalytics() {
         {errors.statement ? (
           <div style={{ padding: 16 }}><ErrorBanner message={errors.statement} onRetry={() => fetchAll(appliedFilters)} /></div>
         ) : loading.statement ? (
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
             {[...Array(8)].map((_, i) => <Skeleton key={i} h={24} w={`${60 + (i % 3) * 15}%`} />)}
           </div>
         ) : (
