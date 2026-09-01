@@ -834,19 +834,19 @@ export default function PLAnalytics() {
   /* ── Load filter options (cascading) ──────────────────────────── */
   useEffect(() => {
     setLoading(prev => ({ ...prev, filters: true }));
-    fetchPLFilters({ legalGroup: filters.legalGroup, legalEntity: filters.legalEntity, parentDivision: filters.parentDivision })
+    fetchPLFilters({ legalGroupId: filters.legalGroupId, legalEntityId: filters.legalEntityId, parentDivisionId: filters.parentDivisionId })
       .then(data => {
         setFilterOptions(prev => {
           const periods = data.periods || [];
           setFilters(f => ({ ...f, periodName: f.periodName || periods[0] || '', comparePeriodName: f.comparePeriodName || periods[1] || '' }));
           setAppliedFilters(f => ({ ...f, periodName: f.periodName || periods[0] || '', comparePeriodName: f.comparePeriodName || periods[1] || '' }));
           return {
-            ...prev,
-            legalGroups:     ['All', ...(data.legal_groups     || []).filter(e => e && e !== 'All')],
-            legalEntities:   ['All', ...(data.legal_entities   || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All'))],
-            parentDivisions: ['All', ...(data.parent_divisions || []).filter(e => e && e !== 'All')],
-            subdivisions:    ['All', ...(data.subdivisions     || []).filter(e => e && e !== 'All')],
-            periods,
+              ...prev,
+              legalGroups:     data.legalGroups || [],
+              legalEntities:   data.legalEntities || [],
+              parentDivisions: data.parentDivisions || [],
+              subdivisions:    data.subdivisions || [],
+              periods,
           };
         });
       })
