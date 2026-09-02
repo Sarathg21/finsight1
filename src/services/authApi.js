@@ -406,7 +406,7 @@
  */
 
 export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || 'http://13.233.207.68:8000';
+  import.meta.env.VITE_API_BASE_URL ?? "";
 
 export const FINSIGHT_ORIGIN =
   import.meta.env.VITE_FINSIGHT_ORIGIN ??
