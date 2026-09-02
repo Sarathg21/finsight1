@@ -709,6 +709,10 @@ export function AuthProvider({ children }) {
   async function loginWithBackend(email, password) {
     const result = await _apiLogin(email, password);
     const accessToken = result?.access_token;
+    
+    if (accessToken) {
+      localStorage.setItem("token", accessToken);
+    }
 
     // Fetch authoritative user state from /api/access/me
     const currentUser = await getCurrentUser();

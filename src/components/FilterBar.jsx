@@ -305,7 +305,11 @@ export default function FilterBar({ compact = false, showSalesman = false }) {
               {salesmanLocked
                 ? `Locked to: ${salesman}`
                 : <OptionList 
-                    items={meta.salesmenList.map(s => ({ key: s, label: s === 'all' ? 'All Salespeople' : s }))} 
+                    items={meta.salesmenList.map(s => {
+                      const sLabel = typeof s === 'string' ? s : (s?.label ?? s?.salesman_name ?? s?.name ?? String(s));
+                      const sVal   = typeof s === 'string' ? s : (s?.value ?? s?.id ?? sLabel);
+                      return { key: sVal, label: sVal === 'all' ? 'All Salespeople' : sLabel };
+                    })} 
                     selected={salesman} 
                     onSelect={v => { setSalesman(v); close(); }} 
                   />}

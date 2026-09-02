@@ -1708,19 +1708,31 @@ export default function SalesRevenueReport() {
         <div className="card" style={{ padding: '14px 18px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
           <FilterField label="Legal Entity">
             <select id="filter-legal-entity" style={selStyle} value={filters.legalEntity} onChange={e => updateFilter('legalEntity', e.target.value)}>
-              {filterOptions.legalEntities.map(o => <option key={o}>{o}</option>)}
+              {filterOptions.legalEntities.map((o, idx) => {
+                  const label = typeof o === 'string' ? o : (o?.label ?? o?.name ?? String(o));
+                  const val   = typeof o === 'string' ? o : (o?.value ?? o?.id ?? label);
+                  return <option key={`le-${idx}`} value={val}>{label}</option>;
+                })}
             </select>
           </FilterField>
 
           <FilterField label="Parent Division">
             <select id="filter-parent-div" style={selStyle} value={filters.parentDiv} onChange={e => updateFilter('parentDiv', e.target.value)}>
-              {filterOptions.parentDivs.map(o => <option key={o}>{o}</option>)}
+              {filterOptions.parentDivs.map((o, idx) => {
+                  const label = typeof o === 'string' ? o : (o?.label ?? o?.name ?? String(o));
+                  const val   = typeof o === 'string' ? o : (o?.value ?? o?.id ?? label);
+                  return <option key={`pd-${idx}`} value={val}>{label}</option>;
+                })}
             </select>
           </FilterField>
 
           <FilterField label="Sub-Division">
             <select id="filter-sub-div" style={selStyle} value={filters.subDiv} onChange={e => updateFilter('subDiv', e.target.value)}>
-              {filterOptions.subDivs.map(o => <option key={o}>{o}</option>)}
+              {filterOptions.subDivs.map((o, idx) => {
+                  const label = typeof o === 'string' ? o : (o?.label ?? o?.name ?? String(o));
+                  const val   = typeof o === 'string' ? o : (o?.value ?? o?.id ?? label);
+                  return <option key={`sd-${idx}`} value={val}>{label}</option>;
+                })}
             </select>
           </FilterField>
 
@@ -1737,7 +1749,11 @@ export default function SalesRevenueReport() {
 
           <FilterField label="Currency">
             <select id="filter-currency" style={selStyle} value={filters.invoiceCurrency} onChange={e => updateFilter('invoiceCurrency', e.target.value)}>
-              {filterOptions.invoiceCurrencies.map(o => <option key={o}>{o}</option>)}
+              {filterOptions.invoiceCurrencies.map((o, idx) => {
+                  const label = typeof o === 'string' ? o : (o?.label ?? o?.currency ?? String(o));
+                  const val   = typeof o === 'string' ? o : (o?.value ?? o?.currency ?? label);
+                  return <option key={`ccy-${idx}`} value={val}>{label}</option>;
+                })}
             </select>
           </FilterField>
 
