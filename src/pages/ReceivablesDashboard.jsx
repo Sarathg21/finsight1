@@ -233,7 +233,7 @@ export default function ReceivablesDashboard() {
     const fetchFilters = async (filters = {}) => {
         try {
             const response = await getReceivableFilters();
-            setFilterOptions(response.data.data);
+            setFilterOptions(response?.data?.data || {});
         } catch (error) {
             console.log("Error is", error)
         }
