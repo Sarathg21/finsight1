@@ -19,7 +19,7 @@
 //   updateRole,
 // } from "../../api/rolesApi";
 
-// import SaveFooter from "../common/SaveFooter";
+// import SaveFooter from "../Common/SaveFooter";
 
 // export default function RoleDetailsPanel({ role }) {
 //   const [activeTab, setActiveTab] =
@@ -1352,7 +1352,7 @@ import {
   updateRole,
 } from "../../api/rolesApi";
 
-import SaveFooter from "../common/SaveFooter";
+import SaveFooter from "../Common/SaveFooter";
 
 export default function RoleDetailsPanel({ role }) {
   const [activeTab, setActiveTab] =

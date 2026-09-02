@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Search, Users } from "lucide-react";
-import SaveFooter from "../common/SaveFooter";
+import SaveFooter from "../Common/SaveFooter";
 export default function UserAssignment({
     role,
     users,

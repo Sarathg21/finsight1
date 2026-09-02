@@ -6,7 +6,7 @@ import {
   Folder,
 } from "lucide-react";
 
-import Checkbox from "../common/Checkbox";
+import Checkbox from "../Common/Checkbox";
 
 export default function PermissionRow({
   module,

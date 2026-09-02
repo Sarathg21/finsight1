@@ -7,7 +7,7 @@ import {
 
 import { permissionModules } from "../../data/rolesData";
 import { moduleIcons } from "./ModuleIcon";
-import Checkbox from "../common/Checkbox";
+import Checkbox from "../Common/Checkbox";
 
 export default function PermissionTable({
   onSelectAll,
