@@ -23,7 +23,7 @@ import ReceivablesDetailedPage from "./pages/ReceivablesDetailedPage";
 import InventoryAgingPage from "./pages/InventoryAgingPage";
 import WorkingCapitalReport from './pages/WorkingCapitalReport';
 import MyProfile from './pages/MyProfile'
-import AdminErrorBoundary from './components/AdminErrorBoundary';
+
 import AdminMainDashboard from './pages/AdminMainDashboard';
 import UsersDashboard from './pages/UsersDashboard';
 import RolesDashboard from './pages/RolesDashboard';
@@ -91,34 +91,34 @@ function App() {
               {/* Admin – segregated, board & CFO only */}
               <Route
                 path="/admin"
-                element={<AdminErrorBoundary>
+                element={
                   <ProtectedRoute
                     pageKey="admin"
                     adminOnly={true}
                     element={<AdminMainDashboard />}
                   />
-                </AdminErrorBoundary>}
+                }
               />
 
               <Route path="/admin/users"
-                element={<AdminErrorBoundary><ProtectedRoute pageKey="admin"
+                element={<ProtectedRoute pageKey="admin"
                   adminOnly={true}
-                  element={<UsersDashboard />} /></AdminErrorBoundary>} />
+                  element={<UsersDashboard />} />} />
 
               <Route path="/admin/roles"
-                element={<AdminErrorBoundary><ProtectedRoute pageKey="admin"
+                element={<ProtectedRoute pageKey="admin"
                   adminOnly={true}
-                  element={<RolesDashboard />} /></AdminErrorBoundary>} />
+                  element={<RolesDashboard />} />} />
 
               <Route path="/admin/useraccess"
-                element={<AdminErrorBoundary><ProtectedRoute pageKey="admin"
+                element={<ProtectedRoute pageKey="admin"
                   adminOnly={true}
-                  element={<UserAccessMangement />} /></AdminErrorBoundary>} />
+                  element={<UserAccessMangement />} />} />
 
                     <Route path="/admin/master-data"
-                element={<AdminErrorBoundary><ProtectedRoute pageKey="admin"
+                element={<ProtectedRoute pageKey="admin"
                   adminOnly={true}
-                  element={<MasterDataDashboard />} /></AdminErrorBoundary>} />
+                  element={<MasterDataDashboard />} />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
