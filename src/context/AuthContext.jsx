@@ -240,292 +240,39 @@
 //      Page access
 //   ─────────────────────────────────────────────────────────── */
 
-//   function canAccess(page) {
-//     if (!user || !page) {
-//       return false;
-//     }
+// 
+  function checkModuleMatch(frontendPage, scope) {
+    if (!scope) return false;
+    const pageKey = String(frontendPage).toUpperCase();
+    const modCode = String(scope.module_code || scope.module || scope.code || "").toUpperCase();
+    
+    if (modCode === pageKey) return true;
+    
+    // Mappings for mismatches between frontend routes and backend module codes
+    if (modCode === "DASHBOARD" && (pageKey === "CFO_DASHBOARD" || pageKey === "DASHBOARD" || pageKey === "EXECUTIVE_DASHBOARD" || pageKey === "EXEC-DASHBOARD")) return true;
+    if (modCode === "P_AND_L" && (pageKey === "PL" || pageKey === "P_AND_L")) return true;
+    if (modCode === "SALES_REVENUE" && (pageKey === "REVENUE" || pageKey === "SALES_REVENUE")) return true;
+    if (modCode === "AR_AGING" && (pageKey === "AR" || pageKey === "RECEIVABLES")) return true;
+    if (modCode === "MASTER_DATA" && pageKey === "ADMIN") return true;
+    if (modCode === "INVENTORY_AGING" && (pageKey === "INVENTORY")) return true;
+    
+    return false;
+  }
 
-//     /*
-//      * ADMIN has full application access.
-//      *
-//      * Backend role_code is authoritative.
-//      */
-//     if (hasRole("ADMIN")) {
-//       return true;
-//     }
+  function canAccess(page) {
+    if (!user || !page) return false;
+    if (hasRole("ADMIN")) return true;
 
-//     /*
-//      * Non-admin users:
-//      * use backend-provided access_scopes only.
-//      */
-//     const scopes = Array.isArray(
-//       user.access_scopes
-//     )
-//       ? user.access_scopes
-//       : [];
+    const scopes = Array.isArray(user.module_permissions) ? user.module_permissions : [];
 
-//     return scopes.some((scope) => {
-//       if (typeof scope === "string") {
-//         return (
-//           scope === page ||
-//           scope === "*"
-//         );
-//       }
-
-//       if (
-//         scope &&
-//         typeof scope === "object"
-//       ) {
-//         return (
-//           scope.page === page ||
-//           scope.module === page ||
-//           scope.code === page ||
-//           scope.name === page ||
-//           scope.page === "*" ||
-//           scope.module === "*"
-//         );
-//       }
-
-//       return false;
-//     });
-//   }
-
-
-//   /* ───────────────────────────────────────────────────────────
-//      Export permission
-//   ─────────────────────────────────────────────────────────── */
-
-//   function hasExportRight(type) {
-//     if (!user) {
-//       return false;
-//     }
-
-//     if (hasRole("ADMIN")) {
-//       return true;
-//     }
-
-//     const scopes = Array.isArray(
-//       user.access_scopes
-//     )
-//       ? user.access_scopes
-//       : [];
-
-//     return scopes.some((scope) => {
-//       if (typeof scope === "string") {
-//         return (
-//           scope === "export" ||
-//           scope === `export:${type}` ||
-//           scope === "export:*"
-//         );
-//       }
-
-//       if (
-//         scope &&
-//         typeof scope === "object"
-//       ) {
-//         return (
-//           scope.permission === "export" ||
-//           scope.permission ===
-//             `export:${type}` ||
-//           scope.action === "export"
-//         );
-//       }
-
-//       return false;
-//     });
-//   }
-
-
-//   /* ───────────────────────────────────────────────────────────
-//      Access scopes
-//   ─────────────────────────────────────────────────────────── */
-
-//   function getAccessScopes() {
-//     if (!user) {
-//       return [];
-//     }
-
-//     return Array.isArray(
-//       user.access_scopes
-//     )
-//       ? user.access_scopes
-//       : [];
-//   }
-
-
-//   function getScopedEntities() {
-//     return getAccessScopes();
-//   }
-
-
-//   function getScopedCountries() {
-//     const scopes = getAccessScopes();
-
-//     return scopes
-//       .filter(
-//         (scope) =>
-//           scope &&
-//           typeof scope === "object" &&
-//           (
-//             scope.country ||
-//             scope.country_code ||
-//             scope.countryCode
-//           )
-//       )
-//       .map(
-//         (scope) =>
-//           scope.country ||
-//           scope.country_code ||
-//           scope.countryCode
-//       );
-//   }
-
-
-//   function getScopedSalesperson() {
-//     const scopes = getAccessScopes();
-
-//     const salespersonScope =
-//       scopes.find(
-//         (scope) =>
-//           scope &&
-//           typeof scope === "object" &&
-//           (
-//             scope.salesman ||
-//             scope.salesperson ||
-//             scope.salesman_name ||
-//             scope.salesperson_name
-//           )
-//       );
-
-//     if (!salespersonScope) {
-//       return null;
-//     }
-
-//     return (
-//       salespersonScope.salesman ||
-//       salespersonScope.salesperson ||
-//       salespersonScope.salesman_name ||
-//       salespersonScope.salesperson_name ||
-//       null
-//     );
-//   }
-
-
-//   /* ───────────────────────────────────────────────────────────
-//      Sensitive access
-//   ─────────────────────────────────────────────────────────── */
-
-//   function hasSensitiveAccess(page) {
-//     return canAccess(page);
-//   }
-
-
-//   /* ───────────────────────────────────────────────────────────
-//      Audit
-//   ─────────────────────────────────────────────────────────── */
-
-//   function auditLog(
-//     action,
-//     payload = {}
-//   ) {
-//     _auditWrite(
-//       action,
-//       payload,
-//       user
-//     );
-//   }
-
-
-//   /* ───────────────────────────────────────────────────────────
-//      Context
-//   ─────────────────────────────────────────────────────────── */
-
-//   return (
-//     <AuthContext.Provider
-//       value={{
-//         user,
-//         loading,
-
-//         loginWithBackend,
-//         logout,
-
-//         hasRole,
-//         canAccess,
-//         hasExportRight,
-
-//         getAccessScopes,
-//         getScopedEntities,
-//         getScopedCountries,
-//         getScopedSalesperson,
-
-//         hasSensitiveAccess,
-
-//         auditLog,
-//       }}
-//     >
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
-
-
-// export function useAuth() {
-//   return useContext(AuthContext);
-// }
-
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-} from "react";
-
-import {
-  loginWithBackend as _apiLogin,
-  logoutFromBackend,
-  getCurrentUser,
-} from "../services/authApi";
-
-const AuthContext = createContext(null);
-
-
-/* ─────────────────────────────────────────────────────────────
-   Audit helper
-───────────────────────────────────────────────────────────── */
-
-function _auditWrite(
-  action,
-  payload = {},
-  currentUser = null
-) {
-  const STORAGE_KEY = "finsight_audit_log";
-  const MAX = 500;
-
-  const entry = {
-    id: `${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 7)}`,
-
-    timestamp: new Date().toISOString(),
-
-    action,
-
-    userId:
-      currentUser?.user_profile_id ||
-      currentUser?.id ||
-      null,
-
-    userName:
-      currentUser?.employee_name ||
-      currentUser?.name ||
-      null,
-
-    userRole:
-      currentUser?.role_code ||
-      currentUser?.role ||
-      null,
-
-    ...payload,
+    return scopes.some((scope) => {
+      if (typeof scope === "string") return scope === page || scope === "*";
+      if (scope && typeof scope === "object") {
+        if (scope.page === "*" || scope.module === "*") return true;
+        return checkModuleMatch(page, scope);
+      }
+      return false;
+    });
   };
 
   let log = [];
@@ -859,50 +606,37 @@ export function AuthProvider({ children }) {
      Page access
   ─────────────────────────────────────────────────────────── */
 
+
+  function checkModuleMatch(frontendPage, scope) {
+    if (!scope) return false;
+    const pageKey = String(frontendPage).toUpperCase();
+    const modCode = String(scope.module_code || scope.module || scope.code || "").toUpperCase();
+    
+    if (modCode === pageKey) return true;
+    
+    // Mappings for mismatches between frontend routes and backend module codes
+    if (modCode === "DASHBOARD" && (pageKey === "CFO_DASHBOARD" || pageKey === "DASHBOARD" || pageKey === "EXECUTIVE_DASHBOARD" || pageKey === "EXEC-DASHBOARD")) return true;
+    if (modCode === "P_AND_L" && (pageKey === "PL" || pageKey === "P_AND_L")) return true;
+    if (modCode === "SALES_REVENUE" && (pageKey === "REVENUE" || pageKey === "SALES_REVENUE")) return true;
+    if (modCode === "AR_AGING" && (pageKey === "AR" || pageKey === "RECEIVABLES")) return true;
+    if (modCode === "MASTER_DATA" && pageKey === "ADMIN") return true;
+    if (modCode === "INVENTORY_AGING" && (pageKey === "INVENTORY")) return true;
+    
+    return false;
+  }
+
   function canAccess(page) {
-    if (!user || !page) {
-      return false;
-    }
+    if (!user || !page) return false;
+    if (hasRole("ADMIN")) return true;
 
-    /*
-     * ADMIN access is based ONLY on backend role_code.
-     */
-    if (hasRole("ADMIN")) {
-      return true;
-    }
-
-    /*
-     * Non-admin users:
-     * use ONLY backend access_scopes.
-     */
-    const scopes = Array.isArray(
-      user.module_permissions
-    )
-      ? user.module_permissions
-      : [];
+    const scopes = Array.isArray(user.module_permissions) ? user.module_permissions : [];
 
     return scopes.some((scope) => {
-      if (typeof scope === "string") {
-        return (
-          scope === page ||
-          scope === "*"
-        );
+      if (typeof scope === "string") return scope === page || scope === "*";
+      if (scope && typeof scope === "object") {
+        if (scope.page === "*" || scope.module === "*") return true;
+        return checkModuleMatch(page, scope);
       }
-
-      if (
-        scope &&
-        typeof scope === "object"
-      ) {
-        return (
-          scope.page === page ||
-          scope.module === page ||
-          scope.code === page ||
-          scope.name === page ||
-          scope.page === "*" ||
-          scope.module === "*"
-        );
-      }
-
       return false;
     });
   }
@@ -913,41 +647,18 @@ export function AuthProvider({ children }) {
   ─────────────────────────────────────────────────────────── */
 
   function hasExportRight(type) {
-    if (!user) {
-      return false;
-    }
+    if (!user) return false;
+    if (hasRole("ADMIN")) return true;
 
-    if (hasRole("ADMIN")) {
-      return true;
-    }
-
-    const scopes = Array.isArray(
-      user.module_permissions
-    )
-      ? user.module_permissions
-      : [];
+    const scopes = Array.isArray(user.module_permissions) ? user.module_permissions : [];
 
     return scopes.some((scope) => {
       if (typeof scope === "string") {
-        return (
-          scope === "export" ||
-          scope === `export:${type}` ||
-          scope === "export:*"
-        );
+        return scope === "export" || scope === `export:${type}` || scope === "export:*";
       }
-
-      if (
-        scope &&
-        typeof scope === "object"
-      ) {
-        return (
-          scope.permission === "export" ||
-          scope.permission ===
-          `export:${type}` ||
-          scope.action === "export"
-        );
+      if (scope && typeof scope === "object") {
+        return checkModuleMatch(type, scope) && (scope.can_export === true || (scope.actions && scope.actions.includes("EXPORT")));
       }
-
       return false;
     });
   }
