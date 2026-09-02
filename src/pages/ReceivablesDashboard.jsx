@@ -420,8 +420,9 @@ export default function ReceivablesDashboard() {
                 fetchSubDivisions(selectedFilters),
                 loadSalesman(selectedFilters)
             ]);
-        }
-        finally {
+        } catch (error) {
+            console.error("Error loading receivables data:", error);
+        } finally {
             setLoading(false);
         }
     };
