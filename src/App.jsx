@@ -64,18 +64,18 @@ function App() {
             <Route element={<FilterProvider><Layout /></FilterProvider>}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
-              <Route path="/dashboard" element={<ProtectedRoute pageKey="dashboard" element={<CFODashboard />} />} />
+              <Route path="/dashboard" element={<ProtectedRoute pageKey="cfo_dashboard" element={<CFODashboard />} />} />
               <Route path="/profile" element={<MyProfile />} />
-              <Route path="/exec-dashboard" element={<ProtectedRoute pageKey="exec-dashboard" element={<ExecDashboard />} />} />
+              <Route path="/exec-dashboard" element={<ProtectedRoute pageKey="executive_dashboard" element={<ExecDashboard />} />} />
               <Route path="/finsight-dashboard" element={<FinSightDashboard />} />
               <Route path="/country-performance" element={<ProtectedRoute pageKey="country-performance" element={<PlaceholderPage title="Country Performance" />} />} />
-              <Route path="/working-capital" element={<ProtectedRoute pageKey="working-capital" element={<WCDashboard />} />} />
+              <Route path="/working-capital" element={<ProtectedRoute pageKey="working_capital" element={<WCDashboard />} />} />
               <Route path="/division" element={<ProtectedRoute pageKey="division" element={<PlaceholderPage title="Division-wise Reporting" />} />} />
               <Route path="/salesman" element={<ProtectedRoute pageKey="salesman" element={<PlaceholderPage title="Salesman-wise Reporting" />} />} />
               <Route path="/bu-pack" element={<ProtectedRoute pageKey="bu-pack" element={<PlaceholderPage title="BU Financial Pack" />} />} />
               <Route path="/pl" element={<ProtectedRoute pageKey="pl" element={<PLAnalytics />} />} />
-              <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance-sheet" element={<BalanceSheet />} />} />
-              <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />
+              <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance_sheet" element={<BalanceSheet />} />} />
+              <Route path="/revenue" element={<ProtectedRoute pageKey="sales_revenue" element={<SalesRevenueReport />} />} />
               <Route path="/cash-collection" element={<ProtectedRoute pageKey="cash-collection" element={<PlaceholderPage title="Cash Collection Report" />} />} />
               <Route path="/fixed-assets" element={<ProtectedRoute pageKey="fixed-assets" element={<PlaceholderPage title="Fixed Asset Report" />} />} />
               <Route path="/bank-facility" element={<ProtectedRoute pageKey="bank-facility" element={<PlaceholderPage title="Bank Facility Utilization" />} />} />
