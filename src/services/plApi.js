@@ -197,7 +197,7 @@ const apiCache = new Map();
  * @returns {Promise<any>} parsed JSON response
  */
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   // Demo mode fallback — no token present
   if (!token) {
@@ -334,7 +334,7 @@ function buildPLParams(filters = {}) {
  * @param {object} filters — current applied filters
  */
 export function exportPL(format, filters = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
   const params = { ...buildPLParams(filters), format };
 
   const qs = new URLSearchParams(
