@@ -331,8 +331,7 @@ export default function HierarchyTree({
 
     const hasMatchInChildren = (node) => {
       return (node.children || []).some((child) => {
-        const matched = child.label
-          ?.toLowerCase()
+        const matched = String(child.label || "").toLowerCase()
           .includes(searchText);
 
         return (
@@ -347,8 +346,7 @@ export default function HierarchyTree({
 
         const childHasMatch = children.some(
           (child) => {
-            const childLabel = child.label
-              ?.toLowerCase()
+            const childLabel = String(child.label || "").toLowerCase()
               .includes(searchText);
 
             return (
