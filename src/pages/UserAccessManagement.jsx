@@ -20,7 +20,7 @@
 // // import { stats, departments, } from "../data/dummyData";
 // // import { getUserAccessSummary } from "../api/userAccessApi";
 // // import { getUsers, getRoles, getLegalGroups, updateUserStatus } from "../api/userApi";
-// // import PageSkeleton from "../components/common/PageSkeleton";
+// // import PageSkeleton from "../components/Common/PageSkeleton";
 // // import {
 // //     getUserAccess,
 // //     saveUserAccess,
@@ -870,7 +870,7 @@
 // import { stats, departments, } from "../data/dummyData";
 // import { getUserAccessSummary } from "../api/userAccessApi";
 // import { getUsers, getRoles, getLegalGroups, updateUserStatus } from "../api/userApi";
-// import PageSkeleton from "../components/common/PageSkeleton";
+// import PageSkeleton from "../components/Common/PageSkeleton";
 // import {
 //     getUserAccess,
 //     saveUserAccess,
@@ -1910,7 +1910,7 @@ import SelectedUserCard from "../components/userAccess/SelectUserCard";
 import { stats, departments, } from "../data/dummyData";
 import { getUserAccessSummary } from "../api/userAccessApi";
 import { getUsers, getRoles, getLegalGroups, updateUserStatus } from "../api/userApi";
-import PageSkeleton from "../components/common/PageSkeleton";
+import PageSkeleton from "../components/Common/PageSkeleton";
 import {
     getUserAccess,
     saveUserAccess,

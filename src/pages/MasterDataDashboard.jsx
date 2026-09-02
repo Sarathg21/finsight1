@@ -22,7 +22,7 @@ import SubDivisionDetails from "../components/masterdata/SubDivisionDetails";
 import AnalysisCodeDetails from "../components/masterdata/AnalysisCodeDetails";
 import CurrencyTable from "../components/masterdata/CurrencyTable";
 import CurrencyDetails from "../components/masterdata/CurrencyDetails";
-import PageSkeleton from "../components/common/PageSkeleton";
+import PageSkeleton from "../components/Common/PageSkeleton";
 
 import { masterCards } from "../data/masterData";
 import ConfirmationModel from "../components/Common/ConfirmationModel";

@@ -2,7 +2,7 @@
 // import React, { useEffect, useState } from "react";
 // import { UserPlus } from "lucide-react";
 // import toast from "react-hot-toast";
-// import PageSkeleton from "../components/common/PageSkeleton";
+// import PageSkeleton from "../components/Common/PageSkeleton";
 // import PageHeader from "../components/Common/PageHeader";
 // import StatCard from "../components/StatCard";
 // import FilterBar from "../components/Common/FilterBar";
@@ -417,7 +417,7 @@
 import React, { useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
-import PageSkeleton from "../components/common/PageSkeleton";
+import PageSkeleton from "../components/Common/PageSkeleton";
 import PageHeader from "../components/Common/PageHeader";
 import StatCard from "../components/StatCard";
 import FilterBar from "../components/Common/FilterBar";

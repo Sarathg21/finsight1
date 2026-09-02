@@ -11,7 +11,7 @@
 // import FooterNote from "../components/FooterNote";
 // import AddUserModal from "../components/users/AddUserModal";
 // import ConfirmationModel from "../components/Common/ConfirmationModel";
-// import PageSkeleton from "../components/common/PageSkeleton";
+// import PageSkeleton from "../components/Common/PageSkeleton";
 // import {
 //   getUsers, getRoles, getLegalGroups, updateUserStatus, getAdminSummary,
 // } from "../api/userApi";
@@ -668,7 +668,7 @@ import UserDetails from "../components/users/UserDetails";
 import FooterNote from "../components/FooterNote";
 import AddUserModal from "../components/users/AddUserModal";
 import ConfirmationModel from "../components/Common/ConfirmationModel";
-import PageSkeleton from "../components/common/PageSkeleton";
+import PageSkeleton from "../components/Common/PageSkeleton";
 
 import {
   getUsers,
