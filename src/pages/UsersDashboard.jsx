@@ -876,20 +876,10 @@ export default function UsersDashboard() {
           ).values()
         );
 
+      // Store as plain strings (role_code) so FilterBar can render safely
       setRoleOptions([
-        {
-          id: 0,
-          code: "All",
-          name: "All",
-        },
-
-        ...uniqueActiveRoles.map(
-          (role, index) => ({
-            id: index + 1,
-            code: role.role_code,
-            name: role.role_name,
-          })
-        ),
+        "All",
+        ...uniqueActiveRoles.map((r) => r.role_code),
       ]);
 
     } catch (error) {
@@ -942,14 +932,10 @@ export default function UsersDashboard() {
           })
         );
 
+      // Store as plain strings so FilterBar can render them safely
       setLegalGroupOptions([
-        {
-          id: 0,
-          code: "All",
-          name: "All",
-        },
-
-        ...formattedLegalGroups,
+        "All",
+        ...formattedLegalGroups.map((g) => g.code),
       ]);
 
     } catch (error) {

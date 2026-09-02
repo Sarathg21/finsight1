@@ -16,7 +16,8 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /* ── Auth headers ───────────────────────────────────────────────── */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  // Auth stores the JWT under 'token' (see AuthContext.jsx)
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
