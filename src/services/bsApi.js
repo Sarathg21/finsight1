@@ -23,8 +23,9 @@
  */
 
 // Keep ?? (not ||) — empty string means relative paths (Vite proxy)
+import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE = getApiBaseUrl();
 
 /* ── Auth headers ─────────────────────────────────────────────────── */
 function getAuthHeaders() {

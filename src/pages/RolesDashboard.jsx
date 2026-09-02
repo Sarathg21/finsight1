@@ -455,7 +455,11 @@ export default function RolesDashboard() {
 
       const response = await getRole();
 
-      const data = response.data.data || response.data;
+      // Handle both { data: [...] } and direct array responses
+      let data = response.data?.data || response.data;
+      if (!Array.isArray(data)) {
+        data = [];
+      }
 
       console.log("Roles API:", data);
 

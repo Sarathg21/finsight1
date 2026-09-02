@@ -74,7 +74,20 @@ export default function ProtectedRoute({
   ----------------------------------------------------------- */
 
   if (loading) {
-    return null;
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '40vh',
+          color: 'var(--clr-text-muted)',
+          fontSize: '0.9rem',
+        }}
+      >
+        Loading...
+      </div>
+    );
   }
 
 

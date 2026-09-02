@@ -405,8 +405,9 @@
  * VITE_API_BASE_URL
  */
 
-export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? "";
+import { getApiBaseUrl } from "../utils/apiBase";
+
+export const API_BASE = getApiBaseUrl();
 
 export const FINSIGHT_ORIGIN =
   import.meta.env.VITE_FINSIGHT_ORIGIN ??

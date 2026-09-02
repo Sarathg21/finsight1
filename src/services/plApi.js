@@ -10,9 +10,9 @@
  * Base URL: VITE_API_BASE_URL env var (defaults to '' for Vite proxy)
  */
 
-// Keep ?? (not ||) — empty string means relative paths (Vite proxy), not fallback to default
+import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE = getApiBaseUrl();
 
 /* ── Auth headers ───────────────────────────────────────────────── */
 function getAuthHeaders() {

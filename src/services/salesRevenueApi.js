@@ -7,8 +7,9 @@
  */
 
 // IMPORTANT: Keep ?? (not ||) here.
+import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE = getApiBaseUrl();
 
 /* ── JWT helpers ───────────────────────────────────────────────── */
 
@@ -459,7 +460,7 @@ const MOCK_SUMMARY_DETAIL = {
 };
 
 function getMockDataForPath(path) {
-  if (path.includes('/filters')) return MOCK_FILTERS;
+  if (path.includes('/filter')) return MOCK_FILTERS;
   if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
   if (path.includes('/salesman-summary')) return MOCK_SALESMAN_SUMMARY;
   if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;

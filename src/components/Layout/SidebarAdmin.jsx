@@ -27,7 +27,7 @@ const adminSections = [
       {
         label: "Dashboard",
         icon: LayoutDashboard,
-        path: "/admin/dashboard",
+        path: "/admin",
       },
     ],
   },
@@ -48,7 +48,7 @@ const adminSections = [
       {
         label: "User Access",
         icon: UserCog,
-        path: "/admin/userAccess",
+       path: "/admin/useraccess",
       },
     ],
   },
