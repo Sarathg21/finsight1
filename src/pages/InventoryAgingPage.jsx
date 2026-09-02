@@ -97,7 +97,7 @@ export default function InventoryAgingPage() {
         try {
             const response = await getInventoryAgingSummary(filters);
 
-            const apiData = response.data;
+            const rawData = response.data; const apiData = Array.isArray(rawData) ? rawData : (rawData?.data || []);
 
             const total = apiData.reduce(
                 (sum, item) => sum + Number(item.value),
@@ -128,7 +128,8 @@ export default function InventoryAgingPage() {
 
             console.log("Warehouse Wise:", response.data);
 
-            const formattedData = response.data.map((item) => ({
+            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
+            const formattedData = arr.map((item) => ({
                 location: item.location_name || item.warehouse,
                 value: Number(item.total_value || 0),
                 quantity: Number(item.total_quantity || 0),
@@ -149,7 +150,8 @@ export default function InventoryAgingPage() {
             const response = await getInventoryDivisionWise(filters);
             console.log("Division Wise:", response.data);
 
-            const formattedData = response.data.map((item, index) => ({
+            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
+            const formattedData = arr.map((item, index) => ({
                 name: item.parent_division,
                 value: Number(item.total_value),
                 percentage: Number(item.share_percent),
@@ -179,7 +181,8 @@ export default function InventoryAgingPage() {
             const response = await getInventoryTrend(filters);
             console.log("Trend API:", response.data);
 
-            const formattedData = response.data.map((item) => ({
+            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
+            const formattedData = arr.map((item) => ({
                 month: item.month,
                 inventoryValue: Number(item.inventory_value)
             }));
@@ -195,7 +198,7 @@ export default function InventoryAgingPage() {
 
             console.log("Subdivision API:", response.data);
 
-            const apiData = response.data.data || response.data;
+            const rawData = response.data; const apiData = Array.isArray(rawData) ? rawData : (rawData?.data || []);
 
             const formattedData = apiData.map((item, index) => ({
                 name: item.subdivision,
@@ -223,7 +226,8 @@ export default function InventoryAgingPage() {
         try {
             const response = await getInventorySlowMovingItems(filters);
 
-            const formattedData = response.data.map((item) => ({
+            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
+            const formattedData = arr.map((item) => ({
                 item: item.item_description,
                 code: item.item_code,
                 qty: item.total_quantity,
@@ -242,7 +246,7 @@ export default function InventoryAgingPage() {
     const fetchDetails = async () => {
         try {
             const response = await getInventoryDetails(filters);
-            const apiData = response.data?.data || [];
+            const rawData = response?.data; const apiData = Array.isArray(rawData) ? rawData : (rawData?.data || []);
             const formattedData = apiData.map((item) => ({
                 legalEntity: item.legal_entity,
                 subDivision: item.subdivision ?? "-",
