@@ -478,9 +478,9 @@
 // //             const searchValue = search.trim().toLowerCase();
 
 // //             const matchesSearch =
-// //                 (user.name || "").toLowerCase().includes(searchValue) ||
-// //                 (user.email || "").toLowerCase().includes(searchValue) ||
-// //                 (user.code || "").toLowerCase().includes(searchValue);
+// //                 String(user.name || "").toLowerCase().includes(searchValue) ||
+// //                 String(user.email || "").toLowerCase().includes(searchValue) ||
+// //                 String(user.code || "").toLowerCase().includes(searchValue);
 
 // //             const matchesStatus =
 // //                 status === "All" ||
@@ -1361,9 +1361,9 @@
 //             const searchValue = search.trim().toLowerCase();
 
 //             const matchesSearch =
-//                 (user.name || "").toLowerCase().includes(searchValue) ||
-//                 (user.email || "").toLowerCase().includes(searchValue) ||
-//                 (user.code || "").toLowerCase().includes(searchValue);
+//                 String(user.name || "").toLowerCase().includes(searchValue) ||
+//                 String(user.email || "").toLowerCase().includes(searchValue) ||
+//                 String(user.code || "").toLowerCase().includes(searchValue);
 
 //             const matchesStatus =
 //                 status === "All" ||
@@ -2401,9 +2401,9 @@ export default function UserAccessMangement() {
             const searchValue = search.trim().toLowerCase();
 
             const matchesSearch =
-                (user.name || "").toLowerCase().includes(searchValue) ||
-                (user.email || "").toLowerCase().includes(searchValue) ||
-                (user.code || "").toLowerCase().includes(searchValue);
+                String(user.name || "").toLowerCase().includes(searchValue) ||
+                String(user.email || "").toLowerCase().includes(searchValue) ||
+                String(user.code || "").toLowerCase().includes(searchValue);
 
             const matchesStatus =
                 status === "All" ||

@@ -906,10 +906,10 @@ const TaskPage = () => {
       }
 
       const matchesSearch = !filter.search ||
-        (task.title || '').toLowerCase().includes(filter.search.toLowerCase()) ||
-        (task.description || '').toLowerCase().includes(filter.search.toLowerCase()) ||
-        (task.employee_id || '').toLowerCase().includes(filter.search.toLowerCase()) ||
-        (task.assigneeName || '').toLowerCase().includes(filter.search.toLowerCase());
+        String(task.title || "").toLowerCase().includes(filter.search.toLowerCase()) ||
+        String(task.description || "").toLowerCase().includes(filter.search.toLowerCase()) ||
+        String(task.employee_id || "").toLowerCase().includes(filter.search.toLowerCase()) ||
+        String(task.assigneeName || "").toLowerCase().includes(filter.search.toLowerCase());
 
       const today = new Date().toLocaleDateString('en-CA');
       const dueDateKey = toDateKey(task.due_date);

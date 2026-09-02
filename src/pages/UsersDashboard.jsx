@@ -995,20 +995,17 @@ export default function UsersDashboard() {
     return users.filter((user) => {
 
       const matchesSearch =
-        (user.name || "")
-          .toLowerCase()
+        String(user.name || "").toLowerCase()
           .includes(
             search.toLowerCase()
           ) ||
 
-        (user.email || "")
-          .toLowerCase()
+        String(user.email || "").toLowerCase()
           .includes(
             search.toLowerCase()
           ) ||
 
-        (user.code || "")
-          .toLowerCase()
+        String(user.code || "").toLowerCase()
           .includes(
             search.toLowerCase()
           );

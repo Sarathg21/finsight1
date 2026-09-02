@@ -501,8 +501,7 @@ export default function RolesDashboard() {
 
   const filteredRoles = roles.filter((role) => {
     const matchesSearch =
-      (role.name || "")
-        .toLowerCase()
+      String(role.name || "").toLowerCase()
         .includes(search.toLowerCase());
 
     const matchesStatus =
