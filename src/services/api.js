@@ -2,7 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://13.233.207.68:8000',
     timeout: Number(import.meta.env.VITE_API_TIMEOUT_MS) || 30000, // Sync with env timeout or fallback to 30s
     headers: {
         'ngrok-skip-browser-warning': 'true',
