@@ -1530,8 +1530,8 @@ export default function LoginPage() {
 
       console.log("LOGIN SESSION:", session);
       console.log(
-        "ACCESS TOKEN:",
-        !!session?.access_token
+        "AUTHENTICATED:",
+        !!session
       );
       console.log(
         "ROLE CODE:",

@@ -61,7 +61,7 @@ export function AgingSummaryCard({ title, data, legendData = [], total, date, sh
 
           {/* PIE */}
           <div className="w-1/2 h-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
@@ -229,7 +229,7 @@ export function OverDueSummaryCard({ title, data, total, Centerlabel, currency =
 
           {/* PIE */}
           <div className="w-1/2 h-full relative flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={data}
@@ -332,7 +332,7 @@ export function PayablesTrendCard({ data, title, charttitle, daysname, currency 
       {/* Chart */}
       <div className="flex-1 pt-0">
 
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
           <BarChart
             data={data}
             margin={{
@@ -527,7 +527,7 @@ export function ParentDivisionCard({ data = [], title, currency = "AED", }) {
         <>
           {/* Chart */}
           <div className="flex-1">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
               <BarChart
                 data={data}
                 layout="vertical"
@@ -638,7 +638,7 @@ export function InventoryValueTrend({ title, data, currency = "AED", }) {
         </div>
       ) : (
 
-        <ResponsiveContainer width="100%" height="90%">
+        <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="90%">
           <LineChart
             data={data}
             margin={{
@@ -746,7 +746,7 @@ export function WorkingCapitalTrendCard({
       </h3>
 
       <div className="flex-1">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
           <ComposedChart
             data={data}
             margin={{
@@ -1071,7 +1071,7 @@ export function WorkingCapitalComponents({
           ================================================= */}
 
       <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
           <ComposedChart
             data={data}
             margin={{
@@ -1312,7 +1312,7 @@ export function CurrentAssetsVsLiabilities({
 
       {/* Chart */}
       <div className="flex-1 min-h-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
           <BarChart
             data={data}
             margin={{
@@ -1695,7 +1695,7 @@ export function CashConversionTrend({
           height: "calc(100% - 27px)",
         }}
       >
-        <ResponsiveContainer
+        <ResponsiveContainer minWidth={1} minHeight={1}
           width="100%"
           height="100%"
         >

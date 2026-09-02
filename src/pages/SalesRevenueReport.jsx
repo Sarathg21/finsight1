@@ -1953,7 +1953,7 @@ export default function SalesRevenueReport() {
 
                     {/* Single bar */}
                     <div style={{ width: '100%', marginTop: 24, marginBottom: 12 }}>
-                      <ResponsiveContainer width="100%" height={180} minWidth={0}>
+                      <ResponsiveContainer width="100%" height={180} minWidth={1} minHeight={1}>
                         <BarChart data={[singlePt]} margin={{ top: 20, right: 40, left: 0, bottom: 0 }} maxBarSize={64}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="transparent" />
                           <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0', strokeWidth: 2 }} tickLine={false} dy={8} />
@@ -2001,7 +2001,7 @@ export default function SalesRevenueReport() {
                   style={{ display: 'flex', flexDirection: 'column', flex: 1 }}
                 >
                   <div style={{ flex: 1, minHeight: 160, width: '100%', marginTop: 8 }}>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <AreaChart data={activePts} margin={{ top: 24, right: 10, left: -10, bottom: 0 }}>
                       <defs>
                         <filter id="lineShadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -2121,7 +2121,7 @@ export default function SalesRevenueReport() {
                 <>
                   {/* ── Large centered donut ── */}
                   <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: 8 }}>
-                    <ResponsiveContainer width="100%" height={180} minWidth={0}>
+                    <ResponsiveContainer width="100%" height={180} minWidth={1} minHeight={1}>
                       <PieChart>
                         <Pie
                           data={legalEntData}
@@ -2384,7 +2384,7 @@ export default function SalesRevenueReport() {
                     : subDivData;
 
                   return (
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                       <BarChart data={filteredSubDivData} margin={{ top: 20, right: 20, left: 20, bottom: 84 }} maxBarSize={56} barCategoryGap="20%">
                         <defs>
                           {filteredSubDivData.map((entry, index) => {

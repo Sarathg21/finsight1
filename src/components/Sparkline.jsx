@@ -16,7 +16,7 @@
 
 //   return (
 //     <div className="w-full h-7.5">
-//       <ResponsiveContainer width="100%" height="100%">
+//       <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
 //         <LineChart
 //           data={chartData}
 //           margin={{
@@ -56,7 +56,7 @@ export default function Sparkline({
     return (
         <div className="w-full h-6">
 
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
 
                 <LineChart
                     data={chartData}

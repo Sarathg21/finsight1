@@ -697,11 +697,11 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
 /* ── Public API functions ──────────────────────────────────────── */
 
 /**
- * GET /api/sales-revenue/filters
+ * GET /api/sales-revenue/filter-options
  * Returns available filter options (dropdown values).
  */
 export async function fetchFilters() {
-  return apiCall('/api/sales-revenue/filters', { currency: 'AED' });
+  return apiCall('/api/sales-revenue/filter-options', { currency: 'AED' });
 }
 
 /**
