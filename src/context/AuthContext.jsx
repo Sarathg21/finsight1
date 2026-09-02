@@ -876,9 +876,9 @@ export function AuthProvider({ children }) {
      * use ONLY backend access_scopes.
      */
     const scopes = Array.isArray(
-      user.access_scopes
+      user.module_permissions
     )
-      ? user.access_scopes
+      ? user.module_permissions
       : [];
 
     return scopes.some((scope) => {
@@ -922,9 +922,9 @@ export function AuthProvider({ children }) {
     }
 
     const scopes = Array.isArray(
-      user.access_scopes
+      user.module_permissions
     )
-      ? user.access_scopes
+      ? user.module_permissions
       : [];
 
     return scopes.some((scope) => {
