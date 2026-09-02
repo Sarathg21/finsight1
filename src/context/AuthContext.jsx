@@ -708,6 +708,7 @@ export function AuthProvider({ children }) {
 
   async function loginWithBackend(email, password) {
     const result = await _apiLogin(email, password);
+    const accessToken = result?.access_token;
 
     // Fetch authoritative user state from /api/access/me
     const currentUser = await getCurrentUser();
@@ -741,7 +742,7 @@ export function AuthProvider({ children }) {
 
     _auditWrite("login", {}, sessionUser);
 
-    return sessionUser;
+    return { ...sessionUser, access_token: accessToken };
   }
   /* ───────────────────────────────────────────────────────────
      Logout

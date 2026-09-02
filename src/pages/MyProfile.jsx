@@ -445,13 +445,15 @@ export default function Profile() {
                 modulePermissions
             );
 
-        return modules.map((module) => ({
-            ...module,
+        return modules
+            .filter((module) => module.canView === true)
+            .map((module) => ({
+                ...module,
 
-            // Module icon is visual only.
-            // Authorization is NOT based on this.
-            icon: DEFAULT_MODULE_ICON,
-        }));
+                // Module icon is visual only.
+                // Authorization comes from backend can_view.
+                icon: DEFAULT_MODULE_ICON,
+            }));
 
     }, [modulePermissions]);
 
