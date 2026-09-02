@@ -546,3 +546,1539 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
     </>
   );
 }
+
+
+
+// import { useState } from 'react';
+// import { NavLink } from 'react-router-dom';
+// import { useAuth } from '../context/AuthContext';
+// import {
+//   LayoutDashboard,
+//   Star,
+//   FileText,
+//   BookOpen,
+//   DollarSign,
+//   Building2,
+//   Receipt,
+//   CreditCard,
+//   Package,
+//   LayoutGrid,
+//   Wallet,
+//   FileSpreadsheet,
+//   Shield,
+//   Users,
+//   Globe,
+//   PieChart,
+//   Briefcase,
+//   UserCheck,
+//   ChevronLeft,
+//   LogOut,
+//   Search,
+//   X,
+//   Layers,
+//   UserCog,
+// } from 'lucide-react';
+
+// /* ═══════════════════════════════════════════════════════════════
+//    ICON MAP
+//    ═══════════════════════════════════════════════════════════════ */
+
+// const ROUTE_ICON = {
+//   '/finsight-dashboard': Star,
+//   '/exec-dashboard': Briefcase,
+//   '/dashboard': LayoutDashboard,
+
+//   '/pl': FileText,
+//   '/balance-sheet': BookOpen,
+//   '/revenue': DollarSign,
+//   '/fixed-assets': Building2,
+
+//   '/ar': Receipt,
+//   '/ap': CreditCard,
+//   '/payables': CreditCard,
+//   '/receivables': CreditCard,
+
+//   '/inventory': Package,
+//   '/working-capital': LayoutGrid,
+//   '/workingcapital-report': LayoutGrid,
+//   '/cash-collection': Wallet,
+
+//   '/excel-consolidator': FileSpreadsheet,
+
+//   '/country-performance': Globe,
+//   '/division': PieChart,
+//   '/bu-pack': Briefcase,
+//   '/salesman': UserCheck,
+
+//   '/admin': Shield,
+//   '/admin/dashboard': LayoutDashboard,
+//   '/admin/users': Users,
+//   '/admin/roles': Shield,
+//   '/admin/useraccess': UserCog,
+//   '/admin/master-data': Layers,
+// };
+
+
+// /* ═══════════════════════════════════════════════════════════════
+//    ROUTE → BACKEND MODULE MAPPING
+
+//    IMPORTANT:
+//    The backend gives us module codes such as:
+
+//    DASHBOARD
+//    BALANCE_SHEET
+//    PROFIT_LOSS
+//    SALES_REVENUE
+//    FIXED_ASSETS
+//    RECEIVABLES
+//    PAYABLES
+//    INVENTORY
+//    WORKING_CAPITAL
+//    MASTER_DATA
+//    USER_MANAGEMENT
+//    FINANCIAL_POSITION
+
+//    Routes use frontend names such as:
+
+//    /dashboard
+//    /pl
+//    /revenue
+//    etc.
+
+//    Keep this mapping centralized.
+//    Pages/components should NOT need to know backend module codes.
+//    ═══════════════════════════════════════════════════════════════ */
+
+// const ROUTE_MODULE = {
+//   /* Dashboard / overview */
+//   '/finsight-dashboard': 'DASHBOARD',
+//   '/exec-dashboard': 'DASHBOARD',
+//   '/dashboard': 'DASHBOARD',
+
+//   /* Financial reports */
+//   '/pl': 'PROFIT_LOSS',
+//   '/balance-sheet': 'BALANCE_SHEET',
+//   '/revenue': 'SALES_REVENUE',
+//   '/fixed-assets': 'FIXED_ASSETS',
+
+//   /* Receivables / payables */
+//   '/ar': 'RECEIVABLES',
+//   '/receivables': 'RECEIVABLES',
+//   '/ap': 'PAYABLES',
+//   '/payables': 'PAYABLES',
+
+//   /* Working capital */
+//   '/inventory': 'INVENTORY',
+//   '/working-capital': 'WORKING_CAPITAL',
+//   '/workingcapital-report': 'WORKING_CAPITAL',
+//   '/cash-collection': 'WORKING_CAPITAL',
+
+//   /* Sales / business reports */
+//   '/country-performance': 'SALES_REVENUE',
+//   '/salesman': 'SALES_REVENUE',
+
+//   /* Business / management reports */
+//   '/division': 'FINANCIAL_POSITION',
+//   '/bu-pack': 'FINANCIAL_POSITION',
+
+//   /* Utilities */
+//   '/excel-consolidator': 'MASTER_DATA',
+
+//   /* Administration */
+//   '/admin': 'USER_MANAGEMENT',
+//   '/admin/dashboard': 'USER_MANAGEMENT',
+//   '/admin/users': 'USER_MANAGEMENT',
+//   '/admin/roles': 'USER_MANAGEMENT',
+//   '/admin/useraccess': 'USER_MANAGEMENT',
+//   '/admin/master-data': 'MASTER_DATA',
+// };
+
+
+// /* ═══════════════════════════════════════════════════════════════
+//    NAVIGATION DEFINITIONS
+
+//    These are now ROLE-INDEPENDENT.
+
+//    Permissions decide whether an item is displayed.
+
+//    This is important because the backend is the source of truth.
+//    ═══════════════════════════════════════════════════════════════ */
+
+// const NAV_ITEMS = [
+//   /* ───────────── Overview ───────────── */
+
+//   {
+//     to: '/finsight-dashboard',
+//     label: 'Executive Dashboard',
+//     pinned: true,
+//     group: 'Overview',
+//   },
+
+//   {
+//     to: '/dashboard',
+//     label: 'CFO Dashboard',
+//     group: 'Overview',
+//   },
+
+//   {
+//     to: '/exec-dashboard',
+//     label: 'Exec Finance Dashboard',
+//     group: 'Overview',
+//   },
+
+//   /* ───────────── Financials ───────────── */
+
+//   {
+//     to: '/pl',
+//     label: 'P&L Report',
+//     group: 'Financials',
+//   },
+
+//   {
+//     to: '/balance-sheet',
+//     label: 'Balance Sheet',
+//     group: 'Financials',
+//   },
+
+//   {
+//     to: '/revenue',
+//     label: 'Sales Revenue Report',
+//     group: 'Financials',
+//   },
+
+//   {
+//     to: '/fixed-assets',
+//     label: 'Fixed Assets',
+//     group: 'Financials',
+//   },
+
+//   /* ───────────── Working Capital ───────────── */
+
+//   {
+//     to: '/ar',
+//     label: 'Receivables Aging',
+//     group: 'Working Capital',
+//   },
+
+//   {
+//     to: '/ap',
+//     label: 'Payables Aging',
+//     group: 'Working Capital',
+//   },
+
+//   {
+//     to: '/payables',
+//     label: 'Payables Report',
+//     group: 'Working Capital',
+//   },
+
+//   {
+//     to: '/receivables',
+//     label: 'Receivables Report',
+//     group: 'Working Capital',
+//   },
+
+//   {
+//     to: '/inventory',
+//     label: 'Inventory Aging',
+//     group: 'Working Capital',
+//   },
+
+//   {
+//     to: '/workingcapital-report',
+//     label: 'WorkingCapital Report',
+//     group: 'Working Capital',
+//   },
+
+//   {
+//     to: '/working-capital',
+//     label: 'Overview',
+//     group: 'Working Capital',
+//   },
+
+//   /* ───────────── Treasury ───────────── */
+
+//   {
+//     to: '/cash-collection',
+//     label: 'Cash Collection',
+//     group: 'Treasury',
+//   },
+
+//   /* ───────────── Business Reports ───────────── */
+
+//   {
+//     to: '/country-performance',
+//     label: 'Country Performance',
+//     group: 'Reports',
+//   },
+
+//   {
+//     to: '/division',
+//     label: 'Division Reports',
+//     group: 'Reports',
+//   },
+
+//   {
+//     to: '/bu-pack',
+//     label: 'BU Financial Pack',
+//     group: 'Reports',
+//   },
+
+//   {
+//     to: '/salesman',
+//     label: 'Salesman Reports',
+//     group: 'Reports',
+//   },
+
+//   /* ───────────── Utilities ───────────── */
+
+//   {
+//     to: '/excel-consolidator',
+//     label: 'Excel Consolidator',
+//     group: 'Utilities',
+//   },
+
+//   /* ───────────── Administration ───────────── */
+
+//   {
+//     to: '/admin',
+//     label: 'Dashboard',
+//     group: 'Admin',
+//   },
+
+//   {
+//     to: '/admin/users',
+//     label: 'Users',
+//     group: 'Admin',
+//   },
+
+//   {
+//     to: '/admin/roles',
+//     label: 'Roles & Permissions',
+//     group: 'Admin',
+//   },
+
+//   {
+//     to: '/admin/useraccess',
+//     label: 'User Access',
+//     group: 'Admin',
+//   },
+
+//   {
+//     to: '/admin/master-data',
+//     label: 'Master Data',
+//     group: 'Admin',
+//   },
+// ];
+
+
+// /* ═══════════════════════════════════════════════════════════════
+//    ROLE THEME HELPERS
+
+//    Role is used ONLY for visual styling here.
+
+//    It is NOT used for authorization.
+//    ═══════════════════════════════════════════════════════════════ */
+
+// function normalizeRole(role) {
+//   return String(role || '').trim().toUpperCase();
+// }
+
+// function roleBg(role) {
+//   const normalized = normalizeRole(role);
+
+//   const map = {
+//     BOARD: '#eef2ff',
+//     CFO: '#eef2ff',
+//     EXECUTIVE: '#f5f3ff',
+//     GM: '#eff6ff',
+//     BU_MANAGER: '#eff6ff',
+//     ACCOUNTANT: '#f0fdf4',
+//     SALES: '#fff1f2',
+//   };
+
+//   return map[normalized] || '#eef2ff';
+// }
+
+// function roleColor(role) {
+//   const normalized = normalizeRole(role);
+
+//   const map = {
+//     BOARD: '#6366f1',
+//     CFO: '#6366f1',
+//     EXECUTIVE: '#7c3aed',
+//     GM: '#2563eb',
+//     BU_MANAGER: '#2563eb',
+//     ACCOUNTANT: '#16a34a',
+//     SALES: '#f43f5e',
+//   };
+
+//   return map[normalized] || '#6366f1';
+// }
+
+
+// /* ═══════════════════════════════════════════════════════════════
+//    MODULE PERMISSION HELPERS
+
+//    These helpers are intentionally local to Sidebar.
+
+//    AuthContext remains the main source of authorization.
+//    If your AuthContext exposes canAccess(), we use that first.
+
+//    Fallback checks the exact backend structure:
+//    module_permissions[].module_code
+//    module_permissions[].can_view
+//    actions[]
+//    ═══════════════════════════════════════════════════════════════ */
+
+// function hasViewPermission(modulePermissions, moduleCode) {
+//   if (!Array.isArray(modulePermissions) || !moduleCode) {
+//     return false;
+//   }
+
+//   const permission = modulePermissions.find(
+//     item =>
+//       String(item?.module_code || '').trim().toUpperCase() ===
+//       String(moduleCode).trim().toUpperCase()
+//   );
+
+//   if (!permission) {
+//     return false;
+//   }
+
+//   if (permission.can_view === true) {
+//     return true;
+//   }
+
+//   if (
+//     Array.isArray(permission.actions) &&
+//     permission.actions.some(
+//       action => String(action).trim().toUpperCase() === 'VIEW'
+//     )
+//   ) {
+//     return true;
+//   }
+
+//   return false;
+// }
+
+
+// /* ═══════════════════════════════════════════════════════════════
+//    TOOLTIP WRAPPER
+//    ═══════════════════════════════════════════════════════════════ */
+
+// function Tip({ label, children, show }) {
+//   if (!show) return children;
+
+//   return (
+//     <div
+//       style={{
+//         position: 'relative',
+//         display: 'contents',
+//       }}
+//       title={label}
+//     >
+//       {children}
+//     </div>
+//   );
+// }
+
+
+// /* ═══════════════════════════════════════════════════════════════
+//    SIDEBAR
+//    ═══════════════════════════════════════════════════════════════ */
+
+// export default function Sidebar({
+//   collapsed,
+//   onToggle,
+//   mobileOpen,
+// }) {
+//   const {
+//     user,
+//     logout,
+//     canAccess,
+//   } = useAuth();
+
+//   const [query, setQuery] = useState('');
+
+//   const isExpanded = !collapsed;
+
+//   const role = normalizeRole(
+//     user?.role_code ||
+//     user?.role ||
+//     ''
+//   );
+
+//   const accentColor = roleColor(role);
+
+//   const modulePermissions = Array.isArray(user?.module_permissions)
+//     ? user.module_permissions
+//     : [];
+
+
+//   /* ═══════════════════════════════════════════════════════════
+//      FILTER NAVIGATION USING MODULE PERMISSIONS
+
+//      IMPORTANT:
+//      access_scopes are deliberately NOT used here.
+
+//      access_scopes controls DATA visibility.
+
+//      module_permissions controls MODULE visibility.
+//      ═══════════════════════════════════════════════════════════ */
+
+//   const permissionFilteredItems = NAV_ITEMS.filter(item => {
+//     const moduleCode = ROUTE_MODULE[item.to];
+
+//     if (!moduleCode) {
+//       return false;
+//     }
+
+//     /*
+//      * Prefer AuthContext's centralized authorization helper.
+//      *
+//      * Sidebar does not need to know the internal implementation
+//      * of canAccess().
+//      */
+//     if (typeof canAccess === 'function') {
+//       return canAccess(moduleCode);
+//     }
+
+//     /*
+//      * Safe fallback in case canAccess is temporarily unavailable.
+//      */
+//     return hasViewPermission(modulePermissions, moduleCode);
+//   });
+
+
+//   /* ═══════════════════════════════════════════════════════════
+//      SEARCH FILTER
+//      ═══════════════════════════════════════════════════════════ */
+
+//   const filtered = query.trim()
+//     ? permissionFilteredItems.filter(item =>
+//         item.label
+//           .toLowerCase()
+//           .includes(query.toLowerCase())
+//       )
+//     : permissionFilteredItems;
+
+
+//   /* ═══════════════════════════════════════════════════════════
+//      GROUP FILTERED ITEMS
+//      ═══════════════════════════════════════════════════════════ */
+
+//   const grouped = filtered.reduce((acc, item) => {
+//     if (!acc[item.group]) {
+//       acc[item.group] = [];
+//     }
+
+//     acc[item.group].push(item);
+
+//     return acc;
+//   }, {});
+
+
+//   /* ═══════════════════════════════════════════════════════════
+//      USER INITIALS
+//      ═══════════════════════════════════════════════════════════ */
+
+//   const initials = (
+//     user?.name ||
+//     user?.employee_name ||
+//     'U'
+//   )
+//     .split(' ')
+//     .map(word => word[0])
+//     .slice(0, 2)
+//     .join('')
+//     .toUpperCase();
+
+
+//   /* ═══════════════════════════════════════════════════════════
+//      ROLE LABEL
+
+//      Backend provides role_name:
+//        "Chief Financial Officer"
+
+//      So use that instead of expecting roleLabel.
+//      ═══════════════════════════════════════════════════════════ */
+
+//   const roleLabel =
+//     user?.role_name ||
+//     user?.roleLabel ||
+//     user?.role_code ||
+//     'User';
+
+
+//   return (
+//     <>
+//       {/* ═══════════════════ ASIDE ═══════════════════ */}
+
+//       <aside
+//         className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}
+//         style={{
+//           width: isExpanded
+//             ? 'var(--sidebar-w)'
+//             : 'var(--sidebar-collapsed)',
+
+//           position: 'relative',
+//           overflow: 'visible',
+
+//           transition:
+//             'width 0.3s cubic-bezier(0.4,0,0.2,1)',
+
+//           display: 'flex',
+//           flexDirection: 'column',
+
+//           background: '#081B46',
+
+//           borderRight:
+//             '1px solid var(--clr-border)',
+
+//           flexShrink: 0,
+//           zIndex: 110,
+//         }}
+//       >
+
+//         {/* ── Inner clip ── */}
+
+//         <div
+//           style={{
+//             position: 'absolute',
+//             inset: 0,
+//             overflow: 'hidden',
+//             display: 'flex',
+//             flexDirection: 'column',
+//           }}
+//         >
+
+//           {/* ═══════════════════════════════════════════════
+//               LOGO ROW
+//               ═══════════════════════════════════════════════ */}
+
+//           <div
+//             style={{
+//               height: 'var(--topbar-h)',
+//               display: 'flex',
+//               alignItems: 'center',
+
+//               padding: isExpanded
+//                 ? '0 16px 0 18px'
+//                 : '0 0 0 18px',
+
+//               borderBottom:
+//                 '1px solid var(--clr-border)',
+
+//               flexShrink: 0,
+//               gap: 10,
+//             }}
+//           >
+
+//             {/* Logo mark */}
+
+//             <div
+//               style={{
+//                 width: 36,
+//                 height: 36,
+//                 borderRadius: 10,
+//                 flexShrink: 0,
+
+//                 background:
+//                   'linear-gradient(135deg,#7c3aed,#6366f1)',
+
+//                 display: 'flex',
+//                 alignItems: 'center',
+//                 justifyContent: 'center',
+
+//                 fontWeight: 900,
+//                 fontSize: '0.85rem',
+//                 color: '#fff',
+
+//                 boxShadow:
+//                   '0 3px 10px rgba(99,102,241,0.3)',
+//               }}
+//             >
+//               FJ
+//             </div>
+
+
+//             {/* Brand name */}
+
+//             <div
+//               style={{
+//                 overflow: 'hidden',
+//                 whiteSpace: 'nowrap',
+
+//                 transition:
+//                   'opacity 0.2s, width 0.3s',
+
+//                 opacity: isExpanded ? 1 : 0,
+//                 width: isExpanded ? 'auto' : 0,
+
+//                 pointerEvents:
+//                   isExpanded ? 'auto' : 'none',
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   fontSize: '1rem',
+//                   fontWeight: 800,
+//                   color: '#FFFFFF',
+//                   lineHeight: 1.1,
+//                 }}
+//               >
+//                 FJ Group
+//               </div>
+
+//               <div
+//                 style={{
+//                   fontSize: '0.6rem',
+//                   fontWeight: 700,
+//                   color: '#FFFFFF',
+//                   letterSpacing: '0.1em',
+//                   textTransform: 'uppercase',
+//                 }}
+//               >
+//                 Finance Suite
+//               </div>
+//             </div>
+//           </div>
+
+
+//           {/* ═══════════════════════════════════════════════
+//               ROLE BADGE
+//               ═══════════════════════════════════════════════ */}
+
+//           <div
+//             style={{
+//               padding: isExpanded
+//                 ? '10px 16px 4px'
+//                 : '10px 0 4px',
+
+//               display: 'flex',
+
+//               justifyContent:
+//                 isExpanded
+//                   ? 'flex-start'
+//                   : 'center',
+
+//               flexShrink: 0,
+
+//               transition: 'padding 0.3s',
+//             }}
+//           >
+
+//             <div
+//               style={{
+//                 display: 'inline-flex',
+//                 alignItems: 'center',
+//                 gap: 6,
+
+//                 padding: isExpanded
+//                   ? '4px 10px 4px 6px'
+//                   : '4px 6px',
+
+//                 background:
+//                   roleBg(role),
+
+//                 border:
+//                   `1px solid ${accentColor}22`,
+
+//                 borderRadius: 99,
+
+//                 fontSize: '0.62rem',
+//                 fontWeight: 700,
+//                 color: accentColor,
+
+//                 textTransform: 'uppercase',
+//                 letterSpacing: '0.06em',
+
+//                 whiteSpace: 'nowrap',
+//                 overflow: 'hidden',
+
+//                 transition: 'all 0.3s',
+//               }}
+//             >
+//               <span
+//                 style={{
+//                   width: 6,
+//                   height: 6,
+//                   borderRadius: '50%',
+//                   background: accentColor,
+//                   flexShrink: 0,
+//                 }}
+//               />
+
+//               {isExpanded && roleLabel}
+//             </div>
+//           </div>
+
+
+//           {/* ═══════════════════════════════════════════════
+//               SEARCH
+//               ═══════════════════════════════════════════════ */}
+
+//           {isExpanded && (
+//             <div
+//               style={{
+//                 padding: '6px 12px 2px',
+//                 flexShrink: 0,
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   display: 'flex',
+//                   alignItems: 'center',
+//                   gap: 7,
+
+//                   background: '#f8fafc',
+//                   border: '1px solid #e2e8f0',
+
+//                   borderRadius: 8,
+//                   padding: '5px 10px',
+
+//                   transition:
+//                     'border-color 0.15s',
+//                 }}
+//               >
+
+//                 <Search
+//                   size={13}
+//                   color="#94a3b8"
+//                 />
+
+//                 <input
+//                   value={query}
+//                   onChange={e =>
+//                     setQuery(e.target.value)
+//                   }
+//                   placeholder="Search menu…"
+//                   style={{
+//                     border: 'none',
+//                     background: 'transparent',
+//                     outline: 'none',
+
+//                     fontSize: '0.78rem',
+//                     color: '#334155',
+
+//                     width: '100%',
+//                   }}
+//                 />
+
+//                 {query && (
+//                   <button
+//                     onClick={() =>
+//                       setQuery('')
+//                     }
+//                     style={{
+//                       border: 'none',
+//                       background: 'none',
+//                       cursor: 'pointer',
+
+//                       display: 'flex',
+//                       padding: 0,
+//                     }}
+//                   >
+//                     <X
+//                       size={11}
+//                       color="#94a3b8"
+//                     />
+//                   </button>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+
+
+//           {/* ═══════════════════════════════════════════════
+//               NAVIGATION
+//               ═══════════════════════════════════════════════ */}
+
+//           <nav
+//             style={{
+//               flex: 1,
+//               overflowY: 'auto',
+//               overflowX: 'hidden',
+
+//               padding: '8px 10px 12px',
+//             }}
+//           >
+
+//             {Object.entries(grouped).map(
+//               ([group, items]) => (
+//                 <div
+//                   key={group}
+//                   style={{
+//                     marginBottom: 4,
+//                   }}
+//                 >
+
+//                   {/* Section label */}
+
+//                   <div
+//                     style={{
+//                       fontSize: '0.6rem',
+//                       fontWeight: 700,
+
+//                       color: '#ffffff',
+
+//                       textTransform: 'uppercase',
+//                       letterSpacing: '0.1em',
+
+//                       padding: isExpanded
+//                         ? '10px 8px 4px'
+//                         : '10px 0 4px',
+
+//                       textAlign: isExpanded
+//                         ? 'left'
+//                         : 'center',
+
+//                       whiteSpace: 'nowrap',
+//                       overflow: 'hidden',
+
+//                       display: 'flex',
+//                       alignItems: 'center',
+//                       gap: 6,
+//                     }}
+//                   >
+
+//                     {isExpanded ? (
+//                       <>
+//                         <span>{group}</span>
+
+//                         <span
+//                           style={{
+//                             flex: 1,
+//                             height: 1,
+
+//                             background:
+//                               'rgba(255,255,255,0.25)',
+
+//                             display: 'inline-block',
+//                           }}
+//                         />
+//                       </>
+//                     ) : (
+//                       <span
+//                         style={{
+//                           width: 20,
+//                           height: 1,
+
+//                           background:
+//                             'rgba(255,255,255,0.25)',
+
+//                           display: 'inline-block',
+//                           margin: '0 auto',
+//                         }}
+//                       />
+//                     )}
+//                   </div>
+
+
+//                   {/* Nav items */}
+
+//                   {items.map(item => {
+//                     const Icon =
+//                       ROUTE_ICON[item.to] ||
+//                       LayoutDashboard;
+
+//                     return (
+//                       <Tip
+//                         key={item.to}
+//                         label={item.label}
+//                         show={!isExpanded}
+//                       >
+//                         <NavLink
+//                           to={item.to}
+//                           title={
+//                             !isExpanded
+//                               ? item.label
+//                               : undefined
+//                           }
+
+//                           className={({
+//                             isActive,
+//                           }) =>
+//                             isActive
+//                               ? 'sb-link sb-link--active'
+//                               : 'sb-link'
+//                           }
+
+//                           style={{
+//                             textDecoration: 'none',
+//                             display: 'block',
+//                             marginBottom: 1,
+//                           }}
+//                         >
+//                           {({ isActive }) => (
+//                             <div
+//                               style={{
+//                                 display: 'flex',
+//                                 alignItems: 'center',
+//                                 gap: 10,
+
+//                                 padding: isExpanded
+//                                   ? '8px 10px'
+//                                   : '9px 0',
+
+//                                 justifyContent:
+//                                   isExpanded
+//                                     ? 'flex-start'
+//                                     : 'center',
+
+//                                 borderRadius: 9,
+
+//                                 cursor: 'pointer',
+
+//                                 background: isActive
+//                                   ? `linear-gradient(135deg, ${accentColor}ee, ${accentColor}cc)`
+//                                   : 'transparent',
+
+//                                 boxShadow: isActive
+//                                   ? `0 3px 10px ${accentColor}33`
+//                                   : 'none',
+
+//                                 transition:
+//                                   'background 0.18s, box-shadow 0.18s',
+
+//                                 position: 'relative',
+//                               }}
+
+//                               onMouseEnter={e => {
+//                                 if (!isActive) {
+//                                   e.currentTarget.style.background =
+//                                     '#7C3AED';
+
+//                                   const label =
+//                                     e.currentTarget.querySelector(
+//                                       '.nav-label'
+//                                     );
+
+//                                   const icon =
+//                                     e.currentTarget.querySelector(
+//                                       '.nav-icon'
+//                                     );
+
+//                                   if (label) {
+//                                     label.style.color =
+//                                       '#000';
+//                                   }
+
+//                                   if (icon) {
+//                                     icon.style.color =
+//                                       '#000';
+//                                   }
+//                                 }
+//                               }}
+
+//                               onMouseLeave={e => {
+//                                 if (!isActive) {
+//                                   e.currentTarget.style.background =
+//                                     'transparent';
+
+//                                   const label =
+//                                     e.currentTarget.querySelector(
+//                                       '.nav-label'
+//                                     );
+
+//                                   const icon =
+//                                     e.currentTarget.querySelector(
+//                                       '.nav-icon'
+//                                     );
+
+//                                   if (label) {
+//                                     label.style.color =
+//                                       '#fff';
+//                                   }
+
+//                                   if (icon) {
+//                                     icon.style.color =
+//                                       '#fff';
+//                                   }
+//                                 }
+//                               }}
+//                             >
+
+//                               {/* Icon */}
+
+//                               <span
+//                                 style={{
+//                                   flexShrink: 0,
+
+//                                   display: 'flex',
+//                                   alignItems: 'center',
+//                                   justifyContent:
+//                                     'center',
+
+//                                   width: 20,
+//                                   height: 20,
+//                                 }}
+//                               >
+//                                 {item.pinned ? (
+//                                   <Star
+//                                     size={15}
+//                                     fill={
+//                                       isActive
+//                                         ? '#fbbf24'
+//                                         : 'none'
+//                                     }
+
+//                                     color={
+//                                       isActive
+//                                         ? '#fbbf24'
+//                                         : '#f59e0b'
+//                                     }
+
+//                                     strokeWidth={2}
+//                                   />
+//                                 ) : (
+//                                   <Icon
+//                                     className="nav-icon"
+//                                     size={15}
+
+//                                     color={
+//                                       isActive
+//                                         ? '#fff'
+//                                         : '#64748b'
+//                                     }
+
+//                                     strokeWidth={
+//                                       isActive
+//                                         ? 2.5
+//                                         : 1.8
+//                                     }
+//                                   />
+//                                 )}
+//                               </span>
+
+
+//                               {/* Label */}
+
+//                               <span
+//                                 className="nav-label"
+//                                 style={{
+//                                   fontSize: '0.82rem',
+
+//                                   fontWeight: isActive
+//                                     ? 700
+//                                     : 500,
+
+//                                   color: '#ffffff',
+
+//                                   whiteSpace: 'nowrap',
+//                                   overflow: 'hidden',
+//                                   textOverflow: 'ellipsis',
+
+//                                   opacity:
+//                                     isExpanded ? 1 : 0,
+
+//                                   width:
+//                                     isExpanded
+//                                       ? 'auto'
+//                                       : 0,
+
+//                                   transition:
+//                                     'opacity 0.2s',
+
+//                                   pointerEvents:
+//                                     isExpanded
+//                                       ? 'auto'
+//                                       : 'none',
+
+//                                   lineHeight: 1.3,
+//                                 }}
+//                               >
+//                                 {item.label}
+//                               </span>
+
+
+//                               {/* Featured badge */}
+
+//                               {item.pinned &&
+//                                 isExpanded &&
+//                                 !isActive && (
+//                                   <span
+//                                     style={{
+//                                       marginLeft: 'auto',
+
+//                                       fontSize: '0.55rem',
+//                                       fontWeight: 700,
+
+//                                       color: '#f59e0b',
+
+//                                       background: '#fffbeb',
+
+//                                       border:
+//                                         '1px solid #fde68a',
+
+//                                       borderRadius: 4,
+
+//                                       padding: '1px 5px',
+
+//                                       whiteSpace: 'nowrap',
+//                                       flexShrink: 0,
+//                                     }}
+//                                   >
+//                                     Featured
+//                                   </span>
+//                                 )}
+//                             </div>
+//                           )}
+//                         </NavLink>
+//                       </Tip>
+//                     );
+//                   })}
+//                 </div>
+//               )
+//             )}
+
+
+//             {/* Empty search state */}
+
+//             {query &&
+//               Object.keys(grouped).length === 0 && (
+//                 <div
+//                   style={{
+//                     textAlign: 'center',
+//                     color: '#94a3b8',
+
+//                     fontSize: '0.76rem',
+
+//                     paddingTop: 24,
+//                   }}
+//                 >
+//                   No results for "{query}"
+//                 </div>
+//               )}
+
+//           </nav>
+
+
+//           {/* ═══════════════════════════════════════════════
+//               USER FOOTER
+//               ═══════════════════════════════════════════════ */}
+
+//           <div
+//             style={{
+//               borderTop:
+//                 '1px solid var(--clr-border)',
+
+//               padding: isExpanded
+//                 ? '12px 14px'
+//                 : '10px 0',
+
+//               display: 'flex',
+//               alignItems: 'center',
+
+//               gap: 10,
+
+//               flexShrink: 0,
+
+//               justifyContent:
+//                 isExpanded
+//                   ? 'flex-start'
+//                   : 'center',
+
+//               transition: 'padding 0.3s',
+//             }}
+//           >
+
+//             {/* Avatar */}
+
+//             <div
+//               style={{
+//                 width: 32,
+//                 height: 32,
+
+//                 borderRadius: '50%',
+//                 flexShrink: 0,
+
+//                 background:
+//                   `linear-gradient(135deg, ${accentColor}, ${accentColor}99)`,
+
+//                 display: 'flex',
+//                 alignItems: 'center',
+//                 justifyContent: 'center',
+
+//                 fontSize: '0.7rem',
+//                 fontWeight: 800,
+//                 color: '#fff',
+
+//                 boxShadow:
+//                   `0 2px 8px ${accentColor}44`,
+//               }}
+//             >
+//               {initials}
+//             </div>
+
+
+//             {/* Name & email */}
+
+//             {isExpanded && (
+//               <div
+//                 style={{
+//                   flex: 1,
+//                   minWidth: 0,
+//                 }}
+//               >
+//                 <div
+//                   style={{
+//                     fontSize: '0.78rem',
+//                     fontWeight: 700,
+//                     color: '#FFFFFF',
+
+//                     whiteSpace: 'nowrap',
+//                     overflow: 'hidden',
+//                     textOverflow: 'ellipsis',
+//                   }}
+//                 >
+//                   {user?.name ||
+//                     user?.employee_name ||
+//                     'User'}
+//                 </div>
+
+//                 <div
+//                   style={{
+//                     fontSize: '0.62rem',
+//                     color: '#94a3b8',
+
+//                     whiteSpace: 'nowrap',
+//                     overflow: 'hidden',
+//                     textOverflow: 'ellipsis',
+//                   }}
+//                 >
+//                   {user?.email ||
+//                     user?.official_email ||
+//                     roleLabel}
+//                 </div>
+//               </div>
+//             )}
+
+
+//             {/* Logout */}
+
+//             {isExpanded && (
+//               <button
+//                 onClick={logout}
+//                 title="Logout"
+
+//                 style={{
+//                   flexShrink: 0,
+
+//                   border: 'none',
+//                   background: 'none',
+
+//                   cursor: 'pointer',
+
+//                   display: 'flex',
+//                   alignItems: 'center',
+//                   justifyContent: 'center',
+
+//                   width: 28,
+//                   height: 28,
+
+//                   borderRadius: 7,
+
+//                   color: '#94a3b8',
+
+//                   transition:
+//                     'background 0.15s, color 0.15s',
+//                 }}
+
+//                 onMouseEnter={e => {
+//                   e.currentTarget.style.background =
+//                     '#fee2e2';
+
+//                   e.currentTarget.style.color =
+//                     '#ef4444';
+//                 }}
+
+//                 onMouseLeave={e => {
+//                   e.currentTarget.style.background =
+//                     'none';
+
+//                   e.currentTarget.style.color =
+//                     '#94a3b8';
+//                 }}
+//               >
+//                 <LogOut size={14} />
+//               </button>
+//             )}
+
+//           </div>
+
+//         </div>
+
+
+//         {/* ═══════════════════════════════════════════════
+//             DESKTOP FLOATING CHEVRON
+//             ═══════════════════════════════════════════════ */}
+
+//         <button
+//           onClick={onToggle}
+
+//           aria-label={
+//             isExpanded
+//               ? 'Collapse sidebar'
+//               : 'Expand sidebar'
+//           }
+
+//           title={
+//             isExpanded
+//               ? 'Collapse sidebar'
+//               : 'Expand sidebar'
+//           }
+
+//           className="sidebar-toggle-btn"
+
+//           style={{
+//             position: 'absolute',
+
+//             top: '32px',
+//             right: '-13px',
+
+//             transform:
+//               'translateY(-50%)',
+
+//             zIndex: 200,
+
+//             width: 26,
+//             height: 26,
+
+//             borderRadius: '50%',
+
+//             border:
+//               '1.5px solid var(--clr-border)',
+
+//             background: '#fff',
+
+//             boxShadow:
+//               '0 2px 8px rgba(0,0,0,0.10)',
+
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+
+//             cursor: 'pointer',
+//             flexShrink: 0,
+
+//             transition:
+//               'background 0.15s, border-color 0.15s',
+//           }}
+
+//           onMouseEnter={e => {
+//             e.currentTarget.style.background =
+//               'var(--clr-primary)';
+
+//             e.currentTarget.style.borderColor =
+//               'var(--clr-primary)';
+
+//             const svg =
+//               e.currentTarget.querySelector('svg');
+
+//             if (svg) {
+//               svg.style.stroke = '#fff';
+//             }
+//           }}
+
+//           onMouseLeave={e => {
+//             e.currentTarget.style.background =
+//               '#fff';
+
+//             e.currentTarget.style.borderColor =
+//               'var(--clr-border)';
+
+//             const svg =
+//               e.currentTarget.querySelector('svg');
+
+//             if (svg) {
+//               svg.style.stroke = '#64748b';
+//             }
+//           }}
+//         >
+//           <ChevronLeft
+//             size={13}
+//             color="#64748b"
+//             strokeWidth={2.5}
+
+//             style={{
+//               transition:
+//                 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
+
+//               transform: isExpanded
+//                 ? 'rotate(0deg)'
+//                 : 'rotate(180deg)',
+//             }}
+//           />
+//         </button>
+
+//       </aside>
+
+
+//       {/* ═══════════════════════════════════════════════
+//           MOBILE FAB
+//           ═══════════════════════════════════════════════ */}
+
+//       <button
+//         onClick={onToggle}
+
+//         aria-label="Open navigation"
+
+//         className="sidebar-mobile-fab"
+
+//         style={{
+//           position: 'fixed',
+
+//           top: '32px',
+
+//           left: mobileOpen
+//             ? '-60px'
+//             : '0px',
+
+//           transform:
+//             'translateY(-50%)',
+
+//           zIndex: 1100,
+
+//           width: 28,
+//           height: 52,
+
+//           borderRadius:
+//             '0 26px 26px 0',
+
+//           border:
+//             '1.5px solid var(--clr-border)',
+
+//           borderLeft: 'none',
+
+//           background:
+//             'var(--clr-primary)',
+
+//           boxShadow:
+//             '2px 0 12px rgba(99,102,241,0.25)',
+
+//           display: 'flex',
+//           alignItems: 'center',
+//           justifyContent: 'center',
+
+//           cursor: 'pointer',
+
+//           transition:
+//             'left 0.3s cubic-bezier(0.4,0,0.2,1)',
+//         }}
+//       >
+//         <ChevronLeft
+//           size={14}
+//           color="#fff"
+//           strokeWidth={2.5}
+
+//           style={{
+//             transform:
+//               'rotate(180deg)',
+//           }}
+//         />
+//       </button>
+//     </>
+//   );
+// }

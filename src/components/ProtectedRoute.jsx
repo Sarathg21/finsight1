@@ -1,3 +1,4 @@
+
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAudit } from '../context/AuditContext';
@@ -9,20 +10,41 @@ export default function ProtectedRoute({
   element,
   adminOnly = false,
 }) {
-  const { user, canAccess, loading } = useAuth();
+  const {
+    user,
+    canAccess,
+    canAdmin,
+    loading,
+  } = useAuth();
+
   const { log } = useAudit();
   const location = useLocation();
 
   /*
+   * ───────────────────────────────────────────────────────────
+   * Centralized authorization
+   *
+   * Normal routes:
+   *   pageKey → module_code → VIEW permission
+   *
+   * Admin routes:
+   *   USER_MANAGEMENT → ADMIN permission
+   *
    * IMPORTANT:
-   * Admin routes require the authoritative backend role_code.
+   * ProtectedRoute does NOT inspect access_scopes.
+   *
+   * access_scopes are only for DATA filtering.
+   * ───────────────────────────────────────────────────────────
    */
-  const isAdmin =
-    String(user?.role_code || '').toUpperCase() === 'ADMIN';
 
   const allowed = adminOnly
-    ? isAdmin
+    ? canAdmin('USER_MANAGEMENT')
     : canAccess(pageKey);
+
+
+  /* ───────────────────────────────────────────────────────────
+     Audit access decision
+  ─────────────────────────────────────────────────────────── */
 
   useEffect(() => {
     if (user && !loading) {
@@ -47,16 +69,20 @@ export default function ProtectedRoute({
     log,
   ]);
 
-  /*
-   * Wait until /api/access/me has completed.
-   */
+
+  /* ───────────────────────────────────────────────────────────
+     Wait until /api/access/me has completed
+  ─────────────────────────────────────────────────────────── */
+
   if (loading) {
     return null;
   }
 
-  /*
-   * No authenticated user.
-   */
+
+  /* ───────────────────────────────────────────────────────────
+     No authenticated user
+  ─────────────────────────────────────────────────────────── */
+
   if (!user) {
     return (
       <Navigate
@@ -67,10 +93,19 @@ export default function ProtectedRoute({
     );
   }
 
-  /*
-   * Admin route but user is not ADMIN.
-   */
-  if (adminOnly && !isAdmin) {
+
+  /* ───────────────────────────────────────────────────────────
+     Admin route access denied
+     
+     Requires:
+       USER_MANAGEMENT
+       +
+       ADMIN permission
+     
+     from module_permissions.
+  ─────────────────────────────────────────────────────────── */
+
+  if (adminOnly && !allowed) {
     return (
       <div
         className="animate-in"
@@ -124,19 +159,25 @@ export default function ProtectedRoute({
               margin: '0 auto 20px',
             }}
           >
-            This area is available only to users with the
-            ADMIN role.
+            Your account does not have the required
+            administrative permission for this area.
+            Contact your administrator to request access.
           </p>
 
-          <Navigate to="/dashboard" replace />
+          <Navigate
+            to={user?.defaultPage || '/dashboard'}
+            replace
+          />
         </div>
       </div>
     );
   }
 
-  /*
-   * Normal page-level RBAC.
-   */
+
+  /* ───────────────────────────────────────────────────────────
+     Normal page-level RBAC
+  ─────────────────────────────────────────────────────────── */
+
   if (!adminOnly && !allowed) {
     return (
       <div
@@ -191,8 +232,9 @@ export default function ProtectedRoute({
               margin: '0 auto 20px',
             }}
           >
-            Your role does not have permission to view this
-            page. Contact your administrator to request access.
+            Your account does not have permission to view
+            this page. Contact your administrator to request
+            access.
           </p>
 
           <Navigate
@@ -203,6 +245,11 @@ export default function ProtectedRoute({
       </div>
     );
   }
+
+
+  /* ───────────────────────────────────────────────────────────
+     Authorized
+  ─────────────────────────────────────────────────────────── */
 
   return element;
 }

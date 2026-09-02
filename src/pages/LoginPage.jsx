@@ -1465,18 +1465,35 @@ export default function LoginPage() {
      REDIRECT ALREADY AUTHENTICATED USER
   ================================================================= */
 
+  // useEffect(() => {
+  //   if (!user) return;
+
+  //   /*
+  //    * ADMIN is redirected to Payables after successful backend
+  //    * authentication.
+  //    *
+  //    * Do not redirect ADMIN here because the login flow handles it.
+  //    */
+  //   if (user.role_code === "ADMIN") {
+  //     return;
+  //   }
+
+  //   navigate(
+  //     from ||
+  //     user.defaultPage ||
+  //     "/dashboard",
+  //     {
+  //       replace: true,
+  //     }
+  //   );
+  // }, [
+  //   user,
+  //   navigate,
+  //   from,
+  // ]);
+
   useEffect(() => {
     if (!user) return;
-
-    /*
-     * ADMIN is redirected to Payables after successful backend
-     * authentication.
-     *
-     * Do not redirect ADMIN here because the login flow handles it.
-     */
-    if (user.role_code === "ADMIN") {
-      return;
-    }
 
     navigate(
       from ||
@@ -1491,7 +1508,6 @@ export default function LoginPage() {
     navigate,
     from,
   ]);
-
   /* ================================================================
      READY BUTTON ANIMATION
   ================================================================= */
@@ -1513,6 +1529,168 @@ export default function LoginPage() {
      IMPORTANT:
      Existing authentication logic is kept unchanged.
   ================================================================= */
+
+  // async function handleSubmit(e) {
+  //   e.preventDefault();
+
+  //   setError("");
+  //   setLoading(true);
+  //   setBackendStatus("checking");
+  //   setReady(false);
+
+  //   try {
+  //     const session = await loginWithBackend(
+  //       email.trim(),
+  //       password
+  //     );
+
+  //     console.log("LOGIN SESSION:", session);
+  //     console.log(
+  //       "ACCESS TOKEN:",
+  //       !!session?.access_token
+  //     );
+  //     console.log(
+  //       "ROLE CODE:",
+  //       session?.role_code
+  //     );
+
+  //     setBackendStatus("online");
+
+  //     const roleCode =
+  //       session?.role_code ||
+  //       session?.user?.role_code;
+
+  //     if (
+  //       roleCode === "ADMIN" ||
+  //       roleCode === "BU_ACCOUNTANT"
+  //     ) {
+  //       const payablesOrigin =
+  //         import.meta.env.VITE_PAYABLES_ORIGIN;
+
+  //       let payablesWindow = null;
+
+  //       const handlePayablesReady = (event) => {
+  //         if (event.origin !== payablesOrigin) {
+  //           return;
+  //         }
+
+  //         if (
+  //           event.data?.type !==
+  //           "PAYABLES_READY"
+  //         ) {
+  //           return;
+  //         }
+
+  //         console.log(
+  //           "Payables is ready. Sending authentication token."
+  //         );
+
+  //         if (
+  //           payablesWindow &&
+  //           !payablesWindow.closed
+  //         ) {
+  //           console.log(
+  //             "PAYABLES_READY received from:",
+  //             event.origin,
+  //             event.data
+  //           );
+
+  //           console.log(
+  //             "Sending FINSIGHT_AUTH to:",
+  //             payablesOrigin
+  //           );
+
+  //           console.log(
+  //             "Token available:",
+  //             !!session?.access_token
+  //           );
+
+  //           payablesWindow.postMessage(
+  //             {
+  //               type: "FINSIGHT_AUTH",
+  //               token: session.access_token,
+  //             },
+  //             payablesOrigin
+  //           );
+  //         }
+
+  //         window.removeEventListener(
+  //           "message",
+  //           handlePayablesReady
+  //         );
+  //       };
+
+  //       window.addEventListener(
+  //         "message",
+  //         handlePayablesReady
+  //       );
+
+  //       payablesWindow = window.open(
+  //         payablesOrigin,
+  //         "_blank"
+  //       );
+
+  //       if (!payablesWindow) {
+  //         window.removeEventListener(
+  //           "message",
+  //           handlePayablesReady
+  //         );
+
+  //         setError(
+  //           "Payables window was blocked. Please allow pop-ups."
+  //         );
+
+  //         return;
+  //       }
+
+  //       window.payablesWindow =
+  //         payablesWindow;
+
+  //       navigate(
+  //         from || "/dashboard",
+  //         {
+  //           replace: true,
+  //         }
+  //       );
+
+  //       return;
+  //     }
+
+  //     navigate(
+  //       from ||
+  //       session?.defaultPage ||
+  //       "/dashboard",
+  //       {
+  //         replace: true,
+  //       }
+  //     );
+
+  //   } catch (backendErr) {
+  //     const isAuthFailure =
+  //       backendErr?.isAuthError ||
+  //       backendErr?.status === 401 ||
+  //       backendErr?.status === 403 ||
+  //       backendErr?.status === 422;
+
+  //     if (isAuthFailure) {
+  //       setBackendStatus("online");
+
+  //       setError(
+  //         backendErr.message ||
+  //         "Invalid email or password"
+  //       );
+  //     } else {
+  //       setBackendStatus("offline");
+
+  //       setError(
+  //         backendErr.message ||
+  //         "Unable to connect to the authentication server."
+  //       );
+  //     }
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -1540,110 +1718,24 @@ export default function LoginPage() {
 
       setBackendStatus("online");
 
-      const roleCode =
-        session?.role_code ||
-        session?.user?.role_code;
+      /*
+       * ================================================================
+       * ALL USERS STAY INSIDE FINSIGHT
+       *
+       * No separate Payables window.
+       * No localhost:5174 redirect.
+       * ADMIN, BU_ACCOUNTANT and all other users use the same
+       * FinSight application on localhost:5173.
+       * ================================================================
+       */
 
-      if (
-        roleCode === "ADMIN" ||
-        roleCode === "BU_ACCOUNTANT"
-      ) {
-        const payablesOrigin =
-          import.meta.env.VITE_PAYABLES_ORIGIN;
-
-        let payablesWindow = null;
-
-        const handlePayablesReady = (event) => {
-          if (event.origin !== payablesOrigin) {
-            return;
-          }
-
-          if (
-            event.data?.type !==
-            "PAYABLES_READY"
-          ) {
-            return;
-          }
-
-          console.log(
-            "Payables is ready. Sending authentication token."
-          );
-
-          if (
-            payablesWindow &&
-            !payablesWindow.closed
-          ) {
-            console.log(
-              "PAYABLES_READY received from:",
-              event.origin,
-              event.data
-            );
-
-            console.log(
-              "Sending FINSIGHT_AUTH to:",
-              payablesOrigin
-            );
-
-            console.log(
-              "Token available:",
-              !!session?.access_token
-            );
-
-            payablesWindow.postMessage(
-              {
-                type: "FINSIGHT_AUTH",
-                token: session.access_token,
-              },
-              payablesOrigin
-            );
-          }
-
-          window.removeEventListener(
-            "message",
-            handlePayablesReady
-          );
-        };
-
-        window.addEventListener(
-          "message",
-          handlePayablesReady
-        );
-
-        payablesWindow = window.open(
-          payablesOrigin,
-          "_blank"
-        );
-
-        if (!payablesWindow) {
-          window.removeEventListener(
-            "message",
-            handlePayablesReady
-          );
-
-          setError(
-            "Payables window was blocked. Please allow pop-ups."
-          );
-
-          return;
-        }
-
-        window.payablesWindow =
-          payablesWindow;
-
-        navigate(
-          from || "/dashboard",
-          {
-            replace: true,
-          }
-        );
-
-        return;
-      }
-
-      navigate(
+      const targetPage =
         from ||
         session?.defaultPage ||
-        "/dashboard",
+        "/dashboard";
+
+      navigate(
+        targetPage,
         {
           replace: true,
         }
