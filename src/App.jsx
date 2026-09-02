@@ -24,6 +24,11 @@ import InventoryAgingPage from "./pages/InventoryAgingPage";
 import WorkingCapitalReport from './pages/WorkingCapitalReport';
 import MyProfile from './pages/MyProfile'
 import AdminMainDashboard from './pages/AdminMainDashboard';
+import UsersDashboard from './pages/UsersDashboard';
+import RolesDashboard from './pages/RolesDashboard';
+import UserAccessMangement from './pages/UserAccessManagement';
+import MasterDataDashboard from './pages/MasterDataDashboard'
+
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -53,6 +58,8 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+
 
             <Route element={<FilterProvider><Layout /></FilterProvider>}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -91,6 +98,26 @@ function App() {
                   />
                 }
               />
+
+              <Route path="/admin/users"
+                element={<ProtectedRoute pageKey="admin"
+                  adminOnly={true}
+                  element={<UsersDashboard />} />} />
+
+              <Route path="/admin/roles"
+                element={<ProtectedRoute pageKey="admin"
+                  adminOnly={true}
+                  element={<RolesDashboard />} />} />
+
+              <Route path="/admin/useraccess"
+                element={<ProtectedRoute pageKey="admin"
+                  adminOnly={true}
+                  element={<UserAccessMangement />} />} />
+
+                    <Route path="/admin/master-data"
+                element={<ProtectedRoute pageKey="admin"
+                  adminOnly={true}
+                  element={<MasterDataDashboard />} />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

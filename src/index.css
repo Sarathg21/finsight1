@@ -395,6 +395,319 @@ body {
   border-top: 1px solid var(--clr-border);
 }
 
+/* =========================================================
+   USERS DASHBOARD
+========================================================= */
+
+.users-dashboard {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  background: #f8fafc;
+}
+
+.users-dashboard-content {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 12px 60px;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.users-page-header {
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+
+/* =========================================================
+   KPI CARDS
+========================================================= */
+
+.users-kpi-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 4px;
+
+}
+
+.users-kpi-item {
+  width: 100%;
+  min-width: 0;
+}
+
+/* =========================================================
+   USERS FILTER SECTION
+========================================================= */
+
+.users-filter-section {
+  width: 100%;
+  min-width: 0;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+/* Outer white FilterBar */
+.users-filter-section>div {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+
+  /* Equal top/right/bottom/left spacing */
+  padding: 12px;
+}
+
+/* Main filter row */
+.users-filter-section>div>div:first-child {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+.users-filter-section .filter-search-input {
+  width: 100% !important;
+  height: 32px;
+  box-sizing: border-box;
+
+  padding-left: 40px !important;
+  padding-right: 12px;
+
+  white-space: nowrap;
+
+  /* Border */
+  border: 1px solid #d1d5db !important;
+  border-radius: 6px;
+
+  /* Text */
+  color: #374151;
+
+  /* Background */
+  background-color: #ffffff;
+
+  outline: none;
+}
+
+/* Placeholder gray color */
+.users-filter-section .filter-search-input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+/* Search icon */
+.users-filter-section .filter-search-icon {
+  position: absolute !important;
+  left: 12px !important;
+  top: 50% !important;
+
+  width: 16px !important;
+  height: 16px !important;
+
+  transform: translateY(-50%) !important;
+
+  pointer-events: none;
+  z-index: 2;
+
+  color: #9ca3af;
+}
+
+/* Border when input is focused */
+.users-filter-section .filter-search-input::placeholder {
+  color: #6b7280;
+  opacity: 1;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+/* =========================================================
+   FILTER CONTROL SPACING
+========================================================= */
+
+.users-filter-section>div>div:first-child {
+  gap: 12px;
+}
+
+/* =========================================================
+   TABLE + DETAILS
+========================================================= */
+/* =========================================================
+   USERS MAIN CONTENT
+========================================================= */
+.users-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 430px;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+}
+
+.users-table-panel,
+.users-details-panel {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+
+/* =========================================================
+   USERS TABLE
+========================================================= */
+
+.users-table-panel {
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   USER DETAILS
+========================================================= */
+
+.users-details-panel {
+  overflow: hidden;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1200px) {
+  .users-main-grid {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .users-main-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .users-details-panel {
+    min-height: 450px;
+  }
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.users-footer {
+  position: fixed;
+
+  left: var(--sidebar-w);
+  right: 0;
+  bottom: 0;
+
+  min-height: 38px;
+
+  z-index: 40;
+
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+
+/* =========================================================
+   1280px
+========================================================= */
+
+@media (max-width: 1280px) {
+  .users-dashboard-content {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+
+  .users-main-grid {
+    grid-template-columns:
+      minmax(0, 1fr) 360px;
+  }
+}
+
+
+/* =========================================================
+   1100px
+========================================================= */
+
+@media (max-width: 1100px) {
+
+  .users-kpi-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .users-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .users-details-panel {
+    width: 100%;
+  }
+}
+
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+
+
+  .users-dashboard-content {
+    padding: 10px 8px 60px;
+  }
+
+  .users-kpi-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 10px;
+  }
+
+  .users-main-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .users-footer {
+    left: 0;
+  }
+}
+
+
+/* =========================================================
+   SMALL MOBILE
+========================================================= */
+
+@media (max-width: 480px) {
+
+  .users-dashboard-content {
+    padding: 8px 6px 60px;
+  }
+
+  .users-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .users-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ══════════════════════════════════════════════════════════
    CARDS — unified single system
