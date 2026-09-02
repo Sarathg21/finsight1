@@ -707,103 +707,41 @@ export function AuthProvider({ children }) {
   ─────────────────────────────────────────────────────────── */
 
   async function loginWithBackend(email, password) {
-    /*
-     * Step 1:
-     * Authenticate credentials and receive JWT + login user.
-     */
-    const loginResult = await _apiLogin(
-      email,
-      password
-    );
+    const result = await _apiLogin(email, password);
 
-    /*
-     * Step 2:
-     * Extract the JWT returned by the backend.
-     *
-     * Backend contract:
-     * access_token
-     */
-    const accessToken =
-      loginResult?.access_token;
-
-    if (!accessToken) {
-      throw {
-        status: 500,
-        message:
-          "Authentication succeeded, but no access token was returned.",
-        isAuthError: false,
-      };
-    }
-
-    /*
-     * Step 3:
-     * GET /api/access/me is authoritative
-     * for the authenticated user profile and role.
-     */
-    const currentUser =
-      await getCurrentUser();
+    // Fetch authoritative user state from /api/access/me
+    const currentUser = await getCurrentUser();
 
     if (!currentUser) {
       localStorage.removeItem("token");
-
-      throw {
-        status: 500,
-        message:
-          "Unable to load authenticated user profile.",
-        isAuthError: false,
-      };
+      throw new Error("Unable to load authenticated user profile.");
     }
 
     if (currentUser.active === false) {
       localStorage.removeItem("token");
-
       throw {
         status: 403,
-        message:
-          "User account is inactive.",
+        message: "User account is inactive.",
         isAuthError: true,
       };
     }
 
-    const sessionUser =
-      normalizeUser(currentUser);
+    const sessionUser = {
+      ...currentUser,
 
-    if (!sessionUser?.role_code) {
-      localStorage.removeItem("token");
+      // Backend-authoritative role
+      role_code: currentUser.role_code || null,
+      role: currentUser.role_code || null,
 
-      throw {
-        status: 500,
-        message:
-          "Authenticated user has no role_code.",
-        isAuthError: false,
-      };
-    }
+      name: currentUser.employee_name || currentUser.full_name || currentUser.name || email,
+      email: currentUser.official_email || currentUser.email || email,
+    };
 
-    /*
-     * Step 4:
-     * Store authenticated user in React state.
-     */
     setUser(sessionUser);
 
-    _auditWrite(
-      "login",
-      {},
-      sessionUser
-    );
+    _auditWrite("login", {}, sessionUser);
 
-    /*
-     * Step 5:
-     * Return BOTH:
-     * - JWT
-     * - authoritative user profile
-     *
-     * LoginPage needs access_token to send
-     * authentication to Payables.
-     */
-    return {
-      ...sessionUser,
-      access_token: accessToken,
-    };
+    return sessionUser;
   }
   /* ───────────────────────────────────────────────────────────
      Logout
