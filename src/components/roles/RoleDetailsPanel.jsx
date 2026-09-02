@@ -1421,9 +1421,13 @@ export default function RoleDetailsPanel({ role }) {
           response.data
         );
 
-        setPermissions(
-          response.data
-        );
+        const permsArray = Array.isArray(response.data?.data)
+          ? response.data.data
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+
+        setPermissions(permsArray);
 
         setHasChanges(false);
       } catch (error) {

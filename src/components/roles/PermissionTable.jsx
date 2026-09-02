@@ -17,7 +17,19 @@ export default function PermissionTable({
   setPermissions,
   disabled = false,
 }) {
-  const rows = permissions || permissionModules;
+  // Normalise: API returns { module_code, can_view, can_export, can_upload, can_admin }
+  // Fallback uses  { id, module, view, export, upload, admin }
+  // Merge both shapes so the table always has consistent field names.
+  const rawRows = permissions || permissionModules;
+  const rows = rawRows.map((item) => ({
+    ...item,
+    module_code: item.module_code ?? String(item.id ?? ''),
+    module_name: item.module_name ?? item.module ?? item.module_code ?? '',
+    can_view:    item.can_view   ?? item.view   ?? false,
+    can_export:  item.can_export ?? item.export  ?? false,
+    can_upload:  item.can_upload ?? item.upload  ?? false,
+    can_admin:   item.can_admin  ?? item.admin   ?? false,
+  }));
 
   /* =========================================================
      TOGGLE SINGLE PERMISSION

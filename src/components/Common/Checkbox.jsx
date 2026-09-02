@@ -19,7 +19,7 @@ export default function Checkbox({
       aria-checked={checked}
       aria-label={ariaLabel}
       disabled={disabled}
-      onClick={() => !disabled && onChange(!checked)}
+      onClick={() => !disabled && typeof onChange === 'function' && onChange(!checked)}
       className={`w-4.5 h-4.5 rounded border flex items-center justify-center transition-all ${
         checked
           ? colors[color]
