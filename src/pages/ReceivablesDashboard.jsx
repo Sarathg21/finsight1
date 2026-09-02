@@ -254,7 +254,7 @@ export default function ReceivablesDashboard() {
     const fetchAgingSummary = async (filters = {}) => {
         try {
             const response = await getReceivableAgingSummary(filters);
-            const result = response.data.data;
+            const result = response?.data?.data || {};
             setAgingSummary(result.buckets || []);
             setAgingTotal(result.total_amount || 0);
         } catch (error) {
@@ -265,7 +265,7 @@ export default function ReceivablesDashboard() {
     const fetchDivisionWise = async (filters = {}) => {
         try {
             const response = await getReceivableDivisionWise(filters);
-            setDivisionData(response.data.data);
+            setDivisionData(response?.data?.data || []);
         } catch (error) {
             console.error("Error is", error);
         }
@@ -274,7 +274,7 @@ export default function ReceivablesDashboard() {
     const fetchTopCustomers = async (filters = {}) => {
         try {
             const response = await getReceivableTopCustomers(filters);
-            setTopCustomers(response.data.data);
+            setTopCustomers(response?.data?.data || []);
         } catch (error) {
             console.error("Error is", error);
         }
@@ -298,8 +298,8 @@ export default function ReceivablesDashboard() {
 
             const response = await getReceivableDetails(params);
 
-            setDetailsData(response.data.data.rows || []);
-            setDetailsTotalCount(response.data.data.total_count || 0);
+            setDetailsData(response?.data?.data?.rows || []);
+            setDetailsTotalCount(response?.data?.data?.total_count || 0);
         } catch (err) {
             console.error(err);
         }
@@ -308,7 +308,7 @@ export default function ReceivablesDashboard() {
     const fetchTrend = async (filters = {}) => {
         try {
             const response = await getReceivableTrend(filters);
-            setTrendData(response.data.data);
+            setTrendData(response?.data?.data || []);
         } catch (error) {
             console.error(error);
         }
@@ -318,7 +318,7 @@ export default function ReceivablesDashboard() {
     const fetchOverdueSummary = async (filters = {}) => {
         try {
             const response = await getReceivableOverdueSummary(filters);
-            const data = response.data.data;
+            const data = response?.data?.data || {};
             setOverdueTotal(
                 Number(data.current || 0) + Number(data.total_overdue || 0)
             );
@@ -374,7 +374,7 @@ export default function ReceivablesDashboard() {
 
         try {
             const response = await getReceivableSubDivision(filters);
-            const apiData = response.data.data;
+            const rawData = response?.data?.data; const apiData = Array.isArray(rawData) ? rawData : [];
             const totalAmount = apiData.reduce(
                 (sum, item) => sum + Number(item.amount || 0),
                 0
