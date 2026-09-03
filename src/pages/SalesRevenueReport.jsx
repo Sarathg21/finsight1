@@ -1,3 +1,4 @@
+import { useAuth } from '../context/AuthContext';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1052,6 +1053,7 @@ const getEntityColor = (name) => {
 
 export default function SalesRevenueReport() {
   const navigate = useNavigate();
+  const { hasExportRight } = useAuth();
 
   /* ── Filter state ─────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
