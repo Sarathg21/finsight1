@@ -266,9 +266,17 @@ async function apiCall(path, params = {}) {
     });
   }
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+  const urlParams = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== '' && v !== null && v !== 'All' && v !== 'all') {
+      if (Array.isArray(v)) {
+        v.forEach(val => urlParams.append(k, val));
+      } else {
+        urlParams.append(k, v);
+      }
+    }
+  });
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
 
@@ -378,25 +386,23 @@ function buildBSParams(filters = {}) {
   const active = (val) =>
     val && val !== 'All' && val !== 'all' ? val : undefined;
 
-  let leId = undefined;
-  if (filters.legalEntityId && filters.legalEntityId !== 'All' && filters.legalEntityId !== '') {
-    const num = Number(filters.legalEntityId);
-    if (!isNaN(num) && num > 0) {
-      leId = num;
-    }
-  }
-
   return {
-    period:          active(filters.period),
-    compare_period:  active(filters.comparePeriod),
-    currency:        active(filters.currency),
-    legal_entity_id: leId,
-    ledger:          active(filters.ledger),
-    section:         active(filters.section),
-    sub_section:     active(filters.subSection),
-    account_code:    active(filters.accountCode),
+    period:              active(filters.period),
+    compare_period:      active(filters.comparePeriod),
+    reporting_currency:  active(filters.currency),
+    legal_group:         active(filters.legalGroup),
+    legal_entity:        active(filters.legalEntity),
+    parent_division:     active(filters.parentDivision),
+    subdivision:         active(filters.subdivision),
+    ledger:              active(filters.ledger),
+    section:             active(filters.section),
+    sub_section:         active(filters.subSection),
+    account_code:        active(filters.accountCode),
+    drilldown:           active(filters.drilldown),
   };
 }
+
+
 
 /* ══════════════════════════════════════════════════════════════════════
    EXPORT HELPER
@@ -567,7 +573,7 @@ export async function fetchBSTrend(filters) {
   }
 
   const params = {
-    currency:    base.currency,
+    reporting_currency: base.reporting_currency,
     section:     base.section,
     account_code: base.account_code,
     sub_section:  base.sub_section,

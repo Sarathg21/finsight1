@@ -810,6 +810,18 @@ function ReconciliationViewAll({ rows, currency }) {
 ══════════════════════════════════════════════════════════════════════ */
 export default function BalanceSheet() {
 
+  // Format YYYY-MM to MMM-YY for display
+  const formatPeriod = (p) => {
+    if (!p) return '';
+    if (/^\d{4}-\d{2}$/.test(p)) {
+      const parts = p.split('-');
+      const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+      return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }).replace(' ', '-');
+    }
+    return p;
+  };
+
+
   /* ── Filter state ──────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
@@ -818,7 +830,7 @@ export default function BalanceSheet() {
   const [filterOptions, setFilterOptions] = useState({
     periods:        [],
     currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-    legalEntities:  [{ id: '', name: 'All' }],
+    legalGroups: ['All'], legalEntities: ['All'], parentDivisions: ['All'], subdivisions: ['All'],
     ledgers:        ['All'],
   });
 
@@ -880,7 +892,10 @@ export default function BalanceSheet() {
         ...prev,
         periods,
         currencies:    ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-        legalEntities: [{ id: '', name: 'All' }, ...(data?.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All' && e.id !== ''))],
+        legalGroups: ['All', ...(data?.legal_groups || [])],
+          legalEntities: ['All', ...(data?.legal_entities || [])],
+          parentDivisions: ['All', ...(data?.parent_divisions || [])],
+          subdivisions: ['All', ...(data?.subdivisions || [])],
         ledgers:       ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
       // Auto-select first period
@@ -969,8 +984,8 @@ export default function BalanceSheet() {
 
   /* ── Derived values ────────────────────────────────────────────── */
   const currency    = appliedFilters.currency || 'AED';
-  const compareLbl  = appliedFilters.comparePeriod ? `vs ${appliedFilters.comparePeriod}` : '';
-  const periodLabel = appliedFilters.period || '—';
+  const compareLbl  = appliedFilters.comparePeriod ? `vs ${formatPeriod(appliedFilters.comparePeriod)}` : '';
+  const periodLabel = formatPeriod(appliedFilters.period) || '—';
 
   // Derive KPI values from summary sections
   const kpiTotals = (() => {
@@ -1223,7 +1238,7 @@ export default function BalanceSheet() {
             disabled={loading.filters}
           >
             {filterOptions.periods.length === 0 && <option value="">Loading…</option>}
-            {filterOptions.periods.map(p => <option key={p}>{p}</option>)}
+            {filterOptions.periods.map(p => <option key={p} value={p}>{formatPeriod(p)}</option>)}
           </select>
         </FilterField>
 
@@ -1236,7 +1251,7 @@ export default function BalanceSheet() {
             disabled={loading.filters}
           >
             <option value="">None</option>
-            {filterOptions.periods.map(p => <option key={p}>{p}</option>)}
+            {filterOptions.periods.map(p => <option key={p} value={p}>{formatPeriod(p)}</option>)}
           </select>
         </FilterField>
 
@@ -1251,19 +1266,31 @@ export default function BalanceSheet() {
           </select>
         </FilterField>
 
+        <FilterField label="Legal Group">
+          <select style={selStyle} value={filters.legalGroup} onChange={e => setFilters(prev => ({ ...prev, legalGroup: e.target.value }))} disabled={loading.filters}>
+            {filterOptions.legalGroups.map(lg => <option key={lg} value={lg}>{lg}</option>)}
+          </select>
+        </FilterField>
+        
         <FilterField label="Legal Entity">
-          <select
-            id="filter-bs-entity"
-            style={selStyle}
-            value={filters.legalEntityId}
-            onChange={e => setFilters(prev => ({ ...prev, legalEntityId: e.target.value }))}
-            disabled={loading.filters}
-          >
-            {filterOptions.legalEntities.map((le, idx) => {
-              const val = typeof le === 'object' ? (le?.id ?? '') : (le === 'All' ? '' : le);
-              const label = typeof le === 'object' ? (le?.name || (val === '' ? 'All' : val)) : le;
-              return <option key={`${val}-${idx}`} value={val}>{label}</option>;
+          <select style={selStyle} value={filters.legalEntity} onChange={e => setFilters(prev => ({ ...prev, legalEntity: e.target.value }))} disabled={loading.filters}>
+            {filterOptions.legalEntities.map(le => {
+              const val = typeof le === 'object' ? (le?.name ?? le?.id ?? '') : le;
+              const label = typeof le === 'object' ? (le?.name || val) : le;
+              return <option key={val} value={val}>{label}</option>;
             })}
+          </select>
+        </FilterField>
+        
+        <FilterField label="Parent Division">
+          <select style={selStyle} value={filters.parentDivision} onChange={e => setFilters(prev => ({ ...prev, parentDivision: e.target.value }))} disabled={loading.filters}>
+            {filterOptions.parentDivisions.map(pd => <option key={pd} value={pd}>{pd}</option>)}
+          </select>
+        </FilterField>
+        
+        <FilterField label="Sub-Division">
+          <select style={selStyle} value={filters.subdivision} onChange={e => setFilters(prev => ({ ...prev, subdivision: e.target.value }))} disabled={loading.filters}>
+            {filterOptions.subdivisions.map(sd => <option key={sd} value={sd}>{sd}</option>)}
           </select>
         </FilterField>
 
@@ -1601,7 +1628,7 @@ export default function BalanceSheet() {
                   <th style={{ ...TH, width: 56 }}>DR/CR</th>
                   <th style={TH}>
                     Compare Amount<br />
-                    <span style={{ fontWeight: 400, opacity: 0.75 }}>{appliedFilters.comparePeriod || '—'}</span>
+                    <span style={{ fontWeight: 400, opacity: 0.75 }}>{formatPeriod(appliedFilters.comparePeriod) || '—'}</span>
                   </th>
                   <th style={TH}>Variance</th>
                 </tr>
@@ -1763,7 +1790,7 @@ export default function BalanceSheet() {
       <div style={{ fontSize: '0.64rem', color: C.muted, display: 'flex', justifyContent: 'space-between', paddingTop: 8, flexWrap: 'wrap', gap: 4 }}>
         <span>
           All values in {currency} &nbsp;|&nbsp; Period: {periodLabel}
-          {appliedFilters.comparePeriod ? ` | Compared with: ${appliedFilters.comparePeriod}` : ''}
+          {appliedFilters.comparePeriod ? ` | Compared with: ${formatPeriod(appliedFilters.comparePeriod)}` : ''}
         </span>
         <span>☁️ Source: Oracle Fusion Cloud</span>
       </div>
