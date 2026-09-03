@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
-import PageHeader from "../components/Common/PageHeader";
+import PageHeader from "../components/common/PageHeader";
 import StatCard from "../components/StatCard";
-import FilterBar from "../components/Common/FilterBar";
+import FilterBar from "../components/common/FilterBar";
 import FooterNote from "../components/FooterNote";
 import MasterDataTabs from "../components/masterdata/MasterDataTabs";
 import LegalGroupsTable from "../components/masterdata/LegalGroupsTable";
@@ -22,9 +22,9 @@ import SubDivisionDetails from "../components/masterdata/SubDivisionDetails";
 import AnalysisCodeDetails from "../components/masterdata/AnalysisCodeDetails";
 import CurrencyTable from "../components/masterdata/CurrencyTable";
 import CurrencyDetails from "../components/masterdata/CurrencyDetails";
-import PageSkeleton from "../components/Common/PageSkeleton";
+import PageSkeleton from "../components/common/PageSkeleton";
 import { masterCards } from "../data/masterData";
-import ConfirmationModel from "../components/Common/ConfirmationModel";
+import ConfirmationModel from "../components/common/ConfirmationModel";
 import { statuses } from "../data/dummyData";
 
 import {
