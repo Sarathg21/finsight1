@@ -1315,7 +1315,7 @@ export default function BalanceSheet() {
       </div>
 
       {/* ══ FILTER BAR ══ */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', overflowX: 'auto' }}>
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', overflow: 'visible' }}>
         <FilterField label="Period">
           <select
             id="filter-bs-period"
