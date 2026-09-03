@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
-import PageHeader from "../components/common/PageHeader";
+
+import PageHeader from "../components/Common/PageHeader";
 import StatCard from "../components/StatCard";
-import FilterBar from "../components/common/FilterBar";
+import FilterBar from "../components/Common/FilterBar";
 import FooterNote from "../components/FooterNote";
 import MasterDataTabs from "../components/masterdata/MasterDataTabs";
 import LegalGroupsTable from "../components/masterdata/LegalGroupsTable";
 import LegalGroupDetails from "../components/masterdata/LegalGroupDetails";
 import LegalEntitiesMasterTable from "../components/masterdata/LegalEntitiesMasterTable";
-
 import LegalEntityDetails from "../components/masterdata/LegalEntityDetails";
 import MasterDataModal from "../components/masterdata/MasterDataModal";
 import ParentDivisionTable from "../components/masterdata/ParentDivisionTable";
@@ -22,28 +22,42 @@ import SubDivisionDetails from "../components/masterdata/SubDivisionDetails";
 import AnalysisCodeDetails from "../components/masterdata/AnalysisCodeDetails";
 import CurrencyTable from "../components/masterdata/CurrencyTable";
 import CurrencyDetails from "../components/masterdata/CurrencyDetails";
-import PageSkeleton from "../components/common/PageSkeleton";
-import { masterCards, legalGroupMock, legalEntitiesMock, } from "../data/masterData";
-
-import ConfirmationModel from "../components/common/ConfirmationModel";
+import PageSkeleton from "../components/Common/PageSkeleton";
+import { masterCards } from "../data/masterData";
+import ConfirmationModel from "../components/Common/ConfirmationModel";
 import { statuses } from "../data/dummyData";
+
 import {
-  addLegalGroup, updateLegalGroup, getLegalGroups,
-  getLegalEntities, updateLegalEntities, addLegalEntities,
-  getParentDivision, addParentDivision, updateParentDivision,
-  getSubDivision, addSubDivision, updateSubDivision,
-  getBusinessunits, addBusinessunits, updateBusinessunits,
-  getAnalysisCodes, addAnalysisCodes, updateAnalysisCodes, getParentDivisionLegalEntities,
-  updateParentDivisionLegalEntities, getCurrencies, addCurrency, updateCurrency,
+  addLegalGroup,
+  updateLegalGroup,
+  getLegalGroups,
+  getLegalEntities,
+  updateLegalEntities,
+  addLegalEntities,
+  getParentDivision,
+  addParentDivision,
+  updateParentDivision,
+  getSubDivision,
+  addSubDivision,
+  updateSubDivision,
+  getBusinessunits,
+  addBusinessunits,
+  updateBusinessunits,
+  getAnalysisCodes,
+  addAnalysisCodes,
+  updateAnalysisCodes,
+  getParentDivisionLegalEntities,
+  updateParentDivisionLegalEntities,
+  getCurrencies,
+  addCurrency,
+  updateCurrency,
 } from "../api/masterLegalApi";
 
 export default function MasterDataDashboard() {
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [editLegalGroup, setEditLegalGroup] = useState(null);
 
   const [showEditConfirm, setShowEditConfirm] = useState(false);
-
 
   const [showEntityModal, setShowEntityModal] = useState(false);
   const [editLegalEntity, setEditLegalEntity] = useState(null);
@@ -54,12 +68,17 @@ export default function MasterDataDashboard() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedEntity, setSelectedEntity] = useState(null);
 
-  const [showParentDivisionModal, setShowParentDivisionModal] = useState(false);
+  const [showParentDivisionModal, setShowParentDivisionModal] =
+    useState(false);
   const [editParentDivision, setEditParentDivision] = useState(null);
   const [parentDivisions, setParentDivisions] = useState([]);
   const [selectedParentDivision, setSelectedParentDivision] = useState(null);
-  const [parentDivisionLegalEntities, setParentDivisionLegalEntities] = useState([]);
-  const [loadingParentDivisionEntities, setLoadingParentDivisionEntities] = useState(false);
+
+  const [parentDivisionLegalEntities, setParentDivisionLegalEntities] =
+    useState([]);
+
+  const [loadingParentDivisionEntities, setLoadingParentDivisionEntities] =
+    useState(false);
 
   const [showSubDivisionModal, setShowSubDivisionModal] = useState(false);
   const [editSubDivision, setEditSubDivision] = useState(null);
@@ -70,6 +89,7 @@ export default function MasterDataDashboard() {
   const [editBusinessUnit, setEditBusinessUnit] = useState(null);
   const [businessUnits, setBusinessUnits] = useState([]);
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState(null);
+
   const [loading, setLoading] = useState(false);
 
   const [showAnalysisCodeModal, setShowAnalysisCodeModal] = useState(false);
@@ -109,7 +129,7 @@ export default function MasterDataDashboard() {
       search: "",
       status: "All",
     },
-    "currencies": {
+    currencies: {
       search: "",
       status: "All",
     },
@@ -134,9 +154,7 @@ export default function MasterDataDashboard() {
     {
       id: "legal-groups",
       title: "Legal Groups",
-      value: legalGroups.filter(
-        (item) => item.active === true
-      ).length,
+      value: legalGroups.filter((item) => item.active === true).length,
       description: "Active",
       icon: masterCards[0].icon,
       color: masterCards[0].color,
@@ -145,9 +163,7 @@ export default function MasterDataDashboard() {
     {
       id: "legal-entities",
       title: "Legal Entities",
-      value: legalEntities.filter(
-        (group) => group.active === true
-      ).length,
+      value: legalEntities.filter((group) => group.active === true).length,
       description: "Active",
       icon: masterCards[1].icon,
       color: masterCards[1].color,
@@ -156,39 +172,34 @@ export default function MasterDataDashboard() {
     {
       id: "parent-divisions",
       title: "Parent Divisions",
-      value: parentDivisions.filter(
-        (item) => item.active
-      ).length,
+      value: parentDivisions.filter((item) => item.active).length,
       description: "Active",
       icon: masterCards[2].icon,
       color: masterCards[2].color,
     },
+
     {
       id: "sub-divisions",
       title: "Sub Divisions",
-      value: SubDivisions.filter(
-        (item) => item.active
-      ).length,
+      value: SubDivisions.filter((item) => item.active).length,
       description: "Active",
       icon: masterCards[3].icon,
       color: masterCards[3].color,
     },
+
     {
       id: "business-units",
       title: "Business Units",
-      value: businessUnits.filter(
-        (item) => item.active
-      ).length,
+      value: businessUnits.filter((item) => item.active).length,
       description: "Active",
       icon: masterCards[4].icon,
       color: masterCards[4].color,
     },
+
     {
       id: "analysis-codes",
       title: "Analysis Codes",
-      value: analysisCodes.filter(
-        (item) => item.active
-      ).length,
+      value: analysisCodes.filter((item) => item.active).length,
       description: "Active",
       icon: masterCards[5].icon,
       color: masterCards[5].color,
@@ -197,17 +208,15 @@ export default function MasterDataDashboard() {
     {
       id: "currencies",
       title: "Currencies",
-      value: currencies.filter(
-        (item) => item.active === true
-      ).length,
+      value: currencies.filter((item) => item.active === true).length,
       description: "Active",
       icon: masterCards[6]?.icon,
       color: masterCards[6]?.color,
     },
-
   ];
 
   /* -------------------- LOAD KPI CARDS -------------------- */
+
   const loadMasterData = async () => {
     try {
       await Promise.all([
@@ -223,12 +232,13 @@ export default function MasterDataDashboard() {
       console.log(err);
     }
   };
-  // Load every master table once
+
   useEffect(() => {
     loadMasterData();
   }, []);
 
   /* -------------------- FETCH LEGAL GROUPS -------------------- */
+
   const fetchLegalGroups = async () => {
     try {
       const response = await getLegalGroups();
@@ -239,6 +249,7 @@ export default function MasterDataDashboard() {
         ...group,
         active: group.active ?? true,
       }));
+
       setLegalGroups(updatedGroups);
 
       setSelectedGroup((prev) => {
@@ -255,16 +266,16 @@ export default function MasterDataDashboard() {
             (item) =>
               Number(item.legal_group_id) ===
               Number(prev.legal_group_id)
-          ) ||
-          updatedGroups[0]
+          ) || updatedGroups[0]
         );
       });
-
     } catch (error) {
       console.error("Legal Group Load Error:", error);
     }
   };
+
   /* -------------------- FETCH LEGAL ENTITIES -------------------- */
+
   const fetchLegalEntities = async () => {
     try {
       const response = await getLegalEntities();
@@ -278,7 +289,6 @@ export default function MasterDataDashboard() {
 
       setLegalEntities(updatedEntities);
 
-      // Select first entity automatically
       if (updatedEntities.length > 0) {
         setSelectedEntity(updatedEntities[0]);
       } else {
@@ -288,58 +298,43 @@ export default function MasterDataDashboard() {
       console.log(error);
     }
   };
+
   /* -------------------- FETCH PARENT DIVISIONS -------------------- */
 
   const fetchParentDivisions = async () => {
     try {
-      const response =
-        await getParentDivision();
+      const response = await getParentDivision();
 
-      const data =
-        response.data.data ||
-        response.data ||
-        [];
+      const data = response.data.data || response.data || [];
+
       console.log("Parent Division API:", data);
-      const updatedDivisions =
-        data.map((item) => ({
-          ...item,
-          active:
-            item.active ?? true,
-        }));
 
-      setParentDivisions(
-        updatedDivisions
-      );
+      const updatedDivisions = data.map((item) => ({
+        ...item,
+        active: item.active ?? true,
+      }));
 
-      setSelectedParentDivision(
-        (prev) => {
-          if (!updatedDivisions.length) {
-            return null;
-          }
+      setParentDivisions(updatedDivisions);
 
-          if (!prev) {
-            return updatedDivisions[0];
-          }
-
-          return (
-            updatedDivisions.find(
-              (item) =>
-                Number(
-                  item.parent_division_id
-                ) ===
-                Number(
-                  prev.parent_division_id
-                )
-            ) ||
-            updatedDivisions[0]
-          );
+      setSelectedParentDivision((prev) => {
+        if (!updatedDivisions.length) {
+          return null;
         }
-      );
+
+        if (!prev) {
+          return updatedDivisions[0];
+        }
+
+        return (
+          updatedDivisions.find(
+            (item) =>
+              Number(item.parent_division_id) ===
+              Number(prev.parent_division_id)
+          ) || updatedDivisions[0]
+        );
+      });
     } catch (error) {
-      console.error(
-        "Parent Division Load Error:",
-        error
-      );
+      console.error("Parent Division Load Error:", error);
     }
   };
 
@@ -356,13 +351,9 @@ export default function MasterDataDashboard() {
         parentDivisionId
       );
 
-      const data =
-        response.data.data ||
-        response.data ||
-        [];
+      const data = response.data.data || response.data || [];
 
       setParentDivisionLegalEntities(data);
-
     } catch (error) {
       console.error(
         "Parent Division Legal Entities Load Error:",
@@ -386,180 +377,124 @@ export default function MasterDataDashboard() {
   }, [selectedParentDivision?.parent_division_id]);
 
   /* -------------------- FETCH SUB DIVISIONS -------------------- */
-  const fetchSubDivisions = async (
-    selectedId = null
-  ) => {
+
+  const fetchSubDivisions = async (selectedId = null) => {
     try {
-      const response =
-        await getSubDivision();
+      const response = await getSubDivision();
 
-      const data =
-        response.data.data ||
-        response.data ||
-        [];
+      const data = response.data.data || response.data || [];
 
-      const updatedDivisions =
-        data.map((item) => ({
-          ...item,
-          active:
-            item.active ?? true,
-        }));
+      const updatedDivisions = data.map((item) => ({
+        ...item,
+        active: item.active ?? true,
+      }));
 
-      setSubDivisions(
-        updatedDivisions
-      );
+      setSubDivisions(updatedDivisions);
 
-      setSelectedSubDivision(
-        (prev) => {
-          const targetId =
-            selectedId ??
-            prev?.subdivision_id;
+      setSelectedSubDivision((prev) => {
+        const targetId = selectedId ?? prev?.subdivision_id;
 
-          if (!updatedDivisions.length) {
-            return null;
-          }
-
-          if (targetId != null) {
-            return (
-              updatedDivisions.find(
-                (item) =>
-                  Number(
-                    item.subdivision_id
-                  ) ===
-                  Number(targetId)
-              ) ||
-              updatedDivisions[0]
-            );
-          }
-
-          return updatedDivisions[0];
+        if (!updatedDivisions.length) {
+          return null;
         }
-      );
+
+        if (targetId != null) {
+          return (
+            updatedDivisions.find(
+              (item) =>
+                Number(item.subdivision_id) === Number(targetId)
+            ) || updatedDivisions[0]
+          );
+        }
+
+        return updatedDivisions[0];
+      });
     } catch (error) {
-      console.error(
-        "Sub Division Load Error:",
-        error
-      );
+      console.error("Sub Division Load Error:", error);
     }
   };
 
   /* -------------------- FETCH BUSINESS UNITS -------------------- */
+
   const fetchBusinessUnits = async () => {
     try {
-      const response =
-        await getBusinessunits();
+      const response = await getBusinessunits();
 
-      const data =
-        response.data.data ||
-        response.data ||
-        [];
+      const data = response.data.data || response.data || [];
 
-      const updatedUnits =
-        data.map((item) => ({
-          ...item,
-          active:
-            item.active ?? true,
-        }));
+      const updatedUnits = data.map((item) => ({
+        ...item,
+        active: item.active ?? true,
+      }));
 
-      setBusinessUnits(
-        updatedUnits
-      );
+      setBusinessUnits(updatedUnits);
 
-      setSelectedBusinessUnit(
-        (prev) => {
-          if (!updatedUnits.length) {
-            return null;
-          }
-
-          if (!prev) {
-            return updatedUnits[0];
-          }
-
-          return (
-            updatedUnits.find(
-              (item) =>
-                Number(
-                  item.business_unit_id
-                ) ===
-                Number(
-                  prev.business_unit_id
-                )
-            ) ||
-            updatedUnits[0]
-          );
+      setSelectedBusinessUnit((prev) => {
+        if (!updatedUnits.length) {
+          return null;
         }
-      );
+
+        if (!prev) {
+          return updatedUnits[0];
+        }
+
+        return (
+          updatedUnits.find(
+            (item) =>
+              Number(item.business_unit_id) ===
+              Number(prev.business_unit_id)
+          ) || updatedUnits[0]
+        );
+      });
     } catch (error) {
-      console.error(
-        "Business Unit Load Error:",
-        error
-      );
+      console.error("Business Unit Load Error:", error);
     }
   };
 
   /* -------------------- FETCH ANALYSIS CODES -------------------- */
-  const fetchAnalysisCodes =
-    async () => {
-      try {
-        const response =
-          await getAnalysisCodes();
 
-        const data =
-          response.data.data ||
-          response.data ||
-          [];
+  const fetchAnalysisCodes = async () => {
+    try {
+      const response = await getAnalysisCodes();
 
-        const updatedCodes =
-          data.map((item) => ({
-            ...item,
-            active:
-              item.active ?? true,
-          }));
+      const data = response.data.data || response.data || [];
 
-        setAnalysisCodes(
-          updatedCodes
+      const updatedCodes = data.map((item) => ({
+        ...item,
+        active: item.active ?? true,
+      }));
+
+      setAnalysisCodes(updatedCodes);
+
+      setSelectedAnalysisCode((prev) => {
+        if (!updatedCodes.length) {
+          return null;
+        }
+
+        if (!prev) {
+          return updatedCodes[0];
+        }
+
+        return (
+          updatedCodes.find(
+            (item) =>
+              Number(item.analysis_code_id) ===
+              Number(prev.analysis_code_id)
+          ) || updatedCodes[0]
         );
+      });
+    } catch (error) {
+      console.error("Analysis Code Load Error:", error);
+    }
+  };
 
-        setSelectedAnalysisCode(
-          (prev) => {
-            if (!updatedCodes.length) {
-              return null;
-            }
-
-            if (!prev) {
-              return updatedCodes[0];
-            }
-
-            return (
-              updatedCodes.find(
-                (item) =>
-                  Number(
-                    item.analysis_code_id
-                  ) ===
-                  Number(
-                    prev.analysis_code_id
-                  )
-              ) ||
-              updatedCodes[0]
-            );
-          }
-        );
-      } catch (error) {
-        console.error(
-          "Analysis Code Load Error:",
-          error
-        );
-      }
-    };
+  /* -------------------- FETCH CURRENCIES -------------------- */
 
   const fetchCurrencies = async () => {
     try {
       const response = await getCurrencies();
 
-      const data =
-        response.data.data ||
-        response.data ||
-        [];
+      const data = response.data.data || response.data || [];
 
       const updatedCurrencies = data.map((item) => ({
         ...item,
@@ -569,6 +504,7 @@ export default function MasterDataDashboard() {
           item.active === "1" ||
           item.active === "true",
       }));
+
       setCurrencies(updatedCurrencies);
 
       setSelectedCurrency((prev) => {
@@ -583,10 +519,8 @@ export default function MasterDataDashboard() {
         return (
           updatedCurrencies.find(
             (item) =>
-              Number(item.currency_id) ===
-              Number(prev.currency_id)
-          ) ||
-          updatedCurrencies[0]
+              Number(item.currency_id) === Number(prev.currency_id)
+          ) || updatedCurrencies[0]
         );
       });
     } catch (error) {
@@ -605,15 +539,14 @@ export default function MasterDataDashboard() {
     )
   );
 
-  const selectedSubDivisionAnalysisCodes =
-    analysisCodes.filter(
-      (item) =>
-        Number(item.subdivision_id) ===
-        Number(selectedSubDivision?.subdivision_id)
-    );
+  const selectedSubDivisionAnalysisCodes = analysisCodes.filter(
+    (item) =>
+      Number(item.subdivision_id) ===
+      Number(selectedSubDivision?.subdivision_id)
+  );
 
+  /* -------------------- FILTER LEGAL ENTITY -------------------- */
 
-  /* -------------------- FILTER LEGAL ENTITY WITH INPUT BOX -------------------- */
   const filteredLegalEntities = legalEntities.filter((entity) => {
     const keyword = search.toLowerCase();
 
@@ -629,7 +562,8 @@ export default function MasterDataDashboard() {
     return matchesSearch && matchesStatus;
   });
 
-  /* -------------------- FILTER LEGAL GROUPS WITH INPUT BOX -------------------- */
+  /* -------------------- FILTER LEGAL GROUPS -------------------- */
+
   const filteredLegalGroups = legalGroups.filter((group) => {
     const keyword = search.toLowerCase();
 
@@ -644,30 +578,26 @@ export default function MasterDataDashboard() {
 
     return matchesSearch && matchesStatus;
   });
-  /* ------------ FILTER PARENT DIVISIONS WITH INPUT BOX -------------------- */
-  const filteredParentDivisions =
-    parentDivisions.filter((item) => {
 
-      const keyword = search.toLowerCase();
+  /* -------------------- FILTER PARENT DIVISIONS -------------------- */
 
-      const matchesSearch =
-        item.parent_division_code
-          ?.toLowerCase()
-          .includes(keyword) ||
+  const filteredParentDivisions = parentDivisions.filter((item) => {
+    const keyword = search.toLowerCase();
 
-        item.parent_division_name
-          ?.toLowerCase()
-          .includes(keyword);
+    const matchesSearch =
+      item.parent_division_code?.toLowerCase().includes(keyword) ||
+      item.parent_division_name?.toLowerCase().includes(keyword);
 
-      const matchesStatus =
-        status === "All" ||
-        (status === "Active" && item.active === true) ||
-        (status === "Inactive" && item.active === false);
+    const matchesStatus =
+      status === "All" ||
+      (status === "Active" && item.active === true) ||
+      (status === "Inactive" && item.active === false);
 
-      return matchesSearch && matchesStatus;
-    });
+    return matchesSearch && matchesStatus;
+  });
 
-  /* ------------ FILTER SUB DIVISIONS WITH INPUT BOX -------------------- */
+  /* -------------------- FILTER SUB DIVISIONS -------------------- */
+
   const filteredSubDivisions = SubDivisions.filter((item) => {
     const keyword = search.toLowerCase();
 
@@ -683,13 +613,11 @@ export default function MasterDataDashboard() {
     return matchesSearch && matchesStatus;
   });
 
-
   const selectedParentDivisionSubDivisions = SubDivisions.filter(
     (item) =>
       Number(item.parent_division_id) ===
       Number(selectedParentDivision?.parent_division_id)
   );
-
 
   const selectedEntityParentDivisions = parentDivisions.filter(
     (division) =>
@@ -700,68 +628,20 @@ export default function MasterDataDashboard() {
       )
   );
 
+  const selectedSubDivisionBusinessUnits = businessUnits.filter(
+    (item) =>
+      Number(item.subdivision_id) ===
+      Number(selectedSubDivision?.subdivision_id)
+  );
 
-  // Business Units belonging to selected Sub Division
-  const selectedSubDivisionBusinessUnits =
-    businessUnits.filter(
-      (item) =>
-        Number(item.subdivision_id) ===
-        Number(selectedSubDivision?.subdivision_id)
-    );
+  /* -------------------- FILTER BUSINESS UNITS -------------------- */
 
-  /* ------------ FILTER BUSINESS UNITS WITH INPUT BOX -------------------- */
-  const filteredBusinessUnits =
-    businessUnits.filter((item) => {
-
-      const keyword = search.toLowerCase();
-      const matchesSearch =
-
-        item.business_unit_name
-          ?.toLowerCase()
-          .includes(keyword);
-
-      const matchesStatus =
-        status === "All" ||
-        (status === "Active" && item.active === true) ||
-        (status === "Inactive" && item.active === false);
-
-      return matchesSearch && matchesStatus;
-    });
-
-  /* ------------ FILTER ANALYSIS CODES WITH INPUT BOX -------------------- */
-  const filteredAnalysisCodes =
-    analysisCodes.filter((item) => {
-
-      const keyword = search.toLowerCase();
-
-      const matchesSearch =
-
-        item.analysis_code
-          ?.toLowerCase()
-          .includes(keyword) ||
-
-        item.analysis_name
-          ?.toLowerCase()
-          .includes(keyword);
-
-      const matchesStatus =
-        status === "All" ||
-        (status === "Active" && item.active === true) ||
-        (status === "Inactive" && item.active === false);
-
-      return matchesSearch && matchesStatus;
-    });
-
-  const filteredCurrencies = currencies.filter((item) => {
+  const filteredBusinessUnits = businessUnits.filter((item) => {
     const keyword = search.toLowerCase();
 
-    const matchesSearch =
-      item.currency_code
-        ?.toLowerCase()
-        .includes(keyword) ||
-      item.currency_name
-        ?.toLowerCase()
-        .includes(keyword);
+    const matchesSearch = item.business_unit_name
+      ?.toLowerCase()
+      .includes(keyword);
 
     const matchesStatus =
       status === "All" ||
@@ -771,11 +651,46 @@ export default function MasterDataDashboard() {
     return matchesSearch && matchesStatus;
   });
 
+  /* -------------------- FILTER ANALYSIS CODES -------------------- */
+
+  const filteredAnalysisCodes = analysisCodes.filter((item) => {
+    const keyword = search.toLowerCase();
+
+    const matchesSearch =
+      item.analysis_code?.toLowerCase().includes(keyword) ||
+      item.analysis_name?.toLowerCase().includes(keyword);
+
+    const matchesStatus =
+      status === "All" ||
+      (status === "Active" && item.active === true) ||
+      (status === "Inactive" && item.active === false);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  /* -------------------- FILTER CURRENCIES -------------------- */
+
+  const filteredCurrencies = currencies.filter((item) => {
+    const keyword = search.toLowerCase();
+
+    const matchesSearch =
+      item.currency_code?.toLowerCase().includes(keyword) ||
+      item.currency_name?.toLowerCase().includes(keyword);
+
+    const matchesStatus =
+      status === "All" ||
+      (status === "Active" && item.active === true) ||
+      (status === "Inactive" && item.active === false);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  /* -------------------- ADD PARENT DIVISION -------------------- */
+
   const handleAddParentDivision = async (data) => {
     try {
       console.log("ADD PARENT DIVISION DATA:", data);
 
-      // 1. Create Parent Division
       const response = await addParentDivision({
         parent_division_code: data.parent_division_code,
         parent_division_name: data.parent_division_name,
@@ -785,9 +700,7 @@ export default function MasterDataDashboard() {
       console.log("CREATE PARENT DIVISION RESPONSE:", response);
 
       const createdParentDivision =
-        response?.data?.data ??
-        response?.data ??
-        response;
+        response?.data?.data ?? response?.data ?? response;
 
       const parentDivisionId =
         createdParentDivision?.parent_division_id;
@@ -798,19 +711,14 @@ export default function MasterDataDashboard() {
         );
       }
 
-      // 2. Save Legal Entity mapping
       await updateParentDivisionLegalEntities(
         parentDivisionId,
         data.legal_entity_ids || []
       );
 
-      toast.success(
-        "Parent Division created successfully"
-      );
+      toast.success("Parent Division created successfully");
 
-      // 3. Refresh
       await fetchParentDivisions();
-
     } catch (error) {
       console.error(
         "Parent Division create error:",
@@ -819,14 +727,16 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        error?.message ||
-        "Unable to create Parent Division"
+          error?.response?.data?.message ||
+          error?.message ||
+          "Unable to create Parent Division"
       );
 
       throw error;
     }
   };
+
+  /* -------------------- LEGAL GROUP STATUS -------------------- */
 
   const handleStatusToggle = async (group) => {
     if (!group?.legal_group_id) {
@@ -837,28 +747,19 @@ export default function MasterDataDashboard() {
     const nextActive = !group.active;
 
     try {
-      await updateLegalGroup(
-        group.legal_group_id,
-        {
-          legal_group_code:
-            group.legal_group_code,
-
-          legal_group_name:
-            group.legal_group_name,
-
-          active: nextActive,
-        }
-      );
+      await updateLegalGroup(group.legal_group_id, {
+        legal_group_code: group.legal_group_code,
+        legal_group_name: group.legal_group_name,
+        active: nextActive,
+      });
 
       toast.success(
-        `Legal Group ${nextActive
-          ? "activated"
-          : "deactivated"
+        `Legal Group ${
+          nextActive ? "activated" : "deactivated"
         } successfully`
       );
 
       await fetchLegalGroups();
-
     } catch (error) {
       console.error(
         "Legal Group status error:",
@@ -867,41 +768,31 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        "Unable to update Legal Group status"
+          error?.response?.data?.message ||
+          "Unable to update Legal Group status"
       );
     }
   };
 
-  const handleEntityStatusToggle = async (
-    entity
-  ) => {
+  /* -------------------- LEGAL ENTITY STATUS -------------------- */
+
+  const handleEntityStatusToggle = async (entity) => {
     try {
-      await updateLegalEntities(
-        entity.legal_entity_id,
-        {
-          legal_entity_code:
-            entity.legal_entity_code,
-
-          legal_entity_name:
-            entity.legal_entity_name,
-
-          active: !entity.active,
-
-          legal_group_ids:
-            entity.legal_group_ids ??
-            entity.legal_groups?.map(
-              (group) =>
-                group.legal_group_id
-            ) ??
-            [],
-        }
-      );
+      await updateLegalEntities(entity.legal_entity_id, {
+        legal_entity_code: entity.legal_entity_code,
+        legal_entity_name: entity.legal_entity_name,
+        active: !entity.active,
+        legal_group_ids:
+          entity.legal_group_ids ??
+          entity.legal_groups?.map(
+            (group) => group.legal_group_id
+          ) ??
+          [],
+      });
 
       toast.success(
-        `Legal Entity ${entity.active
-          ? "deactivated"
-          : "activated"
+        `Legal Entity ${
+          entity.active ? "deactivated" : "activated"
         } successfully`
       );
 
@@ -909,15 +800,14 @@ export default function MasterDataDashboard() {
     } catch (error) {
       console.error(
         "Legal Entity status error:",
-        error?.response?.data ||
-        error
+        error?.response?.data || error
       );
 
-      toast.error(
-        "Unable to update Legal Entity status"
-      );
+      toast.error("Unable to update Legal Entity status");
     }
   };
+
+  /* -------------------- PARENT DIVISION STATUS -------------------- */
 
   const handleParentDivisionStatusToggle = async (item) => {
     if (!item?.parent_division_id) {
@@ -934,28 +824,25 @@ export default function MasterDataDashboard() {
         nextActive,
       });
 
-      await updateParentDivision(
-        item.parent_division_id,
-        {
-          parent_division_code: item.parent_division_code,
-          parent_division_name: item.parent_division_name,
-          active: nextActive,
-          legal_entity_ids:
-            item.legal_entity_ids ??
-            item.legal_entities?.map(
-              (entity) => entity.legal_entity_id
-            ) ??
-            [],
-        }
-      );
+      await updateParentDivision(item.parent_division_id, {
+        parent_division_code: item.parent_division_code,
+        parent_division_name: item.parent_division_name,
+        active: nextActive,
+        legal_entity_ids:
+          item.legal_entity_ids ??
+          item.legal_entities?.map(
+            (entity) => entity.legal_entity_id
+          ) ??
+          [],
+      });
 
       toast.success(
-        `Parent Division ${nextActive ? "activated" : "deactivated"
+        `Parent Division ${
+          nextActive ? "activated" : "deactivated"
         } successfully`
       );
 
       await fetchParentDivisions();
-
     } catch (error) {
       console.error(
         "Parent Division status error:",
@@ -964,36 +851,32 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        "Unable to update Parent Division status"
+          error?.response?.data?.message ||
+          "Unable to update Parent Division status"
       );
     }
   };
+
+  /* -------------------- UPDATE PARENT DIVISION -------------------- */
+
   const handleUpdateParentDivision = async (data) => {
     try {
       const parentDivisionId = data.parent_division_id;
 
-      // 1. Update basic Parent Division information
       const response = await updateParentDivision(
         parentDivisionId,
         {
-          parent_division_code:
-            data.parent_division_code,
-
-          parent_division_name:
-            data.parent_division_name,
-
+          parent_division_code: data.parent_division_code,
+          parent_division_name: data.parent_division_name,
           active: data.active,
         }
       );
 
-      // 2. Update Legal Entity mapping
       await updateParentDivisionLegalEntities(
         parentDivisionId,
         data.legal_entity_ids || []
       );
 
-      // 3. Refresh table
       await fetchParentDivisions();
 
       return response;
@@ -1006,20 +889,16 @@ export default function MasterDataDashboard() {
       throw error;
     }
   };
+
+  /* -------------------- SUB DIVISION STATUS -------------------- */
+
   const handleSubDivisionStatusToggle = async (division) => {
     try {
       const id = division?.subdivision_id;
 
-      if (
-        id === undefined ||
-        id === null ||
-        id === ""
-      ) {
+      if (id === undefined || id === null || id === "") {
         toast.error("Sub Division ID is missing");
-        console.error(
-          "Missing subdivision_id:",
-          division
-        );
+        console.error("Missing subdivision_id:", division);
         return;
       }
 
@@ -1027,15 +906,8 @@ export default function MasterDataDashboard() {
         active: !division.active,
       };
 
-      console.log(
-        "STATUS UPDATE ID:",
-        id
-      );
-
-      console.log(
-        "STATUS UPDATE PAYLOAD:",
-        payload
-      );
+      console.log("STATUS UPDATE ID:", id);
+      console.log("STATUS UPDATE PAYLOAD:", payload);
 
       await updateSubDivision(id, payload);
 
@@ -1045,9 +917,7 @@ export default function MasterDataDashboard() {
           : "Sub Division activated successfully"
       );
 
-      // VERY IMPORTANT
       await fetchSubDivisions();
-
     } catch (error) {
       console.error(
         "Sub Division status update error:",
@@ -1056,17 +926,16 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail ||
-        "Unable to update Sub Division status"
+          "Unable to update Sub Division status"
       );
     }
   };
 
+  /* -------------------- BUSINESS UNIT STATUS -------------------- */
+
   const handleBusinessUnitStatusToggle = async (unit) => {
     if (!unit?.business_unit_id) {
-      console.error(
-        "Business Unit ID missing:",
-        unit
-      );
+      console.error("Business Unit ID missing:", unit);
       return;
     }
 
@@ -1077,12 +946,9 @@ export default function MasterDataDashboard() {
         !unit.active
       );
 
-      await updateBusinessunits(
-        unit.business_unit_id,
-        {
-          active: !unit.active,
-        }
-      );
+      await updateBusinessunits(unit.business_unit_id, {
+        active: !unit.active,
+      });
 
       toast.success(
         unit.active
@@ -1090,10 +956,7 @@ export default function MasterDataDashboard() {
           : "Business Unit activated successfully"
       );
 
-      // IMPORTANT:
-      // Reload BOTH active and inactive records
       await fetchBusinessUnits();
-
     } catch (error) {
       console.error(
         "Business Unit status update error:",
@@ -1102,72 +965,48 @@ export default function MasterDataDashboard() {
 
       toast.error(
         error?.response?.data?.detail?.[0]?.msg ||
-        error?.response?.data?.message ||
-        "Unable to update Business Unit status"
+          error?.response?.data?.message ||
+          "Unable to update Business Unit status"
       );
     }
   };
 
-  const handleAnalysisCodeStatusToggle =
-    async (item) => {
-      try {
-        await updateAnalysisCodes(
-          item.analysis_code_id,
-          {
-            analysis_code:
-              item.analysis_code,
+  /* -------------------- ANALYSIS CODE STATUS -------------------- */
 
-            analysis_name:
-              item.analysis_name,
+  const handleAnalysisCodeStatusToggle = async (item) => {
+    try {
+      await updateAnalysisCodes(item.analysis_code_id, {
+        analysis_code: item.analysis_code,
+        analysis_name: item.analysis_name,
+        subdivision_id: Number(item.subdivision_id),
+        subdivision_code: item.subdivision_code,
+        subdivision_name: item.subdivision_name,
+        parent_division_id: item.parent_division_id
+          ? Number(item.parent_division_id)
+          : null,
+        parent_division_code: item.parent_division_code,
+        parent_division_name: item.parent_division_name,
+        active: !item.active,
+      });
 
-            subdivision_id:
-              Number(
-                item.subdivision_id
-              ),
+      toast.success(
+        `Analysis Code ${
+          item.active ? "deactivated" : "activated"
+        } successfully`
+      );
 
-            subdivision_code:
-              item.subdivision_code,
+      await fetchAnalysisCodes();
+    } catch (error) {
+      console.error(
+        "Analysis Code status error:",
+        error?.response?.data || error
+      );
 
-            subdivision_name:
-              item.subdivision_name,
+      toast.error("Unable to update Analysis Code status");
+    }
+  };
 
-            parent_division_id:
-              item.parent_division_id
-                ? Number(
-                  item.parent_division_id
-                )
-                : null,
-
-            parent_division_code:
-              item.parent_division_code,
-
-            parent_division_name:
-              item.parent_division_name,
-
-            active: !item.active,
-          }
-        );
-
-        toast.success(
-          `Analysis Code ${item.active
-            ? "deactivated"
-            : "activated"
-          } successfully`
-        );
-
-        await fetchAnalysisCodes();
-      } catch (error) {
-        console.error(
-          "Analysis Code status error:",
-          error?.response?.data ||
-          error
-        );
-
-        toast.error(
-          "Unable to update Analysis Code status"
-        );
-      }
-    };
+  /* -------------------- CURRENCY STATUS -------------------- */
 
   const handleCurrencyStatusToggle = async (
     item,
@@ -1181,22 +1020,18 @@ export default function MasterDataDashboard() {
         : !item.active;
 
     try {
-      await updateCurrency(
-        item.currency_id,
-        {
-          currency_code: item.currency_code,
-          currency_name: item.currency_name,
-          conversion_rate_to_aed: Number(
-            item.conversion_rate_to_aed
-          ),
-          active: nextActive,
-        }
-      );
+      await updateCurrency(item.currency_id, {
+        currency_code: item.currency_code,
+        currency_name: item.currency_name,
+        conversion_rate_to_aed: Number(
+          item.conversion_rate_to_aed
+        ),
+        active: nextActive,
+      });
 
       toast.success(
-        `Currency ${nextActive
-          ? "activated"
-          : "deactivated"
+        `Currency ${
+          nextActive ? "activated" : "deactivated"
         } successfully`
       );
 
@@ -1207,11 +1042,11 @@ export default function MasterDataDashboard() {
         error?.response?.data || error
       );
 
-      toast.error(
-        "Unable to update Currency status"
-      );
+      toast.error("Unable to update Currency status");
     }
   };
+
+  /* -------------------- EDIT -------------------- */
 
   const handleEdit = (item) => {
     if (!item) {
@@ -1231,7 +1066,7 @@ export default function MasterDataDashboard() {
       "sub-divisions": "Sub Division",
       "business-units": "Business Unit",
       "analysis-codes": "Analysis Code",
-      "currencies": "Currency",
+      currencies: "Currency",
     };
 
     return titles[activeTab] || "Master Data";
@@ -1247,37 +1082,111 @@ export default function MasterDataDashboard() {
 
       return {
         ...entity,
-        active: fullEntity?.active ?? entity.active ?? false,
+        active:
+          fullEntity?.active ??
+          entity.active ??
+          false,
       };
     });
 
   if (loading) {
     return (
-      <div className="p-4">
-        <PageSkeleton />
+      <div
+        style={{
+          height: "calc(100vh - 64px)",
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        <div style={{ padding: "16px" }}>
+          <PageSkeleton />
+        </div>
       </div>
     );
   }
+
   return (
-    <>
-      {/* Header */}
-      <PageHeader
-        title="Master Data"
-        subtitle="Manage and maintain master data used across FinSight."
-      />
-      {/* KPI Cards */}
-      <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+    <div
+      style={{
+        width: "100%",
+        height: "calc(100vh - 64px)",
+        minHeight: 0,
+        maxHeight: "calc(100vh - 64px)",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
+      <div
+        style={{
+          flexShrink: 0,
+          width: "100%",
+        }}
+      >
+        <PageHeader
+          title="Master Data"
+          subtitle="Manage and maintain master data used across FinSight."
+        />
+      </div>
+
+      {/* =====================================================
+          KPI CARDS
+      ===================================================== */}
+
+      <div
+        style={{
+          flexShrink: 0,
+          display: "grid",
+          gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+          gap: "8px",
+          width: "100%",
+          alignItems: "stretch",
+          marginTop: "8px",
+          boxSizing: "border-box",
+        }}
+      >
         {dynamicMasterCards.map((item, index) => (
-          <StatCard
+          <div
             key={`${item.title}-${index}`}
-            {...item}
-            delay={index * 0.08}
-          />
+            style={{
+              minWidth: 0,
+              width: "100%",
+              display: "flex",
+              alignItems: "stretch",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                minWidth: 0,
+                height: "100%",
+              }}
+            >
+              <StatCard
+                {...item}
+                delay={index * 0.08}
+              />
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="mt-2">
+      {/* =====================================================
+          TABS
+      ===================================================== */}
+
+      <div
+        style={{
+          flexShrink: 0,
+          width: "100%",
+          marginTop: "8px",
+        }}
+      >
         <MasterDataTabs
           tabs={dynamicMasterCards}
           activeTab={activeTab}
@@ -1285,69 +1194,121 @@ export default function MasterDataDashboard() {
         />
       </div>
 
-      {/* Main Content */}
-      <div className="mt-2 grid h-[calc(100vh-200px)] grid-cols-12 gap-2 overflow-hidden">
-        {/* Left Section */}
-        <div className="col-span-12 min-w-0 xl:col-span-7 w-full flex flex-col">
-          {/* Filter */}
-          <div className="w-full">
+      {/* =====================================================
+          MAIN CONTENT
+          PAGE ITSELF DOES NOT SCROLL
+      ===================================================== */}
+
+      <div
+        style={{
+          width: "100%",
+          flex: 1,
+          minHeight: 0,
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 7fr) minmax(0, 5fr)",
+          gap: "8px",
+          marginTop: "8px",
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* =================================================
+            LEFT SECTION
+        ================================================= */}
+
+        <div
+          style={{
+            minWidth: 0,
+            minHeight: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxSizing: "border-box",
+          }}
+        >
+          {/* FILTER */}
+
+          <div
+            style={{
+              width: "100%",
+              flexShrink: 0,
+            }}
+          >
             <FilterBar
               compact
               search={search}
-              setSearch={(value) => updateTabFilter("search", value)}
-              placeholder={`Search ${activeTab.replace("-", " ")}...`}
+              setSearch={(value) =>
+                updateTabFilter("search", value)
+              }
+              placeholder={`Search ${activeTab.replace(
+                "-",
+                " "
+              )}...`}
               filters={[
                 {
                   label: "Status",
                   options: statuses,
                   value: status,
                   onChange: (e) =>
-                    updateTabFilter("status", e.target.value),
+                    updateTabFilter(
+                      "status",
+                      e.target.value
+                    ),
                 },
               ]}
               showMoreFilters
-              onMoreFilters={() => console.log("More Filters")}
+              onMoreFilters={() =>
+                console.log("More Filters")
+              }
               showAddButton
               addButtonLabel={
                 activeTab === "legal-groups"
                   ? "Legal Group"
                   : activeTab === "legal-entities"
-                    ? "Legal Entity"
-                    : activeTab === "parent-divisions"
-                      ? "Parent Division"
-                      : activeTab === "sub-divisions"
-                        ? "Sub Division"
-                        : activeTab === "business-units"
-                          ? "Business Unit"
-                          : activeTab === "analysis-codes"
-                            ? "Analysis Code"
-                            : "Currency"
+                  ? "Legal Entity"
+                  : activeTab === "parent-divisions"
+                  ? "Parent Division"
+                  : activeTab === "sub-divisions"
+                  ? "Sub Division"
+                  : activeTab === "business-units"
+                  ? "Business Unit"
+                  : activeTab === "analysis-codes"
+                  ? "Analysis Code"
+                  : "Currency"
               }
               onAdd={() => {
                 if (activeTab === "legal-groups") {
                   setEditLegalGroup(null);
                   setShowAddModal(true);
                 }
+
                 if (activeTab === "legal-entities") {
                   setEditLegalEntity(null);
                   setShowEntityModal(true);
                 }
+
                 if (activeTab === "parent-divisions") {
                   setEditParentDivision(null);
                   setShowParentDivisionModal(true);
                 }
+
                 if (activeTab === "sub-divisions") {
                   setEditSubDivision(null);
                   setShowSubDivisionModal(true);
                 }
+
                 if (activeTab === "business-units") {
                   setEditBusinessUnit(null);
                   setShowBusinessUnitModal(true);
                 }
+
                 if (activeTab === "analysis-codes") {
                   setEditAnalysisCode(null);
                   setShowAnalysisCodeModal(true);
                 }
+
                 if (activeTab === "currencies") {
                   setEditCurrency(null);
                   setShowCurrencyModal(true);
@@ -1356,8 +1317,22 @@ export default function MasterDataDashboard() {
             />
           </div>
 
-          {/* Legal Groups Table */}
-          <div className="mt-2 w-full min-w-0 flex-1">
+          {/* =================================================
+              TABLE
+              TABLE COMPONENT HANDLES ITS OWN SCROLL
+          ================================================= */}
+
+          <div
+            style={{
+              width: "100%",
+              minWidth: 0,
+              minHeight: 0,
+              flex: 1,
+              marginTop: "8px",
+              overflow: "hidden",
+              boxSizing: "border-box",
+            }}
+          >
             {activeTab === "legal-groups" && (
               <LegalGroupsTable
                 legalGroups={filteredLegalGroups}
@@ -1367,6 +1342,7 @@ export default function MasterDataDashboard() {
                 onStatusToggle={handleStatusToggle}
               />
             )}
+
             {activeTab === "legal-entities" && (
               <LegalEntitiesMasterTable
                 legalEntities={filteredLegalEntities}
@@ -1376,13 +1352,16 @@ export default function MasterDataDashboard() {
                 onStatusToggle={handleEntityStatusToggle}
               />
             )}
+
             {activeTab === "parent-divisions" && (
               <ParentDivisionTable
                 parentDivisions={filteredParentDivisions}
                 selectedParentDivision={selectedParentDivision}
                 onSelect={setSelectedParentDivision}
                 onEdit={handleEdit}
-                onStatusToggle={handleParentDivisionStatusToggle}
+                onStatusToggle={
+                  handleParentDivisionStatusToggle
+                }
               />
             )}
 
@@ -1392,25 +1371,33 @@ export default function MasterDataDashboard() {
                 selectedSubDivision={selectedSubDivision}
                 onSelect={setSelectedSubDivision}
                 onEdit={handleEdit}
-                onStatusToggle={handleSubDivisionStatusToggle}
+                onStatusToggle={
+                  handleSubDivisionStatusToggle
+                }
               />
             )}
+
             {activeTab === "business-units" && (
               <BusinessUnitTable
                 businessUnits={filteredBusinessUnits}
                 selectedBusinessUnit={selectedBusinessUnit}
                 onSelect={setSelectedBusinessUnit}
                 onEdit={handleEdit}
-                onStatusToggle={handleBusinessUnitStatusToggle}
+                onStatusToggle={
+                  handleBusinessUnitStatusToggle
+                }
               />
             )}
+
             {activeTab === "analysis-codes" && (
               <AnalysisCodeTable
                 analysisCodes={filteredAnalysisCodes}
                 selectedAnalysisCode={selectedAnalysisCode}
                 onSelect={setSelectedAnalysisCode}
                 onEdit={handleEdit}
-                onStatusToggle={handleAnalysisCodeStatusToggle}
+                onStatusToggle={
+                  handleAnalysisCodeStatusToggle
+                }
               />
             )}
 
@@ -1420,14 +1407,28 @@ export default function MasterDataDashboard() {
                 selectedCurrency={selectedCurrency}
                 onSelect={setSelectedCurrency}
                 onEdit={handleEdit}
-                onStatusToggle={handleCurrencyStatusToggle}
+                onStatusToggle={
+                  handleCurrencyStatusToggle
+                }
               />
             )}
           </div>
         </div>
 
-        {/* Right Section */}
-        <div className="col-span-12 min-w-0 w-full xl:col-span-5 min-h-0 h-full">
+        {/* =================================================
+            RIGHT SECTION
+        ================================================= */}
+
+        <div
+          style={{
+            minWidth: 0,
+            minHeight: 0,
+            width: "100%",
+            height: "100%",
+            overflow: "hidden",
+            boxSizing: "border-box",
+          }}
+        >
           {activeTab === "legal-groups" && (
             <LegalGroupDetails
               group={selectedGroup}
@@ -1437,13 +1438,18 @@ export default function MasterDataDashboard() {
 
                 handleEdit(selectedGroup);
               }}
-              onAnnotate={() => console.log("Annotate")}
+              onAnnotate={() =>
+                console.log("Annotate")
+              }
               onStatusChange={(value) => {
                 if (!selectedGroup) return;
 
                 handleStatusToggle({
                   ...selectedGroup,
-                  active: value === "Active" ? false : true,
+                  active:
+                    value === "Active"
+                      ? false
+                      : true,
                 });
               }}
             />
@@ -1452,19 +1458,32 @@ export default function MasterDataDashboard() {
           {activeTab === "legal-entities" && (
             <LegalEntityDetails
               entity={selectedEntity}
-              parentDivisions={selectedEntityParentDivisions}
+              parentDivisions={
+                selectedEntityParentDivisions
+              }
               onEdit={() => console.log("Edit")}
-              onAnnotate={() => console.log("Annotate")}
-              onStatusChange={(value) => console.log(value)}
+              onAnnotate={() =>
+                console.log("Annotate")
+              }
+              onStatusChange={(value) =>
+                console.log(value)
+              }
             />
           )}
+
           {activeTab === "parent-divisions" && (
             <ParentDivisionDetails
               division={selectedParentDivision}
-              subdivisions={selectedParentDivisionSubDivisions}
-              legalEntities={selectedParentDivisionLegalEntities}
+              subdivisions={
+                selectedParentDivisionSubDivisions
+              }
+              legalEntities={
+                selectedParentDivisionLegalEntities
+              }
               onEdit={handleEdit}
-              onAnnotate={() => console.log("Annotate")}
+              onAnnotate={() =>
+                console.log("Annotate")
+              }
               onStatusChange={(value) =>
                 handleParentDivisionStatusToggle(
                   selectedParentDivision,
@@ -1473,14 +1492,23 @@ export default function MasterDataDashboard() {
               }
             />
           )}
+
           {activeTab === "sub-divisions" && (
             <SubDivisionDetails
               subdivision={selectedSubDivision}
-              businessUnits={selectedSubDivisionBusinessUnits}
-              analysisCodes={selectedSubDivisionAnalysisCodes}
+              businessUnits={
+                selectedSubDivisionBusinessUnits
+              }
+              analysisCodes={
+                selectedSubDivisionAnalysisCodes
+              }
               onEdit={handleEdit}
-              onAnnotate={() => console.log("Annotate")}
-              onStatusChange={(value) => console.log(value)}
+              onAnnotate={() =>
+                console.log("Annotate")
+              }
+              onStatusChange={(value) =>
+                console.log(value)
+              }
             />
           )}
 
@@ -1496,6 +1524,7 @@ export default function MasterDataDashboard() {
               }
             />
           )}
+
           {activeTab === "analysis-codes" && (
             <AnalysisCodeDetails
               analysisCode={selectedAnalysisCode}
@@ -1508,6 +1537,7 @@ export default function MasterDataDashboard() {
               }
             />
           )}
+
           {activeTab === "currencies" && (
             <CurrencyDetails
               currency={selectedCurrency}
@@ -1520,19 +1550,43 @@ export default function MasterDataDashboard() {
               }
             />
           )}
-
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="fixed bottom-0 left-55 right-0 border-t border-gray-200 bg-white px-3 py-1 shadow-sm">
+      {/* =====================================================
+          FOOTER
+      ===================================================== */}
+
+      <div
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: "55px",
+          right: 0,
+          height: "32px",
+          minHeight: "32px",
+          zIndex: 50,
+          borderTop: "1px solid #e5e7eb",
+          backgroundColor: "#ffffff",
+          padding: "4px 12px",
+          boxShadow: "0 -1px 3px rgba(0,0,0,0.05)",
+          boxSizing: "border-box",
+          overflow: "hidden",
+        }}
+      >
         <FooterNote
           title="Note:"
           message="Master data changes will be reflected across FinSight reports and dashboards."
           lastUpdated="20 Jun 2026 10:15 AM"
-          onRefresh={() => console.log("Refresh clicked")}
+          onRefresh={() =>
+            console.log("Refresh clicked")
+          }
         />
       </div>
+
+      {/* =====================================================
+          LEGAL GROUP MODAL
+      ===================================================== */}
 
       {activeTab === "legal-groups" && (
         <MasterDataModal
@@ -1553,6 +1607,10 @@ export default function MasterDataDashboard() {
           updateApi={updateLegalGroup}
         />
       )}
+
+      {/* =====================================================
+          LEGAL ENTITY MODAL
+      ===================================================== */}
 
       {activeTab === "legal-entities" && (
         <MasterDataModal
@@ -1576,12 +1634,10 @@ export default function MasterDataDashboard() {
               type: "multi-select",
               required: true,
               isId: true,
-
               idFields: [
                 "legal_group_id",
                 "id",
               ],
-
               options: legalGroups
                 .filter(
                   (group) =>
@@ -1599,6 +1655,10 @@ export default function MasterDataDashboard() {
         />
       )}
 
+      {/* =====================================================
+          PARENT DIVISION MODAL
+      ===================================================== */}
+
       {activeTab === "parent-divisions" && (
         <MasterDataModal
           open={showParentDivisionModal}
@@ -1614,8 +1674,9 @@ export default function MasterDataDashboard() {
           nameField="parent_division_name"
           codeLabel="Parent Division Code"
           nameLabel="Parent Division Name"
-
-          onCustomSave={handleUpdateParentDivision}
+          onCustomSave={
+            handleUpdateParentDivision
+          }
           extraFields={[
             {
               name: "legal_entity_ids",
@@ -1623,13 +1684,14 @@ export default function MasterDataDashboard() {
               type: "multi-select",
               required: true,
               isId: true,
-
               options: legalEntities
                 .filter(
-                  (entity) => entity.active === true
+                  (entity) =>
+                    entity.active === true
                 )
                 .map((entity) => ({
-                  value: entity.legal_entity_id,
+                  value:
+                    entity.legal_entity_id,
                   label: `${entity.legal_entity_code} - ${entity.legal_entity_name}`,
                 })),
             },
@@ -1638,6 +1700,11 @@ export default function MasterDataDashboard() {
           updateApi={handleUpdateParentDivision}
         />
       )}
+
+      {/* =====================================================
+          SUB DIVISION MODAL
+      ===================================================== */}
+
       {activeTab === "sub-divisions" && (
         <MasterDataModal
           open={showSubDivisionModal}
@@ -1664,7 +1731,6 @@ export default function MasterDataDashboard() {
               type: "select",
               required: true,
               isId: true,
-
               options: parentDivisions
                 .filter(
                   (item) =>
@@ -1681,6 +1747,11 @@ export default function MasterDataDashboard() {
           updateApi={updateSubDivision}
         />
       )}
+
+      {/* =====================================================
+          BUSINESS UNIT MODAL
+      ===================================================== */}
+
       {activeTab === "business-units" && (
         <MasterDataModal
           open={showBusinessUnitModal}
@@ -1705,7 +1776,6 @@ export default function MasterDataDashboard() {
               type: "select",
               required: true,
               isId: true,
-
               options: SubDivisions
                 .filter(
                   (item) =>
@@ -1717,31 +1787,26 @@ export default function MasterDataDashboard() {
                   label: `${item.subdivision_code} - ${item.subdivision_name}`,
                 })),
             },
-
             {
               name: "subdivision_code",
               label: "Sub Division Code",
               readOnly: true,
             },
-
             {
               name: "subdivision_name",
               label: "Sub Division Name",
               readOnly: true,
             },
-
             {
               name: "parent_division_id",
               label: "Parent Division ID",
               readOnly: true,
             },
-
             {
               name: "parent_division_code",
               label: "Parent Division Code",
               readOnly: true,
             },
-
             {
               name: "parent_division_name",
               label: "Parent Division Name",
@@ -1752,6 +1817,10 @@ export default function MasterDataDashboard() {
           updateApi={updateBusinessunits}
         />
       )}
+
+      {/* =====================================================
+          ANALYSIS CODE MODAL
+      ===================================================== */}
 
       {activeTab === "analysis-codes" && (
         <MasterDataModal
@@ -1778,7 +1847,6 @@ export default function MasterDataDashboard() {
               type: "select",
               required: true,
               isId: true,
-
               options: SubDivisions
                 .filter(
                   (item) =>
@@ -1790,31 +1858,26 @@ export default function MasterDataDashboard() {
                   label: `${item.subdivision_code} - ${item.subdivision_name}`,
                 })),
             },
-
             {
               name: "subdivision_code",
               label: "Sub Division Code",
               readOnly: true,
             },
-
             {
               name: "subdivision_name",
               label: "Sub Division Name",
               readOnly: true,
             },
-
             {
               name: "parent_division_id",
               label: "Parent Division ID",
               readOnly: true,
             },
-
             {
               name: "parent_division_code",
               label: "Parent Division Code",
               readOnly: true,
             },
-
             {
               name: "parent_division_name",
               label: "Parent Division Name",
@@ -1825,6 +1888,11 @@ export default function MasterDataDashboard() {
           updateApi={updateAnalysisCodes}
         />
       )}
+
+      {/* =====================================================
+          EDIT CONFIRMATION
+      ===================================================== */}
+
       <ConfirmationModel
         open={showEditConfirm}
         title={`Edit ${getMasterDataTitle()}`}
@@ -1849,7 +1917,9 @@ export default function MasterDataDashboard() {
             }
 
             case "legal-entities":
-              setEditLegalEntity(selectedEditItem);
+              setEditLegalEntity(
+                selectedEditItem
+              );
               setShowEntityModal(true);
               break;
 
@@ -1865,20 +1935,26 @@ export default function MasterDataDashboard() {
                   response.data ||
                   [];
 
-                const legalEntityIds = data.map(
-                  (entity) => entity.legal_entity_id
-                );
+                const legalEntityIds =
+                  data.map(
+                    (entity) =>
+                      entity.legal_entity_id
+                  );
 
                 setEditParentDivision({
                   ...selectedEditItem,
-                  legal_entity_ids: legalEntityIds,
+                  legal_entity_ids:
+                    legalEntityIds,
                 });
 
-                setShowParentDivisionModal(true);
+                setShowParentDivisionModal(
+                  true
+                );
               } catch (error) {
                 console.error(
                   "Parent Division Legal Entity mapping error:",
-                  error?.response?.data || error
+                  error?.response?.data ||
+                    error
                 );
 
                 toast.error(
@@ -1890,25 +1966,32 @@ export default function MasterDataDashboard() {
             }
 
             case "sub-divisions":
-              setEditSubDivision(selectedEditItem);
+              setEditSubDivision(
+                selectedEditItem
+              );
               setShowSubDivisionModal(true);
               break;
 
             case "business-units":
-              setEditBusinessUnit(selectedEditItem);
+              setEditBusinessUnit(
+                selectedEditItem
+              );
               setShowBusinessUnitModal(true);
               break;
 
             case "analysis-codes":
-              setEditAnalysisCode(selectedEditItem);
+              setEditAnalysisCode(
+                selectedEditItem
+              );
               setShowAnalysisCodeModal(true);
               break;
 
             case "currencies":
-              setEditCurrency(selectedEditItem);
+              setEditCurrency(
+                selectedEditItem
+              );
               setShowCurrencyModal(true);
               break;
-
 
             default:
               break;
@@ -1918,6 +2001,10 @@ export default function MasterDataDashboard() {
           setSelectedEditItem(null);
         }}
       />
+
+      {/* =====================================================
+          CURRENCY MODAL
+      ===================================================== */}
 
       {activeTab === "currencies" && (
         <MasterDataModal
@@ -1946,6 +2033,6 @@ export default function MasterDataDashboard() {
           updateApi={updateCurrency}
         />
       )}
-    </>
+    </div>
   );
 }
