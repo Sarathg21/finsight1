@@ -1067,11 +1067,11 @@ export default function BalanceSheet() {
 
   /* ── Derived values ────────────────────────────────────────────── */
   const currency    = appliedFilters.currency || 'AED';
-  const compareLbl  = appliedFilters.comparePeriod ? `vs ${getPeriodLabel(appliedFilters.comparePeriod)}` : '';
   const getPeriodLabel = (val) => {
       const p = filterOptions.periods.find(x => (typeof x === 'object' ? x.period : x) === val);
       return typeof p === 'object' ? p.period_name : (p || val);
     };
+  const compareLbl  = appliedFilters.comparePeriod ? `vs ${getPeriodLabel(appliedFilters.comparePeriod)}` : '';
     const periodLabel = getPeriodLabel(appliedFilters.period) || '—';
 
   // Derive KPI values from summary sections
