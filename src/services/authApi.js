@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../utils/apiBase';
 /**
  * Auth API Service
  * ────────────────
@@ -15,8 +16,7 @@
 // use relative paths (/api/...) which are intercepted by the Vite dev proxy
 // → http://13.233.207.68:8000.  Using || would bypass the proxy and cause
 // CORS errors because the browser would hit the backend directly.
-export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? '';
+export const API_BASE = getApiBaseUrl();
 
 // Static display constant – always shows the real backend host in the UI
 // regardless of whether API_BASE is empty (proxy mode) or a full URL.
