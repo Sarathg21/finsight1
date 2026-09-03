@@ -57,7 +57,7 @@ const NAV_BY_ROLE = {
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
     // { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Overview'         },
     { to: '/pl',                 label: 'P&L Report',                          group: 'Financials'       },
-    // { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Financials'       },
+    { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Financials'       },
     { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Financials'       },
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
@@ -107,7 +107,7 @@ const NAV_BY_ROLE = {
   accountant: [
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
     { to: '/pl',                 label: 'P&L Report',                          group: 'Finance'          },
-    // { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Finance'          },
+    { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Finance'          },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Finance'          },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'Finance'          },
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Finance'          },
