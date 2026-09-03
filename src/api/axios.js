@@ -1,9 +1,10 @@
+import { getApiRoot } from '../utils/apiBase';
 import axios from "axios";
 import toast from "react-hot-toast";
 
 
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`,
+  baseURL: getApiRoot(),
 
   headers: {
     "Content-Type": "application/json",
@@ -26,7 +27,7 @@ api.interceptors.request.use(
   (config) => {
 
     const token =
-      localStorage.getItem("token");
+      localStorage.getItem("finsight_token");
 
 
     if (token) {
@@ -131,7 +132,7 @@ api.interceptors.response.use(
          */
 
         localStorage.removeItem(
-          "token"
+          "finsight_token"
         );
 
 
