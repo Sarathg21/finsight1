@@ -25,10 +25,10 @@ const DEFAULT_FILTERS = {
   period:        '',
   comparePeriod: '',
   currency:      'AED',
-  legalGroup:    [],
-  legalEntity:   [],
-  parentDivision:[],
-  subdivision:   [],
+  legalGroup:    'All',
+    legalEntity:   'All',
+    parentDivision:'All',
+    subdivision:   'All',
   ledger:        '',
 };
 
@@ -1362,20 +1362,72 @@ export default function BalanceSheet() {
         </FilterField>
 
         <FilterField label="Legal Group">
-          <MultiSelectDropdown options={filterOptions.legalGroups} value={filters.legalGroup} onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }} disabled={loading.filters} />
-        </FilterField>
+            <select
+              id="filter-bs-legal-group"
+              style={selStyle}
+              value={filters.legalGroup}
+              onChange={e => setFilters(prev => ({ ...prev, legalGroup: e.target.value, legalEntity: 'All', parentDivision: 'All', subdivision: 'All' }))}
+              disabled={loading.filters}
+            >
+              <option value="All">All</option>
+              {filterOptions.legalGroups.filter(o => o !== 'All' && o.id !== 'All' && o.name !== 'All').map(o => {
+                const val = typeof o === 'object' ? (o.id !== undefined ? o.id : o.name) : o;
+                const label = typeof o === 'object' ? (o.name !== undefined ? o.name : o.label) : o;
+                return <option key={val} value={val}>{label}</option>;
+              })}
+            </select>
+          </FilterField>
 
-        <FilterField label="Legal Entity">
-          <MultiSelectDropdown options={filterOptions.legalEntities} value={filters.legalEntity} onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))} disabled={loading.filters} />
-        </FilterField>
+          <FilterField label="Legal Entity">
+            <select
+              id="filter-bs-legal-entity"
+              style={selStyle}
+              value={filters.legalEntity}
+              onChange={e => setFilters(prev => ({ ...prev, legalEntity: e.target.value, parentDivision: 'All', subdivision: 'All' }))}
+              disabled={loading.filters}
+            >
+              <option value="All">All</option>
+              {filterOptions.legalEntities.filter(o => o !== 'All' && o.id !== 'All' && o.name !== 'All').map(o => {
+                const val = typeof o === 'object' ? (o.id !== undefined ? o.id : o.name) : o;
+                const label = typeof o === 'object' ? (o.name !== undefined ? o.name : o.label) : o;
+                return <option key={val} value={val}>{label}</option>;
+              })}
+            </select>
+          </FilterField>
 
-        <FilterField label="Parent Division">
-          <MultiSelectDropdown options={filterOptions.parentDivisions} value={filters.parentDivision} onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))} disabled={loading.filters} />
-        </FilterField>
+          <FilterField label="Parent Division">
+            <select
+              id="filter-bs-parent-division"
+              style={selStyle}
+              value={filters.parentDivision}
+              onChange={e => setFilters(prev => ({ ...prev, parentDivision: e.target.value, subdivision: 'All' }))}
+              disabled={loading.filters}
+            >
+              <option value="All">All</option>
+              {filterOptions.parentDivisions.filter(o => o !== 'All' && o.id !== 'All' && o.name !== 'All').map(o => {
+                const val = typeof o === 'object' ? (o.id !== undefined ? o.id : o.name) : o;
+                const label = typeof o === 'object' ? (o.name !== undefined ? o.name : o.label) : o;
+                return <option key={val} value={val}>{label}</option>;
+              })}
+            </select>
+          </FilterField>
 
-        <FilterField label="Sub-Division">
-          <MultiSelectDropdown options={filterOptions.subdivisions} value={filters.subdivision} onChange={v => setFilters(prev => ({ ...prev, subdivision: v }))} disabled={loading.filters} />
-        </FilterField>
+          <FilterField label="Sub-Division">
+            <select
+              id="filter-bs-subdivision"
+              style={selStyle}
+              value={filters.subdivision}
+              onChange={e => setFilters(prev => ({ ...prev, subdivision: e.target.value }))}
+              disabled={loading.filters}
+            >
+              <option value="All">All</option>
+              {filterOptions.subdivisions.filter(o => o !== 'All' && o.id !== 'All' && o.name !== 'All').map(o => {
+                const val = typeof o === 'object' ? (o.id !== undefined ? o.id : o.name) : o;
+                const label = typeof o === 'object' ? (o.name !== undefined ? o.name : o.label) : o;
+                return <option key={val} value={val}>{label}</option>;
+              })}
+            </select>
+          </FilterField>
 
         <FilterField label="Ledger">
           <select
