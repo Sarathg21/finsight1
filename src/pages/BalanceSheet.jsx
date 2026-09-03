@@ -437,7 +437,7 @@ function BalanceBadge({ status, variance, currency }) {
     }}>
       <span style={{ fontSize: '0.8rem' }}>{isBalanced ? '✅' : '⚠️'}</span>
       <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isBalanced ? '#15803d' : '#c2410c' }}>
-        {isBalanced ? 'Balanced' : 'Variance Detected'}
+        {isBalanced ? 'Balanced' : 'Oracle-source reconciliation difference'}
       </span>
       {!isBalanced && variance != null && (
         <span style={{ fontSize: '0.68rem', color: '#9a3412', fontWeight: 600 }}>
@@ -1159,7 +1159,7 @@ export default function BalanceSheet() {
       label: 'Balance Status',
       value: loading.summary ? '—' : (kpiTotals.balanceStatus || '—'),
       subValue: kpiTotals.balanceStatus === 'UNBALANCED'
-        ? `Var: ${fmtKPI(kpiTotals.balanceVariance, currency)}`
+        ? `Oracle Diff: ${fmtKPI(kpiTotals.balanceVariance, currency)}`
         : 'Books are balanced',
       changePct: null,
       compareLabel: null,
