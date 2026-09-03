@@ -12,7 +12,7 @@
  * Base URL: VITE_API_BASE_URL env var (defaults to '' for Vite proxy)
  *
  * Endpoints consumed:
- *   GET  /api/bs/filters
+ *   GET  /api/bs/filter-options
  *   GET  /api/bs/summary
  *   GET  /api/bs/subdivision
  *   GET  /api/bs/trend
@@ -190,7 +190,7 @@ export function exportBS(format = 'excel', section = 'summary', filters = {}) {
 ══════════════════════════════════════════════════════════════════════ */
 
 /**
- * GET /api/bs/filters
+ * GET /api/bs/filter-options
  * Returns available filter options: periods, currencies, ledgers, legal_entities.
  *
  * @param {object} params  Optional: { analysis_code }
@@ -200,7 +200,7 @@ export async function fetchBSFilters(params = {}) {
   const apiParams = {};
   if (params.analysisCode) apiParams.analysis_code = params.analysisCode;
 
-  const raw = await apiCall('/api/bs/filters', apiParams);
+  const raw = await apiCall('/api/bs/filter-options', apiParams);
   // DEV-only: log raw filters response for debugging. Fires once per real request
   // (StrictMode double-invoke is deduped at the apiCall cache level).
   if (import.meta.env.DEV) console.log('[bsApi] fetchBSFilters raw:', raw);
