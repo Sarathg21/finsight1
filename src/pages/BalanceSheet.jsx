@@ -14,6 +14,8 @@ import {
   exportBS,
 } from '../services/bsApi';
 import { C } from '../utils/theme';
+import { useAuth } from '../context/AuthContext';
+import MultiSelectDropdown from '../components/Filters/MultiSelectDropdown';
 
 /* ══════════════════════════════════════════════════════════════════════
    CONSTANTS & DEFAULTS
@@ -23,7 +25,10 @@ const DEFAULT_FILTERS = {
   period:        '',
   comparePeriod: '',
   currency:      'AED',
-  legalEntityId: '',
+  legalGroup:    [],
+  legalEntity:   [],
+  parentDivision:[],
+  subdivision:   [],
   ledger:        '',
 };
 
@@ -432,7 +437,7 @@ function BalanceBadge({ status, variance, currency }) {
     }}>
       <span style={{ fontSize: '0.8rem' }}>{isBalanced ? '✅' : '⚠️'}</span>
       <span style={{ fontSize: '0.72rem', fontWeight: 700, color: isBalanced ? '#15803d' : '#c2410c' }}>
-        {isBalanced ? 'Balanced' : 'Variance Detected'}
+        {isBalanced ? 'Balanced' : 'Oracle-source reconciliation difference'}
       </span>
       {!isBalanced && variance != null && (
         <span style={{ fontSize: '0.68rem', color: '#9a3412', fontWeight: 600 }}>
@@ -808,7 +813,96 @@ function ReconciliationViewAll({ rows, currency }) {
 /* ══════════════════════════════════════════════════════════════════════
    MAIN PAGE COMPONENT
 ══════════════════════════════════════════════════════════════════════ */
+
+import { getApiBaseUrl } from '../utils/apiBase';
+
+function ExportButtons({ endpoint, filters, size = 'sm' }) {
+  const [exporting, setExporting] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const handleExport = async (format) => {
+    if (exporting) return;
+    setExporting(format);
+
+    try {
+      const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
+      const active = (val) => {
+        if (Array.isArray(val)) {
+          const f = val.filter(v => v !== 'All' && v !== 'all');
+          return f.length > 0 ? f : undefined;
+        }
+        return val && val !== 'All' && val !== 'all' ? val : undefined;
+      };
+
+      const params = {
+        legal_group_id: active(filters.legalGroup),
+        legal_entity_id: active(filters.legalEntity),
+        parent_division_id: active(filters.parentDivision),
+        subdivision_id: active(filters.subdivision),
+        period: active(filters.period),
+        reporting_currency: active(filters.currency),
+        format
+      };
+
+      const urlParams = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined) {
+          if (Array.isArray(v)) v.forEach(val => urlParams.append(k, val));
+          else urlParams.append(k, v);
+        }
+      });
+      const qs = urlParams.toString();
+      const url = `${getApiBaseUrl()}/api/bs/${endpoint}/export${qs ? `?${qs}` : ''}`;
+
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
+
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `bs_${endpoint}_${format === 'excel' ? 'xlsx' : 'pdf'}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+
+      showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started`, 'success');
+    } catch (e) {
+      showToast(e.message || 'Export failed', 'error');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      {toast && <span style={{ fontSize: '0.7rem', color: toast.type === 'error' ? 'red' : 'green' }}>{toast.msg}</span>}
+      <button onClick={() => handleExport('excel')} disabled={!!exporting} style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 4, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', cursor: exporting ? 'not-allowed' : 'pointer' }}>Excel</button>
+      <button onClick={() => handleExport('pdf')} disabled={!!exporting} style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 4, border: '1px solid #fecdd3', background: '#fff1f2', color: '#be123c', cursor: exporting ? 'not-allowed' : 'pointer' }}>PDF</button>
+    </div>
+  );
+}
+
 export default function BalanceSheet() {
+  const { hasExportRight } = useAuth();
+
+  // Format YYYY-MM to MMM-YY for display
+  const formatPeriod = (p) => {
+    if (!p) return '';
+    if (/^\d{4}-\d{2}$/.test(p)) {
+      const parts = p.split('-');
+      const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+      return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }).replace(' ', '-');
+    }
+    return p;
+  };
+
 
   /* ── Filter state ──────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
@@ -818,7 +912,7 @@ export default function BalanceSheet() {
   const [filterOptions, setFilterOptions] = useState({
     periods:        [],
     currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-    legalEntities:  [{ id: '', name: 'All' }],
+    legalGroups: ['All'], legalEntities: ['All'], parentDivisions: ['All'], subdivisions: ['All'],
     ledgers:        ['All'],
   });
 
@@ -876,11 +970,15 @@ export default function BalanceSheet() {
     try {
       const data = await fetchBSFilters();
       const periods = data?.periods || [];
+        const periodVals = periods.map(p => typeof p === 'object' ? p.period : p);
       setFilterOptions(prev => ({
         ...prev,
         periods,
         currencies:    ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-        legalEntities: [{ id: '', name: 'All' }, ...(data?.legal_entities || []).filter(e => e && (typeof e === 'string' ? e !== 'All' : e.name !== 'All' && e.id !== ''))],
+        legalGroups: data?.legal_groups || [],
+          legalEntities: data?.legal_entities || [],
+          parentDivisions: data?.parent_divisions || [],
+          subdivisions: data?.subdivisions || [],
         ledgers:       ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
       // Auto-select first period
@@ -969,8 +1067,12 @@ export default function BalanceSheet() {
 
   /* ── Derived values ────────────────────────────────────────────── */
   const currency    = appliedFilters.currency || 'AED';
-  const compareLbl  = appliedFilters.comparePeriod ? `vs ${appliedFilters.comparePeriod}` : '';
-  const periodLabel = appliedFilters.period || '—';
+  const compareLbl  = appliedFilters.comparePeriod ? `vs ${getPeriodLabel(appliedFilters.comparePeriod)}` : '';
+  const getPeriodLabel = (val) => {
+      const p = filterOptions.periods.find(x => (typeof x === 'object' ? x.period : x) === val);
+      return typeof p === 'object' ? p.period_name : (p || val);
+    };
+    const periodLabel = getPeriodLabel(appliedFilters.period) || '—';
 
   // Derive KPI values from summary sections
   const kpiTotals = (() => {
@@ -1057,7 +1159,7 @@ export default function BalanceSheet() {
       label: 'Balance Status',
       value: loading.summary ? '—' : (kpiTotals.balanceStatus || '—'),
       subValue: kpiTotals.balanceStatus === 'UNBALANCED'
-        ? `Var: ${fmtKPI(kpiTotals.balanceVariance, currency)}`
+        ? `Oracle Diff: ${fmtKPI(kpiTotals.balanceVariance, currency)}`
         : 'Books are balanced',
       changePct: null,
       compareLabel: null,
@@ -1223,7 +1325,11 @@ export default function BalanceSheet() {
             disabled={loading.filters}
           >
             {filterOptions.periods.length === 0 && <option value="">Loading…</option>}
-            {filterOptions.periods.map(p => <option key={p}>{p}</option>)}
+            {filterOptions.periods.map(p => {
+                const val = typeof p === 'object' ? p.period : p;
+                const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
+                return <option key={val} value={val}>{label}</option>;
+              })}
           </select>
         </FilterField>
 
@@ -1236,7 +1342,11 @@ export default function BalanceSheet() {
             disabled={loading.filters}
           >
             <option value="">None</option>
-            {filterOptions.periods.map(p => <option key={p}>{p}</option>)}
+            {filterOptions.periods.map(p => {
+                const val = typeof p === 'object' ? p.period : p;
+                const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
+                return <option key={val} value={val}>{label}</option>;
+              })}
           </select>
         </FilterField>
 
@@ -1251,20 +1361,20 @@ export default function BalanceSheet() {
           </select>
         </FilterField>
 
+        <FilterField label="Legal Group">
+          <MultiSelectDropdown options={filterOptions.legalGroups} value={filters.legalGroup} onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }} disabled={loading.filters} />
+        </FilterField>
+
         <FilterField label="Legal Entity">
-          <select
-            id="filter-bs-entity"
-            style={selStyle}
-            value={filters.legalEntityId}
-            onChange={e => setFilters(prev => ({ ...prev, legalEntityId: e.target.value }))}
-            disabled={loading.filters}
-          >
-            {filterOptions.legalEntities.map((le, idx) => {
-              const val = typeof le === 'object' ? (le?.id ?? '') : (le === 'All' ? '' : le);
-              const label = typeof le === 'object' ? (le?.name || (val === '' ? 'All' : val)) : le;
-              return <option key={`${val}-${idx}`} value={val}>{label}</option>;
-            })}
-          </select>
+          <MultiSelectDropdown options={filterOptions.legalEntities} value={filters.legalEntity} onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))} disabled={loading.filters} />
+        </FilterField>
+
+        <FilterField label="Parent Division">
+          <MultiSelectDropdown options={filterOptions.parentDivisions} value={filters.parentDivision} onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))} disabled={loading.filters} />
+        </FilterField>
+
+        <FilterField label="Sub-Division">
+          <MultiSelectDropdown options={filterOptions.subdivisions} value={filters.subdivision} onChange={v => setFilters(prev => ({ ...prev, subdivision: v }))} disabled={loading.filters} />
         </FilterField>
 
         <FilterField label="Ledger">
@@ -1300,7 +1410,10 @@ export default function BalanceSheet() {
       {/* ══ KPI CARDS ══ */}
       <div className="card" style={{ padding: '12px 16px', marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <span style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Key Performance Indicators</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Key Performance Indicators</span>
+            {hasExportRight("BALANCE_SHEET") && <ExportButtons endpoint="summary" filters={appliedFilters} />}
+          </div>
           {/* Balance status badge */}
           {!loading.summary && summaryData && (
             <BalanceBadge
@@ -1569,137 +1682,14 @@ export default function BalanceSheet() {
       {/* ══ BALANCE SHEET STATEMENT TABLE ══ */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 18 }}>
         <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Balance Sheet Statement</span>
-            <span style={{ fontSize: '0.7rem', color: C.slate, marginLeft: 12 }}>
-              {periodLabel} &nbsp;|&nbsp; All values in {currency} &nbsp;|&nbsp; Click any account row to drill down
-            </span>
-          </div>
-          <KebabMenu id="menu-bs-statement" items={summaryMenuItems} />
-        </div>
-
-        {errors.summary ? (
-          <div style={{ padding: 16 }}><ErrorBanner message={errors.summary} onRetry={() => fetchAll(appliedFilters)} /></div>
-        ) : loading.summary ? (
-          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[...Array(10)].map((_, i) => <Skeleton key={i} h={28} w={`${55 + (i % 4) * 10}%`} />)}
-          </div>
-        ) : !summaryData?.sections?.length ? (
-          <div style={{ padding: 40, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>
-            No data for selected period and currency.
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...TH_L, width: '34%' }}>
-                    Particulars<br />
-                    <span style={{ fontWeight: 400, opacity: 0.75 }}>(in {currency})</span>
-                  </th>
-                  <th style={TH}>Balance Amount</th>
-                  <th style={{ ...TH, width: 56 }}>DR/CR</th>
-                  <th style={TH}>
-                    Compare Amount<br />
-                    <span style={{ fontWeight: 400, opacity: 0.75 }}>{appliedFilters.comparePeriod || '—'}</span>
-                  </th>
-                  <th style={TH}>Variance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryData.sections.map((sec) => {
-                  const secKey = sec.section;
-                  const isExpanded = sectionExpanded[secKey] !== false; // default open
-                  return (
-                    // FIX m2: keyed Fragment prevents React key warning inside <tbody>
-                    <Fragment key={secKey}>
-                      <SectionHeader
-                        label={`${secKey} — ${fmtNum(Math.abs(sec.section_total), currency)}`}
-                        expanded={isExpanded}
-                        onToggle={() => setSectionExpanded(prev => ({ ...prev, [secKey]: !isExpanded }))}
-                      />
-                      {isExpanded && sec.sub_sections.map((sub) => (
-                        <Fragment key={sub.sub_section}>
-                          <SubSectionHeader
-                            label={`${sub.sub_section} — ${fmtNum(Math.abs(sub.sub_total), currency)}`}
-                          />
-                          {sub.accounts.map((acct) => (
-                            <BSRow
-                              key={acct.account_code}
-                              account={acct}
-                              currency={currency}
-                              onDrilldown={handleDrilldown}
-                            />
-                          ))}
-                          {/* Sub-total row */}
-                          <tr style={{ background: '#f1f5f9' }}>
-                            <td style={{ ...TD_L, paddingLeft: 22, fontWeight: 700, fontSize: '0.72rem' }}>
-                              {sub.sub_section} Total
-                            </td>
-                            <td style={{ ...TD, fontWeight: 800, color: C.navy }}>
-                              {fmtNum(Math.abs(sub.sub_total), currency)}
-                            </td>
-                            <td style={TD} />
-                            <td style={{ ...TD, color: C.slate }}>
-                              {sub.compare_sub_total != null ? fmtNum(Math.abs(sub.compare_sub_total), currency) : '—'}
-                            </td>
-                            <td style={TD}>—</td>
-                          </tr>
-                        </Fragment>
-                      ))}
-                      {/* Section total row */}
-                      <tr style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', borderTop: `2px solid ${C.border}` }}>
-                        <td style={{ ...TD_L, paddingLeft: 12, fontWeight: 900, fontSize: '0.75rem', color: C.navy }}>
-                          {secKey} — Total
-                        </td>
-                        <td style={{ ...TD, fontWeight: 900, color: C.primary, fontSize: '0.76rem' }}>
-                          {fmtNum(Math.abs(sec.section_total), currency)}
-                        </td>
-                        <td style={TD} />
-                        <td style={{ ...TD, color: C.slate }}>
-                          {sec.compare_total != null ? fmtNum(Math.abs(sec.compare_total), currency) : '—'}
-                        </td>
-                        <td style={TD}>{sec.variance != null ? <VarBadge v={sec.variance} /> : '—'}</td>
-                      </tr>
-                    </Fragment>
-                  );
-                })}
-                {/* Grand Total */}
-                <tr style={{ background: 'linear-gradient(90deg,#f0f4ff,#eef2ff)', borderTop: `2px solid #c7d2fe` }}>
-                  <td style={{ ...TD_L, paddingLeft: 12, fontWeight: 900, fontSize: '0.78rem', color: C.navy }}>
-                    GRAND TOTAL (Net)
-                  </td>
-                  <td style={{ ...TD, fontWeight: 900, color: Math.abs(summaryData.grand_total ?? 0) < 1000 ? C.green : C.rose, fontSize: '0.78rem' }}>
-                    {fmtNum(Math.abs(summaryData.grand_total ?? 0), currency)}
-                  </td>
-                  <td style={TD} />
-                  <td style={TD}>—</td>
-                  <td style={{ ...TD, fontWeight: 800 }}>
-                    {summaryData.balance_status && (
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 10, fontSize: '0.65rem', fontWeight: 700,
-                        background: summaryData.balance_status === 'BALANCED' ? '#dcfce7' : '#ffedd5',
-                        color: summaryData.balance_status === 'BALANCED' ? '#15803d' : '#c2410c',
-                      }}>
-                        {summaryData.balance_status}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ══ SUB-DIVISION TABLE ══ */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 8 }}>
-        <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Balance Sheet by Sub-Division</span>
-            <span style={{ fontSize: '0.7rem', color: C.slate, marginLeft: 12 }}>
-              {subdivisionData?.pagination?.total_subdivisions ?? '—'} sub-divisions &nbsp;|&nbsp; Page {subdivisionData?.pagination?.page ?? 1} of {subdivisionData?.pagination?.total_pages ?? 1}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div>
+              <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Balance Sheet by Sub-Division</span>
+              <span style={{ fontSize: '0.7rem', color: C.slate, marginLeft: 12 }}>
+                {subdivisionData?.pagination?.total_subdivisions ?? '-'} sub-divisions &nbsp;|&nbsp; Page {subdivisionData?.pagination?.page ?? 1} of {subdivisionData?.pagination?.total_pages ?? 1}
+              </span>
+            </div>
+            {hasExportRight("BALANCE_SHEET") && <ExportButtons endpoint="subdivision" filters={appliedFilters} />}
           </div>
           <KebabMenu id="menu-bs-subdiv" items={subdivMenuItems} />
         </div>
@@ -1763,7 +1753,7 @@ export default function BalanceSheet() {
       <div style={{ fontSize: '0.64rem', color: C.muted, display: 'flex', justifyContent: 'space-between', paddingTop: 8, flexWrap: 'wrap', gap: 4 }}>
         <span>
           All values in {currency} &nbsp;|&nbsp; Period: {periodLabel}
-          {appliedFilters.comparePeriod ? ` | Compared with: ${appliedFilters.comparePeriod}` : ''}
+          {appliedFilters.comparePeriod ? ` | Compared with: ${formatPeriod(appliedFilters.comparePeriod)}` : ''}
         </span>
         <span>☁️ Source: Oracle Fusion Cloud</span>
       </div>
