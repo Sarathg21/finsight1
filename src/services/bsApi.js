@@ -383,17 +383,22 @@ function cleanNumbers(obj) {
  * Only includes non-empty / non-'All' values.
  */
 function buildBSParams(filters = {}) {
-  const active = (val) =>
-    val && val !== 'All' && val !== 'all' ? val : undefined;
+  const active = (val) => {
+    if (Array.isArray(val)) {
+      const f = val.filter(v => v !== 'All' && v !== 'all');
+      return f.length > 0 ? f : undefined;
+    }
+    return val && val !== 'All' && val !== 'all' ? val : undefined;
+  };
 
   return {
     period:              active(filters.period),
     compare_period:      active(filters.comparePeriod),
     reporting_currency:  active(filters.currency),
-    legal_group:         active(filters.legalGroup),
-    legal_entity:        active(filters.legalEntity),
-    parent_division:     active(filters.parentDivision),
-    subdivision:         active(filters.subdivision),
+    legal_group_id:      active(filters.legalGroup),
+    legal_entity_id:     active(filters.legalEntity),
+    parent_division_id:  active(filters.parentDivision),
+    subdivision_id:      active(filters.subdivision),
     ledger:              active(filters.ledger),
     section:             active(filters.section),
     sub_section:         active(filters.subSection),
@@ -413,7 +418,7 @@ function buildBSParams(filters = {}) {
  * @param {'excel'|'pdf'} format
  * @param {'summary'|'subdivision'} section  Which export endpoint to call
  * @param {object} filters — current applied filters
- * @returns {Promise<void>}
+ * @returns {Promise}
  */
 export function exportBS(format = 'excel', section = 'summary', filters = {}) {
   const token = localStorage.getItem('finsight_token');
@@ -597,7 +602,7 @@ export async function fetchBSTrend(filters) {
 export async function fetchBSDrilldown(filters) {
   const params = {
     period:       filters.period,
-    currency:     filters.currency,
+    reporting_currency: filters.currency,
     account_code: filters.accountCode,
     ledger:       filters.ledger || undefined,
     sort_by:      filters.sortBy  || 'balance_amount',
@@ -649,7 +654,7 @@ export async function fetchBSDrilldown(filters) {
  */
 export async function fetchBSReconciliation(filters = {}) {
   const params = {
-    currency:    filters.currency    || undefined,
+    reporting_currency: filters.currency || undefined,
     from_period: filters.fromPeriod  || undefined,
     to_period:   filters.toPeriod    || undefined,
   };
