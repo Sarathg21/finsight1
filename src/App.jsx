@@ -29,7 +29,7 @@ import UsersDashboard from './pages/UsersDashboard';
 import RolesDashboard from './pages/RolesDashboard';
 import UserAccessMangement from './pages/UserAccessManagement';
 import MasterDataDashboard from './pages/MasterDataDashboard'
-
+import OperatingAnalysis from './pages/OperatingAnalysis'
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -75,8 +75,14 @@ function App() {
               <Route path="/salesman" element={<ProtectedRoute pageKey="salesman" element={<PlaceholderPage title="Salesman-wise Reporting" />} />} />
               <Route path="/bu-pack" element={<ProtectedRoute pageKey="bu-pack" element={<PlaceholderPage title="BU Financial Pack" />} />} />
               <Route path="/pl" element={<ProtectedRoute pageKey="pl" element={<PLAnalytics />} />} />
+<<<<<<< ours
               <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance_sheet" element={<BalanceSheet />} />} />
               <Route path="/revenue" element={<ProtectedRoute pageKey="sales_revenue" element={<SalesRevenueReport />} />} />
+=======
+              <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance-sheet" element={<BalanceSheet />} />} />
+              <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />
+              <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses"  element={<OperatingAnalysis />} />} />
+>>>>>>> theirs
               <Route path="/cash-collection" element={<ProtectedRoute pageKey="cash-collection" element={<PlaceholderPage title="Cash Collection Report" />} />} />
               <Route path="/fixed-assets" element={<ProtectedRoute pageKey="fixed-assets" element={<PlaceholderPage title="Fixed Asset Report" />} />} />
               <Route path="/bank-facility" element={<ProtectedRoute pageKey="bank-facility" element={<PlaceholderPage title="Bank Facility Utilization" />} />} />

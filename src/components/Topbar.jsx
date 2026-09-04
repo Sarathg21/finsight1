@@ -18,6 +18,8 @@ const PAGE_TITLES = {
   '/country-performance': { title: 'Country Performance', sub: 'Cross-country KPI comparison' },
   '/salesman': { title: 'Salesman Dashboard', sub: 'Individual performance & AR tracking' },
   '/revenue': { title: 'Revenue Analysis', sub: 'Revenue by segment, product & period' },
+  '/operating-expenses': { title: 'Operating Expenses Analysis', sub: 'Operating Expenses Analysis' },
+
   '/receivables': { title: 'Receivables Analysis', sub: 'Monitor outstanding receivables, aging & collection performance' },
   '/payables': { title: 'Payables Analysis', sub: 'Monitor outstanding payables, aging & payment obligations' },
   '/division': { title: 'Division Reports', sub: 'Division-wise financial performance' },
