@@ -1698,88 +1698,147 @@ export default function BalanceSheet() {
               <button onClick={() => setOpenModal('statement')} style={{ fontSize: '0.7rem', color: C.primary, background: 'none', border: `1px solid ${C.primary}`, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontWeight: 600 }}>View All</button>
             </div>
           </div>
-          {/* Two-column layout: APPLICATION OF FUNDS | SOURCES OF FUNDS */}
+          {/* Two-column layout: one card per section */}
           {loading.summary ? (
             <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[...Array(6)].map((_, i) => <Skeleton key={i} h={28} w={`${60 + (i % 3) * 12}%`} />)}
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
-              {summaryData.sections.map((sec, si) => (
-                <div key={sec.name} style={{ flex: 1, minWidth: 340, borderRight: si < summaryData.sections.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                  {/* Section Header */}
-                  <div style={{ padding: '8px 16px', background: '#f0f4ff', borderBottom: `1px solid ${C.border}`, fontWeight: 800, fontSize: '0.74rem', color: C.navy, letterSpacing: '-0.01em' }}>
-                    {sec.name}
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.73rem' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ ...TH_L, padding: '7px 14px', background: '#f8fafc' }}>Particulars</th>
-                        <th style={{ ...TH, padding: '7px 14px', background: '#f8fafc' }}>Amount ({currency})</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(sec.sub_sections || []).map((sub) => {
-                        const subKey = `${si}-${sub.name}`;
-                        const isExpanded = sectionExpanded[subKey] !== false;
-                        return (
-                          <Fragment key={subKey}>
-                            {/* Sub-section header row */}
-                            <tr
-                              onClick={() => setSectionExpanded(prev => ({ ...prev, [subKey]: !isExpanded }))}
-                              style={{ cursor: 'pointer', background: '#f8fafc' }}
-                              onMouseEnter={e => e.currentTarget.style.background = '#eef2ff'}
-                              onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
-                            >
-                              <td style={{ ...TD_L, padding: '6px 14px', fontWeight: 700, color: C.navy, fontSize: '0.72rem' }}>
-                                <span style={{ marginRight: 6, fontSize: '0.6rem', color: C.slate }}>{isExpanded ? '▼' : '▶'}</span>
-                                {sub.name}
-                              </td>
-                              <td style={{ ...TD, padding: '6px 14px', fontWeight: 700, color: C.primary }}>
-                                {fmtNum(Math.abs(sub.total ?? 0), currency)}
-                              </td>
-                            </tr>
-                            {/* Account rows */}
-                            {isExpanded && (sub.accounts || []).slice(0, 15).map((acct, ai) => (
-                              <tr
-                                key={ai}
-                                onClick={() => handleDrilldown({ account_code: acct.account_code, account_name: acct.account_name })}
-                                style={{ cursor: 'pointer' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              {summaryData.sections.map((sec, si) => {
+                const hasCompare = appliedFilters.comparePeriod && sec.compare_total != null;
+                return (
+                  <div key={sec.name} style={{ flex: 1, minWidth: 380, borderRight: si < summaryData.sections.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                    {/* Section title bar */}
+                    <div style={{ padding: '8px 16px', background: '#f0f4ff', borderBottom: `1px solid ${C.border}`, fontWeight: 800, fontSize: '0.74rem', color: C.navy }}>
+                      {sec.name}
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ ...TH_L, padding: '7px 12px', background: '#f8fafc', fontSize: '0.68rem' }}>Particulars</th>
+                          <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>
+                            {periodLabel || 'Current'}
+                          </th>
+                          {hasCompare && <>
+                            <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>{getPeriodLabel(appliedFilters.comparePeriod)}</th>
+                            <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>Variance</th>
+                            <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>Var %</th>
+                          </>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(sec.sub_sections || []).map((sub) => {
+                          const subKey = `${si}-${sub.name}`;
+                          const isExpanded = sectionExpanded[subKey] !== false;
+                          const subVariance = sub.compare_total != null ? (sub.total ?? 0) - (sub.compare_total ?? 0) : null;
+                          const subVarPct = sub.compare_total ? (subVariance / Math.abs(sub.compare_total) * 100) : null;
+                          return (
+                            <Fragment key={subKey}>
+                              {/* Sub-section header */}
+                              <tr onClick={() => setSectionExpanded(prev => ({ ...prev, [subKey]: !isExpanded }))}
+                                style={{ cursor: 'pointer', background: '#f8fafc' }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#eef2ff'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
                               >
-                                <td style={{ ...TD_L, padding: '5px 14px 5px 28px', color: C.slate, fontSize: '0.7rem' }}>
-                                  {acct.account_name}
-                                  <span style={{ marginLeft: 6, fontSize: '0.58rem', color: '#cbd5e1', fontFamily: 'monospace' }}>{acct.account_code}</span>
+                                <td style={{ ...TD_L, padding: '6px 12px', fontWeight: 700, color: C.navy, fontSize: '0.71rem' }}>
+                                  <span style={{ marginRight: 5, fontSize: '0.58rem', color: C.slate }}>{isExpanded ? '▼' : '▶'}</span>
+                                  {sub.name}
                                 </td>
-                                <td style={{ ...TD, padding: '5px 14px', color: (acct.balance_amount ?? 0) < 0 ? C.rose : C.navy, fontWeight: 500 }}>
-                                  {acct.balance_amount < 0 ? '-' : ''}{fmtNum(Math.abs(acct.balance_amount ?? 0), currency)}
-                                </td>
+                                <td style={{ ...TD, padding: '6px 10px', fontWeight: 700, color: C.primary }}>{fmtNum(Math.abs(sub.total ?? 0), currency)}</td>
+                                {hasCompare && <>
+                                  <td style={{ ...TD, padding: '6px 10px', color: C.slate }}>{sub.compare_total != null ? fmtNum(Math.abs(sub.compare_total), currency) : '—'}</td>
+                                  <td style={{ ...TD, padding: '6px 10px', color: subVariance != null ? (subVariance >= 0 ? '#16a34a' : C.rose) : C.muted, fontWeight: 600 }}>
+                                    {subVariance != null ? (subVariance >= 0 ? '+' : '') + fmtNum(subVariance, currency) : '—'}
+                                  </td>
+                                  <td style={{ ...TD, padding: '6px 10px', color: subVarPct != null ? (subVarPct >= 0 ? '#16a34a' : C.rose) : C.muted, fontWeight: 600 }}>
+                                    {subVarPct != null ? (subVarPct >= 0 ? '+' : '') + subVarPct.toFixed(2) + '%' : '—'}
+                                  </td>
+                                </>}
                               </tr>
-                            ))}
-                            {isExpanded && (sub.accounts || []).length > 15 && (
-                              <tr>
-                                <td colSpan={2} style={{ padding: '4px 28px', fontSize: '0.68rem', color: C.primary, cursor: 'pointer' }}
-                                  onClick={() => setOpenModal('statement')}>
-                                  +{sub.accounts.length - 15} more — View All →
-                                </td>
-                              </tr>
-                            )}
-                          </Fragment>
-                        );
-                      })}
-                      {/* Section Total */}
-                      <tr style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', borderTop: `2px solid ${C.border}` }}>
-                        <td style={{ ...TD_L, padding: '8px 14px', fontWeight: 900, fontSize: '0.75rem', color: C.navy }}>{sec.name} — Total</td>
-                        <td style={{ ...TD, padding: '8px 14px', fontWeight: 900, color: C.primary, fontSize: '0.76rem' }}>{fmtNum(Math.abs(sec.total ?? 0), currency)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ))}
+                              {/* Account rows (up to 15) */}
+                              {isExpanded && (sub.accounts || []).slice(0, 15).map((acct, ai) => {
+                                const variance = acct.variance ?? (acct.compare_amount != null ? (acct.balance_amount ?? 0) - acct.compare_amount : null);
+                                const varPct = acct.compare_amount ? (variance / Math.abs(acct.compare_amount) * 100) : null;
+                                return (
+                                  <tr key={ai}
+                                    onClick={() => handleDrilldown({ account_code: acct.account_code, account_name: acct.account_name })}
+                                    style={{ cursor: 'pointer' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                  >
+                                    <td style={{ ...TD_L, padding: '4px 12px 4px 26px', color: C.slate, fontSize: '0.69rem' }}>
+                                      {acct.account_name}
+                                      <span style={{ marginLeft: 5, fontSize: '0.57rem', color: '#cbd5e1', fontFamily: 'monospace' }}>{acct.account_code}</span>
+                                    </td>
+                                    <td style={{ ...TD, padding: '4px 10px', color: (acct.balance_amount ?? 0) < 0 ? C.rose : C.navy }}>
+                                      {acct.balance_amount < 0 ? '-' : ''}{fmtNum(Math.abs(acct.balance_amount ?? 0), currency)}
+                                    </td>
+                                    {hasCompare && <>
+                                      <td style={{ ...TD, padding: '4px 10px', color: C.slate }}>{acct.compare_amount != null ? fmtNum(Math.abs(acct.compare_amount), currency) : '—'}</td>
+                                      <td style={{ ...TD, padding: '4px 10px', color: variance != null ? (variance >= 0 ? '#16a34a' : C.rose) : C.muted, fontSize: '0.69rem' }}>
+                                        {variance != null ? (variance >= 0 ? '+' : '') + fmtNum(variance, currency) : '—'}
+                                      </td>
+                                      <td style={{ ...TD, padding: '4px 10px', color: varPct != null ? (varPct >= 0 ? '#16a34a' : C.rose) : C.muted, fontSize: '0.69rem' }}>
+                                        {varPct != null ? (varPct >= 0 ? '+' : '') + varPct.toFixed(2) + '%' : '—'}
+                                      </td>
+                                    </>}
+                                  </tr>
+                                );
+                              })}
+                              {isExpanded && (sub.accounts || []).length > 15 && (
+                                <tr>
+                                  <td colSpan={hasCompare ? 5 : 2} style={{ padding: '3px 26px', fontSize: '0.67rem', color: C.primary, cursor: 'pointer' }} onClick={() => setOpenModal('statement')}>
+                                    +{sub.accounts.length - 15} more — View All →
+                                  </td>
+                                </tr>
+                              )}
+                              {/* Equity insight card after EQUITY sub-section */}
+                              {isExpanded && sub.name.toUpperCase().includes('EQUITY') && kpiTotals.totalAssets > 0 && (
+                                <tr>
+                                  <td colSpan={hasCompare ? 5 : 2} style={{ padding: '8px 12px' }}>
+                                    <div style={{ background: 'linear-gradient(90deg,#f0fdf4,#ecfdf5)', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                                      <div style={{ fontSize: '1.4rem' }}>🏢</div>
+                                      <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#15803d' }}>
+                                          Total Equity represents {((kpiTotals.totalEquity / kpiTotals.totalAssets) * 100).toFixed(2)}% of Total Assets
+                                        </div>
+                                        {appliedFilters.comparePeriod && (
+                                          <div style={{ fontSize: '0.66rem', color: '#16a34a', marginTop: 2 }}>
+                                            vs {getPeriodLabel(appliedFilters.comparePeriod)}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                        {/* Section Total */}
+                        <tr style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', borderTop: `2px solid ${C.border}` }}>
+                          <td style={{ ...TD_L, padding: '8px 12px', fontWeight: 900, fontSize: '0.74rem', color: C.navy }}>TOTAL {sec.name}</td>
+                          <td style={{ ...TD, padding: '8px 10px', fontWeight: 900, color: C.primary, fontSize: '0.75rem' }}>{fmtNum(Math.abs(sec.total ?? 0), currency)}</td>
+                          {hasCompare && <>
+                            <td style={{ ...TD, padding: '8px 10px', fontWeight: 700, color: C.slate }}>{sec.compare_total != null ? fmtNum(Math.abs(sec.compare_total), currency) : '—'}</td>
+                            <td style={{ ...TD, padding: '8px 10px', fontWeight: 700, color: '#16a34a' }}>
+                              {sec.compare_total != null ? (((sec.total ?? 0) - sec.compare_total) >= 0 ? '+' : '') + fmtNum((sec.total ?? 0) - sec.compare_total, currency) : '—'}
+                            </td>
+                            <td style={{ ...TD, padding: '8px 10px', fontWeight: 700, color: '#16a34a' }}>
+                              {sec.compare_total ? (((sec.total ?? 0) - sec.compare_total) / Math.abs(sec.compare_total) * 100).toFixed(2) + '%' : '—'}
+                            </td>
+                          </>}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
             </div>
           )}
-          {/* Grand Total */}
+          {/* Grand Total bar */}
           {!loading.summary && summaryData && (
             <div style={{ padding: '10px 18px', borderTop: `2px solid #c7d2fe`, background: 'linear-gradient(90deg,#f0f4ff,#eef2ff)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontWeight: 900, fontSize: '0.78rem', color: C.navy }}>GRAND TOTAL (Net Variance)</span>
