@@ -641,8 +641,7 @@ function SubDivisionViewAll({ data, currency }) {
         <tr>
           <th style={MTH_L}>Sub-Division</th>
           <th style={MTH}>Code</th>
-          <th style={MTH}>Sources of Funds</th>
-          <th style={MTH}>Application of Funds</th>
+          
           <th style={MTH}>Net Balance</th>
         </tr>
       </thead>
@@ -655,8 +654,7 @@ function SubDivisionViewAll({ data, currency }) {
           >
             <td style={{ ...MTD_L, fontWeight: 600 }}>{row.sub_division_name}</td>
             <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.sub_division_code}</td>
-            <td style={{ ...MTD, color: C.rose }}>{fmtNum(Math.abs(row.section_totals?.['SOURCES OF FUNDS'] ?? 0), currency)}</td>
-            <td style={{ ...MTD, color: C.green }}>{fmtNum(Math.abs(row.section_totals?.['APPLICATION OF FUNDS'] ?? 0), currency)}</td>
+            
             <td style={{ ...MTD, fontWeight: 700, color: (row.grand_total ?? 0) >= 0 ? C.navy : C.rose }}>
               {fmtNum(Math.abs(row.grand_total ?? 0), currency)}
             </td>
@@ -771,8 +769,7 @@ function ReconciliationViewAll({ rows, currency }) {
         <tr>
           <th style={MTH_L}>Period</th>
           <th style={MTH}>Currency</th>
-          <th style={MTH}>Sources of Funds</th>
-          <th style={MTH}>Application of Funds</th>
+          
           <th style={MTH}>Net Variance</th>
           <th style={MTH}>Status</th>
         </tr>
@@ -1711,8 +1708,7 @@ export default function BalanceSheet() {
                 <tr>
                   <th style={TH_L}>Sub-Division</th>
                   <th style={{ ...TH, width: 72 }}>Code</th>
-                  <th style={TH}>Sources of Funds</th>
-                  <th style={TH}>Application of Funds</th>
+                  
                   <th style={TH}>Net Balance</th>
                 </tr>
               </thead>
@@ -1732,8 +1728,7 @@ export default function BalanceSheet() {
                     >
                       <td style={{ ...TD_L, fontWeight: 600 }}>{row.sub_division_name}</td>
                       <td style={{ ...TD, fontFamily: 'monospace', fontSize: '0.67rem', color: C.slate }}>{row.sub_division_code}</td>
-                      <td style={{ ...TD, color: C.rose }}>{fmtNum(Math.abs(sources), currency)}</td>
-                      <td style={{ ...TD, color: C.green }}>{fmtNum(Math.abs(applic), currency)}</td>
+                      
                       <td style={{ ...TD, fontWeight: 700, color: netColor }}>
                         {fmtNum(Math.abs(net), currency)}
                         {net < 0 && (
