@@ -15,7 +15,7 @@ import {
 } from '../services/bsApi';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
-import MultiSelectDropdown from '../components/Filters/MultiSelectDropdown';
+// MultiSelectDropdown replaced by inline MultiSelect (matches Sales Revenue style)
 
 /* ══════════════════════════════════════════════════════════════════════
    CONSTANTS & DEFAULTS
@@ -184,16 +184,82 @@ function ErrorBanner({ message, onRetry }) {
   );
 }
 
+/* ── MultiSelect (identical to Sales Revenue) ─────────────────────── */
+function MultiSelect({ options = [], value, onChange, placeholder = 'All', style }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const normOptions = options.map(o => {
+    if (typeof o === 'string') return { id: o, name: o };
+    const id = o.value !== undefined ? o.value : o.id;
+    const name = o.label !== undefined ? o.label : o.name;
+    return { id, name };
+  });
+
+  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+  const toggle = (optId) => {
+    if (String(optId) === 'All') { onChange(['All']); return; }
+    const cur = isAll ? [] : value.filter(v => String(v) !== 'All');
+    const next = cur.some(v => String(v) === String(optId))
+      ? cur.filter(v => String(v) !== String(optId))
+      : [...cur, optId];
+    onChange(next.length === 0 ? ['All'] : next);
+  };
+
+  const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
+  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
+
+  return (
+    <div ref={ref} style={{ position: 'relative', ...style }}>
+      <div onClick={() => setOpen(o => !o)} style={{ ...selStyle, backgroundImage: 'none', appearance: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85%' }}>{label}</span>
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
+          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc' }}>
+            <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+            </span>
+            All
+          </div>
+          {normOptions.map(opt => {
+            if (opt.id === 'All') return null;
+            const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
+            return (
+              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+                <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+                </span>
+                {opt.name}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FilterField({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 80, flex: '1 1 0' }}>
-      <span style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, letterSpacing: '-0.02em' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 85, flex: '0 0 auto' }}>
+      <span style={{
+        fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700,
+        letterSpacing: '-0.02em', whiteSpace: 'nowrap',
+      }}>
         {label}
       </span>
       {children}
     </div>
   );
 }
+
 
 function ExportToast({ message, type }) {
   if (!message) return null;
@@ -1359,19 +1425,19 @@ export default function BalanceSheet() {
         </FilterField>
 
         <FilterField label="Legal Group">
-          <MultiSelectDropdown placeholder="All" options={filterOptions.legalGroups} value={filters.legalGroup} onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }} disabled={loading.filters} />
+          <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroup} onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }} style={{width:105}} />
         </FilterField>
 
         <FilterField label="Legal Entity">
-          <MultiSelectDropdown placeholder="All" options={filterOptions.legalEntities} value={filters.legalEntity} onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))} disabled={loading.filters} />
+          <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntity} onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))} style={{width:105}} />
         </FilterField>
 
         <FilterField label="Parent Division">
-          <MultiSelectDropdown placeholder="All" options={filterOptions.parentDivisions} value={filters.parentDivision} onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))} disabled={loading.filters} />
+          <MultiSelect options={filterOptions.parentDivisions} value={filters.parentDivision} onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))} style={{width:105}} />
         </FilterField>
 
         <FilterField label="Sub-Division">
-          <MultiSelectDropdown placeholder="All" options={filterOptions.subdivisions} value={filters.subdivision} onChange={v => setFilters(prev => ({ ...prev, subdivision: v }))} disabled={loading.filters} />
+          <MultiSelect options={filterOptions.subdivisions} value={filters.subdivision} onChange={v => setFilters(prev => ({ ...prev, subdivision: v }))} style={{width:105}} />
         </FilterField>
 
         <FilterField label="Ledger">
