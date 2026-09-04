@@ -1684,6 +1684,120 @@ export default function BalanceSheet() {
         );
       })()}
 
+      {/* ══ BALANCE SHEET STATEMENT (inline) ══ */}
+      {summaryData?.sections?.length > 0 && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 18 }}>
+          {/* Header */}
+          <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Balance Sheet Statement</span>
+              <span style={{ fontSize: '0.7rem', color: C.slate, marginLeft: 12 }}>Period: {periodLabel} | Currency: {currency}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {hasExportRight('BALANCE_SHEET') && <ExportButtons endpoint="summary" filters={appliedFilters} />}
+              <button onClick={() => setOpenModal('statement')} style={{ fontSize: '0.7rem', color: C.primary, background: 'none', border: `1px solid ${C.primary}`, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontWeight: 600 }}>View All</button>
+            </div>
+          </div>
+          {/* Two-column layout: APPLICATION OF FUNDS | SOURCES OF FUNDS */}
+          {loading.summary ? (
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[...Array(6)].map((_, i) => <Skeleton key={i} h={28} w={`${60 + (i % 3) * 12}%`} />)}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
+              {summaryData.sections.map((sec, si) => (
+                <div key={sec.name} style={{ flex: 1, minWidth: 340, borderRight: si < summaryData.sections.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                  {/* Section Header */}
+                  <div style={{ padding: '8px 16px', background: '#f0f4ff', borderBottom: `1px solid ${C.border}`, fontWeight: 800, fontSize: '0.74rem', color: C.navy, letterSpacing: '-0.01em' }}>
+                    {sec.name}
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.73rem' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...TH_L, padding: '7px 14px', background: '#f8fafc' }}>Particulars</th>
+                        <th style={{ ...TH, padding: '7px 14px', background: '#f8fafc' }}>Amount ({currency})</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(sec.sub_sections || []).map((sub) => {
+                        const subKey = `${si}-${sub.name}`;
+                        const isExpanded = sectionExpanded[subKey] !== false;
+                        return (
+                          <Fragment key={subKey}>
+                            {/* Sub-section header row */}
+                            <tr
+                              onClick={() => setSectionExpanded(prev => ({ ...prev, [subKey]: !isExpanded }))}
+                              style={{ cursor: 'pointer', background: '#f8fafc' }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#eef2ff'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
+                            >
+                              <td style={{ ...TD_L, padding: '6px 14px', fontWeight: 700, color: C.navy, fontSize: '0.72rem' }}>
+                                <span style={{ marginRight: 6, fontSize: '0.6rem', color: C.slate }}>{isExpanded ? '▼' : '▶'}</span>
+                                {sub.name}
+                              </td>
+                              <td style={{ ...TD, padding: '6px 14px', fontWeight: 700, color: C.primary }}>
+                                {fmtNum(Math.abs(sub.total ?? 0), currency)}
+                              </td>
+                            </tr>
+                            {/* Account rows */}
+                            {isExpanded && (sub.accounts || []).slice(0, 15).map((acct, ai) => (
+                              <tr
+                                key={ai}
+                                onClick={() => handleDrilldown({ account_code: acct.account_code, account_name: acct.account_name })}
+                                style={{ cursor: 'pointer' }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
+                                <td style={{ ...TD_L, padding: '5px 14px 5px 28px', color: C.slate, fontSize: '0.7rem' }}>
+                                  {acct.account_name}
+                                  <span style={{ marginLeft: 6, fontSize: '0.58rem', color: '#cbd5e1', fontFamily: 'monospace' }}>{acct.account_code}</span>
+                                </td>
+                                <td style={{ ...TD, padding: '5px 14px', color: (acct.balance_amount ?? 0) < 0 ? C.rose : C.navy, fontWeight: 500 }}>
+                                  {acct.balance_amount < 0 ? '-' : ''}{fmtNum(Math.abs(acct.balance_amount ?? 0), currency)}
+                                </td>
+                              </tr>
+                            ))}
+                            {isExpanded && (sub.accounts || []).length > 15 && (
+                              <tr>
+                                <td colSpan={2} style={{ padding: '4px 28px', fontSize: '0.68rem', color: C.primary, cursor: 'pointer' }}
+                                  onClick={() => setOpenModal('statement')}>
+                                  +{sub.accounts.length - 15} more — View All →
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                      {/* Section Total */}
+                      <tr style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', borderTop: `2px solid ${C.border}` }}>
+                        <td style={{ ...TD_L, padding: '8px 14px', fontWeight: 900, fontSize: '0.75rem', color: C.navy }}>{sec.name} — Total</td>
+                        <td style={{ ...TD, padding: '8px 14px', fontWeight: 900, color: C.primary, fontSize: '0.76rem' }}>{fmtNum(Math.abs(sec.total ?? 0), currency)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Grand Total */}
+          {!loading.summary && summaryData && (
+            <div style={{ padding: '10px 18px', borderTop: `2px solid #c7d2fe`, background: 'linear-gradient(90deg,#f0f4ff,#eef2ff)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 900, fontSize: '0.78rem', color: C.navy }}>GRAND TOTAL (Net Variance)</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontWeight: 900, fontSize: '0.78rem', color: Math.abs(summaryData.grand_total ?? 0) < 1000 ? '#16a34a' : C.rose }}>
+                  {fmtNum(Math.abs(summaryData.grand_total ?? 0), currency)}
+                </span>
+                {summaryData.status && (
+                  <span style={{ padding: '2px 10px', borderRadius: 10, fontSize: '0.66rem', fontWeight: 700, background: summaryData.status === 'BALANCED' ? '#dcfce7' : '#ffedd5', color: summaryData.status === 'BALANCED' ? '#15803d' : '#c2410c', border: `1px solid ${summaryData.status === 'BALANCED' ? '#bbf7d0' : '#fed7aa'}` }}>
+                    {summaryData.status}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ══ RECONCILIATION ROW ══ */}
       <div style={{ marginBottom: 18 }}>
         <div className="card" style={{ padding: '16px 18px' }}>
