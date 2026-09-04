@@ -308,8 +308,8 @@ function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
     >
       <div style={{
         background: '#fff', borderRadius: 16,
-        width: '94%', maxWidth: 1020,
-        maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+        width: '98vw', maxWidth: 1520,
+        maxHeight: '94vh', display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 48px rgba(0,0,0,0.16)',
         animation: 'bs-modalPop 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards',
         overflow: 'hidden', border: '1px solid #e2e8f0',
