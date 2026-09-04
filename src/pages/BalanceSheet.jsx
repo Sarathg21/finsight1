@@ -576,7 +576,7 @@ function StatementViewAll({ summaryData, currency }) {
       </thead>
       <tbody>
         {summaryData.sections.map((sec) => {
-          const secKey = sec.section;
+          const secKey = sec.name;
           const isExpanded = expanded[secKey] !== false; // default expanded
           return (
             // FIX C1: keyed Fragment prevents React reconciliation warning in <tbody>
@@ -589,7 +589,7 @@ function StatementViewAll({ summaryData, currency }) {
                   <span style={{ marginRight: 8, fontSize: '0.6rem', display: 'inline-block', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
                   {secKey}
                   <span style={{ marginLeft: 8, fontSize: '0.68rem', fontWeight: 600, color: C.slate }}>
-                    ({fmtNum(Math.abs(sec.section_total), currency)})
+                    ({fmtNum(Math.abs(sec.total), currency)})
                   </span>
                 </td>
               </tr>
@@ -599,7 +599,7 @@ function StatementViewAll({ summaryData, currency }) {
                     <td colSpan={5} style={{ padding: '6px 14px 6px 28px', fontSize: '0.68rem', fontWeight: 700, color: '#3730a3', borderBottom: '1px solid #e2e8f0' }}>
                       {sub.sub_section}
                       <span style={{ marginLeft: 8, fontSize: '0.64rem', color: C.slate, fontWeight: 500 }}>
-                        ({fmtNum(Math.abs(sub.sub_total), currency)})
+                        ({fmtNum(Math.abs(sub.total), currency)})
                       </span>
                     </td>
                   </tr>
@@ -669,7 +669,7 @@ function SubDivisionViewAll({ data, currency }) {
 
 /* Trend View All Table */
 function TrendViewAll({ trendData, currency }) {
-  const series = trendData?.series || [];
+  const series = trendData || [];
   if (!series.length)
     return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
 
@@ -1079,28 +1079,28 @@ export default function BalanceSheet() {
     if (!summaryData?.sections) return {};
     let sources = 0, applications = 0;
     summaryData.sections.forEach(sec => {
-      if (sec.section === 'SOURCES OF FUNDS')    sources       = sec.section_total ?? 0;
-      if (sec.section === 'APPLICATION OF FUNDS') applications  = sec.section_total ?? 0;
+      if (sec.name === 'SOURCES OF FUNDS')    sources       = sec.total ?? 0;
+      if (sec.name === 'APPLICATION OF FUNDS') applications  = sec.total ?? 0;
     });
     const equity = Math.abs(
       summaryData.sections
-        .find(s => s.section === 'SOURCES OF FUNDS')
-        ?.sub_sections?.find(ss => ss.sub_section === 'A. EQUITY')
+        .find(s => s.name === 'SOURCES OF FUNDS')
+        ?.sub_sections?.find(ss => ss.name === 'A. EQUITY')
         ?.sub_total ?? 0
     );
     return {
       totalAssets:       Math.abs(applications),
       totalLiabilities:  Math.abs(sources) - equity,
       totalEquity:       equity,
-      balanceStatus:     summaryData.balance_status,
-      balanceVariance:   summaryData.balance_variance,
+      balanceStatus:     summaryData.status,
+      balanceVariance:   summaryData.grand_total,
     };
   })();
 
   /* ── Trend chart data ──────────────────────────────────────────── */
-  const trendSeries = (trendData?.series || []).map(p => ({
-    period:   p.period_name || p.period,
-    balance:  Math.abs(p.balance_amount ?? 0),
+  const trendSeries = (trendData || []).map(p => ({
+    period:   p.period_name || p.period_code || p.period,
+    balance:  Math.abs(p.total_balance ?? 0),
     mom_pct:  p.mom_pct ?? 0,
   }));
 
@@ -1170,12 +1170,12 @@ export default function BalanceSheet() {
     {
       id: 'total-periods',
       label: 'Trend Periods',
-      value: loading.trend ? '—' : String(trendData?.summary?.total_periods ?? '—'),
+      value: loading.trend ? '—' : String(Array.isArray(trendData) ? trendData.length : '—'),
       subValue: trendData?.summary
         ? `${trendData.summary.from_period || ''} — ${trendData.summary.to_period || ''}`
         : null,
-      changePct: trendData?.summary?.period_pct ?? null,
-      compareLabel: trendData?.summary ? 'period change' : null,
+      changePct: null,
+      compareLabel: null,
       color: '#0d9488', iconBg: '#f0fdfa',
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>,
     },
@@ -1417,8 +1417,8 @@ export default function BalanceSheet() {
           {/* Balance status badge */}
           {!loading.summary && summaryData && (
             <BalanceBadge
-              status={summaryData.balance_status}
-              variance={summaryData.balance_variance}
+              status={summaryData.status}
+              variance={summaryData.grand_total}
               currency={currency}
             />
           )}
@@ -1525,16 +1525,16 @@ export default function BalanceSheet() {
         };
 
 
-        const appSection = summaryData?.sections?.find(s => s.section === 'APPLICATION OF FUNDS');
-        const srcSection = summaryData?.sections?.find(s => s.section === 'SOURCES OF FUNDS');
+        const appSection = summaryData?.sections?.find(s => s.name === 'APPLICATION OF FUNDS');
+        const srcSection = summaryData?.sections?.find(s => s.name === 'SOURCES OF FUNDS');
         const assetSegments = (appSection?.sub_sections || []).map((sub, i) => ({
-          name: sub.sub_section.replace(/^[A-Z]\.\s*/, ''),
-          value: Math.abs(sub.sub_total || 0),
+          name: sub.name.replace(/^[A-Z]\.\s*/, ''),
+          value: Math.abs(sub.total || 0),
           color: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'][i % 4],
         }));
         const liabSegments = (srcSection?.sub_sections || []).map((sub, i) => ({
-          name: sub.sub_section.replace(/^[A-Z]\.\s*/, ''),
-          value: Math.abs(sub.sub_total || 0),
+          name: sub.name.replace(/^[A-Z]\.\s*/, ''),
+          value: Math.abs(sub.total || 0),
           color: ['#9333ea', '#f59e0b', '#ef4444', '#0d9488'][i % 4],
         }));
 
@@ -1547,7 +1547,7 @@ export default function BalanceSheet() {
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Balance Sheet Trend</div>
                   <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>
-                    {trendData?.from_period || '—'} → {trendData?.to_period || '—'} | {trendData?.section || 'APPLICATION OF FUNDS'}
+                    {(Array.isArray(trendData) && trendData.length > 0 ? trendData[0].period_code : null) || '—'} → {(Array.isArray(trendData) && trendData.length > 0 ? trendData[trendData.length - 1].period_code : null) || '—'} | {appliedFilters?.section || 'APPLICATION OF FUNDS'}
                   </div>
                 </div>
                 <KebabMenu id="menu-bs-trend" items={trendMenuItems} />
@@ -1567,7 +1567,7 @@ export default function BalanceSheet() {
                   <div style={{ display: 'flex', gap: 14, marginBottom: 8, paddingLeft: 4 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', fontWeight: 600, color: C.slate }}>
                       <div style={{ width: 20, height: 2.5, borderRadius: 1, background: C.primary }} />
-                      {trendData?.account_name || trendData?.section || 'Balance'}
+                      {appliedFilters?.accountCode || appliedFilters?.section || 'Balance'}
                     </div>
                   </div>
                   <ResponsiveContainer width="100%" height={200}>
@@ -1576,7 +1576,7 @@ export default function BalanceSheet() {
                       <XAxis dataKey="period" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" />
                       <YAxis tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={48} />
                       <Tooltip content={<ChartTooltip currency={currency} />} />
-                      <Line type="monotone" dataKey="balance" name={trendData?.account_name || trendData?.section || 'Balance'}
+                      <Line type="monotone" dataKey="balance" name={appliedFilters?.accountCode || appliedFilters?.section || 'Balance'}
                         stroke={C.primary} strokeWidth={2.5} dot={{ r: 3, fill: C.primary }} activeDot={{ r: 5 }} />
                     </LineChart>
                   </ResponsiveContainer>
