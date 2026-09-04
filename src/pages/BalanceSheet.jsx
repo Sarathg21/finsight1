@@ -631,7 +631,7 @@ function StatementViewAll({ summaryData, currency }) {
 
 /* Subdivision View All Table */
 function SubDivisionViewAll({ data, currency }) {
-  const rows = data?.data || [];
+  const rows = Array.isArray(data) ? data : (data?.data || []);
   if (!rows.length)
     return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
 
@@ -705,15 +705,15 @@ function TrendViewAll({ trendData, currency }) {
 function DrilldownModal({ isOpen, onClose, data, currency }) {
   if (!isOpen) return null;
   const rows = data?.data || [];
-  const account = data?.account_name || '—';
-  const total   = data?.consolidated_balance ?? 0;
+  const account = data?.account_name || (rows[0] && rows[0].account_name) || '—';
+  const total   = data?.consolidated_balance ?? rows.reduce((sum, r) => sum + (r.balance_amount || 0), 0);
 
   return (
     <ViewAllModal
       isOpen={isOpen}
       onClose={onClose}
       title={`Drilldown: ${account}`}
-      subtitle={`Period: ${data?.period_name || data?.period || '—'} | Currency: ${currency} | Total: ${fmtNum(Math.abs(total), currency)}`}
+      subtitle={`Period: ${data?.period_name || data?.period || (rows[0] && rows[0].period_code) || '—'} | Currency: ${currency} | Total: ${fmtNum(Math.abs(total), currency)}`}
     >
       {!rows.length ? (
         <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
@@ -1105,7 +1105,7 @@ export default function BalanceSheet() {
   }));
 
   /* ── Sub-division table rows ───────────────────────────────────── */
-  const subdivRows = subdivisionData?.data || [];
+  const subdivRows = Array.isArray(subdivisionData) ? subdivisionData : (subdivisionData?.data || []);
 
   /* ── Kebab menu items ──────────────────────────────────────────── */
   // FIX M6: memoize menu item arrays — prevents KebabMenu re-renders on every keystroke
@@ -1720,7 +1720,7 @@ export default function BalanceSheet() {
                 {subdivRows.map((row) => {
                   const sources = row.section_totals?.['SOURCES OF FUNDS'] ?? 0;
                   const applic  = row.section_totals?.['APPLICATION OF FUNDS'] ?? 0;
-                  const net     = row.grand_total ?? 0;
+                  const net     = row.grand_total ?? row.balance_amount ?? 0;
                   // FIX M9: use stable sub_division_id/code as key (not array index)
                   // FIX M10: net color is sign-based (positive=navy, negative=rose) not threshold-based
                   const netColor = net >= 0 ? C.navy : C.rose;
