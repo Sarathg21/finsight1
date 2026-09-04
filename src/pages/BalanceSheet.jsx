@@ -983,8 +983,8 @@ export default function BalanceSheet() {
       }));
       // Auto-select first period
       if (periods.length) {
-        const first  = periods[0];
-        const second = periods[1] || '';
+        const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
+        const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
         setFilters(f        => ({ ...f, period: f.period || first, comparePeriod: f.comparePeriod || second }));
         setAppliedFilters(f => ({ ...f, period: f.period || first, comparePeriod: f.comparePeriod || second }));
       }
@@ -1061,7 +1061,7 @@ export default function BalanceSheet() {
   // when appliedFilters changes, preventing a double API request.
   const handleApply = useCallback(() => { setAppliedFilters({ ...filters }); }, [filters]);
   const handleReset = useCallback(() => {
-    const reset = { ...DEFAULT_FILTERS, period: filterOptions.periods[0] || '', comparePeriod: filterOptions.periods[1] || '', currency: 'AED' };
+    const reset = { ...DEFAULT_FILTERS, period: (filterOptions.periods[0] && typeof filterOptions.periods[0] === 'object' ? filterOptions.periods[0].period : filterOptions.periods[0]) || '', comparePeriod: (filterOptions.periods[1] && typeof filterOptions.periods[1] === 'object' ? filterOptions.periods[1].period : filterOptions.periods[1]) || '', currency: 'AED' };
     setFilters(reset); setAppliedFilters(reset);
   }, [filterOptions.periods]);
 

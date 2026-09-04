@@ -111,7 +111,8 @@ function buildBSParams(filters = {}) {
       const f = val.filter(v => v !== 'All' && v !== 'all');
       return f.length > 0 ? f : undefined;
     }
-    return val && val !== 'All' && val !== 'all' ? val : undefined;
+    if (typeof val === 'object' && val !== null && val.period) return val.period;
+      return val && val !== 'All' && val !== 'all' ? val : undefined;
   };
 
   return {
