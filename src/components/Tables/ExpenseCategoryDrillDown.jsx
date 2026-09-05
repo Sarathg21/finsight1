@@ -8863,6 +8863,20 @@ const getMonthValue = (
     monthData,
     month
 ) => {
+    /* -------------------------------------------------------
+       category-detail-monthly returns:
+         account.monthly_actual_aed = { "Jan-26": "123.45", ... }
+         account.monthly_actual     = { "Jan-26": "123.45", ... }
+       Read from these first before falling through to legacy paths.
+    ------------------------------------------------------- */
+    if (monthData?.monthly_actual_aed && month) {
+        const val = monthData.monthly_actual_aed[month];
+        if (val !== undefined && val !== null && val !== "") return val;
+    }
+    if (monthData?.monthly_actual && month) {
+        const val = monthData.monthly_actual[month];
+        if (val !== undefined && val !== null && val !== "") return val;
+    }
     if (!monthData) {
         return null;
     }
@@ -9164,8 +9178,8 @@ export default function ExpenseCategoryDrillDown({
             const apiUrl = baseUrl.endsWith(
                 "/api"
             )
-                ? `${baseUrl}/opex/category-detail`
-                : `${baseUrl}/api/opex/category-detail`;
+                ? `${baseUrl}/opex/category-detail-monthly`
+                : `${baseUrl}/api/opex/category-detail-monthly`;
 
             const params =
                 new URLSearchParams({
