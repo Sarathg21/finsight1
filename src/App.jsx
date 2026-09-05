@@ -82,8 +82,8 @@ function App() {
               {/* <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} /> */}
             </Route>
 
-            {/* Admin Module Routes - Uses AdminLayout with SidebarAdmin + NavbarAdmin */}
-            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<AdminLayout />} />}>
+            {/* Admin Module Routes - Uses main Layout (shared sidebar) */}
+            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<Layout />} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminMainDashboard />} />
               <Route path="users" element={<UsersDashboard />} />

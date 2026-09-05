@@ -8863,19 +8863,29 @@ const getMonthValue = (
     monthData,
     month
 ) => {
-    /* -------------------------------------------------------
+    /* ---------------------------------------------------------
        category-detail-monthly returns:
-         account.monthly_actual_aed = { "Jan-26": "123.45", ... }
-         account.monthly_actual     = { "Jan-26": "123.45", ... }
-       Read from these first before falling through to legacy paths.
-    ------------------------------------------------------- */
+         account.monthly_actual_aed = { "Jan-26": "6904800.11", ... }
+       Column headers are "JAN", "FEB", etc. (3-letter uppercase).
+       Match by first 3 chars, case-insensitive prefix search.
+    --------------------------------------------------------- */
     if (monthData?.monthly_actual_aed && month) {
-        const val = monthData.monthly_actual_aed[month];
-        if (val !== undefined && val !== null && val !== "") return val;
+        const prefix = String(month).substring(0, 3).toLowerCase();
+        const matchKey = Object.keys(monthData.monthly_actual_aed)
+            .find(k => k.toLowerCase().startsWith(prefix));
+        if (matchKey !== undefined) {
+            const val = monthData.monthly_actual_aed[matchKey];
+            if (val !== undefined && val !== null && String(val) !== "") return val;
+        }
     }
     if (monthData?.monthly_actual && month) {
-        const val = monthData.monthly_actual[month];
-        if (val !== undefined && val !== null && val !== "") return val;
+        const prefix = String(month).substring(0, 3).toLowerCase();
+        const matchKey = Object.keys(monthData.monthly_actual)
+            .find(k => k.toLowerCase().startsWith(prefix));
+        if (matchKey !== undefined) {
+            const val = monthData.monthly_actual[matchKey];
+            if (val !== undefined && val !== null && String(val) !== "") return val;
+        }
     }
     if (!monthData) {
         return null;
