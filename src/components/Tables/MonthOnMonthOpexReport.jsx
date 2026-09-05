@@ -2806,7 +2806,7 @@ export default function MonthOnMonthOpexReport({
 
             const token =
                 localStorage.getItem(
-                    "token"
+                    "finsight_token"
                 );
 
             /* =============================================

@@ -9055,7 +9055,7 @@ export default function ExpenseCategoryDrillDown({
 }) {
     const [expandedRows, setExpandedRows] =
         useState({});
-    /* Reset details when period changes */
+    /* Reset when period changes */
     useEffect(() => {
         setCategoryDetails({});
         setCategoryDetailError({});
