@@ -1,4 +1,4 @@
-﻿
+
 // import React, { useState } from "react";
 
 // import {
@@ -636,13 +636,13 @@
 //        TOGGLE ROW
 
 //        > click
-//          â†“
+//          ↓
 //        expand
-//          â†“
+//          ↓
 //        category-detail API
-//          â†“
+//          ↓
 //        store response
-//          â†“
+//          ↓
 //        render accounts
 //     ======================================================= */
 
@@ -1034,7 +1034,7 @@
 //                             marginLeft: 1,
 //                         }}
 //                     >
-//                         â‹®
+//                         ⋮
 //                     </button>
 //                 </div>
 //             </div>
@@ -2805,7 +2805,9 @@ export default function MonthOnMonthOpexReport({
             ============================================= */
 
             const token =
-                localStorage.getItem("finsight_token");
+                localStorage.getItem(
+                    "token"
+                );
 
             /* =============================================
                API REQUEST
@@ -2894,13 +2896,13 @@ export default function MonthOnMonthOpexReport({
        TOGGLE ROW
 
        >
-       â†“
+       ↓
        expand
-       â†“
+       ↓
        category-detail-monthly API
-       â†“
+       ↓
        store response
-       â†“
+       ↓
        render natural accounts
     ======================================================= */
 
@@ -3272,7 +3274,7 @@ export default function MonthOnMonthOpexReport({
                             marginLeft: 1,
                         }}
                     >
-                        â‹®
+                        ⋮
                     </button>
                 </div>
             </div>

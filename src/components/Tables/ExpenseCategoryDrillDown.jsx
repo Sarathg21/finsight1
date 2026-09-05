@@ -1,4 +1,4 @@
-﻿// // // // // // // import React, { useState, useEffect } from "react";
+// // // // // // // import React, { useState, useEffect } from "react";
 
 // // // // // // // /* =========================================================
 // // // // // // //    FORMAT NUMBER
@@ -111,7 +111,7 @@
 // // // // // // //             lineHeight: 1,
 // // // // // // //           }}
 // // // // // // //         >
-// // // // // // //           â‹®
+// // // // // // //           ⋮
 // // // // // // //         </button>
 // // // // // // //       </div>
 
@@ -332,7 +332,7 @@
 // // // // // // //                             lineHeight: 1,
 // // // // // // //                           }}
 // // // // // // //                         >
-// // // // // // //                           {isExpanded ? "âŒ„" : "â€º"}
+// // // // // // //                           {isExpanded ? "⌄" : "›"}
 // // // // // // //                         </button>
 
 // // // // // // //                         <span
@@ -1124,7 +1124,7 @@
 // // // // // //               lineHeight: 1,
 // // // // // //             }}
 // // // // // //           >
-// // // // // //             â‹®
+// // // // // //             ⋮
 // // // // // //           </button>
 // // // // // //         </div>
 // // // // // //       </div>
@@ -1352,7 +1352,7 @@
 // // // // // //                             lineHeight: 1,
 // // // // // //                           }}
 // // // // // //                         >
-// // // // // //                           {isExpanded ? "âŒ„" : "â€º"}
+// // // // // //                           {isExpanded ? "⌄" : "›"}
 // // // // // //                         </button>
 
 // // // // // //                         <span
@@ -2243,7 +2243,7 @@
 // // // // //               lineHeight: 1,
 // // // // //             }}
 // // // // //           >
-// // // // //             â‹®
+// // // // //             ⋮
 // // // // //           </button>
 // // // // //         </div>
 // // // // //       </div>
@@ -2461,8 +2461,8 @@
 // // // // //                           }}
 // // // // //                         >
 // // // // //                           {isExpanded
-// // // // //                             ? "âŒ„"
-// // // // //                             : "â€º"}
+// // // // //                             ? "⌄"
+// // // // //                             : "›"}
 // // // // //                         </button>
 
 // // // // //                         <span
@@ -3450,7 +3450,7 @@
 // // // //               lineHeight: 1,
 // // // //             }}
 // // // //           >
-// // // //             â‹®
+// // // //             ⋮
 // // // //           </button>
 // // // //         </div>
 // // // //       </div>
@@ -3720,8 +3720,8 @@
 // // // //                             }}
 // // // //                           >
 // // // //                             {isExpanded
-// // // //                               ? "âŒ„"
-// // // //                               : "â€º"}
+// // // //                               ? "⌄"
+// // // //                               : "›"}
 // // // //                           </button>
 
 // // // //                           <span
@@ -4757,7 +4757,7 @@
 // // //               lineHeight: 1,
 // // //             }}
 // // //           >
-// // //             â‹®
+// // //             ⋮
 // // //           </button>
 // // //         </div>
 // // //       </div>
@@ -5027,8 +5027,8 @@
 // // //                             }}
 // // //                           >
 // // //                             {isExpanded
-// // //                               ? "âŒ„"
-// // //                               : "â€º"}
+// // //                               ? "⌄"
+// // //                               : "›"}
 // // //                           </button>
 
 // // //                           <span
@@ -6380,7 +6380,7 @@
 // //               lineHeight: 1,
 // //             }}
 // //           >
-// //             â‹®
+// //             ⋮
 // //           </button>
 // //         </div>
 // //       </div>
@@ -6669,8 +6669,8 @@
 // //                             }}
 // //                           >
 // //                             {isExpanded
-// //                               ? "âŒ„"
-// //                               : "â€º"}
+// //                               ? "⌄"
+// //                               : "›"}
 // //                           </button>
 
 // //                           <span
@@ -7114,9 +7114,9 @@
 
 // /* =========================================================
 //    FORMAT MONTH VALUE
-//    AED â†’ AED Millions
+//    AED → AED Millions
 //    Example:
-//    8,364,319.95 â†’ 8.36M
+//    8,364,319.95 → 8.36M
 // ========================================================= */
 
 // const formatMonthValue = (value) => {
@@ -8031,7 +8031,7 @@
 //               lineHeight: 1,
 //             }}
 //           >
-//             â‹®
+//             ⋮
 //           </button>
 //         </div>
 //       </div>
@@ -8320,8 +8320,8 @@
 //                             }}
 //                           >
 //                             {isExpanded
-//                               ? "âŒ„"
-//                               : "â€º"}
+//                               ? "⌄"
+//                               : "›"}
 //                           </button>
 
 //                           <span
@@ -8766,11 +8766,11 @@ const formatNumber = (value) => {
 
 /* =========================================================
    FORMAT MONTH VALUE
-   AED â†’ AED Millions
+   AED → AED Millions
 
    Example:
-   8,364,319.95 â†’ AED 8.36M
-   123224.59    â†’ AED 0.12M
+   8,364,319.95 → AED 8.36M
+   123224.59    → AED 0.12M
 ========================================================= */
 
 const formatMonthValue = (value) => {
@@ -8788,9 +8788,9 @@ const formatMonthValue = (value) => {
      * This ensures that:
      *
      * 8364319.95
-     *      â†“
+     *      ↓
      * 8.36431995
-     *      â†“
+     *      ↓
      * AED 8.36M
      */
     const number = Number(
@@ -9055,6 +9055,12 @@ export default function ExpenseCategoryDrillDown({
 }) {
     const [expandedRows, setExpandedRows] =
         useState({});
+    /* Reset details when period changes */
+    useEffect(() => {
+        setCategoryDetails({});
+        setCategoryDetailError({});
+        setExpandedRows({});
+    }, [periodName]);
 
     /* =======================================================
        CATEGORY DETAIL STATE
@@ -9689,7 +9695,7 @@ export default function ExpenseCategoryDrillDown({
                             lineHeight: 1,
                         }}
                     >
-                        â‹®
+                        ⋮
                     </button>
                 </div>
             </div>
@@ -9999,8 +10005,8 @@ export default function ExpenseCategoryDrillDown({
                                                         }}
                                                     >
                                                         {isExpanded
-                                                            ? "âŒ„"
-                                                            : "â€º"}
+                                                            ? "⌄"
+                                                            : "›"}
                                                     </button>
 
                                                     <span
@@ -10430,8 +10436,4 @@ export default function ExpenseCategoryDrillDown({
         </div>
     );
 }
-
-
-
-
 
