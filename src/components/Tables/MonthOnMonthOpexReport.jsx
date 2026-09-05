@@ -17,15 +17,15 @@
 //         value === undefined ||
 //         value === "" ||
 //         value === "-" ||
-//         value === "â€”"
+//         value === "—"
 //     ) {
-//         return "â€”";
+//         return "—";
 //     }
 
 //     const number = Number(value);
 
 //     if (Number.isNaN(number)) {
-//         return "â€”";
+//         return "—";
 //     }
 
 //     if (unit === "millions") {
@@ -209,7 +209,7 @@
 //             value !== undefined &&
 //             value !== "" &&
 //             value !== "-" &&
-//             value !== "â€”"
+//             value !== "—"
 //         ) {
 //             const number = Number(value);
 
@@ -258,7 +258,7 @@
 //             value !== undefined &&
 //             value !== "" &&
 //             value !== "-" &&
-//             value !== "â€”"
+//             value !== "—"
 //         ) {
 //             const number = Number(value);
 
@@ -355,7 +355,7 @@
 //         account?.naturalAccountName ??
 //         account?.account ??
 //         account?.name ??
-//         "â€”"
+//         "—"
 //     );
 // };
 
@@ -370,7 +370,7 @@
 //         account?.natural_account_code ??
 //         account?.naturalAccountCode ??
 //         account?.natural_account_id ??
-//         "â€”"
+//         "—"
 //     );
 // };
 
@@ -384,7 +384,7 @@
 
 //    It does NOT return monthly account-level values.
 
-//    Therefore Jan-Dec correctly remain â€”.
+//    Therefore Jan-Dec correctly remain —.
 // ========================================================= */
 
 // const getAccountMonthValue = (
@@ -757,7 +757,7 @@
 //             value === undefined ||
 //             value === ""
 //         ) {
-//             return "â€”";
+//             return "—";
 //         }
 
 //         return displayValue(
@@ -777,7 +777,7 @@
 //             value === undefined ||
 //             value === ""
 //         ) {
-//             return "â€”";
+//             return "—";
 //         }
 
 //         const number =
@@ -786,7 +786,7 @@
 //         if (
 //             Number.isNaN(number)
 //         ) {
-//             return "â€”";
+//             return "—";
 //         }
 
 //         if (number < 0) {
@@ -825,7 +825,7 @@
 //                 value === undefined ||
 //                 value === ""
 //             ) {
-//                 return "â€”";
+//                 return "—";
 //             }
 
 //             const number =
@@ -834,7 +834,7 @@
 //             if (
 //                 Number.isNaN(number)
 //             ) {
-//                 return "â€”";
+//                 return "—";
 //             }
 
 //             return `${number.toFixed(
@@ -1387,7 +1387,7 @@
 //                                                             value ===
 //                                                             "-" ||
 //                                                             value ===
-//                                                             "â€”";
+//                                                             "—";
 
 //                                                         return (
 //                                                             <td
@@ -1690,7 +1690,7 @@
 //                                                                                     <tr
 //                                                                                         key={
 //                                                                                             accountCode !==
-//                                                                                                 "â€”"
+//                                                                                                 "—"
 //                                                                                                 ? accountCode
 //                                                                                                 : accountIndex
 //                                                                                         }
@@ -1716,7 +1716,7 @@
 //                                                                                             }}
 //                                                                                         >
 //                                                                                             {accountCode !==
-//                                                                                                 "â€”" && (
+//                                                                                                 "—" && (
 //                                                                                                     <span>
 //                                                                                                         {
 //                                                                                                             accountCode
@@ -1761,7 +1761,7 @@
 //                                                                                                                     value ===
 //                                                                                                                     "-" ||
 //                                                                                                                     value ===
-//                                                                                                                     "â€”"
+//                                                                                                                     "—"
 //                                                                                                                     ? "#94A3B8"
 //                                                                                                                     : "#334155",
 //                                                                                                             whiteSpace:
@@ -1859,7 +1859,7 @@
 //                                             value ===
 //                                             "-" ||
 //                                             value ===
-//                                             "â€”";
+//                                             "—";
 
 //                                         return (
 //                                             <td
@@ -1997,15 +1997,15 @@ const formatValue = (value, unit = "millions") => {
         value === undefined ||
         value === "" ||
         value === "-" ||
-        value === "â€”"
+        value === "—"
     ) {
-        return "â€”";
+        return "—";
     }
 
     const number = Number(value);
 
     if (Number.isNaN(number)) {
-        return "â€”";
+        return "—";
     }
 
     /* -------------------------------------------------------
@@ -2270,7 +2270,7 @@ const getTotalMonthValue = (
             value !== undefined &&
             value !== "" &&
             value !== "-" &&
-            value !== "â€”"
+            value !== "—"
         ) {
             const number =
                 Number(value);
@@ -2328,7 +2328,7 @@ const getTotalYTD = (data) => {
             value !== undefined &&
             value !== "" &&
             value !== "-" &&
-            value !== "â€”"
+            value !== "—"
         ) {
             const number =
                 Number(value);
@@ -2454,7 +2454,7 @@ const getAccountName = (account) => {
         account?.naturalAccountName ??
         account?.account ??
         account?.name ??
-        "â€”"
+        "—"
     );
 };
 
@@ -2469,7 +2469,7 @@ const getAccountCode = (account) => {
         account?.natural_account_code ??
         account?.naturalAccountCode ??
         account?.natural_account_id ??
-        "â€”"
+        "—"
     );
 };
 
@@ -2505,14 +2505,14 @@ const getNaturalAccountLabel = (
 
     if (
         !code ||
-        code === "â€”"
+        code === "—"
     ) {
-        return name || "â€”";
+        return name || "—";
     }
 
     if (
         !name ||
-        name === "â€”"
+        name === "—"
     ) {
         return code;
     }
@@ -2789,7 +2789,7 @@ export default function MonthOnMonthOpexReport({
                             value !==
                             "" &&
                             value !==
-                            "â€”"
+                            "—"
                         ) {
                             params.set(
                                 key,
@@ -2966,7 +2966,7 @@ export default function MonthOnMonthOpexReport({
     /* =======================================================
        TARGET
 
-       Null target = â€”
+       Null target = —
     ======================================================= */
 
     const displayTarget = (
@@ -2977,7 +2977,7 @@ export default function MonthOnMonthOpexReport({
             value === undefined ||
             value === ""
         ) {
-            return "â€”";
+            return "—";
         }
 
         return displayValue(
@@ -2988,7 +2988,7 @@ export default function MonthOnMonthOpexReport({
     /* =======================================================
        VARIANCE
 
-       Null variance = â€”
+       Null variance = —
 
        No status is displayed.
     ======================================================= */
@@ -3001,7 +3001,7 @@ export default function MonthOnMonthOpexReport({
             value === undefined ||
             value === ""
         ) {
-            return "â€”";
+            return "—";
         }
 
         const number =
@@ -3010,7 +3010,7 @@ export default function MonthOnMonthOpexReport({
         if (
             Number.isNaN(number)
         ) {
-            return "â€”";
+            return "—";
         }
 
         if (number === 0) {
@@ -3059,7 +3059,7 @@ export default function MonthOnMonthOpexReport({
                 value === undefined ||
                 value === ""
             ) {
-                return "â€”";
+                return "—";
             }
 
             const number =
@@ -3068,7 +3068,7 @@ export default function MonthOnMonthOpexReport({
             if (
                 Number.isNaN(number)
             ) {
-                return "â€”";
+                return "—";
             }
 
             return `${number.toFixed(
@@ -3629,7 +3629,7 @@ export default function MonthOnMonthOpexReport({
                                                             value ===
                                                             "-" ||
                                                             value ===
-                                                            "â€”";
+                                                            "—";
 
                                                         return (
                                                             <td
@@ -3974,7 +3974,7 @@ export default function MonthOnMonthOpexReport({
                                                                                     <tr
                                                                                         key={
                                                                                             accountCode !==
-                                                                                                "â€”"
+                                                                                                "—"
                                                                                                 ? accountCode
                                                                                                 : accountIndex
                                                                                         }
@@ -4017,7 +4017,7 @@ export default function MonthOnMonthOpexReport({
                                                                                             Live API data.
 
                                                                                             Missing/future month:
-                                                                                            â€”
+                                                                                            —
 
                                                                                             Genuine zero:
                                                                                             0
@@ -4047,7 +4047,7 @@ export default function MonthOnMonthOpexReport({
                                                                                                     value ===
                                                                                                     "-" ||
                                                                                                     value ===
-                                                                                                    "â€”";
+                                                                                                    "—";
 
                                                                                                 return (
                                                                                                     <td
@@ -4186,7 +4186,7 @@ export default function MonthOnMonthOpexReport({
                                             value ===
                                             "-" ||
                                             value ===
-                                            "â€”";
+                                            "—";
 
                                         return (
                                             <td

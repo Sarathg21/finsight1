@@ -689,7 +689,7 @@
 
 // // // // // // const formatNumber = (value) => {
 // // // // // //   if (value === null || value === undefined || value === "") {
-// // // // // //     return "â€”";
+// // // // // //     return "—";
 // // // // // //   }
 
 // // // // // //   return Number(value).toLocaleString("en-US");
@@ -701,7 +701,7 @@
 
 // // // // // // const formatVariance = (value) => {
 // // // // // //   if (value === null || value === undefined || value === "") {
-// // // // // //     return "â€”";
+// // // // // //     return "—";
 // // // // // //   }
 
 // // // // // //   const number = Number(value);
@@ -719,7 +719,7 @@
 
 // // // // // // const formatPercentage = (value) => {
 // // // // // //   if (value === null || value === undefined || value === "") {
-// // // // // //     return "â€”";
+// // // // // //     return "—";
 // // // // // //   }
 
 // // // // // //   return `${Number(value).toFixed(1)}%`;
@@ -731,7 +731,7 @@
 
 // // // // // // const formatMonthValue = (value) => {
 // // // // // //   if (value === null || value === undefined || value === "") {
-// // // // // //     return "â€”";
+// // // // // //     return "—";
 // // // // // //   }
 
 // // // // // //   return Number(value).toLocaleString("en-US");
@@ -743,7 +743,7 @@
 
 // // // // // // const formatDataAsOf = (value) => {
 // // // // // //   if (!value) {
-// // // // // //     return "â€”";
+// // // // // //     return "—";
 // // // // // //   }
 
 // // // // // //   const valueString = String(value);
@@ -990,7 +990,7 @@
 // // // // // //                     account?.naturalAccountName ||
 // // // // // //                     account?.account ||
 // // // // // //                     account?.name ||
-// // // // // //                     "â€”"}
+// // // // // //                     "—"}
 // // // // // //                 </td>
 
 // // // // // //                 {MONTHS.map((month) => {
@@ -1389,7 +1389,7 @@
 // // // // // //                         TARGET PTD
 
 // // // // // //                         Target API not integrated yet.
-// // // // // //                         Always display â€”
+// // // // // //                         Always display —
 // // // // // //                     ======================================= */}
 
 // // // // // //                     <td
@@ -1402,7 +1402,7 @@
 // // // // // //                         whiteSpace: "nowrap",
 // // // // // //                       }}
 // // // // // //                     >
-// // // // // //                       â€”
+// // // // // //                       —
 // // // // // //                     </td>
 
 // // // // // //                     {/* =======================================
@@ -1422,7 +1422,7 @@
 // // // // // //                         whiteSpace: "nowrap",
 // // // // // //                       }}
 // // // // // //                     >
-// // // // // //                       â€”
+// // // // // //                       —
 // // // // // //                     </td>
 
 // // // // // //                     {/* =======================================
@@ -1441,7 +1441,7 @@
 // // // // // //                         whiteSpace: "nowrap",
 // // // // // //                       }}
 // // // // // //                     >
-// // // // // //                       â€”
+// // // // // //                       —
 // // // // // //                     </td>
 
 // // // // // //                     {/* =======================================
@@ -1477,7 +1477,7 @@
 // // // // // //                         whiteSpace: "nowrap",
 // // // // // //                       }}
 // // // // // //                     >
-// // // // // //                       â€”
+// // // // // //                       —
 // // // // // //                     </td>
 
 // // // // // //                     {/* =======================================
@@ -1496,7 +1496,7 @@
 // // // // // //                         whiteSpace: "nowrap",
 // // // // // //                       }}
 // // // // // //                     >
-// // // // // //                       â€”
+// // // // // //                       —
 // // // // // //                     </td>
 
 // // // // // //                     {/* =======================================
@@ -1515,7 +1515,7 @@
 // // // // // //                         whiteSpace: "nowrap",
 // // // // // //                       }}
 // // // // // //                     >
-// // // // // //                       â€”
+// // // // // //                       —
 // // // // // //                     </td>
 // // // // // //                   </tr>
 
@@ -1648,7 +1648,7 @@
 // // // // // //                   color: "#64748B",
 // // // // // //                 }}
 // // // // // //               >
-// // // // // //                 â€”
+// // // // // //                 —
 // // // // // //               </td>
 
 // // // // // //               {/* VARIANCE PTD */}
@@ -1662,7 +1662,7 @@
 // // // // // //                   color: "#64748B",
 // // // // // //                 }}
 // // // // // //               >
-// // // // // //                 â€”
+// // // // // //                 —
 // // // // // //               </td>
 
 // // // // // //               {/* VARIANCE PTD % */}
@@ -1676,7 +1676,7 @@
 // // // // // //                   color: "#64748B",
 // // // // // //                 }}
 // // // // // //               >
-// // // // // //                 â€”
+// // // // // //                 —
 // // // // // //               </td>
 
 // // // // // //               {/* ACTUAL YTD */}
@@ -1704,7 +1704,7 @@
 // // // // // //                   color: "#64748B",
 // // // // // //                 }}
 // // // // // //               >
-// // // // // //                 â€”
+// // // // // //                 —
 // // // // // //               </td>
 
 // // // // // //               {/* VARIANCE YTD */}
@@ -1718,7 +1718,7 @@
 // // // // // //                   color: "#64748B",
 // // // // // //                 }}
 // // // // // //               >
-// // // // // //                 â€”
+// // // // // //                 —
 // // // // // //               </td>
 
 // // // // // //               {/* VARIANCE YTD % */}
@@ -1732,7 +1732,7 @@
 // // // // // //                   color: "#64748B",
 // // // // // //                 }}
 // // // // // //               >
-// // // // // //                 â€”
+// // // // // //                 —
 // // // // // //               </td>
 // // // // // //             </tr>
 // // // // // //           </tbody>
@@ -1773,13 +1773,13 @@
 // // // // //     value === undefined ||
 // // // // //     value === ""
 // // // // //   ) {
-// // // // //     return "â€”";
+// // // // //     return "—";
 // // // // //   }
 
 // // // // //   const number = Number(value);
 
 // // // // //   if (Number.isNaN(number)) {
-// // // // //     return "â€”";
+// // // // //     return "—";
 // // // // //   }
 
 // // // // //   return number.toLocaleString("en-US");
@@ -1795,15 +1795,15 @@
 // // // // //     value === undefined ||
 // // // // //     value === "" ||
 // // // // //     value === "-" ||
-// // // // //     value === "â€”"
+// // // // //     value === "—"
 // // // // //   ) {
-// // // // //     return "â€”";
+// // // // //     return "—";
 // // // // //   }
 
 // // // // //   const number = Number(value);
 
 // // // // //   if (Number.isNaN(number)) {
-// // // // //     return "â€”";
+// // // // //     return "—";
 // // // // //   }
 
 // // // // //   return number.toLocaleString("en-US");
@@ -1815,7 +1815,7 @@
 
 // // // // // const formatDataAsOf = (value) => {
 // // // // //   if (!value) {
-// // // // //     return "â€”";
+// // // // //     return "—";
 // // // // //   }
 
 // // // // //   const valueString = String(value);
@@ -2063,7 +2063,7 @@
 // // // // //                   account?.natural_account_name ||
 // // // // //                   account?.account ||
 // // // // //                   account?.name ||
-// // // // //                   "â€”";
+// // // // //                   "—";
 
 // // // // //                 const monthData =
 // // // // //                   account?.monthOnMonth ||
@@ -2475,7 +2475,7 @@
 // // // // //                           }}
 // // // // //                         >
 // // // // //                           {item?.category ||
-// // // // //                             "â€”"}
+// // // // //                             "—"}
 // // // // //                         </span>
 // // // // //                       </div>
 // // // // //                     </td>
@@ -2541,7 +2541,7 @@
 // // // // //                             item?.variancePTDPercent ??
 // // // // //                               item?.variance_ptd_pct
 // // // // //                           ).toFixed(1)}%`
-// // // // //                         : "â€”"}
+// // // // //                         : "—"}
 // // // // //                     </td>
 
 // // // // //                     <td
@@ -2605,7 +2605,7 @@
 // // // // //                             item?.varianceYTDPercent ??
 // // // // //                               item?.variance_ytd_pct
 // // // // //                           ).toFixed(1)}%`
-// // // // //                         : "â€”"}
+// // // // //                         : "—"}
 // // // // //                     </td>
 // // // // //                   </tr>
 
@@ -2766,7 +2766,7 @@
 // // // // //                       totalData?.variancePTDPercent ??
 // // // // //                         totalData?.variance_ptd_pct
 // // // // //                     ).toFixed(1)}%`
-// // // // //                   : "â€”"}
+// // // // //                   : "—"}
 // // // // //               </td>
 
 // // // // //               <td
@@ -2829,7 +2829,7 @@
 // // // // //                       totalData?.varianceYTDPercent ??
 // // // // //                         totalData?.variance_ytd_pct
 // // // // //                     ).toFixed(1)}%`
-// // // // //                   : "â€”"}
+// // // // //                   : "—"}
 // // // // //               </td>
 // // // // //             </tr>
 // // // // //           </tbody>
@@ -2870,13 +2870,13 @@
 // // // //     value === undefined ||
 // // // //     value === ""
 // // // //   ) {
-// // // //     return "â€”";
+// // // //     return "—";
 // // // //   }
 
 // // // //   const number = Number(value);
 
 // // // //   if (Number.isNaN(number)) {
-// // // //     return "â€”";
+// // // //     return "—";
 // // // //   }
 
 // // // //   return number.toLocaleString("en-US");
@@ -2892,15 +2892,15 @@
 // // // //     value === undefined ||
 // // // //     value === "" ||
 // // // //     value === "-" ||
-// // // //     value === "â€”"
+// // // //     value === "—"
 // // // //   ) {
-// // // //     return "â€”";
+// // // //     return "—";
 // // // //   }
 
 // // // //   const number = Number(value);
 
 // // // //   if (Number.isNaN(number)) {
-// // // //     return "â€”";
+// // // //     return "—";
 // // // //   }
 
 // // // //   return number.toLocaleString("en-US");
@@ -2912,7 +2912,7 @@
 
 // // // // const formatDataAsOf = (value) => {
 // // // //   if (!value) {
-// // // //     return "â€”";
+// // // //     return "—";
 // // // //   }
 
 // // // //   const valueString = String(value);
@@ -3257,7 +3257,7 @@
 // // // //                   account?.natural_account_name ||
 // // // //                   account?.account ||
 // // // //                   account?.name ||
-// // // //                   "â€”";
+// // // //                   "—";
 
 // // // //                 const monthData =
 // // // //                   account?.monthOnMonth ||
@@ -3735,7 +3735,7 @@
 // // // //                             }}
 // // // //                           >
 // // // //                             {item?.category ||
-// // // //                               "â€”"}
+// // // //                               "—"}
 // // // //                           </span>
 // // // //                         </div>
 // // // //                       </td>
@@ -3813,7 +3813,7 @@
 // // // //                               item?.variancePTDPercent ??
 // // // //                                 item?.variance_ptd_pct
 // // // //                             ).toFixed(1)}%`
-// // // //                           : "â€”"}
+// // // //                           : "—"}
 // // // //                       </td>
 
 // // // //                       <td
@@ -3889,7 +3889,7 @@
 // // // //                               item?.varianceYTDPercent ??
 // // // //                                 item?.variance_ytd_pct
 // // // //                             ).toFixed(1)}%`
-// // // //                           : "â€”"}
+// // // //                           : "—"}
 // // // //                       </td>
 // // // //                     </tr>
 
@@ -4057,7 +4057,7 @@
 // // // //                       backendTotalData?.variancePTDPercent ??
 // // // //                         backendTotalData?.variance_ptd_pct
 // // // //                     ).toFixed(1)}%`
-// // // //                   : "â€”"}
+// // // //                   : "—"}
 // // // //               </td>
 
 // // // //               <td
@@ -4120,7 +4120,7 @@
 // // // //                       backendTotalData?.varianceYTDPercent ??
 // // // //                         backendTotalData?.variance_ytd_pct
 // // // //                     ).toFixed(1)}%`
-// // // //                   : "â€”"}
+// // // //                   : "—"}
 // // // //               </td>
 // // // //             </tr>
 // // // //           </tbody>
@@ -4161,13 +4161,13 @@
 // // //     value === undefined ||
 // // //     value === ""
 // // //   ) {
-// // //     return "â€”";
+// // //     return "—";
 // // //   }
 
 // // //   const number = Number(value);
 
 // // //   if (Number.isNaN(number)) {
-// // //     return "â€”";
+// // //     return "—";
 // // //   }
 
 // // //   return number.toLocaleString("en-US");
@@ -4183,15 +4183,15 @@
 // // //     value === undefined ||
 // // //     value === "" ||
 // // //     value === "-" ||
-// // //     value === "â€”"
+// // //     value === "—"
 // // //   ) {
-// // //     return "â€”";
+// // //     return "—";
 // // //   }
 
 // // //   const number = Number(value);
 
 // // //   if (Number.isNaN(number)) {
-// // //     return "â€”";
+// // //     return "—";
 // // //   }
 
 // // //   return number.toLocaleString("en-US");
@@ -4203,7 +4203,7 @@
 
 // // // const formatDataAsOf = (value) => {
 // // //   if (!value) {
-// // //     return "â€”";
+// // //     return "—";
 // // //   }
 
 // // //   const valueString = String(value);
@@ -4369,7 +4369,7 @@
 // // //       value !== undefined &&
 // // //       value !== "" &&
 // // //       value !== "-" &&
-// // //       value !== "â€”"
+// // //       value !== "—"
 // // //     ) {
 // // //       const number = Number(value);
 
@@ -4406,7 +4406,7 @@
 // // //      from the actual category values.
 
 // // //      Targets / Variances remain backend-driven and are
-// // //      displayed as â€” until target integration is available.
+// // //      displayed as — until target integration is available.
 // // //   ======================================================= */
 
 // // //   const totalActualPTD =
@@ -4582,7 +4582,7 @@
 // // //                   account?.natural_account_name ||
 // // //                   account?.account ||
 // // //                   account?.name ||
-// // //                   "â€”";
+// // //                   "—";
 
 // // //                 const monthData =
 // // //                   account?.monthOnMonth ||
@@ -5042,7 +5042,7 @@
 // // //                             }}
 // // //                           >
 // // //                             {item?.category ||
-// // //                               "â€”"}
+// // //                               "—"}
 // // //                           </span>
 // // //                         </div>
 // // //                       </td>
@@ -5120,7 +5120,7 @@
 // // //                               item?.variancePTDPercent ??
 // // //                                 item?.variance_ptd_pct
 // // //                             ).toFixed(1)}%`
-// // //                           : "â€”"}
+// // //                           : "—"}
 // // //                       </td>
 
 // // //                       <td
@@ -5196,7 +5196,7 @@
 // // //                               item?.varianceYTDPercent ??
 // // //                                 item?.variance_ytd_pct
 // // //                             ).toFixed(1)}%`
-// // //                           : "â€”"}
+// // //                           : "—"}
 // // //                       </td>
 // // //                     </tr>
 
@@ -5359,7 +5359,7 @@
 // // //                   color: "#64748B",
 // // //                 }}
 // // //               >
-// // //                 â€”
+// // //                 —
 // // //               </td>
 
 // // //               {/* ACTUAL YTD */}
@@ -5417,7 +5417,7 @@
 // // //                   color: "#64748B",
 // // //                 }}
 // // //               >
-// // //                 â€”
+// // //                 —
 // // //               </td>
 // // //             </tr>
 // // //           </tbody>
@@ -5458,13 +5458,13 @@
 // //     value === undefined ||
 // //     value === ""
 // //   ) {
-// //     return "â€”";
+// //     return "—";
 // //   }
 
 // //   const number = Number(value);
 
 // //   if (Number.isNaN(number)) {
-// //     return "â€”";
+// //     return "—";
 // //   }
 
 // //   return number.toLocaleString("en-US");
@@ -5480,15 +5480,15 @@
 // //     value === undefined ||
 // //     value === "" ||
 // //     value === "-" ||
-// //     value === "â€”"
+// //     value === "—"
 // //   ) {
-// //     return "â€”";
+// //     return "—";
 // //   }
 
 // //   const number = Number(value);
 
 // //   if (Number.isNaN(number)) {
-// //     return "â€”";
+// //     return "—";
 // //   }
 
 // //   return number.toLocaleString("en-US");
@@ -5500,7 +5500,7 @@
 
 // // const formatDataAsOf = (value) => {
 // //   if (!value) {
-// //     return "â€”";
+// //     return "—";
 // //   }
 
 // //   const valueString = String(value);
@@ -5666,7 +5666,7 @@
 // //     account?.naturalAccountName ??
 // //     account?.account ??
 // //     account?.name ??
-// //     "â€”"
+// //     "—"
 // //   );
 // // };
 
@@ -5737,7 +5737,7 @@
 // //       value !== undefined &&
 // //       value !== "" &&
 // //       value !== "-" &&
-// //       value !== "â€”"
+// //       value !== "—"
 // //     ) {
 // //       const number = Number(value);
 
@@ -6195,7 +6195,7 @@
 // //                  *
 // //                  * It does NOT return monthly account values.
 // //                  *
-// //                  * Therefore Jan-Dec correctly display â€”.
+// //                  * Therefore Jan-Dec correctly display —.
 // //                  *
 // //                  * Do not map PTD/YTD into any month.
 // //                  */
@@ -6684,7 +6684,7 @@
 // //                             }}
 // //                           >
 // //                             {item?.category ||
-// //                               "â€”"}
+// //                               "—"}
 // //                           </span>
 // //                         </div>
 // //                       </td>
@@ -6762,7 +6762,7 @@
 // //                               item?.variancePTDPercent ??
 // //                                 item?.variance_ptd_pct
 // //                             ).toFixed(1)}%`
-// //                           : "â€”"}
+// //                           : "—"}
 // //                       </td>
 
 // //                       <td
@@ -6838,7 +6838,7 @@
 // //                               item?.varianceYTDPercent ??
 // //                                 item?.variance_ytd_pct
 // //                             ).toFixed(1)}%`
-// //                           : "â€”"}
+// //                           : "—"}
 // //                       </td>
 // //                     </tr>
 
@@ -7001,7 +7001,7 @@
 // //                   color: "#64748B",
 // //                 }}
 // //               >
-// //                 â€”
+// //                 —
 // //               </td>
 
 // //               {/* ACTUAL YTD */}
@@ -7059,7 +7059,7 @@
 // //                   color: "#64748B",
 // //                 }}
 // //               >
-// //                 â€”
+// //                 —
 // //               </td>
 // //             </tr>
 // //           </tbody>
@@ -7100,13 +7100,13 @@
 //     value === undefined ||
 //     value === ""
 //   ) {
-//     return "â€”";
+//     return "—";
 //   }
 
 //   const number = Number(value);
 
 //   if (Number.isNaN(number)) {
-//     return "â€”";
+//     return "—";
 //   }
 
 //   return number.toLocaleString("en-US");
@@ -7125,13 +7125,13 @@
 //         value === undefined ||
 //         value === ""
 //     ) {
-//         return "â€”";
+//         return "—";
 //     }
 
 //     const number = Number(value);
 
 //     if (Number.isNaN(number)) {
-//         return "â€”";
+//         return "—";
 //     }
 
 //     /* =====================================================
@@ -7159,7 +7159,7 @@
 
 // const formatDataAsOf = (value) => {
 //   if (!value) {
-//     return "â€”";
+//     return "—";
 //   }
 
 //   const valueString = String(value);
@@ -7325,7 +7325,7 @@
 //     account?.naturalAccountName ??
 //     account?.account ??
 //     account?.name ??
-//     "â€”"
+//     "—"
 //   );
 // };
 
@@ -7396,7 +7396,7 @@
 //       value !== undefined &&
 //       value !== "" &&
 //       value !== "-" &&
-//       value !== "â€”"
+//       value !== "—"
 //     ) {
 //       const number = Number(value);
 
@@ -7846,7 +7846,7 @@
 //                  *
 //                  * It does NOT return monthly account values.
 //                  *
-//                  * Therefore Jan-Dec correctly display â€”.
+//                  * Therefore Jan-Dec correctly display —.
 //                  *
 //                  * Do not map PTD/YTD into any month.
 //                  */
@@ -8335,7 +8335,7 @@
 //                             }}
 //                           >
 //                             {item?.category ||
-//                               "â€”"}
+//                               "—"}
 //                           </span>
 //                         </div>
 //                       </td>
@@ -8413,7 +8413,7 @@
 //                               item?.variancePTDPercent ??
 //                                 item?.variance_ptd_pct
 //                             ).toFixed(1)}%`
-//                           : "â€”"}
+//                           : "—"}
 //                       </td>
 
 //                       <td
@@ -8489,7 +8489,7 @@
 //                               item?.varianceYTDPercent ??
 //                                 item?.variance_ytd_pct
 //                             ).toFixed(1)}%`
-//                           : "â€”"}
+//                           : "—"}
 //                       </td>
 //                     </tr>
 
@@ -8652,7 +8652,7 @@
 //                   color: "#64748B",
 //                 }}
 //               >
-//                 â€”
+//                 —
 //               </td>
 
 //               {/* ACTUAL YTD */}
@@ -8710,7 +8710,7 @@
 //                   color: "#64748B",
 //                 }}
 //               >
-//                 â€”
+//                 —
 //               </td>
 //             </tr>
 //           </tbody>
@@ -8752,13 +8752,13 @@ const formatNumber = (value) => {
         value === undefined ||
         value === ""
     ) {
-        return "â€”";
+        return "—";
     }
 
     const number = Number(value);
 
     if (Number.isNaN(number)) {
-        return "â€”";
+        return "—";
     }
 
     return number.toLocaleString("en-US");
@@ -8779,7 +8779,7 @@ const formatMonthValue = (value) => {
         value === undefined ||
         value === ""
     ) {
-        return "â€”";
+        return "—";
     }
 
     /*
@@ -8800,7 +8800,7 @@ const formatMonthValue = (value) => {
     );
 
     if (!Number.isFinite(number)) {
-        return "â€”";
+        return "—";
     }
 
     const millions = number / 1_000_000;
@@ -8817,7 +8817,7 @@ const formatMonthValue = (value) => {
 
 const formatDataAsOf = (value) => {
     if (!value) {
-        return "â€”";
+        return "—";
     }
 
     const valueString = String(value);
@@ -8954,7 +8954,7 @@ const getAccountName = (account) => {
         account?.naturalAccountName ??
         account?.account ??
         account?.name ??
-        "â€”"
+        "—"
     );
 };
 
@@ -9025,7 +9025,7 @@ const getTotalActual = (
             value !== undefined &&
             value !== "" &&
             value !== "-" &&
-            value !== "â€”"
+            value !== "—"
         ) {
             const number = Number(value);
 
@@ -9488,7 +9488,7 @@ export default function ExpenseCategoryDrillDown({
                                  *
                                  * It does NOT return monthly account values.
                                  *
-                                 * Therefore Jan-Dec correctly display â€”.
+                                 * Therefore Jan-Dec correctly display —.
                                  *
                                  * Do not map PTD/YTD into any month.
                                  */
@@ -10014,7 +10014,7 @@ export default function ExpenseCategoryDrillDown({
                                                         }}
                                                     >
                                                         {item?.category ||
-                                                            "â€”"}
+                                                            "—"}
                                                     </span>
                                                 </div>
                                             </td>
@@ -10094,7 +10094,7 @@ export default function ExpenseCategoryDrillDown({
                                                       ).toFixed(
                                                           1
                                                       )}%`
-                                                    : "â€”"}
+                                                    : "—"}
                                             </td>
 
                                             <td
@@ -10172,7 +10172,7 @@ export default function ExpenseCategoryDrillDown({
                                                       ).toFixed(
                                                           1
                                                       )}%`
-                                                    : "â€”"}
+                                                    : "—"}
                                             </td>
                                         </tr>
 
@@ -10351,7 +10351,7 @@ export default function ExpenseCategoryDrillDown({
                                         "#64748B",
                                 }}
                             >
-                                â€”
+                                —
                             </td>
 
                             {/* ACTUAL YTD */}
@@ -10421,7 +10421,7 @@ export default function ExpenseCategoryDrillDown({
                                         "#64748B",
                                 }}
                             >
-                                â€”
+                                —
                             </td>
                         </tr>
                     </tbody>
