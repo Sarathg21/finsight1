@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AuditProvider } from './context/AuditContext';
 import { FilterProvider } from './context/FilterContext';
 import Layout from './components/Layout';
+import AdminLayout from './components/Layout/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -81,8 +82,8 @@ function App() {
               {/* <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} /> */}
             </Route>
 
-            {/* Admin Module Routes - Uses main Layout */}
-            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<Layout />} />}>
+            {/* Admin Module Routes - Uses AdminLayout with SidebarAdmin + NavbarAdmin */}
+            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<AdminLayout />} />}>
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route path="dashboard" element={<AdminMainDashboard />} />
               <Route path="users" element={<UsersDashboard />} />
