@@ -2,19 +2,20 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign,
+  LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
   FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,
   UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog,
 } from 'lucide-react';
 
-/* ── Icon map per route ─────────────────────────────────────────── */
+/* â”€â”€ Icon map per route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ROUTE_ICON = {
   '/finsight-dashboard':  Star,
   '/exec-dashboard':      Briefcase,
   '/dashboard':           LayoutDashboard,
   '/pl':                  FileText,
   '/balance-sheet':       BookOpen,
+    '/operating-expenses':  BarChart2,
   '/revenue':             DollarSign,
   '/fixed-assets':        Building2,
   '/ar':                  Receipt,
@@ -35,7 +36,7 @@ const ROUTE_ICON = {
   '/salesman':            UserCheck,
 };
 
-/* ── Nav item definitions per role ─────────────────────────────── */
+/* â”€â”€ Nav item definitions per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const NAV_BY_ROLE = {
   board: [
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
@@ -58,6 +59,7 @@ const NAV_BY_ROLE = {
     // { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Overview'         },
     { to: '/pl',                 label: 'P&L Report',                          group: 'Financials'       },
     { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Financials'       },
+      { to: '/operating-expenses', label: 'Operating Expenses',              group: 'Financials'       },
     { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Financials'       },
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
@@ -108,6 +110,7 @@ const NAV_BY_ROLE = {
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
     { to: '/pl',                 label: 'P&L Report',                          group: 'Finance'          },
     { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Finance'          },
+      { to: '/operating-expenses', label: 'Operating Expenses',              group: 'Finance'          },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Finance'          },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'Finance'          },
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Finance'          },
@@ -122,7 +125,7 @@ const NAV_BY_ROLE = {
   ],
 };
 
-/* ── Role theme helpers ─────────────────────────────────────────── */
+/* â”€â”€ Role theme helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function roleBg(role) {
   const m = { board:'#eef2ff', cfo:'#eef2ff', executive:'#f5f3ff', gm:'#eff6ff', bu_manager:'#eff6ff', accountant:'#f0fdf4', sales:'#fff1f2' };
   return m[role] || '#eef2ff';
@@ -132,7 +135,7 @@ function roleColor(role) {
   return m[role] || '#6366f1';
 }
 
-/* ── Tooltip wrapper for collapsed mode ────────────────────────── */
+/* â”€â”€ Tooltip wrapper for collapsed mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Tip({ label, children, show }) {
   if (!show) return children;
   return (
@@ -169,7 +172,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
   return (
     <>
-      {/* ═══════════════════ ASIDE ═══════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ASIDE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <aside
         className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}
         style={{
@@ -185,10 +188,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
           zIndex: 110,
         }}
       >
-        {/* ── Inner clip (content clipped during animation) ── */}
+        {/* â”€â”€ Inner clip (content clipped during animation) â”€â”€ */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-          {/* ── Logo row ── */}
+          {/* â”€â”€ Logo row â”€â”€ */}
           <div style={{
             height: 'var(--topbar-h)',
             display: 'flex', alignItems: 'center',
@@ -219,7 +222,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             </div>
           </div>
 
-          {/* ── Role badge ── */}
+          {/* â”€â”€ Role badge â”€â”€ */}
           <div style={{
             padding: isExpanded ? '10px 16px 4px' : '10px 0 4px',
             display: 'flex',
@@ -243,7 +246,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             </div>
           </div>
 
-          {/* ── Search (expanded only) ── */}
+          {/* â”€â”€ Search (expanded only) â”€â”€ */}
           {isExpanded && (
             <div style={{ padding: '6px 12px 2px', flexShrink: 0 }}>
               <div style={{
@@ -256,7 +259,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  placeholder="Search menu…"
+                  placeholder="Search menuâ€¦"
                   style={{
                     border: 'none', background: 'transparent', outline: 'none',
                     fontSize: '0.78rem', color: '#334155', width: '100%',
@@ -271,7 +274,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             </div>
           )}
 
-          {/* ── Navigation ── */}
+          {/* â”€â”€ Navigation â”€â”€ */}
           <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 10px 12px' }}>
             {Object.entries(grouped).map(([group, items], gi) => (
               <div key={group} style={{ marginBottom: 4 }}>
@@ -395,7 +398,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             )}
           </nav>
 
-          {/* ── User footer ── */}
+          {/* â”€â”€ User footer â”€â”€ */}
           <div style={{
             borderTop: '1px solid var(--clr-border)',
             padding: isExpanded ? '12px 14px' : '10px 0',
@@ -449,7 +452,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
         </div>{/* /inner clip */}
 
-        {/* ── Desktop floating chevron toggle ── */}
+        {/* â”€â”€ Desktop floating chevron toggle â”€â”€ */}
         <button
           onClick={onToggle}
           aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
@@ -482,7 +485,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
       </aside>
 
-      {/* ── Mobile FAB arrow pill ── */}
+      {/* â”€â”€ Mobile FAB arrow pill â”€â”€ */}
       <button
         onClick={onToggle}
         aria-label="Open navigation"
@@ -510,3 +513,4 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
     </>
   );
 }
+
