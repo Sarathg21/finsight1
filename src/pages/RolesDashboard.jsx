@@ -1,5 +1,5 @@
 
-<<<<<<< ours
+
 // import React, { useEffect, useState } from "react";
 // import { UserPlus } from "lucide-react";
 // import toast from "react-hot-toast";
@@ -415,8 +415,7 @@
 //   );
 // }
 
-=======
->>>>>>> theirs
+
 import React, { useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
 import toast from "react-hot-toast";

@@ -90,7 +90,7 @@
 
 //     /* -------------------------------------------------------
 //        OBJECT
-  
+
 //        Example:
 //        {
 //          "Jan-26": 8364319.95,
@@ -422,9 +422,9 @@
 
 //     /* =======================================================
 //        LAZY LOADED CATEGORY DETAILS
-  
+
 //        Example:
-  
+
 //        {
 //          "Employee Cost": [
 //            {
@@ -448,13 +448,13 @@
 
 //     /* =======================================================
 //        NORMALIZE DATA
-  
+
 //        Supports both:
-  
+
 //        data = []
-  
+
 //        and
-  
+
 //        data = {
 //          data: []
 //        }
@@ -468,7 +468,7 @@
 
 //     /* =======================================================
 //        LOAD CATEGORY DETAIL
-  
+
 //        IMPORTANT:
 //        This function is called ONLY after clicking >.
 //     ======================================================= */
@@ -523,13 +523,13 @@
 //         try {
 //             /* ===================================================
 //                API BASE
-      
+
 //                VITE_API_BASE_URL can be either:
-      
+
 //                http://13.233.207.68:8000
-      
+
 //                OR
-      
+
 //                http://13.233.207.68:8000/api
 //             =================================================== */
 
@@ -634,7 +634,7 @@
 
 //     /* =======================================================
 //        TOGGLE ROW
-  
+
 //        > click
 //          ↓
 //        expand
@@ -667,10 +667,10 @@
 
 //         /* =====================================================
 //            FIRST: EXISTING CALLBACK
-    
+
 //            Keep this so existing parent functionality is not
 //            broken.
-    
+
 //            If parent already handles some additional logic,
 //            it will continue to work.
 //         ===================================================== */
@@ -693,7 +693,7 @@
 
 //         /* =====================================================
 //            THEN LOAD THE ACTUAL CATEGORY DETAIL DATA
-    
+
 //            This guarantees this component receives and stores
 //            the category-detail API response itself.
 //         ===================================================== */
@@ -2024,7 +2024,7 @@ const formatValue = (value, unit = "millions") => {
         --------------------------------------------------- */
 
         if (Math.abs(millions) < 0.01) {
-            return "<0.01M";
+            return millions < 0 ? "-<0.01M" : "<0.01M";
         }
 
         return `${millions.toFixed(2)}M`;
@@ -2132,12 +2132,12 @@ const getMonthValue = (
 
                 return (
                     normalizedKey ===
-                        normalizedLabel ||
+                    normalizedLabel ||
                     normalizedKey.startsWith(
                         normalizedLabel
                     ) ||
                     normalizedKey ===
-                        normalizedMonthKey ||
+                    normalizedMonthKey ||
                     normalizedKey.startsWith(
                         normalizedMonthKey
                     )
@@ -2147,7 +2147,7 @@ const getMonthValue = (
         if (matchingKey) {
             const monthValue =
                 monthlyActual[
-                    matchingKey
+                matchingKey
                 ];
 
             /* -----------------------------------------------
@@ -2211,12 +2211,12 @@ const getMonthValue = (
 
                     return (
                         normalizedEntryMonth ===
-                            normalizedLabel ||
+                        normalizedLabel ||
                         normalizedEntryMonth.startsWith(
                             normalizedLabel
                         ) ||
                         normalizedEntryMonth ===
-                            normalizedKey ||
+                        normalizedKey ||
                         normalizedEntryMonth.startsWith(
                             normalizedKey
                         )
@@ -2529,7 +2529,7 @@ const getNaturalAccountLabel = (
 
     if (
         normalizedName ===
-            normalizedCode ||
+        normalizedCode ||
         normalizedName.startsWith(
             `${normalizedCode} -`
         ) ||
@@ -2573,7 +2573,7 @@ const getAccountMonthValue = (
 export default function MonthOnMonthOpexReport({
     data = [],
     totalData = null,
-    onExpandCategory,
+
     detailLoading = {},
     periodName = "Sep-26",
     reportingCurrency = "AED",
@@ -2645,251 +2645,252 @@ export default function MonthOnMonthOpexReport({
        - hierarchy filters
     ======================================================= */
 
-    const loadCategoryDetails =
-        async (item) => {
-            const category =
-                item?.category;
+    const loadCategoryDetails = async (item) => {
+       
 
-            if (!category) {
-                return [];
-            }
+        const category = item?.category;
 
-            /* -------------------------------------------------
-               Already loaded
-            ------------------------------------------------- */
+       
+        if (!category) {
+            console.log("NO CATEGORY - RETURNING");
+            return [];
+        }
+        /* -------------------------------------------------
+           Already loaded
+        ------------------------------------------------- */
+
+        if (
+            Object.prototype.hasOwnProperty.call(
+                categoryDetails,
+                category
+            )
+        ) {
+            return categoryDetails[
+                category
+            ];
+        }
+
+        /* -------------------------------------------------
+           Already loading
+        ------------------------------------------------- */
+
+        if (
+            categoryDetailLoading?.[
+            category
+            ]
+        ) {
+            return [];
+        }
+
+        setCategoryDetailLoading(
+            (prev) => ({
+                ...prev,
+                [category]: true,
+            })
+        );
+
+        setCategoryDetailError(
+            (prev) => ({
+                ...prev,
+                [category]: null,
+            })
+        );
+
+        try {
+            /* =============================================
+               API BASE
+            ============================================= */
+
+            const configuredBase =
+                import.meta.env
+                    .VITE_API_BASE_URL ||
+                "";
+
+            const base =
+                configuredBase.replace(
+                    /\/+$/,
+                    ""
+                );
+
+            /* =============================================
+               LIVE MONTHLY CATEGORY DETAIL ENDPOINT
+            ============================================= */
+
+            const apiUrl =
+                base.endsWith("/api")
+                    ? `${base}/opex/category-detail-monthly`
+                    : `${base}/api/opex/category-detail-monthly`;
+
+            /* =============================================
+               REQUEST PARAMETERS
+
+               Required:
+               - category
+               - period_name
+               - reporting_currency
+
+               Plus the same hierarchy filters
+               supplied by the main OPEX page.
+            ============================================= */
+
+            const params =
+                new URLSearchParams();
+
+            /* ---------------------------------------------
+               Category
+            --------------------------------------------- */
+
+            params.set(
+                "category",
+                category
+            );
+
+            /* ---------------------------------------------
+               Selected Period
+            --------------------------------------------- */
+
+            params.set(
+                "period_name",
+                periodName
+            );
+
+            /* ---------------------------------------------
+               Reporting Currency
+            --------------------------------------------- */
+
+            params.set(
+                "reporting_currency",
+                reportingCurrency
+            );
+
+            /* ---------------------------------------------
+               SAME HIERARCHY FILTERS
+
+               Only non-empty values are added.
+
+               This keeps the API request synchronized
+               with the main OPEX page filters.
+            --------------------------------------------- */
 
             if (
-                Object.prototype.hasOwnProperty.call(
-                    categoryDetails,
-                    category
-                )
+                hierarchyFilters &&
+                typeof hierarchyFilters ===
+                "object"
             ) {
-                return categoryDetails[
-                    category
-                ];
+                Object.entries(
+                    hierarchyFilters
+                ).forEach(
+                    ([key, value]) => {
+                        if (
+                            value !==
+                            null &&
+                            value !==
+                            undefined &&
+                            value !==
+                            "" &&
+                            value !==
+                            "—"
+                        ) {
+                            params.set(
+                                key,
+                                String(value)
+                            );
+                        }
+                    }
+                );
             }
 
-            /* -------------------------------------------------
-               Already loading
-            ------------------------------------------------- */
+            /* =============================================
+               AUTH TOKEN
+            ============================================= */
+
+            const token =
+                localStorage.getItem(
+                    "token"
+                );
+
+            /* =============================================
+               API REQUEST
+            ============================================= */
+
+            const response =
+                await fetch(
+                    `${apiUrl}?${params.toString()}`,
+                    {
+                        method: "GET",
+
+                        headers: {
+                            Accept:
+                                "application/json",
+
+                            ...(token
+                                ? {
+                                    Authorization:
+                                        `Bearer ${token}`,
+                                }
+                                : {}),
+                        },
+                    }
+                );
 
             if (
-                categoryDetailLoading?.[
-                    category
-                ]
+                !response.ok
             ) {
-                return [];
+                throw new Error(
+                    `Category detail monthly request failed: ${response.status}`
+                );
             }
 
-            setCategoryDetailLoading(
+            const responseData =
+                await response.json();
+
+            /* =============================================
+               EXTRACT NATURAL ACCOUNT DATA
+            ============================================= */
+
+            const details =
+                getDetails(
+                    responseData
+                );
+
+            /* =============================================
+               SAVE API RESULT BY CATEGORY
+            ============================================= */
+
+            setCategoryDetails(
                 (prev) => ({
                     ...prev,
-                    [category]: true,
+                    [category]:
+                        details,
                 })
+            );
+
+            return details;
+        } catch (error) {
+            console.error(
+                "Failed to load OPEX category monthly details:",
+                error
             );
 
             setCategoryDetailError(
                 (prev) => ({
                     ...prev,
-                    [category]: null,
+                    [category]:
+                        error?.message ||
+                        "Failed to load category monthly details.",
                 })
             );
 
-            try {
-                /* =============================================
-                   API BASE
-                ============================================= */
-
-                const configuredBase =
-                    import.meta.env
-                        .VITE_API_BASE_URL ||
-                    "";
-
-                const base =
-                    configuredBase.replace(
-                        /\/+$/,
-                        ""
-                    );
-
-                /* =============================================
-                   LIVE MONTHLY CATEGORY DETAIL ENDPOINT
-                ============================================= */
-
-                const apiUrl =
-                    base.endsWith("/api")
-                        ? `${base}/opex/category-detail-monthly`
-                        : `${base}/api/opex/category-detail-monthly`;
-
-                /* =============================================
-                   REQUEST PARAMETERS
-
-                   Required:
-                   - category
-                   - period_name
-                   - reporting_currency
-
-                   Plus the same hierarchy filters
-                   supplied by the main OPEX page.
-                ============================================= */
-
-                const params =
-                    new URLSearchParams();
-
-                /* ---------------------------------------------
-                   Category
-                --------------------------------------------- */
-
-                params.set(
-                    "category",
-                    category
-                );
-
-                /* ---------------------------------------------
-                   Selected Period
-                --------------------------------------------- */
-
-                params.set(
-                    "period_name",
-                    periodName
-                );
-
-                /* ---------------------------------------------
-                   Reporting Currency
-                --------------------------------------------- */
-
-                params.set(
-                    "reporting_currency",
-                    reportingCurrency
-                );
-
-                /* ---------------------------------------------
-                   SAME HIERARCHY FILTERS
-
-                   Only non-empty values are added.
-
-                   This keeps the API request synchronized
-                   with the main OPEX page filters.
-                --------------------------------------------- */
-
-                if (
-                    hierarchyFilters &&
-                    typeof hierarchyFilters ===
-                        "object"
-                ) {
-                    Object.entries(
-                        hierarchyFilters
-                    ).forEach(
-                        ([key, value]) => {
-                            if (
-                                value !==
-                                    null &&
-                                value !==
-                                    undefined &&
-                                value !==
-                                    "" &&
-                                value !==
-                                    "—"
-                            ) {
-                                params.set(
-                                    key,
-                                    String(value)
-                                );
-                            }
-                        }
-                    );
-                }
-
-                /* =============================================
-                   AUTH TOKEN
-                ============================================= */
-
-                const token =
-                    localStorage.getItem(
-                        "token"
-                    );
-
-                /* =============================================
-                   API REQUEST
-                ============================================= */
-
-                const response =
-                    await fetch(
-                        `${apiUrl}?${params.toString()}`,
-                        {
-                            method: "GET",
-
-                            headers: {
-                                Accept:
-                                    "application/json",
-
-                                ...(token
-                                    ? {
-                                        Authorization:
-                                            `Bearer ${token}`,
-                                    }
-                                    : {}),
-                            },
-                        }
-                    );
-
-                if (
-                    !response.ok
-                ) {
-                    throw new Error(
-                        `Category detail monthly request failed: ${response.status}`
-                    );
-                }
-
-                const responseData =
-                    await response.json();
-
-                /* =============================================
-                   EXTRACT NATURAL ACCOUNT DATA
-                ============================================= */
-
-                const details =
-                    getDetails(
-                        responseData
-                    );
-
-                /* =============================================
-                   SAVE API RESULT BY CATEGORY
-                ============================================= */
-
-                setCategoryDetails(
-                    (prev) => ({
-                        ...prev,
-                        [category]:
-                            details,
-                    })
-                );
-
-                return details;
-            } catch (error) {
-                console.error(
-                    "Failed to load OPEX category monthly details:",
-                    error
-                );
-
-                setCategoryDetailError(
-                    (prev) => ({
-                        ...prev,
-                        [category]:
-                            error?.message ||
-                            "Failed to load category monthly details.",
-                    })
-                );
-
-                return [];
-            } finally {
-                setCategoryDetailLoading(
-                    (prev) => ({
-                        ...prev,
-                        [category]: false,
-                    })
-                );
-            }
-        };
+            return [];
+        } finally {
+            setCategoryDetailLoading(
+                (prev) => ({
+                    ...prev,
+                    [category]: false,
+                })
+            );
+        }
+    };
 
     /* =======================================================
        TOGGLE ROW
@@ -2905,56 +2906,23 @@ export default function MonthOnMonthOpexReport({
        render natural accounts
     ======================================================= */
 
-    const toggleRow = async (
-        item,
-        category
-    ) => {
-        const willExpand =
-            !expandedRows[category];
+    const toggleRow = async (item, category) => {
+        const willExpand = !expandedRows[category];
 
-        setExpandedRows(
-            (prev) => ({
-                ...prev,
-                [category]:
-                    willExpand,
-            })
-        );
+        setExpandedRows((prev) => ({
+            ...prev,
+            [category]: willExpand,
+        }));
 
         if (!willExpand) {
             return;
         }
 
-        /* =====================================================
-           EXISTING CALLBACK
-
-           DO NOT REMOVE
-        ===================================================== */
-
-        if (
-            typeof onExpandCategory ===
-            "function"
-        ) {
-            try {
-                await onExpandCategory(
-                    item
-                );
-            } catch (error) {
-                console.error(
-                    "onExpandCategory failed:",
-                    error
-                );
-            }
-        }
-
-        /* =====================================================
-           LOAD LIVE MONTHLY CATEGORY DETAIL
-        ===================================================== */
-
-        await loadCategoryDetails(
-            item
-        );
+        await loadCategoryDetails(item);
     };
 
+
+   
     /* =======================================================
        DISPLAY
     ======================================================= */
@@ -3267,17 +3235,17 @@ export default function MonthOnMonthOpexReport({
                             borderRadius: 6,
                             border:
                                 unit ===
-                                "millions"
+                                    "millions"
                                     ? "1px solid #5B3FE4"
                                     : "1px solid #E2E8F0",
                             background:
                                 unit ===
-                                "millions"
+                                    "millions"
                                     ? "#5B3FE4"
                                     : "#FFFFFF",
                             color:
                                 unit ===
-                                "millions"
+                                    "millions"
                                     ? "#FFFFFF"
                                     : "#334155",
                             fontSize: 9,
@@ -3511,7 +3479,7 @@ export default function MonthOnMonthOpexReport({
 
                                     const isExpanded =
                                         !!expandedRows[
-                                            rowKey
+                                        rowKey
                                         ];
 
                                     const actualYTD =
@@ -3537,21 +3505,21 @@ export default function MonthOnMonthOpexReport({
                                     const details =
                                         getDetails(
                                             categoryDetails[
-                                                rowKey
+                                            rowKey
                                             ]
                                         );
 
                                     const isLoading =
                                         !!categoryDetailLoading[
-                                            rowKey
+                                        rowKey
                                         ] ||
                                         !!detailLoading?.[
-                                            rowKey
+                                        rowKey
                                         ];
 
                                     const error =
                                         categoryDetailError[
-                                            rowKey
+                                        rowKey
                                         ];
 
                                     return (
@@ -3655,15 +3623,15 @@ export default function MonthOnMonthOpexReport({
 
                                                         const isEmpty =
                                                             value ===
-                                                                null ||
-                                                                value ===
-                                                                undefined ||
-                                                                value ===
-                                                                "" ||
-                                                                value ===
-                                                                "-" ||
-                                                                value ===
-                                                                "—";
+                                                            null ||
+                                                            value ===
+                                                            undefined ||
+                                                            value ===
+                                                            "" ||
+                                                            value ===
+                                                            "-" ||
+                                                            value ===
+                                                            "—";
 
                                                         return (
                                                             <td
@@ -4073,15 +4041,15 @@ export default function MonthOnMonthOpexReport({
 
                                                                                                 const isEmpty =
                                                                                                     value ===
-                                                                                                        null ||
-                                                                                                        value ===
-                                                                                                        undefined ||
-                                                                                                        value ===
-                                                                                                        "" ||
-                                                                                                        value ===
-                                                                                                        "-" ||
-                                                                                                        value ===
-                                                                                                        "—";
+                                                                                                    null ||
+                                                                                                    value ===
+                                                                                                    undefined ||
+                                                                                                    value ===
+                                                                                                    "" ||
+                                                                                                    value ===
+                                                                                                    "-" ||
+                                                                                                    value ===
+                                                                                                    "—";
 
                                                                                                 return (
                                                                                                     <td
@@ -4212,15 +4180,15 @@ export default function MonthOnMonthOpexReport({
 
                                         const isEmpty =
                                             value ===
-                                                null ||
+                                            null ||
                                             value ===
-                                                undefined ||
+                                            undefined ||
                                             value ===
-                                                "" ||
+                                            "" ||
                                             value ===
-                                                "-" ||
+                                            "-" ||
                                             value ===
-                                                "—";
+                                            "—";
 
                                         return (
                                             <td

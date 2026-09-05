@@ -1,5 +1,4 @@
 
-<<<<<<< ours
 // // import { useState, useMemo, useEffect } from "react";
 // // import {
 // //     UserPlus, Users, UserCheck, UserX, ShieldAlert, UserCog, Edit, Shield,
@@ -1889,8 +1888,7 @@
 //         </div>
 //     );
 // }
-=======
->>>>>>> theirs
+
 
 import { useState, useMemo, useEffect } from "react";
 import {
