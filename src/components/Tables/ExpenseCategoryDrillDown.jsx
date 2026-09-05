@@ -9523,10 +9523,15 @@ export default function ExpenseCategoryDrillDown({
                                  * Do not map PTD/YTD into any month.
                                  */
 
+                                /* Pass the full account object — getMonthValue
+                                   will find monthly_actual_aed[month] via
+                                   prefix-match (e.g. "JAN" -> "Jan-26") */
                                 const monthData =
-                                    account?.monthOnMonth ||
-                                    account?.monthly ||
-                                    account?.months;
+                                    account?.monthly_actual_aed
+                                        ? account
+                                        : (account?.monthOnMonth ||
+                                           account?.monthly ||
+                                           account?.months);
 
                                 return (
                                     <tr
