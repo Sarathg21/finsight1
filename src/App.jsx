@@ -24,6 +24,7 @@ import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
+import OperatingAnalysis from './pages/OperatingAnalysis';
 import MyProfile from './pages/MyProfile';
 
 // Placeholder for yet-to-be-built pages
@@ -69,6 +70,7 @@ function App() {
               {/* <Route path="/bu-pack"            element={<ProtectedRoute pageKey="bu-pack"            element={<PlaceholderPage title="BU Financial Pack" />} />} /> */}
               <Route path="/pl"                 element={<ProtectedRoute pageKey="pl"                 element={<PLAnalytics />} />} />
               <Route path="/balance-sheet"      element={<ProtectedRoute pageKey="balance-sheet"     element={<BalanceSheet />} />} />
+              <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses" element={<OperatingAnalysis />} />} />
               <Route path="/revenue"            element={<ProtectedRoute pageKey="revenue"            element={<SalesRevenueReport />} />} />
               {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
               {/* <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} /> */}

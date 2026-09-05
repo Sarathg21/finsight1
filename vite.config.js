@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [tailwindcss(), react()],
-    build: {
+    build: { sourcemap: true,
       chunkSizeWarningLimit: 3000,
     },
     server: {

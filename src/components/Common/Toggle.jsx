@@ -1,4 +1,4 @@
-﻿export default function Toggle({ checked, onChange, label }) {
+export default function Toggle({ checked, onChange, label }) {
   return (
     <label className="inline-flex items-center gap-2 cursor-pointer select-none">
       {label && <span className="text-sm text-gray-700">{label}</span>}
