@@ -1,7 +1,10 @@
+
+
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 
-import PageHeader from "../components/common/PageHeader";
+import PageHeader from "../components/Common/PageHeader";
+
 import {
   Users,
   UserCheck,
@@ -17,6 +20,8 @@ import {
   UserPlus,
   Shield,
   KeyRound,
+  CalendarDays,
+  RefreshCw,
 } from "lucide-react";
 
 import { getAdminSystemStatus } from "../api/adminApi";
@@ -249,7 +254,7 @@ export default function AdminMainDashboard() {
       title: "Assign Access",
       description: "Organization access scope",
       icon: KeyRound,
-      path: "/admin/user-access",
+      path: "/admin/useraccess",
     },
 
     {
@@ -267,6 +272,18 @@ export default function AdminMainDashboard() {
   };
 
   /* =========================================================
+     CURRENT DATE
+  ========================================================= */
+
+  const currentDate = new Date();
+
+  const formattedDate = currentDate.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+
+  /* =========================================================
      MAIN UI
   ========================================================= */
 
@@ -281,12 +298,54 @@ export default function AdminMainDashboard() {
             PAGE HEADER
         ===================================================== */}
 
-        <PageHeader
-          variant="dashboard"
-          title="Admin Dashboard"
-          subtitle="Users, access control, organization master data and system health."
-          onRefresh={handleRefresh}
-        />
+        <div style={styles.headerWrapper}>
+          <PageHeader
+            variant="dashboard"
+            title="Admin Dashboard"
+            subtitle="Users, access control, organization master data and system health."
+          />
+
+          {/* ===================================================
+              CALENDAR + REFRESH
+          =================================================== */}
+
+          <div style={styles.headerActions}>
+            {/* Calendar */}
+
+            <button
+              type="button"
+              style={styles.dateButton}
+            >
+              <CalendarDays
+                style={styles.dateIcon}
+                strokeWidth={1.8}
+              />
+
+              <span>{formattedDate}</span>
+            </button>
+
+            {/* Refresh */}
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              style={styles.refreshButton}
+              disabled={loading}
+            >
+              <RefreshCw
+                style={{
+                  ...styles.refreshIcon,
+                  animation: loading
+                    ? "spin 1s linear infinite"
+                    : "none",
+                }}
+                strokeWidth={2}
+              />
+
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
 
         {/* ERROR */}
 
@@ -391,7 +450,7 @@ export default function AdminMainDashboard() {
                         ...styles.statusValue,
                         color:
                           item.status === "running" ||
-                          item.status === "connected"
+                            item.status === "connected"
                             ? "#12A36A"
                             : "#DC2626",
                       }}
@@ -449,7 +508,9 @@ export default function AdminMainDashboard() {
 
                     {/* Description */}
 
-                    <span style={styles.quickActionDescription}>
+                    <span
+                      style={styles.quickActionDescription}
+                    >
                       {action.description}
                     </span>
                   </NavLink>
@@ -459,6 +520,23 @@ export default function AdminMainDashboard() {
           </div>
         </section>
       </div>
+
+      {/* =======================================================
+          SPIN ANIMATION
+      ======================================================= */}
+
+      <style>
+        {`
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}
+      </style>
     </div>
   );
 }
@@ -494,6 +572,74 @@ const styles = {
   loadingWrapper: {
     padding: "16px",
     boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     HEADER
+  ======================================================= */
+
+  headerWrapper: {
+    position: "relative",
+    width: "100%",
+  },
+
+  headerActions: {
+    position: "absolute",
+    top: "10px",
+    right: "0",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    zIndex: 5,
+  },
+
+  dateButton: {
+    height: "34px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    padding: "0 12px",
+    border: "1px solid #DCE3EE",
+    borderRadius: "8px",
+    background: "#FFFFFF",
+    color: "#27344D",
+    fontSize: "12px",
+    fontWeight: 500,
+    cursor: "pointer",
+    boxSizing: "border-box",
+    whiteSpace: "nowrap",
+  },
+
+  dateIcon: {
+    width: "15px",
+    height: "15px",
+    color: "#64748B",
+    flexShrink: 0,
+  },
+
+  refreshButton: {
+    height: "34px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "7px",
+    padding: "0 13px",
+    border: "1px solid #2563EB",
+    borderRadius: "8px",
+    background: "#2563EB",
+    color: "#FFFFFF",
+    fontSize: "12px",
+    fontWeight: 600,
+    cursor: "pointer",
+    boxSizing: "border-box",
+    whiteSpace: "nowrap",
+  },
+
+  refreshIcon: {
+    width: "15px",
+    height: "15px",
+    flexShrink: 0,
   },
 
   /* =======================================================
