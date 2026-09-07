@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Search, Users } from "lucide-react";
-import SaveFooter from "../common/SaveFooter";
+import SaveFooter from "../Common/SaveFooter";
 export default function UserAssignment({
     role,
     users,
@@ -34,16 +34,13 @@ export default function UserAssignment({
     // Search
     const filteredUsers = useMemo(() => {
         return (users || []).filter((user) =>
-            (user.name || "")
-                .toLowerCase()
+            String(user.name || "").toLowerCase()
                 .includes(search.toLowerCase()) ||
 
-            (user.code || "")
-                .toLowerCase()
+            String(user.code || "").toLowerCase()
                 .includes(search.toLowerCase()) ||
 
-            (user.department || "")
-                .toLowerCase()
+            String(user.department || "").toLowerCase()
                 .includes(search.toLowerCase())
         );
     }, [users, search]);

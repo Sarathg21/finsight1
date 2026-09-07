@@ -1,4 +1,4 @@
-﻿export default function UnsavedChangesModal({
+export default function UnsavedChangesModal({
     open,
     onStay,
     onDiscard

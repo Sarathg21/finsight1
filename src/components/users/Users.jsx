@@ -3,7 +3,7 @@ import { stats } from "../data/dummyData";
 import StatCard from "../components/StatCard";
 import FilterBar from "../components/FilterBar";
 
-const Users = () => {
+const Users = () => {  
     const [search, setSearch] = useState("");
     const [activeOnly, setActiveOnly] = useState(false);
 

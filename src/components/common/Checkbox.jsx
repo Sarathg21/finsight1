@@ -1,4 +1,4 @@
-﻿export default function Checkbox({
+export default function Checkbox({
   checked,
   onChange,
   disabled = false,

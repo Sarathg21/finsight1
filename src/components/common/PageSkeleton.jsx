@@ -1,4 +1,4 @@
-﻿
+
 export default function PageSkeleton() {
   return (
     <div className="animate-pulse space-y-6">

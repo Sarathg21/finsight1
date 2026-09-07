@@ -1,4 +1,4 @@
-﻿export default function SaveFooter({
+export default function SaveFooter({
     onCancel,
     onSave,
     loading = false,

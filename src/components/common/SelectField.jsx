@@ -1,4 +1,4 @@
-﻿export default function SelectField({
+export default function SelectField({
   label,
   value,
   options = [],

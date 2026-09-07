@@ -1,4 +1,4 @@
-﻿
+
 import {
   Search,
   ChevronDown,
@@ -502,7 +502,7 @@ export default function FilterBar({
               DEFAULT ORDER
 
               USERS:
-              Search ΓåÆ Filters ΓåÆ Active Only ΓåÆ Reset
+              Search → Filters → Active Only → Reset
           ================================================= */}
 
           {!customOrder && (
