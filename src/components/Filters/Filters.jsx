@@ -1,1080 +1,8 @@
 
 
-// import React, { useState, useEffect } from "react";
-// import { getOpexFilterOptions } from "../../api/opexApi";
-
-// /* =========================================================
-//    Reusable Filter Field
-// ========================================================= */
-
-// function FilterField({ label, children, isOperatingExpenses = false }) {
-//   return (
-//     <div
-//       style={{
-//         display: "flex",
-//         flexDirection: "column",
-//         gap: 4,
-
-//         /*
-//           IMPORTANT:
-//           Common pages keep the original layout behavior.
-
-//           OPEX:
-//           minWidth: 0 + flex: 1 1 0
-//           allows all 7 filters to stay in one row.
-//         */
-//         minWidth: isOperatingExpenses ? 0 : 110,
-//         flex: isOperatingExpenses
-//           ? "1 1 0"
-//           : "1 1 auto",
-
-//         /*
-//           Prevent select content from forcing
-//           the flex item wider.
-//         */
-//         overflow: "hidden",
-//       }}
-//     >
-//       <span
-//         style={{
-//           fontSize: "0.66rem",
-//           color: "#1e3a8a",
-//           fontWeight: 700,
-//           letterSpacing: "-0.02em",
-//           whiteSpace: "nowrap",
-//         }}
-//       >
-//         {label}
-//       </span>
-
-//       {children}
-//     </div>
-//   );
-// }
-
-// /* =========================================================
-//    Common Select Filters
-//    Used by existing pages
-//    DO NOT CHANGE
-// ========================================================= */
-
-// const commonSelectFilters = [
-//   {
-//     label: "Legal Group",
-//     optionKey: "legal_groups",
-//     apiKey: "legal_group",
-//   },
-//   {
-//     label: "Legal Entity",
-//     optionKey: "legal_entities",
-//     apiKey: "legal_entity",
-//   },
-//   {
-//     label: "Parent Division",
-//     optionKey: "parent_divisions",
-//     apiKey: "parent_division",
-//   },
-//   {
-//     label: "Sub-Division",
-//     optionKey: "subdivisions",
-//     apiKey: "subdivision",
-//   },
-//   {
-//     label: "Currency",
-//     optionKey: "currencies",
-//     apiKey: "currency",
-//   },
-// ];
-
-// /* =========================================================
-//    Operating Expenses Filters
-//    ONLY used when isOperatingExpenses = true
-// ========================================================= */
-
-// const operatingSelectFilters = [
-//   {
-//     label: "Legal Group",
-//     optionKey: "legal_groups",
-//     apiKey: "legal_group",
-//   },
-//   {
-//     label: "Legal Entity",
-//     optionKey: "legal_entities",
-//     apiKey: "legal_entity",
-//   },
-//   {
-//     label: "Parent Division",
-//     optionKey: "parent_divisions",
-//     apiKey: "parent_division",
-//   },
-//   {
-//     label: "Sub-Division",
-//     optionKey: "subdivisions",
-//     apiKey: "subdivision",
-//   },
-// ];
-
-// /* =========================================================
-//    Operating Expenses Additional Filters
-
-//    Reporting Currency is OPEX-specific.
-//    Default = AED
-// ========================================================= */
-
-// const operatingAdditionalFilters = [
-//   {
-//     label: "Period",
-//     optionKey: "periods",
-//     apiKey: "period",
-//   },
-//   {
-//     label: "Compare With",
-//     optionKey: "compare_with",
-//     apiKey: "compare_with",
-//   },
-//   {
-//     label: "Reporting Currency",
-//     optionKey: "currencies",
-//     apiKey: "reporting_currency",
-//   },
-// ];
-
-// /* =========================================================
-//    Default State
-
-//    Existing/common page behavior remains unchanged.
-
-//    OPEX Reporting Currency defaults to AED.
-// ========================================================= */
-
-// const DEFAULT_FILTERS = {
-//   legal_group: "",
-//   legal_entity: "",
-//   parent_division: "",
-//   subdivision: "",
-//   currency: "",
-//   as_on_date: "",
-//   period: "",
-//   compare_with: "",
-//   reporting_currency: "AED",
-// };
-
-// /* =========================================================
-//    Helper
-//    Get option value
-// ========================================================= */
-
-// function getOptionValue(option) {
-//   if (option === null || option === undefined) {
-//     return "";
-//   }
-
-//   if (typeof option === "object") {
-//     return (
-//       option.value ??
-//       option.id ??
-//       option.code ??
-//       option.period_name ??
-//       option.name ??
-//       option.currency_code ??
-//       ""
-//     );
-//   }
-
-//   return option;
-// }
-
-// /* =========================================================
-//    Helper
-//    Get option label
-// ========================================================= */
-
-// function getOptionLabel(option) {
-//   if (option === null || option === undefined) {
-//     return "";
-//   }
-
-//   if (typeof option === "object") {
-//     return (
-//       option.label ??
-//       option.name ??
-//       option.currency_code ??
-//       option.value ??
-//       option.code ??
-//       option.period_name ??
-//       ""
-//     );
-//   }
-
-//   return option;
-// }
-
-// /* =========================================================
-//    Helper
-//    Get latest available period
-
-//    Backend contract:
-//    periods are chronological.
-
-//    Example:
-//    Jan-26 ... Sep-26
-
-//    Latest = last item.
-// ========================================================= */
-
-// function getLatestPeriod(periods = []) {
-//   if (!Array.isArray(periods) || periods.length === 0) {
-//     return "";
-//   }
-
-//   const latest = periods[periods.length - 1];
-
-//   return getOptionValue(latest);
-// }
-
-// /* =========================================================
-//    Normalize OPEX filter-options response
-
-//    Backend:
-//    legal_groups
-//    legal_entities
-//    parent_divisions
-//    subdivisions
-//    periods
-//    ledger_currencies
-//    reporting_currencies
-//    currencies
-//    data_as_of
-//    default_reporting_currency
-// ========================================================= */
-
-// function normalizeOpexFilterOptions(data = {}) {
-//   /*
-//     Some API service functions return:
-
-//       response.data
-
-//     while others may already return:
-
-//       data
-
-//     Support both without changing UI.
-//   */
-//   const payload =
-//     data?.data &&
-//     typeof data.data === "object" &&
-//     !Array.isArray(data.data)
-//       ? data.data
-//       : data;
-
-//   /*
-//     Backend OPEX Reporting Currency options.
-//   */
-//   const reportingCurrencies =
-//     payload?.reporting_currencies ||
-//     payload?.currencies ||
-//     [];
-
-//   const currencies = Array.isArray(reportingCurrencies)
-//     ? reportingCurrencies.map((item) => {
-//         if (
-//           typeof item === "object" &&
-//           item !== null
-//         ) {
-//           const value =
-//             item.currency_code ??
-//             item.value ??
-//             item.code ??
-//             item.id ??
-//             "";
-
-//           const label =
-//             item.label ??
-//             item.currency_code ??
-//             item.value ??
-//             item.code ??
-//             "";
-
-//           return {
-//             value,
-//             label,
-//           };
-//         }
-
-//         return {
-//           value: item,
-//           label: item,
-//         };
-//       })
-//     : [];
-
-//   return {
-//     legal_groups:
-//       Array.isArray(payload?.legal_groups)
-//         ? payload.legal_groups
-//         : [],
-
-//     legal_entities:
-//       Array.isArray(payload?.legal_entities)
-//         ? payload.legal_entities
-//         : [],
-
-//     parent_divisions:
-//       Array.isArray(payload?.parent_divisions)
-//         ? payload.parent_divisions
-//         : [],
-
-//     subdivisions:
-//       Array.isArray(payload?.subdivisions)
-//         ? payload.subdivisions
-//         : [],
-
-//     periods:
-//       Array.isArray(payload?.periods)
-//         ? payload.periods
-//         : [],
-
-//     /*
-//       Used by Reporting Currency dropdown.
-//     */
-//     currencies,
-
-//     /*
-//       Keep these separately for API-ready usage.
-//     */
-//     ledger_currencies:
-//       Array.isArray(payload?.ledger_currencies)
-//         ? payload.ledger_currencies
-//         : [],
-
-//     reporting_currencies:
-//       Array.isArray(payload?.reporting_currencies)
-//         ? payload.reporting_currencies
-//         : Array.isArray(payload?.currencies)
-//         ? payload.currencies
-//         : [],
-
-//     /*
-//       Compare With may or may not be returned
-//       by the filter-options endpoint.
-//     */
-//     compare_with:
-//       Array.isArray(payload?.compare_with)
-//         ? payload.compare_with
-//         : Array.isArray(payload?.compare_periods)
-//         ? payload.compare_periods
-//         : [],
-
-//     data_as_of:
-//       payload?.data_as_of || null,
-
-//     default_reporting_currency:
-//       payload?.default_reporting_currency ||
-//       "AED",
-//   };
-// }
-
-// /* =========================================================
-//    Filters Component
-// ========================================================= */
-
-// export default function Filters({
-//   filterOptions,
-//   onApply,
-//   onReset,
-//   isOperatingExpenses = false,
-// }) {
-//   const [selectedFilters, setSelectedFilters] =
-//     useState(DEFAULT_FILTERS);
-
-//   /* =======================================================
-//      OPEX LOCAL FILTER OPTIONS
-
-//      Existing pages continue using filterOptions
-//      passed by parent.
-
-//      OPEX uses its own API-driven options.
-//   ======================================================= */
-
-//   const [opexFilterOptions, setOpexFilterOptions] =
-//     useState({
-//       legal_groups: [],
-//       legal_entities: [],
-//       parent_divisions: [],
-//       subdivisions: [],
-//       periods: [],
-//       currencies: [],
-//       reporting_currencies: [],
-//       ledger_currencies: [],
-//       compare_with: [],
-//       data_as_of: null,
-//       default_reporting_currency: "AED",
-//     });
-
-//   /* =======================================================
-//      OPEX FILTER API LOADING
-//   ======================================================= */
-
-//   const [opexFilterLoading, setOpexFilterLoading] =
-//     useState(false);
-
-//   /* =======================================================
-//      OPEX FILTER API
-
-//      Converts frontend filter names into
-//      backend OPEX query parameters.
-//   ======================================================= */
-
-//   const loadOpexFilterOptions = async (
-//     currentFilters = {}
-//   ) => {
-//     try {
-//       setOpexFilterLoading(true);
-
-//       /* =====================================================
-//          Backend filter parameters
-//       ===================================================== */
-
-//       const apiFilters = {};
-
-//       if (currentFilters.legal_group) {
-//         apiFilters.legal_group_id =
-//           currentFilters.legal_group;
-//       }
-
-//       if (currentFilters.legal_entity) {
-//         apiFilters.legal_entity_id =
-//           currentFilters.legal_entity;
-//       }
-
-//       if (currentFilters.parent_division) {
-//         apiFilters.parent_division_id =
-//           currentFilters.parent_division;
-//       }
-
-//       if (currentFilters.subdivision) {
-//         apiFilters.subdivision_id =
-//           currentFilters.subdivision;
-//       }
-
-//       /*
-//         filter-options does not require period_name.
-//       */
-
-//       const response =
-//         await getOpexFilterOptions(apiFilters);
-
-//       const normalized =
-//         normalizeOpexFilterOptions(
-//           response || {}
-//         );
-
-//       setOpexFilterOptions(normalized);
-
-//       return normalized;
-//     } catch (error) {
-//       console.error(
-//         "Failed to load OPEX filter options:",
-//         error
-//       );
-
-//       return null;
-//     } finally {
-//       setOpexFilterLoading(false);
-//     }
-//   };
-
-//   /* =======================================================
-//      Available Date Handling
-
-//      ONLY for existing/common pages.
-
-//      OPEX does NOT use As On Date.
-
-//      DO NOT CHANGE.
-//   ======================================================= */
-
-//   useEffect(() => {
-//     if (isOperatingExpenses) {
-//       return;
-//     }
-
-//     const dates =
-//       filterOptions?.available_dates ||
-//       filterOptions?.as_on_dates ||
-//       [];
-
-//     if (dates.length) {
-//       setSelectedFilters((prev) => ({
-//         ...prev,
-//         as_on_date: dates[0],
-//       }));
-//     }
-//   }, [filterOptions, isOperatingExpenses]);
-
-//   /* =======================================================
-//      INITIAL OPEX FILTER API LOAD
-//   ======================================================= */
-
-//   useEffect(() => {
-//     if (!isOperatingExpenses) {
-//       return;
-//     }
-
-//     /*
-//       Load all initial OPEX filter options.
-
-//       No hierarchy restrictions initially.
-//     */
-//     loadOpexFilterOptions({});
-//   }, [isOperatingExpenses]);
-
-//   /* =======================================================
-//      INITIAL OPEX DEFAULT VALUES
-
-//      Period:
-//        latest available period
-
-//      Reporting Currency:
-//        backend default or AED
-
-//      Compare With:
-//        backend first option if provided,
-//        otherwise blank.
-//   ======================================================= */
-
-//   useEffect(() => {
-//     if (!isOperatingExpenses) {
-//       return;
-//     }
-
-//     /*
-//       Prefer API-loaded OPEX options.
-//     */
-//     const periods =
-//       opexFilterOptions?.periods?.length
-//         ? opexFilterOptions.periods
-//         : filterOptions?.periods || [];
-
-//     const latestPeriod =
-//       getLatestPeriod(periods);
-
-//     const compareOptions =
-//       opexFilterOptions?.compare_with?.length
-//         ? opexFilterOptions.compare_with
-//         : filterOptions?.compare_with || [];
-
-//     const firstCompareWith =
-//       compareOptions[0];
-
-//     const compareWithValue =
-//       getOptionValue(firstCompareWith);
-
-//     const defaultReportingCurrency =
-//       opexFilterOptions
-//         ?.default_reporting_currency ||
-//       filterOptions
-//         ?.default_reporting_currency ||
-//       "AED";
-
-//     /*
-//       Initialize period only when
-//       backend options are available.
-//     */
-
-//     setSelectedFilters((prev) => ({
-//       ...prev,
-
-//       /*
-//         Do not overwrite an already selected period.
-//       */
-//       period:
-//         prev.period ||
-//         latestPeriod ||
-//         "",
-
-//       /*
-//         Compare With stays blank if
-//         backend doesn't provide one.
-//       */
-//       compare_with:
-//         prev.compare_with ||
-//         compareWithValue ||
-//         "",
-
-//       /*
-//         Reporting Currency defaults to
-//         backend default, normally AED.
-//       */
-//       reporting_currency:
-//         prev.reporting_currency ||
-//         defaultReportingCurrency ||
-//         "AED",
-//     }));
-//   }, [
-//     opexFilterOptions,
-//     filterOptions,
-//     isOperatingExpenses,
-//   ]);
-
-//   /* =======================================================
-//      OPEX CASCADING FILTER HANDLER
-
-//      Hierarchy:
-
-//      Legal Group
-//           ↓
-//      Legal Entity
-//           ↓
-//      Parent Division
-//           ↓
-//      Sub-Division
-
-//      Backend filter-options is called when
-//      hierarchy selection changes.
-//   ======================================================= */
-
-//   const handleOpexFilterChange = async (
-//     apiKey,
-//     value
-//   ) => {
-//     /*
-//       Start with current selections.
-//     */
-//     let nextFilters = {
-//       ...selectedFilters,
-//       [apiKey]: value,
-//     };
-
-//     /* =====================================================
-//        Legal Group changes
-//        Reset lower levels
-//     ===================================================== */
-
-//     if (apiKey === "legal_group") {
-//       nextFilters = {
-//         ...nextFilters,
-//         legal_entity: "",
-//         parent_division: "",
-//         subdivision: "",
-//       };
-//     }
-
-//     /* =====================================================
-//        Legal Entity changes
-//        Reset lower levels
-//     ===================================================== */
-
-//     if (apiKey === "legal_entity") {
-//       nextFilters = {
-//         ...nextFilters,
-//         parent_division: "",
-//         subdivision: "",
-//       };
-//     }
-
-//     /* =====================================================
-//        Parent Division changes
-//        Reset Sub-Division
-//     ===================================================== */
-
-//     if (apiKey === "parent_division") {
-//       nextFilters = {
-//         ...nextFilters,
-//         subdivision: "",
-//       };
-//     }
-
-//     /*
-//       Update selected values immediately.
-//     */
-//     setSelectedFilters(nextFilters);
-
-//     /* =====================================================
-//        Refresh cascading API options
-//     ===================================================== */
-
-//     if (
-//       apiKey === "legal_group" ||
-//       apiKey === "legal_entity" ||
-//       apiKey === "parent_division" ||
-//       apiKey === "subdivision"
-//     ) {
-//       await loadOpexFilterOptions(
-//         nextFilters
-//       );
-//     }
-//   };
-
-//   /* =======================================================
-//      Reset
-//   ======================================================= */
-
-//   const handleReset = async () => {
-//     let resetFilters = {
-//       legal_group: "",
-//       legal_entity: "",
-//       parent_division: "",
-//       subdivision: "",
-//       currency: "",
-//       as_on_date: "",
-//       period: "",
-//       compare_with: "",
-//       reporting_currency: "AED",
-//     };
-
-//     /* =====================================================
-//        Existing/common pages
-
-//        KEEP EXISTING BEHAVIOR
-//     ===================================================== */
-
-//     if (!isOperatingExpenses) {
-//       resetFilters = {
-//         legal_group: "",
-//         legal_entity: "",
-//         parent_division: "",
-//         subdivision: "",
-//         currency: "",
-//         as_on_date:
-//           filterOptions?.as_on_dates?.[0] ||
-//           filterOptions?.available_dates?.[0] ||
-//           "",
-//         period: "",
-//         compare_with: "",
-//         reporting_currency: "AED",
-//       };
-//     }
-
-//     /* =====================================================
-//        Operating Expenses page
-//     ===================================================== */
-
-//     if (isOperatingExpenses) {
-//       /*
-//         Refresh OPEX filter options
-//         without hierarchy restrictions.
-//       */
-
-//       const normalized =
-//         await loadOpexFilterOptions({});
-
-//       const periods =
-//         normalized?.periods ||
-//         opexFilterOptions?.periods ||
-//         filterOptions?.periods ||
-//         [];
-
-//       const latestPeriod =
-//         getLatestPeriod(periods);
-
-//       resetFilters = {
-//         legal_group: "",
-//         legal_entity: "",
-//         parent_division: "",
-//         subdivision: "",
-//         currency: "",
-//         as_on_date: "",
-
-//         /*
-//           Latest available period from API.
-//         */
-//         period:
-//           latestPeriod || "",
-
-//         /*
-//           Compare With stays blank.
-//         */
-//         compare_with: "",
-
-//         /*
-//           Backend default currency.
-//         */
-//         reporting_currency:
-//           normalized
-//             ?.default_reporting_currency ||
-//           "AED",
-//       };
-//     }
-
-//     setSelectedFilters(resetFilters);
-
-//     if (onReset) {
-//       onReset();
-//     }
-//   };
-
-//   /* =======================================================
-//      Which Filters Should Be Displayed?
-//   ======================================================= */
-
-//   const filtersToDisplay =
-//     isOperatingExpenses
-//       ? [
-//           ...operatingSelectFilters,
-//           ...operatingAdditionalFilters,
-//         ]
-//       : commonSelectFilters;
-
-//   /* =======================================================
-//      OPTIONS TO RENDER
-
-//      OPEX:
-//        local API options
-
-//      Existing pages:
-//        parent filterOptions
-//   ======================================================= */
-
-//   const activeFilterOptions =
-//     isOperatingExpenses
-//       ? {
-//           ...filterOptions,
-//           ...opexFilterOptions,
-//         }
-//       : filterOptions;
-
-//   return (
-//     <div
-//       className="filter-bar"
-//       style={{
-//         display: "flex",
-//         gap: "10px",
-
-//         /*
-//           IMPORTANT:
-
-//           Existing/common pages:
-//           keep flexWrap exactly as before.
-
-//           OPEX:
-//           no wrapping so all 7 filters + buttons
-//           remain on one line.
-//         */
-//         flexWrap: isOperatingExpenses
-//           ? "nowrap"
-//           : "wrap",
-
-//         alignItems: "flex-end",
-//         width: "100%",
-
-//         /*
-//           Prevent children from forcing
-//           horizontal overflow.
-//         */
-//         minWidth: 0,
-//       }}
-//     >
-//       {/* ===================================================
-//           Dynamic Filters
-//       =================================================== */}
-
-//       {filtersToDisplay.map((f, i) => {
-//         const isPeriod =
-//           isOperatingExpenses &&
-//           f.apiKey === "period";
-
-//         const isReportingCurrency =
-//           isOperatingExpenses &&
-//           f.apiKey ===
-//             "reporting_currency";
-
-//         return (
-//           <FilterField
-//             key={`${f.apiKey}-${i}`}
-//             label={f.label}
-//             isOperatingExpenses={
-//               isOperatingExpenses
-//             }
-//           >
-//             <select
-//               className="filter-select w-full"
-//               value={
-//                 selectedFilters[
-//                   f.apiKey
-//                 ] || ""
-//               }
-//               /*
-//                 IMPORTANT:
-//                 We don't disable the dropdown while
-//                 the API is loading.
-
-//                 This avoids changing the visual
-//                 appearance of the existing UI.
-//               */
-//               onChange={(e) => {
-//                 const value =
-//                   e.target.value;
-
-//                 if (
-//                   isOperatingExpenses
-//                 ) {
-//                   handleOpexFilterChange(
-//                     f.apiKey,
-//                     value
-//                   );
-//                 } else {
-//                   setSelectedFilters(
-//                     (prev) => ({
-//                       ...prev,
-//                       [f.apiKey]:
-//                         value,
-//                     })
-//                   );
-//                 }
-//               }}
-//               style={{
-//                 /*
-//                   Prevent select's content from
-//                   forcing the flex item wider.
-//                 */
-//                 minWidth: 0,
-//                 width: "100%",
-//               }}
-//             >
-//               {/* =================================================
-//                   Common filters keep "All"
-
-//                   OPEX Period does NOT show "All"
-//               ================================================= */}
-
-//               {!isPeriod && (
-//                 <option value="">
-//                   All
-//                 </option>
-//               )}
-
-//               {/* =================================================
-//                   Reporting Currency
-
-//                   AED fallback if API currencies
-//                   are not available.
-//               ================================================= */}
-
-//               {isReportingCurrency &&
-//                 !activeFilterOptions
-//                   ?.currencies
-//                   ?.length && (
-//                   <option value="AED">
-//                     AED
-//                   </option>
-//                 )}
-
-//               {/* =================================================
-//                   Backend Options
-//               ================================================= */}
-
-//               {activeFilterOptions?.[
-//                 f.optionKey
-//               ]?.map(
-//                 (item, index) => {
-//                   const value =
-//                     getOptionValue(
-//                       item
-//                     );
-
-//                   const label =
-//                     getOptionLabel(
-//                       item
-//                     );
-
-//                   /*
-//                     Ignore malformed empty
-//                     API options.
-//                   */
-//                   if (
-//                     value === "" ||
-//                     value === null ||
-//                     value === undefined
-//                   ) {
-//                     return null;
-//                   }
-
-//                   return (
-//                     <option
-//                       key={`${value}-${index}`}
-//                       value={value}
-//                     >
-//                       {label}
-//                     </option>
-//                   );
-//                 }
-//               )}
-//             </select>
-//           </FilterField>
-//         );
-//       })}
-
-//       {/* ===================================================
-//           Currency + As On Date
-
-//           Existing pages ONLY.
-
-//           OPEX does NOT render these.
-//       =================================================== */}
-
-//       {!isOperatingExpenses && (
-//         <>
-//           <FilterField label="As On Date">
-//             <input
-//               type="text"
-//               value={
-//                 selectedFilters
-//                   .as_on_date
-//               }
-//               readOnly
-//               className="w-full h-8 text-[10px] font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2"
-//             />
-//           </FilterField>
-//         </>
-//       )}
-
-//       {/* ===================================================
-//           Buttons
-//       =================================================== */}
-
-//       <div
-//         style={{
-//           display: "flex",
-//           gap: "8px",
-
-//           /*
-//             Existing behavior preserved.
-//           */
-//           marginLeft: "auto",
-
-//           /*
-//             Important for OPEX:
-//             buttons should not shrink or wrap.
-//           */
-//           flexShrink: 0,
-//         }}
-//       >
-//         <button
-//           className="btn btn-primary"
-//           onClick={() =>
-//             onApply &&
-//             onApply(
-//               selectedFilters
-//             )
-//           }
-//         >
-//           Apply
-//         </button>
-
-//         <button
-//           className="btn btn-ghost"
-//           onClick={handleReset}
-//         >
-//           Reset
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
 
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search, X } from "lucide-react";
 import { getOpexFilterOptions } from "../../api/opexApi";
 
 /* =========================================================
@@ -1105,6 +33,9 @@ function FilterField({
 
         position: "relative",
         zIndex: isOperatingExpenses ? 20 : "auto",
+
+        /* FONT WEIGHT */
+        fontWeight: 600,
       }}
     >
       <span
@@ -1127,7 +58,12 @@ function FilterField({
 /* =========================================================
    OPEX Multi Select Dropdown
 
-   ONLY used for OPEX hierarchy filters.
+   Used for:
+   - Legal Group
+   - Legal Entity
+   - Parent Division
+   - Sub-Division
+   - Period
 ========================================================= */
 
 function OpexMultiSelect({
@@ -1135,9 +71,12 @@ function OpexMultiSelect({
   value = [],
   onChange,
   placeholder = "All",
+  searchable = true,
 }) {
   const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   /* =======================================================
      Close dropdown when clicking outside
@@ -1150,6 +89,7 @@ function OpexMultiSelect({
         !containerRef.current.contains(event.target)
       ) {
         setOpen(false);
+        setSearchTerm("");
       }
     };
 
@@ -1165,6 +105,18 @@ function OpexMultiSelect({
       );
     };
   }, []);
+
+  /* =======================================================
+     Focus search when dropdown opens
+  ======================================================= */
+
+  useEffect(() => {
+    if (open && searchable && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+    }
+  }, [open, searchable]);
 
   /* =======================================================
      Normalize selected values
@@ -1191,7 +143,9 @@ function OpexMultiSelect({
         item.value ??
         item.id ??
         item.code ??
+        item.period_name ??
         item.name ??
+        item.currency_code ??
         ""
       );
     }
@@ -1215,6 +169,7 @@ function OpexMultiSelect({
       return (
         item.label ??
         item.name ??
+        item.period_name ??
         item.currency_code ??
         item.value ??
         item.code ??
@@ -1224,6 +179,25 @@ function OpexMultiSelect({
 
     return item;
   };
+
+  /* =======================================================
+     Filter options by search term
+  ======================================================= */
+
+  const filteredOptions = options.filter((item) => {
+    const label = String(getLabel(item)).toLowerCase();
+    const value = String(getValue(item)).toLowerCase();
+    const search = searchTerm.trim().toLowerCase();
+
+    if (!search) {
+      return true;
+    }
+
+    return (
+      label.includes(search) ||
+      value.includes(search)
+    );
+  });
 
   /* =======================================================
      Toggle option
@@ -1252,7 +226,7 @@ function OpexMultiSelect({
   ======================================================= */
 
   const handleSelectAll = () => {
-    const allValues = options
+    const visibleValues = filteredOptions
       .map(getValue)
       .filter(
         (value) =>
@@ -1262,7 +236,14 @@ function OpexMultiSelect({
       )
       .map(String);
 
-    onChange(allValues);
+    const mergedValues = [
+      ...new Set([
+        ...selectedValues,
+        ...visibleValues,
+      ]),
+    ];
+
+    onChange(mergedValues);
   };
 
   /* =======================================================
@@ -1305,6 +286,9 @@ function OpexMultiSelect({
         width: "100%",
         minWidth: 0,
         zIndex: open ? 1000 : 1,
+
+        /* FONT WEIGHT */
+        fontWeight: 600,
       }}
     >
       {/* =================================================
@@ -1317,6 +301,10 @@ function OpexMultiSelect({
         onClick={(event) => {
           event.stopPropagation();
           setOpen((prev) => !prev);
+
+          if (open) {
+            setSearchTerm("");
+          }
         }}
         style={{
           minWidth: 0,
@@ -1340,6 +328,9 @@ function OpexMultiSelect({
 
           position: "relative",
           zIndex: 1001,
+
+          /* FONT WEIGHT */
+          fontWeight: 600,
         }}
       >
         <span
@@ -1348,15 +339,13 @@ function OpexMultiSelect({
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             minWidth: 0,
+
+            /* FONT WEIGHT */
+            fontWeight: 600,
           }}
         >
           {getDisplayText()}
         </span>
-
-        {/* =================================================
-            ONLY CHANGE:
-            Replaced ▾ with ChevronDown
-        ================================================= */}
 
         <ChevronDown
           size={14}
@@ -1384,9 +373,9 @@ function OpexMultiSelect({
             left: 0,
 
             width: "100%",
-            minWidth: "180px",
+            minWidth: "190px",
 
-            maxHeight: "240px",
+            maxHeight: "280px",
             overflowY: "auto",
 
             backgroundColor: "#ffffff",
@@ -1400,8 +389,132 @@ function OpexMultiSelect({
             zIndex: 99999,
 
             boxSizing: "border-box",
+
+            /* FONT WEIGHT */
+            fontWeight: 600,
           }}
         >
+          {/* =================================================
+              Search
+          ================================================= */}
+
+          {searchable && (
+            <div
+              style={{
+                padding: "7px 8px",
+
+                borderBottom:
+                  "1px solid #e5e7eb",
+
+                backgroundColor: "#ffffff",
+
+                position: "sticky",
+                top: 0,
+
+                zIndex: 4,
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                }}
+              >
+                <Search
+                  size={13}
+                  strokeWidth={2}
+                  style={{
+                    position: "absolute",
+                    left: "7px",
+                    top: "50%",
+                    transform:
+                      "translateY(-50%)",
+                    color: "#9ca3af",
+                    pointerEvents: "none",
+                  }}
+                />
+
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) =>
+                    setSearchTerm(
+                      event.target.value
+                    )
+                  }
+                  onClick={(event) =>
+                    event.stopPropagation()
+                  }
+                  placeholder="Search..."
+                  style={{
+                    width: "100%",
+                    height: "27px",
+
+                    boxSizing: "border-box",
+
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius: "4px",
+
+                    paddingLeft: "26px",
+                    paddingRight:
+                      searchTerm
+                        ? "24px"
+                        : "7px",
+
+                    outline: "none",
+
+                    fontSize: "10px",
+                    color: "#374151",
+
+                    backgroundColor:
+                      "#ffffff",
+
+                    /* FONT WEIGHT */
+                    fontWeight: 600,
+                  }}
+                />
+
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSearchTerm("")
+                    }
+                    style={{
+                      position:
+                        "absolute",
+                      right: "5px",
+                      top: "50%",
+                      transform:
+                        "translateY(-50%)",
+
+                      border: "none",
+                      background:
+                        "transparent",
+
+                      padding: 0,
+
+                      cursor: "pointer",
+
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      justifyContent:
+                        "center",
+                    }}
+                  >
+                    <X
+                      size={12}
+                      color="#9ca3af"
+                    />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* =================================================
               Select All / Clear
           ================================================= */}
@@ -1409,7 +522,8 @@ function OpexMultiSelect({
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent:
+                "space-between",
               alignItems: "center",
 
               padding: "7px 8px",
@@ -1417,12 +531,15 @@ function OpexMultiSelect({
               borderBottom:
                 "1px solid #e5e7eb",
 
-              backgroundColor: "#f9fafb",
+              backgroundColor:
+                "#f9fafb",
 
               position: "sticky",
-              top: 0,
+              top: searchable
+                ? "41px"
+                : 0,
 
-              zIndex: 2,
+              zIndex: 3,
             }}
           >
             <button
@@ -1430,12 +547,13 @@ function OpexMultiSelect({
               onClick={handleSelectAll}
               style={{
                 border: "none",
-                background: "transparent",
+                background:
+                  "transparent",
 
                 padding: 0,
 
                 fontSize: "10px",
-                fontWeight: 600,
+                fontWeight: 700,
 
                 color: "#1e3a8a",
 
@@ -1450,12 +568,13 @@ function OpexMultiSelect({
               onClick={handleClearAll}
               style={{
                 border: "none",
-                background: "transparent",
+                background:
+                  "transparent",
 
                 padding: 0,
 
                 fontSize: "10px",
-                fontWeight: 600,
+                fontWeight: 700,
 
                 color: "#6b7280",
 
@@ -1470,93 +589,688 @@ function OpexMultiSelect({
               Options
           ================================================= */}
 
-          {options.length === 0 ? (
+          {filteredOptions.length === 0 ? (
             <div
               style={{
                 padding: "10px 8px",
                 fontSize: "10px",
                 color: "#6b7280",
+
+                /* FONT WEIGHT */
+                fontWeight: 600,
               }}
             >
-              No options available
+              {searchTerm
+                ? "No matching options"
+                : "No options available"}
             </div>
           ) : (
-            options.map((item, index) => {
-              const optionValue =
-                getValue(item);
+            filteredOptions.map(
+              (item, index) => {
+                const optionValue =
+                  getValue(item);
 
-              const optionLabel =
-                getLabel(item);
+                const optionLabel =
+                  getLabel(item);
 
-              if (
-                optionValue === "" ||
-                optionValue === null ||
-                optionValue === undefined
-              ) {
-                return null;
-              }
+                if (
+                  optionValue === "" ||
+                  optionValue === null ||
+                  optionValue ===
+                    undefined
+                ) {
+                  return null;
+                }
 
-              const stringValue =
-                String(optionValue);
+                const stringValue =
+                  String(optionValue);
 
-              const checked =
-                selectedValues.includes(
-                  stringValue
+                const checked =
+                  selectedValues.includes(
+                    stringValue
+                  );
+
+                return (
+                  <label
+                    key={`${stringValue}-${index}`}
+                    style={{
+                      display: "flex",
+                      alignItems:
+                        "center",
+
+                      gap: "7px",
+
+                      padding: "7px 8px",
+
+                      fontSize: "10px",
+                      color: "#374151",
+
+                      cursor: "pointer",
+
+                      whiteSpace:
+                        "nowrap",
+
+                      boxSizing:
+                        "border-box",
+
+                      /* FONT WEIGHT */
+                      fontWeight: 600,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        handleOptionToggle(
+                          stringValue
+                        )
+                      }
+                      style={{
+                        width: "12px",
+                        height: "12px",
+
+                        margin: 0,
+
+                        flexShrink: 0,
+
+                        cursor: "pointer",
+                      }}
+                    />
+
+                    <span
+                      style={{
+                        overflow:
+                          "hidden",
+                        textOverflow:
+                          "ellipsis",
+
+                        /* FONT WEIGHT */
+                        fontWeight: 600,
+                      }}
+                    >
+                      {optionLabel}
+                    </span>
+                  </label>
                 );
+              }
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
-              return (
-                <label
-                  key={`${stringValue}-${index}`}
+/* =========================================================
+   OPEX Single Select Dropdown
+
+   Used for:
+   - Year
+   - Reporting Currency
+
+   Includes search but NO checkbox.
+========================================================= */
+
+function OpexSingleSelect({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "Select",
+  searchable = true,
+  required = false,
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] =
+    useState("");
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  /* =======================================================
+     Close outside
+  ======================================================= */
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
+        setOpen(false);
+        setSearchTerm("");
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+  /* =======================================================
+     Focus search
+  ======================================================= */
+
+  useEffect(() => {
+    if (
+      open &&
+      searchable &&
+      searchInputRef.current
+    ) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+    }
+  }, [open, searchable]);
+
+  /* =======================================================
+     Get option value
+  ======================================================= */
+
+  const getValue = (item) => {
+    if (
+      item === null ||
+      item === undefined
+    ) {
+      return "";
+    }
+
+    if (typeof item === "object") {
+      return (
+        item.value ??
+        item.id ??
+        item.code ??
+        item.year ??
+        item.name ??
+        item.currency_code ??
+        ""
+      );
+    }
+
+    return item;
+  };
+
+  /* =======================================================
+     Get option label
+  ======================================================= */
+
+  const getLabel = (item) => {
+    if (
+      item === null ||
+      item === undefined
+    ) {
+      return "";
+    }
+
+    if (typeof item === "object") {
+      return (
+        item.label ??
+        item.name ??
+        item.year ??
+        item.currency_code ??
+        item.value ??
+        item.code ??
+        ""
+      );
+    }
+
+    return item;
+  };
+
+  /* =======================================================
+     Filter options
+  ======================================================= */
+
+  const filteredOptions =
+    options.filter((item) => {
+      const label = String(
+        getLabel(item)
+      ).toLowerCase();
+
+      const optionValue = String(
+        getValue(item)
+      ).toLowerCase();
+
+      const search =
+        searchTerm
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return true;
+      }
+
+      return (
+        label.includes(search) ||
+        optionValue.includes(search)
+      );
+    });
+
+  /* =======================================================
+     Selected display
+  ======================================================= */
+
+  const selectedOption = options.find(
+    (item) =>
+      String(getValue(item)) ===
+      String(value)
+  );
+
+  const displayText = selectedOption
+    ? String(getLabel(selectedOption))
+    : value
+    ? String(value)
+    : placeholder;
+
+  /* =======================================================
+     Change
+
+     Reporting Currency is intentionally kept as the
+     selected single value and passed to the parent.
+     The OPEX data layer should use this value to perform
+     the actual currency conversion.
+  ======================================================= */
+
+  const handleChange = (nextValue) => {
+    onChange(nextValue);
+    setOpen(false);
+    setSearchTerm("");
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "relative",
+        width: "100%",
+        minWidth: 0,
+        zIndex: open ? 1000 : 1,
+
+        /* FONT WEIGHT */
+        fontWeight: 600,
+      }}
+    >
+      {/* =================================================
+          Trigger
+      ================================================= */}
+
+      <button
+        type="button"
+        className="filter-select w-full"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((prev) => !prev);
+
+          if (open) {
+            setSearchTerm("");
+          }
+        }}
+        style={{
+          minWidth: 0,
+          width: "100%",
+          height: "32px",
+
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            "space-between",
+
+          textAlign: "left",
+
+          paddingLeft: "8px",
+          paddingRight: "8px",
+
+          cursor: "pointer",
+
+          overflow: "hidden",
+
+          boxSizing: "border-box",
+
+          position: "relative",
+          zIndex: 1001,
+
+          /* FONT WEIGHT */
+          fontWeight: 600,
+        }}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow:
+              "ellipsis",
+            whiteSpace:
+              "nowrap",
+            minWidth: 0,
+
+            /* FONT WEIGHT */
+            fontWeight: 600,
+          }}
+        >
+          {displayText}
+        </span>
+
+        <ChevronDown
+          size={14}
+          strokeWidth={2}
+          style={{
+            flexShrink: 0,
+            marginLeft: "6px",
+          }}
+        />
+      </button>
+
+      {/* =================================================
+          Menu
+      ================================================= */}
+
+      {open && (
+        <div
+          onClick={(event) =>
+            event.stopPropagation()
+          }
+          style={{
+            position: "absolute",
+
+            top: "calc(100% + 4px)",
+            left: 0,
+
+            width: "100%",
+            minWidth: "180px",
+
+            maxHeight: "280px",
+            overflowY: "auto",
+
+            backgroundColor:
+              "#ffffff",
+
+            border:
+              "1px solid #d1d5db",
+            borderRadius: "6px",
+
+            boxShadow:
+              "0 4px 12px rgba(0, 0, 0, 0.12)",
+
+            zIndex: 99999,
+
+            boxSizing:
+              "border-box",
+
+            /* FONT WEIGHT */
+            fontWeight: 600,
+          }}
+        >
+          {/* =================================================
+              Search
+          ================================================= */}
+
+          {searchable && (
+            <div
+              style={{
+                padding: "7px 8px",
+
+                borderBottom:
+                  "1px solid #e5e7eb",
+
+                backgroundColor:
+                  "#ffffff",
+
+                position: "sticky",
+                top: 0,
+
+                zIndex: 4,
+              }}
+            >
+              <div
+                style={{
+                  position:
+                    "relative",
+                  width: "100%",
+                }}
+              >
+                <Search
+                  size={13}
+                  strokeWidth={2}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-
-                    gap: "7px",
-
-                    padding: "7px 8px",
-
-                    fontSize: "10px",
-                    color: "#374151",
-
-                    cursor: "pointer",
-
-                    whiteSpace: "nowrap",
-
-                    boxSizing: "border-box",
+                    position:
+                      "absolute",
+                    left: "7px",
+                    top: "50%",
+                    transform:
+                      "translateY(-50%)",
+                    color:
+                      "#9ca3af",
+                    pointerEvents:
+                      "none",
                   }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() =>
-                      handleOptionToggle(
-                        stringValue
+                />
+
+                <input
+                  ref={
+                    searchInputRef
+                  }
+                  type="text"
+                  value={
+                    searchTerm
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setSearchTerm(
+                      event.target
+                        .value
+                    )
+                  }
+                  onClick={(event) =>
+                    event.stopPropagation()
+                  }
+                  placeholder="Search..."
+                  style={{
+                    width:
+                      "100%",
+                    height:
+                      "27px",
+
+                    boxSizing:
+                      "border-box",
+
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius:
+                      "4px",
+
+                    paddingLeft:
+                      "26px",
+                    paddingRight:
+                      searchTerm
+                        ? "24px"
+                        : "7px",
+
+                    outline:
+                      "none",
+
+                    fontSize:
+                      "10px",
+                    color:
+                      "#374151",
+
+                    backgroundColor:
+                      "#ffffff",
+
+                    /* FONT WEIGHT */
+                    fontWeight: 600,
+                  }}
+                />
+
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSearchTerm(
+                        ""
                       )
                     }
                     style={{
-                      width: "12px",
-                      height: "12px",
+                      position:
+                        "absolute",
+                      right: "5px",
+                      top: "50%",
+                      transform:
+                        "translateY(-50%)",
 
-                      margin: 0,
+                      border:
+                        "none",
+                      background:
+                        "transparent",
 
-                      flexShrink: 0,
+                      padding: 0,
 
-                      cursor: "pointer",
-                    }}
-                  />
+                      cursor:
+                        "pointer",
 
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow:
-                        "ellipsis",
+                      display:
+                        "flex",
+                      alignItems:
+                        "center",
+                      justifyContent:
+                        "center",
                     }}
                   >
-                    {optionLabel}
-                  </span>
-                </label>
-              );
-            })
+                    <X
+                      size={12}
+                      color="#9ca3af"
+                    />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* =================================================
+              Options
+          ================================================= */}
+
+          {filteredOptions.length === 0 ? (
+            <div
+              style={{
+                padding:
+                  "10px 8px",
+                fontSize:
+                  "10px",
+                color:
+                  "#6b7280",
+
+                /* FONT WEIGHT */
+                fontWeight: 600,
+              }}
+            >
+              {searchTerm
+                ? "No matching options"
+                : "No options available"}
+            </div>
+          ) : (
+            filteredOptions.map(
+              (item, index) => {
+                const optionValue =
+                  getValue(item);
+
+                const optionLabel =
+                  getLabel(item);
+
+                if (
+                  optionValue ===
+                    "" ||
+                  optionValue ===
+                    null ||
+                  optionValue ===
+                    undefined
+                ) {
+                  return null;
+                }
+
+                const isSelected =
+                  String(
+                    optionValue
+                  ) ===
+                  String(value);
+
+                return (
+                  <button
+                    key={`${optionValue}-${index}`}
+                    type="button"
+                    onClick={() =>
+                      handleChange(
+                        String(
+                          optionValue
+                        )
+                      )
+                    }
+                    style={{
+                      display:
+                        "flex",
+                      alignItems:
+                        "center",
+
+                      width:
+                        "100%",
+
+                      padding:
+                        "7px 8px",
+
+                      border:
+                        "none",
+
+                      backgroundColor:
+                        isSelected
+                          ? "#eff6ff"
+                          : "#ffffff",
+
+                      fontSize:
+                        "10px",
+
+                      color:
+                        isSelected
+                          ? "#1e3a8a"
+                          : "#374151",
+
+                      fontWeight:
+                        600,
+
+                      cursor:
+                        "pointer",
+
+                      textAlign:
+                        "left",
+
+                      whiteSpace:
+                        "nowrap",
+
+                      boxSizing:
+                        "border-box",
+                    }}
+                  >
+                    <span
+                      style={{
+                        overflow:
+                          "hidden",
+                        textOverflow:
+                          "ellipsis",
+
+                        /* FONT WEIGHT */
+                        fontWeight: 600,
+                      }}
+                    >
+                      {optionLabel}
+                    </span>
+                  </button>
+                );
+              }
+            )
           )}
         </div>
       )}
@@ -1600,6 +1314,8 @@ const commonSelectFilters = [
 
 /* =========================================================
    Operating Expenses Filters
+
+   ONLY OPEX
 ========================================================= */
 
 const operatingSelectFilters = [
@@ -1635,22 +1351,25 @@ const operatingSelectFilters = [
 
 const operatingAdditionalFilters = [
   {
+    label: "Year",
+    optionKey: "years",
+    apiKey: "year",
+    multiSelect: false,
+    type: "year",
+  },
+  {
     label: "Period",
     optionKey: "periods",
     apiKey: "period",
-    multiSelect: false,
-  },
-  {
-    label: "Compare With",
-    optionKey: "compare_with",
-    apiKey: "compare_with",
-    multiSelect: false,
+    multiSelect: true,
+    type: "period",
   },
   {
     label: "Reporting Currency",
-    optionKey: "currencies",
+    optionKey: "reporting_currencies",
     apiKey: "reporting_currency",
     multiSelect: false,
+    type: "reporting_currency",
   },
 ];
 
@@ -1668,6 +1387,7 @@ const DEFAULT_FILTERS = {
   period: "",
   compare_with: "",
   reporting_currency: "AED",
+  year: "",
 };
 
 /* =========================================================
@@ -1688,6 +1408,7 @@ function getOptionValue(option) {
       option.id ??
       option.code ??
       option.period_name ??
+      option.year ??
       option.name ??
       option.currency_code ??
       ""
@@ -1713,10 +1434,11 @@ function getOptionLabel(option) {
     return (
       option.label ??
       option.name ??
+      option.period_name ??
+      option.year ??
       option.currency_code ??
       option.value ??
       option.code ??
-      option.period_name ??
       ""
     );
   }
@@ -1743,6 +1465,69 @@ function getLatestPeriod(periods = []) {
 }
 
 /* =========================================================
+   Normalize Year Options
+========================================================= */
+
+function normalizeYears(
+  payload = {},
+  periods = []
+) {
+  const rawYears =
+    payload?.years ||
+    payload?.fiscal_years ||
+    payload?.accounting_years ||
+    [];
+
+  if (
+    Array.isArray(rawYears) &&
+    rawYears.length
+  ) {
+    return rawYears;
+  }
+
+  if (Array.isArray(periods)) {
+    const derivedYears = [];
+
+    periods.forEach((period) => {
+      if (
+        period &&
+        typeof period === "object"
+      ) {
+        const year =
+          period.year ??
+          period.fiscal_year ??
+          period.accounting_year ??
+          null;
+
+        if (
+          year !== null &&
+          year !== undefined &&
+          year !== ""
+        ) {
+          if (
+            !derivedYears.some(
+              (item) =>
+                String(
+                  getOptionValue(item)
+                ) === String(year)
+            )
+          ) {
+            derivedYears.push({
+              value: year,
+              label: year,
+            });
+          }
+        }
+      }
+    });
+
+    return derivedYears;
+  }
+
+  return [];
+}
+
+/* =========================================================
    Normalize OPEX filter-options response
 ========================================================= */
 
@@ -1762,11 +1547,14 @@ function normalizeOpexFilterOptions(
     [];
 
   const currencies =
-    Array.isArray(reportingCurrencies)
+    Array.isArray(
+      reportingCurrencies
+    )
       ? reportingCurrencies.map(
           (item) => {
             if (
-              typeof item === "object" &&
+              typeof item ===
+                "object" &&
               item !== null
             ) {
               const value =
@@ -1795,6 +1583,13 @@ function normalizeOpexFilterOptions(
             };
           }
         )
+      : [];
+
+  const periods =
+    Array.isArray(
+      payload?.periods
+    )
+      ? payload.periods
       : [];
 
   return {
@@ -1826,12 +1621,12 @@ function normalizeOpexFilterOptions(
         ? payload.subdivisions
         : [],
 
-    periods:
-      Array.isArray(
-        payload?.periods
-      )
-        ? payload.periods
-        : [],
+    periods,
+
+    years: normalizeYears(
+      payload,
+      periods
+    ),
 
     currencies,
 
@@ -1885,152 +1680,159 @@ export default function Filters({
 }) {
   /* =======================================================
      Selected Filters
-
-     Common pages = strings
-     OPEX hierarchy = arrays
   ======================================================= */
 
-  const [selectedFilters, setSelectedFilters] =
-    useState(() => {
-      if (isOperatingExpenses) {
-        return {
-          ...DEFAULT_FILTERS,
+  const [
+    selectedFilters,
+    setSelectedFilters,
+  ] = useState(() => {
+    if (isOperatingExpenses) {
+      return {
+        ...DEFAULT_FILTERS,
 
-          legal_group: [],
-          legal_entity: [],
-          parent_division: [],
-          subdivision: [],
-        };
-      }
+        legal_group: [],
+        legal_entity: [],
+        parent_division: [],
+        subdivision: [],
 
-      return DEFAULT_FILTERS;
-    });
+        period: [],
+
+        year: "",
+
+        reporting_currency:
+          "AED",
+      };
+    }
+
+    return DEFAULT_FILTERS;
+  });
 
   /* =======================================================
      OPEX Filter Options
   ======================================================= */
 
-  const [opexFilterOptions, setOpexFilterOptions] =
-    useState({
-      legal_groups: [],
-      legal_entities: [],
-      parent_divisions: [],
-      subdivisions: [],
-      periods: [],
-      currencies: [],
-      reporting_currencies: [],
-      ledger_currencies: [],
-      compare_with: [],
-      data_as_of: null,
-      default_reporting_currency: "AED",
-    });
+  const [
+    opexFilterOptions,
+    setOpexFilterOptions,
+  ] = useState({
+    legal_groups: [],
+    legal_entities: [],
+    parent_divisions: [],
+    subdivisions: [],
+
+    periods: [],
+    years: [],
+
+    currencies: [],
+    reporting_currencies: [],
+    ledger_currencies: [],
+    compare_with: [],
+
+    data_as_of: null,
+
+    default_reporting_currency:
+      "AED",
+  });
 
   /* =======================================================
      OPEX Loading
   ======================================================= */
 
-  const [opexFilterLoading, setOpexFilterLoading] =
-    useState(false);
+  const [
+    opexFilterLoading,
+    setOpexFilterLoading,
+  ] = useState(false);
 
   /* =======================================================
      Load OPEX Filter Options
   ======================================================= */
 
-  const loadOpexFilterOptions = async (
-    currentFilters = {}
-  ) => {
-    try {
-      setOpexFilterLoading(true);
-
-      const apiFilters = {};
-
-      /* ===================================================
-         Legal Group
-      =================================================== */
-
-      if (
-        Array.isArray(
-          currentFilters.legal_group
-        ) &&
-        currentFilters.legal_group.length
-      ) {
-        apiFilters.legal_group_id =
-          currentFilters.legal_group;
-      }
-
-      /* ===================================================
-         Legal Entity
-      =================================================== */
-
-      if (
-        Array.isArray(
-          currentFilters.legal_entity
-        ) &&
-        currentFilters.legal_entity.length
-      ) {
-        apiFilters.legal_entity_id =
-          currentFilters.legal_entity;
-      }
-
-      /* ===================================================
-         Parent Division
-      =================================================== */
-
-      if (
-        Array.isArray(
-          currentFilters.parent_division
-        ) &&
-        currentFilters.parent_division.length
-      ) {
-        apiFilters.parent_division_id =
-          currentFilters.parent_division;
-      }
-
-      /* ===================================================
-         Sub-Division
-      =================================================== */
-
-      if (
-        Array.isArray(
-          currentFilters.subdivision
-        ) &&
-        currentFilters.subdivision.length
-      ) {
-        apiFilters.subdivision_id =
-          currentFilters.subdivision;
-      }
-
-      const response =
-        await getOpexFilterOptions(
-          apiFilters
+  const loadOpexFilterOptions =
+    async (
+      currentFilters = {}
+    ) => {
+      try {
+        setOpexFilterLoading(
+          true
         );
 
-      const normalized =
-        normalizeOpexFilterOptions(
-          response || {}
+        const apiFilters = {};
+
+        if (
+          Array.isArray(
+            currentFilters.legal_group
+          ) &&
+          currentFilters
+            .legal_group.length
+        ) {
+          apiFilters.legal_group_id =
+            currentFilters.legal_group;
+        }
+
+        if (
+          Array.isArray(
+            currentFilters.legal_entity
+          ) &&
+          currentFilters
+            .legal_entity.length
+        ) {
+          apiFilters.legal_entity_id =
+            currentFilters.legal_entity;
+        }
+
+        if (
+          Array.isArray(
+            currentFilters.parent_division
+          ) &&
+          currentFilters
+            .parent_division.length
+        ) {
+          apiFilters.parent_division_id =
+            currentFilters.parent_division;
+        }
+
+        if (
+          Array.isArray(
+            currentFilters.subdivision
+          ) &&
+          currentFilters
+            .subdivision.length
+        ) {
+          apiFilters.subdivision_id =
+            currentFilters.subdivision;
+        }
+
+        const response =
+          await getOpexFilterOptions(
+            apiFilters
+          );
+
+        const normalized =
+          normalizeOpexFilterOptions(
+            response || {}
+          );
+
+        setOpexFilterOptions(
+          normalized
         );
 
-      setOpexFilterOptions(
-        normalized
-      );
+        return normalized;
+      } catch (error) {
+        console.error(
+          "Failed to load OPEX filter options:",
+          error
+        );
 
-      return normalized;
-    } catch (error) {
-      console.error(
-        "Failed to load OPEX filter options:",
-        error
-      );
-
-      return null;
-    } finally {
-      setOpexFilterLoading(false);
-    }
-  };
+        return null;
+      } finally {
+        setOpexFilterLoading(
+          false
+        );
+      }
+    };
 
   /* =======================================================
      Common Page Date Handling
-
-     UNCHANGED
   ======================================================= */
 
   useEffect(() => {
@@ -2044,10 +1846,13 @@ export default function Filters({
       [];
 
     if (dates.length) {
-      setSelectedFilters((prev) => ({
-        ...prev,
-        as_on_date: dates[0],
-      }));
+      setSelectedFilters(
+        (prev) => ({
+          ...prev,
+          as_on_date:
+            dates[0],
+        })
+      );
     }
   }, [
     filterOptions,
@@ -2064,7 +1869,9 @@ export default function Filters({
     }
 
     loadOpexFilterOptions({});
-  }, [isOperatingExpenses]);
+  }, [
+    isOperatingExpenses,
+  ]);
 
   /* =======================================================
      OPEX Default Values
@@ -2076,26 +1883,28 @@ export default function Filters({
     }
 
     const periods =
-      opexFilterOptions?.periods?.length
+      opexFilterOptions
+        ?.periods?.length
         ? opexFilterOptions.periods
-        : filterOptions?.periods || [];
+        : filterOptions?.periods ||
+          [];
 
     const latestPeriod =
       getLatestPeriod(periods);
 
-    const compareOptions =
+    const years =
       opexFilterOptions
-        ?.compare_with?.length
-        ? opexFilterOptions.compare_with
-        : filterOptions?.compare_with || [];
+        ?.years?.length
+        ? opexFilterOptions.years
+        : filterOptions?.years ||
+          [];
 
-    const firstCompareWith =
-      compareOptions[0];
-
-    const compareWithValue =
-      getOptionValue(
-        firstCompareWith
-      );
+    const firstYear =
+      years.length
+        ? getOptionValue(
+            years[0]
+          )
+        : "";
 
     const defaultReportingCurrency =
       opexFilterOptions
@@ -2104,52 +1913,79 @@ export default function Filters({
         ?.default_reporting_currency ||
       "AED";
 
-    setSelectedFilters((prev) => ({
-      ...prev,
+    setSelectedFilters(
+      (prev) => ({
+        ...prev,
 
-      legal_group:
-        Array.isArray(
-          prev.legal_group
-        )
-          ? prev.legal_group
-          : [],
+        legal_group:
+          Array.isArray(
+            prev.legal_group
+          )
+            ? prev.legal_group
+            : [],
 
-      legal_entity:
-        Array.isArray(
-          prev.legal_entity
-        )
-          ? prev.legal_entity
-          : [],
+        legal_entity:
+          Array.isArray(
+            prev.legal_entity
+          )
+            ? prev.legal_entity
+            : [],
 
-      parent_division:
-        Array.isArray(
-          prev.parent_division
-        )
-          ? prev.parent_division
-          : [],
+        parent_division:
+          Array.isArray(
+            prev.parent_division
+          )
+            ? prev.parent_division
+            : [],
 
-      subdivision:
-        Array.isArray(
-          prev.subdivision
-        )
-          ? prev.subdivision
-          : [],
+        subdivision:
+          Array.isArray(
+            prev.subdivision
+          )
+            ? prev.subdivision
+            : [],
 
-      period:
-        prev.period ||
-        latestPeriod ||
-        "",
+        period:
+          Array.isArray(
+            prev.period
+          )
+            ? prev.period.length
+              ? prev.period
+              : latestPeriod
+              ? [
+                  String(
+                    latestPeriod
+                  ),
+                ]
+              : []
+            : prev.period
+            ? [
+                String(
+                  prev.period
+                ),
+              ]
+            : latestPeriod
+            ? [
+                String(
+                  latestPeriod
+                ),
+              ]
+            : [],
 
-      compare_with:
-        prev.compare_with ||
-        compareWithValue ||
-        "",
+        year:
+          prev.year ||
+          firstYear ||
+          "",
 
-      reporting_currency:
-        prev.reporting_currency ||
-        defaultReportingCurrency ||
-        "AED",
-    }));
+        /* IMPORTANT:
+           Preserve selected reporting currency.
+           Default only when no value exists. */
+        reporting_currency:
+          prev.reporting_currency ||
+          defaultReportingCurrency ||
+          "AED",
+      })
+    );
   }, [
     opexFilterOptions,
     filterOptions,
@@ -2160,200 +1996,289 @@ export default function Filters({
      OPEX Filter Change
   ======================================================= */
 
-  const handleOpexFilterChange = async (
-    apiKey,
-    value
-  ) => {
-    let nextFilters = {
-      ...selectedFilters,
-      [apiKey]: value,
-    };
-
-    /* ===================================================
-       Legal Group
-    =================================================== */
-
-    if (apiKey === "legal_group") {
-      nextFilters = {
-        ...nextFilters,
-
-        legal_group:
-          Array.isArray(value)
-            ? value
-            : [],
-
-        legal_entity: [],
-        parent_division: [],
-        subdivision: [],
+  const handleOpexFilterChange =
+    async (
+      apiKey,
+      value
+    ) => {
+      let nextFilters = {
+        ...selectedFilters,
+        [apiKey]: value,
       };
-    }
 
-    /* ===================================================
-       Legal Entity
-    =================================================== */
+      if (
+        apiKey ===
+        "legal_group"
+      ) {
+        nextFilters = {
+          ...nextFilters,
 
-    if (apiKey === "legal_entity") {
-      nextFilters = {
-        ...nextFilters,
+          legal_group:
+            Array.isArray(
+              value
+            )
+              ? value
+              : [],
 
-        legal_entity:
-          Array.isArray(value)
-            ? value
-            : [],
+          legal_entity: [],
+          parent_division: [],
+          subdivision: [],
+        };
+      }
 
-        parent_division: [],
-        subdivision: [],
-      };
-    }
+      if (
+        apiKey ===
+        "legal_entity"
+      ) {
+        nextFilters = {
+          ...nextFilters,
 
-    /* ===================================================
-       Parent Division
-    =================================================== */
+          legal_entity:
+            Array.isArray(
+              value
+            )
+              ? value
+              : [],
 
-    if (
-      apiKey ===
-      "parent_division"
-    ) {
-      nextFilters = {
-        ...nextFilters,
+          parent_division: [],
+          subdivision: [],
+        };
+      }
 
-        parent_division:
-          Array.isArray(value)
-            ? value
-            : [],
+      if (
+        apiKey ===
+        "parent_division"
+      ) {
+        nextFilters = {
+          ...nextFilters,
 
-        subdivision: [],
-      };
-    }
+          parent_division:
+            Array.isArray(
+              value
+            )
+              ? value
+              : [],
 
-    /* ===================================================
-       Sub-Division
-    =================================================== */
+          subdivision: [],
+        };
+      }
 
-    if (
-      apiKey ===
-      "subdivision"
-    ) {
-      nextFilters = {
-        ...nextFilters,
+      if (
+        apiKey ===
+        "subdivision"
+      ) {
+        nextFilters = {
+          ...nextFilters,
 
-        subdivision:
-          Array.isArray(value)
-            ? value
-            : [],
-      };
-    }
+          subdivision:
+            Array.isArray(
+              value
+            )
+              ? value
+              : [],
+        };
+      }
 
-    setSelectedFilters(
-      nextFilters
-    );
+      if (
+        apiKey === "period"
+      ) {
+        nextFilters = {
+          ...nextFilters,
 
-    /* ===================================================
-       Refresh cascading options
-    =================================================== */
+          period:
+            Array.isArray(
+              value
+            )
+              ? value
+              : value
+              ? [
+                  String(value),
+                ]
+              : [],
+        };
+      }
 
-    if (
-      apiKey === "legal_group" ||
-      apiKey === "legal_entity" ||
-      apiKey === "parent_division" ||
-      apiKey === "subdivision"
-    ) {
-      await loadOpexFilterOptions(
+      if (
+        apiKey === "year"
+      ) {
+        nextFilters = {
+          ...nextFilters,
+
+          year:
+            value === null ||
+            value === undefined
+              ? ""
+              : String(value),
+        };
+      }
+
+      /* ===================================================
+         REPORTING CURRENCY
+
+         Selected currency is preserved and passed to
+         onApply through selectedFilters.
+
+         Example:
+         INR -> reporting_currency = "INR"
+         AED -> reporting_currency = "AED"
+
+         Actual amount conversion must be handled by the
+         OPEX data/API layer using this selected currency.
+      =================================================== */
+
+      if (
+        apiKey ===
+        "reporting_currency"
+      ) {
+        nextFilters = {
+          ...nextFilters,
+
+          reporting_currency:
+            value ||
+            opexFilterOptions
+              ?.default_reporting_currency ||
+            "AED",
+        };
+      }
+
+      setSelectedFilters(
         nextFilters
       );
-    }
-  };
+
+      /* ===================================================
+         Refresh cascading options
+      =================================================== */
+
+      if (
+        apiKey ===
+          "legal_group" ||
+        apiKey ===
+          "legal_entity" ||
+        apiKey ===
+          "parent_division" ||
+        apiKey ===
+          "subdivision"
+      ) {
+        await loadOpexFilterOptions(
+          nextFilters
+        );
+      }
+    };
 
   /* =======================================================
      Reset
   ======================================================= */
 
-  const handleReset = async () => {
-    let resetFilters = {
-      legal_group: "",
-      legal_entity: "",
-      parent_division: "",
-      subdivision: "",
-      currency: "",
-      as_on_date: "",
-      period: "",
-      compare_with: "",
-      reporting_currency: "AED",
-    };
-
-    /* ===================================================
-       Existing/Common Pages
-
-       UNCHANGED
-    =================================================== */
-
-    if (!isOperatingExpenses) {
-      resetFilters = {
+  const handleReset =
+    async () => {
+      let resetFilters = {
         legal_group: "",
         legal_entity: "",
         parent_division: "",
         subdivision: "",
         currency: "",
-        as_on_date:
-          filterOptions?.as_on_dates?.[0] ||
-          filterOptions?.available_dates?.[0] ||
-          "",
+        as_on_date: "",
         period: "",
         compare_with: "",
-        reporting_currency: "AED",
-      };
-    }
-
-    /* ===================================================
-       OPEX Reset
-    =================================================== */
-
-    if (isOperatingExpenses) {
-      const normalized =
-        await loadOpexFilterOptions(
-          {}
-        );
-
-      const periods =
-        normalized?.periods ||
-        opexFilterOptions?.periods ||
-        filterOptions?.periods ||
-        [];
-
-      const latestPeriod =
-        getLatestPeriod(
-          periods
-        );
-
-      resetFilters = {
-        legal_group: [],
-        legal_entity: [],
-        parent_division: [],
-        subdivision: [],
-
-        currency: "",
-        as_on_date: "",
-
-        period:
-          latestPeriod || "",
-
-        compare_with: "",
-
         reporting_currency:
-          normalized
-            ?.default_reporting_currency ||
           "AED",
+        year: "",
       };
-    }
 
-    setSelectedFilters(
-      resetFilters
-    );
+      if (
+        !isOperatingExpenses
+      ) {
+        resetFilters = {
+          legal_group: "",
+          legal_entity: "",
+          parent_division:
+            "",
+          subdivision: "",
+          currency: "",
+          as_on_date:
+            filterOptions
+              ?.as_on_dates?.[0] ||
+            filterOptions
+              ?.available_dates?.[0] ||
+            "",
+          period: "",
+          compare_with: "",
+          reporting_currency:
+            "AED",
+        };
+      }
 
-    if (onReset) {
-      onReset();
-    }
-  };
+      if (
+        isOperatingExpenses
+      ) {
+        const normalized =
+          await loadOpexFilterOptions(
+            {}
+          );
+
+        const periods =
+          normalized?.periods ||
+          opexFilterOptions?.periods ||
+          filterOptions?.periods ||
+          [];
+
+        const years =
+          normalized?.years ||
+          opexFilterOptions?.years ||
+          filterOptions?.years ||
+          [];
+
+        const latestPeriod =
+          getLatestPeriod(
+            periods
+          );
+
+        const firstYear =
+          years.length
+            ? getOptionValue(
+                years[0]
+              )
+            : "";
+
+        resetFilters = {
+          legal_group: [],
+          legal_entity: [],
+          parent_division:
+            [],
+          subdivision: [],
+
+          currency: "",
+          as_on_date: "",
+
+          period:
+            latestPeriod
+              ? [
+                  String(
+                    latestPeriod
+                  ),
+                ]
+              : [],
+
+          year:
+            firstYear || "",
+
+          reporting_currency:
+            normalized
+              ?.default_reporting_currency ||
+            opexFilterOptions
+              ?.default_reporting_currency ||
+            "AED",
+        };
+      }
+
+      setSelectedFilters(
+        resetFilters
+      );
+
+      if (onReset) {
+        onReset();
+      }
+    };
 
   /* =======================================================
      Filters To Display
@@ -2395,7 +2320,8 @@ export default function Filters({
             ? "nowrap"
             : "wrap",
 
-        alignItems: "flex-end",
+        alignItems:
+          "flex-end",
 
         width: "100%",
 
@@ -2404,6 +2330,9 @@ export default function Filters({
         position: "relative",
 
         zIndex: 10,
+
+        /* FONT WEIGHT */
+        fontWeight: 600,
       }}
     >
       {/* ===================================================
@@ -2417,6 +2346,11 @@ export default function Filters({
             f.apiKey ===
               "period";
 
+          const isYear =
+            isOperatingExpenses &&
+            f.apiKey ===
+              "year";
+
           const isReportingCurrency =
             isOperatingExpenses &&
             f.apiKey ===
@@ -2426,6 +2360,11 @@ export default function Filters({
             isOperatingExpenses &&
             f.multiSelect === true;
 
+          const options =
+            activeFilterOptions?.[
+              f.optionKey
+            ] || [];
+
           return (
             <FilterField
               key={`${f.apiKey}-${i}`}
@@ -2434,17 +2373,9 @@ export default function Filters({
                 isOperatingExpenses
               }
             >
-              {/* =================================================
-                  OPEX MULTI SELECT
-              ================================================= */}
-
               {isOpexMultiSelect ? (
                 <OpexMultiSelect
-                  options={
-                    activeFilterOptions?.[
-                      f.optionKey
-                    ] || []
-                  }
+                  options={options}
                   value={
                     Array.isArray(
                       selectedFilters[
@@ -2456,18 +2387,97 @@ export default function Filters({
                         ]
                       : []
                   }
-                  onChange={(values) =>
+                  onChange={(
+                    values
+                  ) =>
                     handleOpexFilterChange(
                       f.apiKey,
                       values
                     )
                   }
+                  placeholder={
+                    isPeriod
+                      ? "Select Period"
+                      : "All"
+                  }
+                  searchable={
+                    true
+                  }
+                />
+              ) : isYear ? (
+                <OpexSingleSelect
+                  options={options}
+                  value={
+                    selectedFilters
+                      .year || ""
+                  }
+                  onChange={(
+                    value
+                  ) =>
+                    handleOpexFilterChange(
+                      "year",
+                      value
+                    )
+                  }
+                  placeholder="Select Year"
+                  searchable={
+                    true
+                  }
+                />
+              ) : isReportingCurrency ? (
+                /* =================================================
+                   REPORTING CURRENCY
+
+                   Selected value is stored in:
+                   selectedFilters.reporting_currency
+
+                   When Apply is clicked, this value is sent
+                   through onApply(selectedFilters).
+
+                   Example:
+                   INR -> reporting_currency = "INR"
+
+                   The OPEX page/API should use this value
+                   to convert the displayed amounts.
+                ================================================= */
+
+                <OpexSingleSelect
+                  options={
+                    options.length
+                      ? options
+                      : [
+                          {
+                            value:
+                              "AED",
+                            label:
+                              "AED",
+                          },
+                        ]
+                  }
+                  value={
+                    selectedFilters
+                      .reporting_currency ||
+                    opexFilterOptions
+                      ?.default_reporting_currency ||
+                    "AED"
+                  }
+                  onChange={(
+                    value
+                  ) =>
+                    handleOpexFilterChange(
+                      "reporting_currency",
+                      value
+                    )
+                  }
+                  placeholder="Select Currency"
+                  searchable={
+                    true
+                  }
+                  required={
+                    true
+                  }
                 />
               ) : (
-                /* ===============================================
-                   ORIGINAL SINGLE SELECT
-                =============================================== */
-
                 <select
                   className="filter-select w-full"
                   value={
@@ -2477,7 +2487,8 @@ export default function Filters({
                   }
                   onChange={(e) => {
                     const value =
-                      e.target.value;
+                      e.target
+                        .value;
 
                     if (
                       isOperatingExpenses
@@ -2499,6 +2510,9 @@ export default function Filters({
                   style={{
                     minWidth: 0,
                     width: "100%",
+
+                    /* FONT WEIGHT */
+                    fontWeight: 600,
                   }}
                 >
                   {!isPeriod && (
@@ -2506,15 +2520,6 @@ export default function Filters({
                       All
                     </option>
                   )}
-
-                  {isReportingCurrency &&
-                    !activeFilterOptions
-                      ?.currencies
-                      ?.length && (
-                      <option value="AED">
-                        AED
-                      </option>
-                    )}
 
                   {activeFilterOptions?.[
                     f.optionKey
@@ -2534,7 +2539,8 @@ export default function Filters({
                         );
 
                       if (
-                        value === "" ||
+                        value ===
+                          "" ||
                         value ===
                           null ||
                         value ===
@@ -2547,8 +2553,14 @@ export default function Filters({
                         <option
                           key={`${value}-${index}`}
                           value={value}
+                          style={{
+                            fontWeight:
+                              600,
+                          }}
                         >
-                          {label}
+                          {
+                            label
+                          }
                         </option>
                       );
                     }
@@ -2563,7 +2575,7 @@ export default function Filters({
       {/* ===================================================
           Existing Common Page As On Date
 
-          OPEX does NOT render this.
+          OPEX DOES NOT render this.
       =================================================== */}
 
       {!isOperatingExpenses && (
@@ -2571,10 +2583,11 @@ export default function Filters({
           <input
             type="text"
             value={
-              selectedFilters.as_on_date
+              selectedFilters
+                .as_on_date
             }
             readOnly
-            className="w-full h-8 text-[10px] font-medium text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2"
+            className="w-full h-8 text-[10px] font-semibold text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2"
           />
         </FilterField>
       )}
@@ -2594,6 +2607,9 @@ export default function Filters({
 
           position: "relative",
           zIndex: 1,
+
+          /* FONT WEIGHT */
+          fontWeight: 600,
         }}
       >
         <button
@@ -2604,13 +2620,21 @@ export default function Filters({
               selectedFilters
             )
           }
+          style={{
+            fontWeight: 700,
+          }}
         >
           Apply
         </button>
 
         <button
           className="btn btn-ghost"
-          onClick={handleReset}
+          onClick={
+            handleReset
+          }
+          style={{
+            fontWeight: 700,
+          }}
         >
           Reset
         </button>
@@ -2618,3 +2642,4 @@ export default function Filters({
     </div>
   );
 }
+

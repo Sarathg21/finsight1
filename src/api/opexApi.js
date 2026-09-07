@@ -1,3 +1,5 @@
+
+
 import api from "./axios";
 
 /* =========================================================
@@ -33,7 +35,10 @@ const buildParams = (filters = {}, includePeriod = true) => {
                 item !== "all" &&
                 item !== "All"
             ) {
-                params.append(key, String(item));
+                params.append(
+                    key,
+                    String(item)
+                );
             }
         });
     };
@@ -58,6 +63,27 @@ const buildParams = (filters = {}, includePeriod = true) => {
         filters.subdivision_id
     );
 
+    /* =====================================================
+       YEAR
+
+       Keep selected Year in the same filter context.
+    ===================================================== */
+
+    if (
+        filters.year !== undefined &&
+        filters.year !== null &&
+        filters.year !== ""
+    ) {
+        params.append(
+            "year",
+            String(filters.year)
+        );
+    }
+
+    /* =====================================================
+       PERIOD
+    ===================================================== */
+
     if (
         includePeriod &&
         filters.period_name
@@ -68,6 +94,10 @@ const buildParams = (filters = {}, includePeriod = true) => {
         );
     }
 
+    /* =====================================================
+       COMPARE PERIOD
+    ===================================================== */
+
     if (
         filters.compare_period_name
     ) {
@@ -77,12 +107,20 @@ const buildParams = (filters = {}, includePeriod = true) => {
         );
     }
 
+    /* =====================================================
+       LEDGER CURRENCY
+    ===================================================== */
+
     if (filters.ledger_currency) {
         params.append(
             "ledger_currency",
             filters.ledger_currency
         );
     }
+
+    /* =====================================================
+       REPORTING CURRENCY
+    ===================================================== */
 
     params.append(
         "reporting_currency",
@@ -91,6 +129,7 @@ const buildParams = (filters = {}, includePeriod = true) => {
 
     return params;
 };
+
 
 /* =========================================================
    NORMALIZE RESPONSE
@@ -117,6 +156,7 @@ const getResponseData = (response) => {
 
     return body;
 };
+
 
 /* =========================================================
    ERROR HELPER
@@ -145,6 +185,7 @@ const getApiError = (error) => {
     return normalizedError;
 };
 
+
 /* =========================================================
    FILTER OPTIONS
 
@@ -168,10 +209,12 @@ export const getOpexFilterOptions = async (
         );
 
         return getResponseData(response);
+
     } catch (error) {
         throw getApiError(error);
     }
 };
+
 
 /* =========================================================
    SUMMARY
@@ -196,10 +239,12 @@ export const getOpexSummary = async (
         );
 
         return getResponseData(response);
+
     } catch (error) {
         throw getApiError(error);
     }
 };
+
 
 /* =========================================================
    CATEGORY COMPARISON
@@ -223,19 +268,17 @@ export const getOpexCategoryComparison =
             );
 
             return getResponseData(response);
+
         } catch (error) {
             throw getApiError(error);
         }
     };
 
+
 /* =========================================================
    COMPOSITION
 
    GET /api/opex/composition
-
-   IMPORTANT:
-   Percentage comes from backend.
-   Do not calculate percentage in frontend.
 ========================================================= */
 
 export const getOpexComposition =
@@ -254,10 +297,88 @@ export const getOpexComposition =
             );
 
             return getResponseData(response);
+
         } catch (error) {
             throw getApiError(error);
         }
     };
+
+
+/* =========================================================
+   COMPOSITION VIEW ALL
+
+   GET /api/opex/composition/view-all
+
+   Uses exactly the same filter context as
+   the dashboard Composition API.
+========================================================= */
+
+export const getOpexCompositionViewAll =
+    async (filters = {}) => {
+        try {
+            const params = buildParams(
+                filters,
+                true
+            );
+
+            const response = await api.get(
+                "/opex/composition/view-all",
+                {
+                    params,
+                }
+            );
+
+            return getResponseData(response);
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
+
+
+/* =========================================================
+   COMPOSITION EXPORT
+
+   GET /api/opex/composition/export
+
+   format:
+      excel
+      pdf
+
+   The active dashboard filters are sent unchanged.
+========================================================= */
+
+export const exportOpexComposition =
+    async (
+        filters = {},
+        format = "excel"
+    ) => {
+        try {
+            const params = buildParams(
+                filters,
+                true
+            );
+
+            params.append(
+                "format",
+                format
+            );
+
+            const response = await api.get(
+                "/opex/composition/export",
+                {
+                    params,
+                    responseType: "blob",
+                }
+            );
+
+            return response;
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
+
 
 /* =========================================================
    CATEGORY BREAKDOWN
@@ -281,10 +402,12 @@ export const getOpexCategoryBreakdown =
             );
 
             return getResponseData(response);
+
         } catch (error) {
             throw getApiError(error);
         }
     };
+
 
 /* =========================================================
    CATEGORY DETAIL
@@ -320,10 +443,12 @@ export const getOpexCategoryDetail =
             );
 
             return getResponseData(response);
+
         } catch (error) {
             throw getApiError(error);
         }
     };
+
 
 /* =========================================================
    MONTHLY
@@ -348,18 +473,128 @@ export const getOpexMonthly = async (
         );
 
         return getResponseData(response);
+
     } catch (error) {
         throw getApiError(error);
     }
 };
 
-export const getOpexCategoryDetailMonthly = async (params = {}) => {
-    const response = await api.get(
-        "/opex/category-detail-monthly",
-        {
-            params,
-        }
-    );
 
-    return response.data;
+/* =========================================================
+   CATEGORY DETAIL MONTHLY
+========================================================= */
+
+export const getOpexCategoryDetailMonthly =
+    async (params = {}) => {
+        try {
+            const response = await api.get(
+                "/opex/category-detail-monthly",
+                {
+                    params,
+                }
+            );
+
+            return response.data;
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
+
+
+export const exportOpexCategoryComparison = async (
+    filters = {},
+    format = "excel"
+) => {
+    try {
+        const params = buildParams(filters, true);
+
+        params.append("format", format);
+
+        const response = await api.get(
+            "/opex/category-comparison/export",
+            {
+                params,
+                responseType: "blob",
+            }
+        );
+
+        return response;
+    } catch (error) {
+        throw getApiError(error);
+    }
 };
+
+
+/* =========================================================
+   CATEGORY BREAKDOWN VIEW ALL
+
+   GET /api/opex/category-breakdown/view-all
+
+   Uses the SAME active dashboard filters.
+========================================================= */
+
+export const getOpexCategoryBreakdownViewAll =
+    async (filters = {}) => {
+        try {
+            const params = buildParams(
+                filters,
+                true
+            );
+
+            const response = await api.get(
+                "/opex/category-breakdown/view-all",
+                {
+                    params,
+                }
+            );
+
+            return getResponseData(response);
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
+
+    /* =========================================================
+   CATEGORY BREAKDOWN EXPORT
+
+   GET /api/opex/category-breakdown/export
+
+   format:
+      excel
+      pdf
+
+   Response is binary/blob.
+========================================================= */
+
+export const exportOpexCategoryBreakdown =
+    async (
+        filters = {},
+        format = "excel"
+    ) => {
+        try {
+            const params = buildParams(
+                filters,
+                true
+            );
+
+            params.append(
+                "format",
+                format
+            );
+
+            const response = await api.get(
+                "/opex/category-breakdown/export",
+                {
+                    params,
+                    responseType: "blob",
+                }
+            );
+
+            return response;
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
