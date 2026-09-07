@@ -187,12 +187,29 @@ function ErrorBanner({ message, onRetry }) {
 /* ── MultiSelect (identical to Sales Revenue) ─────────────────────── */
 function MultiSelect({ options = [], value, onChange, placeholder = 'All', style }) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const ref = useRef(null);
+  const searchRef = useRef(null);
+
+  // Close dropdown on outside click; clear search when closing
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setSearchQuery('');
+      }
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  // Auto-focus the search input when dropdown opens
+  useEffect(() => {
+    if (open && searchRef.current) {
+      setTimeout(() => searchRef.current && searchRef.current.focus(), 0);
+    }
+    if (!open) setSearchQuery('');
+  }, [open]);
 
   const normOptions = options.map(o => {
     if (typeof o === 'string') return { id: o, name: o };
@@ -200,6 +217,12 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     const name = o.label !== undefined ? o.label : o.name;
     return { id, name };
   });
+
+  // Filter visible options by search query — selected values are NEVER removed
+  const q = searchQuery.trim().toLowerCase();
+  const visibleOptions = q
+    ? normOptions.filter(o => String(o.id) !== 'All' && o.name.toLowerCase().includes(q))
+    : normOptions;
 
   const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
   const toggle = (optId) => {
@@ -221,25 +244,63 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
         <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
       </div>
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, maxHeight: 200, overflowY: 'auto' }}>
-          <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc' }}>
-            <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
-            </span>
-            All
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, display: 'flex', flexDirection: 'column' }}>
+
+          {/* ── Search input (only addition) ── */}
+          <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
+              <span style={{ fontSize: '0.7rem', color: '#94a3b8', flexShrink: 0 }}>🔍</span>
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                placeholder="Search…"
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.75rem', color: '#334155', width: '100%', minWidth: 0 }}
+              />
+              {searchQuery && (
+                <span
+                  onClick={e => { e.stopPropagation(); setSearchQuery(''); }}
+                  style={{ fontSize: '0.65rem', color: '#94a3b8', cursor: 'pointer', flexShrink: 0 }}
+                >✕</span>
+              )}
+            </div>
           </div>
-          {normOptions.map(opt => {
-            if (opt.id === 'All') return null;
-            const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
-            return (
-              <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
-                <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+
+          {/* ── Scrollable options list ── */}
+          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+            {/* "All" option — only shown when search is empty */}
+            {!q && (
+              <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
+                <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
                 </span>
-                {opt.name}
+                All
               </div>
-            );
-          })}
+            )}
+
+            {/* Filtered option rows */}
+            {visibleOptions.map(opt => {
+              if (opt.id === 'All') return null;
+              const selected = !isAll && value && value.some(v => String(v) === String(opt.id));
+              return (
+                <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
+                  <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {selected && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
+                  </span>
+                  {opt.name}
+                </div>
+              );
+            })}
+
+            {/* Empty state when search yields no results */}
+            {q && visibleOptions.length === 0 && (
+              <div style={{ padding: '10px 12px', fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>
+                No results for "{searchQuery}"
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1767,7 +1828,7 @@ export default function BalanceSheet() {
                                 const variance = acct.variance ?? (acct.compare_amount != null ? (acct.balance_amount ?? 0) - acct.compare_amount : null);
                                 const varPct = acct.compare_amount ? (variance / Math.abs(acct.compare_amount) * 100) : null;
                                 return (
-                                  <tr key={ai}
+                                  <tr key={acct.account_code ?? `${subKey}-${ai}`}
                                     onClick={() => handleDrilldown({ account_code: acct.account_code, account_name: acct.account_name })}
                                     style={{ cursor: 'pointer' }}
                                     onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
@@ -1958,7 +2019,7 @@ export default function BalanceSheet() {
                 </tr>
               </thead>
               <tbody>
-                {subdivRows.map((row) => {
+                {subdivRows.map((row, ri) => {
                   const sources = row.section_totals?.['SOURCES OF FUNDS'] ?? 0;
                   const applic  = row.section_totals?.['APPLICATION OF FUNDS'] ?? 0;
                   const net     = row.grand_total ?? row.balance_amount ?? 0;
@@ -1967,7 +2028,7 @@ export default function BalanceSheet() {
                   const netColor = net >= 0 ? C.navy : C.rose;
                   return (
                     <tr
-                      key={row.sub_division_id ?? row.sub_division_code}
+                      key={row.sub_division_id ?? row.sub_division_code ?? ri}
                       onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
