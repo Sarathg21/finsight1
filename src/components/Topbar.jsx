@@ -123,26 +123,28 @@ export default function Topbar() {
       </div>
 
       <div className="topbar-actions">
-        {/* Context pill — FY + Entity */}
-        <div
-          className="hide-on-tablet"
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: 'var(--clr-surface-2)',
-            padding: '5px 12px', borderRadius: 'var(--radius-full)',
-            border: '1px solid var(--clr-border)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Calendar size={12} style={{ color: 'var(--clr-primary)' }} />
-            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>FY 2026</span>
+        {/* Context pill — FY + Entity (Hidden on Sales Revenue) */}
+        {location.pathname !== '/sales-revenue' && (
+          <div
+            className="hide-on-tablet"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: 'var(--clr-surface-2)',
+              padding: '5px 12px', borderRadius: 'var(--radius-full)',
+              border: '1px solid var(--clr-border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Calendar size={12} style={{ color: 'var(--clr-primary)' }} />
+              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>FY 2026</span>
+            </div>
+            <div className="filter-divider" style={{ height: 12, margin: 0 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Globe size={12} style={{ color: 'var(--clr-emerald)' }} />
+              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>{isRestricted ? 'Authorized Entities' : 'All Entities'}</span>
+            </div>
           </div>
-          <div className="filter-divider" style={{ height: 12, margin: 0 }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Globe size={12} style={{ color: 'var(--clr-emerald)' }} />
-            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>{isRestricted ? 'Authorized Entities' : 'All Entities'}</span>
-          </div>
-        </div>
+        )}
 
         <div className="filter-divider hide-on-tablet" />
 

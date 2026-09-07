@@ -639,7 +639,7 @@ function DetailApiModal({
                   </tr>
                 )}
               </tbody>
-              <tfoot>
+              <tfoot style={{ position: 'sticky', bottom: -1, background: '#f8fafc', zIndex: 3, boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}>
                 <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
                   {columnDefs.map((col, ci) => {
                     if (ci === 0) {
@@ -957,7 +957,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         {/* Target & Achievement Row */}
         {!loading && !error && target != null && !hideTargetUI && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+            display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden',
             fontSize: '0.65rem', fontWeight: 600, color: '#475569',
             marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.03)', borderRadius: 6
           }}>
@@ -1807,35 +1807,8 @@ export default function SalesRevenueReport() {
 
   useEffect(() => { fetchAll(appliedFilters); }, [appliedFilters, fetchAll]);
 
-  /* ── Auto-apply: sync filters → appliedFilters with debounce ──── */
-  /* Dropdowns apply in 100 ms; date inputs wait 600 ms after        */
-  /* the last keystroke so we don't hammer the API while typing.     */
-  /* Initial mount is skipped — fetchAll already fires via the       */
-  /* appliedFilters effect above on first render.                    */
-  const isFirstAutoApplyRun = useRef(true);
-  const prevFiltersRef = useRef(filters);
-  useEffect(() => {
-    // Skip initial mount — avoid double-fetching on page load
-    if (isFirstAutoApplyRun.current) {
-      isFirstAutoApplyRun.current = false;
-      prevFiltersRef.current = filters;
-      return;
-    }
-
-    const prev = prevFiltersRef.current;
-    prevFiltersRef.current = filters;
-
-    // Guard: bail out if nothing actually changed
-    const dateKeys = ['fromDate', 'toDate'];
-    const changedKeys = Object.keys(filters).filter(k => filters[k] !== prev[k]);
-    if (changedKeys.length === 0) return;
-
-    // Dropdowns get 100 ms; date fields get 600 ms (user may still be typing)
-    const onlyDatesChanged = changedKeys.every(k => dateKeys.includes(k));
-    const delay = onlyDatesChanged ? 600 : 100;
-    const timer = setTimeout(() => setAppliedFilters({ ...filters }), delay);
-    return () => clearTimeout(timer);
-  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* ── Filter apply behavior (auto-apply removed per CFO review) ──── */
+  // Users must click 'Apply' to refresh the dashboard data.
 
   /* ── When page changes, re-fetch details only ─────────────────── */
   const prevPageRef = useRef(0);
@@ -2205,9 +2178,7 @@ export default function SalesRevenueReport() {
         )}
 
         {/* ── Filter Bar ── */}
-
-                <div className="card" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 4, flexWrap: 'nowrap' }}>
-
+        <div className="card" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
 
           {filterOptions.legalGroups && filterOptions.legalGroups.length > 0 && (
             <FilterField label="Legal Group">
@@ -2405,6 +2376,7 @@ export default function SalesRevenueReport() {
           {/* 6. Top Salesman */}
           <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
             label="Top Salesperson"
+              title={topSalesmanRecord ? `Division: ${topSalesmanRecord.parent_division || "-"} | Sub-Division: ${topSalesmanRecord.subdivision || "-"}` : undefined}
             numericValue={null}
             textValue={topSalesmanName}
             changePct={null}
