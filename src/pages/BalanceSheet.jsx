@@ -733,37 +733,42 @@ function SubDivisionViewAll({ data, currency }) {
 
 /* Trend View All Table */
 function TrendViewAll({ trendData, currency }) {
-  const series = trendData || [];
-  if (!series.length)
-    return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
-
-  return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-      <thead>
-        <tr>
-          <th style={MTH_L}>Period</th>
-          <th style={MTH}>Balance Amount</th>
-          <th style={MTH}>MoM Change</th>
-          <th style={MTH}>MoM %</th>
-        </tr>
-      </thead>
-      <tbody>
-        {series.map((row, i) => (
-          <tr
-            key={i}
-            onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <td style={{ ...MTD_L, fontWeight: 600 }}>{row.period_name || row.period}</td>
-            <td style={{ ...MTD, fontWeight: 600 }}>{fmtNum(Math.abs(row.balance_amount), currency)}</td>
-            <td style={MTD}>{row.mom_change != null ? <VarBadge v={row.mom_change} /> : '—'}</td>
-            <td style={MTD}>{row.mom_pct != null ? <VarBadge v={row.mom_pct} isPct /> : '—'}</td>
+    const series = Array.isArray(trendData) ? trendData : (trendData?.series || trendData?.data || []);
+    if (!series.length)
+      return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
+  
+    return (
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th style={MTH_L}>Period</th>
+            <th style={MTH}>Balance Amount</th>
+            <th style={MTH}>MoM Change</th>
+            <th style={MTH}>MoM %</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
+        </thead>
+        <tbody>
+          {series.map((row, i) => {
+            const bal = row.total_balance ?? row.balance_amount ?? row.balance ?? 0;
+            const chg = row.mom_variance ?? row.mom_change ?? row.variance ?? row.period_change;
+            const pct = row.mom_pct ?? row.period_pct ?? row.variance_pct;
+            return (
+              <tr
+                key={i}
+                onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <td style={{ ...MTD_L, fontWeight: 600 }}>{row.period_name || row.period_code || row.period || 'Unknown'}</td>
+                <td style={{ ...MTD, fontWeight: 600 }}>{fmtNum(Math.abs(bal), currency)}</td>
+                <td style={MTD}>{chg != null ? <VarBadge v={chg} /> : '—'}</td>
+                <td style={MTD}>{pct != null ? <VarBadge v={pct} isPct /> : '—'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  }
 
 /* Drilldown Modal Content */
 function DrilldownModal({ isOpen, onClose, data, currency }) {
@@ -1801,7 +1806,7 @@ export default function BalanceSheet() {
                                       <div style={{ fontSize: '1.4rem' }}>🏢</div>
                                       <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#15803d' }}>
-                                          Total Equity represents {((kpiTotals.totalEquity / kpiTotals.totalAssets) * 100).toFixed(2)}% of Total Assets
+                                          Total Equity represents {(kpiTotals.totalAssets ? ((kpiTotals.totalEquity / kpiTotals.totalAssets) * 100) : 0).toFixed(2)}% of Total Assets
                                         </div>
                                         {appliedFilters.comparePeriod && (
                                           <div style={{ fontSize: '0.66rem', color: '#16a34a', marginTop: 2 }}>
