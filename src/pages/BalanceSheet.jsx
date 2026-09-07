@@ -1166,10 +1166,11 @@ export default function BalanceSheet() {
   })();
 
   /* ── Trend chart data ──────────────────────────────────────────── */
-  const trendSeries = (trendData || []).map(p => ({
-    period:   p.period_name || p.period_code || p.period,
-    balance:  Math.abs(p.total_balance ?? 0),
-    mom_pct:  p.mom_pct ?? 0,
+  const _rawTrendData = Array.isArray(trendData) ? trendData : (trendData?.series || trendData?.data || []);
+  const trendSeries = _rawTrendData.map(p => ({
+    period:   p.period_name || p.period_code || p.period || 'Unknown',
+    balance:  Math.abs(p.total_balance ?? p.balance_amount ?? p.balance ?? 0),
+    mom_pct:  p.mom_pct ?? p.period_pct ?? p.variance_pct ?? 0,
   }));
 
   /* ── Sub-division table rows ───────────────────────────────────── */
