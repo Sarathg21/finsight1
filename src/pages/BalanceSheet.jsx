@@ -730,12 +730,8 @@ function StatementViewAll({ summaryData, currency }) {
                       </span>
                     </td>
                   </tr>
-                  {sub.accounts.map((acct) => (
-                    <tr
-                      key={acct.account_code}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
+                  {sub.accounts.map((acct, ai) => (
+                    <tr key={`${subKey}-${acct.account_code ?? 'account'}-${ai}`} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'} style={{ transition: 'background 0.2s', borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ ...MTD_L, paddingLeft: 42, fontSize: '0.73rem' }}>
                         <span style={{ color: C.slate, fontSize: '0.65rem', marginRight: 6, fontFamily: 'monospace' }}>{acct.account_code}</span>
                         {acct.account_name}
@@ -860,9 +856,9 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, i) => (
               <tr
-                key={row.sub_division_id ?? row.sub_division_code}
+                key={`${row.sub_division_id ?? row.sub_division_code ?? 'subdiv'}-${i}`}
                 onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
@@ -1828,7 +1824,7 @@ export default function BalanceSheet() {
                                 const variance = acct.variance ?? (acct.compare_amount != null ? (acct.balance_amount ?? 0) - acct.compare_amount : null);
                                 const varPct = acct.compare_amount ? (variance / Math.abs(acct.compare_amount) * 100) : null;
                                 return (
-                                  <tr key={acct.account_code ?? `${subKey}-${ai}`}
+                                  <tr key={`${subKey}-${acct.account_code ?? 'account'}-${ai}`}
                                     onClick={() => handleDrilldown({ account_code: acct.account_code, account_name: acct.account_name })}
                                     style={{ cursor: 'pointer' }}
                                     onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
@@ -2028,7 +2024,7 @@ export default function BalanceSheet() {
                   const netColor = net >= 0 ? C.navy : C.rose;
                   return (
                     <tr
-                      key={row.sub_division_id ?? row.sub_division_code ?? ri}
+                      key={`${row.sub_division_id ?? row.sub_division_code ?? 'subdiv'}-${ri}`}
                       onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
