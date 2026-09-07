@@ -1,11 +1,12 @@
+
+
 import {
   ChevronDown,
   ChevronRight,
   Folder,
 } from "lucide-react";
 
-import Checkbox from "../common/Checkbox";
-
+import Checkbox from "../Common/Checkbox";
 
 export default function PermissionRow({
   module,
@@ -14,199 +15,431 @@ export default function PermissionRow({
   onUpdatePermission,
   onUpdateChildPermission,
 }) {
-
   return (
     <>
+      {/* =====================================================
+          PARENT ROW
+      ===================================================== */}
 
-      {/* Parent Row */}
       <tr
-        className="
-          h-11
-          border-t
-          hover:bg-gray-50
-          transition
-        "
+        style={styles.parentRow}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background =
+            "#F8FAFC";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background =
+            "#FFFFFF";
+        }}
       >
 
-        <td className="px-5">
+        {/* MODULE */}
 
-          <div className="flex items-center gap-2">
+        <td style={styles.moduleCell}>
 
+          <div style={styles.moduleContent}>
+
+            {/* Expand */}
 
             <button
               type="button"
-              onClick={() => onToggleExpand(module.id)}
-              className="
-                rounded
-                hover:bg-gray-100
-                p-1
-              "
+              onClick={() =>
+                onToggleExpand(module.id)
+              }
+              style={styles.expandButton}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background =
+                  "#F1F5F9";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  "transparent";
+              }}
             >
 
               {module.children?.length > 0 ? (
 
                 module.expanded ? (
-
                   <ChevronDown
-                    size={16}
-                    className="text-gray-500"
+                    size={11}
+                    strokeWidth={2}
+                    style={styles.icon}
                   />
-
                 ) : (
-
                   <ChevronRight
-                    size={16}
-                    className="text-gray-500"
+                    size={11}
+                    strokeWidth={2}
+                    style={styles.icon}
                   />
-
                 )
 
               ) : (
-
-                <span className="w-4" />
-
+                <span
+                  style={styles.emptyChevron}
+                />
               )}
 
             </button>
 
+            {/* Folder */}
 
             <Folder
-              size={17}
-              className="text-blue-600"
+              size={11}
+              strokeWidth={1.8}
+              style={styles.folderIcon}
             />
 
+            {/* Module Name */}
 
-            <span className="
-              text-sm
-              font-medium
-              text-gray-700
-            ">
+            <span style={styles.moduleName}>
               {module.name}
             </span>
-
 
           </div>
 
         </td>
 
+        {/* PERMISSIONS */}
 
-
-        {permissionColumns.map((column)=>(
-
-          <td
-            key={column.key}
-            className="text-center"
-          >
-
-            <Checkbox
-
-             checked={
-             module.permissions?.[column.key] ?? false
-             }
-              color={
-                column.color
+        {permissionColumns.map(
+          (column) => (
+            <td
+              key={column.key}
+              style={
+                styles.permissionCell
               }
+            >
 
-              onChange={(value)=>
-                onUpdatePermission(
-                  module.id,
-                  column.key,
-                  value
-                )
-              }
+              <div
+                style={
+                  styles.checkboxWrapper
+                }
+              >
 
-            />
+                <Checkbox
+                  checked={
+                    module.permissions?.[
+                      column.key
+                    ] ?? false
+                  }
+                  color={
+                    column.color
+                  }
+                  onChange={(value) =>
+                    onUpdatePermission(
+                      module.id,
+                      column.key,
+                      value
+                    )
+                  }
+                />
 
-          </td>
+              </div>
 
-        ))}
-
+            </td>
+          )
+        )}
 
       </tr>
 
+      {/* =====================================================
+          CHILD ROWS
+      ===================================================== */}
 
-
-      {/* Child Rows */}
-
-      {
-        module.expanded &&
-        module.children?.map((child)=>(
-
-          <tr
-            key={child.id}
-            className="
-              h-11
-              border-t
-              bg-gray-50/50
-              hover:bg-gray-50
-            "
-          >
-
-            <td
-              className="
-                px-5
-                pl-14
-              "
+      {module.expanded &&
+        module.children?.map(
+          (child) => (
+            <tr
+              key={child.id}
+              style={styles.childRow}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background =
+                  "#F8FAFC";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  "#FAFBFC";
+              }}
             >
 
-              <span
-                className="
-                  text-sm
-                  text-gray-600
-                "
+              {/* CHILD MODULE */}
+
+              <td
+                style={
+                  styles.childModuleCell
+                }
               >
-                {child.name}
-              </span>
 
-            </td>
-
-
-
-            {
-              permissionColumns.map((column)=>(
-
-                <td
-                  key={column.key}
-                  className="text-center"
+                <div
+                  style={
+                    styles.childContent
+                  }
                 >
 
-                  <Checkbox
-
-                    checked={
-                    child.permissions?.[column.key] ?? false
-                   }
-
-
-                    color={
-                      column.color
+                  <span
+                    style={
+                      styles.childSpacer
                     }
-
-
-                    onChange={(value)=>
-                      onUpdateChildPermission(
-                        module.id,
-                        child.id,
-                        column.key,
-                        value
-                      )
-                    }
-
                   />
 
+                  <span
+                    style={
+                      styles.childName
+                    }
+                  >
+                    {child.name}
+                  </span>
 
-                </td>
+                </div>
 
-              ))
-            }
+              </td>
 
+              {/* CHILD PERMISSIONS */}
 
-          </tr>
+              {permissionColumns.map(
+                (column) => (
+                  <td
+                    key={column.key}
+                    style={
+                      styles.permissionCell
+                    }
+                  >
 
+                    <div
+                      style={
+                        styles.checkboxWrapper
+                      }
+                    >
 
-        ))
-      }
+                      <Checkbox
+                        checked={
+                          child
+                            .permissions?.[
+                            column.key
+                          ] ?? false
+                        }
+                        color={
+                          column.color
+                        }
+                        onChange={(value) =>
+                          onUpdateChildPermission(
+                            module.id,
+                            child.id,
+                            column.key,
+                            value
+                          )
+                        }
+                      />
 
+                    </div>
 
+                  </td>
+                )
+              )}
+
+            </tr>
+          )
+        )}
     </>
   );
 }
+
+/* =========================================================
+   INLINE STYLES
+========================================================= */
+
+const styles = {
+
+  /* =======================================================
+     PARENT ROW
+  ======================================================= */
+
+  parentRow: {
+    height: "20px",
+    background: "#FFFFFF",
+    borderTop: "1px solid #EEF2F7",
+    borderBottom: "1px solid #EEF2F7",
+    transition: "background 120ms ease",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     CHILD ROW
+  ======================================================= */
+
+  childRow: {
+    height: "20px",
+    background: "#FAFBFC",
+    borderTop: "1px solid #F1F5F9",
+    borderBottom: "1px solid #EEF2F7",
+    transition: "background 120ms ease",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     MODULE CELL
+  ======================================================= */
+
+  moduleCell: {
+    width: "52%",
+    height: "20px",
+    padding: "0 8px",
+    verticalAlign: "middle",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  },
+
+  /* =======================================================
+     CHILD MODULE CELL
+  ======================================================= */
+
+  childModuleCell: {
+    width: "52%",
+    height: "20px",
+    padding: "0 8px",
+    verticalAlign: "middle",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  },
+
+  /* =======================================================
+     MODULE CONTENT
+  ======================================================= */
+
+  moduleContent: {
+    width: "100%",
+    height: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    minWidth: 0,
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     CHILD CONTENT
+  ======================================================= */
+
+  childContent: {
+    width: "100%",
+    height: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    paddingLeft: "22px",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     EXPAND BUTTON
+  ======================================================= */
+
+  expandButton: {
+    width: "14px",
+    height: "14px",
+    padding: 0,
+    margin: 0,
+    border: 0,
+    borderRadius: "3px",
+    background: "transparent",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     EMPTY CHEVRON
+  ======================================================= */
+
+  emptyChevron: {
+    width: "11px",
+    height: "11px",
+    display: "block",
+  },
+
+  /* =======================================================
+     CHEVRON
+  ======================================================= */
+
+  icon: {
+    color: "#94A3B8",
+    flexShrink: 0,
+  },
+
+  /* =======================================================
+     FOLDER
+  ======================================================= */
+
+  folderIcon: {
+    color: "#2563EB",
+    flexShrink: 0,
+  },
+
+  /* =======================================================
+     MODULE NAME
+  ======================================================= */
+
+  moduleName: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "#334155",
+    fontSize: "8px",
+    lineHeight: "10px",
+    fontWeight: 500,
+  },
+
+  /* =======================================================
+     CHILD NAME
+  ======================================================= */
+
+  childName: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "#64748B",
+    fontSize: "8px",
+    lineHeight: "10px",
+    fontWeight: 400,
+  },
+
+  /* =======================================================
+     CHILD SPACER
+  ======================================================= */
+
+  childSpacer: {
+    width: "14px",
+    flexShrink: 0,
+  },
+
+  /* =======================================================
+     PERMISSION CELL
+  ======================================================= */
+
+  permissionCell: {
+    width: "12%",
+    height: "20px",
+    padding: 0,
+    textAlign: "center",
+    verticalAlign: "middle",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     CHECKBOX WRAPPER
+  ======================================================= */
+
+  checkboxWrapper: {
+    width: "100%",
+    height: "20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+  },
+};

@@ -20,7 +20,8 @@ export default function MasterDataModal({
   nameLabel,
 
   addApi,
-  updateApi, onCustomSave,
+  updateApi,
+  onCustomSave,
 
   extraFields = [],
 
@@ -30,9 +31,10 @@ export default function MasterDataModal({
   parentDivisions = [],
 }) {
   const isEdit = Boolean(editData);
-  const editId = editData && idField
-    ? editData[idField]
-    : null;
+  const editId =
+    editData && idField
+      ? editData[idField]
+      : null;
 
   const [formData, setFormData] = useState({
     active: true,
@@ -53,16 +55,6 @@ export default function MasterDataModal({
       return directValue.map(String);
     }
 
-    /*
-      Legal Entity edit response:
-      legal_groups: [
-        {
-          legal_group_id: 1,
-          ...
-        }
-      ]
-    */
-
     if (
       field.name === "legal_group_ids" &&
       Array.isArray(data.legal_groups)
@@ -72,16 +64,6 @@ export default function MasterDataModal({
         .filter((id) => id != null)
         .map(String);
     }
-
-    /*
-      Parent Division edit response:
-      legal_entities: [
-        {
-          legal_entity_id: 1,
-          ...
-        }
-      ]
-    */
 
     if (
       field.name === "legal_entity_ids" &&
@@ -125,6 +107,7 @@ export default function MasterDataModal({
   /* =========================================================
      INITIALIZE FORM
   ========================================================= */
+
   useEffect(() => {
     if (!open) return;
 
@@ -184,6 +167,7 @@ export default function MasterDataModal({
     codeField,
     nameField,
   ]);
+
   /* =========================================================
      HANDLE NORMAL INPUT
   ========================================================= */
@@ -359,8 +343,6 @@ export default function MasterDataModal({
   const validate = () => {
     const errors = [];
 
-    /* CODE */
-
     if (
       codeField &&
       !String(
@@ -371,8 +353,6 @@ export default function MasterDataModal({
         `${codeLabel} is required`
       );
     }
-
-    /* NAME */
 
     if (
       nameField &&
@@ -385,15 +365,11 @@ export default function MasterDataModal({
       );
     }
 
-    /* EXTRA FIELDS */
-
     extraFields.forEach((field) => {
       if (!field.required) return;
 
       const value =
         formData[field.name];
-
-      /* Multi-select */
 
       if (
         field.type === "multi-select"
@@ -410,8 +386,6 @@ export default function MasterDataModal({
         return;
       }
 
-      /* Empty value */
-
       if (
         value === null ||
         value === undefined ||
@@ -423,8 +397,6 @@ export default function MasterDataModal({
 
         return;
       }
-
-      /* Number validation */
 
       if (
         field.type === "number" &&
@@ -508,8 +480,6 @@ export default function MasterDataModal({
   const buildPayload = () => {
     const payload = {};
 
-    /* MAIN FIELDS */
-
     if (codeField) {
       payload[codeField] =
         String(
@@ -527,22 +497,13 @@ export default function MasterDataModal({
     payload.active =
       formData.active;
 
-    /* EXTRA FIELDS */
-
     extraFields.forEach((field) => {
       const value =
         formData[field.name];
 
-      /*
-        Read-only hierarchy fields
-        are display-only.
-      */
-
       if (field.readOnly) {
         return;
       }
-
-      /* MULTI ID */
 
       if (
         field.isId &&
@@ -563,8 +524,6 @@ export default function MasterDataModal({
         return;
       }
 
-      /* SINGLE ID */
-
       if (field.isId) {
         payload[field.name] =
           value === "" ||
@@ -575,8 +534,6 @@ export default function MasterDataModal({
 
         return;
       }
-
-      /* NUMBER FIELD */
 
       if (field.type === "number") {
         payload[field.name] =
@@ -589,27 +546,20 @@ export default function MasterDataModal({
         return;
       }
 
-      /* NORMAL FIELD */
-
       payload[field.name] =
         value ?? "";
     });
 
-    /*
-      IMPORTANT:
-      return payload must be OUTSIDE
-      the forEach loop.
-    */
-
     return payload;
   };
 
-  // SAVE AND UPDATE
+  /* =========================================================
+     SAVE AND UPDATE
+  ========================================================= */
 
   const handleUpdate = async () => {
     if (saving) return;
 
-    // Get ID only when editing
     const currentEditId =
       isEdit
         ? editData?.[idField] ??
@@ -620,15 +570,21 @@ export default function MasterDataModal({
         null
         : null;
 
-    console.log("========== SAVE DEBUG ==========");
+    console.log(
+      "========== SAVE DEBUG =========="
+    );
     console.log("title:", title);
     console.log("isEdit:", isEdit);
     console.log("idField:", idField);
     console.log("editData:", editData);
-    console.log("currentEditId:", currentEditId);
-    console.log("=================================");
+    console.log(
+      "currentEditId:",
+      currentEditId
+    );
+    console.log(
+      "================================="
+    );
 
-    // ID is mandatory for update
     if (
       isEdit &&
       (currentEditId === undefined ||
@@ -644,7 +600,6 @@ export default function MasterDataModal({
     try {
       setSaving(true);
 
-      // Build request body
       const payload = buildPayload();
 
       console.log(
@@ -654,17 +609,20 @@ export default function MasterDataModal({
 
       let response;
 
-      // =========================
-      // UPDATE
-      // =========================
       if (isEdit) {
-        if (typeof onCustomSave === "function") {
+        if (
+          typeof onCustomSave ===
+          "function"
+        ) {
           response = await onCustomSave({
             ...payload,
             [idField]: currentEditId,
           });
         } else {
-          if (typeof updateApi !== "function") {
+          if (
+            typeof updateApi !==
+            "function"
+          ) {
             throw new Error(
               `updateApi is not provided for ${title}`
             );
@@ -679,13 +637,10 @@ export default function MasterDataModal({
         toast.success(
           `${title} updated successfully`
         );
-      }
-
-      // =========================
-      // CREATE
-      // =========================
-      else {
-        if (typeof addApi !== "function") {
+      } else {
+        if (
+          typeof addApi !== "function"
+        ) {
           throw new Error(
             `addApi is not provided for ${title}`
           );
@@ -698,13 +653,11 @@ export default function MasterDataModal({
         );
       }
 
-      // Normalize API response
-      const result = normalizeResponse(response);
+      const result =
+        normalizeResponse(response);
 
-      // Refresh parent table
       onSuccess?.(result);
 
-      // Close modal
       onClose?.();
 
     } catch (error) {
@@ -729,7 +682,9 @@ export default function MasterDataModal({
               String(item)
           )
           .join(", ");
-      } else if (typeof detail === "string") {
+      } else if (
+        typeof detail === "string"
+      ) {
         backendMessage = detail;
       } else if (
         detail &&
@@ -768,18 +723,292 @@ export default function MasterDataModal({
   if (!open) return null;
 
   /* =========================================================
+     INLINE STYLES
+  ========================================================= */
+
+  const overlayStyle = {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    backgroundColor: "rgba(0, 0, 0, 0.42)",
+    backdropFilter: "blur(3px)",
+    WebkitBackdropFilter: "blur(3px)",
+    boxSizing: "border-box",
+  };
+
+  const modalStyle = {
+    width: "100%",
+    maxWidth: compactLayout
+      ? "720px"
+      : "640px",
+    maxHeight: "calc(100vh - 48px)",
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    backgroundColor: "#ffffff",
+    borderRadius: "14px",
+    boxShadow:
+      "0 20px 50px rgba(0, 0, 0, 0.18)",
+    boxSizing: "border-box",
+  };
+
+  const headerStyle = {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "16px",
+    padding: "18px 22px",
+    backgroundColor: "#f8fafc",
+    borderBottom: "1px solid #e5e7eb",
+    boxSizing: "border-box",
+  };
+
+  const headerLeftStyle = {
+    minWidth: 0,
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  };
+
+  const iconBoxStyle = {
+    width: "42px",
+    height: "42px",
+    minWidth: "42px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "10px",
+    backgroundColor: "#dbeafe",
+    color: "#2563eb",
+    boxSizing: "border-box",
+  };
+
+  const titleStyle = {
+    margin: 0,
+    fontSize: "17px",
+    lineHeight: "24px",
+    fontWeight: 600,
+    color: "#111827",
+  };
+
+  const subtitleStyle = {
+    margin: "2px 0 0",
+    fontSize: "12px",
+    lineHeight: "18px",
+    color: "#6b7280",
+  };
+
+  const closeButtonStyle = {
+    width: "36px",
+    height: "36px",
+    minWidth: "36px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "none",
+    borderRadius: "8px",
+    backgroundColor: "transparent",
+    color: "#6b7280",
+    cursor: saving
+      ? "not-allowed"
+      : "pointer",
+    opacity: saving ? 0.5 : 1,
+    flexShrink: 0,
+  };
+
+  const bodyStyle = {
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflowY: "auto",
+    overflowX: "hidden",
+    padding: "22px",
+    boxSizing: "border-box",
+  };
+
+  const formGridStyle = {
+    display: "grid",
+    gridTemplateColumns:
+      compactLayout
+        ? "repeat(2, minmax(0, 1fr))"
+        : "1fr",
+    gap: "18px",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
+  const fieldWrapperStyle = {
+    minWidth: 0,
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
+  const fullWidthStyle = {
+    gridColumn: "1 / -1",
+  };
+
+  const labelStyle = {
+    display: "block",
+    marginBottom: "7px",
+    fontSize: "13px",
+    lineHeight: "18px",
+    fontWeight: 500,
+    color: "#374151",
+  };
+
+  const requiredStyle = {
+    marginLeft: "3px",
+    color: "#dc2626",
+  };
+
+  const inputStyle = {
+    width: "100%",
+    height: "40px",
+    padding: "0 12px",
+    border:
+      "1px solid #d1d5db",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    color: "#111827",
+    fontSize: "13px",
+    lineHeight: "20px",
+    outline: "none",
+    boxSizing: "border-box",
+    transition:
+      "border-color 0.15s ease, box-shadow 0.15s ease",
+  };
+
+  const selectStyle = {
+    ...inputStyle,
+    cursor: "pointer",
+  };
+
+  const multiSelectStyle = {
+    width: "100%",
+    minHeight: "112px",
+    padding: "8px 10px",
+    border:
+      "1px solid #d1d5db",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    color: "#111827",
+    fontSize: "13px",
+    lineHeight: "20px",
+    outline: "none",
+    boxSizing: "border-box",
+    cursor: "pointer",
+  };
+
+  const readOnlyInputStyle = {
+    ...inputStyle,
+    backgroundColor: "#f3f4f6",
+    color: "#6b7280",
+    cursor: "default",
+  };
+
+  const statusWrapperStyle = {
+    ...fieldWrapperStyle,
+    ...(compactLayout
+      ? fullWidthStyle
+      : {}),
+    paddingTop: "2px",
+  };
+
+  const radioGroupStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "26px",
+    minHeight: "40px",
+  };
+
+  const radioLabelStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    fontSize: "13px",
+    color: "#374151",
+    cursor: "pointer",
+    userSelect: "none",
+  };
+
+  const radioStyle = {
+    width: "15px",
+    height: "15px",
+    margin: 0,
+    accentColor: "#2563eb",
+    cursor: "pointer",
+  };
+
+  const footerStyle = {
+    flexShrink: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "10px",
+    padding: "14px 22px",
+    backgroundColor: "#f8fafc",
+    borderTop: "1px solid #e5e7eb",
+    boxSizing: "border-box",
+  };
+
+  const cancelButtonStyle = {
+    height: "38px",
+    padding: "0 18px",
+    border:
+      "1px solid #d1d5db",
+    borderRadius: "8px",
+    backgroundColor: "#ffffff",
+    color: "#374151",
+    fontSize: "13px",
+    fontWeight: 500,
+    cursor: saving
+      ? "not-allowed"
+      : "pointer",
+    opacity: saving ? 0.5 : 1,
+    boxSizing: "border-box",
+  };
+
+  const saveButtonStyle = {
+    height: "38px",
+    padding: "0 20px",
+    border: "1px solid #2563eb",
+    borderRadius: "8px",
+    backgroundColor:
+      saving || !isFormValid()
+        ? "#9ca3af"
+        : "#2563eb",
+    color: "#ffffff",
+    fontSize: "13px",
+    fontWeight: 500,
+    cursor:
+      saving || !isFormValid()
+        ? "not-allowed"
+        : "pointer",
+    opacity:
+      saving || !isFormValid()
+        ? 0.9
+        : 1,
+    boxSizing: "border-box",
+  };
+
+  /* =========================================================
      UI
   ========================================================= */
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+        style={overlayStyle}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
         <motion.div
+          style={modalStyle}
           initial={{
             opacity: 0,
             scale: 0.96,
@@ -798,24 +1027,27 @@ export default function MasterDataModal({
           transition={{
             duration: 0.25,
           }}
-          className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-xl bg-white shadow-2xl"
         >
           {/* HEADER */}
 
-          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                <FolderPlus size={22} />
+          <div style={headerStyle}>
+            <div style={headerLeftStyle}>
+              <div style={iconBoxStyle}>
+                <FolderPlus size={21} />
               </div>
 
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+              <div
+                style={{
+                  minWidth: 0,
+                }}
+              >
+                <h2 style={titleStyle}>
                   {isEdit
                     ? `Edit ${title}`
                     : `Add ${title}`}
                 </h2>
 
-                <p className="text-sm text-gray-500">
+                <p style={subtitleStyle}>
                   {isEdit
                     ? `Update ${title.toLowerCase()} information`
                     : `Create a new ${title.toLowerCase()}`}
@@ -827,30 +1059,34 @@ export default function MasterDataModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg p-2 hover:bg-gray-100 disabled:opacity-50"
+              style={closeButtonStyle}
+              onMouseEnter={(e) => {
+                if (!saving) {
+                  e.currentTarget.style.backgroundColor =
+                    "#f3f4f6";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "transparent";
+              }}
             >
-              <X size={20} />
+              <X size={19} />
             </button>
           </div>
 
           {/* BODY */}
 
-          <div className="max-h-[calc(90vh-145px)] overflow-y-auto p-6">
-            <div
-              className={
-                compactLayout
-                  ? "grid grid-cols-2 gap-4"
-                  : "grid grid-cols-1 gap-5"
-              }
-            >
+          <div style={bodyStyle}>
+            <div style={formGridStyle}>
               {/* CODE */}
 
               {codeField && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                <div style={fieldWrapperStyle}>
+                  <label style={labelStyle}>
                     {codeLabel}
-                    <span className="text-red-600">
-                      {" "}*
+                    <span style={requiredStyle}>
+                      *
                     </span>
                   </label>
 
@@ -863,7 +1099,19 @@ export default function MasterDataModal({
                     }
                     onChange={handleChange}
                     placeholder={`Enter ${codeLabel}`}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    style={inputStyle}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "#3b82f6";
+                      e.currentTarget.style.boxShadow =
+                        "0 0 0 3px rgba(59, 130, 246, 0.12)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "#d1d5db";
+                      e.currentTarget.style.boxShadow =
+                        "none";
+                    }}
                   />
                 </div>
               )}
@@ -871,11 +1119,11 @@ export default function MasterDataModal({
               {/* NAME */}
 
               {nameField && (
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                <div style={fieldWrapperStyle}>
+                  <label style={labelStyle}>
                     {nameLabel}
-                    <span className="text-red-600">
-                      {" "}*
+                    <span style={requiredStyle}>
+                      *
                     </span>
                   </label>
 
@@ -888,7 +1136,19 @@ export default function MasterDataModal({
                     }
                     onChange={handleChange}
                     placeholder={`Enter ${nameLabel}`}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    style={inputStyle}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "#3b82f6";
+                      e.currentTarget.style.boxShadow =
+                        "0 0 0 3px rgba(59, 130, 246, 0.12)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor =
+                        "#d1d5db";
+                      e.currentTarget.style.boxShadow =
+                        "none";
+                    }}
                   />
                 </div>
               )}
@@ -899,18 +1159,23 @@ export default function MasterDataModal({
                 (field) => (
                   <div
                     key={field.name}
-                    className={
-                      field.fullWidth
-                        ? "col-span-2"
-                        : ""
-                    }
+                    style={{
+                      ...fieldWrapperStyle,
+                      ...(field.fullWidth
+                        ? fullWidthStyle
+                        : {}),
+                    }}
                   >
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label style={labelStyle}>
                       {field.label}
 
                       {field.required && (
-                        <span className="text-red-600">
-                          {" "}*
+                        <span
+                          style={
+                            requiredStyle
+                          }
+                        >
+                          *
                         </span>
                       )}
                     </label>
@@ -933,7 +1198,21 @@ export default function MasterDataModal({
                             field
                           )
                         }
-                        className="h-28 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        style={
+                          multiSelectStyle
+                        }
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "#3b82f6";
+                          e.currentTarget.style.boxShadow =
+                            "0 0 0 3px rgba(59, 130, 246, 0.12)";
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "#d1d5db";
+                          e.currentTarget.style.boxShadow =
+                            "none";
+                        }}
                       >
                         {field.options?.map(
                           (option) => (
@@ -969,7 +1248,21 @@ export default function MasterDataModal({
                             field
                           )
                         }
-                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        style={
+                          selectStyle
+                        }
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "#3b82f6";
+                          e.currentTarget.style.boxShadow =
+                            "0 0 0 3px rgba(59, 130, 246, 0.12)";
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor =
+                            "#d1d5db";
+                          e.currentTarget.style.boxShadow =
+                            "none";
+                        }}
                       >
                         <option value="">
                           Select{" "}
@@ -1029,10 +1322,31 @@ export default function MasterDataModal({
                             ? "0.000001"
                             : undefined
                         }
-                        className={`w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 ${field.readOnly
-                          ? "bg-gray-100 text-gray-600"
-                          : ""
-                          }`}
+                        style={
+                          field.readOnly
+                            ? readOnlyInputStyle
+                            : inputStyle
+                        }
+                        onFocus={(e) => {
+                          if (
+                            !field.readOnly
+                          ) {
+                            e.currentTarget.style.borderColor =
+                              "#3b82f6";
+                            e.currentTarget.style.boxShadow =
+                              "0 0 0 3px rgba(59, 130, 246, 0.12)";
+                          }
+                        }}
+                        onBlur={(e) => {
+                          if (
+                            !field.readOnly
+                          ) {
+                            e.currentTarget.style.borderColor =
+                              "#d1d5db";
+                            e.currentTarget.style.boxShadow =
+                              "none";
+                          }
+                        }}
                       />
                     )}
                   </div>
@@ -1041,19 +1355,21 @@ export default function MasterDataModal({
 
               {/* STATUS */}
 
-              <div
-                className={
-                  compactLayout
-                    ? "col-span-2"
-                    : ""
-                }
-              >
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+              <div style={statusWrapperStyle}>
+                <label style={labelStyle}>
                   Active Status
                 </label>
 
-                <div className="flex gap-8">
-                  <label className="flex cursor-pointer items-center gap-2">
+                <div
+                  style={
+                    radioGroupStyle
+                  }
+                >
+                  <label
+                    style={
+                      radioLabelStyle
+                    }
+                  >
                     <input
                       type="radio"
                       name="active"
@@ -1069,6 +1385,7 @@ export default function MasterDataModal({
                           })
                         )
                       }
+                      style={radioStyle}
                     />
 
                     <span>
@@ -1076,7 +1393,11 @@ export default function MasterDataModal({
                     </span>
                   </label>
 
-                  <label className="flex cursor-pointer items-center gap-2">
+                  <label
+                    style={
+                      radioLabelStyle
+                    }
+                  >
                     <input
                       type="radio"
                       name="active"
@@ -1092,6 +1413,7 @@ export default function MasterDataModal({
                           })
                         )
                       }
+                      style={radioStyle}
                     />
 
                     <span>
@@ -1105,12 +1427,22 @@ export default function MasterDataModal({
 
           {/* FOOTER */}
 
-          <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+          <div style={footerStyle}>
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
+              style={cancelButtonStyle}
+              onMouseEnter={(e) => {
+                if (!saving) {
+                  e.currentTarget.style.backgroundColor =
+                    "#f3f4f6";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor =
+                  "#ffffff";
+              }}
             >
               Cancel
             </button>
@@ -1122,7 +1454,25 @@ export default function MasterDataModal({
                 saving ||
                 !isFormValid()
               }
-              className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-400"
+              style={saveButtonStyle}
+              onMouseEnter={(e) => {
+                if (
+                  !saving &&
+                  isFormValid()
+                ) {
+                  e.currentTarget.style.backgroundColor =
+                    "#1d4ed8";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (
+                  !saving &&
+                  isFormValid()
+                ) {
+                  e.currentTarget.style.backgroundColor =
+                    "#2563eb";
+                }
+              }}
             >
               {saving
                 ? isEdit

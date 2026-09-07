@@ -1,11 +1,13 @@
 
-import PermissionRow from "./PermissionRow";
-import { useState, useEffect } from "react";
-import { ChevronRight, Folder } from "lucide-react";
+import { useEffect } from "react";
+import {
+  ChevronRight,
+  Folder,
+} from "lucide-react";
 
 import { permissionModules } from "../../data/rolesData";
 import { moduleIcons } from "./ModuleIcon";
-import Checkbox from "../common/Checkbox";
+import Checkbox from "../Common/Checkbox";
 
 export default function PermissionTable({
   onSelectAll,
@@ -15,10 +17,23 @@ export default function PermissionTable({
   setPermissions,
   disabled = false,
 }) {
+  // Normalise: API returns { module_code, can_view, can_export, can_upload, can_admin }
+  // Fallback uses  { id, module, view, export, upload, admin }
+  // Merge both shapes so the table always has consistent field names.
+  const rawRows = permissions || permissionModules;
+  const rows = rawRows.map((item) => ({
+    ...item,
+    module_code: item.module_code ?? String(item.id ?? ''),
+    module_name: item.module_name ?? item.module ?? item.module_code ?? '',
+    can_view:    item.can_view   ?? item.view   ?? false,
+    can_export:  item.can_export ?? item.export  ?? false,
+    can_upload:  item.can_upload ?? item.upload  ?? false,
+    can_admin:   item.can_admin  ?? item.admin   ?? false,
+  }));
 
-  const rows = permissions || permissionModules;
-
-  /* ---------------- Toggle Single Permission ---------------- */
+  /* =========================================================
+     TOGGLE SINGLE PERMISSION
+  ========================================================= */
 
   const togglePermission = (
     moduleCode,
@@ -29,9 +44,9 @@ export default function PermissionTable({
       prev.map((item) =>
         item.module_code === moduleCode
           ? {
-            ...item,
-            [permission]: value,
-          }
+              ...item,
+              [permission]: value,
+            }
           : item
       )
     );
@@ -39,7 +54,9 @@ export default function PermissionTable({
     setDirty?.(true);
   };
 
-  /* ---------------- Select All ---------------- */
+  /* =========================================================
+     SELECT ALL
+  ========================================================= */
 
   const selectAllPermissions = () => {
     setPermissions((prev) =>
@@ -55,7 +72,9 @@ export default function PermissionTable({
     setDirty?.(true);
   };
 
-  /* ---------------- Clear All ---------------- */
+  /* =========================================================
+     CLEAR ALL
+  ========================================================= */
 
   const clearAllPermissions = () => {
     setPermissions((prev) =>
@@ -71,153 +90,118 @@ export default function PermissionTable({
     setDirty?.(true);
   };
 
-  /* ---------------- Expose Select/Clear Actions ---------------- */
+  /* =========================================================
+     EXPOSE SELECT / CLEAR ACTIONS
+  ========================================================= */
 
   useEffect(() => {
     if (onSelectAll) {
-      onSelectAll.current = selectAllPermissions;
+      onSelectAll.current =
+        selectAllPermissions;
     }
 
     if (onClearAll) {
-      onClearAll.current = clearAllPermissions;
+      onClearAll.current =
+        clearAllPermissions;
     }
-  }, [permissions, onSelectAll, onClearAll]);
+  }, [
+    permissions,
+    onSelectAll,
+    onClearAll,
+  ]);
 
   return (
-    <div className="w-full overflow-hidden">
-      <div className="w-full overflow-x-auto">
-        <table className="w-full table-fixed border-collapse">
+    <div style={styles.container}>
+      <div style={styles.tableWrapper}>
+        <table style={styles.table}>
 
-          {/* Header */}
+          {/* =================================================
+              HEADER
+          ================================================= */}
 
-          <thead className="sticky top-0 bg-gray-50 z-10">
-            <tr className="h-6.25">
+          <thead>
+            <tr style={styles.headerRow}>
 
-              <th
-                className="
-                  w-[52%]
-                  px-2
-                  py-0
-                  text-left
-                  text-[8px]
-                  font-semibold
-                  uppercase
-                  leading-none
-                  text-gray-600
-                "
-              >
-                Module / Feature
+              <th style={styles.moduleHeader}>
+                MODULE / FEATURE
               </th>
 
-              <th
-                className="
-                  w-[12%]
-                  px-0.5
-                  py-0
-                  text-left
-                  text-[8px]
-                  font-semibold
-                  uppercase
-                  leading-none
-                  text-gray-600
-                "
-              >
-                View
+              <th style={styles.permissionHeader}>
+                VIEW
               </th>
 
-              <th
-                className="
-                  w-[12%]
-                  px-0.5
-                  py-0
-                  text-left
-                  text-[8px]
-                  font-semibold
-                  uppercase
-                  leading-none
-                  text-gray-600
-                "
-              >
-                Export
+              <th style={styles.permissionHeader}>
+                EXPORT
               </th>
 
-              <th
-                className="
-                  w-[12%]
-                  px-0.5
-                  py-0
-                  text-left
-                  text-[8px]
-                  font-semibold
-                  uppercase
-                  leading-none
-                  text-gray-600
-                "
-              >
-                Upload
+              <th style={styles.permissionHeader}>
+                UPLOAD
               </th>
 
-              <th
-                className="
-                  w-[12%]
-                  px-0.5
-                  py-0
-                  text-left
-                  text-[8px]
-                  font-semibold
-                  uppercase
-                  leading-none
-                  text-gray-600
-                "
-              >
-                Admin
+              <th style={styles.permissionHeader}>
+                ADMIN
               </th>
 
             </tr>
           </thead>
 
-          {/* Body */}
+          {/* =================================================
+              BODY
+          ================================================= */}
 
           <tbody>
             {rows?.map((item) => {
               const Icon =
-                moduleIcons[item.module_code] ||
-                Folder;
+                moduleIcons[
+                  item.module_code
+                ] || Folder;
 
               return (
                 <tr
                   key={item.module_code}
-                  className="
-                    h-[24.5px]
-                    border-t
-                    border-gray-100
-                    hover:bg-gray-50
-                    transition-colors
-                  "
+                  style={styles.bodyRow}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "#F8FAFC";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "#FFFFFF";
+                  }}
                 >
 
-                  {/* Module */}
+                  {/* MODULE */}
 
-                  <td className="px-2 py-0 align-middle">
-                    <div className="flex items-center gap-1">
+                  <td style={styles.moduleCell}>
+                    <div
+                      style={
+                        styles.moduleContent
+                      }
+                    >
 
                       <ChevronRight
                         size={8}
-                        className="text-gray-500"
+                        strokeWidth={2}
+                        style={
+                          styles.chevron
+                        }
                       />
 
                       <Icon
                         size={10}
-                        className="text-blue-600"
+                        strokeWidth={1.8}
+                        style={
+                          styles.moduleIcon
+                        }
                       />
 
                       <span
-                        className="
-                          truncate
-                          text-[8px]
-                          font-medium
-                          text-gray-700
-                        "
+                        style={
+                          styles.moduleText
+                        }
+                        title={
+                          item.module_code
+                        }
                       >
                         {item.module_code}
                       </span>
@@ -225,90 +209,132 @@ export default function PermissionTable({
                     </div>
                   </td>
 
-                  {/* View */}
+                  {/* VIEW */}
 
-                  <td className="text-center">
-                    <Checkbox
-                      checked={item.can_view === true}
-                      color="blue"
-                      disabled={disabled}
-                      onChange={(value) =>
-                        !disabled &&
-                        togglePermission(
-                          item.module_code,
-                          "can_view",
-                          value
-                        )
+                  <td
+                    style={
+                      styles.permissionCell
+                    }
+                  >
+                    <div
+                      style={
+                        styles.checkboxWrapper
                       }
-                      className="
-                        h-3
-                        w-3
-                        accent-blue-600
-                      "
-                    />
+                    >
+                      <Checkbox
+                        checked={
+                          item.can_view ===
+                          true
+                        }
+                        color="blue"
+                        disabled={disabled}
+                        onChange={(value) =>
+                          !disabled &&
+                          togglePermission(
+                            item.module_code,
+                            "can_view",
+                            value
+                          )
+                        }
+                        className="permission-checkbox"
+                      />
+                    </div>
                   </td>
 
-                  {/* Export */}
+                  {/* EXPORT */}
 
-                  <td className="text-center">
-                    <Checkbox
-                      checked={item.can_export === true}
-                      color="green"
-                      disabled={disabled}
-                      onChange={(value) =>
-                        !disabled &&
-                        togglePermission(
-                          item.module_code,
-                          "can_export",
-                          value
-                        )
+                  <td
+                    style={
+                      styles.permissionCell
+                    }
+                  >
+                    <div
+                      style={
+                        styles.checkboxWrapper
                       }
-
-                      className="
-                    h-3
-                    w-3
-                    accent-green-600
-                    "
-                    />
+                    >
+                      <Checkbox
+                        checked={
+                          item.can_export ===
+                          true
+                        }
+                        color="green"
+                        disabled={disabled}
+                        onChange={(value) =>
+                          !disabled &&
+                          togglePermission(
+                            item.module_code,
+                            "can_export",
+                            value
+                          )
+                        }
+                        className="permission-checkbox"
+                      />
+                    </div>
                   </td>
 
-                  {/* Upload */}
+                  {/* UPLOAD */}
 
-                  <td className="text-center">
-                    <Checkbox
-                      checked={item.can_upload === true}
-                      color="orange"
-                      disabled={disabled}
-                      onChange={(value) =>
-                        !disabled &&
-                        togglePermission(
-                          item.module_code,
-                          "can_upload",
-                          value
-                        )
+                  <td
+                    style={
+                      styles.permissionCell
+                    }
+                  >
+                    <div
+                      style={
+                        styles.checkboxWrapper
                       }
-                      className=" h-3 w-3 accent-orange-500"
-                    />
-
+                    >
+                      <Checkbox
+                        checked={
+                          item.can_upload ===
+                          true
+                        }
+                        color="orange"
+                        disabled={disabled}
+                        onChange={(value) =>
+                          !disabled &&
+                          togglePermission(
+                            item.module_code,
+                            "can_upload",
+                            value
+                          )
+                        }
+                        className="permission-checkbox"
+                      />
+                    </div>
                   </td>
 
-                  {/* Admin */}
+                  {/* ADMIN */}
 
-                  <td className="text-center">
-                    <Checkbox
-                      checked={item.can_admin === true}
-                      color="purple"
-                      disabled={disabled}
-                      onChange={(value) =>
-                        !disabled &&
-                        togglePermission(
-                          item.module_code,
-                          "can_admin",
-                          value
-                        )
+                  <td
+                    style={
+                      styles.permissionCell
+                    }
+                  >
+                    <div
+                      style={
+                        styles.checkboxWrapper
                       }
-                      className="h-3 w-3 accent-purple-600"
-                    />
+                    >
+                      <Checkbox
+                        checked={
+                          item.can_admin ===
+                          true
+                        }
+                        color="purple"
+                        disabled={disabled}
+                        onChange={(value) =>
+                          !disabled &&
+                          togglePermission(
+                            item.module_code,
+                            "can_admin",
+                            value
+                          )
+                        }
+                        className="permission-checkbox"
+                      />
+                    </div>
                   </td>
 
                 </tr>
@@ -321,3 +347,194 @@ export default function PermissionTable({
     </div>
   );
 }
+
+/* =========================================================
+   INLINE STYLES
+========================================================= */
+
+const styles = {
+
+  /* =======================================================
+     CONTAINER
+  ======================================================= */
+
+  container: {
+    width: "100%",
+    minWidth: 0,
+    background: "#FFFFFF",
+    overflow: "hidden",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     TABLE WRAPPER
+  ======================================================= */
+
+  tableWrapper: {
+    width: "100%",
+    maxWidth: "100%",
+    overflow: "hidden",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     TABLE
+  ======================================================= */
+
+  table: {
+    width: "100%",
+    minWidth: "100%",
+    tableLayout: "fixed",
+    borderCollapse: "collapse",
+    borderSpacing: 0,
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     HEADER
+  ======================================================= */
+
+  headerRow: {
+    height: "22px",
+    background: "#F8FAFC",
+    borderTop: "1px solid #E5E7EB",
+    borderBottom: "1px solid #E5E7EB",
+  },
+
+  moduleHeader: {
+    width: "52%",
+    height: "22px",
+    padding: "0 8px",
+    textAlign: "left",
+    verticalAlign: "middle",
+    color: "#475569",
+    fontSize: "7.5px",
+    lineHeight: "9px",
+    fontWeight: 600,
+    letterSpacing: "0.02em",
+    whiteSpace: "nowrap",
+    boxSizing: "border-box",
+  },
+
+  permissionHeader: {
+    width: "12%",
+    height: "22px",
+    padding: 0,
+    textAlign: "center",
+    verticalAlign: "middle",
+    color: "#475569",
+    fontSize: "7.5px",
+    lineHeight: "9px",
+    fontWeight: 600,
+    letterSpacing: "0.01em",
+    whiteSpace: "nowrap",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     BODY ROW
+
+     Reduced from 25px → 20px
+  ======================================================= */
+
+  bodyRow: {
+    height: "20px",
+    background: "#FFFFFF",
+    borderBottom: "1px solid #EEF2F7",
+    transition: "background 120ms ease",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     MODULE CELL
+  ======================================================= */
+
+  moduleCell: {
+    width: "52%",
+    height: "20px",
+    padding: "0 8px",
+    textAlign: "left",
+    verticalAlign: "middle",
+    boxSizing: "border-box",
+    overflow: "hidden",
+  },
+
+  /* =======================================================
+     MODULE CONTENT
+
+     Reduced from 25px → 20px
+  ======================================================= */
+
+  moduleContent: {
+    width: "100%",
+    height: "20px",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    minWidth: 0,
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     CHEVRON
+  ======================================================= */
+
+  chevron: {
+    flexShrink: 0,
+    color: "#94A3B8",
+  },
+
+  /* =======================================================
+     MODULE ICON
+  ======================================================= */
+
+  moduleIcon: {
+    flexShrink: 0,
+    color: "#2563EB",
+  },
+
+  /* =======================================================
+     MODULE TEXT
+  ======================================================= */
+
+  moduleText: {
+    minWidth: 0,
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "#334155",
+    fontSize: "7.5px",
+    lineHeight: "9px",
+    fontWeight: 500,
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     PERMISSION CELL
+  ======================================================= */
+
+  permissionCell: {
+    width: "12%",
+    height: "20px",
+    padding: 0,
+    textAlign: "center",
+    verticalAlign: "middle",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     CHECKBOX WRAPPER
+
+     Reduced from 25px → 20px
+  ======================================================= */
+
+  checkboxWrapper: {
+    width: "100%",
+    height: "20px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxSizing: "border-box",
+  },
+};

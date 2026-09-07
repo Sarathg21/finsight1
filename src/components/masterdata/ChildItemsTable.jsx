@@ -1,4 +1,5 @@
 
+
 import StatusBadge from "../StatusBadge";
 
 export default function ChildItemsTable({
@@ -9,48 +10,213 @@ export default function ChildItemsTable({
     onViewAll,
     emptyMessage = "No records found",
     showStatus = true,
-    scrollHeight = "180px",
+    scrollHeight = "145px",
 }) {
     const count = total ?? items.length;
-    const totalColumns = columns.length + (showStatus ? 1 : 0);
+
+    const totalColumns =
+        columns.length + (showStatus ? 1 : 0);
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-gray-200">
+        <div
+            style={{
+                width: "100%",
 
-            {/* Header - FIXED */}
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-2 py-1">
-                <h3 className="text-[11px] font-semibold text-gray-900">
+                /* REDUCED TABLE HEIGHT */
+                height: "145px",
+                minHeight: "145px",
+                maxHeight: "145px",
+
+                display: "flex",
+                flexDirection: "column",
+
+                overflow: "hidden",
+
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+
+                backgroundColor: "#ffffff",
+
+                boxSizing: "border-box",
+            }}
+        >
+            {/* =====================================================
+                HEADER - FIXED
+            ===================================================== */}
+
+            <div
+                style={{
+                    width: "100%",
+                    height: "30px",
+                    minHeight: "30px",
+                    maxHeight: "30px",
+
+                    flexShrink: 0,
+
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+
+                    padding: "0 8px",
+
+                    backgroundColor: "#ffffff",
+
+                    borderBottom:
+                        "1px solid #e5e7eb",
+
+                    boxSizing: "border-box",
+                }}
+            >
+                {/* TITLE */}
+
+                <h3
+                    style={{
+                        margin: 0,
+                        padding: 0,
+
+                        fontSize: "11px",
+                        lineHeight: "14px",
+                        fontWeight: 600,
+
+                        color: "#111827",
+
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+
+                        minWidth: 0,
+                    }}
+                >
                     {title} ({count})
                 </h3>
+
+                {/* VIEW ALL */}
 
                 {onViewAll && (
                     <button
                         type="button"
                         onClick={onViewAll}
-                        className="text-[9px] font-medium text-blue-600 hover:underline"
+                        style={{
+                            margin: 0,
+                            marginLeft: "8px",
+
+                            padding: 0,
+
+                            border: "none",
+                            background: "transparent",
+
+                            fontSize: "9px",
+                            lineHeight: "12px",
+                            fontWeight: 500,
+
+                            color: "#2563eb",
+
+                            cursor: "pointer",
+
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.textDecoration =
+                                "underline";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.textDecoration =
+                                "none";
+                        }}
                     >
                         View All
                     </button>
                 )}
             </div>
 
-            {/* TABLE SCROLL AREA */}
+            {/* =====================================================
+                TABLE AREA
+                REDUCED FROM 130px TO 90px
+            ===================================================== */}
+
             <div
-                className="min-h-0 flex-1 overflow-x-auto overflow-y-scroll"
                 style={{
-                    maxHeight: scrollHeight,
-                    height: scrollHeight,
+                    width: "100%",
+
+                    /* REDUCED SCROLL AREA */
+                    height: "90px",
+                    minHeight: 0,
+
+                    flex: "1 1 auto",
+
+                    overflowX: "auto",
+                    overflowY: "auto",
+
+                    boxSizing: "border-box",
+
+                    scrollbarWidth: "thin",
+
+                    margin: 0,
+                    padding: 0,
                 }}
             >
-                <table className="w-full min-w-max border-collapse">
+                <table
+                    style={{
+                        width: "100%",
+                        minWidth: "max-content",
 
-                    {/* Column Header */}
+                        borderCollapse: "collapse",
+                        borderSpacing: 0,
+
+                        tableLayout: "auto",
+
+                        margin: 0,
+                        padding: 0,
+                    }}
+                >
+                    {/* =================================================
+                        COLUMN HEADER
+                    ================================================= */}
+
                     <thead>
-                        <tr className="bg-gray-50">
+                        <tr
+                            style={{
+                                height: "25px",
+                                margin: 0,
+                                padding: 0,
+                            }}
+                        >
                             {columns.map((col) => (
                                 <th
                                     key={col.key}
-                                    className="sticky top-0 z-10 whitespace-nowrap border-b border-gray-200 bg-gray-50 px-2 py-1 text-left text-[10px] font-semibold text-gray-800"
+                                    style={{
+                                        position: "sticky",
+                                        top: 0,
+                                        zIndex: 10,
+
+                                        height: "25px",
+                                        minHeight: "25px",
+
+                                        padding: "3px 8px",
+
+                                        margin: 0,
+
+                                        backgroundColor:
+                                            "#f9fafb",
+
+                                        borderBottom:
+                                            "1px solid #e5e7eb",
+
+                                        fontSize: "10px",
+                                        lineHeight: "13px",
+                                        fontWeight: 600,
+
+                                        color: "#374151",
+
+                                        textAlign: "left",
+
+                                        whiteSpace:
+                                            "nowrap",
+
+                                        boxSizing:
+                                            "border-box",
+                                    }}
                                 >
                                     {col.label}
                                 </th>
@@ -58,7 +224,38 @@ export default function ChildItemsTable({
 
                             {showStatus && (
                                 <th
-                                    className="sticky top-0 z-10 whitespace-nowrap border-b border-gray-200 bg-gray-50 px-2 py-1 text-left text-[10px] font-semibold text-gray-800"
+                                    style={{
+                                        position: "sticky",
+                                        top: 0,
+                                        zIndex: 10,
+
+                                        height: "25px",
+                                        minHeight: "25px",
+
+                                        padding: "3px 8px",
+
+                                        margin: 0,
+
+                                        backgroundColor:
+                                            "#f9fafb",
+
+                                        borderBottom:
+                                            "1px solid #e5e7eb",
+
+                                        fontSize: "10px",
+                                        lineHeight: "13px",
+                                        fontWeight: 600,
+
+                                        color: "#374151",
+
+                                        textAlign: "left",
+
+                                        whiteSpace:
+                                            "nowrap",
+
+                                        boxSizing:
+                                            "border-box",
+                                    }}
                                 >
                                     Status
                                 </th>
@@ -66,71 +263,218 @@ export default function ChildItemsTable({
                         </tr>
                     </thead>
 
-                    {/* Data */}
-                    <tbody className="divide-y divide-gray-100">
+                    {/* =================================================
+                        DATA
+                    ================================================= */}
 
+                    <tbody
+                        style={{
+                            margin: 0,
+                            padding: 0,
+                        }}
+                    >
                         {items.length === 0 ? (
-                            <tr>
+                            <tr
+                                style={{
+                                    margin: 0,
+                                    padding: 0,
+                                }}
+                            >
                                 <td
                                     colSpan={totalColumns}
-                                    className="py-6 text-center text-[10px] text-gray-500"
+                                    style={{
+                                        height: "45px",
+
+                                        padding:
+                                            "10px 8px",
+
+                                        margin: 0,
+
+                                        textAlign:
+                                            "center",
+
+                                        fontSize: "10px",
+                                        lineHeight: "13px",
+
+                                        color: "#6b7280",
+
+                                        boxSizing:
+                                            "border-box",
+                                    }}
                                 >
                                     {emptyMessage}
                                 </td>
                             </tr>
                         ) : (
-                            items.map((item, index) => (
-                                <tr
-                                    key={
-                                        item.id ??
-                                        item.subdivision_id ??
-                                        item.business_unit_id ??
-                                        item.analysis_code_id ??
-                                        index
-                                    }
-                                    className="hover:bg-gray-50"
-                                >
-                                    {columns.map((col) => (
-                                        <td
-                                            key={col.key}
-                                            className="whitespace-nowrap px-2 py-1 text-[9px] leading-none text-gray-800"
-                                        >
-                                            {item[col.key] ?? "-"}
-                                        </td>
-                                    ))}
+                            items.map(
+                                (item, index) => (
+                                    <tr
+                                        key={
+                                            item.id ??
+                                            item.subdivision_id ??
+                                            item.business_unit_id ??
+                                            item.analysis_code_id ??
+                                            index
+                                        }
+                                        style={{
+                                            height: "21px",
+                                            minHeight: "21px",
 
-                                    {showStatus && (
-                                        <td className="whitespace-nowrap px-2 py-1">
-                                            <StatusBadge
-                                                label={
-                                                    item.status ??
-                                                    (item.active
-                                                        ? "Active"
-                                                        : "Inactive")
-                                                }
-                                                tone={
-                                                    item.active === false
-                                                        ? "red"
-                                                        : "green"
-                                                }
-                                            />
-                                        </td>
-                                    )}
-                                </tr>
-                            ))
+                                            margin: 0,
+                                            padding: 0,
+
+                                            borderBottom:
+                                                "1px solid #f3f4f6",
+
+                                            backgroundColor:
+                                                "#ffffff",
+                                        }}
+                                        onMouseEnter={(
+                                            e
+                                        ) => {
+                                            e.currentTarget.style.backgroundColor =
+                                                "#f9fafb";
+                                        }}
+                                        onMouseLeave={(
+                                            e
+                                        ) => {
+                                            e.currentTarget.style.backgroundColor =
+                                                "#ffffff";
+                                        }}
+                                    >
+                                        {columns.map(
+                                            (col) => (
+                                                <td
+                                                    key={
+                                                        col.key
+                                                    }
+                                                    style={{
+                                                        height: "21px",
+
+                                                        padding:
+                                                            "2px 8px",
+
+                                                        margin: 0,
+
+                                                        fontSize:
+                                                            "9px",
+
+                                                        lineHeight:
+                                                            "12px",
+
+                                                        color:
+                                                            "#374151",
+
+                                                        verticalAlign:
+                                                            "middle",
+
+                                                        whiteSpace:
+                                                            "nowrap",
+
+                                                        boxSizing:
+                                                            "border-box",
+                                                    }}
+                                                >
+                                                    {
+                                                        item[
+                                                            col
+                                                                .key
+                                                        ] ??
+                                                            "-"
+                                                    }
+                                                </td>
+                                            )
+                                        )}
+
+                                        {showStatus && (
+                                            <td
+                                                style={{
+                                                    height: "21px",
+
+                                                    padding:
+                                                        "2px 8px",
+
+                                                    margin: 0,
+
+                                                    verticalAlign:
+                                                        "middle",
+
+                                                    whiteSpace:
+                                                        "nowrap",
+
+                                                    boxSizing:
+                                                        "border-box",
+                                                }}
+                                            >
+                                                <StatusBadge
+                                                    label={
+                                                        item.status ??
+                                                        (item.active
+                                                            ? "Active"
+                                                            : "Inactive")
+                                                    }
+                                                    tone={
+                                                        item.active ===
+                                                        false
+                                                            ? "red"
+                                                            : "green"
+                                                    }
+                                                />
+                                            </td>
+                                        )}
+                                    </tr>
+                                )
+                            )
                         )}
-
                     </tbody>
                 </table>
             </div>
 
-            {/* Footer - FIXED */}
-            <div className="shrink-0 border-t border-gray-200 bg-white px-2 py-1">
-                <p className="text-[8px] font-semibold text-gray-700">
+            {/* =====================================================
+                FOOTER - FIXED
+            ===================================================== */}
+
+            <div
+                style={{
+                    width: "100%",
+
+                    height: "25px",
+                    minHeight: "25px",
+                    maxHeight: "25px",
+
+                    flexShrink: 0,
+
+                    display: "flex",
+                    alignItems: "center",
+
+                    padding: "0 8px",
+
+                    margin: 0,
+
+                    backgroundColor: "#ffffff",
+
+                    borderTop:
+                        "1px solid #e5e7eb",
+
+                    boxSizing: "border-box",
+                }}
+            >
+                <p
+                    style={{
+                        margin: 0,
+                        padding: 0,
+
+                        fontSize: "8px",
+                        lineHeight: "11px",
+                        fontWeight: 600,
+
+                        color: "#6b7280",
+                    }}
+                >
                     Showing {items.length} of {count}
                 </p>
             </div>
-
         </div>
     );
 }
+

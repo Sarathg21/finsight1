@@ -1,3 +1,4 @@
+
 import {
     Pencil,
     MoreVertical,
@@ -8,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { useState, useEffect, useRef } from "react";
-import ConfirmationModel from "../common/ConfirmationModel";
+import ConfirmationModel from "../Common/ConfirmationModel";
 
 export default function SubDivisionTable({
     subDivisions = [],
@@ -18,7 +19,7 @@ export default function SubDivisionTable({
     onStatusToggle,
 }) {
     const [currentPage, setCurrentPage] = useState(1);
-    const [rowsPerPage] = useState(8);
+    const [rowsPerPage] = useState(9);
 
     const [showStatusConfirm, setShowStatusConfirm] =
         useState(false);
@@ -147,11 +148,6 @@ export default function SubDivisionTable({
     const handleStatusClick = (division) => {
         if (!division) return;
 
-        /*
-         * Make sure we keep the complete row object.
-         * This is important because the parent needs
-         * subdivision_id and current active status.
-         */
         setSelectedStatusDivision(division);
 
         setShowStatusConfirm(true);
@@ -168,17 +164,6 @@ export default function SubDivisionTable({
             return;
         }
 
-        /*
-         * Pass the complete division object to parent.
-         *
-         * Parent should use:
-         *
-         * division.subdivision_id
-         *
-         * and:
-         *
-         * { active: !division.active }
-         */
         onStatusToggle?.(
             selectedStatusDivision
         );
@@ -203,37 +188,219 @@ export default function SubDivisionTable({
     return (
         <div
             ref={menuRef}
-            className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+            style={{
+                width: "100%",
+                height: "auto",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "visible",
+                border: "1px solid #e5e7eb",
+                borderRadius: "8px",
+                backgroundColor: "#ffffff",
+                boxSizing: "border-box",
+            }}
         >
             {/* =====================================================
                 TABLE
             ===================================================== */}
 
-            <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+            <div
+                style={{
+                    width: "100%",
+                    overflowX: "auto",
+                    overflowY: "visible",
+                    boxSizing: "border-box",
+                }}
+            >
+                <table
+                    style={{
+                        width: "100%",
+                        minWidth: "720px",
+                        tableLayout: "fixed",
+                        borderCollapse: "collapse",
+                        borderSpacing: 0,
+                        height: "auto",
+                        margin: 0,
+                    }}
+                >
+                    {/* =================================================
+                        FIXED COLUMN WIDTHS
+                    ================================================= */}
+
+                    <colgroup>
+                        <col
+                            style={{
+                                width: "17%",
+                            }}
+                        />
+
+                        <col
+                            style={{
+                                width: "23%",
+                            }}
+                        />
+
+                        <col
+                            style={{
+                                width: "27%",
+                            }}
+                        />
+
+                        <col
+                            style={{
+                                width: "15%",
+                            }}
+                        />
+
+                        <col
+                            style={{
+                                width: "18%",
+                            }}
+                        />
+                    </colgroup>
+
                     {/* =================================================
                         HEADER
                     ================================================= */}
 
-                    <thead className="border-b border-gray-200 bg-gray-50">
-                        <tr>
-                            <th className="px-2 py-1.5 text-center text-[9px] font-bold tracking-wide text-gray-600">
+                    <thead
+                        style={{
+                            backgroundColor: "#f9fafb",
+                        }}
+                    >
+                        <tr
+                            style={{
+                                height: "30px",
+                                borderBottom:
+                                    "1px solid #e5e7eb",
+                            }}
+                        >
+                            <th
+                                style={{
+                                    height: "30px",
+                                    padding: "4px 8px",
+                                    verticalAlign: "middle",
+                                    textAlign: "center",
+                                    fontSize: "9px",
+                                    fontWeight: 700,
+                                    lineHeight: "12px",
+                                    letterSpacing:
+                                        "0.02em",
+                                    color: "#4b5563",
+                                    whiteSpace:
+                                        "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow:
+                                        "ellipsis",
+                                    borderRight:
+                                        "1px solid #e5e7eb",
+                                    boxSizing:
+                                        "border-box",
+                                }}
+                            >
                                 Sub Division Code
                             </th>
 
-                            <th className="px-2 py-1.5 text-center text-[9px] font-bold tracking-wide text-gray-600">
+                            <th
+                                style={{
+                                    height: "30px",
+                                    padding: "4px 8px",
+                                    verticalAlign: "middle",
+                                    textAlign: "center",
+                                    fontSize: "9px",
+                                    fontWeight: 700,
+                                    lineHeight: "12px",
+                                    letterSpacing:
+                                        "0.02em",
+                                    color: "#4b5563",
+                                    whiteSpace:
+                                        "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow:
+                                        "ellipsis",
+                                    borderRight:
+                                        "1px solid #e5e7eb",
+                                    boxSizing:
+                                        "border-box",
+                                }}
+                            >
                                 Sub Division Name
                             </th>
 
-                            <th className="px-2 py-1.5 text-center text-[9px] font-bold tracking-wide text-gray-600">
+                            <th
+                                style={{
+                                    height: "30px",
+                                    padding: "4px 8px",
+                                    verticalAlign: "middle",
+                                    textAlign: "center",
+                                    fontSize: "9px",
+                                    fontWeight: 700,
+                                    lineHeight: "12px",
+                                    letterSpacing:
+                                        "0.02em",
+                                    color: "#4b5563",
+                                    whiteSpace:
+                                        "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow:
+                                        "ellipsis",
+                                    borderRight:
+                                        "1px solid #e5e7eb",
+                                    boxSizing:
+                                        "border-box",
+                                }}
+                            >
                                 Parent Division Name
                             </th>
 
-                            <th className="px-2 py-1.5 text-center text-[9px] font-bold tracking-wide text-gray-600">
+                            <th
+                                style={{
+                                    height: "30px",
+                                    padding: "4px 8px",
+                                    verticalAlign: "middle",
+                                    textAlign: "center",
+                                    fontSize: "9px",
+                                    fontWeight: 700,
+                                    lineHeight: "12px",
+                                    letterSpacing:
+                                        "0.02em",
+                                    color: "#4b5563",
+                                    whiteSpace:
+                                        "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow:
+                                        "ellipsis",
+                                    borderRight:
+                                        "1px solid #e5e7eb",
+                                    boxSizing:
+                                        "border-box",
+                                }}
+                            >
                                 Status
                             </th>
 
-                            <th className="px-2 py-1.5 text-center text-[9px] font-bold tracking-wide text-gray-600">
+                            <th
+                                style={{
+                                    height: "30px",
+                                    padding: "4px 8px",
+                                    verticalAlign: "middle",
+                                    textAlign: "center",
+                                    fontSize: "9px",
+                                    fontWeight: 700,
+                                    lineHeight: "12px",
+                                    letterSpacing:
+                                        "0.02em",
+                                    color: "#4b5563",
+                                    whiteSpace:
+                                        "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow:
+                                        "ellipsis",
+                                    boxSizing:
+                                        "border-box",
+                                }}
+                            >
                                 Action
                             </th>
                         </tr>
@@ -256,18 +423,69 @@ export default function SubDivisionTable({
                                                 division
                                             )
                                         }
-                                        className={`cursor-pointer border-b ${
-                                            selectedSubDivision?.subdivision_id ===
-                                            division.subdivision_id
-                                                ? "bg-blue-50"
-                                                : "hover:bg-gray-50"
-                                        }`}
+                                        style={{
+                                            height: "32px",
+                                            borderBottom:
+                                                "1px solid #f3f4f6",
+                                            cursor: "pointer",
+                                            backgroundColor:
+                                                selectedSubDivision?.subdivision_id ===
+                                                division.subdivision_id
+                                                    ? "#eff6ff"
+                                                    : "#ffffff",
+                                        }}
+                                        onMouseEnter={(
+                                            e
+                                        ) => {
+                                            if (
+                                                selectedSubDivision?.subdivision_id !==
+                                                division.subdivision_id
+                                            ) {
+                                                e.currentTarget.style.backgroundColor =
+                                                    "#f9fafb";
+                                            }
+                                        }}
+                                        onMouseLeave={(
+                                            e
+                                        ) => {
+                                            if (
+                                                selectedSubDivision?.subdivision_id !==
+                                                division.subdivision_id
+                                            ) {
+                                                e.currentTarget.style.backgroundColor =
+                                                    "#ffffff";
+                                            }
+                                        }}
                                     >
                                         {/* =================================
                                             CODE
                                         ================================= */}
 
-                                        <td className="px-2.5 py-1.5 text-center text-[10px] font-medium leading-tight text-gray-800">
+                                        <td
+                                            style={{
+                                                height: "32px",
+                                                padding: "4px 8px",
+                                                verticalAlign:
+                                                    "middle",
+                                                textAlign:
+                                                    "center",
+                                                fontSize:
+                                                    "10px",
+                                                fontWeight:
+                                                    500,
+                                                lineHeight:
+                                                    "14px",
+                                                color: "#1f2937",
+                                                whiteSpace:
+                                                    "nowrap",
+                                                overflow:
+                                                    "hidden",
+                                                textOverflow:
+                                                    "ellipsis",
+                                                boxSizing:
+                                                    "border-box",
+                                            }}
+                                        >
                                             {
                                                 division.subdivision_code
                                             }
@@ -277,7 +495,31 @@ export default function SubDivisionTable({
                                             NAME
                                         ================================= */}
 
-                                        <td className="px-2.5 py-1.5 text-center text-[10px] font-medium leading-tight text-gray-800">
+                                        <td
+                                            style={{
+                                                height: "32px",
+                                                padding: "4px 8px",
+                                                verticalAlign:
+                                                    "middle",
+                                                textAlign:
+                                                    "center",
+                                                fontSize:
+                                                    "10px",
+                                                fontWeight:
+                                                    500,
+                                                lineHeight:
+                                                    "14px",
+                                                color: "#1f2937",
+                                                whiteSpace:
+                                                    "nowrap",
+                                                overflow:
+                                                    "hidden",
+                                                textOverflow:
+                                                    "ellipsis",
+                                                boxSizing:
+                                                    "border-box",
+                                            }}
+                                        >
                                             {
                                                 division.subdivision_name
                                             }
@@ -287,7 +529,31 @@ export default function SubDivisionTable({
                                             PARENT DIVISION
                                         ================================= */}
 
-                                        <td className="px-2.5 py-1.5 text-center text-[10px] font-medium leading-tight text-gray-800">
+                                        <td
+                                            style={{
+                                                height: "32px",
+                                                padding: "4px 8px",
+                                                verticalAlign:
+                                                    "middle",
+                                                textAlign:
+                                                    "center",
+                                                fontSize:
+                                                    "10px",
+                                                fontWeight:
+                                                    500,
+                                                lineHeight:
+                                                    "14px",
+                                                color: "#1f2937",
+                                                whiteSpace:
+                                                    "nowrap",
+                                                overflow:
+                                                    "hidden",
+                                                textOverflow:
+                                                    "ellipsis",
+                                                boxSizing:
+                                                    "border-box",
+                                            }}
+                                        >
                                             {
                                                 division.parent_division_name
                                             }
@@ -297,13 +563,53 @@ export default function SubDivisionTable({
                                             STATUS
                                         ================================= */}
 
-                                        <td className="px-2.5 py-1.5 text-center">
+                                        <td
+                                            style={{
+                                                height: "32px",
+                                                padding: "4px 8px",
+                                                verticalAlign:
+                                                    "middle",
+                                                textAlign:
+                                                    "center",
+                                                boxSizing:
+                                                    "border-box",
+                                            }}
+                                        >
                                             <span
-                                                className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-tight ${
-                                                    division.active
-                                                        ? "bg-green-100 text-green-700"
-                                                        : "bg-gray-100 text-gray-600"
-                                                }`}
+                                                style={{
+                                                    display:
+                                                        "inline-flex",
+                                                    alignItems:
+                                                        "center",
+                                                    justifyContent:
+                                                        "center",
+                                                    minWidth:
+                                                        "48px",
+                                                    height:
+                                                        "18px",
+                                                    padding:
+                                                        "0 6px",
+                                                    borderRadius:
+                                                        "9999px",
+                                                    fontSize:
+                                                        "8px",
+                                                    fontWeight:
+                                                        500,
+                                                    lineHeight:
+                                                        "18px",
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                    backgroundColor:
+                                                        division.active
+                                                            ? "#dcfce7"
+                                                            : "#f3f4f6",
+                                                    color:
+                                                        division.active
+                                                            ? "#15803d"
+                                                            : "#4b5563",
+                                                    boxSizing:
+                                                        "border-box",
+                                                }}
                                             >
                                                 {division.active
                                                     ? "Active"
@@ -315,8 +621,31 @@ export default function SubDivisionTable({
                                             ACTIONS
                                         ================================= */}
 
-                                        <td className="px-2.5 py-1.5">
-                                            <div className="flex justify-center gap-1">
+                                        <td
+                                            style={{
+                                                height: "32px",
+                                                padding: "4px 8px",
+                                                verticalAlign:
+                                                    "middle",
+                                                textAlign:
+                                                    "center",
+                                                boxSizing:
+                                                    "border-box",
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    width: "100%",
+                                                    height: "24px",
+                                                    display:
+                                                        "flex",
+                                                    alignItems:
+                                                        "center",
+                                                    justifyContent:
+                                                        "center",
+                                                    gap: "2px",
+                                                }}
+                                            >
                                                 {/* =========================
                                                     EDIT
                                                 ========================= */}
@@ -327,21 +656,49 @@ export default function SubDivisionTable({
                                                     ) => {
                                                         e.stopPropagation();
 
-                                                        /*
-                                                         * Keep complete
-                                                         * division object.
-                                                         */
                                                         onEdit?.(
                                                             division
                                                         );
                                                     }}
-                                                    className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
+                                                    style={{
+                                                        width: "21px",
+                                                        height: "21px",
+                                                        padding: 0,
+                                                        display:
+                                                            "flex",
+                                                        alignItems:
+                                                            "center",
+                                                        justifyContent:
+                                                            "center",
+                                                        border:
+                                                            "none",
+                                                        borderRadius:
+                                                            "4px",
+                                                        backgroundColor:
+                                                            "transparent",
+                                                        cursor:
+                                                            "pointer",
+                                                    }}
+                                                    onMouseEnter={(
+                                                        e
+                                                    ) => {
+                                                        e.currentTarget.style.backgroundColor =
+                                                            "#f3f4f6";
+                                                    }}
+                                                    onMouseLeave={(
+                                                        e
+                                                    ) => {
+                                                        e.currentTarget.style.backgroundColor =
+                                                            "transparent";
+                                                    }}
                                                 >
                                                     <Pencil
                                                         size={
                                                             11
                                                         }
-                                                        className="text-gray-900"
+                                                        style={{
+                                                            color: "#111827",
+                                                        }}
                                                     />
                                                 </button>
 
@@ -349,7 +706,12 @@ export default function SubDivisionTable({
                                                     MORE MENU
                                                 ========================= */}
 
-                                                <div className="relative">
+                                                <div
+                                                    style={{
+                                                        position:
+                                                            "relative",
+                                                    }}
+                                                >
                                                     <button
                                                         onClick={(
                                                             e
@@ -377,13 +739,45 @@ export default function SubDivisionTable({
                                                                     : division.subdivision_id
                                                             );
                                                         }}
-                                                        className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
+                                                        style={{
+                                                            width: "21px",
+                                                            height: "21px",
+                                                            padding: 0,
+                                                            display:
+                                                                "flex",
+                                                            alignItems:
+                                                                "center",
+                                                            justifyContent:
+                                                                "center",
+                                                            border:
+                                                                "none",
+                                                            borderRadius:
+                                                                "4px",
+                                                            backgroundColor:
+                                                                "transparent",
+                                                            cursor:
+                                                                "pointer",
+                                                        }}
+                                                        onMouseEnter={(
+                                                            e
+                                                        ) => {
+                                                            e.currentTarget.style.backgroundColor =
+                                                                "#f3f4f6";
+                                                        }}
+                                                        onMouseLeave={(
+                                                            e
+                                                        ) => {
+                                                            e.currentTarget.style.backgroundColor =
+                                                                "transparent";
+                                                        }}
                                                     >
                                                         <MoreVertical
                                                             size={
                                                                 11
                                                             }
-                                                            className="text-gray-900"
+                                                            style={{
+                                                                color: "#111827",
+                                                            }}
                                                         />
                                                     </button>
 
@@ -394,12 +788,24 @@ export default function SubDivisionTable({
                                                     {openMenu ===
                                                         division.subdivision_id && (
                                                         <div
-                                                            className="fixed z-9999 w-36 rounded-md border border-gray-200 bg-white shadow-lg"
                                                             style={{
+                                                                position:
+                                                                    "fixed",
+                                                                zIndex: 9999,
+                                                                width: "144px",
                                                                 top:
                                                                     menuPosition.top,
                                                                 left:
                                                                     menuPosition.left,
+                                                                border: "1px solid #e5e7eb",
+                                                                borderRadius:
+                                                                    "6px",
+                                                                backgroundColor:
+                                                                    "#ffffff",
+                                                                boxShadow:
+                                                                    "0 10px 25px rgba(0,0,0,0.10)",
+                                                                overflow:
+                                                                    "hidden",
                                                             }}
                                                         >
                                                             {/* VIEW DETAILS */}
@@ -414,7 +820,38 @@ export default function SubDivisionTable({
                                                                         null
                                                                     );
                                                                 }}
-                                                                className="block w-full px-3 py-2 text-left text-xs hover:bg-gray-50"
+                                                                style={{
+                                                                    display:
+                                                                        "block",
+                                                                    width: "100%",
+                                                                    padding:
+                                                                        "8px 12px",
+                                                                    border:
+                                                                        "none",
+                                                                    backgroundColor:
+                                                                        "transparent",
+                                                                    textAlign:
+                                                                        "left",
+                                                                    fontSize:
+                                                                        "12px",
+                                                                    lineHeight:
+                                                                        "16px",
+                                                                    color: "#374151",
+                                                                    cursor:
+                                                                        "pointer",
+                                                                }}
+                                                                onMouseEnter={(
+                                                                    e
+                                                                ) => {
+                                                                    e.currentTarget.style.backgroundColor =
+                                                                        "#f9fafb";
+                                                                }}
+                                                                onMouseLeave={(
+                                                                    e
+                                                                ) => {
+                                                                    e.currentTarget.style.backgroundColor =
+                                                                        "transparent";
+                                                                }}
                                                             >
                                                                 View
                                                                 Details
@@ -429,7 +866,38 @@ export default function SubDivisionTable({
                                                                         division
                                                                     )
                                                                 }
-                                                                className="block w-full px-3 py-2 text-left text-xs hover:bg-gray-50"
+                                                                style={{
+                                                                    display:
+                                                                        "block",
+                                                                    width: "100%",
+                                                                    padding:
+                                                                        "8px 12px",
+                                                                    border:
+                                                                        "none",
+                                                                    backgroundColor:
+                                                                        "transparent",
+                                                                    textAlign:
+                                                                        "left",
+                                                                    fontSize:
+                                                                        "12px",
+                                                                    lineHeight:
+                                                                        "16px",
+                                                                    color: "#374151",
+                                                                    cursor:
+                                                                        "pointer",
+                                                                }}
+                                                                onMouseEnter={(
+                                                                    e
+                                                                ) => {
+                                                                    e.currentTarget.style.backgroundColor =
+                                                                        "#f9fafb";
+                                                                }}
+                                                                onMouseLeave={(
+                                                                    e
+                                                                ) => {
+                                                                    e.currentTarget.style.backgroundColor =
+                                                                        "transparent";
+                                                                }}
                                                             >
                                                                 {division.active
                                                                     ? "Deactivate"
@@ -447,7 +915,16 @@ export default function SubDivisionTable({
                             <tr>
                                 <td
                                     colSpan={5}
-                                    className="py-6 text-center text-sm text-gray-500"
+                                    style={{
+                                        height: "60px",
+                                        padding: "8px",
+                                        textAlign:
+                                            "center",
+                                        verticalAlign:
+                                            "middle",
+                                        fontSize: "12px",
+                                        color: "#6b7280",
+                                    }}
                                 >
                                     No Sub Divisions
                                     found.
@@ -460,12 +937,39 @@ export default function SubDivisionTable({
 
             {/* =====================================================
                 PAGINATION
+                Immediately after table
             ===================================================== */}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-gray-50/40 px-4 py-2">
+            <div
+                style={{
+                    width: "100%",
+                    height: "36px",
+                    minHeight: "36px",
+                    flex: "0 0 36px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    padding: "0 12px",
+                    borderTop:
+                        "1px solid #e5e7eb",
+                    backgroundColor:
+                        "rgba(249,250,251,0.4)",
+                    boxSizing: "border-box",
+                }}
+            >
                 {/* RECORD INFO */}
 
-                <p className="text-[9px] text-gray-700">
+                <p
+                    style={{
+                        margin: 0,
+                        fontSize: "9px",
+                        lineHeight: "12px",
+                        color: "#374151",
+                        whiteSpace:
+                            "nowrap",
+                    }}
+                >
                     Showing{" "}
                     {totalRows === 0
                         ? 0
@@ -480,7 +984,13 @@ export default function SubDivisionTable({
 
                 {/* PAGINATION BUTTONS */}
 
-                <div className="flex items-center gap-1">
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "2px",
+                    }}
+                >
                     {/* FIRST */}
 
                     <button
@@ -489,9 +999,40 @@ export default function SubDivisionTable({
                             currentPage === 1 ||
                             totalPages === 0
                         }
-                        className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                        style={{
+                            width: "22px",
+                            height: "22px",
+                            padding: 0,
+                            display: "flex",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor:
+                                "transparent",
+                            color: "#6b7280",
+                            cursor:
+                                currentPage ===
+                                    1 ||
+                                totalPages === 0
+                                    ? "not-allowed"
+                                    : "pointer",
+                            opacity:
+                                currentPage ===
+                                    1 ||
+                                totalPages === 0
+                                    ? 0.4
+                                    : 1,
+                        }}
                     >
-                        <ChevronsLeft className="h-3.5 w-3.5" />
+                        <ChevronsLeft
+                            style={{
+                                width: "14px",
+                                height: "14px",
+                            }}
+                        />
                     </button>
 
                     {/* PREVIOUS */}
@@ -502,9 +1043,40 @@ export default function SubDivisionTable({
                             currentPage === 1 ||
                             totalPages === 0
                         }
-                        className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                        style={{
+                            width: "22px",
+                            height: "22px",
+                            padding: 0,
+                            display: "flex",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor:
+                                "transparent",
+                            color: "#6b7280",
+                            cursor:
+                                currentPage ===
+                                    1 ||
+                                totalPages === 0
+                                    ? "not-allowed"
+                                    : "pointer",
+                            opacity:
+                                currentPage ===
+                                    1 ||
+                                totalPages === 0
+                                    ? 0.4
+                                    : 1,
+                        }}
                     >
-                        <ChevronLeft className="h-3.5 w-3.5" />
+                        <ChevronLeft
+                            style={{
+                                width: "14px",
+                                height: "14px",
+                            }}
+                        />
                     </button>
 
                     {/* PAGE NUMBERS */}
@@ -525,12 +1097,53 @@ export default function SubDivisionTable({
                                             page
                                         )
                                     }
-                                    className={`h-6 w-6 rounded text-[9px] font-medium ${
-                                        currentPage ===
-                                        page
-                                            ? "bg-blue-600 text-white"
-                                            : "text-gray-600 hover:bg-gray-100"
-                                    }`}
+                                    style={{
+                                        width: "22px",
+                                        height: "22px",
+                                        padding: 0,
+                                        border: "none",
+                                        borderRadius:
+                                            "4px",
+                                        fontSize:
+                                            "9px",
+                                        lineHeight:
+                                            "22px",
+                                        fontWeight: 500,
+                                        backgroundColor:
+                                            currentPage ===
+                                            page
+                                                ? "#2563eb"
+                                                : "transparent",
+                                        color:
+                                            currentPage ===
+                                            page
+                                                ? "#ffffff"
+                                                : "#4b5563",
+                                        cursor:
+                                            "pointer",
+                                    }}
+                                    onMouseEnter={(
+                                        e
+                                    ) => {
+                                        if (
+                                            currentPage !==
+                                            page
+                                        ) {
+                                            e.currentTarget.style.backgroundColor =
+                                                "#f3f4f6";
+                                        }
+                                    }}
+                                    onMouseLeave={(
+                                        e
+                                    ) => {
+                                        if (
+                                            currentPage !==
+                                            page
+                                        ) {
+                                            e.currentTarget.style.backgroundColor =
+                                                "transparent";
+                                        }
+                                    }}
                                 >
                                     {page}
                                 </button>
@@ -547,9 +1160,42 @@ export default function SubDivisionTable({
                             currentPage ===
                                 totalPages
                         }
-                        className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                        style={{
+                            width: "22px",
+                            height: "22px",
+                            padding: 0,
+                            display: "flex",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor:
+                                "transparent",
+                            color: "#6b7280",
+                            cursor:
+                                totalPages ===
+                                    0 ||
+                                currentPage ===
+                                    totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+                            opacity:
+                                totalPages ===
+                                    0 ||
+                                currentPage ===
+                                    totalPages
+                                    ? 0.4
+                                    : 1,
+                        }}
                     >
-                        <ChevronRight className="h-3.5 w-3.5" />
+                        <ChevronRight
+                            style={{
+                                width: "14px",
+                                height: "14px",
+                            }}
+                        />
                     </button>
 
                     {/* LAST */}
@@ -561,9 +1207,42 @@ export default function SubDivisionTable({
                             currentPage ===
                                 totalPages
                         }
-                        className="rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                        style={{
+                            width: "22px",
+                            height: "22px",
+                            padding: 0,
+                            display: "flex",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor:
+                                "transparent",
+                            color: "#6b7280",
+                            cursor:
+                                totalPages ===
+                                    0 ||
+                                currentPage ===
+                                    totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+                            opacity:
+                                totalPages ===
+                                    0 ||
+                                currentPage ===
+                                    totalPages
+                                    ? 0.4
+                                    : 1,
+                        }}
                     >
-                        <ChevronsRight className="h-3.5 w-3.5" />
+                        <ChevronsRight
+                            style={{
+                                width: "14px",
+                                height: "14px",
+                            }}
+                        />
                     </button>
                 </div>
             </div>

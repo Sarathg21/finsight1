@@ -1,3 +1,4 @@
+
 import {
   Pencil,
   MoreVertical,
@@ -9,20 +10,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useState, useEffect, useRef } from "react";
-import ConfirmationModel from "../common/ConfirmationModel";
-
+import ConfirmationModel from "../Common/ConfirmationModel";
 
 export default function LegalGroupsTable({
   legalGroups = [],
   onEdit,
-  onSelect, selectedGroup, onStatusToggle,
+  onSelect,
+  selectedGroup,
+  onStatusToggle,
 }) {
-
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(8);
 
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
   const [selectedStatusGroup, setSelectedStatusGroup] = useState(null);
+
   const [menuPosition, setMenuPosition] = useState({
     top: 0,
     left: 0,
@@ -42,6 +44,7 @@ export default function LegalGroupsTable({
     startIndex,
     endIndex
   );
+
   const goFirst = () => {
     setCurrentPage(1);
   };
@@ -73,8 +76,6 @@ export default function LegalGroupsTable({
     }
   }, [currentPage, totalPages]);
 
-
-
   {/*......Close menu when clicking outside........*/ }
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -85,7 +86,12 @@ export default function LegalGroupsTable({
         setOpenMenu(null);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
     return () =>
       document.removeEventListener(
         "mousedown",
@@ -94,26 +100,56 @@ export default function LegalGroupsTable({
   }, []);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-
+    <div
+      style={{
+        overflow: "hidden",
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb",
+        backgroundColor: "#ffffff",
+        width: "100%",
+      }}
+    >
       {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-
+      <div
+        style={{
+          width: "100%",
+          overflowX: "auto",
+        }}
+      >
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            tableLayout: "auto",
+          }}
+        >
           {/* Header */}
-          <thead className=" border-b border-gray-200 bg-gray-50">
+          <thead
+            style={{
+              borderBottom: "1px solid #e5e7eb",
+              backgroundColor: "#f9fafb",
+            }}
+          >
             <tr>
               {[
-                "Legal Group Code",
-                "Legal Group Name",
-                //"Description",
-                "Status",
-                //"No. of Legal Entities",
-                "Action",
+                "LEGAL GROUP CODE",
+                "LEGAL GROUP NAME",
+                "STATUS",
+                "ACTION",
               ].map((header) => (
                 <th
                   key={header}
-                  className="px-2 py-1.5  text-[9px] font-bold text-center capitalize tracking-wide text-gray-600"
+                  style={{
+                    padding: "5px 8px",
+                    fontSize: "10px",
+                    lineHeight: "12px",
+                    fontWeight: 700,
+                    textAlign: "center",
+                    color: "#4b5563",
+                    letterSpacing: "0.03em",
+                    textTransform: "capitalize",
+                    whiteSpace: "nowrap",
+                  }}
                 >
                   {header}
                 </th>
@@ -121,216 +157,330 @@ export default function LegalGroupsTable({
             </tr>
           </thead>
 
-
           {/* Body */}
           <tbody>
             {currentRows.length > 0 ? (
-              currentRows.map((group) => (
-                <tr
-                  key={group.legal_group_id}
-                  onClick={() => onSelect(group)}
-                  className={`cursor-pointer border-b ${selectedGroup?.legal_group_id === group.legal_group_id
-                    ? "bg-blue-50"
-                    : "hover:bg-gray-50"}`}>
+              currentRows.map((group) => {
+                const isSelected =
+                  selectedGroup?.legal_group_id ===
+                  group.legal_group_id;
 
-                  <td className="px-2.5 py-1.5 text-[10px] text-center font-medium leading-tight text-gray-800">
-                    {group.legal_group_code}
-                  </td>
-
-                  <td className="px-2.5 py-1.5 text-[10px] font-medium text-center leading-tight text-gray-800">
-                    {group.legal_group_name}
-                  </td>
-
-                  {/* <td className="px-2.5 py-1.5 text-[10px] font-medium text-center leading-tight text-gray-800">
-                  {group.description}
-                </td> */}
-
-                  <td className="px-2.5 py-1.5 text-center">
-                    <span
-                      className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px]
-                    font-medium leading-tight ${group.active
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                        }`}
+                return (
+                  <tr
+                    key={group.legal_group_id}
+                    onClick={() => onSelect(group)}
+                    style={{
+                      cursor: "pointer",
+                      borderBottom: "1px solid #e5e7eb",
+                      backgroundColor: isSelected
+                        ? "#eff6ff"
+                        : "#ffffff",
+                      transition:
+                        "background-color 150ms ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor =
+                          "#f9fafb";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected) {
+                        e.currentTarget.style.backgroundColor =
+                          "#ffffff";
+                      }
+                    }}
+                  >
+                    {/* Legal Group Code */}
+                    <td
+                      style={{
+                        /* Slightly reduced from 9px */
+                        padding: "7px 8px",
+                        fontSize: "9px",
+                        lineHeight: "12px",
+                        textAlign: "center",
+                        fontWeight: 500,
+                        color: "#1f2937",
+                        whiteSpace: "nowrap",
+                      }}
                     >
-                      {group.active ? "Active" : "Inactive"}
-                    </span>
-                  </td>
+                      {group.legal_group_code}
+                    </td>
 
-                  {/* <td className="px-2.5 py-1.5 text-center text-[10px] font-medium text-gray-800">
-                  {group.legalEntities}
-                </td> */}
+                    {/* Legal Group Name */}
+                    <td
+                      style={{
+                        /* Slightly reduced from 9px */
+                        padding: "7px 8px",
+                        fontSize: "9px",
+                        lineHeight: "12px",
+                        fontWeight: 500,
+                        textAlign: "center",
+                        color: "#1f2937",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {group.legal_group_name}
+                    </td>
 
-                  <td className="px-2.5 py-1.5">
-                    <div className="flex justify-center gap-1">
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-
-                          setOpenMenu(null);
-
-                          onEdit?.(group);
+                    {/* Status */}
+                    <td
+                      style={{
+                        /* Slightly reduced from 9px */
+                        padding: "7px 8px",
+                        textAlign: "center",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "9999px",
+                          padding: "2px 6px",
+                          fontSize: "8px",
+                          lineHeight: "11px",
+                          fontWeight: 500,
+                          whiteSpace: "nowrap",
+                          backgroundColor: group.active
+                            ? "#dcfce7"
+                            : "#f3f4f6",
+                          color: group.active
+                            ? "#15803d"
+                            : "#4b5563",
                         }}
-                        className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
                       >
-                        <Pencil
-                          size={11}
-                          className="text-gray-900"
-                        />
-                      </button>
+                        {group.active
+                          ? "Active"
+                          : "Inactive"}
+                      </span>
+                    </td>
 
-                      {/* <div className="relative">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setMenuPosition({
-                              top: rect.bottom + 5,
-                              left: rect.right - 145,
-                            });
-
-                            setOpenMenu(
-                              openMenu === group.legal_group_id
-                                ? null
-                                : group.legal_group_id
-                            );
-                          }}
-                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
-                        >
-                          <MoreVertical
-                            size={11}
-                            className="text-gray-900"
-                          />
-                        </button>
-                        {openMenu === group.legal_group_id && (
-                          <div
-                            className="fixed z-9999 w-36 rounded-md border border-gray-200 bg-white shadow-lg"
-                            style={{
-                              top: menuPosition.top,
-                              left: menuPosition.left,
-                            }}
-                          >
-                            <button
-                              onClick={() => {
-                                const group = legalGroups.find(
-                                  (g) => g.legal_group_id === openMenu
-                                );
-                                if (group) {
-                                  onSelect?.(group);
-                                }
-                                setOpenMenu(null);
-                              }}
-                              className="block w-full px-3 py-2 text-left text-xs hover:bg-gray-50"
-                            >
-                              View Details
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                const group = legalGroups.find(
-                                  (g) => g.legal_group_id === openMenu
-                                );
-
-                                if (!group) return;
-
-                                setSelectedStatusGroup(group);
-                                setShowStatusConfirm(true);
-                                setOpenMenu(null);
-                              }}
-                              className="block w-full px-3 py-2 text-left text-xs hover:bg-gray-50"
-                            >
-                              {legalGroups.find(
-                                (g) => g.legal_group_id === openMenu
-                              )?.active
-                                ? "Deactivate"
-                                : "Activate"}
-                            </button>
-                          </div>
-                        )}
-                      </div> */}
-
-                      <div className="relative">
+                    {/* Action */}
+                    <td
+                      style={{
+                        /* Slightly reduced from 7px */
+                        padding: "6px 8px",
+                        textAlign: "center",
+                        verticalAlign: "middle",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "2px",
+                        }}
+                      >
+                        {/* Edit */}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
 
-                            const rect =
-                              e.currentTarget.getBoundingClientRect();
+                            setOpenMenu(null);
 
-                            setMenuPosition({
-                              top: rect.bottom + 5,
-                              left: rect.right - 145,
-                            });
-
-                            setOpenMenu((prev) =>
-                              prev === group.legal_group_id
-                                ? null
-                                : group.legal_group_id
-                            );
+                            onEdit?.(group);
                           }}
-                          className="flex h-6 w-6 items-center justify-center rounded hover:bg-gray-100"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: "22px",
+                            height: "22px",
+                            padding: 0,
+                            border: "none",
+                            borderRadius: "4px",
+                            backgroundColor:
+                              "transparent",
+                            cursor: "pointer",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor =
+                              "#f3f4f6";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor =
+                              "transparent";
+                          }}
                         >
-                          <MoreVertical
-                            size={11}
-                            className="text-gray-900"
+                          <Pencil
+                            size={10}
+                            style={{
+                              color: "#111827",
+                            }}
                           />
                         </button>
 
-                        {openMenu === group.legal_group_id && (
-                          <div
-                            className="fixed z-9999 w-36 rounded-md border border-gray-200 bg-white shadow-lg"
+                        {/* More Menu */}
+                        <div
+                          style={{
+                            position: "relative",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+
+                              const rect =
+                                e.currentTarget.getBoundingClientRect();
+
+                              setMenuPosition({
+                                top: rect.bottom + 5,
+                                left: rect.right - 145,
+                              });
+
+                              setOpenMenu((prev) =>
+                                prev ===
+                                  group.legal_group_id
+                                  ? null
+                                  : group.legal_group_id
+                              );
+                            }}
                             style={{
-                              top: menuPosition.top,
-                              left: menuPosition.left,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "22px",
+                              height: "22px",
+                              padding: 0,
+                              border: "none",
+                              borderRadius: "4px",
+                              backgroundColor:
+                                "transparent",
+                              cursor: "pointer",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor =
+                                "#f3f4f6";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor =
+                                "transparent";
                             }}
                           >
-                            {/* VIEW DETAILS */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-
-                                onSelect?.(group);
-
-                                setOpenMenu(null);
+                            <MoreVertical
+                              size={10}
+                              style={{
+                                color: "#111827",
                               }}
-                              className="block w-full px-3 py-2 text-left text-xs hover:bg-gray-50"
-                            >
-                              View Details
-                            </button>
+                            />
+                          </button>
 
-                            {/* ACTIVATE / DEACTIVATE */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                          {openMenu ===
+                            group.legal_group_id && (
+                              <div
+                                ref={menuRef}
+                                style={{
+                                  position: "fixed",
+                                  zIndex: 9999,
+                                  width: "144px",
+                                  top: menuPosition.top,
+                                  left: menuPosition.left,
+                                  border:
+                                    "1px solid #e5e7eb",
+                                  borderRadius: "6px",
+                                  backgroundColor:
+                                    "#ffffff",
+                                  boxShadow:
+                                    "0 4px 12px rgba(0,0,0,0.12)",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {/* View Details */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
 
-                                setSelectedStatusGroup(group);
-                                setShowStatusConfirm(true);
-                                setOpenMenu(null);
-                              }}
-                              className="block w-full px-3 py-2 text-left text-xs hover:bg-gray-50"
-                            >
-                              {group.active
-                                ? "Deactivate"
-                                : "Activate"}
-                            </button>
-                          </div>
-                        )}
+                                    onSelect?.(group);
+
+                                    setOpenMenu(null);
+                                  }}
+                                  style={{
+                                    display: "block",
+                                    width: "100%",
+                                    padding: "7px 10px",
+                                    border: "none",
+                                    backgroundColor:
+                                      "transparent",
+                                    textAlign: "left",
+                                    fontSize: "10px",
+                                    lineHeight: "14px",
+                                    color: "#374151",
+                                    cursor: "pointer",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor =
+                                      "#f9fafb";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor =
+                                      "transparent";
+                                  }}
+                                >
+                                  View Details
+                                </button>
+
+                                {/* Activate / Deactivate */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+
+                                    setSelectedStatusGroup(group);
+                                    setShowStatusConfirm(true);
+                                    setOpenMenu(null);
+                                  }}
+                                  style={{
+                                    display: "block",
+                                    width: "100%",
+                                    padding: "7px 10px",
+                                    border: "none",
+                                    backgroundColor:
+                                      "transparent",
+                                    textAlign: "left",
+                                    fontSize: "10px",
+                                    lineHeight: "14px",
+                                    color: "#374151",
+                                    cursor: "pointer",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor =
+                                      "#f9fafb";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor =
+                                      "transparent";
+                                  }}
+                                >
+                                  {group.active
+                                    ? "Deactivate"
+                                    : "Activate"}
+                                </button>
+                              </div>
+                            )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td
                   colSpan={4}
-                  className="py-6 text-center text-sm text-gray-500">
+                  style={{
+                    padding: "18px 8px",
+                    textAlign: "center",
+                    fontSize: "10px",
+                    lineHeight: "14px",
+                    color: "#6b7280",
+                  }}
+                >
                   No legal groups found.
                 </td>
               </tr>
@@ -341,85 +491,150 @@ export default function LegalGroupsTable({
 
       {/* Pagination */}
       <div
-        className=" flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 bg-gray-50/40 px-4 py-2"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "6px",
+          borderTop: "1px solid #e5e7eb",
+          backgroundColor: "rgba(249, 250, 251, 0.4)",
+          padding: "5px 12px",
+        }}
       >
-
         {/* Record Info */}
-        <p className=" text-[9px] text-gray-700" >
+        <p
+          style={{
+            margin: 0,
+            fontSize: "8px",
+            lineHeight: "12px",
+            color: "#374151",
+          }}
+        >
           Showing{" "}
-          {
-            totalRows === 0
-              ?
-              0
-              :
-              startIndex + 1
-          }
-          {" "}to{" "}
-          {
-            Math.min(
-              endIndex,
-              totalRows
-            )
-          }
-          {" "}of{" "}
-
-          {totalRows}
-
-          {" "}Legal Groups
-
+          {totalRows === 0
+            ? 0
+            : startIndex + 1}{" "}
+          to{" "}
+          {Math.min(
+            endIndex,
+            totalRows
+          )}{" "}
+          of {totalRows} Legal Groups
         </p>
+
         {/* Pagination Buttons */}
         <div
-          className=" flex items-center gap-1"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "2px",
+          }}
         >
-
           {/* First */}
           <button
             onClick={goFirst}
-            disabled={
-              currentPage === 1
-            }
-            className=" rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40" >
+            disabled={currentPage === 1}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "22px",
+              height: "22px",
+              padding: 0,
+              border: "none",
+              borderRadius: "4px",
+              backgroundColor: "transparent",
+              color: "#6b7280",
+              cursor:
+                currentPage === 1
+                  ? "default"
+                  : "pointer",
+              opacity:
+                currentPage === 1 ? 0.4 : 1,
+            }}
+          >
             <ChevronsLeft
-              className="h-3.5 w-3.5"
+              style={{
+                width: "13px",
+                height: "13px",
+              }}
             />
           </button>
 
           {/* Previous */}
           <button
             onClick={goPrevious}
-            disabled={
-              currentPage === 1
-            }
-            className=" rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40">
+            disabled={currentPage === 1}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "22px",
+              height: "22px",
+              padding: 0,
+              border: "none",
+              borderRadius: "4px",
+              backgroundColor: "transparent",
+              color: "#6b7280",
+              cursor:
+                currentPage === 1
+                  ? "default"
+                  : "pointer",
+              opacity:
+                currentPage === 1 ? 0.4 : 1,
+            }}
+          >
             <ChevronLeft
-              className="h-3.5 w-3.5"
+              style={{
+                width: "13px",
+                height: "13px",
+              }}
             />
           </button>
 
           {/* Page Numbers */}
-          {
-            Array.from(
-              {
-                length: totalPages
-              },
-              (_, index) => {
+          {Array.from(
+            {
+              length: totalPages,
+            },
+            (_, index) => {
+              const page = index + 1;
 
-                const page = index + 1;
-                return (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`h-6 w-6 rounded text-[9px] font-medium ${currentPage === page
-                      ? "bg-blue-600 text-white"
-                      : "text-gray-600 hover:bg-gray-100"
-                      }`} >
-                    {page}
-                  </button>
-                )
-              }
-            )
-          }
+              return (
+                <button
+                  key={page}
+                  onClick={() =>
+                    setCurrentPage(page)
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "22px",
+                    height: "22px",
+                    padding: 0,
+                    border: "none",
+                    borderRadius: "4px",
+                    fontSize: "8px",
+                    lineHeight: "12px",
+                    fontWeight: 500,
+                    backgroundColor:
+                      currentPage === page
+                        ? "#2563eb"
+                        : "transparent",
+                    color:
+                      currentPage === page
+                        ? "#ffffff"
+                        : "#4b5563",
+                    cursor: "pointer",
+                  }}
+                >
+                  {page}
+                </button>
+              );
+            }
+          )}
 
           {/* Next */}
           <button
@@ -428,30 +643,78 @@ export default function LegalGroupsTable({
               currentPage === totalPages ||
               totalPages === 0
             }
-            className=" rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "22px",
+              height: "22px",
+              padding: 0,
+              border: "none",
+              borderRadius: "4px",
+              backgroundColor: "transparent",
+              color: "#6b7280",
+              cursor:
+                currentPage === totalPages ||
+                  totalPages === 0
+                  ? "default"
+                  : "pointer",
+              opacity:
+                currentPage === totalPages ||
+                  totalPages === 0
+                  ? 0.4
+                  : 1,
+            }}
           >
             <ChevronRight
-              className="h-3.5 w-3.5"
+              style={{
+                width: "13px",
+                height: "13px",
+              }}
             />
           </button>
 
           {/* Last */}
-
           <button
             onClick={goLast}
             disabled={
               currentPage === totalPages ||
               totalPages === 0
             }
-            className=" rounded p-1 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "22px",
+              height: "22px",
+              padding: 0,
+              border: "none",
+              borderRadius: "4px",
+              backgroundColor: "transparent",
+              color: "#6b7280",
+              cursor:
+                currentPage === totalPages ||
+                  totalPages === 0
+                  ? "default"
+                  : "pointer",
+              opacity:
+                currentPage === totalPages ||
+                  totalPages === 0
+                  ? 0.4
+                  : 1,
+            }}
           >
             <ChevronsRight
-              className="h-3.5 w-3.5"
+              style={{
+                width: "13px",
+                height: "13px",
+              }}
             />
-
           </button>
         </div>
       </div>
+
+      {/* Status Confirmation */}
       <ConfirmationModel
         open={showStatusConfirm}
         title={
@@ -470,15 +733,17 @@ export default function LegalGroupsTable({
             : "Activate"
         }
         cancelText="Cancel"
-
         onCancel={() => {
           setShowStatusConfirm(false);
           setSelectedStatusGroup(null);
         }}
-
         onConfirm={async () => {
           if (!selectedStatusGroup) return;
-          await onStatusToggle(selectedStatusGroup);
+
+          await onStatusToggle(
+            selectedStatusGroup
+          );
+
           setShowStatusConfirm(false);
           setSelectedStatusGroup(null);
         }}
@@ -486,3 +751,4 @@ export default function LegalGroupsTable({
     </div>
   );
 }
+

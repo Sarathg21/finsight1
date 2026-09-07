@@ -19,7 +19,7 @@ export const roleStats = [
     value: 12,
     description: "All roles",
     color: "blue",
-
+   
   },
   {
     id: 2,
@@ -27,7 +27,7 @@ export const roleStats = [
     value: 11,
     description: "Currently active",
     color: "green",
-
+    
   },
   {
     id: 3,
@@ -35,7 +35,7 @@ export const roleStats = [
     value: 3,
     description: "Built-in roles",
     color: "orange",
-
+    
   },
   {
     id: 4,
@@ -43,7 +43,7 @@ export const roleStats = [
     value: 9,
     description: "Organization roles",
     color: "purple",
-
+    
   },
   {
     id: 5,
@@ -51,7 +51,7 @@ export const roleStats = [
     value: 45,
     description: "Across all roles",
     color: "teal",
-
+   
   },
 ];
 
@@ -430,3 +430,4 @@ export const protectedRoles = [
     "SUPER_ADMIN",
     "CFO"
 ];
+

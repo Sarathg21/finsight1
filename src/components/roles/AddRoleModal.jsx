@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { X, UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,10 +25,13 @@ export default function AddRoleModal({
 
   const [saving, setSaving] = useState(false);
 
-  /* ---------------- Populate Form ---------------- */
+  /* =========================================================
+     POPULATE FORM
+  ========================================================= */
 
   useEffect(() => {
     if (!open) return;
+
     console.log("Edit Role:", editRole);
 
     if (editRole) {
@@ -45,7 +49,9 @@ export default function AddRoleModal({
     }
   }, [open, editRole]);
 
-  /* ---------------- Handle Change ---------------- */
+  /* =========================================================
+     HANDLE CHANGE
+  ========================================================= */
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -56,7 +62,9 @@ export default function AddRoleModal({
     }));
   };
 
-  /* ---------------- Validation ---------------- */
+  /* =========================================================
+     VALIDATION
+  ========================================================= */
 
   const validate = () => {
     const errors = [];
@@ -84,7 +92,9 @@ export default function AddRoleModal({
     );
   };
 
-  /* ---------------- Save ---------------- */
+  /* =========================================================
+     SAVE
+  ========================================================= */
 
   const handleSave = async () => {
     if (!validate()) return;
@@ -116,7 +126,7 @@ export default function AddRoleModal({
       if (error.response) {
         toast.error(
           error.response.data.detail ||
-          "Server error"
+            "Server error"
         );
       } else if (error.request) {
         toast.error("Unable to connect to server");
@@ -133,10 +143,10 @@ export default function AddRoleModal({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        style={styles.overlay}
       >
         <motion.div
           initial={{
@@ -155,51 +165,74 @@ export default function AddRoleModal({
             y: 20,
           }}
           transition={{ duration: 0.25 }}
-          className="w-full max-w-3xl overflow-hidden rounded-xl bg-white shadow-2xl"
+          style={styles.modal}
         >
-          {/* Header */}
 
-          <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
-                <UserPlus size={22} />
+          {/* =====================================================
+              HEADER
+          ===================================================== */}
+
+          <div style={styles.header}>
+
+            <div style={styles.headerLeft}>
+
+              <div style={styles.headerIcon}>
+                <UserPlus size={20} />
               </div>
 
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">
+              <div style={styles.headerText}>
+                <h2 style={styles.title}>
                   {isEdit ? "Edit Role" : "Add Role"}
                 </h2>
 
-                <p className="text-sm text-gray-500">
+                <p style={styles.subtitle}>
                   {isEdit
                     ? "Update role information"
                     : "Create a new application role"}
                 </p>
               </div>
+
             </div>
 
             <button
+              type="button"
               onClick={onClose}
-              className="rounded-lg p-2 hover:bg-gray-100"
+              style={styles.closeButton}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background =
+                  "#F3F4F6";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  "transparent";
+              }}
             >
-              <X size={20} />
+              <X size={18} />
             </button>
+
           </div>
 
-          {/* Body */}
+          {/* =====================================================
+              BODY
+          ===================================================== */}
 
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div style={styles.body}>
 
-              {/* Role Code */}
+            <div style={styles.formGrid}>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+              {/* =================================================
+                  ROLE CODE
+              ================================================= */}
+
+              <div style={styles.field}>
+
+                <label style={styles.label}>
                   Role Code
-                  <span className="text-red-600">
-                    {" "}*
+                  <span style={styles.required}>
+                    *
                   </span>
                 </label>
+
                 <input
                   type="text"
                   name="role_code"
@@ -207,18 +240,26 @@ export default function AddRoleModal({
                   onChange={handleChange}
                   placeholder="Enter Role Code"
                   disabled={!!editRole}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 ${editRole ? "cursor-not-allowed bg-gray-100 text-gray-500" : ""
-                    }`}
+                  style={{
+                    ...styles.input,
+                    ...(editRole
+                      ? styles.disabledInput
+                      : {}),
+                  }}
                 />
+
               </div>
 
-              {/* Role Name */}
+              {/* =================================================
+                  ROLE NAME
+              ================================================= */}
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+              <div style={styles.field}>
+
+                <label style={styles.label}>
                   Role Name
-                  <span className="text-red-600">
-                    {" "}*
+                  <span style={styles.required}>
+                    *
                   </span>
                 </label>
 
@@ -228,84 +269,136 @@ export default function AddRoleModal({
                   value={formData.role_name}
                   onChange={handleChange}
                   placeholder="Enter Role Name"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  style={styles.input}
                 />
-              </div>
-              {/* Active Status */}
 
-              <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+              </div>
+
+              {/* =================================================
+                  ACTIVE STATUS
+              ================================================= */}
+
+              <div style={styles.statusField}>
+
+                <label style={styles.label}>
                   Active Status
-                  <span className="text-red-600">
-                    {" "}*
+                  <span style={styles.required}>
+                    *
                   </span>
                 </label>
 
-                <div className="flex items-center gap-8 h-10">
-                  <label className="flex items-center gap-2">
+                <div style={styles.radioContainer}>
+
+                  {/* ACTIVE */}
+
+                  <label style={styles.radioLabel}>
+
                     <input
                       type="radio"
-                      checked={formData.active === true}
+                      name="active"
+                      checked={
+                        formData.active === true
+                      }
                       onChange={() =>
                         setFormData({
                           ...formData,
                           active: true,
                         })
                       }
+                      style={styles.radioInput}
                     />
 
-                    <span className="text-sm">
+                    <span style={styles.radioText}>
                       Active
                     </span>
+
                   </label>
 
-                  <label className="flex items-center gap-2">
+                  {/* INACTIVE */}
+
+                  <label style={styles.radioLabel}>
+
                     <input
                       type="radio"
-                      checked={formData.active === false}
+                      name="active"
+                      checked={
+                        formData.active === false
+                      }
                       onChange={() =>
                         setFormData({
                           ...formData,
                           active: false,
                         })
                       }
+                      style={styles.radioInput}
                     />
 
-                    <span className="text-sm">
+                    <span style={styles.radioText}>
                       Inactive
                     </span>
+
                   </label>
+
                 </div>
+
               </div>
 
             </div>
+
           </div>
 
-          {/* Footer */}
+          {/* =====================================================
+              FOOTER
+          ===================================================== */}
 
-          <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
+          <div style={styles.footer}>
 
             <button
+              type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium hover:bg-gray-100"
+              style={styles.cancelButton}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background =
+                  "#F3F4F6";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background =
+                  "#FFFFFF";
+              }}
             >
               Cancel
             </button>
 
             <button
+              type="button"
               onClick={handleSave}
-              disabled={saving || !isFormValid()}
-              className="
-                rounded-lg
-                bg-blue-600
-                px-6
-                py-2
-                text-sm
-                font-medium
-                text-white
-                hover:bg-blue-700
-                disabled:bg-gray-400
-              "
+              disabled={
+                saving || !isFormValid()
+              }
+              style={{
+                ...styles.saveButton,
+                ...(saving || !isFormValid()
+                  ? styles.saveButtonDisabled
+                  : {}),
+              }}
+              onMouseEnter={(e) => {
+                if (
+                  !saving &&
+                  isFormValid()
+                ) {
+                  e.currentTarget.style.background =
+                    "#1D4ED8";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (
+                  !saving &&
+                  isFormValid()
+                ) {
+                  e.currentTarget.style.background =
+                    "#2563EB";
+                }
+              }}
             >
               {saving
                 ? isEdit
@@ -323,3 +416,301 @@ export default function AddRoleModal({
     </AnimatePresence>
   );
 }
+
+/* =========================================================
+   INLINE STYLE CONFIGURATION
+========================================================= */
+
+const styles = {
+
+  /* =======================================================
+     OVERLAY
+  ======================================================= */
+
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 50,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "20px",
+    background: "rgba(0, 0, 0, 0.40)",
+    backdropFilter: "blur(4px)",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     MODAL
+  ======================================================= */
+
+  modal: {
+    width: "100%",
+    maxWidth: "720px",
+    maxHeight: "90vh",
+    display: "flex",
+    flexDirection: "column",
+    background: "#FFFFFF",
+    borderRadius: "12px",
+    boxShadow:
+      "0 20px 40px rgba(15, 23, 42, 0.18)",
+    overflow: "hidden",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     HEADER
+  ======================================================= */
+
+  header: {
+    width: "100%",
+    minHeight: "76px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px 20px",
+    background: "#F9FAFB",
+    borderBottom: "1px solid #E5E7EB",
+    boxSizing: "border-box",
+    flexShrink: 0,
+  },
+
+  headerLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    minWidth: 0,
+  },
+
+  headerIcon: {
+    width: "40px",
+    height: "40px",
+    minWidth: "40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "10px",
+    background: "#DBEAFE",
+    color: "#2563EB",
+    boxSizing: "border-box",
+  },
+
+  headerText: {
+    minWidth: 0,
+  },
+
+  title: {
+    margin: 0,
+    padding: 0,
+    color: "#111827",
+    fontSize: "17px",
+    lineHeight: "22px",
+    fontWeight: 600,
+  },
+
+  subtitle: {
+    margin: "3px 0 0 0",
+    padding: 0,
+    color: "#6B7280",
+    fontSize: "12px",
+    lineHeight: "17px",
+  },
+
+  closeButton: {
+    width: "34px",
+    height: "34px",
+    minWidth: "34px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: 0,
+    borderRadius: "7px",
+    background: "transparent",
+    color: "#6B7280",
+    cursor: "pointer",
+    padding: 0,
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     BODY
+  ======================================================= */
+
+  body: {
+    width: "100%",
+    padding: "22px 20px",
+    background: "#FFFFFF",
+    boxSizing: "border-box",
+    overflowY: "auto",
+  },
+
+  formGrid: {
+    width: "100%",
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(2, minmax(0, 1fr))",
+    columnGap: "18px",
+    rowGap: "20px",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     FORM FIELD
+  ======================================================= */
+
+  field: {
+    width: "100%",
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
+  },
+
+  statusField: {
+    gridColumn: "1 / -1",
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    boxSizing: "border-box",
+  },
+
+  label: {
+    display: "block",
+    margin: "0 0 7px 0",
+    padding: 0,
+    color: "#374151",
+    fontSize: "12px",
+    lineHeight: "16px",
+    fontWeight: 500,
+  },
+
+  required: {
+    marginLeft: "3px",
+    color: "#DC2626",
+    fontWeight: 600,
+  },
+
+  input: {
+    width: "100%",
+    height: "40px",
+    border: "1px solid #D1D5DB",
+    borderRadius: "7px",
+    background: "#FFFFFF",
+    color: "#111827",
+    padding: "0 12px",
+    fontSize: "12px",
+    lineHeight: "16px",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+
+  disabledInput: {
+    background: "#F3F4F6",
+    color: "#6B7280",
+    cursor: "not-allowed",
+  },
+
+  /* =======================================================
+     RADIO
+  ======================================================= */
+
+  radioContainer: {
+    minHeight: "40px",
+    display: "flex",
+    alignItems: "center",
+    gap: "28px",
+    boxSizing: "border-box",
+  },
+
+  radioLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: "7px",
+    height: "32px",
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
+
+  radioInput: {
+    width: "15px",
+    height: "15px",
+    margin: 0,
+    cursor: "pointer",
+    accentColor: "#2563EB",
+  },
+
+  radioText: {
+    color: "#374151",
+    fontSize: "12px",
+    lineHeight: "16px",
+    fontWeight: 400,
+  },
+
+  /* =======================================================
+     FOOTER
+  ======================================================= */
+
+  footer: {
+    width: "100%",
+    minHeight: "64px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: "10px",
+    padding: "12px 20px",
+    background: "#F9FAFB",
+    borderTop: "1px solid #E5E7EB",
+    boxSizing: "border-box",
+    flexShrink: 0,
+  },
+
+  /* =======================================================
+     CANCEL BUTTON
+  ======================================================= */
+
+  cancelButton: {
+    height: "36px",
+    minWidth: "82px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid #D1D5DB",
+    borderRadius: "7px",
+    background: "#FFFFFF",
+    color: "#374151",
+    padding: "0 16px",
+    fontSize: "12px",
+    lineHeight: "16px",
+    fontWeight: 500,
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
+
+  /* =======================================================
+     SAVE BUTTON
+  ======================================================= */
+
+  saveButton: {
+    height: "36px",
+    minWidth: "105px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    border: "1px solid #2563EB",
+    borderRadius: "7px",
+    background: "#2563EB",
+    color: "#FFFFFF",
+    padding: "0 16px",
+    fontSize: "12px",
+    lineHeight: "16px",
+    fontWeight: 500,
+    cursor: "pointer",
+    boxSizing: "border-box",
+  },
+
+  saveButtonDisabled: {
+    background: "#9CA3AF",
+    borderColor: "#9CA3AF",
+    cursor: "not-allowed",
+  },
+};

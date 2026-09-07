@@ -78,7 +78,7 @@ export default function AuditLog() {
 
                     {
                         auditLogs.map((log)=>(
-
+                            
                             <div
                                 key={log.id}
                                 className="
