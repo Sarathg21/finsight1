@@ -36,11 +36,9 @@ export default function ProtectedRoute({
    * -----------------------------------------------------------
    */
 
-  const allowed = adminOnly
-    ? canAdmin?.('USER_MANAGEMENT') ?? false
-    : canAccess?.(pageKey) ?? false;
-
-
+const allowed = adminOnly
+  ? canAdmin?.("USER_MANAGEMENT") ?? false
+  : canAccess?.(pageKey) ?? false;
   /* -----------------------------------------------------------
      Audit access decision
   ----------------------------------------------------------- */
