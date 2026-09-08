@@ -88,7 +88,7 @@ const buildParams = (filters = {}, includePeriod = true) => {
         includePeriod &&
         filters.period_name
     ) {
-        params.append(
+        appendArray(
             "period_name",
             filters.period_name
         );
@@ -484,22 +484,25 @@ export const getOpexMonthly = async (
    CATEGORY DETAIL MONTHLY
 ========================================================= */
 
-export const getOpexCategoryDetailMonthly =
-    async (params = {}) => {
-        try {
-            const response = await api.get(
-                "/opex/category-detail-monthly",
-                {
-                    params,
-                }
-            );
+export const getOpexCategoryDetailMonthly = async (
+    { category, ...filters } = {}
+) => {
+    try {
+        const params = buildParams(filters, true);
 
-            return response.data;
-
-        } catch (error) {
-            throw getApiError(error);
+        if (category) {
+            params.append("category", category);
         }
-    };
+
+        const response = await api.get("/opex/category-detail-monthly", {
+            params,
+        });
+
+        return getResponseData(response);
+    } catch (error) {
+        throw getApiError(error);
+    }
+};
 
 
 export const exportOpexCategoryComparison = async (
@@ -556,16 +559,16 @@ export const getOpexCategoryBreakdownViewAll =
         }
     };
 
-    /* =========================================================
-   CATEGORY BREAKDOWN EXPORT
+/* =========================================================
+CATEGORY BREAKDOWN EXPORT
 
-   GET /api/opex/category-breakdown/export
+GET /api/opex/category-breakdown/export
 
-   format:
-      excel
-      pdf
+format:
+  excel
+  pdf
 
-   Response is binary/blob.
+Response is binary/blob.
 ========================================================= */
 
 export const exportOpexCategoryBreakdown =
@@ -598,3 +601,85 @@ export const exportOpexCategoryBreakdown =
             throw getApiError(error);
         }
     };
+
+/* =========================================================
+COMPLETE OPEX PAGE EXPORT
+
+GET /api/opex/export
+
+Exports the complete OPEX report, not just one section.
+
+format:
+  excel
+  pdf
+
+Uses the SAME active dashboard filters.
+========================================================= */
+
+export const exportOpexFullReport = async (
+    filters = {},
+    format = "excel"
+) => {
+    try {
+        const params = buildParams(
+            filters,
+            true
+        );
+
+        params.append(
+            "format",
+            format
+        );
+
+        const response = await api.get(
+            "/opex/export",
+            {
+                params,
+                responseType: "blob",
+            }
+        );
+
+        return response;
+
+    } catch (error) {
+        throw getApiError(error);
+    }
+};
+
+/* =========================================================
+   RECONCILIATION
+
+   GET /api/opex/reconciliation
+
+   Uses the SAME filter serialization as the other
+   OPEX financial APIs.
+
+   Multi-select period_name values are sent as
+   repeated query parameters:
+   period_name=Apr-26
+   period_name=May-26
+   period_name=Jun-26
+========================================================= */
+
+export const getOpexReconciliation = async (
+    filters = {}
+) => {
+    try {
+        const params = buildParams(
+            filters,
+            true
+        );
+
+        const response = await api.get(
+            "/opex/reconciliation",
+            {
+                params,
+            }
+        );
+
+        return getResponseData(response);
+
+    } catch (error) {
+        throw getApiError(error);
+    }
+};

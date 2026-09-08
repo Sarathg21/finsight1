@@ -1,19 +1,19 @@
 
-
-import React, {
-    useEffect,
-    useState,
-} from "react";
+import React, { useEffect, useState, } from "react";
 
 import ExportButtons from "../components/Common/ExportButtons";
 import PageHeader from "../components/Common/PageHeader";
 import FooterNote from "../components/FooterNote";
 import Filters from "../components/Filters/Filters";
+
 import ActualVsTargetChart from "../components/Charts/ActualvsTargetChart";
 import OpexCompositionChart from "../components/Charts/OpexCompositionChart";
+
 import ExpenseCategoryDrillDown from "../components/Tables/ExpenseCategoryDrillDown";
 import MonthOnMonthOpexReport from "../components/Tables/MonthOnMonthOpexReport";
+
 import OperatingExpenseSummary from "../components/Cards/OperatingExpenseSummary";
+
 import OperatingAnalysisViewAllModal from "../components/Modals/OperatingAnalysisViewAllModal";
 import ExpenseCategoryDrillDownModal from "../components/Modals/ExpenseCategoryDrillDownModal";
 
@@ -25,11 +25,12 @@ import {
     getOpexCategoryBreakdown,
     getOpexMonthly,
     getOpexCategoryDetail,
+    getOpexCategoryDetailMonthly,
     getOpexCompositionViewAll,
     getOpexCategoryBreakdownViewAll,
     exportOpexComposition,
     exportOpexCategoryComparison,
-    exportOpexCategoryBreakdown,
+    exportOpexCategoryBreakdown, getOpexReconciliation, exportOpexFullReport,
 } from "../api/opexApi";
 
 /* =========================================================
@@ -77,6 +78,23 @@ const getLatestPeriod = (
     return getOptionValue(
         periods[periods.length - 1]
     );
+};
+
+/* =========================================================
+   PERIOD VALUE HELPER
+
+   Period is a multi-select filter, so it is stored
+   internally as an array.
+========================================================= */
+
+const getPeriodDisplayValue = (
+    period
+) => {
+    if (Array.isArray(period)) {
+        return period.join(", ");
+    }
+
+    return period || "";
 };
 
 /* =========================================================
@@ -155,7 +173,9 @@ const downloadBlob = (
     link.download = fileName;
 
     document.body.appendChild(link);
+
     link.click();
+
     document.body.removeChild(link);
 
     window.URL.revokeObjectURL(url);
@@ -251,6 +271,7 @@ export default function OperatingAnalysis() {
         targetPTD: null,
         variancePTD: null,
         variancePTDPercent: null,
+
         actualYTD: null,
         targetYTD: null,
         varianceYTD: null,
@@ -280,6 +301,8 @@ export default function OperatingAnalysis() {
         monthOnMonthOpexData,
         setMonthOnMonthOpexData,
     ] = useState([]);
+
+    const [reconciliationData, setReconciliationData] = useState(null);
 
     /* =====================================================
        UI STATE
@@ -365,16 +388,23 @@ export default function OperatingAnalysis() {
        - PageHeader ExportButtons
        - Actual Vs Target chart buttons
        - OPEX Composition chart buttons
-
-       Existing confirmed backend export:
-       /opex/composition/export
     ===================================================== */
 
     const handleExport = async (
         type,
         format
     ) => {
-        if (!activeOpexFilters?.period) {
+
+        const hasSelectedPeriod =
+            Array.isArray(
+                activeOpexFilters?.period
+            )
+                ? activeOpexFilters.period.length > 0
+                : Boolean(
+                    activeOpexFilters?.period
+                );
+
+        if (!hasSelectedPeriod) {
             setError(
                 "Please select a Period before exporting."
             );
@@ -383,6 +413,7 @@ export default function OperatingAnalysis() {
 
         try {
             setError("");
+
             setExporting(format);
 
             const response =
@@ -406,8 +437,16 @@ export default function OperatingAnalysis() {
                     ? "Actual-vs-Target"
                     : "OPEX-Composition";
 
+            const periodForFileName =
+                getPeriodDisplayValue(
+                    activeOpexFilters?.period
+                ).replace(
+                    /,\s*/g,
+                    "-"
+                );
+
             const fallbackName =
-                `${sectionName}-${activeOpexFilters.period}.${extension}`;
+                `${sectionName}-${periodForFileName}.${extension}`;
 
             const fileName =
                 getDownloadFileName(
@@ -419,7 +458,9 @@ export default function OperatingAnalysis() {
                 response,
                 fileName
             );
+
         } catch (error) {
+
             console.error(
                 `Failed to export ${type} to ${format}:`,
                 error
@@ -429,19 +470,107 @@ export default function OperatingAnalysis() {
                 error?.message ||
                 `Failed to export ${type} to ${format.toUpperCase()}.`
             );
+
+        } finally {
+            setExporting("");
+        }
+    };
+
+
+    /* =====================================================
+   COMPLETE OPEX PAGE EXPORT
+
+   Header Excel / PDF buttons use this function.
+
+   IMPORTANT:
+   This exports the COMPLETE OPEX report from backend,
+   not OPEX Composition only.
+===================================================== */
+
+    const handleFullOpexExport = async (format) => {
+        const hasSelectedPeriod =
+            Array.isArray(activeOpexFilters?.period)
+                ? activeOpexFilters.period.length > 0
+                : Boolean(activeOpexFilters?.period);
+
+        if (!hasSelectedPeriod) {
+            setError(
+                "Please select a Period before exporting."
+            );
+            return;
+        }
+
+        try {
+            setError("");
+
+            setExporting(
+                `full-opex-${format}`
+            );
+
+            const response =
+                await exportOpexFullReport(
+                    compositionApiFilters,
+                    format
+                );
+
+            const extension =
+                format === "excel"
+                    ? "xlsx"
+                    : "pdf";
+
+            const periodForFileName =
+                getPeriodDisplayValue(
+                    activeOpexFilters?.period
+                ).replace(
+                    /,\s*/g,
+                    "-"
+                );
+
+            const fallbackName =
+                `Operating-Expenses-Analysis-${periodForFileName}.${extension}`;
+
+            const fileName =
+                getDownloadFileName(
+                    response,
+                    fallbackName
+                );
+
+            downloadBlob(
+                response,
+                fileName
+            );
+
+        } catch (error) {
+            console.error(
+                `Failed to export complete OPEX report to ${format}:`,
+                error
+            );
+
+            setError(
+                error?.message ||
+                `Failed to export complete OPEX report to ${format.toUpperCase()}.`
+            );
+
         } finally {
             setExporting("");
         }
     };
 
     /* =====================================================
-       CATEGORY DETAIL
+       EXPENSE CATEGORY DETAIL
+
+       Used by:
+       - Expense Category Drill-Down
+       - Composition drill-down
     ===================================================== */
 
     const handleExpandCategory =
         async (item) => {
+
             const category =
-                item?.category;
+                typeof item === "string"
+                    ? item
+                    : item?.category;
 
             if (!category) {
                 return;
@@ -461,6 +590,7 @@ export default function OperatingAnalysis() {
             }
 
             try {
+
                 setDetailLoading(
                     (prev) => ({
                         ...prev,
@@ -502,7 +632,9 @@ export default function OperatingAnalysis() {
                                     : row
                         )
                 );
+
             } catch (error) {
+
                 console.error(
                     `Failed to load category details for ${category}:`,
                     error
@@ -512,11 +644,90 @@ export default function OperatingAnalysis() {
                     error?.message ||
                     `Failed to load details for ${category}.`
                 );
+
             } finally {
+
                 setDetailLoading(
                     (prev) => ({
                         ...prev,
                         [category]: false,
+                    })
+                );
+            }
+        };
+
+    /* =====================================================
+       MONTH-ON-MONTH CATEGORY DETAIL
+
+       IMPORTANT:
+       Month-on-Month uses the dedicated
+       /opex/category-detail-monthly endpoint.
+    ===================================================== */
+
+    const handleExpandMonthlyCategory =
+        async (item) => {
+
+            const category =
+                typeof item === "string"
+                    ? item
+                    : item?.category;
+
+            if (!category) {
+                return [];
+            }
+
+            try {
+
+                setDetailLoading(
+                    (prev) => ({
+                        ...prev,
+                        [`monthly-${category}`]: true,
+                    })
+                );
+
+                const apiFilters =
+                    buildApiFilters(
+                        activeOpexFilters
+                    );
+
+                const response =
+                    await getOpexCategoryDetailMonthly({
+                        ...apiFilters,
+                        category,
+                    });
+
+                const details =
+                    Array.isArray(response)
+                        ? response
+                        : response?.items ||
+                        response?.accounts ||
+                        response?.natural_accounts ||
+                        response?.details ||
+                        response?.data ||
+                        [];
+
+                return details;
+
+            } catch (error) {
+
+                console.error(
+                    `Failed to load monthly details for ${category}:`,
+                    error
+                );
+
+                setError(
+                    error?.message ||
+                    `Failed to load monthly details for ${category}.`
+                );
+
+                return [];
+
+            } finally {
+
+                setDetailLoading(
+                    (prev) => ({
+                        ...prev,
+                        [`monthly-${category}`]: false,
                     })
                 );
             }
@@ -528,6 +739,7 @@ export default function OperatingAnalysis() {
 
     const handleCompositionDrillDown =
         (item) => {
+
             const category =
                 item?.name ||
                 item?.category;
@@ -547,9 +759,17 @@ export default function OperatingAnalysis() {
 
     const handleCompositionViewAll =
         async () => {
-            if (
-                !activeOpexFilters?.period
-            ) {
+
+            const hasSelectedPeriod =
+                Array.isArray(
+                    activeOpexFilters?.period
+                )
+                    ? activeOpexFilters.period.length > 0
+                    : Boolean(
+                        activeOpexFilters?.period
+                    );
+
+            if (!hasSelectedPeriod) {
                 setError(
                     "Please select a Period before opening View All."
                 );
@@ -557,6 +777,7 @@ export default function OperatingAnalysis() {
             }
 
             try {
+
                 setError("");
 
                 setCompositionViewAllLoading(
@@ -587,7 +808,9 @@ export default function OperatingAnalysis() {
                 setCompositionViewAllOpen(
                     true
                 );
+
             } catch (error) {
+
                 console.error(
                     "Failed to load OPEX Composition View All:",
                     error
@@ -597,7 +820,9 @@ export default function OperatingAnalysis() {
                     error?.message ||
                     "Failed to load OPEX Composition View All."
                 );
+
             } finally {
+
                 setCompositionViewAllLoading(
                     false
                 );
@@ -606,115 +831,24 @@ export default function OperatingAnalysis() {
 
     /* =====================================================
        ACTUAL VS TARGET VIEW ALL
+
+       Uses the same category-comparison API
+       as the chart.
     ===================================================== */
 
-    /* =====================================================
-      ACTUAL VS TARGET VIEW ALL
-      Uses the same category-comparison API as the chart
-   ===================================================== */
-
-    const handleActualVsTargetViewAll = async () => {
-        if (!activeOpexFilters?.period) {
-            setError(
-                "Please select a Period before opening View All."
-            );
-            return;
-        }
-
-        try {
-            setError("");
-            setCompositionViewAllLoading(true);
-
-            const response =
-                await getOpexCategoryComparison(
-                    compositionApiFilters
-                );
-
-            const rows =
-                Array.isArray(response)
-                    ? response
-                    : Array.isArray(response?.items)
-                        ? response.items
-                        : Array.isArray(response?.categories)
-                            ? response.categories
-                            : Array.isArray(response?.data)
-                                ? response.data
-                                : Array.isArray(response?.results)
-                                    ? response.results
-                                    : [];
-
-            const normalizedRows = rows.map((item) => ({
-                category: item?.category ?? "",
-
-                actual:
-                    item?.actual_ptd_aed ??
-                    item?.actual_ptd ??
-                    null,
-
-                target:
-                    item?.target_ptd_aed ??
-                    item?.target_ptd ??
-                    null,
-
-                variance:
-                    item?.variance_ptd_aed ??
-                    item?.variance_ptd ??
-                    null,
-
-                variance_pct:
-                    item?.variance_ptd_pct ??
-                    null,
-
-                actual_ptd_aed:
-                    item?.actual_ptd_aed ?? null,
-
-                target_ptd_aed:
-                    item?.target_ptd_aed ?? null,
-
-                variance_ptd_aed:
-                    item?.variance_ptd_aed ?? null,
-
-                variance_ptd_pct:
-                    item?.variance_ptd_pct ?? null,
-
-                reporting_currency:
-                    item?.reporting_currency ??
-                    activeOpexFilters?.reporting_currency ??
-                    "AED",
-            }));
-
-            setCompositionViewAllData(normalizedRows);
-            setViewAllType("actual-vs-target");
-            setCompositionViewAllOpen(true);
-        } catch (error) {
-            console.error(
-                "Failed to load Actual vs Target View All:",
-                error
-            );
-
-            setError(
-                error?.message ||
-                "Failed to load Actual vs Target View All."
-            );
-        } finally {
-            setCompositionViewAllLoading(false);
-        }
-    };
-    /* =====================================================
-EXPENSE CATEGORY DRILL-DOWN VIEW ALL
-===================================================== */
-
-    /* =====================================================
-    EXPENSE CATEGORY DRILL-DOWN VIEW ALL
- 
-    GET:
-    /api/opex/category-breakdown/view-all
- ===================================================== */
-
-    const handleExpenseCategoryViewAll =
+    const handleActualVsTargetViewAll =
         async () => {
 
-            if (!activeOpexFilters?.period) {
+            const hasSelectedPeriod =
+                Array.isArray(
+                    activeOpexFilters?.period
+                )
+                    ? activeOpexFilters.period.length > 0
+                    : Boolean(
+                        activeOpexFilters?.period
+                    );
+
+            if (!hasSelectedPeriod) {
                 setError(
                     "Please select a Period before opening View All."
                 );
@@ -722,6 +856,148 @@ EXPENSE CATEGORY DRILL-DOWN VIEW ALL
             }
 
             try {
+
+                setError("");
+
+                setCompositionViewAllLoading(
+                    true
+                );
+
+                const response =
+                    await getOpexCategoryComparison(
+                        compositionApiFilters
+                    );
+
+                const rows =
+                    Array.isArray(response)
+                        ? response
+                        : Array.isArray(
+                            response?.items
+                        )
+                            ? response.items
+                            : Array.isArray(
+                                response?.categories
+                            )
+                                ? response.categories
+                                : Array.isArray(
+                                    response?.data
+                                )
+                                    ? response.data
+                                    : Array.isArray(
+                                        response?.results
+                                    )
+                                        ? response.results
+                                        : [];
+
+                const normalizedRows =
+                    rows.map(
+                        (item) => ({
+                            category:
+                                item?.category ??
+                                "",
+
+                            actual:
+                                item?.actual_ptd_aed ??
+                                item?.actual_ptd ??
+                                null,
+
+                            target:
+                                item?.target_ptd_aed ??
+                                item?.target_ptd ??
+                                null,
+
+                            variance:
+                                item?.variance_ptd_aed ??
+                                item?.variance_ptd ??
+                                null,
+
+                            variance_pct:
+                                item?.variance_ptd_pct ??
+                                null,
+
+                            actual_ptd_aed:
+                                item?.actual_ptd_aed ??
+                                null,
+
+                            target_ptd_aed:
+                                item?.target_ptd_aed ??
+                                null,
+
+                            variance_ptd_aed:
+                                item?.variance_ptd_aed ??
+                                null,
+
+                            variance_ptd_pct:
+                                item?.variance_ptd_pct ??
+                                null,
+
+                            reporting_currency:
+                                item?.reporting_currency ??
+                                activeOpexFilters?.reporting_currency ??
+                                "AED",
+                        })
+                    );
+
+                setCompositionViewAllData(
+                    normalizedRows
+                );
+
+                setViewAllType(
+                    "actual-vs-target"
+                );
+
+                setCompositionViewAllOpen(
+                    true
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Failed to load Actual vs Target View All:",
+                    error
+                );
+
+                setError(
+                    error?.message ||
+                    "Failed to load Actual vs Target View All."
+                );
+
+            } finally {
+
+                setCompositionViewAllLoading(
+                    false
+                );
+            }
+        };
+
+    /* =====================================================
+       EXPENSE CATEGORY DRILL-DOWN VIEW ALL
+
+       GET:
+       /api/opex/category-breakdown/view-all
+    ===================================================== */
+
+    const handleExpenseCategoryViewAll =
+        async () => {
+
+            const hasSelectedPeriod =
+                Array.isArray(
+                    activeOpexFilters?.period
+                )
+                    ? activeOpexFilters.period.length > 0
+                    : Boolean(
+                        activeOpexFilters?.period
+                    );
+
+            if (!hasSelectedPeriod) {
+                setError(
+                    "Please select a Period before opening View All."
+                );
+                return;
+            }
+
+            try {
+
                 setError("");
 
                 setCompositionViewAllLoading(
@@ -773,10 +1049,9 @@ EXPENSE CATEGORY DRILL-DOWN VIEW ALL
                 );
             }
         };
+
     /* =====================================================
        ACTUAL VS TARGET EXPORT
-
-       Uses the SAME common export handler.
     ===================================================== */
 
     const handleActualVsTargetExportExcel =
@@ -792,11 +1067,13 @@ EXPENSE CATEGORY DRILL-DOWN VIEW ALL
                 "actual-vs-target",
                 "pdf"
             );
+
     /* =====================================================
        CLOSE VIEW ALL
     ===================================================== */
 
     const handleCloseViewAll = () => {
+
         setCompositionViewAllOpen(
             false
         );
@@ -814,8 +1091,6 @@ EXPENSE CATEGORY DRILL-DOWN VIEW ALL
 
     /* =====================================================
        OPEX COMPOSITION EXPORT
-
-       Uses the SAME common export handler.
     ===================================================== */
 
     const handleCompositionExportExcel =
@@ -832,16 +1107,23 @@ EXPENSE CATEGORY DRILL-DOWN VIEW ALL
                 "pdf"
             );
 
-
-
     /* =====================================================
-EXPENSE CATEGORY DRILL-DOWN EXPORT
-===================================================== */
+       EXPENSE CATEGORY DRILL-DOWN EXPORT
+    ===================================================== */
 
     const handleExpenseCategoryExport =
         async (format) => {
 
-            if (!activeOpexFilters?.period) {
+            const hasSelectedPeriod =
+                Array.isArray(
+                    activeOpexFilters?.period
+                )
+                    ? activeOpexFilters.period.length > 0
+                    : Boolean(
+                        activeOpexFilters?.period
+                    );
+
+            if (!hasSelectedPeriod) {
                 setError(
                     "Please select a Period before exporting."
                 );
@@ -867,8 +1149,16 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                         ? "xlsx"
                         : "pdf";
 
+                const periodForFileName =
+                    getPeriodDisplayValue(
+                        activeOpexFilters?.period
+                    ).replace(
+                        /,\s*/g,
+                        "-"
+                    );
+
                 const fallbackName =
-                    `Expense-Category-Drill-Down-${activeOpexFilters.period}.${extension}`;
+                    `Expense-Category-Drill-Down-${periodForFileName}.${extension}`;
 
                 const fileName =
                     getDownloadFileName(
@@ -910,6 +1200,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
             handleExpenseCategoryExport(
                 "pdf"
             );
+
     /* =====================================================
        LOAD DASHBOARD DATA
     ===================================================== */
@@ -918,13 +1209,22 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
         async (
             selectedFilters
         ) => {
-            if (
-                !selectedFilters?.period
-            ) {
+
+            const hasSelectedPeriod =
+                Array.isArray(
+                    selectedFilters?.period
+                )
+                    ? selectedFilters.period.length > 0
+                    : Boolean(
+                        selectedFilters?.period
+                    );
+
+            if (!hasSelectedPeriod) {
                 return;
             }
 
             try {
+
                 setDashboardLoading(
                     true
                 );
@@ -941,7 +1241,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     categoryComparisonResponse,
                     compositionResponse,
                     categoryBreakdownResponse,
-                    monthlyResponse,
+                    monthlyResponse, reconciliationResponse,
                 ] =
                     await Promise.all([
                         getOpexSummary(
@@ -963,16 +1263,22 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                         getOpexMonthly(
                             apiFilters
                         ),
+
+                        getOpexReconciliation(apiFilters),
                     ]);
 
                 /* =================================================
                    SUMMARY
+
+                   Values come directly from backend.
+                   No PTD/YTD/variance calculation in frontend.
                 ================================================= */
 
                 const summary =
                     summaryResponse || {};
 
                 setSummaryData({
+
                     actualPTD:
                         summary.actual_ptd_aed ??
                         summary.actual_ptd ??
@@ -1129,6 +1435,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     monthly
                 );
 
+                setReconciliationData(reconciliationResponse || null);
                 /* =================================================
                    DATA AS OF
                 ================================================= */
@@ -1140,7 +1447,9 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                         summary.data_as_of
                     );
                 }
+
             } catch (error) {
+
                 console.error(
                     "Failed to load OPEX dashboard data:",
                     error
@@ -1150,7 +1459,9 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     error?.message ||
                     "Failed to load OPEX dashboard data."
                 );
+
             } finally {
+
                 setDashboardLoading(
                     false
                 );
@@ -1164,6 +1475,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
     const formatDataAsOf = (
         date
     ) => {
+
         if (!date) {
             return "";
         }
@@ -1195,8 +1507,11 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
 
     const loadFilterOptions =
         async () => {
+
             try {
+
                 setLoading(true);
+
                 setError("");
 
                 const response =
@@ -1224,6 +1539,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     "AED";
 
                 setFilterOptions({
+
                     as_on_dates:
                         data.as_on_dates || [],
 
@@ -1262,31 +1578,41 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
 
                 /* =================================================
                    INITIAL FILTERS
+
+                   Year = single value
+                   Period = array
+                   Hierarchy filters = arrays
                 ================================================= */
 
                 if (
                     latestPeriod
                 ) {
+
                     const initialFilters = {
+
                         year:
                             getOptionValue(
                                 years?.[0]
                             ) || "",
 
                         legal_group:
-                            "",
+                            [],
 
                         legal_entity:
-                            "",
+                            [],
 
                         parent_division:
-                            "",
+                            [],
 
                         subdivision:
-                            "",
+                            [],
 
                         period:
-                            latestPeriod,
+                            [
+                                String(
+                                    latestPeriod
+                                ),
+                            ],
 
                         compare_with:
                             "",
@@ -1303,7 +1629,9 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                         initialFilters
                     );
                 }
+
             } catch (error) {
+
                 console.error(
                     "Failed to load OPEX filter options:",
                     error
@@ -1313,7 +1641,9 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     error?.message ||
                     "Failed to load OPEX filter options."
                 );
+
             } finally {
+
                 setLoading(false);
             }
         };
@@ -1334,8 +1664,89 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
         async (
             selectedFilters
         ) => {
+
+            /*
+             * Normalize the filter structure before
+             * storing it as active filters.
+             *
+             * This keeps:
+             * - Year as single value
+             * - Period as array
+             * - Hierarchy filters as arrays
+             */
+
+            const normalizedFilters = {
+
+                ...selectedFilters,
+
+                year:
+                    selectedFilters?.year ??
+                    "",
+
+                legal_group:
+                    Array.isArray(
+                        selectedFilters?.legal_group
+                    )
+                        ? selectedFilters.legal_group
+                        : selectedFilters?.legal_group
+                            ? [
+                                selectedFilters.legal_group,
+                            ]
+                            : [],
+
+                legal_entity:
+                    Array.isArray(
+                        selectedFilters?.legal_entity
+                    )
+                        ? selectedFilters.legal_entity
+                        : selectedFilters?.legal_entity
+                            ? [
+                                selectedFilters.legal_entity,
+                            ]
+                            : [],
+
+                parent_division:
+                    Array.isArray(
+                        selectedFilters?.parent_division
+                    )
+                        ? selectedFilters.parent_division
+                        : selectedFilters?.parent_division
+                            ? [
+                                selectedFilters.parent_division,
+                            ]
+                            : [],
+
+                subdivision:
+                    Array.isArray(
+                        selectedFilters?.subdivision
+                    )
+                        ? selectedFilters.subdivision
+                        : selectedFilters?.subdivision
+                            ? [
+                                selectedFilters.subdivision,
+                            ]
+                            : [],
+
+                period:
+                    Array.isArray(
+                        selectedFilters?.period
+                    )
+                        ? selectedFilters.period
+                        : selectedFilters?.period
+                            ? [
+                                String(
+                                    selectedFilters.period
+                                ),
+                            ]
+                            : [],
+
+                reporting_currency:
+                    selectedFilters?.reporting_currency ||
+                    "AED",
+            };
+
             setActiveOpexFilters(
-                selectedFilters
+                normalizedFilters
             );
 
             /* Clear old View All data */
@@ -1351,9 +1762,10 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
             setViewAllType(null);
 
             setDetailLoading({});
+            setReconciliationData(null);
 
             await loadDashboardData(
-                selectedFilters
+                normalizedFilters
             );
         };
 
@@ -1363,6 +1775,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
 
     const handleResetFilters =
         async () => {
+
             const latestPeriod =
                 getLatestPeriod(
                     filterOptions.periods
@@ -1373,25 +1786,30 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
             }
 
             const resetFilters = {
+
                 year:
                     getOptionValue(
                         filterOptions.years?.[0]
                     ) || "",
 
                 legal_group:
-                    "",
+                    [],
 
                 legal_entity:
-                    "",
+                    [],
 
                 parent_division:
-                    "",
+                    [],
 
                 subdivision:
-                    "",
+                    [],
 
                 period:
-                    latestPeriod,
+                    [
+                        String(
+                            latestPeriod
+                        ),
+                    ],
 
                 compare_with:
                     "",
@@ -1417,10 +1835,28 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 []
             );
 
+            setReconciliationData(null);
             await loadDashboardData(
                 resetFilters
             );
         };
+
+    /* =====================================================
+       REPORTING CURRENCY
+    ===================================================== */
+
+    const reportingCurrency =
+        activeOpexFilters?.reporting_currency ||
+        "AED";
+
+    /* =====================================================
+       PERIOD DISPLAY VALUE
+    ===================================================== */
+
+    const periodDisplayValue =
+        getPeriodDisplayValue(
+            activeOpexFilters?.period
+        );
 
     /* =====================================================
        RETURN
@@ -1433,16 +1869,13 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 title="Operating Expenses Analysis"
                 subtitle="Detailed Operating expense performance and variance analysis across divisions."
             >
+
                 <ExportButtons
                     endpoint="operatinganalysis"
                     exporting={exporting}
-                    handleExport={(format) =>
-                        handleExport(
-                            "composition",
-                            format
-                        )
-                    }
+                    handleExport={handleFullOpexExport}
                 />
+
             </PageHeader>
 
             <div className="flex flex-col gap-2">
@@ -1466,6 +1899,22 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                             handleResetFilters
                         }
 
+                        /*
+                         * IMPORTANT:
+                         * Do NOT load dashboard data here.
+                         *
+                         * Filters are applied only after
+                         * clicking Apply.
+                         */
+
+                        onChange={(filters) => {
+                            // Keep local/active filter state
+                            // updated without triggering APIs.
+                            setActiveOpexFilters(
+                                filters
+                            );
+                        }}
+
                         isOperatingExpenses={
                             true
                         }
@@ -1478,6 +1927,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 ================================================= */}
 
                 {error && (
+
                     <div
                         style={{
                             padding:
@@ -1510,6 +1960,10 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 <OperatingExpenseSummary
                     data={
                         summaryData
+                    }
+
+                    reportingCurrency={
+                        reportingCurrency
                     }
                 />
 
@@ -1612,10 +2066,21 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 ================================================= */}
 
                 <ExpenseCategoryDrillDown
-                    data={expenseCategoryDrilldownData}
-                    totalData={summaryData}
-                    dataAsOf={dataAsOf}
-                    currentMonthPartial={currentMonthPartial}
+                    data={
+                        expenseCategoryDrilldownData
+                    }
+
+                    totalData={
+                        summaryData
+                    }
+
+                    dataAsOf={
+                        dataAsOf
+                    }
+
+                    currentMonthPartial={
+                        currentMonthPartial
+                    }
 
                     onExpandCategory={
                         handleExpandCategory
@@ -1626,7 +2091,7 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     }
 
                     periodName={
-                        activeOpexFilters?.period || ""
+                        periodDisplayValue
                     }
 
                     reportingCurrency={
@@ -1634,25 +2099,13 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                         "AED"
                     }
 
-                    /* ================================
-                       VIEW ALL
-                    ================================= */
-
                     onViewAll={
                         handleExpenseCategoryViewAll
                     }
 
-                    /* ================================
-                       EXCEL
-                    ================================= */
-
                     onExportExcel={
                         handleExpenseCategoryExportExcel
                     }
-
-                    /* ================================
-                       PDF
-                    ================================= */
 
                     onExportPdf={
                         handleExpenseCategoryExportPdf
@@ -1664,77 +2117,101 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 ================================================= */}
 
                 <MonthOnMonthOpexReport
-                    data={monthOnMonthOpexData}
-                    onExpandCategory={handleExpandCategory}
-                    detailLoading={detailLoading}
-                    periodName={activeOpexFilters?.period || ""}
-                    reportingCurrency={
-                        activeOpexFilters?.reporting_currency || "AED"
+                    data={
+                        monthOnMonthOpexData
                     }
+
+                    /*
+                     * IMPORTANT:
+                     * Month-on-Month uses the dedicated
+                     * natural-account detail endpoint.
+                     */
+
+                    onExpandCategory={
+                        handleExpandMonthlyCategory
+                    }
+
+                    detailLoading={
+                        detailLoading
+                    }
+
+                    periodName={
+                        periodDisplayValue
+                    }
+
+                    reportingCurrency={
+                        activeOpexFilters?.reporting_currency ||
+                        "AED"
+                    }
+                     filterOptions={filterOptions}
+
                     hierarchyFilters={{
-                        year: activeOpexFilters?.year || "",
+                        year:
+                            activeOpexFilters?.year ||
+                            "",
+
                         legal_group_id:
-                            activeOpexFilters?.legal_group || "",
+                            activeOpexFilters?.legal_group ||
+                            [],
+
                         legal_entity_id:
-                            activeOpexFilters?.legal_entity || "",
+                            activeOpexFilters?.legal_entity ||
+                            [],
+
                         parent_division_id:
-                            activeOpexFilters?.parent_division || "",
+                            activeOpexFilters?.parent_division ||
+                            [],
+
                         subdivision_id:
-                            activeOpexFilters?.subdivision || "",
+                            activeOpexFilters?.subdivision ||
+                            [],
                     }}
                 />
 
             </div>
 
             {/* =====================================================
-                COMMON VIEW ALL MODAL
-            ===================================================== */}
-
+    COMMON VIEW ALL MODAL
+===================================================== */}
             <OperatingAnalysisViewAllModal
-                open={compositionViewAllOpen}
+                open={
+                    compositionViewAllOpen &&
+                    viewAllType !== "expense-category"
+                }
                 onClose={handleCloseViewAll}
                 data={compositionViewAllData}
                 activeFilters={activeOpexFilters}
+                filterOptions={filterOptions}
                 reportingCurrency={
                     activeOpexFilters?.reporting_currency || "AED"
                 }
                 viewAllType={viewAllType}
-
                 title={
                     viewAllType === "actual-vs-target"
                         ? "Actual vs Target by Expense Category"
-                        : viewAllType === "expense-category"
-                            ? "Expense Category Drill-Down"
-                            : "OPEX Composition"
+                        : "OPEX Composition"
                 }
-
                 subtitle={
                     viewAllType === "actual-vs-target"
                         ? "Detailed actual versus target expense category analysis"
-                        : viewAllType === "expense-category"
-                            ? "Detailed PTD and YTD expense category analysis"
-                            : "Detailed operating expense composition by category"
+                        : "Detailed operating expense composition by category"
                 }
-
                 onExportExcel={
                     viewAllType === "actual-vs-target"
                         ? handleActualVsTargetExportExcel
-                        : viewAllType === "expense-category"
-                            ? handleExpenseCategoryExportExcel
-                            : handleCompositionExportExcel
+                        : handleCompositionExportExcel
                 }
-
                 onExportPdf={
                     viewAllType === "actual-vs-target"
                         ? handleActualVsTargetExportPdf
-                        : viewAllType === "expense-category"
-                            ? handleExpenseCategoryExportPdf
-                            : handleCompositionExportPdf
+                        : handleCompositionExportPdf
                 }
-
                 exporting={exporting}
             />
 
+            {/* =====================================================
+    EXPENSE CATEGORY DRILL-DOWN MODAL
+===================================================== */}
             <ExpenseCategoryDrillDownModal
                 open={
                     compositionViewAllOpen &&
@@ -1744,19 +2221,22 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                 data={compositionViewAllData}
                 loading={compositionViewAllLoading}
                 activeFilters={activeOpexFilters}
+                filterOptions={filterOptions}
                 reportingCurrency={
                     activeOpexFilters?.reporting_currency || "AED"
                 }
-                onExpandCategory={async (category) => {
-                    const response = await getOpexCategoryDetail({
-                        category,
-                        ...compositionApiFilters,
-                    });
+                onExpandCategory={
+                    async (category) => {
+                        const response =
+                            await getOpexCategoryDetail({
+                                category,
+                                ...compositionApiFilters,
+                            });
 
-                    return response;
-                }}
+                        return response;
+                    }
+                }
             />
-
             {/* =====================================================
                 FOOTER
             ===================================================== */}
@@ -1774,11 +2254,13 @@ EXPENSE CATEGORY DRILL-DOWN EXPORT
                     p-2
                 "
             >
+
                 <FooterNote
                     title="Note:"
-                    message={`All values are in AED | Data as of ${formatDataAsOf(dataAsOf)}`}
+                    message={`All values are in ${reportingCurrency}, | Data as of ${formatDataAsOf(dataAsOf)}`}
                     showRefresh={false}
                 />
+
             </div>
 
         </div>

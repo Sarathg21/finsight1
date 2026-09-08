@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
 import { getOpexFilterOptions } from "../../api/opexApi";
@@ -34,7 +32,6 @@ function FilterField({
         position: "relative",
         zIndex: isOperatingExpenses ? 20 : "auto",
 
-        /* FONT WEIGHT */
         fontWeight: 600,
       }}
     >
@@ -57,13 +54,6 @@ function FilterField({
 
 /* =========================================================
    OPEX Multi Select Dropdown
-
-   Used for:
-   - Legal Group
-   - Legal Entity
-   - Parent Division
-   - Sub-Division
-   - Period
 ========================================================= */
 
 function OpexMultiSelect({
@@ -77,10 +67,6 @@ function OpexMultiSelect({
   const [searchTerm, setSearchTerm] = useState("");
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
-
-  /* =======================================================
-     Close dropdown when clicking outside
-  ======================================================= */
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -106,10 +92,6 @@ function OpexMultiSelect({
     };
   }, []);
 
-  /* =======================================================
-     Focus search when dropdown opens
-  ======================================================= */
-
   useEffect(() => {
     if (open && searchable && searchInputRef.current) {
       setTimeout(() => {
@@ -118,17 +100,9 @@ function OpexMultiSelect({
     }
   }, [open, searchable]);
 
-  /* =======================================================
-     Normalize selected values
-  ======================================================= */
-
   const selectedValues = Array.isArray(value)
     ? value.map(String)
     : [];
-
-  /* =======================================================
-     Get option value
-  ======================================================= */
 
   const getValue = (item) => {
     if (
@@ -153,10 +127,6 @@ function OpexMultiSelect({
     return item;
   };
 
-  /* =======================================================
-     Get option label
-  ======================================================= */
-
   const getLabel = (item) => {
     if (
       item === null ||
@@ -180,10 +150,6 @@ function OpexMultiSelect({
     return item;
   };
 
-  /* =======================================================
-     Filter options by search term
-  ======================================================= */
-
   const filteredOptions = options.filter((item) => {
     const label = String(getLabel(item)).toLowerCase();
     const value = String(getValue(item)).toLowerCase();
@@ -199,10 +165,6 @@ function OpexMultiSelect({
     );
   });
 
-  /* =======================================================
-     Toggle option
-  ======================================================= */
-
   const handleOptionToggle = (optionValue) => {
     const stringValue = String(optionValue);
 
@@ -211,19 +173,15 @@ function OpexMultiSelect({
 
     const nextValues = exists
       ? selectedValues.filter(
-          (item) => item !== stringValue
-        )
+        (item) => item !== stringValue
+      )
       : [
-          ...selectedValues,
-          stringValue,
-        ];
+        ...selectedValues,
+        stringValue,
+      ];
 
     onChange(nextValues);
   };
-
-  /* =======================================================
-     Select All
-  ======================================================= */
 
   const handleSelectAll = () => {
     const visibleValues = filteredOptions
@@ -246,17 +204,9 @@ function OpexMultiSelect({
     onChange(mergedValues);
   };
 
-  /* =======================================================
-     Clear All
-  ======================================================= */
-
   const handleClearAll = () => {
     onChange([]);
   };
-
-  /* =======================================================
-     Display text
-  ======================================================= */
 
   const getDisplayText = () => {
     if (selectedValues.length === 0) {
@@ -286,15 +236,9 @@ function OpexMultiSelect({
         width: "100%",
         minWidth: 0,
         zIndex: open ? 1000 : 1,
-
-        /* FONT WEIGHT */
         fontWeight: 600,
       }}
     >
-      {/* =================================================
-          Dropdown Trigger
-      ================================================= */}
-
       <button
         type="button"
         className="filter-select w-full"
@@ -329,7 +273,6 @@ function OpexMultiSelect({
           position: "relative",
           zIndex: 1001,
 
-          /* FONT WEIGHT */
           fontWeight: 600,
         }}
       >
@@ -339,8 +282,6 @@ function OpexMultiSelect({
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             minWidth: 0,
-
-            /* FONT WEIGHT */
             fontWeight: 600,
           }}
         >
@@ -356,10 +297,6 @@ function OpexMultiSelect({
           }}
         />
       </button>
-
-      {/* =================================================
-          Dropdown Menu
-      ================================================= */}
 
       {open && (
         <div
@@ -390,14 +327,9 @@ function OpexMultiSelect({
 
             boxSizing: "border-box",
 
-            /* FONT WEIGHT */
             fontWeight: 600,
           }}
         >
-          {/* =================================================
-              Search
-          ================================================= */}
-
           {searchable && (
             <div
               style={{
@@ -471,7 +403,6 @@ function OpexMultiSelect({
                     backgroundColor:
                       "#ffffff",
 
-                    /* FONT WEIGHT */
                     fontWeight: 600,
                   }}
                 />
@@ -514,10 +445,6 @@ function OpexMultiSelect({
               </div>
             </div>
           )}
-
-          {/* =================================================
-              Select All / Clear
-          ================================================= */}
 
           <div
             style={{
@@ -585,18 +512,12 @@ function OpexMultiSelect({
             </button>
           </div>
 
-          {/* =================================================
-              Options
-          ================================================= */}
-
           {filteredOptions.length === 0 ? (
             <div
               style={{
                 padding: "10px 8px",
                 fontSize: "10px",
                 color: "#6b7280",
-
-                /* FONT WEIGHT */
                 fontWeight: 600,
               }}
             >
@@ -617,7 +538,7 @@ function OpexMultiSelect({
                   optionValue === "" ||
                   optionValue === null ||
                   optionValue ===
-                    undefined
+                  undefined
                 ) {
                   return null;
                 }
@@ -653,7 +574,6 @@ function OpexMultiSelect({
                       boxSizing:
                         "border-box",
 
-                      /* FONT WEIGHT */
                       fontWeight: 600,
                     }}
                   >
@@ -683,8 +603,6 @@ function OpexMultiSelect({
                           "hidden",
                         textOverflow:
                           "ellipsis",
-
-                        /* FONT WEIGHT */
                         fontWeight: 600,
                       }}
                     >
@@ -703,12 +621,6 @@ function OpexMultiSelect({
 
 /* =========================================================
    OPEX Single Select Dropdown
-
-   Used for:
-   - Year
-   - Reporting Currency
-
-   Includes search but NO checkbox.
 ========================================================= */
 
 function OpexSingleSelect({
@@ -724,10 +636,6 @@ function OpexSingleSelect({
     useState("");
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
-
-  /* =======================================================
-     Close outside
-  ======================================================= */
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -753,10 +661,6 @@ function OpexSingleSelect({
     };
   }, []);
 
-  /* =======================================================
-     Focus search
-  ======================================================= */
-
   useEffect(() => {
     if (
       open &&
@@ -768,10 +672,6 @@ function OpexSingleSelect({
       }, 0);
     }
   }, [open, searchable]);
-
-  /* =======================================================
-     Get option value
-  ======================================================= */
 
   const getValue = (item) => {
     if (
@@ -796,10 +696,6 @@ function OpexSingleSelect({
     return item;
   };
 
-  /* =======================================================
-     Get option label
-  ======================================================= */
-
   const getLabel = (item) => {
     if (
       item === null ||
@@ -822,10 +718,6 @@ function OpexSingleSelect({
 
     return item;
   };
-
-  /* =======================================================
-     Filter options
-  ======================================================= */
 
   const filteredOptions =
     options.filter((item) => {
@@ -852,10 +744,6 @@ function OpexSingleSelect({
       );
     });
 
-  /* =======================================================
-     Selected display
-  ======================================================= */
-
   const selectedOption = options.find(
     (item) =>
       String(getValue(item)) ===
@@ -865,17 +753,8 @@ function OpexSingleSelect({
   const displayText = selectedOption
     ? String(getLabel(selectedOption))
     : value
-    ? String(value)
-    : placeholder;
-
-  /* =======================================================
-     Change
-
-     Reporting Currency is intentionally kept as the
-     selected single value and passed to the parent.
-     The OPEX data layer should use this value to perform
-     the actual currency conversion.
-  ======================================================= */
+      ? String(value)
+      : placeholder;
 
   const handleChange = (nextValue) => {
     onChange(nextValue);
@@ -891,15 +770,9 @@ function OpexSingleSelect({
         width: "100%",
         minWidth: 0,
         zIndex: open ? 1000 : 1,
-
-        /* FONT WEIGHT */
         fontWeight: 600,
       }}
     >
-      {/* =================================================
-          Trigger
-      ================================================= */}
-
       <button
         type="button"
         className="filter-select w-full"
@@ -935,7 +808,6 @@ function OpexSingleSelect({
           position: "relative",
           zIndex: 1001,
 
-          /* FONT WEIGHT */
           fontWeight: 600,
         }}
       >
@@ -947,8 +819,6 @@ function OpexSingleSelect({
             whiteSpace:
               "nowrap",
             minWidth: 0,
-
-            /* FONT WEIGHT */
             fontWeight: 600,
           }}
         >
@@ -964,10 +834,6 @@ function OpexSingleSelect({
           }}
         />
       </button>
-
-      {/* =================================================
-          Menu
-      ================================================= */}
 
       {open && (
         <div
@@ -1001,14 +867,9 @@ function OpexSingleSelect({
             boxSizing:
               "border-box",
 
-            /* FONT WEIGHT */
             fontWeight: 600,
           }}
         >
-          {/* =================================================
-              Search
-          ================================================= */}
-
           {searchable && (
             <div
               style={{
@@ -1102,8 +963,8 @@ function OpexSingleSelect({
                     backgroundColor:
                       "#ffffff",
 
-                    /* FONT WEIGHT */
-                    fontWeight: 600,
+                    fontWeight:
+                      600,
                   }}
                 />
 
@@ -1151,10 +1012,6 @@ function OpexSingleSelect({
             </div>
           )}
 
-          {/* =================================================
-              Options
-          ================================================= */}
-
           {filteredOptions.length === 0 ? (
             <div
               style={{
@@ -1164,8 +1021,6 @@ function OpexSingleSelect({
                   "10px",
                 color:
                   "#6b7280",
-
-                /* FONT WEIGHT */
                 fontWeight: 600,
               }}
             >
@@ -1184,11 +1039,11 @@ function OpexSingleSelect({
 
                 if (
                   optionValue ===
-                    "" ||
+                  "" ||
                   optionValue ===
-                    null ||
+                  null ||
                   optionValue ===
-                    undefined
+                  undefined
                 ) {
                   return null;
                 }
@@ -1260,9 +1115,8 @@ function OpexSingleSelect({
                           "hidden",
                         textOverflow:
                           "ellipsis",
-
-                        /* FONT WEIGHT */
-                        fontWeight: 600,
+                        fontWeight:
+                          600,
                       }}
                     >
                       {optionLabel}
@@ -1280,8 +1134,6 @@ function OpexSingleSelect({
 
 /* =========================================================
    Common Select Filters
-
-   DO NOT CHANGE
 ========================================================= */
 
 const commonSelectFilters = [
@@ -1314,8 +1166,6 @@ const commonSelectFilters = [
 
 /* =========================================================
    Operating Expenses Filters
-
-   ONLY OPEX
 ========================================================= */
 
 const operatingSelectFilters = [
@@ -1536,8 +1386,8 @@ function normalizeOpexFilterOptions(
 ) {
   const payload =
     data?.data &&
-    typeof data.data === "object" &&
-    !Array.isArray(data.data)
+      typeof data.data === "object" &&
+      !Array.isArray(data.data)
       ? data.data
       : data;
 
@@ -1551,38 +1401,38 @@ function normalizeOpexFilterOptions(
       reportingCurrencies
     )
       ? reportingCurrencies.map(
-          (item) => {
-            if (
-              typeof item ===
-                "object" &&
-              item !== null
-            ) {
-              const value =
-                item.currency_code ??
-                item.value ??
-                item.code ??
-                item.id ??
-                "";
+        (item) => {
+          if (
+            typeof item ===
+            "object" &&
+            item !== null
+          ) {
+            const value =
+              item.currency_code ??
+              item.value ??
+              item.code ??
+              item.id ??
+              "";
 
-              const label =
-                item.label ??
-                item.currency_code ??
-                item.value ??
-                item.code ??
-                "";
-
-              return {
-                value,
-                label,
-              };
-            }
+            const label =
+              item.label ??
+              item.currency_code ??
+              item.value ??
+              item.code ??
+              "";
 
             return {
-              value: item,
-              label: item,
+              value,
+              label,
             };
           }
-        )
+
+          return {
+            value: item,
+            label: item,
+          };
+        }
+      )
       : [];
 
   const periods =
@@ -1643,10 +1493,10 @@ function normalizeOpexFilterOptions(
       )
         ? payload.reporting_currencies
         : Array.isArray(
-            payload?.currencies
-          )
-        ? payload.currencies
-        : [],
+          payload?.currencies
+        )
+          ? payload.currencies
+          : [],
 
     compare_with:
       Array.isArray(
@@ -1654,10 +1504,10 @@ function normalizeOpexFilterOptions(
       )
         ? payload.compare_with
         : Array.isArray(
-            payload?.compare_periods
-          )
-        ? payload.compare_periods
-        : [],
+          payload?.compare_periods
+        )
+          ? payload.compare_periods
+          : [],
 
     data_as_of:
       payload?.data_as_of || null,
@@ -1676,6 +1526,11 @@ export default function Filters({
   filterOptions,
   onApply,
   onReset,
+
+  // NEW:
+  // Called immediately whenever any filter changes.
+  onChange,
+
   isOperatingExpenses = false,
 }) {
   /* =======================================================
@@ -1747,90 +1602,108 @@ export default function Filters({
      Load OPEX Filter Options
   ======================================================= */
 
-  const loadOpexFilterOptions =
-    async (
-      currentFilters = {}
-    ) => {
-      try {
-        setOpexFilterLoading(
-          true
-        );
+  /* =========================================================
+   Load OPEX Filter Options
+========================================================= */
 
-        const apiFilters = {};
+  const loadOpexFilterOptions = async (
+    currentFilters = {},
+    preserveOptionKey = null
+  ) => {
+    try {
+      setOpexFilterLoading(true);
 
-        if (
-          Array.isArray(
-            currentFilters.legal_group
-          ) &&
-          currentFilters
-            .legal_group.length
-        ) {
-          apiFilters.legal_group_id =
-            currentFilters.legal_group;
-        }
+      const apiFilters = {};
 
-        if (
-          Array.isArray(
-            currentFilters.legal_entity
-          ) &&
-          currentFilters
-            .legal_entity.length
-        ) {
-          apiFilters.legal_entity_id =
-            currentFilters.legal_entity;
-        }
-
-        if (
-          Array.isArray(
-            currentFilters.parent_division
-          ) &&
-          currentFilters
-            .parent_division.length
-        ) {
-          apiFilters.parent_division_id =
-            currentFilters.parent_division;
-        }
-
-        if (
-          Array.isArray(
-            currentFilters.subdivision
-          ) &&
-          currentFilters
-            .subdivision.length
-        ) {
-          apiFilters.subdivision_id =
-            currentFilters.subdivision;
-        }
-
-        const response =
-          await getOpexFilterOptions(
-            apiFilters
-          );
-
-        const normalized =
-          normalizeOpexFilterOptions(
-            response || {}
-          );
-
-        setOpexFilterOptions(
-          normalized
-        );
-
-        return normalized;
-      } catch (error) {
-        console.error(
-          "Failed to load OPEX filter options:",
-          error
-        );
-
-        return null;
-      } finally {
-        setOpexFilterLoading(
-          false
-        );
+      if (
+        Array.isArray(currentFilters.legal_group) &&
+        currentFilters.legal_group.length
+      ) {
+        apiFilters.legal_group_id =
+          currentFilters.legal_group;
       }
-    };
 
+      if (
+        Array.isArray(currentFilters.legal_entity) &&
+        currentFilters.legal_entity.length
+      ) {
+        apiFilters.legal_entity_id =
+          currentFilters.legal_entity;
+      }
+
+      if (
+        Array.isArray(currentFilters.parent_division) &&
+        currentFilters.parent_division.length
+      ) {
+        apiFilters.parent_division_id =
+          currentFilters.parent_division;
+      }
+
+      if (
+        Array.isArray(currentFilters.subdivision) &&
+        currentFilters.subdivision.length
+      ) {
+        apiFilters.subdivision_id =
+          currentFilters.subdivision;
+      }
+
+      const response = await getOpexFilterOptions(
+        apiFilters
+      );
+
+      const normalized =
+        normalizeOpexFilterOptions(
+          response || {}
+        );
+
+      /*
+        IMPORTANT:
+        Keep the complete option list for the dropdown
+        that the user is currently changing.
+  
+        Example:
+        User selects Alpha Ducts LLC.
+        Legal Entity options should still contain
+        FJ Industries WLL, Alpha Ducts LLC, etc.
+      */
+      if (preserveOptionKey) {
+        setOpexFilterOptions((previous) => ({
+          ...normalized,
+          [preserveOptionKey]:
+            Array.isArray(
+              previous?.[preserveOptionKey]
+            )
+              ? previous[preserveOptionKey]
+              : normalized[preserveOptionKey],
+        }));
+
+        return {
+          ...normalized,
+          [preserveOptionKey]:
+            Array.isArray(
+              opexFilterOptions?.[preserveOptionKey]
+            )
+              ? opexFilterOptions[
+              preserveOptionKey
+              ]
+              : normalized[preserveOptionKey],
+        };
+      }
+
+      setOpexFilterOptions(normalized);
+
+      return normalized;
+    } catch (error) {
+      console.error(
+        "Failed to load OPEX filter options:",
+        error
+      );
+
+      return null;
+    } finally {
+      setOpexFilterLoading(false);
+    }
+  };
   /* =======================================================
      Common Page Date Handling
   ======================================================= */
@@ -1887,7 +1760,7 @@ export default function Filters({
         ?.periods?.length
         ? opexFilterOptions.periods
         : filterOptions?.periods ||
-          [];
+        [];
 
     const latestPeriod =
       getLatestPeriod(periods);
@@ -1897,13 +1770,13 @@ export default function Filters({
         ?.years?.length
         ? opexFilterOptions.years
         : filterOptions?.years ||
-          [];
+        [];
 
     const firstYear =
       years.length
         ? getOptionValue(
-            years[0]
-          )
+          years[0]
+        )
         : "";
 
     const defaultReportingCurrency =
@@ -1952,34 +1825,31 @@ export default function Filters({
             ? prev.period.length
               ? prev.period
               : latestPeriod
-              ? [
+                ? [
                   String(
                     latestPeriod
                   ),
                 ]
-              : []
+                : []
             : prev.period
-            ? [
+              ? [
                 String(
                   prev.period
                 ),
               ]
-            : latestPeriod
-            ? [
-                String(
-                  latestPeriod
-                ),
-              ]
-            : [],
+              : latestPeriod
+                ? [
+                  String(
+                    latestPeriod
+                  ),
+                ]
+                : [],
 
         year:
           prev.year ||
           firstYear ||
           "",
 
-        /* IMPORTANT:
-           Preserve selected reporting currency.
-           Default only when no value exists. */
         reporting_currency:
           prev.reporting_currency ||
           defaultReportingCurrency ||
@@ -2091,10 +1961,10 @@ export default function Filters({
             )
               ? value
               : value
-              ? [
+                ? [
                   String(value),
                 ]
-              : [],
+                : [],
         };
       }
 
@@ -2106,25 +1976,11 @@ export default function Filters({
 
           year:
             value === null ||
-            value === undefined
+              value === undefined
               ? ""
               : String(value),
         };
       }
-
-      /* ===================================================
-         REPORTING CURRENCY
-
-         Selected currency is preserved and passed to
-         onApply through selectedFilters.
-
-         Example:
-         INR -> reporting_currency = "INR"
-         AED -> reporting_currency = "AED"
-
-         Actual amount conversion must be handled by the
-         OPEX data/API layer using this selected currency.
-      =================================================== */
 
       if (
         apiKey ===
@@ -2141,9 +1997,24 @@ export default function Filters({
         };
       }
 
+      /* ===================================================
+         UPDATE INTERNAL STATE
+      =================================================== */
+
       setSelectedFilters(
         nextFilters
       );
+
+      /* ===================================================
+         NEW onChange CALLBACK
+
+         This fires immediately when the user changes
+         a filter. Apply is NOT required for this callback.
+      =================================================== */
+
+      if (onChange) {
+        onChange(nextFilters);
+      }
 
       /* ===================================================
          Refresh cascading options
@@ -2151,16 +2022,24 @@ export default function Filters({
 
       if (
         apiKey ===
-          "legal_group" ||
+        "legal_group" ||
         apiKey ===
-          "legal_entity" ||
+        "legal_entity" ||
         apiKey ===
-          "parent_division" ||
+        "parent_division" ||
         apiKey ===
-          "subdivision"
+        "subdivision"
       ) {
+        const optionKeyMap = {
+          legal_group: "legal_groups",
+          legal_entity: "legal_entities",
+          parent_division: "parent_divisions",
+          subdivision: "subdivisions",
+        };
+
         await loadOpexFilterOptions(
-          nextFilters
+          nextFilters,
+          optionKeyMap[apiKey]
         );
       }
     };
@@ -2236,8 +2115,8 @@ export default function Filters({
         const firstYear =
           years.length
             ? getOptionValue(
-                years[0]
-              )
+              years[0]
+            )
             : "";
 
         resetFilters = {
@@ -2253,10 +2132,10 @@ export default function Filters({
           period:
             latestPeriod
               ? [
-                  String(
-                    latestPeriod
-                  ),
-                ]
+                String(
+                  latestPeriod
+                ),
+              ]
               : [],
 
           year:
@@ -2275,6 +2154,12 @@ export default function Filters({
         resetFilters
       );
 
+      /* NEW:
+         Notify parent about reset */
+      if (onChange) {
+        onChange(resetFilters);
+      }
+
       if (onReset) {
         onReset();
       }
@@ -2287,9 +2172,9 @@ export default function Filters({
   const filtersToDisplay =
     isOperatingExpenses
       ? [
-          ...operatingSelectFilters,
-          ...operatingAdditionalFilters,
-        ]
+        ...operatingSelectFilters,
+        ...operatingAdditionalFilters,
+      ]
       : commonSelectFilters;
 
   /* =======================================================
@@ -2299,9 +2184,9 @@ export default function Filters({
   const activeFilterOptions =
     isOperatingExpenses
       ? {
-          ...filterOptions,
-          ...opexFilterOptions,
-        }
+        ...filterOptions,
+        ...opexFilterOptions,
+      }
       : filterOptions;
 
   /* =======================================================
@@ -2331,30 +2216,25 @@ export default function Filters({
 
         zIndex: 10,
 
-        /* FONT WEIGHT */
         fontWeight: 600,
       }}
     >
-      {/* ===================================================
-          Dynamic Filters
-      =================================================== */}
-
       {filtersToDisplay.map(
         (f, i) => {
           const isPeriod =
             isOperatingExpenses &&
             f.apiKey ===
-              "period";
+            "period";
 
           const isYear =
             isOperatingExpenses &&
             f.apiKey ===
-              "year";
+            "year";
 
           const isReportingCurrency =
             isOperatingExpenses &&
             f.apiKey ===
-              "reporting_currency";
+            "reporting_currency";
 
           const isOpexMultiSelect =
             isOperatingExpenses &&
@@ -2362,7 +2242,7 @@ export default function Filters({
 
           const options =
             activeFilterOptions?.[
-              f.optionKey
+            f.optionKey
             ] || [];
 
           return (
@@ -2379,12 +2259,12 @@ export default function Filters({
                   value={
                     Array.isArray(
                       selectedFilters[
-                        f.apiKey
+                      f.apiKey
                       ]
                     )
                       ? selectedFilters[
-                          f.apiKey
-                        ]
+                      f.apiKey
+                      ]
                       : []
                   }
                   onChange={(
@@ -2425,34 +2305,18 @@ export default function Filters({
                   }
                 />
               ) : isReportingCurrency ? (
-                /* =================================================
-                   REPORTING CURRENCY
-
-                   Selected value is stored in:
-                   selectedFilters.reporting_currency
-
-                   When Apply is clicked, this value is sent
-                   through onApply(selectedFilters).
-
-                   Example:
-                   INR -> reporting_currency = "INR"
-
-                   The OPEX page/API should use this value
-                   to convert the displayed amounts.
-                ================================================= */
-
                 <OpexSingleSelect
                   options={
                     options.length
                       ? options
                       : [
-                          {
-                            value:
-                              "AED",
-                            label:
-                              "AED",
-                          },
-                        ]
+                        {
+                          value:
+                            "AED",
+                          label:
+                            "AED",
+                        },
+                      ]
                   }
                   value={
                     selectedFilters
@@ -2482,7 +2346,7 @@ export default function Filters({
                   className="filter-select w-full"
                   value={
                     selectedFilters[
-                      f.apiKey
+                    f.apiKey
                     ] || ""
                   }
                   onChange={(e) => {
@@ -2498,20 +2362,28 @@ export default function Filters({
                         value
                       );
                     } else {
+                      const nextFilters = {
+                        ...selectedFilters,
+                        [f.apiKey]:
+                          value,
+                      };
+
                       setSelectedFilters(
-                        (prev) => ({
-                          ...prev,
-                          [f.apiKey]:
-                            value,
-                        })
+                        nextFilters
                       );
+
+                      /* NEW:
+                         Common filter onChange */
+                      if (onChange) {
+                        onChange(
+                          nextFilters
+                        );
+                      }
                     }
                   }}
                   style={{
                     minWidth: 0,
                     width: "100%",
-
-                    /* FONT WEIGHT */
                     fontWeight: 600,
                   }}
                 >
@@ -2540,11 +2412,11 @@ export default function Filters({
 
                       if (
                         value ===
-                          "" ||
+                        "" ||
                         value ===
-                          null ||
+                        null ||
                         value ===
-                          undefined
+                        undefined
                       ) {
                         return null;
                       }
@@ -2572,12 +2444,6 @@ export default function Filters({
         }
       )}
 
-      {/* ===================================================
-          Existing Common Page As On Date
-
-          OPEX DOES NOT render this.
-      =================================================== */}
-
       {!isOperatingExpenses && (
         <FilterField label="As On Date">
           <input
@@ -2592,10 +2458,6 @@ export default function Filters({
         </FilterField>
       )}
 
-      {/* ===================================================
-          Buttons
-      =================================================== */}
-
       <div
         style={{
           display: "flex",
@@ -2608,7 +2470,6 @@ export default function Filters({
           position: "relative",
           zIndex: 1,
 
-          /* FONT WEIGHT */
           fontWeight: 600,
         }}
       >
@@ -2642,4 +2503,7 @@ export default function Filters({
     </div>
   );
 }
+
+
+
 

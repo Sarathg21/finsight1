@@ -1,5 +1,4 @@
 
-
 import React, {
     useMemo,
     useState,
@@ -77,15 +76,15 @@ const normalizeChartData = (data = []) => {
 
             actual:
                 actual !== null &&
-                actual !== undefined &&
-                actual !== ""
+                    actual !== undefined &&
+                    actual !== ""
                     ? Number(actual)
                     : null,
 
             target:
                 target !== null &&
-                target !== undefined &&
-                target !== ""
+                    target !== undefined &&
+                    target !== ""
                     ? Number(target)
                     : null,
         };
@@ -101,6 +100,7 @@ function CustomTooltip({
     active,
     payload,
     label,
+    reportingCurrency = "AED",
 }) {
     if (
         !active ||
@@ -169,7 +169,7 @@ function CustomTooltip({
 
                             <span
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     color: "#64748B",
                                 }}
                             >
@@ -179,14 +179,14 @@ function CustomTooltip({
 
                         <span
                             style={{
-                                fontSize: 11,
+                                fontSize: 13,
                                 fontWeight: 700,
                                 color: "#0F172A",
                             }}
                         >
                             {formatValue(value) === "—"
                                 ? "—"
-                                : `AED ${formatValue(value)}`}
+                                : `${reportingCurrency} ${formatValue(value)}`}
                         </span>
                     </div>
                 );
@@ -217,7 +217,7 @@ function CustomYAxisTick({
                 textAnchor="end"
                 dominantBaseline="middle"
                 fill="#1E293B"
-                fontSize={11}
+                fontSize={12}
                 fontWeight={700}
             >
                 {text}
@@ -249,8 +249,8 @@ function CustomBarLabel({
             x={x + width + 5}
             y={y + 3}
             fill="#475569"
-            fontSize={9}
-            fontWeight={600}
+            fontSize={12}
+            fontWeight={700}
             textAnchor="start"
         >
             {formatted}
@@ -566,24 +566,24 @@ export default function ActualVsTargetChart({
 
 
                     {/* =================================================
-                        DROPDOWN MENU
+                        ACTION MENU
                     ================================================= */}
 
                     {menuOpen && (
                         <div
                             style={{
                                 position: "absolute",
-                                top: "calc(100% + 5px)",
+                                top: 28,
                                 right: 0,
-                                width: 175,
+                                minWidth: 165,
                                 background: "#FFFFFF",
                                 border:
                                     "1px solid #E5E7EB",
                                 borderRadius: 8,
                                 boxShadow:
-                                    "0 8px 24px rgba(15, 23, 42, 0.14)",
+                                    "0 8px 24px rgba(15, 23, 42, 0.12)",
                                 padding: "5px 0",
-                                zIndex: 1000,
+                                zIndex: 100,
                             }}
                         >
 
@@ -601,42 +601,54 @@ export default function ActualVsTargetChart({
                                 }
                                 style={{
                                     width: "100%",
-                                    border: "none",
-                                    background:
-                                        "transparent",
-                                    display: "flex",
+                                    display:
+                                        "flex",
                                     alignItems:
                                         "center",
                                     gap: 9,
+                                    border:
+                                        "none",
+                                    background:
+                                        "transparent",
                                     padding:
-                                        "8px 11px",
-                                    cursor: onViewAll
-                                        ? "pointer"
-                                        : "not-allowed",
-                                    color: "#334155",
-                                    fontSize: 11,
-                                    fontWeight: 600,
+                                        "9px 12px",
+                                    cursor:
+                                        onViewAll
+                                            ? "pointer"
+                                            : "not-allowed",
                                     textAlign:
                                         "left",
-                                    opacity: onViewAll
-                                        ? 1
-                                        : 0.5,
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    color:
+                                        "#334155",
+                                    opacity:
+                                        onViewAll
+                                            ? 1
+                                            : 0.5,
                                 }}
-                                onMouseEnter={(e) => {
+                                onMouseEnter={(
+                                    event
+                                ) => {
                                     if (onViewAll) {
-                                        e.currentTarget.style.background =
+                                        event.currentTarget.style.background =
                                             "#F8FAFC";
                                     }
                                 }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.background =
+                                onMouseLeave={(
+                                    event
+                                ) => {
+                                    event.currentTarget.style.background =
                                         "transparent";
                                 }}
                             >
-                                <Eye
-                                    size={14}
-                                    strokeWidth={2}
-                                />
+                                <span
+                                    style={{
+                                        fontSize: 14,
+                                    }}
+                                >
+                                    🔍
+                                </span>
 
                                 <span>
                                     View All
@@ -645,19 +657,153 @@ export default function ActualVsTargetChart({
 
 
                             {/* =================================================
-                                COMMON EXPORT BUTTONS
+                                EXPORT EXCEL
                             ================================================= */}
 
-                            <ExportButtons
-                                endpoint="actual-vs-target"
-                                exporting={
-                                    commonExporting
+                            <button
+                                type="button"
+                                onClick={
+                                    handleExportExcel
                                 }
-                                handleExport={
-                                    handleExport
+                                disabled={
+                                    commonExporting ===
+                                    "excel"
                                 }
-                                variant="menu"
-                            />
+                                style={{
+                                    width: "100%",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    gap: 9,
+                                    border:
+                                        "none",
+                                    background:
+                                        "transparent",
+                                    padding:
+                                        "9px 12px",
+                                    cursor:
+                                        commonExporting ===
+                                            "excel"
+                                            ? "not-allowed"
+                                            : "pointer",
+                                    textAlign:
+                                        "left",
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    color:
+                                        "#334155",
+                                    opacity:
+                                        commonExporting ===
+                                            "excel"
+                                            ? 0.6
+                                            : 1,
+                                }}
+                                onMouseEnter={(
+                                    event
+                                ) => {
+                                    if (
+                                        commonExporting !==
+                                        "excel"
+                                    ) {
+                                        event.currentTarget.style.background =
+                                            "#F8FAFC";
+                                    }
+                                }}
+                                onMouseLeave={(
+                                    event
+                                ) => {
+                                    event.currentTarget.style.background =
+                                        "transparent";
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: 14,
+                                    }}
+                                >
+                                    📊
+                                </span>
+
+                                <span>
+                                    Export Excel
+                                </span>
+                            </button>
+
+
+                            {/* =================================================
+                                EXPORT PDF
+                            ================================================= */}
+
+                            <button
+                                type="button"
+                                onClick={
+                                    handleExportPdf
+                                }
+                                disabled={
+                                    commonExporting ===
+                                    "pdf"
+                                }
+                                style={{
+                                    width: "100%",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    gap: 9,
+                                    border:
+                                        "none",
+                                    background:
+                                        "transparent",
+                                    padding:
+                                        "9px 12px",
+                                    cursor:
+                                        commonExporting ===
+                                            "pdf"
+                                            ? "not-allowed"
+                                            : "pointer",
+                                    textAlign:
+                                        "left",
+                                    fontSize: 12,
+                                    fontWeight: 500,
+                                    color:
+                                        "#334155",
+                                    opacity:
+                                        commonExporting ===
+                                            "pdf"
+                                            ? 0.6
+                                            : 1,
+                                }}
+                                onMouseEnter={(
+                                    event
+                                ) => {
+                                    if (
+                                        commonExporting !==
+                                        "pdf"
+                                    ) {
+                                        event.currentTarget.style.background =
+                                            "#F8FAFC";
+                                    }
+                                }}
+                                onMouseLeave={(
+                                    event
+                                ) => {
+                                    event.currentTarget.style.background =
+                                        "transparent";
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        fontSize: 14,
+                                    }}
+                                >
+                                    📄
+                                </span>
+
+                                <span>
+                                    Export PDF
+                                </span>
+                            </button>
 
                         </div>
                     )}
@@ -689,8 +835,8 @@ export default function ActualVsTargetChart({
                         layout="vertical"
                         margin={{
                             top: 20,
-                            right: 38,
-                            left: 5,
+                            right: 50,
+                            left: 15,
                             bottom: 20,
                         }}
                         barGap={2}
@@ -736,7 +882,7 @@ export default function ActualVsTargetChart({
                         <YAxis
                             type="category"
                             dataKey="category"
-                            width={145}
+                            width={175}
                             axisLine={false}
                             tickLine={false}
                             interval={0}
@@ -752,7 +898,11 @@ export default function ActualVsTargetChart({
 
                         <Tooltip
                             content={
-                                <CustomTooltip />
+                                <CustomTooltip
+                                    reportingCurrency={
+                                        reportingCurrency
+                                    }
+                                />
                             }
                             cursor={{
                                 fill:
@@ -787,7 +937,7 @@ export default function ActualVsTargetChart({
 
                         <Bar
                             dataKey="actual"
-                            name="Actual PTD (AED)"
+                            name={`Actual PTD (${reportingCurrency})`}
                             fill="#5B3FE4"
                             radius={[
                                 0,
@@ -808,8 +958,8 @@ export default function ActualVsTargetChart({
 
                         <Bar
                             dataKey="target"
-                            name="Target PTD (AED)"
-                            fill="#C7BFF7"
+                            name={`Target PTD (${reportingCurrency})`}
+                            fill="#B8AEEC"
                             radius={[
                                 0,
                                 3,
@@ -837,7 +987,7 @@ export default function ActualVsTargetChart({
                 style={{
                     textAlign: "center",
                     fontWeight: 800,
-                    fontSize: 12,
+                    fontSize: 13,
                     color: "#334155",
                     marginTop: -2,
                 }}

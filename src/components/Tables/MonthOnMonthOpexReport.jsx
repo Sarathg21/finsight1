@@ -1,4 +1,5 @@
 
+
 import React, {
     useEffect,
     useMemo,
@@ -16,6 +17,7 @@ import {
     FileSpreadsheet,
     FileText, Eye,
 } from "lucide-react";
+import ExportButtons from "../Common/ExportButtons";
 
 /* =========================================================
    FORMAT VALUE
@@ -130,23 +132,6 @@ const getMonthlyActual = (item) => {
 
 /* =========================================================
    GET MONTH VALUE
-
-   Supports:
-
-   {
-       "Jan-26": 8364319.95,
-       "Feb-26": 8417330,
-       "Sep-26": 664
-   }
-
-   OR
-
-   {
-       jan: 100,
-       feb: 200
-   }
-
-   Missing month => null => displayed as —
 ========================================================= */
 
 const getMonthValue = (
@@ -163,10 +148,6 @@ const getMonthValue = (
     ) {
         return null;
     }
-
-    /* =====================================================
-       OBJECT
-    ===================================================== */
 
     if (
         typeof monthlyActual === "object" &&
@@ -228,10 +209,6 @@ const getMonthValue = (
 
         return monthValue;
     }
-
-    /* =====================================================
-       ARRAY
-    ===================================================== */
 
     if (
         Array.isArray(monthlyActual)
@@ -605,6 +582,87 @@ const escapeCsvValue = (value) => {
 };
 
 /* =========================================================
+   FILTER LABEL HELPER (Human readable key & value names)
+========================================================= */
+
+const formatFilterKey = (key) => {
+    if (!key) return "";
+    return key
+        .replace(/_/g, " ")
+        .replace(/\bid\b/gi, "")
+        .replace(/\bcode\b/gi, "")
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const resolveOptionName = (singleVal, filterKey, filterOptions) => {
+    if (singleVal === null || singleVal === undefined) return "";
+
+    let targetCode = singleVal;
+    if (typeof singleVal === "object") {
+        targetCode = singleVal.code || singleVal.id || singleVal.value || singleVal.name || singleVal.label;
+    }
+
+    const targetCodeStr = String(targetCode).trim();
+
+    if (filterOptions && typeof filterOptions === "object") {
+        const matchingOptionsList =
+            filterOptions[filterKey] ||
+            filterOptions[filterKey + "s"] ||
+            filterOptions[filterKey.replace(/_id$|_code$/i, "")] ||
+            filterOptions[filterKey.replace(/_id$|_code$/i, "") + "s"];
+
+        if (Array.isArray(matchingOptionsList)) {
+            const foundOption = matchingOptionsList.find((opt) => {
+                if (opt === null || opt === undefined) return false;
+                if (typeof opt === "object") {
+                    const optCode = opt.code ?? opt.id ?? opt.value ?? opt.key;
+                    return String(optCode).trim() === targetCodeStr;
+                }
+                return String(opt).trim() === targetCodeStr;
+            });
+
+            if (foundOption) {
+                if (typeof foundOption === "object") {
+                    return (
+                        foundOption.name ||
+                        foundOption.label ||
+                        foundOption.title ||
+                        foundOption.display_name ||
+                        foundOption.code ||
+                        targetCodeStr
+                    );
+                }
+                return String(foundOption);
+            }
+        }
+    }
+
+    if (typeof singleVal === "object") {
+        return (
+            singleVal.name ||
+            singleVal.label ||
+            singleVal.title ||
+            singleVal.code ||
+            targetCodeStr
+        );
+    }
+
+    return targetCodeStr;
+};
+
+const formatFilterValue = (val, filterKey, filterOptions) => {
+    if (val === null || val === undefined) return "";
+    if (Array.isArray(val)) {
+        return val
+            .map((item) => resolveOptionName(item, filterKey, filterOptions))
+            .filter(Boolean)
+            .join(", ");
+    }
+    return resolveOptionName(val, filterKey, filterOptions);
+};
+
+/* =========================================================
    MAIN COMPONENT
 ========================================================= */
 
@@ -617,6 +675,7 @@ export default function MonthOnMonthOpexReport({
     reportingCurrency = "AED",
 
     hierarchyFilters = {},
+    filterOptions = {},
 }) {
     const [collapsed, setCollapsed] =
         useState(false);
@@ -654,8 +713,12 @@ export default function MonthOnMonthOpexReport({
     const [showExportMenu, setShowExportMenu] =
         useState(false);
 
+    const [monthMenuOpen, setMonthMenuOpen] = useState(false);
+
     const exportMenuRef =
         useRef(null);
+
+        const [exporting, setExporting] = useState("");
 
     /* =====================================================
        CLOSE MENU WHEN CLICKING OUTSIDE
@@ -701,12 +764,6 @@ export default function MonthOnMonthOpexReport({
 
     /* =====================================================
        ACTIVE FILTERS
-
-       Same filters are used by:
-       - category detail API
-       - View All
-       - Excel
-       - PDF
     ===================================================== */
 
     const activeFilters = useMemo(() => {
@@ -751,15 +808,13 @@ export default function MonthOnMonthOpexReport({
         hierarchyFilters,
     ]);
 
+
     /* =====================================================
        LOAD CATEGORY DETAIL
     ===================================================== */
 
-    const loadCategoryDetails = async (
-        item
-    ) => {
-        const category =
-            item?.category;
+    const loadCategoryDetails = async (item) => {
+        const category = item?.category;
 
         if (!category) {
             return [];
@@ -771,138 +826,194 @@ export default function MonthOnMonthOpexReport({
                 category
             )
         ) {
-            return categoryDetails[
-                category
-            ];
+            return categoryDetails[category];
         }
 
-        if (
-            categoryDetailLoading?.[
-            category
-            ]
-        ) {
+        if (categoryDetailLoading?.[category]) {
             return [];
         }
 
-        setCategoryDetailLoading(
-            (prev) => ({
-                ...prev,
-                [category]: true,
-            })
-        );
+        setCategoryDetailLoading((prev) => ({
+            ...prev,
+            [category]: true,
+        }));
 
-        setCategoryDetailError(
-            (prev) => ({
-                ...prev,
-                [category]: null,
-            })
-        );
+        setCategoryDetailError((prev) => ({
+            ...prev,
+            [category]: null,
+        }));
 
         try {
             const configuredBase =
-                import.meta.env
-                    .VITE_API_BASE_URL ||
-                "";
+                import.meta.env.VITE_API_BASE_URL || "";
 
-            const base =
-                configuredBase.replace(
-                    /\/+$/,
-                    ""
+            const base = configuredBase.replace(/\/+$/, "");
+
+            const apiUrl = base.endsWith("/api")
+                ? `${base}/opex/category-detail-monthly`
+                : `${base}/api/opex/category-detail-monthly`;
+
+            const params = new URLSearchParams();
+
+            params.set("category", String(category));
+
+            if (
+                periodName !== null &&
+                periodName !== undefined &&
+                periodName !== "" &&
+                periodName !== "—"
+            ) {
+                if (Array.isArray(periodName)) {
+                    periodName.forEach((period) => {
+                        if (
+                            period !== null &&
+                            period !== undefined &&
+                            period !== "" &&
+                            period !== "—"
+                        ) {
+                            params.append(
+                                "period_name",
+                                String(period)
+                            );
+                        }
+                    });
+                } else {
+                    params.set(
+                        "period_name",
+                        String(periodName)
+                    );
+                }
+            }
+
+            if (
+                reportingCurrency !== null &&
+                reportingCurrency !== undefined &&
+                reportingCurrency !== "" &&
+                reportingCurrency !== "—"
+            ) {
+                params.set(
+                    "reporting_currency",
+                    String(reportingCurrency)
                 );
-
-            const apiUrl =
-                base.endsWith("/api")
-                    ? `${base}/opex/category-detail-monthly`
-                    : `${base}/api/opex/category-detail-monthly`;
-
-            const params =
-                new URLSearchParams();
-
-            params.set(
-                "category",
-                category
-            );
-
-            params.set(
-                "period_name",
-                periodName
-            );
-
-            params.set(
-                "reporting_currency",
-                reportingCurrency
-            );
+            }
 
             if (
                 hierarchyFilters &&
-                typeof hierarchyFilters ===
-                "object"
+                typeof hierarchyFilters === "object"
             ) {
-                Object.entries(
-                    hierarchyFilters
-                ).forEach(
+                Object.entries(hierarchyFilters).forEach(
                     ([key, value]) => {
                         if (
-                            value !== null &&
-                            value !== undefined &&
-                            value !== "" &&
-                            value !== "—"
+                            value === null ||
+                            value === undefined ||
+                            value === "" ||
+                            value === "—"
                         ) {
-                            params.set(
-                                key,
-                                String(value)
-                            );
+                            return;
                         }
+
+                        if (Array.isArray(value)) {
+                            value.forEach((itemValue) => {
+                                if (
+                                    itemValue !== null &&
+                                    itemValue !== undefined &&
+                                    itemValue !== "" &&
+                                    itemValue !== "—"
+                                ) {
+                                    params.append(
+                                        key,
+                                        typeof itemValue === "object"
+                                            ? String(itemValue?.code || itemValue?.id || itemValue?.value)
+                                            : String(itemValue)
+                                    );
+                                }
+                            });
+
+                            return;
+                        }
+
+                        params.set(
+                            key,
+                            typeof value === "object"
+                                ? String(value?.code || value?.id || value?.value)
+                                : String(value)
+                        );
                     }
                 );
             }
 
             const token =
-                localStorage.getItem(
-                    "token"
-                );
+                localStorage.getItem("token");
 
-            const response =
-                await fetch(
-                    `${apiUrl}?${params.toString()}`,
-                    {
-                        method: "GET",
+            const requestUrl =
+                `${apiUrl}?${params.toString()}`;
 
-                        headers: {
-                            Accept:
-                                "application/json",
+            const response = await fetch(
+                requestUrl,
+                {
+                    method: "GET",
+                    headers: {
+                        Accept:
+                            "application/json",
 
-                            ...(token
-                                ? {
-                                    Authorization:
-                                        `Bearer ${token}`,
-                                }
-                                : {}),
-                        },
-                    }
-                );
+                        ...(token
+                            ? {
+                                Authorization:
+                                    `Bearer ${token}`,
+                            }
+                            : {}),
+                    },
+                }
+            );
 
             if (!response.ok) {
-                throw new Error(
-                    `Category detail monthly request failed: ${response.status}`
-                );
+                let errorMessage =
+                    `Category detail monthly request failed: ${response.status}`;
+
+                try {
+                    const errorData =
+                        await response.json();
+
+                    if (errorData?.detail) {
+                        errorMessage =
+                            Array.isArray(
+                                errorData.detail
+                            )
+                                ? errorData.detail
+                                    .map(
+                                        (item) =>
+                                            item?.msg ||
+                                            JSON.stringify(item)
+                                    )
+                                    .join(", ")
+                                : String(
+                                    errorData.detail
+                                );
+                    } else if (
+                        errorData?.message
+                    ) {
+                        errorMessage =
+                            String(
+                                errorData.message
+                            );
+                    }
+                } catch {
+                    // Keep default HTTP error message
+                }
+
+                throw new Error(errorMessage);
             }
 
             const responseData =
                 await response.json();
 
             const details =
-                getDetails(
-                    responseData
-                );
+                getDetails(responseData);
 
-            setCategoryDetails(
-                (prev) => ({
-                    ...prev,
-                    [category]:
-                        details,
-                })
-            );
+            setCategoryDetails((prev) => ({
+                ...prev,
+                [category]: details,
+            }));
 
             return details;
         } catch (error) {
@@ -911,23 +1022,19 @@ export default function MonthOnMonthOpexReport({
                 error
             );
 
-            setCategoryDetailError(
-                (prev) => ({
-                    ...prev,
-                    [category]:
-                        error?.message ||
-                        "Failed to load category monthly details.",
-                })
-            );
+            setCategoryDetailError((prev) => ({
+                ...prev,
+                [category]:
+                    error?.message ||
+                    "Failed to load category monthly details.",
+            }));
 
             return [];
         } finally {
-            setCategoryDetailLoading(
-                (prev) => ({
-                    ...prev,
-                    [category]: false,
-                })
-            );
+            setCategoryDetailLoading((prev) => ({
+                ...prev,
+                [category]: false,
+            }));
         }
     };
 
@@ -1162,10 +1269,8 @@ export default function MonthOnMonthOpexReport({
                     value !== "—"
                 ) {
                     exportRows.push([
-                        key,
-                        Array.isArray(value)
-                            ? value.join(", ")
-                            : value,
+                        formatFilterKey(key),
+                        formatFilterValue(value, key, filterOptions),
                     ]);
                 }
             }
@@ -1255,9 +1360,6 @@ export default function MonthOnMonthOpexReport({
 
     /* =====================================================
        EXPORT EXCEL
-
-       Uses an Excel-readable HTML workbook.
-       No additional package required.
     ===================================================== */
 
     const handleExportExcel = () => {
@@ -1350,9 +1452,7 @@ export default function MonthOnMonthOpexReport({
     };
 
     /* =====================================================
-       EXPORT PDF
-
-       Opens print dialog with all Jan-Dec columns.
+       EXPORT PDF (DIRECT FILE DOWNLOAD)
     ===================================================== */
 
     const handleExportPDF = () => {
@@ -1405,96 +1505,160 @@ export default function MonthOnMonthOpexReport({
                 )
                 .join("");
 
-        const printWindow =
-            window.open(
-                "",
-                "_blank",
-                "width=1400,height=900"
-            );
-
-        if (!printWindow) {
-            return;
-        }
-
-        printWindow.document.write(`
+        const pdfHtml = `
             <!DOCTYPE html>
             <html>
                 <head>
-                    <title>
-                        Month-on-Month OPEX Report
-                    </title>
-
+                    <meta charset="UTF-8" />
+                    <title>Month-on-Month OPEX Report</title>
                     <style>
-                        @page {
-                            size: landscape;
-                            margin: 10mm;
-                        }
-
-                        * {
-                            box-sizing: border-box;
-                        }
-
-                        body {
-                            font-family:
-                                Arial,
-                                sans-serif;
-                            margin: 0;
-                            padding: 20px;
-                            color: #0f172a;
-                        }
-
-                        h1 {
-                            font-size: 18px;
-                            margin: 0 0 14px;
-                        }
-
-                        table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            table-layout: fixed;
-                            font-size: 9px;
-                        }
-
-                        th,
-                        td {
-                            border: 1px solid #dbe2ea;
-                            padding: 6px;
-                            text-align: right;
-                            white-space: nowrap;
-                        }
-
-                        td:first-child,
-                        th:first-child {
-                            text-align: left;
-                            width: 18%;
-                        }
-
-                        th {
-                            color: #1e3a8a;
-                            background: #f8fafc;
-                        }
+                        @page { size: landscape; margin: 10mm; }
+                        * { box-sizing: border-box; }
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #0f172a; }
+                        h1 { font-size: 18px; margin: 0 0 14px; }
+                        table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
+                        th, td { border: 1px solid #dbe2ea; padding: 6px; text-align: right; white-space: nowrap; }
+                        td:first-child, th:first-child { text-align: left; width: 18%; }
+                        th { color: #1e3a8a; background: #f8fafc; }
                     </style>
                 </head>
-
                 <body>
-                    <h1>
-                        Month-on-Month OPEX Report
-                    </h1>
-
+                    <h1>Month-on-Month OPEX Report</h1>
                     <table>
                         ${tableRows}
                     </table>
                 </body>
             </html>
-        `);
+        `;
 
-        printWindow.document.close();
+        const blob = new Blob([pdfHtml], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Month-on-Month-OPEX-${periodName || "Report"}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
-        printWindow.focus();
 
-        setTimeout(() => {
-            printWindow.print();
-        }, 300);
+    const filterOptionKeys = {
+        year: "years",
+        legal_group_id: "legal_groups",
+        legal_entity_id: "legal_entities",
+        parent_division_id: "parent_divisions",
+        subdivision_id: "subdivisions",
+        business_unit_id: "business_units",
+        analysis_code_id: "analysis_codes",
+        analysis_code: "analysis_codes",
+        period_name: "periods",
+        reporting_currency: "currencies",
+    };
+
+    const getOptionValue = (option) => {
+        if (option && typeof option === "object") {
+            return (
+                option?.value ??
+                option?.id ??
+                option?.code ??
+                option?.key ??
+                ""
+            );
+        }
+
+        return option;
+    };
+
+    const getOptionLabel = (option) => {
+        if (option && typeof option === "object") {
+            return (
+                option?.label ??
+                option?.name ??
+                option?.display_name ??
+                option?.displayName ??
+                option?.description ??
+                option?.title ??
+                option?.value ??
+                option?.code ??
+                option?.id ??
+                "—"
+            );
+        }
+
+        return option;
+    };
+
+    const findFilterDisplayName = (key, value) => {
+        if (
+            value === null ||
+            value === undefined ||
+            value === ""
+        ) {
+            return "";
+        }
+
+        const options =
+            filterOptions?.[filterOptionKeys[key]] || [];
+
+        if (!Array.isArray(options) || options.length === 0) {
+            return value;
+        }
+
+        const normalizedValue = String(value)
+            .trim()
+            .toLowerCase();
+
+        const matchedOption = options.find((option) => {
+            const optionValue = String(
+                getOptionValue(option) ?? ""
+            )
+                .trim()
+                .toLowerCase();
+
+            const optionCode = String(
+                option?.code ??
+                option?.id ??
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+            return (
+                optionValue === normalizedValue ||
+                optionCode === normalizedValue
+            );
+        });
+
+        return matchedOption
+            ? getOptionLabel(matchedOption)
+            : value;
+    };
+
+    const getFilterDisplayValue = (key, value) => {
+        const values = Array.isArray(value)
+            ? value
+            : [value];
+
+        return values
+            .map((item) =>
+                findFilterDisplayName(key, item)
+            )
+            .filter(
+                (item) =>
+                    item !== null &&
+                    item !== undefined &&
+                    item !== ""
+            )
+            .join(", ");
+    };
+
+    const handleModalExport = (format) => {
+        if (format === "excel") {
+            handleExportExcel();
+        } else if (format === "pdf") {
+            handleExportPDF();
+        }
     };
 
     /* =====================================================
@@ -1533,11 +1697,6 @@ export default function MonthOnMonthOpexReport({
                 <table
                     style={{
                         width: "100%",
-                        /*
-                         * IMPORTANT:
-                         * Fixed minimum width prevents
-                         * AED values from overwriting.
-                         */
                         minWidth: 2220,
                         borderCollapse:
                             "collapse",
@@ -1546,59 +1705,15 @@ export default function MonthOnMonthOpexReport({
                     }}
                 >
                     <colgroup>
-                        {/* CATEGORY */}
-
-                        <col
-                            style={{
-                                width: 270,
-                            }}
-                        />
-
-                        {/* JAN - DEC */}
-
-                        {months.map(
-                            (month) => (
-                                <col
-                                    key={
-                                        month.key
-                                    }
-                                    style={{
-                                        width: 115,
-                                    }}
-                                />
-                            )
-                        )}
-
-                        {/* YTD / TARGET / VARIANCE */}
-
-                        <col
-                            style={{
-                                width: 145,
-                            }}
-                        />
-
-                        <col
-                            style={{
-                                width: 145,
-                            }}
-                        />
-
-                        <col
-                            style={{
-                                width: 145,
-                            }}
-                        />
-
-                        <col
-                            style={{
-                                width: 150,
-                            }}
-                        />
+                        <col style={{ width: 270 }} />
+                        {months.map((month) => (
+                            <col key={month.key} style={{ width: 115 }} />
+                        ))}
+                        <col style={{ width: 145 }} />
+                        <col style={{ width: 145 }} />
+                        <col style={{ width: 145 }} />
+                        <col style={{ width: 150 }} />
                     </colgroup>
-
-                    {/* =================================================
-                        HEADER
-                    ================================================= */}
 
                     <thead>
                         <tr
@@ -1642,7 +1757,7 @@ export default function MonthOnMonthOpexReport({
                                                 "right",
                                             color:
                                                 "#1E3A8A",
-                                            fontSize: 12,
+                                            fontSize: 13,
                                             lineHeight:
                                                 "16px",
                                             fontWeight: 700,
@@ -1665,7 +1780,7 @@ export default function MonthOnMonthOpexReport({
                                         "right",
                                     color:
                                         "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     lineHeight:
                                         "16px",
                                     fontWeight: 700,
@@ -1686,7 +1801,7 @@ export default function MonthOnMonthOpexReport({
                                         "right",
                                     color:
                                         "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     lineHeight:
                                         "16px",
                                     fontWeight: 700,
@@ -1705,7 +1820,7 @@ export default function MonthOnMonthOpexReport({
                                         "right",
                                     color:
                                         "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     lineHeight:
                                         "16px",
                                     fontWeight: 700,
@@ -1724,7 +1839,7 @@ export default function MonthOnMonthOpexReport({
                                         "right",
                                     color:
                                         "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     lineHeight:
                                         "16px",
                                     fontWeight: 700,
@@ -1736,10 +1851,6 @@ export default function MonthOnMonthOpexReport({
                             </th>
                         </tr>
                     </thead>
-
-                    {/* =================================================
-                        BODY
-                    ================================================= */}
 
                     <tbody>
                         {tableRows.map(
@@ -1802,15 +1913,11 @@ export default function MonthOnMonthOpexReport({
                                             rowKey
                                         }
                                     >
-                                        {/* =================================
-                                            CATEGORY ROW
-                                        ================================= */}
-
                                         <tr
                                             style={{
                                                 minHeight:
                                                     58,
-                                                height: 58,
+                                                height: 43,
                                                 borderBottom:
                                                     "1px solid #F1F5F9",
                                             }}
@@ -1824,9 +1931,9 @@ export default function MonthOnMonthOpexReport({
                                                     fontSize: 13,
                                                     lineHeight:
                                                         "18px",
-                                                    fontWeight: 500,
+                                                    fontWeight: 800,
                                                     color:
-                                                        "#334155",
+                                                        "#000000",
                                                 }}
                                             >
                                                 <button
@@ -1852,53 +1959,33 @@ export default function MonthOnMonthOpexReport({
                                                         cursor:
                                                             "pointer",
                                                         color:
-                                                            "inherit",
+                                                            "#000000",
                                                         width:
                                                             "100%",
                                                         textAlign:
                                                             "left",
                                                     }}
                                                 >
-                                                    {isExpanded ? (
-                                                        <ChevronDown
-                                                            size={
-                                                                14
-                                                            }
-                                                            strokeWidth={
-                                                                1.8
-                                                            }
-                                                            color="#64748B"
-                                                        />
-                                                    ) : (
-                                                        <ChevronRight
-                                                            size={
-                                                                14
-                                                            }
-                                                            strokeWidth={
-                                                                1.8
-                                                            }
-                                                            color="#64748B"
-                                                        />
-                                                    )}
+                                                    {isExpanded
+                                                        ? "▼"
+                                                        : "▶"}
 
                                                     <span
                                                         style={{
-                                                            fontSize: 13,
-                                                            lineHeight:
-                                                                "18px",
-                                                            fontWeight: 500,
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            color: "#374151",
+                                                            whiteSpace:
+                                                                "nowrap",
+                                                            textTransform:
+                                                                "uppercase",
                                                         }}
                                                     >
-                                                        {
-                                                            item?.category
-                                                        }
+                                                        {item?.category ||
+                                                            "—"}
                                                     </span>
                                                 </button>
                                             </td>
-
-                                            {/* =================================
-                                                JAN - DEC
-                                            ================================= */}
 
                                             {months.map(
                                                 (
@@ -1926,7 +2013,7 @@ export default function MonthOnMonthOpexReport({
                                                                     "0 10px",
                                                                 textAlign:
                                                                     "right",
-                                                                fontSize: 12,
+                                                                fontSize: 13,
                                                                 lineHeight:
                                                                     "18px",
                                                                 fontWeight: 500,
@@ -1952,15 +2039,13 @@ export default function MonthOnMonthOpexReport({
                                                 }
                                             )}
 
-                                            {/* ACTUAL YTD */}
-
                                             <td
                                                 style={{
                                                     padding:
                                                         "0 10px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     lineHeight:
                                                         "18px",
                                                     fontWeight: 600,
@@ -1983,15 +2068,13 @@ export default function MonthOnMonthOpexReport({
                                                 }
                                             </td>
 
-                                            {/* TARGET */}
-
                                             <td
                                                 style={{
                                                     padding:
                                                         "0 10px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     lineHeight:
                                                         "18px",
                                                     fontWeight: 500,
@@ -2012,15 +2095,13 @@ export default function MonthOnMonthOpexReport({
                                                 }
                                             </td>
 
-                                            {/* VARIANCE */}
-
                                             <td
                                                 style={{
                                                     padding:
                                                         "0 10px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     lineHeight:
                                                         "18px",
                                                     fontWeight: 600,
@@ -2043,15 +2124,13 @@ export default function MonthOnMonthOpexReport({
                                                 }
                                             </td>
 
-                                            {/* VARIANCE % */}
-
                                             <td
                                                 style={{
                                                     padding:
                                                         "0 10px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     lineHeight:
                                                         "18px",
                                                     fontWeight: 600,
@@ -2075,15 +2154,11 @@ export default function MonthOnMonthOpexReport({
                                             </td>
                                         </tr>
 
-                                        {/* =================================
-                                            EXPANDED NATURAL ACCOUNT DETAILS
-                                        ================================= */}
-
                                         {isExpanded && (
                                             <tr
                                                 style={{
                                                     background:
-                                                        "#FAFAFC",
+                                                        "#FFFFFF",
                                                 }}
                                             >
                                                 <td
@@ -2152,8 +2227,6 @@ export default function MonthOnMonthOpexReport({
                                                                     "hidden",
                                                             }}
                                                         >
-                                                            {/* DETAIL TITLE */}
-
                                                             <div
                                                                 style={{
                                                                     fontSize: 12,
@@ -2174,16 +2247,6 @@ export default function MonthOnMonthOpexReport({
                                                                 }
                                                             </div>
 
-                                                            {/* =========================================
-                                                                NATURAL ACCOUNT TABLE
-
-                                                                FIXED WIDTHS:
-                                                                Prevent AED values from
-                                                                overlapping.
-
-                                                                12 months ALWAYS rendered.
-                                                            ========================================= */}
-
                                                             <table
                                                                 style={{
                                                                     width: 2120,
@@ -2196,38 +2259,11 @@ export default function MonthOnMonthOpexReport({
                                                                 }}
                                                             >
                                                                 <colgroup>
-                                                                    {/* NATURAL ACCOUNT */}
-
-                                                                    <col
-                                                                        style={{
-                                                                            width: 380,
-                                                                        }}
-                                                                    />
-
-                                                                    {/* JAN - DEC */}
-
-                                                                    {months.map(
-                                                                        (
-                                                                            month
-                                                                        ) => (
-                                                                            <col
-                                                                                key={
-                                                                                    month.key
-                                                                                }
-                                                                                style={{
-                                                                                    width: 130,
-                                                                                }}
-                                                                            />
-                                                                        )
-                                                                    )}
-
-                                                                    {/* ACTUAL YTD */}
-
-                                                                    <col
-                                                                        style={{
-                                                                            width: 180,
-                                                                        }}
-                                                                    />
+                                                                    <col style={{ width: 380 }} />
+                                                                    {months.map((month) => (
+                                                                        <col key={month.key} style={{ width: 130 }} />
+                                                                    ))}
+                                                                    <col style={{ width: 180 }} />
                                                                 </colgroup>
 
                                                                 <thead>
@@ -2246,7 +2282,7 @@ export default function MonthOnMonthOpexReport({
                                                                                     "left",
                                                                                 color:
                                                                                     "#1E3A8A",
-                                                                                fontSize: 11,
+                                                                                fontSize: 12,
                                                                                 lineHeight:
                                                                                     "16px",
                                                                                 fontWeight: 700,
@@ -2255,8 +2291,6 @@ export default function MonthOnMonthOpexReport({
                                                                             Natural
                                                                             Account
                                                                         </th>
-
-                                                                        {/* JAN - DEC */}
 
                                                                         {months.map(
                                                                             (
@@ -2273,7 +2307,7 @@ export default function MonthOnMonthOpexReport({
                                                                                             "right",
                                                                                         color:
                                                                                             "#1E3A8A",
-                                                                                        fontSize: 11,
+                                                                                        fontSize: 12,
                                                                                         lineHeight:
                                                                                             "16px",
                                                                                         fontWeight: 700,
@@ -2349,15 +2383,13 @@ export default function MonthOnMonthOpexReport({
                                                                                             "1px solid #F1F5F9",
                                                                                     }}
                                                                                 >
-                                                                                    {/* NATURAL ACCOUNT */}
-
                                                                                     <td
                                                                                         style={{
                                                                                             padding:
                                                                                                 "0 9px",
                                                                                             textAlign:
                                                                                                 "left",
-                                                                                            fontSize: 11,
+                                                                                            fontSize: 12,
                                                                                             lineHeight:
                                                                                                 "18px",
                                                                                             color:
@@ -2375,15 +2407,6 @@ export default function MonthOnMonthOpexReport({
                                                                                             naturalAccountLabel
                                                                                         }
                                                                                     </td>
-
-                                                                                    {/* =================================
-                                                                                        JAN - DEC
-
-                                                                                        ALWAYS SHOW ALL MONTHS.
-
-                                                                                        Backend missing:
-                                                                                        —
-                                                                                    ================================= */}
 
                                                                                     {months.map(
                                                                                         (
@@ -2411,7 +2434,7 @@ export default function MonthOnMonthOpexReport({
                                                                                                             "0 9px",
                                                                                                         textAlign:
                                                                                                             "right",
-                                                                                                        fontSize: 11,
+                                                                                                        fontSize: 13,
                                                                                                         lineHeight:
                                                                                                             "18px",
                                                                                                         fontWeight: 500,
@@ -2436,8 +2459,6 @@ export default function MonthOnMonthOpexReport({
                                                                                             );
                                                                                         }
                                                                                     )}
-
-                                                                                    {/* ACCOUNT YTD */}
 
                                                                                     <td
                                                                                         style={{
@@ -2483,10 +2504,6 @@ export default function MonthOnMonthOpexReport({
                             }
                         )}
 
-                        {/* =============================================
-                            TOTAL OPERATING EXPENSES
-                        ============================================= */}
-
                         <tr
                             style={{
                                 height: 60,
@@ -2503,7 +2520,7 @@ export default function MonthOnMonthOpexReport({
                                     fontSize: 13,
                                     lineHeight:
                                         "18px",
-                                    fontWeight: 700,
+                                    fontWeight: 800,
                                     color:
                                         "#0F172A",
                                 }}
@@ -2515,17 +2532,9 @@ export default function MonthOnMonthOpexReport({
                                         alignItems:
                                             "center",
                                         gap: 7,
+
                                     }}
                                 >
-                                    <ChevronRight
-                                        size={
-                                            14
-                                        }
-                                        strokeWidth={
-                                            1.8
-                                        }
-                                        color="#64748B"
-                                    />
 
                                     <span>
                                         Total Operating
@@ -2693,10 +2702,6 @@ export default function MonthOnMonthOpexReport({
                     marginTop: 12,
                 }}
             >
-                {/* =================================================
-                    HEADER
-                ================================================= */}
-
                 <div
                     style={{
                         minHeight: 52,
@@ -2741,10 +2746,6 @@ export default function MonthOnMonthOpexReport({
                             gap: 7,
                         }}
                     >
-                        {/* =============================================
-                            COLLAPSE
-                        ============================================= */}
-
                         <button
                             type="button"
                             onClick={() =>
@@ -2792,158 +2793,160 @@ export default function MonthOnMonthOpexReport({
                                 : "Collapse"}
                         </button>
 
-                        {/* =============================================
-                            THREE DOT MENU
-                        ============================================= */}
-                        {/* =============================================
-    THREE DOT MENU
-============================================= */}
                         <div
-                            ref={exportMenuRef}
                             style={{
                                 position: "relative",
-                                zIndex: 100000,
+                                display: "flex",
+                                alignItems: "center",
                             }}
                         >
                             <button
                                 type="button"
-                                aria-label="More options"
-                                onClick={() =>
-                                    setShowExportMenu((prev) => !prev)
-                                }
+                                onClick={() => {
+                                    setMonthMenuOpen((prev) => !prev);
+                                }}
+                                aria-label="Month-on-Month actions"
+                                aria-expanded={monthMenuOpen}
                                 style={{
-                                    width: 32,
-                                    height: 32,
-                                    padding: 0,
                                     border: "none",
-                                    borderRadius: 7,
-                                    background: "#EEF4FB",
-                                    color: "#64748B",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
+                                    background: "transparent",
+                                    padding: "2px 6px",
                                     cursor: "pointer",
+                                    color: "#64748B",
+                                    fontSize: 20,
+                                    lineHeight: 1,
                                 }}
                             >
-                                <MoreVertical
-                                    size={18}
-                                    strokeWidth={2}
-                                />
+                                ⋮
                             </button>
 
-                            {showExportMenu && (
+                            {monthMenuOpen && (
                                 <div
                                     style={{
                                         position: "absolute",
-                                        top: 36,
+                                        top: "100%",
                                         right: 0,
-                                        width: 160,
+                                        marginTop: 6,
+                                        width: 165,
                                         background: "#FFFFFF",
-                                        border: "1px solid #E2E8F0",
-                                        borderRadius: 9,
+                                        border: "1px solid #E5E7EB",
+                                        borderRadius: 8,
                                         boxShadow:
-                                            "0 8px 20px rgba(15, 23, 42, 0.14)",
-                                        zIndex: 100001,
-                                        overflow: "hidden",
+                                            "0 8px 24px rgba(15, 23, 42, 0.12)",
+                                        padding: "5px 0",
+                                        zIndex: 99999,
                                     }}
                                 >
-                                    {/* VIEW ALL */}
                                     <button
                                         type="button"
-                                        onClick={handleViewAll}
+                                        onClick={() => {
+                                            setMonthMenuOpen(false);
+                                            handleViewAll();
+                                        }}
                                         style={{
                                             width: "100%",
-                                            height: 40,
-                                            padding: "0 12px",
-                                            border: "none",
-                                            borderBottom:
-                                                "1px solid #E5E7EB",
-                                            background: "#FFFFFF",
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: 8,
-                                            color: "#475569",
-                                            fontSize: 12,
-                                            fontWeight: 500,
+                                            gap: 9,
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: "9px 12px",
                                             cursor: "pointer",
                                             textAlign: "left",
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            color: "#334155",
+                                        }}
+                                        onMouseEnter={(event) => {
+                                            event.currentTarget.style.background =
+                                                "#F8FAFC";
+                                        }}
+                                        onMouseLeave={(event) => {
+                                            event.currentTarget.style.background =
+                                                "transparent";
                                         }}
                                     >
-                                        <Search
-                                            size={15}
-                                            strokeWidth={1.8}
-                                            color="#64748B"
-                                        />
+                                        <span style={{ fontSize: 14 }}>
+                                            🔍
+                                        </span>
 
                                         <span>View All</span>
                                     </button>
 
-                                    {/* EXPORT EXCEL */}
                                     <button
                                         type="button"
-                                        onClick={handleExportExcel}
+                                        onClick={() => {
+                                            setMonthMenuOpen(false);
+                                            handleExportExcel();
+                                        }}
                                         style={{
                                             width: "100%",
-                                            height: 40,
-                                            padding: "0 12px",
-                                            border: "none",
-                                            borderBottom:
-                                                "1px solid #E5E7EB",
-                                            background: "#FFFFFF",
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: 8,
-                                            color: "#475569",
-                                            fontSize: 12,
-                                            fontWeight: 500,
+                                            gap: 9,
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: "9px 12px",
                                             cursor: "pointer",
                                             textAlign: "left",
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            color: "#334155",
+                                        }}
+                                        onMouseEnter={(event) => {
+                                            event.currentTarget.style.background =
+                                                "#F8FAFC";
+                                        }}
+                                        onMouseLeave={(event) => {
+                                            event.currentTarget.style.background =
+                                                "transparent";
                                         }}
                                     >
-                                        <FileSpreadsheet
-                                            size={15}
-                                            strokeWidth={1.8}
-                                            color="#64748B"
-                                        />
+                                        <span style={{ fontSize: 14 }}>
+                                            📊
+                                        </span>
 
                                         <span>Export Excel</span>
                                     </button>
 
-                                    {/* EXPORT PDF */}
                                     <button
                                         type="button"
-                                        onClick={handleExportPDF}
+                                        onClick={() => {
+                                            setMonthMenuOpen(false);
+                                            handleExportPDF();
+                                        }}
                                         style={{
                                             width: "100%",
-                                            height: 40,
-                                            padding: "0 12px",
-                                            border: "none",
-                                            background: "#FFFFFF",
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: 8,
-                                            color: "#475569",
-                                            fontSize: 12,
-                                            fontWeight: 500,
+                                            gap: 9,
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: "9px 12px",
                                             cursor: "pointer",
                                             textAlign: "left",
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            color: "#334155",
+                                        }}
+                                        onMouseEnter={(event) => {
+                                            event.currentTarget.style.background =
+                                                "#F8FAFC";
+                                        }}
+                                        onMouseLeave={(event) => {
+                                            event.currentTarget.style.background =
+                                                "transparent";
                                         }}
                                     >
-                                        <FileText
-                                            size={15}
-                                            strokeWidth={1.8}
-                                            color="#64748B"
-                                        />
+                                        <span style={{ fontSize: 14 }}>
+                                            📄
+                                        </span>
 
                                         <span>Export PDF</span>
                                     </button>
                                 </div>
                             )}
                         </div>
-
-                        {/* =============================================
-                            AED
-                        ============================================= */}
 
                         <button
                             type="button"
@@ -2979,10 +2982,6 @@ export default function MonthOnMonthOpexReport({
                         >
                             AED
                         </button>
-
-                        {/* =============================================
-                            AED MILLIONS
-                        ============================================= */}
 
                         <button
                             type="button"
@@ -3075,10 +3074,6 @@ export default function MonthOnMonthOpexReport({
                                     "hidden",
                             }}
                         >
-                            {/* ==========================================
-                            MODAL HEADER
-                        ========================================== */}
-
                             <div
                                 style={{
                                     minHeight: 58,
@@ -3118,129 +3113,45 @@ export default function MonthOnMonthOpexReport({
                                     </div>
                                 </div>
 
-                                <div
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowViewAll(
+                                            false
+                                        )
+                                    }
                                     style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius:
+                                            6,
+                                        border:
+                                            "1px solid #E2E8F0",
+                                        background:
+                                            "#FFFFFF",
+                                        color:
+                                            "#64748B",
                                         display:
                                             "flex",
                                         alignItems:
                                             "center",
-                                        gap: 8,
+                                        justifyContent:
+                                            "center",
+                                        cursor:
+                                            "pointer",
                                     }}
                                 >
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handleExportExcel
+                                    <X
+                                        size={
+                                            17
                                         }
-                                        style={{
-                                            height: 32,
-                                            padding:
-                                                "0 12px",
-                                            borderRadius:
-                                                6,
-                                            border:
-                                                "1px solid #E2E8F0",
-                                            background:
-                                                "#FFFFFF",
-                                            color:
-                                                "#334155",
-                                            fontSize: 11,
-                                            fontWeight: 600,
-                                            cursor:
-                                                "pointer",
-                                            display:
-                                                "flex",
-                                            alignItems:
-                                                "center",
-                                            gap: 6,
-                                        }}
-                                    >
-                                        <FileSpreadsheet
-                                            size={
-                                                14
-                                            }
-                                        />
-
-                                        Export Excel
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={
-                                            handleExportPDF
-                                        }
-                                        style={{
-                                            height: 32,
-                                            padding:
-                                                "0 12px",
-                                            borderRadius:
-                                                6,
-                                            border:
-                                                "1px solid #E2E8F0",
-                                            background:
-                                                "#FFFFFF",
-                                            color:
-                                                "#334155",
-                                            fontSize: 11,
-                                            fontWeight: 600,
-                                            cursor:
-                                                "pointer",
-                                            display:
-                                                "flex",
-                                            alignItems:
-                                                "center",
-                                            gap: 6,
-                                        }}
-                                    >
-                                        <FileText
-                                            size={
-                                                14
-                                            }
-                                        />
-
-                                        Export PDF
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setShowViewAll(
-                                                false
-                                            )
-                                        }
-                                        style={{
-                                            width: 32,
-                                            height: 32,
-                                            borderRadius:
-                                                6,
-                                            border:
-                                                "1px solid #E2E8F0",
-                                            background:
-                                                "#FFFFFF",
-                                            color:
-                                                "#64748B",
-                                            display:
-                                                "flex",
-                                            alignItems:
-                                                "center",
-                                            justifyContent:
-                                                "center",
-                                            cursor:
-                                                "pointer",
-                                        }}
-                                    >
-                                        <X
-                                            size={
-                                                17
-                                            }
-                                        />
-                                    </button>
-                                </div>
+                                    />
+                                </button>
                             </div>
 
                             {/* ==========================================
-                            ACTIVE FILTERS
-                        ========================================== */}
+                                ACTIVE FILTERS & RIGHT-ALIGNED EXPORT BUTTONS
+                            ========================================== */}
 
                             <div
                                 style={{
@@ -3254,81 +3165,99 @@ export default function MonthOnMonthOpexReport({
                                         "flex",
                                     alignItems:
                                         "center",
-                                    gap: 8,
-                                    flexWrap:
-                                        "wrap",
+                                    justifyContent:
+                                        "space-between",
+                                    gap: 12,
                                 }}
                             >
-                                {filterEntries.length >
-                                    0 ? (
-                                    filterEntries.map(
-                                        ([
-                                            key,
-                                            value,
-                                        ]) => (
-                                            <div
-                                                key={
-                                                    key
-                                                }
-                                                style={{
-                                                    display:
-                                                        "flex",
-                                                    alignItems:
-                                                        "center",
-                                                    gap: 5,
-                                                    padding:
-                                                        "5px 9px",
-                                                    borderRadius:
-                                                        5,
-                                                    background:
-                                                        "#FFFFFF",
-                                                    border:
-                                                        "1px solid #E2E8F0",
-                                                    fontSize: 10,
-                                                    color:
-                                                        "#475569",
-                                                }}
-                                            >
-                                                <span
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    {filterEntries.length >
+                                        0 ? (
+                                        filterEntries.map(
+                                            ([
+                                                key,
+                                                value,
+                                            ]) => (
+                                                <div
+                                                    key={
+                                                        key
+                                                    }
                                                     style={{
-                                                        fontWeight:
-                                                            600,
+                                                        display:
+                                                            "flex",
+                                                        alignItems:
+                                                            "center",
+                                                        gap: 5,
+                                                        padding:
+                                                            "6px 10px",
+                                                        borderRadius:
+                                                            5,
+                                                        background:
+                                                            "#FFFFFF",
+                                                        border:
+                                                            "1px solid #E2E8F0",
+                                                        fontSize: 13,
+                                                        color:
+                                                            "#475569",
                                                     }}
                                                 >
-                                                    {key}:
-                                                </span>
+                                                    <span
+                                                        style={{
+                                                            fontWeight:
+                                                                600,
+                                                        }}
+                                                    >
+                                                        {formatFilterKey(key)}:
+                                                    </span>
 
-                                                <span>
-                                                    {Array.isArray(
-                                                        value
-                                                    )
-                                                        ? value.join(
-                                                            ", "
-                                                        )
-                                                        : String(
-                                                            value
+                                                    <span>
+                                                        {formatFilterValue(
+                                                            value,
+                                                            key,
+                                                            filterOptions
                                                         )}
-                                                </span>
-                                            </div>
+                                                    </span>
+                                                </div>
+                                            )
                                         )
-                                    )
-                                ) : (
-                                    <span
-                                        style={{
-                                            fontSize: 10,
-                                            color:
-                                                "#64748B",
-                                        }}
-                                    >
-                                        No additional hierarchy
-                                        filters selected
-                                    </span>
-                                )}
-                            </div>
+                                    ) : (
+                                        <span
+                                            style={{
+                                                fontSize: 13,
+                                                color:
+                                                    "#64748B",
+                                            }}
+                                        >
+                                            No additional hierarchy
+                                            filters selected
+                                        </span>
+                                    )}
+                                </div>
 
-                            {/* ==========================================
-                            VIEW ALL TABLE
-                        ========================================== */}
+                                <div
+                                    style={{
+                                        display:
+                                            "flex",
+                                        alignItems:
+                                            "center",
+                                        gap: 8,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <ExportButtons
+                                        endpoint="month-on-month-opex"
+                                        exporting={exporting}
+                                        handleExport={handleModalExport}
+                                    />
+                                </div>
+                            </div>
 
                             <div
                                 style={{

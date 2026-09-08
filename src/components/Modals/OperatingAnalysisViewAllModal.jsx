@@ -1,4 +1,5 @@
-// import React from "react";
+
+// import React, { useMemo, useState } from "react";
 
 // /* =========================================================
 //    FORMAT AMOUNT
@@ -52,6 +53,493 @@
 
 
 // /* =========================================================
+//    CHECK VALUE
+// ========================================================= */
+
+// const hasValue = (value) => {
+//     return !(
+//         value === null ||
+//         value === undefined ||
+//         value === "" ||
+//         value === "-"
+//     );
+// };
+
+
+// /* =========================================================
+//    CHECK "ALL" / EMPTY VALUE
+// ========================================================= */
+
+// const isEmptyOrAll = (value) => {
+//     if (
+//         value === null ||
+//         value === undefined ||
+//         value === ""
+//     ) {
+//         return true;
+//     }
+
+//     if (Array.isArray(value)) {
+//         return (
+//             value.length === 0 ||
+//             value.every((item) =>
+//                 isEmptyOrAll(item)
+//             )
+//         );
+//     }
+
+//     const text = String(value)
+//         .trim()
+//         .toLowerCase();
+
+//     return (
+//         text === "" ||
+//         text === "all" ||
+//         text === "all values" ||
+//         text === "all value" ||
+//         text === "all options" ||
+//         text === "-" ||
+//         text === "*"
+//     );
+// };
+
+
+// /* =========================================================
+//    CHECK "ALL" VALUE
+// ========================================================= */
+
+// const isAllValue = (value) => {
+//     if (value === null || value === undefined) {
+//         return true;
+//     }
+
+//     if (typeof value === "string") {
+//         const normalized = value.trim().toLowerCase();
+
+//         return (
+//             normalized === "" ||
+//             normalized === "all" ||
+//             normalized === "all values" ||
+//             normalized === "all options" ||
+//             normalized === "-"
+//         );
+//     }
+
+//     return false;
+// };
+
+
+// /* =========================================================
+//    GET DISPLAY NAME FROM FILTER OBJECT
+// ========================================================= */
+
+// const getFilterObjectDisplayValue = (value) => {
+//     if (value === null || value === undefined) {
+//         return null;
+//     }
+
+//     /* -------------------------------------------------------
+//        ARRAY
+//     ------------------------------------------------------- */
+
+//     if (Array.isArray(value)) {
+//         const values = value
+//             .map((item) =>
+//                 getFilterObjectDisplayValue(item)
+//             )
+//             .filter(
+//                 (item) =>
+//                     item !== null &&
+//                     item !== undefined &&
+//                     item !== ""
+//             );
+
+//         if (!values.length) {
+//             return null;
+//         }
+
+//         return values.join(", ");
+//     }
+
+
+//     /* -------------------------------------------------------
+//        OBJECT
+//     ------------------------------------------------------- */
+
+//     if (typeof value === "object") {
+
+//         /*
+//          * Prefer human-readable fields.
+//          * IDs / codes are deliberately lower priority.
+//          */
+
+//         const displayKeys = [
+//             "name",
+//             "label",
+//             "display_name",
+//             "displayName",
+//             "description",
+//             "title",
+//             "text",
+//             "period_name",
+//             "value",
+//         ];
+
+//         for (const key of displayKeys) {
+//             const displayValue = value?.[key];
+
+//             if (
+//                 hasValue(displayValue) &&
+//                 !isAllValue(displayValue)
+//             ) {
+//                 return String(displayValue);
+//             }
+//         }
+
+
+//         /*
+//          * If the object itself only contains an ID/code,
+//          * don't show the internal identifier.
+//          */
+
+//         const codeKeys = [
+//             "id",
+//             "code",
+//             "key",
+//             "uuid",
+//             "value_id",
+//             "value_code",
+//         ];
+
+//         const hasOnlyCodeValue = codeKeys.some(
+//             (key) =>
+//                 hasValue(value?.[key]) &&
+//                 !hasValue(
+//                     value?.name ||
+//                     value?.label ||
+//                     value?.display_name ||
+//                     value?.displayName
+//                 )
+//         );
+
+//         if (hasOnlyCodeValue) {
+//             return null;
+//         }
+
+//         return null;
+//     }
+
+
+//     /* -------------------------------------------------------
+//        STRING / NUMBER
+//     ------------------------------------------------------- */
+
+//     if (isAllValue(value)) {
+//         return null;
+//     }
+
+//     return String(value);
+// };
+
+
+// /* =========================================================
+//    GET OPTION DISPLAY NAME
+// ========================================================= */
+
+// const getOptionDisplayName = (option) => {
+//     if (
+//         option === null ||
+//         option === undefined
+//     ) {
+//         return "";
+//     }
+
+//     if (typeof option !== "object") {
+//         return String(option);
+//     }
+
+//     return (
+//         option.name ??
+//         option.label ??
+//         option.display_name ??
+//         option.displayName ??
+//         option.description ??
+//         option.title ??
+//         option.text ??
+//         option.period_name ??
+//         option.value ??
+//         option.code ??
+//         option.id ??
+//         ""
+//     );
+// };
+
+
+// /* =========================================================
+//    GET OPTION ID / VALUE
+// ========================================================= */
+
+// const getOptionId = (option) => {
+//     if (
+//         option === null ||
+//         option === undefined
+//     ) {
+//         return "";
+//     }
+
+//     if (typeof option !== "object") {
+//         return String(option);
+//     }
+
+//     return (
+//         option.value ??
+//         option.id ??
+//         option.code ??
+//         option.legal_group_id ??
+//         option.legal_entity_id ??
+//         option.parent_division_id ??
+//         option.subdivision_id ??
+//         option.period_name ??
+//         option.name ??
+//         ""
+//     );
+// };
+
+
+// /* =========================================================
+//    FIND SELECTED VALUE DISPLAY NAME
+// ========================================================= */
+
+// const findFilterOptionName = (
+//     selectedValue,
+//     options = []
+// ) => {
+//     if (
+//         selectedValue === null ||
+//         selectedValue === undefined ||
+//         selectedValue === ""
+//     ) {
+//         return "";
+//     }
+
+
+//     /* -------------------------------------------------------
+//        ARRAY
+//     ------------------------------------------------------- */
+
+//     if (Array.isArray(selectedValue)) {
+//         const names = selectedValue
+//             .filter(
+//                 (value) =>
+//                     !isEmptyOrAll(value)
+//             )
+//             .map((value) =>
+//                 findFilterOptionName(
+//                     value,
+//                     options
+//                 )
+//             )
+//             .filter(Boolean);
+
+//         return [
+//             ...new Set(names),
+//         ].join(", ");
+//     }
+
+
+//     /* -------------------------------------------------------
+//        OBJECT
+//     ------------------------------------------------------- */
+
+//     /*
+//      * If the selected value itself is an object,
+//      * use its human-readable name.
+//      */
+
+//     if (
+//         typeof selectedValue === "object"
+//     ) {
+//         return getOptionDisplayName(
+//             selectedValue
+//         );
+//     }
+
+
+//     /* -------------------------------------------------------
+//        STRING / NUMBER
+//     ------------------------------------------------------- */
+
+//     const selectedText = String(
+//         selectedValue
+//     ).trim();
+
+//     if (
+//         !selectedText ||
+//         isEmptyOrAll(selectedText)
+//     ) {
+//         return "";
+//     }
+
+
+//     /*
+//      * Find the selected ID/code in the
+//      * corresponding filter options.
+//      */
+
+//     const matchedOption =
+//         Array.isArray(options)
+//             ? options.find((option) => {
+
+//                 const optionId =
+//                     String(
+//                         getOptionId(
+//                             option
+//                         )
+//                     ).trim();
+
+//                 return (
+//                     optionId ===
+//                     selectedText
+//                 );
+//             })
+//             : null;
+
+
+//     if (matchedOption) {
+//         return getOptionDisplayName(
+//             matchedOption
+//         );
+//     }
+
+
+//     /*
+//      * If backend/filter already supplied
+//      * a display value, keep it.
+//      */
+
+//     return selectedText;
+// };
+
+
+// /* =========================================================
+//    GET SELECTED FILTER DISPLAY VALUE
+// ========================================================= */
+
+// const getSelectedFilterValue = (
+//     activeFilters,
+//     key,
+//     aliases = []
+// ) => {
+
+//     /*
+//      * First check the requested key.
+//      */
+
+//     const directValue =
+//         activeFilters?.[key];
+
+//     const directDisplay =
+//         getFilterObjectDisplayValue(
+//             directValue
+//         );
+
+//     if (directDisplay) {
+//         return directDisplay;
+//     }
+
+
+//     /*
+//      * Then check possible name/label fields.
+//      *
+//      * Example:
+//      * legal_group
+//      * legal_group_name
+//      * legal_group_label
+//      */
+
+//     const possibleKeys = [
+//         ...aliases,
+
+//         `${key}_name`,
+//         `${key}_label`,
+//         `${key}_display_name`,
+//         `${key}_displayName`,
+//         `${key}Name`,
+//         `${key}Label`,
+//     ];
+
+
+//     for (const possibleKey of possibleKeys) {
+
+//         const value =
+//             activeFilters?.[possibleKey];
+
+//         const displayValue =
+//             getFilterObjectDisplayValue(
+//                 value
+//             );
+
+//         if (displayValue) {
+//             return displayValue;
+//         }
+//     }
+
+
+//     return null;
+// };
+
+
+// /* =========================================================
+//    GET FILTER DISPLAY VALUE FROM OPTIONS
+// ========================================================= */
+
+// const getFilterDisplayValue = (
+//     filters,
+//     filterOptions,
+//     filterKey
+// ) => {
+
+//     const selectedValue =
+//         filters?.[filterKey];
+
+
+//     if (isEmptyOrAll(selectedValue)) {
+//         return "";
+//     }
+
+
+//     const optionMap = {
+
+//         legal_group:
+//             filterOptions?.legal_groups || [],
+
+//         legal_entity:
+//             filterOptions?.legal_entities || [],
+
+//         parent_division:
+//             filterOptions?.parent_divisions || [],
+
+//         subdivision:
+//             filterOptions?.subdivisions || [],
+
+//         period:
+//             filterOptions?.periods || [],
+
+//         year:
+//             filterOptions?.years ||
+//             filterOptions?.fiscal_years ||
+//             [],
+//     };
+
+
+//     return findFilterOptionName(
+//         selectedValue,
+//         optionMap[filterKey] || []
+//     );
+// };
+
+
+// /* =========================================================
 //    FILTER CHIP
 // ========================================================= */
 
@@ -59,39 +547,38 @@
 //     label,
 //     value,
 // }) => {
-//     if (
-//         value === null ||
-//         value === undefined ||
-//         value === ""
-//     ) {
+
+//     const displayValue =
+//         getFilterObjectDisplayValue(
+//             value
+//         );
+
+
+//     /*
+//      * Do not show:
+//      * - null
+//      * - undefined
+//      * - empty
+//      * - "-"
+//      * - All
+//      */
+
+//     if (!displayValue) {
 //         return null;
 //     }
 
+
 //     return (
-//         <div
-//             style={{
-//                 display: "inline-flex",
-//                 alignItems: "center",
-//                 gap: "5px",
-//                 padding: "5px 9px",
-//                 background: "#f8fafc",
-//                 border: "1px solid #e2e8f0",
-//                 borderRadius: "6px",
-//                 fontSize: "11px",
-//                 color: "#475569",
-//             }}
-//         >
-//             <span
-//                 style={{
-//                     fontWeight: 600,
-//                 }}
-//             >
+//         <div className="finsight-detail-filter-chip">
+
+//             <span className="finsight-detail-filter-chip-label">
 //                 {label}:
 //             </span>
 
 //             <span>
-//                 {value}
+//                 {displayValue}
 //             </span>
+
 //         </div>
 //     );
 // };
@@ -105,7 +592,9 @@
 //     row,
 //     keys = []
 // ) => {
+
 //     for (const key of keys) {
+
 //         if (
 //             row?.[key] !== null &&
 //             row?.[key] !== undefined &&
@@ -120,7 +609,466 @@
 
 
 // /* =========================================================
-//    COMPONENT
+//    ACTUAL VS TARGET TABLE
+// ========================================================= */
+
+// const ActualVsTargetTable = ({
+//     rows,
+//     currency,
+// }) => {
+
+//     const totalActual =
+//         rows.reduce(
+//             (sum, row) => {
+
+//                 const value =
+//                     getRowValue(
+//                         row,
+//                         [
+//                             "actual_ptd_aed",
+//                             "actual_ptd",
+//                             "actual",
+//                         ]
+//                     );
+
+//                 if (!hasValue(value)) {
+//                     return sum;
+//                 }
+
+//                 const number =
+//                     Number(value);
+
+//                 return Number.isNaN(number)
+//                     ? sum
+//                     : sum + number;
+
+//             },
+//             0
+//         );
+
+
+//     const targetValuesExist =
+//         rows.some(
+//             (row) => {
+
+//                 const value =
+//                     getRowValue(
+//                         row,
+//                         [
+//                             "target_ptd_aed",
+//                             "target_ptd",
+//                             "target",
+//                         ]
+//                     );
+
+//                 return hasValue(value);
+//             }
+//         );
+
+
+//     const totalTarget =
+//         rows.reduce(
+//             (sum, row) => {
+
+//                 const value =
+//                     getRowValue(
+//                         row,
+//                         [
+//                             "target_ptd_aed",
+//                             "target_ptd",
+//                             "target",
+//                         ]
+//                     );
+
+//                 if (!hasValue(value)) {
+//                     return sum;
+//                 }
+
+//                 const number =
+//                     Number(value);
+
+//                 return Number.isNaN(number)
+//                     ? sum
+//                     : sum + number;
+
+//             },
+//             0
+//         );
+
+
+//     return (
+//         <div className="finsight-detail-table-wrapper">
+
+//             <table className="finsight-detail-table">
+
+//                 <thead>
+//                     <tr>
+
+//                         <th className="text-left">
+//                             Expense Category
+//                         </th>
+
+//                         <th className="text-right">
+//                             Actual PTD ({currency})
+//                         </th>
+
+//                         <th className="text-right">
+//                             Target PTD ({currency})
+//                         </th>
+
+//                     </tr>
+//                 </thead>
+
+
+//                 <tbody>
+
+//                     {rows.map(
+//                         (
+//                             row,
+//                             index
+//                         ) => {
+
+//                             const category =
+//                                 getRowValue(
+//                                     row,
+//                                     [
+//                                         "category",
+//                                         "name",
+//                                     ]
+//                                 );
+
+
+//                             const actual =
+//                                 getRowValue(
+//                                     row,
+//                                     [
+//                                         "actual_ptd_aed",
+//                                         "actual_ptd",
+//                                         "actual",
+//                                     ]
+//                                 );
+
+
+//                             const target =
+//                                 getRowValue(
+//                                     row,
+//                                     [
+//                                         "target_ptd_aed",
+//                                         "target_ptd",
+//                                         "target",
+//                                     ]
+//                                 );
+
+
+//                             return (
+//                                 <tr
+//                                     key={
+//                                         `${category || "row"}-${index}`
+//                                     }
+//                                 >
+
+//                                     <td>
+//                                         {category || "—"}
+//                                     </td>
+
+
+//                                     <td className="text-right">
+//                                         {hasValue(actual)
+//                                             ? `${currency} ${formatAmount(actual)}`
+//                                             : "—"}
+//                                     </td>
+
+
+//                                     <td className="text-right">
+//                                         {hasValue(target)
+//                                             ? `${currency} ${formatAmount(target)}`
+//                                             : "—"}
+//                                     </td>
+
+//                                 </tr>
+//                             );
+//                         }
+//                     )}
+
+//                 </tbody>
+
+
+//                 <tfoot>
+//                     <tr>
+
+//                         <td>
+//                             Total
+//                         </td>
+
+//                         <td className="text-right">
+//                             {currency}{" "}
+//                             {formatAmount(totalActual)}
+//                         </td>
+
+//                         <td className="text-right">
+//                             {targetValuesExist
+//                                 ? `${currency} ${formatAmount(
+//                                     totalTarget
+//                                 )}`
+//                                 : "—"}
+//                         </td>
+
+//                     </tr>
+//                 </tfoot>
+
+//             </table>
+
+//         </div>
+//     );
+// };
+
+
+// /* =========================================================
+//    GENERIC TABLE
+// ========================================================= */
+
+// const GenericTable = ({
+//     rows,
+//     currency,
+//     categoryLabel,
+//     firstMetricLabel,
+//     secondMetricLabel,
+//     firstMetricType,
+//     secondMetricType,
+//     firstMetricKeys,
+//     secondMetricKeys,
+//     categoryKeys,
+//     totalLabel,
+// }) => {
+
+//     const totalAmount =
+//         rows.reduce(
+//             (sum, row) => {
+
+//                 const value =
+//                     getRowValue(
+//                         row,
+//                         firstMetricKeys
+//                     );
+
+//                 const number =
+//                     Number(value);
+
+//                 return Number.isNaN(number)
+//                     ? sum
+//                     : sum + number;
+
+//             },
+//             0
+//         );
+
+
+//     const totalPercentage =
+//         rows.reduce(
+//             (sum, row) => {
+
+//                 const value =
+//                     getRowValue(
+//                         row,
+//                         secondMetricKeys
+//                     );
+
+//                 const number =
+//                     Number(value);
+
+//                 return Number.isNaN(number)
+//                     ? sum
+//                     : sum + number;
+
+//             },
+//             0
+//         );
+
+
+//     const formatFirstMetric = (row) => {
+
+//         const value =
+//             getRowValue(
+//                 row,
+//                 firstMetricKeys
+//             );
+
+
+//         if (
+//             firstMetricType ===
+//             "amount"
+//         ) {
+//             return formatAmount(value);
+//         }
+
+
+//         if (
+//             firstMetricType ===
+//             "percentage"
+//         ) {
+//             return formatPercentage(value);
+//         }
+
+
+//         if (!hasValue(value)) {
+//             return "—";
+//         }
+
+
+//         return value;
+//     };
+
+
+//     const formatSecondMetric = (row) => {
+
+//         const value =
+//             getRowValue(
+//                 row,
+//                 secondMetricKeys
+//             );
+
+
+//         if (
+//             secondMetricType ===
+//             "amount"
+//         ) {
+//             return formatAmount(value);
+//         }
+
+
+//         if (
+//             secondMetricType ===
+//             "percentage"
+//         ) {
+//             return formatPercentage(value);
+//         }
+
+
+//         if (!hasValue(value)) {
+//             return "—";
+//         }
+
+
+//         return value;
+//     };
+
+
+//     return (
+//         <div className="finsight-detail-table-wrapper">
+
+//             <table className="finsight-detail-table">
+
+//                 <thead>
+//                     <tr>
+
+//                         <th className="text-left">
+//                             {categoryLabel}
+//                         </th>
+
+//                         <th className="text-right">
+
+//                             {firstMetricLabel}
+
+//                             {firstMetricType ===
+//                                 "amount"
+//                                 ? ` (${currency})`
+//                                 : ""}
+
+//                         </th>
+
+//                         <th className="text-right">
+//                             {secondMetricLabel}
+//                         </th>
+
+//                     </tr>
+//                 </thead>
+
+
+//                 <tbody>
+
+//                     {rows.map(
+//                         (
+//                             row,
+//                             index
+//                         ) => {
+
+//                             const category =
+//                                 getRowValue(
+//                                     row,
+//                                     categoryKeys
+//                                 );
+
+
+//                             return (
+//                                 <tr
+//                                     key={
+//                                         `${category || "row"}-${index}`
+//                                     }
+//                                 >
+
+//                                     <td>
+//                                         {category || "—"}
+//                                     </td>
+
+//                                     <td className="text-right">
+//                                         {formatFirstMetric(
+//                                             row
+//                                         )}
+//                                     </td>
+
+//                                     <td className="text-right">
+//                                         {formatSecondMetric(
+//                                             row
+//                                         )}
+//                                     </td>
+
+//                                 </tr>
+//                             );
+//                         }
+//                     )}
+
+//                 </tbody>
+
+
+//                 <tfoot>
+//                     <tr>
+
+//                         <td>
+//                             {totalLabel}
+//                         </td>
+
+
+//                         <td className="text-right">
+
+//                             {currency}{" "}
+
+//                             {formatAmount(
+//                                 totalAmount
+//                             )}
+
+//                         </td>
+
+
+//                         <td className="text-right">
+
+//                             {formatPercentage(
+//                                 totalPercentage
+//                             )}
+
+//                         </td>
+
+//                     </tr>
+//                 </tfoot>
+
+//             </table>
+
+//         </div>
+//     );
+// };
+
+
+// /* =========================================================
+//    MAIN COMPONENT
 // ========================================================= */
 
 // export default function OperatingAnalysisViewAllModal({
@@ -135,7 +1083,18 @@
 
 //     activeFilters = {},
 
+//     /*
+//      * IMPORTANT:
+//      * filterOptions contains the human-readable
+//      * names corresponding to active filter IDs.
+//      *
+//      * This is display-only and does not modify
+//      * activeFilters or API filters.
+//      */
+//     filterOptions = {},
+
 //     reportingCurrency = "AED",
+
 
 //     /* =====================================================
 //        COMMON CONFIGURATION
@@ -171,11 +1130,21 @@
 
 //     totalLabel = "Total",
 
+
+//     /* =====================================================
+//        VIEW TYPE
+//     ===================================================== */
+
+//     viewAllType = "",
+
 // }) {
 
-//     if (!open) {
-//         return null;
-//     }
+//     /* =====================================================
+//        ALL HOOKS MUST BE BEFORE EARLY RETURN
+//     ===================================================== */
+
+//     const [searchTerm, setSearchTerm] =
+//         useState("");
 
 
 //     /* =====================================================
@@ -185,7 +1154,50 @@
 //     const rows =
 //         Array.isArray(data)
 //             ? data
-//             : [];
+//             : Array.isArray(data?.items)
+//                 ? data.items
+//                 : Array.isArray(data?.data)
+//                     ? data.data
+//                     : Array.isArray(data?.results)
+//                         ? data.results
+//                         : [];
+
+
+//     /* =====================================================
+//        SEARCH FILTER
+//     ===================================================== */
+
+//     const filteredRows =
+//         useMemo(() => {
+
+//             const search =
+//                 searchTerm
+//                     .trim()
+//                     .toLowerCase();
+
+
+//             if (!search) {
+//                 return rows;
+//             }
+
+
+//             return rows.filter((row) => {
+
+//                 if (!row) {
+//                     return false;
+//                 }
+
+
+//                 return Object.values(row).some(
+//                     (value) =>
+//                         String(value ?? "")
+//                             .toLowerCase()
+//                             .includes(search)
+//                 );
+
+//             });
+
+//         }, [rows, searchTerm]);
 
 
 //     /* =====================================================
@@ -193,17 +1205,32 @@
 //     ===================================================== */
 
 //     const currency =
+//         rows?.[0]?.reporting_currency ||
 //         activeFilters?.reporting_currency ||
 //         reportingCurrency ||
 //         "AED";
 
 
 //     /* =====================================================
-//        TOTAL
+//        VIEW TYPE
 //     ===================================================== */
 
-//     const totalAmount =
-//         rows.reduce(
+//     const isActualVsTarget =
+//         viewAllType ===
+//         "actual-vs-target";
+
+
+//     const isExpenseCategory =
+//         viewAllType ===
+//         "expense-category";
+
+
+//     /* =====================================================
+//        GENERIC TOTAL
+//     ===================================================== */
+
+//     const genericTotalAmount =
+//         filteredRows.reduce(
 //             (sum, row) => {
 
 //                 const value =
@@ -218,17 +1245,61 @@
 //                 return Number.isNaN(number)
 //                     ? sum
 //                     : sum + number;
+
 //             },
 //             0
 //         );
 
 
 //     /* =====================================================
-//        TOTAL PERCENTAGE
+//        ACTUAL VS TARGET TOTAL
+//     ===================================================== */
+
+//     const actualVsTargetTotal =
+//         filteredRows.reduce(
+//             (sum, row) => {
+
+//                 const value =
+//                     getRowValue(
+//                         row,
+//                         [
+//                             "actual_ptd_aed",
+//                             "actual_ptd",
+//                             "actual",
+//                         ]
+//                     );
+
+
+//                 if (!hasValue(value)) {
+//                     return sum;
+//                 }
+
+
+//                 const number =
+//                     Number(value);
+
+
+//                 return Number.isNaN(number)
+//                     ? sum
+//                     : sum + number;
+
+//             },
+//             0
+//         );
+
+
+//     const summaryTotal =
+//         isActualVsTarget
+//             ? actualVsTargetTotal
+//             : genericTotalAmount;
+
+
+//     /* =====================================================
+//        GENERIC TOTAL PERCENTAGE
 //     ===================================================== */
 
 //     const totalPercentage =
-//         rows.reduce(
+//         filteredRows.reduce(
 //             (sum, row) => {
 
 //                 const value =
@@ -243,97 +1314,848 @@
 //                 return Number.isNaN(number)
 //                     ? sum
 //                     : sum + number;
+
 //             },
 //             0
 //         );
 
 
 //     /* =====================================================
-//        FORMAT FIRST METRIC
+//        FILTER DISPLAY VALUES
+       
+//        IMPORTANT:
+//        These values are ONLY for displaying the selected
+//        filter names in the chips.
+       
+//        They do NOT modify API/data filtering.
 //     ===================================================== */
 
-//     const formatFirstMetric = (
-//         row
-//     ) => {
+//     const selectedYear =
+//         getFilterDisplayValue(
+//             activeFilters,
+//             filterOptions,
+//             "year"
+//         );
 
-//         const value =
-//             getRowValue(
-//                 row,
-//                 firstMetricKeys
-//             );
 
-//         if (
-//             firstMetricType ===
-//             "amount"
-//         ) {
-//             return formatAmount(
-//                 value
-//             );
+//     const selectedPeriod =
+//         getFilterDisplayValue(
+//             activeFilters,
+//             filterOptions,
+//             "period"
+//         );
+
+
+//     const selectedCurrency =
+//         currency;
+
+
+//     const selectedLegalGroup =
+//         getFilterDisplayValue(
+//             activeFilters,
+//             filterOptions,
+//             "legal_group"
+//         );
+
+
+//     const selectedLegalEntity =
+//         getFilterDisplayValue(
+//             activeFilters,
+//             filterOptions,
+//             "legal_entity"
+//         );
+
+
+//     const selectedParentDivision =
+//         getFilterDisplayValue(
+//             activeFilters,
+//             filterOptions,
+//             "parent_division"
+//         );
+
+
+//     const selectedSubdivision =
+//         getFilterDisplayValue(
+//             activeFilters,
+//             filterOptions,
+//             "subdivision"
+//         );
+
+
+//     /* =====================================================
+//        EXCEL EXPORT
+//     ===================================================== */
+
+//     const exportToExcel = () => {
+
+//         if (!filteredRows.length) {
+//             return;
 //         }
 
-//         if (
-//             firstMetricType ===
-//             "percentage"
-//         ) {
-//             return formatPercentage(
-//                 value
+
+//         let headers = [];
+//         let tableRows = [];
+
+
+//         if (isActualVsTarget) {
+
+//             headers = [
+//                 "Expense Category",
+//                 `Actual PTD (${currency})`,
+//                 `Target PTD (${currency})`,
+//             ];
+
+
+//             tableRows =
+//                 filteredRows.map((row) => {
+
+//                     const category =
+//                         getRowValue(
+//                             row,
+//                             [
+//                                 "category",
+//                                 "name",
+//                             ]
+//                         );
+
+
+//                     const actual =
+//                         getRowValue(
+//                             row,
+//                             [
+//                                 "actual_ptd_aed",
+//                                 "actual_ptd",
+//                                 "actual",
+//                             ]
+//                         );
+
+
+//                     const target =
+//                         getRowValue(
+//                             row,
+//                             [
+//                                 "target_ptd_aed",
+//                                 "target_ptd",
+//                                 "target",
+//                             ]
+//                         );
+
+
+//                     return [
+//                         category || "—",
+
+//                         hasValue(actual)
+//                             ? `${currency} ${formatAmount(actual)}`
+//                             : "—",
+
+//                         hasValue(target)
+//                             ? `${currency} ${formatAmount(target)}`
+//                             : "—",
+//                     ];
+//                 });
+
+
+//             tableRows.push([
+//                 "Total",
+//                 `${currency} ${formatAmount(
+//                     actualVsTargetTotal
+//                 )}`,
+//                 "",
+//             ]);
+
+//         } else {
+
+//             headers = [
+//                 categoryLabel,
+
+//                 `${firstMetricLabel}${
+//                     firstMetricType === "amount"
+//                         ? ` (${currency})`
+//                         : ""
+//                 }`,
+
+//                 secondMetricLabel,
+//             ];
+
+
+//             tableRows =
+//                 filteredRows.map((row) => {
+
+//                     const category =
+//                         getRowValue(
+//                             row,
+//                             categoryKeys
+//                         );
+
+
+//                     const firstValue =
+//                         getRowValue(
+//                             row,
+//                             firstMetricKeys
+//                         );
+
+
+//                     const secondValue =
+//                         getRowValue(
+//                             row,
+//                             secondMetricKeys
+//                         );
+
+
+//                     let formattedFirst = "—";
+//                     let formattedSecond = "—";
+
+
+//                     if (
+//                         firstMetricType ===
+//                         "amount"
+//                     ) {
+
+//                         formattedFirst =
+//                             formatAmount(
+//                                 firstValue
+//                             );
+
+//                     } else if (
+//                         firstMetricType ===
+//                         "percentage"
+//                     ) {
+
+//                         formattedFirst =
+//                             formatPercentage(
+//                                 firstValue
+//                             );
+
+//                     } else if (
+//                         hasValue(firstValue)
+//                     ) {
+
+//                         formattedFirst =
+//                             firstValue;
+//                     }
+
+
+//                     if (
+//                         secondMetricType ===
+//                         "amount"
+//                     ) {
+
+//                         formattedSecond =
+//                             formatAmount(
+//                                 secondValue
+//                             );
+
+//                     } else if (
+//                         secondMetricType ===
+//                         "percentage"
+//                     ) {
+
+//                         formattedSecond =
+//                             formatPercentage(
+//                                 secondValue
+//                             );
+
+//                     } else if (
+//                         hasValue(secondValue)
+//                     ) {
+
+//                         formattedSecond =
+//                             secondValue;
+//                     }
+
+
+//                     return [
+//                         category || "—",
+
+//                         firstMetricType ===
+//                             "amount"
+//                             ? `${currency} ${formattedFirst}`
+//                             : formattedFirst,
+
+//                         formattedSecond,
+//                     ];
+//                 });
+
+
+//             tableRows.push([
+//                 totalLabel,
+
+//                 `${currency} ${formatAmount(
+//                     genericTotalAmount
+//                 )}`,
+
+//                 formatPercentage(
+//                     totalPercentage
+//                 ),
+//             ]);
+//         }
+
+
+//         const escapeExcelValue = (value) => {
+
+//             const stringValue =
+//                 String(value ?? "");
+
+
+//             return `"${stringValue.replace(
+//                 /"/g,
+//                 '""'
+//             )}"`;
+//         };
+
+
+//         const excelContent = [
+
+//             headers
+//                 .map(escapeExcelValue)
+//                 .join("\t"),
+
+//             ...tableRows.map(
+//                 (row) =>
+//                     row
+//                         .map(escapeExcelValue)
+//                         .join("\t")
+//             ),
+
+//         ].join("\n");
+
+
+//         const blob =
+//             new Blob(
+//                 [
+//                     "\uFEFF" +
+//                     excelContent,
+//                 ],
+//                 {
+//                     type:
+//                         "application/vnd.ms-excel;charset=utf-8;",
+//                 }
 //             );
-//         }
 
-//         if (
-//             value === null ||
-//             value === undefined ||
-//             value === ""
-//         ) {
-//             return "—";
-//         }
 
-//         return value;
+//         const url =
+//             URL.createObjectURL(blob);
+
+
+//         const link =
+//             document.createElement("a");
+
+
+//         link.href = url;
+
+
+//         link.download =
+//             `${title
+//                 .replace(/[^a-z0-9]/gi, "_")
+//                 .toLowerCase()}_details.xls`;
+
+
+//         document.body.appendChild(link);
+
+//         link.click();
+
+//         document.body.removeChild(link);
+
+//         URL.revokeObjectURL(url);
 //     };
 
 
 //     /* =====================================================
-//        FORMAT SECOND METRIC
+//        PDF EXPORT
 //     ===================================================== */
 
-//     const formatSecondMetric = (
-//         row
-//     ) => {
+//     const exportToPDF = () => {
 
-//         const value =
-//             getRowValue(
-//                 row,
-//                 secondMetricKeys
-//             );
-
-//         if (
-//             secondMetricType ===
-//             "amount"
-//         ) {
-//             return formatAmount(
-//                 value
-//             );
+//         if (!filteredRows.length) {
+//             return;
 //         }
 
-//         if (
-//             secondMetricType ===
-//             "percentage"
-//         ) {
-//             return formatPercentage(
-//                 value
+
+//         const printWindow =
+//             window.open(
+//                 "",
+//                 "_blank",
+//                 "width=1200,height=800"
 //             );
+
+
+//         if (!printWindow) {
+//             return;
 //         }
 
-//         if (
-//             value === null ||
-//             value === undefined ||
-//             value === ""
-//         ) {
-//             return "—";
+
+//         const escapeHTML = (value) => {
+
+//             return String(value ?? "")
+//                 .replace(/&/g, "&amp;")
+//                 .replace(/</g, "&lt;")
+//                 .replace(/>/g, "&gt;")
+//                 .replace(/"/g, "&quot;")
+//                 .replace(/'/g, "&#039;");
+//         };
+
+
+//         let headers = [];
+//         let tableRows = [];
+
+
+//         if (isActualVsTarget) {
+
+//             headers = [
+//                 "Expense Category",
+//                 `Actual PTD (${currency})`,
+//                 `Target PTD (${currency})`,
+//             ];
+
+
+//             tableRows =
+//                 filteredRows.map((row) => {
+
+//                     const category =
+//                         getRowValue(
+//                             row,
+//                             [
+//                                 "category",
+//                                 "name",
+//                             ]
+//                         );
+
+
+//                     const actual =
+//                         getRowValue(
+//                             row,
+//                             [
+//                                 "actual_ptd_aed",
+//                                 "actual_ptd",
+//                                 "actual",
+//                             ]
+//                         );
+
+
+//                     const target =
+//                         getRowValue(
+//                             row,
+//                             [
+//                                 "target_ptd_aed",
+//                                 "target_ptd",
+//                                 "target",
+//                             ]
+//                         );
+
+
+//                     return [
+//                         category || "—",
+
+//                         hasValue(actual)
+//                             ? `${currency} ${formatAmount(actual)}`
+//                             : "—",
+
+//                         hasValue(target)
+//                             ? `${currency} ${formatAmount(target)}`
+//                             : "—",
+//                     ];
+//                 });
+
+
+//             tableRows.push([
+//                 "Total",
+
+//                 `${currency} ${formatAmount(
+//                     actualVsTargetTotal
+//                 )}`,
+
+//                 "",
+//             ]);
+
+//         } else {
+
+//             headers = [
+//                 categoryLabel,
+
+//                 `${firstMetricLabel}${
+//                     firstMetricType === "amount"
+//                         ? ` (${currency})`
+//                         : ""
+//                 }`,
+
+//                 secondMetricLabel,
+//             ];
+
+
+//             tableRows =
+//                 filteredRows.map((row) => {
+
+//                     const category =
+//                         getRowValue(
+//                             row,
+//                             categoryKeys
+//                         );
+
+
+//                     const firstValue =
+//                         getRowValue(
+//                             row,
+//                             firstMetricKeys
+//                         );
+
+
+//                     const secondValue =
+//                         getRowValue(
+//                             row,
+//                             secondMetricKeys
+//                         );
+
+
+//                     let formattedFirst = "—";
+//                     let formattedSecond = "—";
+
+
+//                     if (
+//                         firstMetricType ===
+//                         "amount"
+//                     ) {
+
+//                         formattedFirst =
+//                             `${currency} ${formatAmount(
+//                                 firstValue
+//                             )}`;
+
+//                     } else if (
+//                         firstMetricType ===
+//                         "percentage"
+//                     ) {
+
+//                         formattedFirst =
+//                             formatPercentage(
+//                                 firstValue
+//                             );
+
+//                     } else if (
+//                         hasValue(firstValue)
+//                     ) {
+
+//                         formattedFirst =
+//                             firstValue;
+//                     }
+
+
+//                     if (
+//                         secondMetricType ===
+//                         "amount"
+//                     ) {
+
+//                         formattedSecond =
+//                             `${currency} ${formatAmount(
+//                                 secondValue
+//                             )}`;
+
+//                     } else if (
+//                         secondMetricType ===
+//                         "percentage"
+//                     ) {
+
+//                         formattedSecond =
+//                             formatPercentage(
+//                                 secondValue
+//                             );
+
+//                     } else if (
+//                         hasValue(secondValue)
+//                     ) {
+
+//                         formattedSecond =
+//                             secondValue;
+//                     }
+
+
+//                     return [
+//                         category || "—",
+//                         formattedFirst,
+//                         formattedSecond,
+//                     ];
+//                 });
+
+
+//             tableRows.push([
+//                 totalLabel,
+
+//                 `${currency} ${formatAmount(
+//                     genericTotalAmount
+//                 )}`,
+
+//                 formatPercentage(
+//                     totalPercentage
+//                 ),
+//             ]);
 //         }
 
-//         return value;
+
+//         /*
+//          * IMPORTANT:
+//          * PDF also uses DISPLAY NAMES instead of
+//          * internal filter IDs/codes.
+//          */
+
+//         const filterEntries = [
+
+//             ["Year", selectedYear],
+
+//             ["Period", selectedPeriod],
+
+//             ["Currency", selectedCurrency],
+
+//             ["Legal Group", selectedLegalGroup],
+
+//             ["Legal Entity", selectedLegalEntity],
+
+//             ["Parent Division", selectedParentDivision],
+
+//             ["Subdivision", selectedSubdivision],
+
+//         ].filter(
+//             ([, value]) =>
+//                 value !== null &&
+//                 value !== undefined &&
+//                 value !== ""
+//         );
+
+
+//         const filterHTML =
+//             filterEntries
+//                 .map(
+//                     ([label, value]) =>
+//                         `<span class="filter">
+//                             <strong>${escapeHTML(label)}:</strong>
+//                             ${escapeHTML(value)}
+//                         </span>`
+//                 )
+//                 .join("");
+
+
+//         const headerHTML =
+//             headers
+//                 .map(
+//                     (header) =>
+//                         `<th>${escapeHTML(header)}</th>`
+//                 )
+//                 .join("");
+
+
+//         const bodyHTML =
+//             tableRows
+//                 .map(
+//                     (row, index) => {
+
+//                         const isTotal =
+//                             index ===
+//                             tableRows.length - 1;
+
+
+//                         return `
+//                             <tr class="${
+//                                 isTotal
+//                                     ? "total"
+//                                     : ""
+//                             }">
+//                                 ${row
+//                                     .map(
+//                                         (cell) =>
+//                                             `<td>${escapeHTML(
+//                                                 cell
+//                                             )}</td>`
+//                                     )
+//                                     .join("")}
+//                             </tr>
+//                         `;
+//                     }
+//                 )
+//                 .join("");
+
+
+//         printWindow.document.write(`
+//             <!DOCTYPE html>
+//             <html>
+//             <head>
+
+//                 <title>
+//                     ${escapeHTML(title)}
+//                 </title>
+
+//                 <style>
+
+//                     * {
+//                         box-sizing: border-box;
+//                     }
+
+//                     body {
+//                         margin: 0;
+//                         padding: 30px;
+//                         font-family:
+//                             Arial,
+//                             Helvetica,
+//                             sans-serif;
+//                         color: #334155;
+//                         background: #ffffff;
+//                     }
+
+//                     h1 {
+//                         margin: 0;
+//                         color: #102a43;
+//                         font-size: 20px;
+//                         font-weight: 700;
+//                     }
+
+//                     .subtitle {
+//                         margin-top: 5px;
+//                         color: #64748b;
+//                         font-size: 12px;
+//                     }
+
+//                     .filters {
+//                         display: flex;
+//                         flex-wrap: wrap;
+//                         gap: 7px;
+//                         margin-top: 18px;
+//                         margin-bottom: 18px;
+//                     }
+
+//                     .filter {
+//                         padding: 6px 9px;
+//                         border: 1px solid #d9e2eb;
+//                         border-radius: 5px;
+//                         background: #f8fafc;
+//                         font-size: 10px;
+//                         color: #475569;
+//                     }
+
+//                     table {
+//                         width: 100%;
+//                         border-collapse: collapse;
+//                         margin-top: 10px;
+//                     }
+
+//                     th {
+//                         padding: 9px;
+//                         text-align: left;
+//                         background: #f1f5f9;
+//                         color: #123a69;
+//                         border: 1px solid #cbd7e4;
+//                         font-size: 10px;
+//                         font-weight: 700;
+//                         text-transform: uppercase;
+//                     }
+
+//                     td {
+//                         padding: 8px 9px;
+//                         border: 1px solid #e2e8f0;
+//                         font-size: 11px;
+//                     }
+
+//                     td:not(:first-child),
+//                     th:not(:first-child) {
+//                         text-align: right;
+//                     }
+
+//                     tr:nth-child(even) td {
+//                         background: #f8fafc;
+//                     }
+
+//                     tr.total td {
+//                         background: #f3f6f9;
+//                         font-weight: 700;
+//                         border-top: 2px solid #cbd5e1;
+//                     }
+
+//                     .record-count {
+//                         margin-top: 10px;
+//                         color: #64748b;
+//                         font-size: 10px;
+//                     }
+
+//                     @media print {
+
+//                         body {
+//                             padding: 15px;
+//                         }
+
+//                     }
+
+//                 </style>
+
+//             </head>
+
+//             <body>
+
+//                 <h1>
+//                     ${escapeHTML(title)}
+//                 </h1>
+
+//                 ${
+//                     subtitle
+//                         ? `<div class="subtitle">
+//                             ${escapeHTML(subtitle)}
+//                            </div>`
+//                         : ""
+//                 }
+
+//                 ${
+//                     filterHTML
+//                         ? `<div class="filters">
+//                             ${filterHTML}
+//                            </div>`
+//                         : ""
+//                 }
+
+//                 <div class="record-count">
+//                     ${filteredRows.length}
+//                     ${
+//                         filteredRows.length === 1
+//                             ? "record"
+//                             : "records"
+//                     }
+//                 </div>
+
+//                 <table>
+
+//                     <thead>
+//                         <tr>
+//                             ${headerHTML}
+//                         </tr>
+//                     </thead>
+
+//                     <tbody>
+//                         ${bodyHTML}
+//                     </tbody>
+
+//                 </table>
+
+//             </body>
+//             </html>
+//         `);
+
+
+//         printWindow.document.close();
+
+//         printWindow.focus();
+
+
+//         setTimeout(() => {
+
+//             printWindow.print();
+
+//             printWindow.close();
+
+//         }, 300);
 //     };
+
+
+//     /* =====================================================
+//        EARLY RETURN
+//     ===================================================== */
+
+//     if (!open) {
+//         return null;
+//     }
 
 
 //     /* =====================================================
@@ -341,786 +2163,1106 @@
 //     ===================================================== */
 
 //     return (
-//         <div
-//             onClick={(event) => {
+//         <>
+//             <style>{`
 
-//                 if (
-//                     event.target ===
-//                     event.currentTarget
-//                 ) {
-//                     onClose();
+//                 .finsight-detail-backdrop {
+//                     position: fixed;
+//                     inset: 0;
+//                     z-index: 1000;
+//                     background:
+//                         rgba(15, 23, 42, 0.42);
+//                     backdrop-filter:
+//                         blur(5px);
+//                     -webkit-backdrop-filter:
+//                         blur(5px);
+//                     display: flex;
+//                     align-items: center;
+//                     justify-content: center;
+//                     padding: 28px;
+//                     box-sizing: border-box;
 //                 }
 
-//             }}
 
-//             style={{
-//                 position: "fixed",
-//                 inset: 0,
-//                 zIndex: 1000,
+//                 .finsight-detail-modal {
+//                     width: 100%;
+//                     max-width: 1520px;
+//                     height:
+//                         min(82vh, 730px);
+//                     min-height: 520px;
+//                     background: #ffffff;
+//                     border-radius: 14px;
+//                     overflow: hidden;
+//                     display: flex;
+//                     flex-direction: column;
+//                     box-sizing: border-box;
+//                     border:
+//                         1px solid #e1e7ee;
+//                     box-shadow:
+//                         0 24px 60px
+//                         rgba(15, 23, 42, 0.24);
+//                 }
 
-//                 background:
-//                     "rgba(15, 23, 42, 0.45)",
 
-//                 display: "flex",
-//                 alignItems: "center",
-//                 justifyContent: "center",
+//                 .finsight-detail-header {
+//                     min-height: 68px;
+//                     padding:
+//                         14px 20px 13px;
+//                     box-sizing: border-box;
+//                     display: flex;
+//                     align-items: flex-start;
+//                     justify-content: space-between;
+//                     gap: 20px;
+//                     border-bottom:
+//                         1px solid #e7edf3;
+//                     flex-shrink: 0;
+//                 }
 
-//                 padding: "24px",
-//             }}
-//         >
+
+//                 .finsight-detail-title {
+//                     color: #102a43;
+//                     font-size: 15px;
+//                     line-height: 20px;
+//                     font-weight: 700;
+//                     letter-spacing:
+//                         -0.05px;
+//                 }
+
+
+//                 .finsight-detail-subtitle {
+//                     margin-top: 2px;
+//                     color: #55708d;
+//                     font-size: 11px;
+//                     line-height: 16px;
+//                 }
+
+
+//                 .finsight-detail-close {
+//                     width: 30px;
+//                     height: 30px;
+//                     padding: 0;
+//                     border: 0;
+//                     background:
+//                         transparent;
+//                     color: #718096;
+//                     border-radius: 6px;
+//                     cursor: pointer;
+//                     font-size: 22px;
+//                     line-height: 30px;
+//                     font-weight: 300;
+//                     display: inline-flex;
+//                     align-items: center;
+//                     justify-content: center;
+//                     flex-shrink: 0;
+//                     transition:
+//                         background 0.15s ease,
+//                         color 0.15s ease;
+//                 }
+
+
+//                 .finsight-detail-close:hover {
+//                     background:
+//                         #f1f5f9;
+//                     color:
+//                         #334155;
+//                 }
+
+
+//                 .finsight-detail-toolbar {
+//                     min-height: 54px;
+//                     padding:
+//                         9px 20px;
+//                     box-sizing: border-box;
+//                     display: flex;
+//                     align-items: center;
+//                     justify-content: space-between;
+//                     gap: 12px;
+//                     flex-wrap: wrap;
+//                     background:
+//                         #f8fafc;
+//                     border-bottom:
+//                         1px solid #e5ebf2;
+//                     flex-shrink: 0;
+//                 }
+
+
+//                 .finsight-detail-toolbar-left {
+//                     display: flex;
+//                     align-items: center;
+//                     flex-wrap: wrap;
+//                     gap: 5px;
+//                     min-width: 0;
+//                     flex: 1 1 auto;
+//                 }
+
+
+//                 .finsight-detail-filters {
+//                     display: flex;
+//                     align-items: center;
+//                     flex-wrap: wrap;
+//                     gap: 5px;
+//                     min-width: 0;
+//                 }
+
+
+//                 .finsight-detail-filter-chip {
+//                     min-height: 32px;
+//                     padding:
+//                         0 10px;
+//                     box-sizing: border-box;
+//                     display: inline-flex;
+//                     align-items: center;
+//                     gap: 5px;
+//                     white-space: nowrap;
+//                     background:
+//                         #ffffff;
+//                     border:
+//                         1px solid #d9e2eb;
+//                     border-radius:
+//                         6px;
+//                     color:
+//                         #475569;
+//                     font-size:
+//                         11px;
+//                     line-height:
+//                         16px;
+//                 }
+
+
+//                 .finsight-detail-filter-chip-label {
+//                     color:
+//                         #64748b;
+//                     font-weight:
+//                         600;
+//                 }
+
+
+//                 .finsight-detail-toolbar-right {
+//                     display: flex;
+//                     align-items: center;
+//                     justify-content: flex-end;
+//                     gap: 6px;
+//                     flex-shrink: 0;
+//                 }
+
+
+//                 .finsight-detail-search {
+//                     position: relative;
+//                     width: 190px;
+//                     height: 32px;
+//                     flex-shrink: 0;
+//                 }
+
+
+//                 .finsight-detail-search-icon {
+//                     position: absolute;
+//                     left: 9px;
+//                     top: 50%;
+//                     transform:
+//                         translateY(-50%);
+//                     color:
+//                         #94a3b8;
+//                     font-size: 14px;
+//                     line-height: 1;
+//                     pointer-events: none;
+//                 }
+
+
+//                 .finsight-detail-search-input {
+//                     width: 100%;
+//                     height: 32px;
+//                     padding:
+//                         0 10px 0 29px;
+//                     border:
+//                         1px solid #d5dee8;
+//                     border-radius:
+//                         6px;
+//                     outline: none;
+//                     background:
+//                         #ffffff;
+//                     color:
+//                         #334155;
+//                     font-size:
+//                         11px;
+//                     box-sizing:
+//                         border-box;
+//                     transition:
+//                         border-color 0.15s ease,
+//                         box-shadow 0.15s ease;
+//                 }
+
+
+//                 .finsight-detail-search-input::placeholder {
+//                     color:
+//                         #94a3b8;
+//                 }
+
+
+//                 .finsight-detail-search-input:focus {
+//                     border-color:
+//                         #9db7d2;
+//                     box-shadow:
+//                         0 0 0 2px
+//                         rgba(59, 130, 246, 0.08);
+//                 }
+
+
+//                 .finsight-detail-export-button {
+//                     height: 32px;
+//                     padding:
+//                         0 10px;
+//                     display: inline-flex;
+//                     align-items: center;
+//                     justify-content: center;
+//                     gap: 5px;
+//                     border:
+//                         1px solid #d5dee8;
+//                     border-radius:
+//                         6px;
+//                     background:
+//                         #ffffff;
+//                     color:
+//                         #475569;
+//                     font-size:
+//                         11px;
+//                     line-height:
+//                         16px;
+//                     font-weight:
+//                         600;
+//                     cursor:
+//                         pointer;
+//                     white-space:
+//                         nowrap;
+//                     transition:
+//                         background 0.15s ease,
+//                         border-color 0.15s ease,
+//                         color 0.15s ease;
+//                 }
+
+
+//                 .finsight-detail-export-button:hover {
+//                     background:
+//                         #f1f5f9;
+//                     border-color:
+//                         #c5d1dd;
+//                     color:
+//                         #26384d;
+//                 }
+
+
+//                 .finsight-detail-export-button:disabled {
+//                     opacity:
+//                         0.45;
+//                     cursor:
+//                         not-allowed;
+//                 }
+
+
+//                 .finsight-detail-export-icon {
+//                     font-size:
+//                         13px;
+//                     line-height:
+//                         1;
+//                 }
+
+
+//                 .finsight-detail-records {
+//                     margin-left: 3px;
+//                     white-space: nowrap;
+//                     color:
+//                         #8aa0b7;
+//                     font-size:
+//                         11px;
+//                 }
+
+
+//                 .finsight-detail-content {
+//                     flex: 1;
+//                     min-height: 0;
+//                     overflow: hidden;
+//                     padding:
+//                         0 16px 8px;
+//                     background:
+//                         #ffffff;
+//                     box-sizing:
+//                         border-box;
+//                 }
+
+
+//                 .finsight-detail-table-scroll {
+//                     width: 100%;
+//                     height: 100%;
+//                     overflow:
+//                         auto;
+//                     scrollbar-width:
+//                         thin;
+//                     scrollbar-color:
+//                         #cbd5e1 transparent;
+//                 }
+
+
+//                 .finsight-detail-table-scroll::-webkit-scrollbar {
+//                     width: 8px;
+//                     height: 8px;
+//                 }
+
+
+//                 .finsight-detail-table-scroll::-webkit-scrollbar-track {
+//                     background:
+//                         transparent;
+//                 }
+
+
+//                 .finsight-detail-table-scroll::-webkit-scrollbar-thumb {
+//                     background:
+//                         #cbd5e1;
+//                     border-radius:
+//                         8px;
+//                 }
+
+
+//                 .finsight-detail-table-scroll::-webkit-scrollbar-thumb:hover {
+//                     background:
+//                         #94a3b8;
+//                 }
+
+
+//                 .finsight-detail-table-wrapper {
+//                     width: 100%;
+//                     min-width: 100%;
+//                     overflow: hidden;
+//                     border:
+//                         1px solid #dce4ec;
+//                     border-top: 0;
+//                     box-sizing: border-box;
+//                 }
+
+
+//                 .finsight-detail-table {
+//                     width: 100%;
+//                     min-width: 720px;
+//                     border-collapse:
+//                         separate;
+//                     border-spacing: 0;
+//                     font-family:
+//                         inherit;
+//                     table-layout:
+//                         auto;
+//                 }
+
+
+//                 .finsight-detail-table thead th {
+//                     position: sticky;
+//                     top: 0;
+//                     z-index: 3;
+//                     padding:
+//                         10px 9px;
+//                     background:
+//                         #f1f5f9;
+//                     color:
+//                         #123a69;
+//                     border-bottom:
+//                         1px solid #cbd7e4;
+//                     border-right:
+//                         1px solid #d5dee8;
+//                     font-size:
+//                         11px;
+//                     line-height:
+//                         16px;
+//                     font-weight:
+//                         700;
+//                     letter-spacing:
+//                         0.35px;
+//                     text-transform:
+//                         uppercase;
+//                     white-space:
+//                         nowrap;
+//                     box-sizing:
+//                         border-box;
+//                 }
+
+
+//                 .finsight-detail-table thead th:first-child {
+//                     padding-left:
+//                         9px;
+//                 }
+
+
+//                 .finsight-detail-table thead th:last-child {
+//                     border-right:
+//                         0;
+//                 }
+
+
+//                 .finsight-detail-table tbody td {
+//                     padding:
+//                         8px 9px;
+//                     color:
+//                         #334155;
+//                     border-bottom:
+//                         1px solid #edf1f5;
+//                     border-right:
+//                         1px solid #edf1f5;
+//                     font-size:
+//                         12px;
+//                     line-height:
+//                         17px;
+//                     white-space:
+//                         nowrap;
+//                     box-sizing:
+//                         border-box;
+//                 }
+
+
+//                 .finsight-detail-table tbody tr:nth-child(even) td {
+//                     background:
+//                         #f8fafc;
+//                 }
+
+
+//                 .finsight-detail-table tbody tr:hover td {
+//                     background:
+//                         #f2f6fa;
+//                 }
+
+
+//                 .finsight-detail-table tbody td:first-child {
+//                     color:
+//                         #26384d;
+//                     font-weight:
+//                         600;
+//                 }
+
+
+//                 .finsight-detail-table tbody td:last-child {
+//                     border-right:
+//                         0;
+//                 }
+
+
+//                 .finsight-detail-table tfoot td {
+//                     position: sticky;
+//                     bottom: 0;
+//                     z-index: 2;
+//                     padding:
+//                         9px;
+//                     background:
+//                         #f3f6f9;
+//                     color:
+//                         #1e2f43;
+//                     border-top:
+//                         1px solid #d3dde7;
+//                     border-right:
+//                         1px solid #dfe6ed;
+//                     font-size:
+//                         12px;
+//                     line-height:
+//                         17px;
+//                     font-weight:
+//                         700;
+//                     white-space:
+//                         nowrap;
+//                     box-sizing:
+//                         border-box;
+//                 }
+
+
+//                 .finsight-detail-table tfoot td:last-child {
+//                     border-right:
+//                         0;
+//                 }
+
+
+//                 .finsight-detail-table .text-left {
+//                     text-align:
+//                         left;
+//                 }
+
+
+//                 .finsight-detail-table .text-right {
+//                     text-align:
+//                         right;
+//                 }
+
+
+//                 .finsight-detail-loading {
+//                     min-height:
+//                         280px;
+//                     height:
+//                         100%;
+//                     display:
+//                         flex;
+//                     align-items:
+//                         center;
+//                     justify-content:
+//                         center;
+//                     color:
+//                         #64748b;
+//                     font-size:
+//                         13px;
+//                 }
+
+
+//                 .finsight-detail-empty {
+//                     min-height:
+//                         280px;
+//                     height:
+//                         100%;
+//                     display:
+//                         flex;
+//                     flex-direction:
+//                         column;
+//                     align-items:
+//                         center;
+//                     justify-content:
+//                         center;
+//                     color:
+//                         #64748b;
+//                     text-align:
+//                         center;
+//                 }
+
+
+//                 .finsight-detail-empty-title {
+//                     color:
+//                         #334155;
+//                     font-size:
+//                         14px;
+//                     font-weight:
+//                         600;
+//                 }
+
+
+//                 .finsight-detail-empty-message {
+//                     margin-top:
+//                         5px;
+//                     font-size:
+//                         12px;
+//                 }
+
+
+//                 .finsight-detail-footer {
+//                     min-height:
+//                         64px;
+//                     padding:
+//                         12px 20px;
+//                     box-sizing:
+//                         border-box;
+//                     display:
+//                         flex;
+//                     align-items:
+//                         center;
+//                     justify-content:
+//                         flex-end;
+//                     background:
+//                         #ffffff;
+//                     border-top:
+//                         1px solid #e5ebf2;
+//                     flex-shrink:
+//                         0;
+//                 }
+
+
+//                 .finsight-detail-footer-button {
+//                     min-width:
+//                         70px;
+//                     height:
+//                         31px;
+//                     padding:
+//                         0 16px;
+//                     border:
+//                         1px solid #d4dce5;
+//                     border-radius:
+//                         7px;
+//                     background:
+//                         #f1f5f9;
+//                     color:
+//                         #41566d;
+//                     font-size:
+//                         12px;
+//                     font-weight:
+//                         600;
+//                     cursor:
+//                         pointer;
+//                     transition:
+//                         background 0.15s ease;
+//                 }
+
+
+//                 .finsight-detail-footer-button:hover {
+//                     background:
+//                         #e8eef5;
+//                 }
+
+
+//                 @media (max-width: 1100px) {
+
+//                     .finsight-detail-toolbar {
+//                         align-items:
+//                             flex-start;
+//                     }
+
+//                     .finsight-detail-toolbar-right {
+//                         width:
+//                             100%;
+//                         justify-content:
+//                             flex-start;
+//                     }
+
+//                     .finsight-detail-records {
+//                         margin-left:
+//                             auto;
+//                     }
+
+//                 }
+
+
+//                 @media (max-width: 900px) {
+
+//                     .finsight-detail-backdrop {
+//                         padding:
+//                             14px;
+//                     }
+
+//                     .finsight-detail-modal {
+//                         height:
+//                             calc(100vh - 28px);
+//                         min-height:
+//                             420px;
+//                         border-radius:
+//                             10px;
+//                     }
+
+//                     .finsight-detail-toolbar {
+//                         align-items:
+//                             flex-start;
+//                     }
+
+//                     .finsight-detail-toolbar-left {
+//                         width:
+//                             100%;
+//                     }
+
+//                     .finsight-detail-toolbar-right {
+//                         width:
+//                             100%;
+//                         justify-content:
+//                             flex-start;
+//                     }
+
+//                     .finsight-detail-search {
+//                         flex:
+//                             1 1 180px;
+//                     }
+
+//                     .finsight-detail-records {
+//                         margin-left:
+//                             3px;
+//                     }
+
+//                 }
+
+
+//                 @media (max-width: 600px) {
+
+//                     .finsight-detail-search {
+//                         width:
+//                             100%;
+//                     }
+
+//                     .finsight-detail-export-button {
+//                         flex:
+//                             1 1 auto;
+//                     }
+
+//                 }
+
+//             `}</style>
+
+
+//             {/* =====================================================
+//                 BACKDROP
+//             ===================================================== */}
 
 //             <div
-//                 style={{
-//                     width: "100%",
-//                     maxWidth: "1180px",
-//                     maxHeight: "90vh",
+//                 className="finsight-detail-backdrop"
+//                 onClick={(event) => {
 
-//                     background: "#ffffff",
+//                     if (
+//                         event.target ===
+//                         event.currentTarget
+//                     ) {
+//                         onClose();
+//                     }
 
-//                     borderRadius: "10px",
-
-//                     boxShadow:
-//                         "0 20px 50px rgba(0,0,0,0.18)",
-
-//                     display: "flex",
-//                     flexDirection: "column",
-
-//                     overflow: "hidden",
 //                 }}
 //             >
 
+
 //                 {/* =================================================
-//                     HEADER
+//                     MODAL
 //                 ================================================= */}
 
-//                 <div
-//                     style={{
-//                         padding:
-//                             "18px 20px",
+//                 <div className="finsight-detail-modal">
 
-//                         borderBottom:
-//                             "1px solid #e5e7eb",
 
-//                         display: "flex",
-//                         justifyContent:
-//                             "space-between",
-//                         alignItems: "flex-start",
-//                         gap: "20px",
-//                     }}
-//                 >
+//                     {/* =================================================
+//                         HEADER
+//                     ================================================= */}
 
-//                     <div>
+//                     <div className="finsight-detail-header">
 
-//                         <div
-//                             style={{
-//                                 fontSize:
-//                                     "17px",
-//                                 fontWeight: 700,
-//                                 color:
-//                                     "#111827",
-//                             }}
-//                         >
-//                             {title}
+//                         <div>
+
+//                             <div className="finsight-detail-title">
+//                                 {title}
+//                             </div>
+
+
+//                             {subtitle && (
+//                                 <div className="finsight-detail-subtitle">
+//                                     {subtitle}
+//                                 </div>
+//                             )}
+
 //                         </div>
 
-//                         {subtitle && (
-//                             <div
-//                                 style={{
-//                                     marginTop:
-//                                         "4px",
-//                                     fontSize:
-//                                         "12px",
-//                                     color:
-//                                         "#64748b",
-//                                 }}
-//                             >
-//                                 {subtitle}
+
+//                         <button
+//                             type="button"
+//                             className="finsight-detail-close"
+//                             onClick={onClose}
+//                             aria-label="Close"
+//                         >
+//                             ×
+//                         </button>
+
+//                     </div>
+
+
+//                     {/* =================================================
+//                         FILTER / ACTION BAR
+//                     ================================================= */}
+
+//                     <div className="finsight-detail-toolbar">
+
+
+//                         {/* =================================================
+//                             SELECTED FILTERS ONLY
+//                         ================================================= */}
+
+//                         <div className="finsight-detail-toolbar-left">
+
+//                             <div className="finsight-detail-filters">
+
+
+//                                 {/* =================================================
+//                                     YEAR
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Year"
+//                                     value={
+//                                         selectedYear
+//                                     }
+//                                 />
+
+
+//                                 {/* =================================================
+//                                     PERIOD
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Period"
+//                                     value={
+//                                         selectedPeriod
+//                                     }
+//                                 />
+
+
+//                                 {/* =================================================
+//                                     CURRENCY
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Currency"
+//                                     value={
+//                                         selectedCurrency
+//                                     }
+//                                 />
+
+
+//                                 {/* =================================================
+//                                     LEGAL GROUP
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Legal Group"
+//                                     value={
+//                                         selectedLegalGroup
+//                                     }
+//                                 />
+
+
+//                                 {/* =================================================
+//                                     LEGAL ENTITY
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Legal Entity"
+//                                     value={
+//                                         selectedLegalEntity
+//                                     }
+//                                 />
+
+
+//                                 {/* =================================================
+//                                     PARENT DIVISION
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Parent Division"
+//                                     value={
+//                                         selectedParentDivision
+//                                     }
+//                                 />
+
+
+//                                 {/* =================================================
+//                                     SUBDIVISION
+//                                 ================================================= */}
+
+//                                 <FilterChip
+//                                     label="Subdivision"
+//                                     value={
+//                                         selectedSubdivision
+//                                     }
+//                                 />
+
 //                             </div>
+
+//                         </div>
+
+
+//                         {/* =================================================
+//                             RIGHT SIDE
+//                         ================================================= */}
+
+//                         <div className="finsight-detail-toolbar-right">
+
+
+//                             {/* =================================================
+//                                 SEARCH
+//                             ================================================= */}
+
+//                             <div className="finsight-detail-search">
+
+//                                 <span
+//                                     className="finsight-detail-search-icon"
+//                                     aria-hidden="true"
+//                                 >
+//                                     🔍
+//                                 </span>
+
+
+//                                 <input
+//                                     type="text"
+//                                     className="finsight-detail-search-input"
+//                                     value={searchTerm}
+//                                     onChange={(event) =>
+//                                         setSearchTerm(
+//                                             event.target.value
+//                                         )
+//                                     }
+//                                     placeholder="Search..."
+//                                     aria-label="Search detailed data"
+//                                 />
+
+//                             </div>
+
+
+//                             {/* =================================================
+//                                 EXCEL
+//                             ================================================= */}
+
+//                             <button
+//                                 type="button"
+//                                 className="finsight-detail-export-button"
+//                                 onClick={exportToExcel}
+//                                 disabled={
+//                                     loading ||
+//                                     filteredRows.length === 0
+//                                 }
+//                                 title="Export to Excel"
+//                             >
+
+//                                 <span className="finsight-detail-export-icon">
+//                                     ↓
+//                                 </span>
+
+//                                 Excel
+
+//                             </button>
+
+
+//                             {/* =================================================
+//                                 PDF
+//                             ================================================= */}
+
+//                             <button
+//                                 type="button"
+//                                 className="finsight-detail-export-button"
+//                                 onClick={exportToPDF}
+//                                 disabled={
+//                                     loading ||
+//                                     filteredRows.length === 0
+//                                 }
+//                                 title="Export to PDF"
+//                             >
+
+//                                 <span className="finsight-detail-export-icon">
+//                                     ↓
+//                                 </span>
+
+//                                 PDF
+
+//                             </button>
+
+
+//                             {/* =================================================
+//                                 RECORD COUNT
+//                             ================================================= */}
+
+//                             <div className="finsight-detail-records">
+
+//                                 {filteredRows.length}{" "}
+
+//                                 {filteredRows.length === 1
+//                                     ? "record"
+//                                     : "records"}
+
+//                             </div>
+
+//                         </div>
+
+//                     </div>
+
+
+//                     {/* =================================================
+//                         CONTENT
+//                     ================================================= */}
+
+//                     <div className="finsight-detail-content">
+
+//                         {loading ? (
+
+//                             <div className="finsight-detail-loading">
+//                                 Loading detailed data...
+//                             </div>
+
+//                         ) : filteredRows.length === 0 ? (
+
+//                             <div className="finsight-detail-empty">
+
+//                                 <div className="finsight-detail-empty-title">
+
+//                                     {searchTerm.trim()
+//                                         ? "No matching records"
+//                                         : "No data available"}
+
+//                                 </div>
+
+
+//                                 <div className="finsight-detail-empty-message">
+
+//                                     {searchTerm.trim()
+//                                         ? "Try changing your search."
+//                                         : "Try changing the selected filters."}
+
+//                                 </div>
+
+//                             </div>
+
+//                         ) : (
+
+//                             <div className="finsight-detail-table-scroll">
+
+//                                 {isActualVsTarget ? (
+
+//                                     <ActualVsTargetTable
+//                                         rows={filteredRows}
+//                                         currency={currency}
+//                                     />
+
+//                                 ) : (
+
+//                                     <GenericTable
+//                                         rows={filteredRows}
+//                                         currency={currency}
+//                                         categoryLabel={
+//                                             categoryLabel
+//                                         }
+//                                         firstMetricLabel={
+//                                             firstMetricLabel
+//                                         }
+//                                         secondMetricLabel={
+//                                             secondMetricLabel
+//                                         }
+//                                         firstMetricType={
+//                                             firstMetricType
+//                                         }
+//                                         secondMetricType={
+//                                             secondMetricType
+//                                         }
+//                                         firstMetricKeys={
+//                                             firstMetricKeys
+//                                         }
+//                                         secondMetricKeys={
+//                                             secondMetricKeys
+//                                         }
+//                                         categoryKeys={
+//                                             categoryKeys
+//                                         }
+//                                         totalLabel={
+//                                             totalLabel
+//                                         }
+//                                     />
+
+//                                 )}
+
+//                             </div>
+
 //                         )}
 
 //                     </div>
 
 
-//                     <button
-//                         type="button"
-//                         onClick={onClose}
-//                         style={{
-//                             width: "30px",
-//                             height: "30px",
+//                     {/* =================================================
+//                         FOOTER
+//                     ================================================= */}
 
-//                             border:
-//                                 "1px solid #e5e7eb",
+//                     <div className="finsight-detail-footer">
 
-//                             background:
-//                                 "#ffffff",
-
-//                             borderRadius:
-//                                 "6px",
-
-//                             cursor:
-//                                 "pointer",
-
-//                             fontSize:
-//                                 "18px",
-
-//                             color:
-//                                 "#64748b",
-//                         }}
-//                     >
-//                         ×
-//                     </button>
-
-//                 </div>
-
-
-//                 {/* =================================================
-//                     FILTER SUMMARY
-//                 ================================================= */}
-
-//                 <div
-//                     style={{
-//                         padding:
-//                             "12px 20px",
-
-//                         display: "flex",
-//                         flexWrap: "wrap",
-//                         gap: "6px",
-
-//                         borderBottom:
-//                             "1px solid #f1f5f9",
-//                     }}
-//                 >
-
-//                     <FilterChip
-//                         label="Year"
-//                         value={
-//                             activeFilters?.year
-//                         }
-//                     />
-
-//                     <FilterChip
-//                         label="Period"
-//                         value={
-//                             activeFilters?.period
-//                         }
-//                     />
-
-//                     <FilterChip
-//                         label="Currency"
-//                         value={
-//                             currency
-//                         }
-//                     />
-
-//                     <FilterChip
-//                         label="Legal Group"
-//                         value={
-//                             activeFilters?.legal_group
-//                         }
-//                     />
-
-//                     <FilterChip
-//                         label="Legal Entity"
-//                         value={
-//                             activeFilters?.legal_entity
-//                         }
-//                     />
-
-//                     <FilterChip
-//                         label="Parent Division"
-//                         value={
-//                             activeFilters?.parent_division
-//                         }
-//                     />
-
-//                     <FilterChip
-//                         label="Subdivision"
-//                         value={
-//                             activeFilters?.subdivision
-//                         }
-//                     />
-
-//                 </div>
-
-
-//                 {/* =================================================
-//                     CONTENT
-//                 ================================================= */}
-
-//                 <div
-//                     style={{
-//                         padding:
-//                             "18px 20px",
-
-//                         overflowY:
-//                             "auto",
-//                     }}
-//                 >
-
-//                     {loading ? (
-
-//                         <div
-//                             style={{
-//                                 minHeight:
-//                                     "280px",
-
-//                                 display:
-//                                     "flex",
-
-//                                 alignItems:
-//                                     "center",
-
-//                                 justifyContent:
-//                                     "center",
-
-//                                 color:
-//                                     "#64748b",
-
-//                                 fontSize:
-//                                     "13px",
-//                             }}
+//                         <button
+//                             type="button"
+//                             className="finsight-detail-footer-button"
+//                             onClick={onClose}
 //                         >
-//                             Loading detailed data...
-//                         </div>
+//                             Close
+//                         </button>
 
-//                     ) : rows.length === 0 ? (
-
-//                         <div
-//                             style={{
-//                                 minHeight:
-//                                     "280px",
-
-//                                 display:
-//                                     "flex",
-
-//                                 flexDirection:
-//                                     "column",
-
-//                                 alignItems:
-//                                     "center",
-
-//                                 justifyContent:
-//                                     "center",
-
-//                                 color:
-//                                     "#64748b",
-//                             }}
-//                         >
-
-//                             <div
-//                                 style={{
-//                                     fontSize:
-//                                         "14px",
-//                                     fontWeight:
-//                                         600,
-//                                     color:
-//                                         "#334155",
-//                                 }}
-//                             >
-//                                 No data available
-//                             </div>
-
-//                             <div
-//                                 style={{
-//                                     marginTop:
-//                                         "5px",
-//                                     fontSize:
-//                                         "12px",
-//                                 }}
-//                             >
-//                                 Try changing the selected filters.
-//                             </div>
-
-//                         </div>
-
-//                     ) : (
-
-//                         <>
-
-//                             {/* =================================================
-//                                 SUMMARY CARDS
-//                             ================================================= */}
-
-//                             <div
-//                                 style={{
-//                                     display:
-//                                         "grid",
-
-//                                     gridTemplateColumns:
-//                                         "repeat(3, 1fr)",
-
-//                                     gap: "10px",
-
-//                                     marginBottom:
-//                                         "16px",
-//                                 }}
-//                             >
-
-//                                 <div
-//                                     style={{
-//                                         border:
-//                                             "1px solid #e5e7eb",
-//                                         borderRadius:
-//                                             "8px",
-//                                         padding:
-//                                             "12px",
-//                                     }}
-//                                 >
-
-//                                     <div
-//                                         style={{
-//                                             fontSize:
-//                                                 "11px",
-//                                             color:
-//                                                 "#64748b",
-//                                         }}
-//                                     >
-//                                         Total
-//                                     </div>
-
-//                                     <div
-//                                         style={{
-//                                             marginTop:
-//                                                 "4px",
-//                                             fontSize:
-//                                                 "18px",
-//                                             fontWeight:
-//                                                 700,
-//                                             color:
-//                                                 "#111827",
-//                                         }}
-//                                     >
-//                                         {currency}{" "}
-//                                         {formatAmount(
-//                                             totalAmount
-//                                         )}
-//                                     </div>
-
-//                                 </div>
-
-
-//                                 <div
-//                                     style={{
-//                                         border:
-//                                             "1px solid #e5e7eb",
-//                                         borderRadius:
-//                                             "8px",
-//                                         padding:
-//                                             "12px",
-//                                     }}
-//                                 >
-
-//                                     <div
-//                                         style={{
-//                                             fontSize:
-//                                                 "11px",
-//                                             color:
-//                                                 "#64748b",
-//                                         }}
-//                                     >
-//                                         Categories
-//                                     </div>
-
-//                                     <div
-//                                         style={{
-//                                             marginTop:
-//                                                 "4px",
-//                                             fontSize:
-//                                                 "18px",
-//                                             fontWeight:
-//                                                 700,
-//                                             color:
-//                                                 "#111827",
-//                                         }}
-//                                     >
-//                                         {rows.length}
-//                                     </div>
-
-//                                 </div>
-
-
-//                                 <div
-//                                     style={{
-//                                         border:
-//                                             "1px solid #e5e7eb",
-//                                         borderRadius:
-//                                             "8px",
-//                                         padding:
-//                                             "12px",
-//                                     }}
-//                                 >
-
-//                                     <div
-//                                         style={{
-//                                             fontSize:
-//                                                 "11px",
-//                                             color:
-//                                                 "#64748b",
-//                                         }}
-//                                     >
-//                                         Total Percentage
-//                                     </div>
-
-//                                     <div
-//                                         style={{
-//                                             marginTop:
-//                                                 "4px",
-//                                             fontSize:
-//                                                 "18px",
-//                                             fontWeight:
-//                                                 700,
-//                                             color:
-//                                                 "#111827",
-//                                         }}
-//                                     >
-//                                         {formatPercentage(
-//                                             totalPercentage
-//                                         )}
-//                                     </div>
-
-//                                 </div>
-
-//                             </div>
-
-
-//                             {/* =================================================
-//                                 TABLE
-//                             ================================================= */}
-
-//                             <div
-//                                 style={{
-//                                     border:
-//                                         "1px solid #e5e7eb",
-
-//                                     borderRadius:
-//                                         "8px",
-
-//                                     overflow:
-//                                         "hidden",
-//                                 }}
-//                             >
-
-//                                 <div
-//                                     style={{
-//                                         overflowX:
-//                                             "auto",
-//                                     }}
-//                                 >
-
-//                                     <table
-//                                         style={{
-//                                             width:
-//                                                 "100%",
-
-//                                             minWidth:
-//                                                 "720px",
-
-//                                             borderCollapse:
-//                                                 "collapse",
-//                                         }}
-//                                     >
-
-//                                         <thead>
-
-//                                             <tr
-//                                                 style={{
-//                                                     background:
-//                                                         "#f8fafc",
-//                                                 }}
-//                                             >
-
-//                                                 <th
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 14px",
-//                                                         textAlign:
-//                                                             "left",
-//                                                         fontSize:
-//                                                             "11px",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             "#475569",
-//                                                         borderBottom:
-//                                                             "1px solid #e5e7eb",
-//                                                     }}
-//                                                 >
-//                                                     {categoryLabel}
-//                                                 </th>
-
-//                                                 <th
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 14px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontSize:
-//                                                             "11px",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             "#475569",
-//                                                         borderBottom:
-//                                                             "1px solid #e5e7eb",
-//                                                     }}
-//                                                 >
-//                                                     {firstMetricLabel}
-//                                                     {firstMetricType ===
-//                                                         "amount"
-//                                                         ? ` (${currency})`
-//                                                         : ""}
-//                                                 </th>
-
-//                                                 <th
-//                                                     style={{
-//                                                         padding:
-//                                                             "11px 14px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontSize:
-//                                                             "11px",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             "#475569",
-//                                                         borderBottom:
-//                                                             "1px solid #e5e7eb",
-//                                                     }}
-//                                                 >
-//                                                     {secondMetricLabel}
-//                                                 </th>
-
-//                                             </tr>
-
-//                                         </thead>
-
-
-//                                         <tbody>
-
-//                                             {rows.map(
-//                                                 (
-//                                                     row,
-//                                                     index
-//                                                 ) => {
-
-//                                                     const category =
-//                                                         getRowValue(
-//                                                             row,
-//                                                             categoryKeys
-//                                                         );
-
-//                                                     return (
-//                                                         <tr
-//                                                             key={
-//                                                                 `${category || "row"}-${index}`
-//                                                             }
-//                                                         >
-
-//                                                             <td
-//                                                                 style={{
-//                                                                     padding:
-//                                                                         "11px 14px",
-//                                                                     fontSize:
-//                                                                         "12px",
-//                                                                     color:
-//                                                                         "#334155",
-//                                                                     borderBottom:
-//                                                                         "1px solid #f1f5f9",
-//                                                                 }}
-//                                                             >
-//                                                                 {category ||
-//                                                                     "—"}
-//                                                             </td>
-
-//                                                             <td
-//                                                                 style={{
-//                                                                     padding:
-//                                                                         "11px 14px",
-//                                                                     fontSize:
-//                                                                         "12px",
-//                                                                     textAlign:
-//                                                                         "right",
-//                                                                     color:
-//                                                                         "#111827",
-//                                                                     fontWeight:
-//                                                                         600,
-//                                                                     borderBottom:
-//                                                                         "1px solid #f1f5f9",
-//                                                                 }}
-//                                                             >
-//                                                                 {formatFirstMetric(
-//                                                                     row
-//                                                                 )}
-//                                                             </td>
-
-//                                                             <td
-//                                                                 style={{
-//                                                                     padding:
-//                                                                         "11px 14px",
-//                                                                     fontSize:
-//                                                                         "12px",
-//                                                                     textAlign:
-//                                                                         "right",
-//                                                                     color:
-//                                                                         "#334155",
-//                                                                     borderBottom:
-//                                                                         "1px solid #f1f5f9",
-//                                                                 }}
-//                                                             >
-//                                                                 {formatSecondMetric(
-//                                                                     row
-//                                                                 )}
-//                                                             </td>
-
-//                                                         </tr>
-//                                                     );
-//                                                 }
-//                                             )}
-
-//                                         </tbody>
-
-
-//                                         <tfoot>
-
-//                                             <tr
-//                                                 style={{
-//                                                     background:
-//                                                         "#f8fafc",
-//                                                 }}
-//                                             >
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "12px 14px",
-//                                                         fontSize:
-//                                                             "12px",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             "#111827",
-//                                                     }}
-//                                                 >
-//                                                     {totalLabel}
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "12px 14px",
-//                                                         fontSize:
-//                                                             "12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             "#111827",
-//                                                     }}
-//                                                 >
-//                                                     {currency}{" "}
-//                                                     {formatAmount(
-//                                                         totalAmount
-//                                                     )}
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "12px 14px",
-//                                                         fontSize:
-//                                                             "12px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontWeight:
-//                                                             700,
-//                                                         color:
-//                                                             "#111827",
-//                                                     }}
-//                                                 >
-//                                                     {formatPercentage(
-//                                                         totalPercentage
-//                                                     )}
-//                                                 </td>
-
-//                                             </tr>
-
-//                                         </tfoot>
-
-//                                     </table>
-
-//                                 </div>
-
-//                             </div>
-
-//                         </>
-
-//                     )}
-
-//                 </div>
-
-
-//                 {/* =================================================
-//                     FOOTER
-//                 ================================================= */}
-
-//                 <div
-//                     style={{
-//                         padding:
-//                             "12px 20px",
-
-//                         borderTop:
-//                             "1px solid #e5e7eb",
-
-//                         display:
-//                             "flex",
-
-//                         justifyContent:
-//                             "flex-end",
-//                     }}
-//                 >
-
-//                     <button
-//                         type="button"
-//                         onClick={onClose}
-//                         style={{
-//                             padding:
-//                                 "7px 16px",
-
-//                             border:
-//                                 "1px solid #d1d5db",
-
-//                             borderRadius:
-//                                 "6px",
-
-//                             background:
-//                                 "#ffffff",
-
-//                             color:
-//                                 "#374151",
-
-//                             fontSize:
-//                                 "12px",
-
-//                             fontWeight:
-//                                 600,
-
-//                             cursor:
-//                                 "pointer",
-//                         }}
-//                     >
-//                         Close
-//                     </button>
+//                     </div>
 
 //                 </div>
 
 //             </div>
 
-//         </div>
+//         </>
 //     );
 // }
 
-import React from "react";
+import React, { useMemo, useState } from "react";
+import ExportButtons from "../Common/ExportButtons";
 
 /* =========================================================
    FORMAT AMOUNT
@@ -1188,6 +3330,479 @@ const hasValue = (value) => {
 
 
 /* =========================================================
+   CHECK "ALL" / EMPTY VALUE
+========================================================= */
+
+const isEmptyOrAll = (value) => {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return true;
+    }
+
+    if (Array.isArray(value)) {
+        return (
+            value.length === 0 ||
+            value.every((item) =>
+                isEmptyOrAll(item)
+            )
+        );
+    }
+
+    const text = String(value)
+        .trim()
+        .toLowerCase();
+
+    return (
+        text === "" ||
+        text === "all" ||
+        text === "all values" ||
+        text === "all value" ||
+        text === "all options" ||
+        text === "-" ||
+        text === "*"
+    );
+};
+
+
+/* =========================================================
+   CHECK "ALL" VALUE
+========================================================= */
+
+const isAllValue = (value) => {
+    if (value === null || value === undefined) {
+        return true;
+    }
+
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+
+        return (
+            normalized === "" ||
+            normalized === "all" ||
+            normalized === "all values" ||
+            normalized === "all options" ||
+            normalized === "-"
+        );
+    }
+
+    return false;
+};
+
+
+/* =========================================================
+   GET DISPLAY NAME FROM FILTER OBJECT
+========================================================= */
+
+const getFilterObjectDisplayValue = (value) => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+
+    /* -------------------------------------------------------
+       ARRAY
+    ------------------------------------------------------- */
+
+    if (Array.isArray(value)) {
+        const values = value
+            .map((item) =>
+                getFilterObjectDisplayValue(item)
+            )
+            .filter(
+                (item) =>
+                    item !== null &&
+                    item !== undefined &&
+                    item !== ""
+            );
+
+        if (!values.length) {
+            return null;
+        }
+
+        return values.join(", ");
+    }
+
+
+    /* -------------------------------------------------------
+       OBJECT
+    ------------------------------------------------------- */
+
+    if (typeof value === "object") {
+
+        /*
+         * Prefer human-readable fields.
+         * IDs / codes are deliberately lower priority.
+         */
+
+        const displayKeys = [
+            "name",
+            "label",
+            "display_name",
+            "displayName",
+            "description",
+            "title",
+            "text",
+            "period_name",
+            "value",
+        ];
+
+        for (const key of displayKeys) {
+            const displayValue = value?.[key];
+
+            if (
+                hasValue(displayValue) &&
+                !isAllValue(displayValue)
+            ) {
+                return String(displayValue);
+            }
+        }
+
+
+        /*
+         * If the object itself only contains an ID/code,
+         * don't show the internal identifier.
+         */
+
+        const codeKeys = [
+            "id",
+            "code",
+            "key",
+            "uuid",
+            "value_id",
+            "value_code",
+        ];
+
+        const hasOnlyCodeValue = codeKeys.some(
+            (key) =>
+                hasValue(value?.[key]) &&
+                !hasValue(
+                    value?.name ||
+                    value?.label ||
+                    value?.display_name ||
+                    value?.displayName
+                )
+        );
+
+        if (hasOnlyCodeValue) {
+            return null;
+        }
+
+        return null;
+    }
+
+
+    /* -------------------------------------------------------
+       STRING / NUMBER
+    ------------------------------------------------------- */
+
+    if (isAllValue(value)) {
+        return null;
+    }
+
+    return String(value);
+};
+
+
+/* =========================================================
+   GET OPTION DISPLAY NAME
+========================================================= */
+
+const getOptionDisplayName = (option) => {
+    if (
+        option === null ||
+        option === undefined
+    ) {
+        return "";
+    }
+
+    if (typeof option !== "object") {
+        return String(option);
+    }
+
+    return (
+        option.name ??
+        option.label ??
+        option.display_name ??
+        option.displayName ??
+        option.description ??
+        option.title ??
+        option.text ??
+        option.period_name ??
+        option.value ??
+        option.code ??
+        option.id ??
+        ""
+    );
+};
+
+
+/* =========================================================
+   GET OPTION ID / VALUE
+========================================================= */
+
+const getOptionId = (option) => {
+    if (
+        option === null ||
+        option === undefined
+    ) {
+        return "";
+    }
+
+    if (typeof option !== "object") {
+        return String(option);
+    }
+
+    return (
+        option.value ??
+        option.id ??
+        option.code ??
+        option.legal_group_id ??
+        option.legal_entity_id ??
+        option.parent_division_id ??
+        option.subdivision_id ??
+        option.period_name ??
+        option.name ??
+        ""
+    );
+};
+
+
+/* =========================================================
+   FIND SELECTED VALUE DISPLAY NAME
+========================================================= */
+
+const findFilterOptionName = (
+    selectedValue,
+    options = []
+) => {
+    if (
+        selectedValue === null ||
+        selectedValue === undefined ||
+        selectedValue === ""
+    ) {
+        return "";
+    }
+
+
+    /* -------------------------------------------------------
+       ARRAY
+    ------------------------------------------------------- */
+
+    if (Array.isArray(selectedValue)) {
+        const names = selectedValue
+            .filter(
+                (value) =>
+                    !isEmptyOrAll(value)
+            )
+            .map((value) =>
+                findFilterOptionName(
+                    value,
+                    options
+                )
+            )
+            .filter(Boolean);
+
+        return [
+            ...new Set(names),
+        ].join(", ");
+    }
+
+
+    /* -------------------------------------------------------
+       OBJECT
+    ------------------------------------------------------- */
+
+    /*
+     * If the selected value itself is an object,
+     * use its human-readable name.
+     */
+
+    if (
+        typeof selectedValue === "object"
+    ) {
+        return getOptionDisplayName(
+            selectedValue
+        );
+    }
+
+
+    /* -------------------------------------------------------
+       STRING / NUMBER
+    ------------------------------------------------------- */
+
+    const selectedText = String(
+        selectedValue
+    ).trim();
+
+    if (
+        !selectedText ||
+        isEmptyOrAll(selectedText)
+    ) {
+        return "";
+    }
+
+
+    /*
+     * Find the selected ID/code in the
+     * corresponding filter options.
+     */
+
+    const matchedOption =
+        Array.isArray(options)
+            ? options.find((option) => {
+
+                const optionId =
+                    String(
+                        getOptionId(
+                            option
+                        )
+                    ).trim();
+
+                return (
+                    optionId ===
+                    selectedText
+                );
+            })
+            : null;
+
+
+    if (matchedOption) {
+        return getOptionDisplayName(
+            matchedOption
+        );
+    }
+
+
+    /*
+     * If backend/filter already supplied
+     * a display value, keep it.
+     */
+
+    return selectedText;
+};
+
+
+/* =========================================================
+   GET SELECTED FILTER DISPLAY VALUE
+========================================================= */
+
+const getSelectedFilterValue = (
+    activeFilters,
+    key,
+    aliases = []
+) => {
+
+    /*
+     * First check the requested key.
+     */
+
+    const directValue =
+        activeFilters?.[key];
+
+    const directDisplay =
+        getFilterObjectDisplayValue(
+            directValue
+        );
+
+    if (directDisplay) {
+        return directDisplay;
+    }
+
+
+    /*
+     * Then check possible name/label fields.
+     *
+     * Example:
+     * legal_group
+     * legal_group_name
+     * legal_group_label
+     */
+
+    const possibleKeys = [
+        ...aliases,
+
+        `${key}_name`,
+        `${key}_label`,
+        `${key}_display_name`,
+        `${key}_displayName`,
+        `${key}Name`,
+        `${key}Label`,
+    ];
+
+
+    for (const possibleKey of possibleKeys) {
+
+        const value =
+            activeFilters?.[possibleKey];
+
+        const displayValue =
+            getFilterObjectDisplayValue(
+                value
+            );
+
+        if (displayValue) {
+            return displayValue;
+        }
+    }
+
+
+    return null;
+};
+
+
+/* =========================================================
+   GET FILTER DISPLAY VALUE FROM OPTIONS
+========================================================= */
+
+const getFilterDisplayValue = (
+    filters,
+    filterOptions,
+    filterKey
+) => {
+
+    const selectedValue =
+        filters?.[filterKey];
+
+
+    if (isEmptyOrAll(selectedValue)) {
+        return "";
+    }
+
+
+    const optionMap = {
+
+        legal_group:
+            filterOptions?.legal_groups || [],
+
+        legal_entity:
+            filterOptions?.legal_entities || [],
+
+        parent_division:
+            filterOptions?.parent_divisions || [],
+
+        subdivision:
+            filterOptions?.subdivisions || [],
+
+        period:
+            filterOptions?.periods || [],
+
+        year:
+            filterOptions?.years ||
+            filterOptions?.fiscal_years ||
+            [],
+    };
+
+
+    return findFilterOptionName(
+        selectedValue,
+        optionMap[filterKey] || []
+    );
+};
+
+
+/* =========================================================
    FILTER CHIP
 ========================================================= */
 
@@ -1195,39 +3810,38 @@ const FilterChip = ({
     label,
     value,
 }) => {
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
+
+    const displayValue =
+        getFilterObjectDisplayValue(
+            value
+        );
+
+
+    /*
+     * Do not show:
+     * - null
+     * - undefined
+     * - empty
+     * - "-"
+     * - All
+     */
+
+    if (!displayValue) {
         return null;
     }
 
+
     return (
-        <div
-            style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                padding: "5px 9px",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
-                borderRadius: "6px",
-                fontSize: "11px",
-                color: "#475569",
-            }}
-        >
-            <span
-                style={{
-                    fontWeight: 600,
-                }}
-            >
+        <div className="finsight-detail-filter-chip">
+
+            <span className="finsight-detail-filter-chip-label">
                 {label}:
             </span>
 
             <span>
-                {value}
+                {displayValue}
             </span>
+
         </div>
     );
 };
@@ -1241,7 +3855,9 @@ const getRowValue = (
     row,
     keys = []
 ) => {
+
     for (const key of keys) {
+
         if (
             row?.[key] !== null &&
             row?.[key] !== undefined &&
@@ -1257,377 +3873,213 @@ const getRowValue = (
 
 /* =========================================================
    ACTUAL VS TARGET TABLE
-   ---------------------------------------------------------
-   Backend response:
-
-   category
-   actual_ptd_aed
-   target_ptd_aed
-   ========================================================= */
+========================================================= */
 
 const ActualVsTargetTable = ({
     rows,
     currency,
 }) => {
 
-    const totalActual = rows.reduce(
-        (sum, row) => {
+    const totalActual =
+        rows.reduce(
+            (sum, row) => {
 
-            const value =
-                getRowValue(
-                    row,
-                    [
-                        "actual_ptd_aed",
-                        "actual_ptd",
-                        "actual",
-                    ]
-                );
+                const value =
+                    getRowValue(
+                        row,
+                        [
+                            "actual_ptd_aed",
+                            "actual_ptd",
+                            "actual",
+                        ]
+                    );
 
-            if (!hasValue(value)) {
-                return sum;
+                if (!hasValue(value)) {
+                    return sum;
+                }
+
+                const number =
+                    Number(value);
+
+                return Number.isNaN(number)
+                    ? sum
+                    : sum + number;
+
+            },
+            0
+        );
+
+
+    const targetValuesExist =
+        rows.some(
+            (row) => {
+
+                const value =
+                    getRowValue(
+                        row,
+                        [
+                            "target_ptd_aed",
+                            "target_ptd",
+                            "target",
+                        ]
+                    );
+
+                return hasValue(value);
             }
-
-            const number = Number(value);
-
-            return Number.isNaN(number)
-                ? sum
-                : sum + number;
-        },
-        0
-    );
+        );
 
 
-    const targetValuesExist = rows.some(
-        (row) => {
-            const value =
-                getRowValue(
-                    row,
-                    [
-                        "target_ptd_aed",
-                        "target_ptd",
-                        "target",
-                    ]
-                );
+    const totalTarget =
+        rows.reduce(
+            (sum, row) => {
 
-            return hasValue(value);
-        }
-    );
+                const value =
+                    getRowValue(
+                        row,
+                        [
+                            "target_ptd_aed",
+                            "target_ptd",
+                            "target",
+                        ]
+                    );
 
+                if (!hasValue(value)) {
+                    return sum;
+                }
 
-    const totalTarget = rows.reduce(
-        (sum, row) => {
+                const number =
+                    Number(value);
 
-            const value =
-                getRowValue(
-                    row,
-                    [
-                        "target_ptd_aed",
-                        "target_ptd",
-                        "target",
-                    ]
-                );
+                return Number.isNaN(number)
+                    ? sum
+                    : sum + number;
 
-            if (!hasValue(value)) {
-                return sum;
-            }
-
-            const number = Number(value);
-
-            return Number.isNaN(number)
-                ? sum
-                : sum + number;
-        },
-        0
-    );
+            },
+            0
+        );
 
 
     return (
-        <div
-            style={{
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                overflow: "hidden",
-            }}
-        >
+        <div className="finsight-detail-table-wrapper">
 
-            <div
-                style={{
-                    overflowX: "auto",
-                }}
-            >
+            <table className="finsight-detail-table">
 
-                <table
-                    style={{
-                        width: "100%",
-                        minWidth: "620px",
-                        borderCollapse: "collapse",
-                    }}
-                >
+                <thead>
+                    <tr>
 
-                    {/* =================================================
-                        HEADER
-                    ================================================= */}
+                        <th className="text-left">
+                            Expense Category
+                        </th>
 
-                    <thead>
+                        <th className="text-right">
+                            Actual PTD ({currency})
+                        </th>
 
-                        <tr
-                            style={{
-                                background: "#f8fafc",
-                            }}
-                        >
+                        <th className="text-right">
+                            Target PTD ({currency})
+                        </th>
 
-                            <th
-                                style={{
-                                    padding: "11px 14px",
-                                    textAlign: "left",
-                                    fontSize: "11px",
-                                    fontWeight: 700,
-                                    color: "#475569",
-                                    borderBottom:
-                                        "1px solid #e5e7eb",
-                                }}
-                            >
-                                Expense Category
-                            </th>
+                    </tr>
+                </thead>
 
 
-                            <th
-                                style={{
-                                    padding: "11px 14px",
-                                    textAlign: "right",
-                                    fontSize: "11px",
-                                    fontWeight: 700,
-                                    color: "#475569",
-                                    borderBottom:
-                                        "1px solid #e5e7eb",
-                                }}
-                            >
-                                Actual PTD ({currency})
-                            </th>
+                <tbody>
 
+                    {rows.map(
+                        (
+                            row,
+                            index
+                        ) => {
 
-                            <th
-                                style={{
-                                    padding: "11px 14px",
-                                    textAlign: "right",
-                                    fontSize: "11px",
-                                    fontWeight: 700,
-                                    color: "#475569",
-                                    borderBottom:
-                                        "1px solid #e5e7eb",
-                                }}
-                            >
-                                Target PTD ({currency})
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    {/* =================================================
-                        BODY
-                    ================================================= */}
-
-                    <tbody>
-
-                        {rows.map(
-                            (
-                                row,
-                                index
-                            ) => {
-
-                                const category =
-                                    getRowValue(
-                                        row,
-                                        [
-                                            "category",
-                                            "name",
-                                        ]
-                                    );
-
-
-                                const actual =
-                                    getRowValue(
-                                        row,
-                                        [
-                                            "actual_ptd_aed",
-                                            "actual_ptd",
-                                            "actual",
-                                        ]
-                                    );
-
-
-                                const target =
-                                    getRowValue(
-                                        row,
-                                        [
-                                            "target_ptd_aed",
-                                            "target_ptd",
-                                            "target",
-                                        ]
-                                    );
-
-
-                                return (
-                                    <tr
-                                        key={
-                                            `${category || "row"}-${index}`
-                                        }
-                                    >
-
-                                        {/* CATEGORY */}
-
-                                        <td
-                                            style={{
-                                                padding:
-                                                    "11px 14px",
-                                                fontSize:
-                                                    "12px",
-                                                color:
-                                                    "#334155",
-                                                fontWeight:
-                                                    500,
-                                                borderBottom:
-                                                    "1px solid #f1f5f9",
-                                            }}
-                                        >
-                                            {category || "—"}
-                                        </td>
-
-
-                                        {/* ACTUAL */}
-
-                                        <td
-                                            style={{
-                                                padding:
-                                                    "11px 14px",
-                                                fontSize:
-                                                    "12px",
-                                                textAlign:
-                                                    "right",
-                                                color:
-                                                    "#111827",
-                                                fontWeight:
-                                                    600,
-                                                borderBottom:
-                                                    "1px solid #f1f5f9",
-                                            }}
-                                        >
-                                            {hasValue(actual)
-                                                ? `${currency} ${formatAmount(actual)}`
-                                                : "—"}
-                                        </td>
-
-
-                                        {/* TARGET */}
-
-                                        <td
-                                            style={{
-                                                padding:
-                                                    "11px 14px",
-                                                fontSize:
-                                                    "12px",
-                                                textAlign:
-                                                    "right",
-                                                color:
-                                                    "#334155",
-                                                fontWeight:
-                                                    600,
-                                                borderBottom:
-                                                    "1px solid #f1f5f9",
-                                            }}
-                                        >
-                                            {hasValue(target)
-                                                ? `${currency} ${formatAmount(target)}`
-                                                : "—"}
-                                        </td>
-
-                                    </tr>
+                            const category =
+                                getRowValue(
+                                    row,
+                                    [
+                                        "category",
+                                        "name",
+                                    ]
                                 );
-                            }
-                        )}
-
-                    </tbody>
 
 
-                    {/* =================================================
-                        TOTAL
-                    ================================================= */}
-
-                    <tfoot>
-
-                        <tr
-                            style={{
-                                background: "#f8fafc",
-                            }}
-                        >
-
-                            <td
-                                style={{
-                                    padding:
-                                        "12px 14px",
-                                    fontSize:
-                                        "12px",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#111827",
-                                }}
-                            >
-                                Total
-                            </td>
+                            const actual =
+                                getRowValue(
+                                    row,
+                                    [
+                                        "actual_ptd_aed",
+                                        "actual_ptd",
+                                        "actual",
+                                    ]
+                                );
 
 
-                            <td
-                                style={{
-                                    padding:
-                                        "12px 14px",
-                                    fontSize:
-                                        "12px",
-                                    textAlign:
-                                        "right",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#111827",
-                                }}
-                            >
-                                {currency}{" "}
-                                {formatAmount(
-                                    totalActual
-                                )}
-                            </td>
+                            const target =
+                                getRowValue(
+                                    row,
+                                    [
+                                        "target_ptd_aed",
+                                        "target_ptd",
+                                        "target",
+                                    ]
+                                );
 
 
-                            <td
-                                style={{
-                                    padding:
-                                        "12px 14px",
-                                    fontSize:
-                                        "12px",
-                                    textAlign:
-                                        "right",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#111827",
-                                }}
-                            >
-                                {targetValuesExist
-                                    ? `${currency} ${formatAmount(
-                                        totalTarget
-                                    )}`
-                                    : "—"}
-                            </td>
+                            return (
+                                <tr
+                                    key={
+                                        `${category || "row"}-${index}`
+                                    }
+                                >
 
-                        </tr>
+                                    <td>
+                                        {category || "—"}
+                                    </td>
 
-                    </tfoot>
 
-                </table>
+                                    <td className="text-right">
+                                        {hasValue(actual)
+                                            ? `${currency} ${formatAmount(actual)}`
+                                            : "—"}
+                                    </td>
 
-            </div>
+
+                                    <td className="text-right">
+                                        {hasValue(target)
+                                            ? `${currency} ${formatAmount(target)}`
+                                            : "—"}
+                                    </td>
+
+                                </tr>
+                            );
+                        }
+                    )}
+
+                </tbody>
+
+
+                <tfoot>
+                    <tr>
+
+                        <td>
+                            Total
+                        </td>
+
+                        <td className="text-right">
+                            {currency}{" "}
+                            {formatAmount(totalActual)}
+                        </td>
+
+                        <td className="text-right">
+                            {targetValuesExist
+                                ? `${currency} ${formatAmount(
+                                    totalTarget
+                                )}`
+                                : "—"}
+                        </td>
+
+                    </tr>
+                </tfoot>
+
+            </table>
 
         </div>
     );
@@ -1636,9 +4088,6 @@ const ActualVsTargetTable = ({
 
 /* =========================================================
    GENERIC TABLE
-   ---------------------------------------------------------
-   Used by OPEX Composition and Expense Category
-   Drill-Down.
 ========================================================= */
 
 const GenericTable = ({
@@ -1654,10 +4103,6 @@ const GenericTable = ({
     categoryKeys,
     totalLabel,
 }) => {
-
-    /* =====================================================
-       TOTAL AMOUNT
-    ===================================================== */
 
     const totalAmount =
         rows.reduce(
@@ -1675,14 +4120,11 @@ const GenericTable = ({
                 return Number.isNaN(number)
                     ? sum
                     : sum + number;
+
             },
             0
         );
 
-
-    /* =====================================================
-       TOTAL PERCENTAGE
-    ===================================================== */
 
     const totalPercentage =
         rows.reduce(
@@ -1700,18 +4142,13 @@ const GenericTable = ({
                 return Number.isNaN(number)
                     ? sum
                     : sum + number;
+
             },
             0
         );
 
 
-    /* =====================================================
-       FORMAT FIRST METRIC
-    ===================================================== */
-
-    const formatFirstMetric = (
-        row
-    ) => {
+    const formatFirstMetric = (row) => {
 
         const value =
             getRowValue(
@@ -1719,39 +4156,33 @@ const GenericTable = ({
                 firstMetricKeys
             );
 
+
         if (
             firstMetricType ===
             "amount"
         ) {
-            return formatAmount(
-                value
-            );
+            return formatAmount(value);
         }
+
 
         if (
             firstMetricType ===
             "percentage"
         ) {
-            return formatPercentage(
-                value
-            );
+            return formatPercentage(value);
         }
+
 
         if (!hasValue(value)) {
             return "—";
         }
 
+
         return value;
     };
 
 
-    /* =====================================================
-       FORMAT SECOND METRIC
-    ===================================================== */
-
-    const formatSecondMetric = (
-        row
-    ) => {
+    const formatSecondMetric = (row) => {
 
         const value =
             getRowValue(
@@ -1759,315 +4190,140 @@ const GenericTable = ({
                 secondMetricKeys
             );
 
+
         if (
             secondMetricType ===
             "amount"
         ) {
-            return formatAmount(
-                value
-            );
+            return formatAmount(value);
         }
+
 
         if (
             secondMetricType ===
             "percentage"
         ) {
-            return formatPercentage(
-                value
-            );
+            return formatPercentage(value);
         }
+
 
         if (!hasValue(value)) {
             return "—";
         }
+
 
         return value;
     };
 
 
     return (
-        <div
-            style={{
-                border:
-                    "1px solid #e5e7eb",
+        <div className="finsight-detail-table-wrapper">
 
-                borderRadius:
-                    "8px",
+            <table className="finsight-detail-table">
 
-                overflow:
-                    "hidden",
-            }}
-        >
+                <thead>
+                    <tr>
 
-            <div
-                style={{
-                    overflowX:
-                        "auto",
-                }}
-            >
+                        <th className="text-left">
+                            {categoryLabel}
+                        </th>
 
-                <table
-                    style={{
-                        width:
-                            "100%",
+                        <th className="text-right">
 
-                        minWidth:
-                            "720px",
+                            {firstMetricLabel}
 
-                        borderCollapse:
-                            "collapse",
-                    }}
-                >
+                            {firstMetricType ===
+                                "amount"
+                                ? ` (${currency})`
+                                : ""}
 
-                    {/* =================================================
-                        HEADER
-                    ================================================= */}
+                        </th>
 
-                    <thead>
+                        <th className="text-right">
+                            {secondMetricLabel}
+                        </th>
 
-                        <tr
-                            style={{
-                                background:
-                                    "#f8fafc",
-                            }}
-                        >
-
-                            <th
-                                style={{
-                                    padding:
-                                        "11px 14px",
-                                    textAlign:
-                                        "left",
-                                    fontSize:
-                                        "11px",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#475569",
-                                    borderBottom:
-                                        "1px solid #e5e7eb",
-                                }}
-                            >
-                                {categoryLabel}
-                            </th>
+                    </tr>
+                </thead>
 
 
-                            <th
-                                style={{
-                                    padding:
-                                        "11px 14px",
-                                    textAlign:
-                                        "right",
-                                    fontSize:
-                                        "11px",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#475569",
-                                    borderBottom:
-                                        "1px solid #e5e7eb",
-                                }}
-                            >
-                                {firstMetricLabel}
+                <tbody>
 
-                                {firstMetricType ===
-                                    "amount"
-                                    ? ` (${currency})`
-                                    : ""}
-                            </th>
+                    {rows.map(
+                        (
+                            row,
+                            index
+                        ) => {
 
-
-                            <th
-                                style={{
-                                    padding:
-                                        "11px 14px",
-                                    textAlign:
-                                        "right",
-                                    fontSize:
-                                        "11px",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#475569",
-                                    borderBottom:
-                                        "1px solid #e5e7eb",
-                                }}
-                            >
-                                {secondMetricLabel}
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    {/* =================================================
-                        BODY
-                    ================================================= */}
-
-                    <tbody>
-
-                        {rows.map(
-                            (
-                                row,
-                                index
-                            ) => {
-
-                                const category =
-                                    getRowValue(
-                                        row,
-                                        categoryKeys
-                                    );
-
-                                return (
-                                    <tr
-                                        key={
-                                            `${category || "row"}-${index}`
-                                        }
-                                    >
-
-                                        <td
-                                            style={{
-                                                padding:
-                                                    "11px 14px",
-                                                fontSize:
-                                                    "12px",
-                                                color:
-                                                    "#334155",
-                                                borderBottom:
-                                                    "1px solid #f1f5f9",
-                                            }}
-                                        >
-                                            {category ||
-                                                "—"}
-                                        </td>
-
-
-                                        <td
-                                            style={{
-                                                padding:
-                                                    "11px 14px",
-                                                fontSize:
-                                                    "12px",
-                                                textAlign:
-                                                    "right",
-                                                color:
-                                                    "#111827",
-                                                fontWeight:
-                                                    600,
-                                                borderBottom:
-                                                    "1px solid #f1f5f9",
-                                            }}
-                                        >
-                                            {formatFirstMetric(
-                                                row
-                                            )}
-                                        </td>
-
-
-                                        <td
-                                            style={{
-                                                padding:
-                                                    "11px 14px",
-                                                fontSize:
-                                                    "12px",
-                                                textAlign:
-                                                    "right",
-                                                color:
-                                                    "#334155",
-                                                borderBottom:
-                                                    "1px solid #f1f5f9",
-                                            }}
-                                        >
-                                            {formatSecondMetric(
-                                                row
-                                            )}
-                                        </td>
-
-                                    </tr>
+                            const category =
+                                getRowValue(
+                                    row,
+                                    categoryKeys
                                 );
-                            }
-                        )}
-
-                    </tbody>
 
 
-                    {/* =================================================
-                        TOTAL
-                    ================================================= */}
+                            return (
+                                <tr
+                                    key={
+                                        `${category || "row"}-${index}`
+                                    }
+                                >
 
-                    <tfoot>
+                                    <td>
+                                        {category || "—"}
+                                    </td>
 
-                        <tr
-                            style={{
-                                background:
-                                    "#f8fafc",
-                            }}
-                        >
+                                    <td className="text-right">
+                                        {formatFirstMetric(
+                                            row
+                                        )}
+                                    </td>
 
-                            <td
-                                style={{
-                                    padding:
-                                        "12px 14px",
-                                    fontSize:
-                                        "12px",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#111827",
-                                }}
-                            >
-                                {totalLabel}
-                            </td>
+                                    <td className="text-right">
+                                        {formatSecondMetric(
+                                            row
+                                        )}
+                                    </td>
 
+                                </tr>
+                            );
+                        }
+                    )}
 
-                            <td
-                                style={{
-                                    padding:
-                                        "12px 14px",
-                                    fontSize:
-                                        "12px",
-                                    textAlign:
-                                        "right",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#111827",
-                                }}
-                            >
-                                {currency}{" "}
-                                {formatAmount(
-                                    totalAmount
-                                )}
-                            </td>
+                </tbody>
 
 
-                            <td
-                                style={{
-                                    padding:
-                                        "12px 14px",
-                                    fontSize:
-                                        "12px",
-                                    textAlign:
-                                        "right",
-                                    fontWeight:
-                                        700,
-                                    color:
-                                        "#111827",
-                                }}
-                            >
-                                {formatPercentage(
-                                    totalPercentage
-                                )}
-                            </td>
+                <tfoot>
+                    <tr>
 
-                        </tr>
+                        <td>
+                            {totalLabel}
+                        </td>
 
-                    </tfoot>
 
-                </table>
+                        <td className="text-right">
 
-            </div>
+                            {currency}{" "}
+
+                            {formatAmount(
+                                totalAmount
+                            )}
+
+                        </td>
+
+
+                        <td className="text-right">
+
+                            {formatPercentage(
+                                totalPercentage
+                            )}
+
+                        </td>
+
+                    </tr>
+                </tfoot>
+
+            </table>
 
         </div>
     );
@@ -2075,7 +4331,7 @@ const GenericTable = ({
 
 
 /* =========================================================
-   COMPONENT
+   MAIN COMPONENT
 ========================================================= */
 
 export default function OperatingAnalysisViewAllModal({
@@ -2090,7 +4346,18 @@ export default function OperatingAnalysisViewAllModal({
 
     activeFilters = {},
 
+    /*
+     * IMPORTANT:
+     * filterOptions contains the human-readable
+     * names corresponding to active filter IDs.
+     *
+     * This is display-only and does not modify
+     * activeFilters or API filters.
+     */
+    filterOptions = {},
+
     reportingCurrency = "AED",
+
 
     /* =====================================================
        COMMON CONFIGURATION
@@ -2126,18 +4393,21 @@ export default function OperatingAnalysisViewAllModal({
 
     totalLabel = "Total",
 
+
     /* =====================================================
-       IMPORTANT
-       This is passed from OperatingAnalysis.jsx
+       VIEW TYPE
     ===================================================== */
 
     viewAllType = "",
 
 }) {
 
-    if (!open) {
-        return null;
-    }
+    /* =====================================================
+       ALL HOOKS MUST BE BEFORE EARLY RETURN
+    ===================================================== */
+
+    const [searchTerm, setSearchTerm] =
+        useState("");
 
 
     /* =====================================================
@@ -2154,6 +4424,43 @@ export default function OperatingAnalysisViewAllModal({
                     : Array.isArray(data?.results)
                         ? data.results
                         : [];
+
+
+    /* =====================================================
+       SEARCH FILTER
+    ===================================================== */
+
+    const filteredRows =
+        useMemo(() => {
+
+            const search =
+                searchTerm
+                    .trim()
+                    .toLowerCase();
+
+
+            if (!search) {
+                return rows;
+            }
+
+
+            return rows.filter((row) => {
+
+                if (!row) {
+                    return false;
+                }
+
+
+                return Object.values(row).some(
+                    (value) =>
+                        String(value ?? "")
+                            .toLowerCase()
+                            .includes(search)
+                );
+
+            });
+
+        }, [rows, searchTerm]);
 
 
     /* =====================================================
@@ -2183,13 +4490,10 @@ export default function OperatingAnalysisViewAllModal({
 
     /* =====================================================
        GENERIC TOTAL
-       Used for summary cards.
-
-       For Actual vs Target we calculate actual PTD only.
     ===================================================== */
 
     const genericTotalAmount =
-        rows.reduce(
+        filteredRows.reduce(
             (sum, row) => {
 
                 const value =
@@ -2204,13 +4508,18 @@ export default function OperatingAnalysisViewAllModal({
                 return Number.isNaN(number)
                     ? sum
                     : sum + number;
+
             },
             0
         );
 
 
+    /* =====================================================
+       ACTUAL VS TARGET TOTAL
+    ===================================================== */
+
     const actualVsTargetTotal =
-        rows.reduce(
+        filteredRows.reduce(
             (sum, row) => {
 
                 const value =
@@ -2223,16 +4532,20 @@ export default function OperatingAnalysisViewAllModal({
                         ]
                     );
 
+
                 if (!hasValue(value)) {
                     return sum;
                 }
 
+
                 const number =
                     Number(value);
+
 
                 return Number.isNaN(number)
                     ? sum
                     : sum + number;
+
             },
             0
         );
@@ -2249,7 +4562,7 @@ export default function OperatingAnalysisViewAllModal({
     ===================================================== */
 
     const totalPercentage =
-        rows.reduce(
+        filteredRows.reduce(
             (sum, row) => {
 
                 const value =
@@ -2264,9 +4577,874 @@ export default function OperatingAnalysisViewAllModal({
                 return Number.isNaN(number)
                     ? sum
                     : sum + number;
+
             },
             0
         );
+
+
+    /* =====================================================
+       FILTER DISPLAY VALUES
+
+       IMPORTANT:
+       These values are ONLY for displaying the selected
+       filter names in the chips.
+
+       They do NOT modify API/data filtering.
+    ===================================================== */
+
+    const selectedYear =
+        getFilterDisplayValue(
+            activeFilters,
+            filterOptions,
+            "year"
+        );
+
+
+    const selectedPeriod =
+        getFilterDisplayValue(
+            activeFilters,
+            filterOptions,
+            "period"
+        );
+
+
+    const selectedCurrency =
+        currency;
+
+
+    const selectedLegalGroup =
+        getFilterDisplayValue(
+            activeFilters,
+            filterOptions,
+            "legal_group"
+        );
+
+
+    const selectedLegalEntity =
+        getFilterDisplayValue(
+            activeFilters,
+            filterOptions,
+            "legal_entity"
+        );
+
+
+    const selectedParentDivision =
+        getFilterDisplayValue(
+            activeFilters,
+            filterOptions,
+            "parent_division"
+        );
+
+
+    const selectedSubdivision =
+        getFilterDisplayValue(
+            activeFilters,
+            filterOptions,
+            "subdivision"
+        );
+
+
+    /* =====================================================
+       EXCEL EXPORT
+    ===================================================== */
+
+    const exportToExcel = () => {
+
+        if (!filteredRows.length) {
+            return;
+        }
+
+
+        let headers = [];
+        let tableRows = [];
+
+
+        if (isActualVsTarget) {
+
+            headers = [
+                "Expense Category",
+                `Actual PTD (${currency})`,
+                `Target PTD (${currency})`,
+            ];
+
+
+            tableRows =
+                filteredRows.map((row) => {
+
+                    const category =
+                        getRowValue(
+                            row,
+                            [
+                                "category",
+                                "name",
+                            ]
+                        );
+
+
+                    const actual =
+                        getRowValue(
+                            row,
+                            [
+                                "actual_ptd_aed",
+                                "actual_ptd",
+                                "actual",
+                            ]
+                        );
+
+
+                    const target =
+                        getRowValue(
+                            row,
+                            [
+                                "target_ptd_aed",
+                                "target_ptd",
+                                "target",
+                            ]
+                        );
+
+
+                    return [
+                        category || "—",
+
+                        hasValue(actual)
+                            ? `${currency} ${formatAmount(actual)}`
+                            : "—",
+
+                        hasValue(target)
+                            ? `${currency} ${formatAmount(target)}`
+                            : "—",
+                    ];
+                });
+
+
+            tableRows.push([
+                "Total",
+                `${currency} ${formatAmount(
+                    actualVsTargetTotal
+                )}`,
+                "",
+            ]);
+
+        } else {
+
+            headers = [
+                categoryLabel,
+
+                `${firstMetricLabel}${
+                    firstMetricType === "amount"
+                        ? ` (${currency})`
+                        : ""
+                }`,
+
+                secondMetricLabel,
+            ];
+
+
+            tableRows =
+                filteredRows.map((row) => {
+
+                    const category =
+                        getRowValue(
+                            row,
+                            categoryKeys
+                        );
+
+
+                    const firstValue =
+                        getRowValue(
+                            row,
+                            firstMetricKeys
+                        );
+
+
+                    const secondValue =
+                        getRowValue(
+                            row,
+                            secondMetricKeys
+                        );
+
+
+                    let formattedFirst = "—";
+                    let formattedSecond = "—";
+
+
+                    if (
+                        firstMetricType ===
+                        "amount"
+                    ) {
+
+                        formattedFirst =
+                            formatAmount(
+                                firstValue
+                            );
+
+                    } else if (
+                        firstMetricType ===
+                        "percentage"
+                    ) {
+
+                        formattedFirst =
+                            formatPercentage(
+                                firstValue
+                            );
+
+                    } else if (
+                        hasValue(firstValue)
+                    ) {
+
+                        formattedFirst =
+                            firstValue;
+                    }
+
+
+                    if (
+                        secondMetricType ===
+                        "amount"
+                    ) {
+
+                        formattedSecond =
+                            formatAmount(
+                                secondValue
+                            );
+
+                    } else if (
+                        secondMetricType ===
+                        "percentage"
+                    ) {
+
+                        formattedSecond =
+                            formatPercentage(
+                                secondValue
+                            );
+
+                    } else if (
+                        hasValue(secondValue)
+                    ) {
+
+                        formattedSecond =
+                            secondValue;
+                    }
+
+
+                    return [
+                        category || "—",
+
+                        firstMetricType ===
+                            "amount"
+                            ? `${currency} ${formattedFirst}`
+                            : formattedFirst,
+
+                        formattedSecond,
+                    ];
+                });
+
+
+            tableRows.push([
+                totalLabel,
+
+                `${currency} ${formatAmount(
+                    genericTotalAmount
+                )}`,
+
+                formatPercentage(
+                    totalPercentage
+                ),
+            ]);
+        }
+
+
+        const escapeExcelValue = (value) => {
+
+            const stringValue =
+                String(value ?? "");
+
+
+            return `"${stringValue.replace(
+                /"/g,
+                '""'
+            )}"`;
+        };
+
+
+        const excelContent = [
+
+            headers
+                .map(escapeExcelValue)
+                .join("\t"),
+
+            ...tableRows.map(
+                (row) =>
+                    row
+                        .map(escapeExcelValue)
+                        .join("\t")
+            ),
+
+        ].join("\n");
+
+
+        const blob =
+            new Blob(
+                [
+                    "\uFEFF" +
+                    excelContent,
+                ],
+                {
+                    type:
+                        "application/vnd.ms-excel;charset=utf-8;",
+                }
+            );
+
+
+        const url =
+            URL.createObjectURL(blob);
+
+
+        const link =
+            document.createElement("a");
+
+
+        link.href = url;
+
+
+        link.download =
+            `${title
+                .replace(/[^a-z0-9]/gi, "_")
+                .toLowerCase()}_details.xls`;
+
+
+        document.body.appendChild(link);
+
+
+        link.click();
+
+
+        document.body.removeChild(link);
+
+
+        URL.revokeObjectURL(url);
+    };
+
+
+    /* =====================================================
+       PDF EXPORT
+    ===================================================== */
+
+    const exportToPDF = () => {
+
+        if (!filteredRows.length) {
+            return;
+        }
+
+
+        const printWindow =
+            window.open(
+                "",
+                "_blank",
+                "width=1200,height=800"
+            );
+
+
+        if (!printWindow) {
+            return;
+        }
+
+
+        const escapeHTML = (value) => {
+
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+
+        let headers = [];
+        let tableRows = [];
+
+
+        if (isActualVsTarget) {
+
+            headers = [
+                "Expense Category",
+                `Actual PTD (${currency})`,
+                `Target PTD (${currency})`,
+            ];
+
+
+            tableRows =
+                filteredRows.map((row) => {
+
+                    const category =
+                        getRowValue(
+                            row,
+                            [
+                                "category",
+                                "name",
+                            ]
+                        );
+
+
+                    const actual =
+                        getRowValue(
+                            row,
+                            [
+                                "actual_ptd_aed",
+                                "actual_ptd",
+                                "actual",
+                            ]
+                        );
+
+
+                    const target =
+                        getRowValue(
+                            row,
+                            [
+                                "target_ptd_aed",
+                                "target_ptd",
+                                "target",
+                            ]
+                        );
+
+
+                    return [
+                        category || "—",
+
+                        hasValue(actual)
+                            ? `${currency} ${formatAmount(actual)}`
+                            : "—",
+
+                        hasValue(target)
+                            ? `${currency} ${formatAmount(target)}`
+                            : "—",
+                    ];
+                });
+
+
+            tableRows.push([
+                "Total",
+
+                `${currency} ${formatAmount(
+                    actualVsTargetTotal
+                )}`,
+
+                "",
+            ]);
+
+        } else {
+
+            headers = [
+                categoryLabel,
+
+                `${firstMetricLabel}${
+                    firstMetricType === "amount"
+                        ? ` (${currency})`
+                        : ""
+                }`,
+
+                secondMetricLabel,
+            ];
+
+
+            tableRows =
+                filteredRows.map((row) => {
+
+                    const category =
+                        getRowValue(
+                            row,
+                            categoryKeys
+                        );
+
+
+                    const firstValue =
+                        getRowValue(
+                            row,
+                            firstMetricKeys
+                        );
+
+
+                    const secondValue =
+                        getRowValue(
+                            row,
+                            secondMetricKeys
+                        );
+
+
+                    let formattedFirst = "—";
+                    let formattedSecond = "—";
+
+
+                    if (
+                        firstMetricType ===
+                        "amount"
+                    ) {
+
+                        formattedFirst =
+                            `${currency} ${formatAmount(
+                                firstValue
+                            )}`;
+
+                    } else if (
+                        firstMetricType ===
+                        "percentage"
+                    ) {
+
+                        formattedFirst =
+                            formatPercentage(
+                                firstValue
+                            );
+
+                    } else if (
+                        hasValue(firstValue)
+                    ) {
+
+                        formattedFirst =
+                            firstValue;
+                    }
+
+
+                    if (
+                        secondMetricType ===
+                        "amount"
+                    ) {
+
+                        formattedSecond =
+                            `${currency} ${formatAmount(
+                                secondValue
+                            )}`;
+
+                    } else if (
+                        secondMetricType ===
+                        "percentage"
+                    ) {
+
+                        formattedSecond =
+                            formatPercentage(
+                                secondValue
+                            );
+
+                    } else if (
+                        hasValue(secondValue)
+                    ) {
+
+                        formattedSecond =
+                            secondValue;
+                    }
+
+
+                    return [
+                        category || "—",
+                        formattedFirst,
+                        formattedSecond,
+                    ];
+                });
+
+
+            tableRows.push([
+                totalLabel,
+
+                `${currency} ${formatAmount(
+                    genericTotalAmount
+                )}`,
+
+                formatPercentage(
+                    totalPercentage
+                ),
+            ]);
+        }
+
+
+        /*
+         * IMPORTANT:
+         * PDF also uses DISPLAY NAMES instead of
+         * internal filter IDs/codes.
+         */
+
+        const filterEntries = [
+
+            ["Year", selectedYear],
+
+            ["Period", selectedPeriod],
+
+            ["Currency", selectedCurrency],
+
+            ["Legal Group", selectedLegalGroup],
+
+            ["Legal Entity", selectedLegalEntity],
+
+            ["Parent Division", selectedParentDivision],
+
+            ["Subdivision", selectedSubdivision],
+
+        ].filter(
+            ([, value]) =>
+                value !== null &&
+                value !== undefined &&
+                value !== ""
+        );
+
+
+        const filterHTML =
+            filterEntries
+                .map(
+                    ([label, value]) =>
+                        `<span class="filter">
+                            <strong>${escapeHTML(label)}:</strong>
+                            ${escapeHTML(value)}
+                        </span>`
+                )
+                .join("");
+
+
+        const headerHTML =
+            headers
+                .map(
+                    (header) =>
+                        `<th>${escapeHTML(header)}</th>`
+                )
+                .join("");
+
+
+        const bodyHTML =
+            tableRows
+                .map(
+                    (row, index) => {
+
+                        const isTotal =
+                            index ===
+                            tableRows.length - 1;
+
+
+                        return `
+                            <tr class="${
+                                isTotal
+                                    ? "total"
+                                    : ""
+                            }">
+                                ${row
+                                    .map(
+                                        (cell) =>
+                                            `<td>${escapeHTML(
+                                                cell
+                                            )}</td>`
+                                    )
+                                    .join("")}
+                            </tr>
+                        `;
+                    }
+                )
+                .join("");
+
+
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+
+                <title>
+                    ${escapeHTML(title)}
+                </title>
+
+                <style>
+
+                    * {
+                        box-sizing: border-box;
+                    }
+
+                    body {
+                        margin: 0;
+                        padding: 30px;
+                        font-family:
+                            Arial,
+                            Helvetica,
+                            sans-serif;
+                        color: #334155;
+                        background: #ffffff;
+                    }
+
+                    h1 {
+                        margin: 0;
+                        color: #102a43;
+                        font-size: 20px;
+                        font-weight: 700;
+                    }
+
+                    .subtitle {
+                        margin-top: 5px;
+                        color: #64748b;
+                        font-size: 12px;
+                    }
+
+                    .filters {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 7px;
+                        margin-top: 18px;
+                        margin-bottom: 18px;
+                    }
+
+                    .filter {
+                        padding: 6px 9px;
+                        border: 1px solid #d9e2eb;
+                        border-radius: 5px;
+                        background: #f8fafc;
+                        font-size: 10px;
+                        color: #475569;
+                    }
+
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                    }
+
+                    th {
+                        padding: 9px;
+                        text-align: left;
+                        background: #f1f5f9;
+                        color: #123a69;
+                        border: 1px solid #cbd7e4;
+                        font-size: 10px;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                    }
+
+                    td {
+                        padding: 8px 9px;
+                        border: 1px solid #e2e8f0;
+                        font-size: 11px;
+                    }
+
+                    td:not(:first-child),
+                    th:not(:first-child) {
+                        text-align: right;
+                    }
+
+                    tr:nth-child(even) td {
+                        background: #f8fafc;
+                    }
+
+                    tr.total td {
+                        background: #f3f6f9;
+                        font-weight: 700;
+                        border-top: 2px solid #cbd5e1;
+                    }
+
+                    .record-count {
+                        margin-top: 10px;
+                        color: #64748b;
+                        font-size: 10px;
+                    }
+
+                    @media print {
+
+                        body {
+                            padding: 15px;
+                        }
+
+                    }
+
+                </style>
+
+            </head>
+
+            <body>
+
+                <h1>
+                    ${escapeHTML(title)}
+                </h1>
+
+                ${
+                    subtitle
+                        ? `<div class="subtitle">
+                            ${escapeHTML(subtitle)}
+                           </div>`
+                        : ""
+                }
+
+                ${
+                    filterHTML
+                        ? `<div class="filters">
+                            ${filterHTML}
+                           </div>`
+                        : ""
+                }
+
+                <div class="record-count">
+                    ${filteredRows.length}
+                    ${
+                        filteredRows.length === 1
+                            ? "record"
+                            : "records"
+                    }
+                </div>
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            ${headerHTML}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        ${bodyHTML}
+                    </tbody>
+
+                </table>
+
+            </body>
+            </html>
+        `);
+
+
+        printWindow.document.close();
+
+        printWindow.focus();
+
+
+        setTimeout(() => {
+
+            printWindow.print();
+
+            printWindow.close();
+
+        }, 300);
+    };
+
+
+    /* =====================================================
+       COMMON EXPORT BUTTON HANDLER
+       
+       Uses the existing Excel/PDF export logic above.
+    ===================================================== */
+
+    const handleCommonExport = (type) => {
+
+        if (loading || !filteredRows.length) {
+            return;
+        }
+
+        if (type === "excel") {
+            exportToExcel();
+            return;
+        }
+
+        if (type === "pdf") {
+            exportToPDF();
+        }
+    };
+
+
+    /* =====================================================
+       EARLY RETURN
+    ===================================================== */
+
+    if (!open) {
+        return null;
+    }
 
 
     /* =====================================================
@@ -2274,133 +5452,1042 @@ export default function OperatingAnalysisViewAllModal({
     ===================================================== */
 
     return (
-        <div
-            onClick={(event) => {
+        <>
+            <style>{`
 
-                if (
-                    event.target ===
-                    event.currentTarget
-                ) {
-                    onClose();
+                .finsight-detail-backdrop {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 1000;
+                    background:
+                        rgba(15, 23, 42, 0.42);
+                    backdrop-filter:
+                        blur(5px);
+                    -webkit-backdrop-filter:
+                        blur(5px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 28px;
+                    box-sizing: border-box;
                 }
 
-            }}
 
-            style={{
-                position:
-                    "fixed",
+                .finsight-detail-modal {
+                    width: 100%;
+                    max-width: 1520px;
+                    height:
+                        min(82vh, 730px);
+                    min-height: 520px;
+                    background: #ffffff;
+                    border-radius: 14px;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    box-sizing: border-box;
+                    border:
+                        1px solid #e1e7ee;
+                    box-shadow:
+                        0 24px 60px
+                        rgba(15, 23, 42, 0.24);
+                }
 
-                inset: 0,
 
-                zIndex: 1000,
+                .finsight-detail-header {
+                    min-height: 68px;
+                    padding:
+                        14px 20px 13px;
+                    box-sizing: border-box;
+                    display: flex;
+                    align-items: flex-start;
+                    justify-content: space-between;
+                    gap: 20px;
+                    border-bottom:
+                        1px solid #e7edf3;
+                    flex-shrink: 0;
+                }
 
-                background:
-                    "rgba(15, 23, 42, 0.45)",
 
-                display:
-                    "flex",
+                .finsight-detail-title {
+                    color: #102a43;
+                    font-size: 15px;
+                    line-height: 20px;
+                    font-weight: 700;
+                    letter-spacing:
+                        -0.05px;
+                }
 
-                alignItems:
-                    "center",
 
-                justifyContent:
-                    "center",
+                .finsight-detail-subtitle {
+                    margin-top: 2px;
+                    color: #55708d;
+                    font-size: 11px;
+                    line-height: 16px;
+                }
 
-                padding:
-                    "24px",
-            }}
-        >
+
+                .finsight-detail-close {
+                    width: 30px;
+                    height: 30px;
+                    padding: 0;
+                    border: 0;
+                    background:
+                        transparent;
+                    color: #718096;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 22px;
+                    line-height: 30px;
+                    font-weight: 300;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    transition:
+                        background 0.15s ease,
+                        color 0.15s ease;
+                }
+
+
+                .finsight-detail-close:hover {
+                    background:
+                        #f1f5f9;
+                    color:
+                        #334155;
+                }
+
+
+                .finsight-detail-toolbar {
+                    min-height: 54px;
+                    padding:
+                        9px 20px;
+                    box-sizing: border-box;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 12px;
+                    flex-wrap: wrap;
+                    background:
+                        #f8fafc;
+                    border-bottom:
+                        1px solid #e5ebf2;
+                    flex-shrink: 0;
+                }
+
+
+                .finsight-detail-toolbar-left {
+                    display: flex;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                    min-width: 0;
+                    flex: 1 1 auto;
+                }
+
+
+                .finsight-detail-filters {
+                    display: flex;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 5px;
+                    min-width: 0;
+                }
+
+
+                .finsight-detail-filter-chip {
+                    min-height: 32px;
+                    padding:
+                        0 10px;
+                    box-sizing: border-box;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    white-space: nowrap;
+                    background:
+                        #ffffff;
+                    border:
+                        1px solid #d9e2eb;
+                    border-radius:
+                        6px;
+                    color:
+                        #475569;
+                    font-size:
+                        11px;
+                    line-height:
+                        16px;
+                }
+
+
+                .finsight-detail-filter-chip-label {
+                    color:
+                        #64748b;
+                    font-weight:
+                        600;
+                }
+
+
+                .finsight-detail-toolbar-right {
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                    gap: 6px;
+                    flex-shrink: 0;
+                }
+
+
+                .finsight-detail-search {
+                    position: relative;
+                    width: 190px;
+                    height: 32px;
+                    flex-shrink: 0;
+                }
+
+
+                .finsight-detail-search-icon {
+                    position: absolute;
+                    left: 9px;
+                    top: 50%;
+                    transform:
+                        translateY(-50%);
+                    color:
+                        #94a3b8;
+                    font-size: 14px;
+                    line-height: 1;
+                    pointer-events: none;
+                }
+
+
+                .finsight-detail-search-input {
+                    width: 100%;
+                    height: 32px;
+                    padding:
+                        0 10px 0 29px;
+                    border:
+                        1px solid #d5dee8;
+                    border-radius:
+                        6px;
+                    outline: none;
+                    background:
+                        #ffffff;
+                    color:
+                        #334155;
+                    font-size:
+                        11px;
+                    box-sizing:
+                        border-box;
+                    transition:
+                        border-color 0.15s ease,
+                        box-shadow 0.15s ease;
+                }
+
+
+                .finsight-detail-search-input::placeholder {
+                    color:
+                        #94a3b8;
+                }
+
+
+                .finsight-detail-search-input:focus {
+                    border-color:
+                        #9db7d2;
+                    box-shadow:
+                        0 0 0 2px
+                        rgba(59, 130, 246, 0.08);
+                }
+
+
+                .finsight-detail-export-button {
+                    height: 32px;
+                    padding:
+                        0 10px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 5px;
+                    border:
+                        1px solid #d5dee8;
+                    border-radius:
+                        6px;
+                    background:
+                        #ffffff;
+                    color:
+                        #475569;
+                    font-size:
+                        11px;
+                    line-height:
+                        16px;
+                    font-weight:
+                        600;
+                    cursor:
+                        pointer;
+                    white-space:
+                        nowrap;
+                    transition:
+                        background 0.15s ease,
+                        border-color 0.15s ease,
+                        color 0.15s ease;
+                }
+
+
+                .finsight-detail-export-button:hover {
+                    background:
+                        #f1f5f9;
+                    border-color:
+                        #c5d1dd;
+                    color:
+                        #26384d;
+                }
+
+
+                .finsight-detail-export-button:disabled {
+                    opacity:
+                        0.45;
+                    cursor:
+                        not-allowed;
+                }
+
+
+                .finsight-detail-export-icon {
+                    font-size:
+                        13px;
+                    line-height:
+                        1;
+                }
+
+
+                .finsight-detail-records {
+                    margin-left: 3px;
+                    white-space: nowrap;
+                    color:
+                        #8aa0b7;
+                    font-size:
+                        11px;
+                }
+
+
+                .finsight-detail-content {
+                    flex: 1;
+                    min-height: 0;
+                    overflow: hidden;
+                    padding:
+                        0 16px 8px;
+                    background:
+                        #ffffff;
+                    box-sizing:
+                        border-box;
+                }
+
+
+                .finsight-detail-table-scroll {
+                    width: 100%;
+                    height: 100%;
+                    overflow:
+                        auto;
+                    scrollbar-width:
+                        thin;
+                    scrollbar-color:
+                        #cbd5e1 transparent;
+                }
+
+
+                .finsight-detail-table-scroll::-webkit-scrollbar {
+                    width: 8px;
+                    height: 8px;
+                }
+
+
+                .finsight-detail-table-scroll::-webkit-scrollbar-track {
+                    background:
+                        transparent;
+                }
+
+
+                .finsight-detail-table-scroll::-webkit-scrollbar-thumb {
+                    background:
+                        #cbd5e1;
+                    border-radius:
+                        8px;
+                }
+
+
+                .finsight-detail-table-scroll::-webkit-scrollbar-thumb:hover {
+                    background:
+                        #94a3b8;
+                }
+
+
+                .finsight-detail-table-wrapper {
+                    width: 100%;
+                    min-width: 100%;
+                    overflow: hidden;
+                    border:
+                        1px solid #dce4ec;
+                    border-top: 0;
+                    box-sizing: border-box;
+                }
+
+
+                .finsight-detail-table {
+                    width: 100%;
+                    min-width: 720px;
+                    border-collapse:
+                        separate;
+                    border-spacing: 0;
+                    font-family:
+                        inherit;
+                    table-layout:
+                        auto;
+                }
+
+
+                .finsight-detail-table thead th {
+                    position: sticky;
+                    top: 0;
+                    z-index: 3;
+                    padding:
+                        10px 9px;
+                    background:
+                        #f1f5f9;
+                    color:
+                        #123a69;
+                    border-bottom:
+                        1px solid #cbd7e4;
+                    border-right:
+                        1px solid #d5dee8;
+                    font-size:
+                        11px;
+                    line-height:
+                        16px;
+                    font-weight:
+                        700;
+                    letter-spacing:
+                        0.35px;
+                    text-transform:
+                        uppercase;
+                    white-space:
+                        nowrap;
+                    box-sizing:
+                        border-box;
+                }
+
+
+                .finsight-detail-table thead th:first-child {
+                    padding-left:
+                        9px;
+                }
+
+
+                .finsight-detail-table thead th:last-child {
+                    border-right:
+                        0;
+                }
+
+
+                .finsight-detail-table tbody td {
+                    padding:
+                        8px 9px;
+                    color:
+                        #334155;
+                    border-bottom:
+                        1px solid #edf1f5;
+                    border-right:
+                        1px solid #edf1f5;
+                    font-size:
+                        12px;
+                    line-height:
+                        17px;
+                    white-space:
+                        nowrap;
+                    box-sizing:
+                        border-box;
+                }
+
+
+                .finsight-detail-table tbody tr:nth-child(even) td {
+                    background:
+                        #f8fafc;
+                }
+
+
+                .finsight-detail-table tbody tr:hover td {
+                    background:
+                        #f2f6fa;
+                }
+
+
+                .finsight-detail-table tbody td:first-child {
+                    color:
+                        #26384d;
+                    font-weight:
+                        600;
+                }
+
+
+                .finsight-detail-table tbody td:last-child {
+                    border-right:
+                        0;
+                }
+
+
+                .finsight-detail-table tfoot td {
+                    position: sticky;
+                    bottom: 0;
+                    z-index: 2;
+                    padding:
+                        9px;
+                    background:
+                        #f3f6f9;
+                    color:
+                        #1e2f43;
+                    border-top:
+                        1px solid #d3dde7;
+                    border-right:
+                        1px solid #dfe6ed;
+                    font-size:
+                        12px;
+                    line-height:
+                        17px;
+                    font-weight:
+                        700;
+                    white-space:
+                        nowrap;
+                    box-sizing:
+                        border-box;
+                }
+
+
+                .finsight-detail-table tfoot td:last-child {
+                    border-right:
+                        0;
+                }
+
+
+                .finsight-detail-table .text-left {
+                    text-align:
+                        left;
+                }
+
+
+                .finsight-detail-table .text-right {
+                    text-align:
+                        right;
+                }
+
+
+                .finsight-detail-loading {
+                    min-height:
+                        280px;
+                    height:
+                        100%;
+                    display:
+                        flex;
+                    align-items:
+                        center;
+                    justify-content:
+                        center;
+                    color:
+                        #64748b;
+                    font-size:
+                        13px;
+                }
+
+
+                .finsight-detail-empty {
+                    min-height:
+                        280px;
+                    height:
+                        100%;
+                    display:
+                        flex;
+                    flex-direction:
+                        column;
+                    align-items:
+                        center;
+                    justify-content:
+                        center;
+                    color:
+                        #64748b;
+                    text-align:
+                        center;
+                }
+
+
+                .finsight-detail-empty-title {
+                    color:
+                        #334155;
+                    font-size:
+                        14px;
+                    font-weight:
+                        600;
+                }
+
+
+                .finsight-detail-empty-message {
+                    margin-top:
+                        5px;
+                    font-size:
+                        12px;
+                }
+
+
+                .finsight-detail-footer {
+                    min-height:
+                        64px;
+                    padding:
+                        12px 20px;
+                    box-sizing:
+                        border-box;
+                    display:
+                        flex;
+                    align-items:
+                        center;
+                    justify-content:
+                        flex-end;
+                    background:
+                        #ffffff;
+                    border-top:
+                        1px solid #e5ebf2;
+                    flex-shrink:
+                        0;
+                }
+
+
+                .finsight-detail-footer-button {
+                    min-width:
+                        70px;
+                    height:
+                        31px;
+                    padding:
+                        0 16px;
+                    border:
+                        1px solid #d4dce5;
+                    border-radius:
+                        7px;
+                    background:
+                        #f1f5f9;
+                    color:
+                        #41566d;
+                    font-size:
+                        12px;
+                    font-weight:
+                        600;
+                    cursor:
+                        pointer;
+                    transition:
+                        background 0.15s ease;
+                }
+
+
+                .finsight-detail-footer-button:hover {
+                    background:
+                        #e8eef5;
+                }
+
+
+                @media (max-width: 1100px) {
+
+                    .finsight-detail-toolbar {
+                        align-items:
+                            flex-start;
+                    }
+
+                    .finsight-detail-toolbar-right {
+                        width:
+                            100%;
+                        justify-content:
+                            flex-start;
+                    }
+
+                    .finsight-detail-records {
+                        margin-left:
+                            auto;
+                    }
+
+                }
+
+
+                @media (max-width: 900px) {
+
+                    .finsight-detail-backdrop {
+                        padding:
+                            14px;
+                    }
+
+                    .finsight-detail-modal {
+                        height:
+                            calc(100vh - 28px);
+                        min-height:
+                            420px;
+                        border-radius:
+                            10px;
+                    }
+
+                    .finsight-detail-toolbar {
+                        align-items:
+                            flex-start;
+                    }
+
+                    .finsight-detail-toolbar-left {
+                        width:
+                            100%;
+                    }
+
+                    .finsight-detail-toolbar-right {
+                        width:
+                            100%;
+                        justify-content:
+                            flex-start;
+                    }
+
+                    .finsight-detail-search {
+                        flex:
+                            1 1 180px;
+                    }
+
+                    .finsight-detail-records {
+                        margin-left:
+                            3px;
+                    }
+
+                }
+
+
+                @media (max-width: 600px) {
+
+                    .finsight-detail-search {
+                        width:
+                            100%;
+                    }
+
+                    .finsight-detail-export-button {
+                        flex:
+                            1 1 auto;
+                    }
+
+                }
+
+            `}</style>
+
+
+            {/* =====================================================
+                BACKDROP
+            ===================================================== */}
 
             <div
-                style={{
-                    width:
-                        "100%",
+                className="finsight-detail-backdrop"
+                onClick={(event) => {
 
-                    maxWidth:
-                        "1180px",
+                    if (
+                        event.target ===
+                        event.currentTarget
+                    ) {
+                        onClose();
+                    }
 
-                    maxHeight:
-                        "90vh",
-
-                    background:
-                        "#ffffff",
-
-                    borderRadius:
-                        "10px",
-
-                    boxShadow:
-                        "0 20px 50px rgba(0,0,0,0.18)",
-
-                    display:
-                        "flex",
-
-                    flexDirection:
-                        "column",
-
-                    overflow:
-                        "hidden",
                 }}
             >
 
+
                 {/* =================================================
-                    HEADER
+                    MODAL
                 ================================================= */}
 
-                <div
-                    style={{
-                        padding:
-                            "18px 20px",
+                <div className="finsight-detail-modal">
 
-                        borderBottom:
-                            "1px solid #e5e7eb",
 
-                        display:
-                            "flex",
+                    {/* =================================================
+                        HEADER
+                    ================================================= */}
 
-                        justifyContent:
-                            "space-between",
+                    <div className="finsight-detail-header">
 
-                        alignItems:
-                            "flex-start",
+                        <div>
 
-                        gap:
-                            "20px",
-                    }}
-                >
+                            <div className="finsight-detail-title">
+                                {title}
+                            </div>
 
-                    <div>
 
-                        <div
-                            style={{
-                                fontSize:
-                                    "17px",
+                            {subtitle && (
+                                <div className="finsight-detail-subtitle">
+                                    {subtitle}
+                                </div>
+                            )}
 
-                                fontWeight:
-                                    700,
-
-                                color:
-                                    "#111827",
-                            }}
-                        >
-                            {title}
                         </div>
 
 
-                        {subtitle && (
+                        <button
+                            type="button"
+                            className="finsight-detail-close"
+                            onClick={onClose}
+                            aria-label="Close"
+                        >
+                            ×
+                        </button>
 
-                            <div
-                                style={{
-                                    marginTop:
-                                        "4px",
+                    </div>
 
-                                    fontSize:
-                                        "12px",
 
-                                    color:
-                                        "#64748b",
-                                }}
-                            >
-                                {subtitle}
+                    {/* =================================================
+                        FILTER / ACTION BAR
+                    ================================================= */}
+
+                    <div className="finsight-detail-toolbar">
+
+
+                        {/* =================================================
+                            SELECTED FILTERS ONLY
+                        ================================================= */}
+
+                        <div className="finsight-detail-toolbar-left">
+
+                            <div className="finsight-detail-filters">
+
+
+                                {/* =================================================
+                                    YEAR
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Year"
+                                    value={
+                                        selectedYear
+                                    }
+                                />
+
+
+                                {/* =================================================
+                                    PERIOD
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Period"
+                                    value={
+                                        selectedPeriod
+                                    }
+                                />
+
+
+                                {/* =================================================
+                                    CURRENCY
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Currency"
+                                    value={
+                                        selectedCurrency
+                                    }
+                                />
+
+
+                                {/* =================================================
+                                    LEGAL GROUP
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Legal Group"
+                                    value={
+                                        selectedLegalGroup
+                                    }
+                                />
+
+
+                                {/* =================================================
+                                    LEGAL ENTITY
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Legal Entity"
+                                    value={
+                                        selectedLegalEntity
+                                    }
+                                />
+
+
+                                {/* =================================================
+                                    PARENT DIVISION
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Parent Division"
+                                    value={
+                                        selectedParentDivision
+                                    }
+                                />
+
+
+                                {/* =================================================
+                                    SUBDIVISION
+                                ================================================= */}
+
+                                <FilterChip
+                                    label="Subdivision"
+                                    value={
+                                        selectedSubdivision
+                                    }
+                                />
+
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            RIGHT SIDE
+                        ================================================= */}
+
+                        <div className="finsight-detail-toolbar-right">
+
+
+                            {/* =================================================
+                                SEARCH
+                            ================================================= */}
+
+                            <div className="finsight-detail-search">
+
+                                <span
+                                    className="finsight-detail-search-icon"
+                                    aria-hidden="true"
+                                >
+                                    🔍
+                                </span>
+
+
+                                <input
+                                    type="text"
+                                    className="finsight-detail-search-input"
+                                    value={searchTerm}
+                                    onChange={(event) =>
+                                        setSearchTerm(
+                                            event.target.value
+                                        )
+                                    }
+                                    placeholder="Search..."
+                                    aria-label="Search detailed data"
+                                />
+
+                            </div>
+
+
+                            {/* =================================================
+                                COMMON EXPORT BUTTONS
+                            ================================================= */}
+
+                            <ExportButtons
+                                endpoint="operating-analysis-view-all"
+                                exporting={
+                                    loading || !filteredRows.length
+                                        ? "disabled"
+                                        : false
+                                }
+                                handleExport={
+                                    handleCommonExport
+                                }
+                            />
+
+
+                            {/* =================================================
+                                RECORD COUNT
+                            ================================================= */}
+
+                            <div className="finsight-detail-records">
+
+                                {filteredRows.length}{" "}
+
+                                {filteredRows.length === 1
+                                    ? "record"
+                                    : "records"}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    {/* =================================================
+                        CONTENT
+                    ================================================= */}
+
+                    <div className="finsight-detail-content">
+
+                        {loading ? (
+
+                            <div className="finsight-detail-loading">
+                                Loading detailed data...
+                            </div>
+
+                        ) : filteredRows.length === 0 ? (
+
+                            <div className="finsight-detail-empty">
+
+                                <div className="finsight-detail-empty-title">
+
+                                    {searchTerm.trim()
+                                        ? "No matching records"
+                                        : "No data available"}
+
+                                </div>
+
+
+                                <div className="finsight-detail-empty-message">
+
+                                    {searchTerm.trim()
+                                        ? "Try changing your search."
+                                        : "Try changing the selected filters."}
+
+                                </div>
+
+                            </div>
+
+                        ) : (
+
+                            <div className="finsight-detail-table-scroll">
+
+                                {isActualVsTarget ? (
+
+                                    <ActualVsTargetTable
+                                        rows={filteredRows}
+                                        currency={currency}
+                                    />
+
+                                ) : (
+
+                                    <GenericTable
+                                        rows={filteredRows}
+                                        currency={currency}
+                                        categoryLabel={
+                                            categoryLabel
+                                        }
+                                        firstMetricLabel={
+                                            firstMetricLabel
+                                        }
+                                        secondMetricLabel={
+                                            secondMetricLabel
+                                        }
+                                        firstMetricType={
+                                            firstMetricType
+                                        }
+                                        secondMetricType={
+                                            secondMetricType
+                                        }
+                                        firstMetricKeys={
+                                            firstMetricKeys
+                                        }
+                                        secondMetricKeys={
+                                            secondMetricKeys
+                                        }
+                                        categoryKeys={
+                                            categoryKeys
+                                        }
+                                        totalLabel={
+                                            totalLabel
+                                        }
+                                    />
+
+                                )}
+
                             </div>
 
                         )}
@@ -2408,556 +6495,26 @@ export default function OperatingAnalysisViewAllModal({
                     </div>
 
 
-                    <button
-                        type="button"
-
-                        onClick={
-                            onClose
-                        }
-
-                        style={{
-                            width:
-                                "30px",
-
-                            height:
-                                "30px",
-
-                            border:
-                                "1px solid #e5e7eb",
-
-                            background:
-                                "#ffffff",
-
-                            borderRadius:
-                                "6px",
-
-                            cursor:
-                                "pointer",
-
-                            fontSize:
-                                "18px",
-
-                            color:
-                                "#64748b",
-                        }}
-                    >
-                        ×
-                    </button>
-
-                </div>
-
-
-                {/* =================================================
-                    FILTER SUMMARY
-                ================================================= */}
-
-                <div
-                    style={{
-                        padding:
-                            "12px 20px",
-
-                        display:
-                            "flex",
-
-                        flexWrap:
-                            "wrap",
-
-                        gap:
-                            "6px",
-
-                        borderBottom:
-                            "1px solid #f1f5f9",
-                    }}
-                >
-
-                    <FilterChip
-                        label="Year"
-                        value={
-                            activeFilters?.year
-                        }
-                    />
-
-
-                    <FilterChip
-                        label="Period"
-                        value={
-                            activeFilters?.period
-                        }
-                    />
-
-
-                    <FilterChip
-                        label="Currency"
-                        value={
-                            currency
-                        }
-                    />
-
-
-                    <FilterChip
-                        label="Legal Group"
-                        value={
-                            activeFilters?.legal_group
-                        }
-                    />
-
-
-                    <FilterChip
-                        label="Legal Entity"
-                        value={
-                            activeFilters?.legal_entity
-                        }
-                    />
-
-
-                    <FilterChip
-                        label="Parent Division"
-                        value={
-                            activeFilters?.parent_division
-                        }
-                    />
-
-
-                    <FilterChip
-                        label="Subdivision"
-                        value={
-                            activeFilters?.subdivision
-                        }
-                    />
-
-                </div>
-
-
-                {/* =================================================
-                    CONTENT
-                ================================================= */}
-
-                <div
-                    style={{
-                        padding:
-                            "18px 20px",
-
-                        overflowY:
-                            "auto",
-                    }}
-                >
-
                     {/* =================================================
-                        LOADING
+                        FOOTER
                     ================================================= */}
 
-                    {loading ? (
+                    <div className="finsight-detail-footer">
 
-                        <div
-                            style={{
-                                minHeight:
-                                    "280px",
-
-                                display:
-                                    "flex",
-
-                                alignItems:
-                                    "center",
-
-                                justifyContent:
-                                    "center",
-
-                                color:
-                                    "#64748b",
-
-                                fontSize:
-                                    "13px",
-                            }}
+                        <button
+                            type="button"
+                            className="finsight-detail-footer-button"
+                            onClick={onClose}
                         >
-                            Loading detailed data...
-                        </div>
+                            Close
+                        </button>
 
-                    ) : rows.length === 0 ? (
-
-                        /* =================================================
-                            NO DATA
-                        ================================================= */
-
-                        <div
-                            style={{
-                                minHeight:
-                                    "280px",
-
-                                display:
-                                    "flex",
-
-                                flexDirection:
-                                    "column",
-
-                                alignItems:
-                                    "center",
-
-                                justifyContent:
-                                    "center",
-
-                                color:
-                                    "#64748b",
-                            }}
-                        >
-
-                            <div
-                                style={{
-                                    fontSize:
-                                        "14px",
-
-                                    fontWeight:
-                                        600,
-
-                                    color:
-                                        "#334155",
-                                }}
-                            >
-                                No data available
-                            </div>
-
-
-                            <div
-                                style={{
-                                    marginTop:
-                                        "5px",
-
-                                    fontSize:
-                                        "12px",
-                                }}
-                            >
-                                Try changing the selected filters.
-                            </div>
-
-                        </div>
-
-                    ) : (
-
-                        <>
-
-                            {/* =================================================
-                                SUMMARY CARDS
-                            ================================================= */}
-
-                            <div
-                                style={{
-                                    display:
-                                        "grid",
-
-                                    gridTemplateColumns:
-                                        "repeat(3, 1fr)",
-
-                                    gap:
-                                        "10px",
-
-                                    marginBottom:
-                                        "16px",
-                                }}
-                            >
-
-                                {/* =================================================
-                                    TOTAL
-                                ================================================= */}
-
-                                <div
-                                    style={{
-                                        border:
-                                            "1px solid #e5e7eb",
-
-                                        borderRadius:
-                                            "8px",
-
-                                        padding:
-                                            "12px",
-                                    }}
-                                >
-
-                                    <div
-                                        style={{
-                                            fontSize:
-                                                "11px",
-
-                                            color:
-                                                "#64748b",
-                                        }}
-                                    >
-                                        {isActualVsTarget
-                                            ? "Actual PTD Total"
-                                            : "Total"}
-                                    </div>
-
-
-                                    <div
-                                        style={{
-                                            marginTop:
-                                                "4px",
-
-                                            fontSize:
-                                                "18px",
-
-                                            fontWeight:
-                                                700,
-
-                                            color:
-                                                "#111827",
-                                        }}
-                                    >
-                                        {currency}{" "}
-                                        {formatAmount(
-                                            summaryTotal
-                                        )}
-                                    </div>
-
-                                </div>
-
-
-                                {/* =================================================
-                                    CATEGORIES
-                                ================================================= */}
-
-                                <div
-                                    style={{
-                                        border:
-                                            "1px solid #e5e7eb",
-
-                                        borderRadius:
-                                            "8px",
-
-                                        padding:
-                                            "12px",
-                                    }}
-                                >
-
-                                    <div
-                                        style={{
-                                            fontSize:
-                                                "11px",
-
-                                            color:
-                                                "#64748b",
-                                        }}
-                                    >
-                                        Categories
-                                    </div>
-
-
-                                    <div
-                                        style={{
-                                            marginTop:
-                                                "4px",
-
-                                            fontSize:
-                                                "18px",
-
-                                            fontWeight:
-                                                700,
-
-                                            color:
-                                                "#111827",
-                                        }}
-                                    >
-                                        {rows.length}
-                                    </div>
-
-                                </div>
-
-
-                                {/* =================================================
-                                    TOTAL PERCENTAGE
-                                ================================================= */}
-
-                                <div
-                                    style={{
-                                        border:
-                                            "1px solid #e5e7eb",
-
-                                        borderRadius:
-                                            "8px",
-
-                                        padding:
-                                            "12px",
-                                    }}
-                                >
-
-                                    <div
-                                        style={{
-                                            fontSize:
-                                                "11px",
-
-                                            color:
-                                                "#64748b",
-                                        }}
-                                    >
-                                        {isActualVsTarget
-                                            ? "Target Availability"
-                                            : "Total Percentage"}
-                                    </div>
-
-
-                                    <div
-                                        style={{
-                                            marginTop:
-                                                "4px",
-
-                                            fontSize:
-                                                "18px",
-
-                                            fontWeight:
-                                                700,
-
-                                            color:
-                                                "#111827",
-                                        }}
-                                    >
-                                        {isActualVsTarget
-                                            ? (
-                                                rows.some(
-                                                    (row) =>
-                                                        hasValue(
-                                                            getRowValue(
-                                                                row,
-                                                                [
-                                                                    "target_ptd_aed",
-                                                                    "target_ptd",
-                                                                    "target",
-                                                                ]
-                                                            )
-                                                        )
-                                                )
-                                                    ? "Available"
-                                                    : "—"
-                                            )
-                                            : formatPercentage(
-                                                totalPercentage
-                                            )}
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-
-                            {/* =================================================
-                                TABLE
-
-                                IMPORTANT:
-
-                                Actual vs Target gets its own
-                                3-column table.
-
-                                Other two View All pages continue
-                                using the existing generic table.
-                            ================================================= */}
-
-                            {isActualVsTarget ? (
-
-                                <ActualVsTargetTable
-                                    rows={rows}
-                                    currency={currency}
-                                />
-
-                            ) : (
-
-                                <GenericTable
-                                    rows={rows}
-                                    currency={currency}
-                                    categoryLabel={
-                                        categoryLabel
-                                    }
-                                    firstMetricLabel={
-                                        firstMetricLabel
-                                    }
-                                    secondMetricLabel={
-                                        secondMetricLabel
-                                    }
-                                    firstMetricType={
-                                        firstMetricType
-                                    }
-                                    secondMetricType={
-                                        secondMetricType
-                                    }
-                                    firstMetricKeys={
-                                        firstMetricKeys
-                                    }
-                                    secondMetricKeys={
-                                        secondMetricKeys
-                                    }
-                                    categoryKeys={
-                                        categoryKeys
-                                    }
-                                    totalLabel={
-                                        totalLabel
-                                    }
-                                />
-
-                            )}
-
-                        </>
-
-                    )}
-
-                </div>
-
-
-                {/* =================================================
-                    FOOTER
-                ================================================= */}
-
-                <div
-                    style={{
-                        padding:
-                            "12px 20px",
-
-                        borderTop:
-                            "1px solid #e5e7eb",
-
-                        display:
-                            "flex",
-
-                        justifyContent:
-                            "flex-end",
-                    }}
-                >
-
-                    <button
-                        type="button"
-
-                        onClick={
-                            onClose
-                        }
-
-                        style={{
-                            padding:
-                                "7px 16px",
-
-                            border:
-                                "1px solid #d1d5db",
-
-                            borderRadius:
-                                "6px",
-
-                            background:
-                                "#ffffff",
-
-                            color:
-                                "#374151",
-
-                            fontSize:
-                                "12px",
-
-                            fontWeight:
-                                600,
-
-                            cursor:
-                                "pointer",
-                        }}
-                    >
-                        Close
-                    </button>
+                    </div>
 
                 </div>
 
             </div>
 
-        </div>
+        </>
     );
 }

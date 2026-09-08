@@ -1,5 +1,4 @@
 
-
 import React, { useState } from "react";
 
 /* =========================================================
@@ -383,8 +382,6 @@ export default function ExpenseCategoryDrillDown({
             return;
         }
 
-        /* Already loaded */
-
         if (
             Object.prototype.hasOwnProperty.call(
                 categoryDetails,
@@ -418,16 +415,6 @@ export default function ExpenseCategoryDrillDown({
                     /\/+$/,
                     ""
                 );
-
-            /*
-             * Supports both:
-             *
-             * VITE_API_BASE_URL=http://host:8000
-             *
-             * and
-             *
-             * VITE_API_BASE_URL=http://host:8000/api
-             */
 
             const apiUrl = baseUrl.endsWith(
                 "/api"
@@ -529,17 +516,9 @@ export default function ExpenseCategoryDrillDown({
             [rowKey]: willExpand,
         }));
 
-        /*
-         * category-detail API is loaded ONLY when expanded
-         */
-
         if (!willExpand) {
             return;
         }
-
-        /*
-         * Preserve existing parent callback.
-         */
 
         if (
             typeof onExpandCategory ===
@@ -548,23 +527,15 @@ export default function ExpenseCategoryDrillDown({
             try {
                 await onExpandCategory(item);
             } catch (error) {
-                /*
-                 * Keep local category-detail loading
-                 * independent from parent callback.
-                 */
+                /* Keep local loading independent */
             }
         }
-
-        /*
-         * Load API response into this component.
-         */
 
         await loadCategoryDetails(item);
     };
 
     /* =======================================================
        MENU HANDLERS
-       Only menu functionality added.
     ======================================================= */
 
     const handleViewAllClick = () => {
@@ -1061,7 +1032,7 @@ export default function ExpenseCategoryDrillDown({
                     {dataAsOf && (
                         <span
                             style={{
-                                fontSize: 9,
+                                fontSize: 12,
                                 color: "#64748B",
                                 whiteSpace:
                                     "nowrap",
@@ -1099,7 +1070,7 @@ export default function ExpenseCategoryDrillDown({
                                     "1px solid #FED7AA",
                                 color:
                                     "#C2410C",
-                                fontSize: 9,
+                                fontSize: 12,
                                 fontWeight: 600,
                                 whiteSpace:
                                     "nowrap",
@@ -1109,10 +1080,7 @@ export default function ExpenseCategoryDrillDown({
                         </span>
                     )}
 
-                    {/* =================================================
-                        3 DOT MENU
-                        Added functionality only
-                    ================================================= */}
+                    {/* 3 DOT MENU */}
 
                     <button
                         type="button"
@@ -1140,9 +1108,7 @@ export default function ExpenseCategoryDrillDown({
                         ⋮
                     </button>
 
-                    {/* =================================================
-                        ACTION MENU
-                    ================================================= */}
+                    {/* ACTION MENU */}
 
                     {menuOpen && (
                         <div
@@ -1211,7 +1177,7 @@ export default function ExpenseCategoryDrillDown({
                                         fontSize: 14,
                                     }}
                                 >
-                                    👁
+                                    🔍
                                 </span>
 
                                 <span>
@@ -1415,7 +1381,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "left",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "nowrap",
                                 }}
@@ -1428,7 +1394,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1442,7 +1408,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1456,7 +1422,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                   fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1470,7 +1436,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                   fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1484,7 +1450,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1498,7 +1464,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                   fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1512,7 +1478,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                   fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1526,7 +1492,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 13,
+                                   fontSize: 12,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
                                     lineHeight: "16px",
@@ -1549,7 +1515,7 @@ export default function ExpenseCategoryDrillDown({
 
                                 const isExpanded =
                                     !!expandedRows[
-                                        rowKey
+                                    rowKey
                                     ];
 
                                 return (
@@ -1591,8 +1557,8 @@ export default function ExpenseCategoryDrillDown({
                                                             )
                                                         }
                                                         style={{
-                                                            width: 14,
-                                                            height: 14,
+                                                            width: 12,
+                                                            height: 12,
                                                             padding: 0,
                                                             border:
                                                                 "none",
@@ -1601,30 +1567,35 @@ export default function ExpenseCategoryDrillDown({
                                                             cursor:
                                                                 "pointer",
                                                             color:
-                                                                "#64748B",
+                                                                "#000000",
                                                             display:
                                                                 "flex",
                                                             alignItems:
                                                                 "center",
                                                             justifyContent:
                                                                 "center",
-                                                            fontSize: 16,
+                                                             fontSize: 12,
                                                             lineHeight: 1,
                                                         }}
                                                     >
                                                         {isExpanded
-                                                            ? "⌄"
-                                                            : "›"}
+                                                            ? "▼"
+                                                            : "▶"}
                                                     </button>
 
+                                                    {/* =================================================
+                                                        ONLY CHANGE:
+                                                        UPPERCASE + INCREASED FONT WEIGHT
+                                                    ================================================= */}
                                                     <span
                                                         style={{
-                                                            fontSize: 12,
-                                                            fontWeight: 500,
-                                                            color:
-                                                                "#334155",
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            color: "#374151",
                                                             whiteSpace:
                                                                 "nowrap",
+                                                            textTransform:
+                                                                "uppercase",
                                                         }}
                                                     >
                                                         {item?.category ||
@@ -1797,8 +1768,7 @@ export default function ExpenseCategoryDrillDown({
                                                         9
                                                     }
                                                     style={{
-                                                        background:
-                                                            "#F8FAFC",
+                                                        background: "#FFFFFF",
                                                         padding:
                                                             "10px 20px",
                                                         borderBottom:
@@ -1810,8 +1780,6 @@ export default function ExpenseCategoryDrillDown({
                                                             width: "100%",
                                                         }}
                                                     >
-                                                        {/* EXPANDED TABLE HEADING */}
-
                                                         <div
                                                             style={{
                                                                 marginBottom: 8,
@@ -1885,8 +1853,6 @@ export default function ExpenseCategoryDrillDown({
                                 </span>
                             </td>
 
-                            {/* ACTUAL PTD */}
-
                             <td
                                 style={{
                                     padding:
@@ -1904,8 +1870,6 @@ export default function ExpenseCategoryDrillDown({
                                 )}
                             </td>
 
-                            {/* TARGET PTD */}
-
                             <td
                                 style={{
                                     padding:
@@ -1923,8 +1887,6 @@ export default function ExpenseCategoryDrillDown({
                                 )}
                             </td>
 
-                            {/* VARIANCE PTD */}
-
                             <td
                                 style={{
                                     padding:
@@ -1941,8 +1903,6 @@ export default function ExpenseCategoryDrillDown({
                                     null
                                 )}
                             </td>
-
-                            {/* VARIANCE PTD % */}
 
                             <td
                                 style={{
@@ -1958,8 +1918,6 @@ export default function ExpenseCategoryDrillDown({
                             >
                                 —
                             </td>
-
-                            {/* ACTUAL YTD */}
 
                             <td
                                 style={{
@@ -1978,8 +1936,6 @@ export default function ExpenseCategoryDrillDown({
                                 )}
                             </td>
 
-                            {/* TARGET YTD */}
-
                             <td
                                 style={{
                                     padding:
@@ -1997,8 +1953,6 @@ export default function ExpenseCategoryDrillDown({
                                 )}
                             </td>
 
-                            {/* VARIANCE YTD */}
-
                             <td
                                 style={{
                                     padding:
@@ -2015,8 +1969,6 @@ export default function ExpenseCategoryDrillDown({
                                     null
                                 )}
                             </td>
-
-                            {/* VARIANCE YTD % */}
 
                             <td
                                 style={{
