@@ -212,9 +212,9 @@ function CustomYAxisTick({
             transform={`translate(${x},${y})`}
         >
             <text
-                x={0}
+                x={-165}
                 y={0}
-                textAnchor="end"
+                textAnchor="start"
                 dominantBaseline="middle"
                 fill="#1E293B"
                 fontSize={12}
@@ -836,7 +836,7 @@ export default function ActualVsTargetChart({
                         margin={{
                             top: 20,
                             right: 50,
-                            left: 15,
+                            left: 25,
                             bottom: 20,
                         }}
                         barGap={2}
