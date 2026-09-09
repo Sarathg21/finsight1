@@ -606,6 +606,7 @@ export default function OperatingAnalysis() {
                 const response =
                     await getOpexCategoryDetail({
                         category,
+                        item,
                         ...apiFilters,
                     });
 
@@ -694,6 +695,7 @@ export default function OperatingAnalysis() {
                     await getOpexCategoryDetailMonthly({
                         ...apiFilters,
                         category,
+                        item,
                     });
 
                 const details =
@@ -2226,10 +2228,11 @@ export default function OperatingAnalysis() {
                     activeOpexFilters?.reporting_currency || "AED"
                 }
                 onExpandCategory={
-                    async (category) => {
+                    async (category, item) => {
                         const response =
                             await getOpexCategoryDetail({
                                 category,
+                                item,
                                 ...compositionApiFilters,
                             });
 

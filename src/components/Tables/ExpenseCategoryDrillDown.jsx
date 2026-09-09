@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 
 /* =========================================================
    MONTHS
@@ -376,18 +377,30 @@ export default function ExpenseCategoryDrillDown({
         item
     ) => {
         const category =
-            item?.category;
+            item?.category || (typeof item === "string" ? item : "");
 
         if (!category) {
             return;
         }
 
         if (
-            Object.prototype.hasOwnProperty.call(
-                categoryDetails,
-                category
-            )
+            categoryDetails[category] &&
+            Array.isArray(categoryDetails[category]) &&
+            categoryDetails[category].length > 0
         ) {
+            return;
+        }
+
+        const preloadedDetails =
+            item?.categoryDetails ||
+            item?.naturalAccounts ||
+            item?.details;
+
+        if (Array.isArray(preloadedDetails) && preloadedDetails.length > 0) {
+            setCategoryDetails((prev) => ({
+                ...prev,
+                [category]: preloadedDetails,
+            }));
             return;
         }
 
@@ -452,49 +465,60 @@ export default function ExpenseCategoryDrillDown({
                     }
                 );
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    setCategoryDetails((prev) => ({
-                        ...prev,
-                        [category]: [],
-                    }));
+            if (response.ok) {
+                const responseData =
+                    await response.json();
+
+                const details =
+                    normalizeCategoryDetails(
+                        responseData
+                    );
+
+                if (Array.isArray(details) && details.length > 0) {
+                    setCategoryDetails(
+                        (prev) => ({
+                            ...prev,
+                            [category]: details,
+                        })
+                    );
                     return;
                 }
-                throw new Error(
-                    `Failed to load category details (${response.status})`
-                );
             }
 
-            const responseData =
-                await response.json();
-
-            const details =
-                normalizeCategoryDetails(
-                    responseData
-                );
-
+            // Fallback to authoritative Oracle Chart of Accounts derivation
+            const fallbackDetails = deriveCategoryNaturalAccounts(item, category);
             setCategoryDetails(
                 (prev) => ({
                     ...prev,
-                    [category]: details,
+                    [category]: fallbackDetails,
                 })
             );
         } catch (error) {
-            setCategoryDetailError(
-                (prev) => ({
-                    ...prev,
-                    [category]:
-                        error?.message ||
-                        "Unable to load natural-account details.",
-                })
-            );
+            const fallbackDetails = deriveCategoryNaturalAccounts(item, category);
+            if (fallbackDetails.length > 0) {
+                setCategoryDetails(
+                    (prev) => ({
+                        ...prev,
+                        [category]: fallbackDetails,
+                    })
+                );
+            } else {
+                setCategoryDetailError(
+                    (prev) => ({
+                        ...prev,
+                        [category]:
+                            error?.message ||
+                            "Unable to load natural-account details.",
+                    })
+                );
 
-            setCategoryDetails(
-                (prev) => ({
-                    ...prev,
-                    [category]: [],
-                })
-            );
+                setCategoryDetails(
+                    (prev) => ({
+                        ...prev,
+                        [category]: [],
+                    })
+                );
+            }
         } finally {
             setCategoryDetailLoading(
                 (prev) => ({
@@ -584,13 +608,22 @@ export default function ExpenseCategoryDrillDown({
     ======================================================= */
 
     const renderNaturalAccountDetails = (
-        category
+        category,
+        parentItem
     ) => {
-        const details =
-            categoryDetails[category] || [];
+        let details =
+            categoryDetails[category] ||
+            parentItem?.categoryDetails ||
+            parentItem?.naturalAccounts ||
+            parentItem?.details ||
+            [];
+
+        if ((!details || !details.length) && parentItem) {
+            details = deriveCategoryNaturalAccounts(parentItem, category);
+        }
 
         if (
-            categoryDetailLoading[category]
+            categoryDetailLoading[category] && (!details || !details.length)
         ) {
             return (
                 <div
@@ -606,7 +639,7 @@ export default function ExpenseCategoryDrillDown({
         }
 
         if (
-            categoryDetailError[category]
+            categoryDetailError[category] && (!details || !details.length)
         ) {
             return (
                 <div
@@ -1820,7 +1853,8 @@ export default function ExpenseCategoryDrillDown({
                                                         </div>
 
                                                         {renderNaturalAccountDetails(
-                                                            item?.category
+                                                            item?.category,
+                                                            item
                                                         )}
                                                     </div>
                                                 </td>

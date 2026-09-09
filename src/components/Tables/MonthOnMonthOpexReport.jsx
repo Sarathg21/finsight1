@@ -18,6 +18,7 @@ import {
     FileText, Eye,
 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
+import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 
 /* =========================================================
    FORMAT VALUE
@@ -967,68 +968,43 @@ export default function MonthOnMonthOpexReport({
                 }
             );
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    setMonthlyCategoryDetails((prev) => ({
+            if (response.ok) {
+                const responseData =
+                    await response.json();
+
+                const details =
+                    getDetails(responseData);
+
+                if (Array.isArray(details) && details.length > 0) {
+                    setCategoryDetails((prev) => ({
                         ...prev,
-                        [category]: [],
+                        [category]: details,
                     }));
-                    return;
+
+                    return details;
                 }
-                let errorMessage =
-                    `Category detail monthly request failed: ${response.status}`;
-
-                try {
-                    const errorData =
-                        await response.json();
-
-                    if (errorData?.detail) {
-                        errorMessage =
-                            Array.isArray(
-                                errorData.detail
-                            )
-                                ? errorData.detail
-                                    .map(
-                                        (item) =>
-                                            item?.msg ||
-                                            JSON.stringify(item)
-                                    )
-                                    .join(", ")
-                                : String(
-                                    errorData.detail
-                                );
-                    } else if (
-                        errorData?.message
-                    ) {
-                        errorMessage =
-                            String(
-                                errorData.message
-                            );
-                    }
-                } catch {
-                    // Keep default HTTP error message
-                }
-
-                throw new Error(errorMessage);
             }
 
-            const responseData =
-                await response.json();
-
-            const details =
-                getDetails(responseData);
-
+            const fallbackDetails = deriveCategoryNaturalAccounts(item, category);
             setCategoryDetails((prev) => ({
                 ...prev,
-                [category]: details,
+                [category]: fallbackDetails,
             }));
-
-            return details;
+            return fallbackDetails;
         } catch (error) {
             console.error(
-                "Failed to load OPEX category monthly details:",
+                "Failed to load OPEX category monthly details, falling back to derivation:",
                 error
             );
+
+            const fallbackDetails = deriveCategoryNaturalAccounts(item, category);
+            if (fallbackDetails.length > 0) {
+                setCategoryDetails((prev) => ({
+                    ...prev,
+                    [category]: fallbackDetails,
+                }));
+                return fallbackDetails;
+            }
 
             setCategoryDetailError((prev) => ({
                 ...prev,
@@ -1895,12 +1871,17 @@ export default function MonthOnMonthOpexReport({
                                         item
                                     );
 
-                                const details =
+                                const rawDetails =
                                     getDetails(
                                         categoryDetails[
                                         rowKey
                                         ]
                                     );
+
+                                const details =
+                                    Array.isArray(rawDetails) && rawDetails.length > 0
+                                        ? rawDetails
+                                        : (item ? deriveCategoryNaturalAccounts(item, item.category || rowKey) : []);
 
                                 const isLoading =
                                     !!categoryDetailLoading[
@@ -2193,7 +2174,7 @@ export default function MonthOnMonthOpexReport({
                                                             natural-account
                                                             details...
                                                         </div>
-                                                    ) : error ? (
+                                                    ) : (error && (!details || !details.length)) ? (
                                                         <div
                                                             style={{
                                                                 fontSize: 12,

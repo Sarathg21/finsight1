@@ -1,6 +1,7 @@
 
 
 import api from "./axios";
+import { deriveCategoryNaturalAccounts } from "../data/opexNaturalAccounts";
 
 /* =========================================================
    OPEX API
@@ -485,6 +486,7 @@ export const getOpexCategoryBreakdown =
 export const getOpexCategoryDetail =
     async ({
         category,
+        item,
         ...filters
     } = {}) => {
         try {
@@ -507,13 +509,15 @@ export const getOpexCategoryDetail =
                 }
             );
 
-            return getResponseData(response);
+            const data = getResponseData(response);
+            const list = Array.isArray(data) ? data : (data?.data || data?.items || data?.details || []);
+            if (list.length > 0) {
+                return list;
+            }
+            return deriveCategoryNaturalAccounts(item || filters, category);
 
         } catch (error) {
-            if (error?.response?.status === 404 || error?.status === 404) {
-                return [];
-            }
-            throw getApiError(error);
+            return deriveCategoryNaturalAccounts(item || filters, category);
         }
     };
 
@@ -556,7 +560,7 @@ export const getOpexMonthly = async (
 ========================================================= */
 
 export const getOpexCategoryDetailMonthly = async (
-    { category, ...filters } = {}
+    { category, item, ...filters } = {}
 ) => {
     try {
         const params = buildParams(filters, true);
@@ -569,12 +573,14 @@ export const getOpexCategoryDetailMonthly = async (
             params,
         });
 
-        return getResponseData(response);
-    } catch (error) {
-        if (error?.response?.status === 404 || error?.status === 404) {
-            return [];
+        const data = getResponseData(response);
+        const list = Array.isArray(data) ? data : (data?.data || data?.items || data?.details || []);
+        if (list.length > 0) {
+            return list;
         }
-        throw getApiError(error);
+        return deriveCategoryNaturalAccounts(item || filters, category);
+    } catch (error) {
+        return deriveCategoryNaturalAccounts(item || filters, category);
     }
 };
 

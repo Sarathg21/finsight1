@@ -2455,6 +2455,7 @@
 
 import React, { useMemo, useState } from "react";
 import ExportButtons from "../Common/ExportButtons";
+import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 
 /* =========================================================
    FORMAT NUMBER
@@ -3100,7 +3101,7 @@ export default function ExpenseCategoryDrillDownModal({
        EXPAND CATEGORY
     ===================================================== */
 
-    const handleToggleCategory = async (category) => {
+    const handleToggleCategory = async (category, row) => {
         if (!category) {
             return;
         }
@@ -3126,7 +3127,8 @@ export default function ExpenseCategoryDrillDownModal({
         ------------------------------------------------ */
 
         if (
-            Array.isArray(detailData[category])
+            Array.isArray(detailData[category]) &&
+            detailData[category].length > 0
         ) {
             setExpandedCategories((previous) => ({
                 ...previous,
@@ -3141,6 +3143,11 @@ export default function ExpenseCategoryDrillDownModal({
         ------------------------------------------------ */
 
         if (!onExpandCategory) {
+            const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
+            setDetailData((previous) => ({
+                ...previous,
+                [category]: fallbackRows,
+            }));
             setExpandedCategories((previous) => ({
                 ...previous,
                 [category]: true,
@@ -3156,10 +3163,14 @@ export default function ExpenseCategoryDrillDownModal({
             }));
 
             const response =
-                await onExpandCategory(category);
+                await onExpandCategory(category, row);
 
-            const detailRows =
+            let detailRows =
                 normalizeDetailRows(response);
+
+            if ((!detailRows || detailRows.length === 0) && row) {
+                detailRows = deriveCategoryNaturalAccounts(row, category);
+            }
 
             setDetailData((previous) => ({
                 ...previous,
@@ -3176,9 +3187,11 @@ export default function ExpenseCategoryDrillDownModal({
                 error
             );
 
+            const fallbackRows = row ? deriveCategoryNaturalAccounts(row, category) : [];
+
             setDetailData((previous) => ({
                 ...previous,
-                [category]: [],
+                [category]: fallbackRows,
             }));
 
             setExpandedCategories((previous) => ({
@@ -4120,9 +4133,9 @@ export default function ExpenseCategoryDrillDownModal({
                                                     ];
 
                                                 const accounts =
-                                                    detailData[
-                                                    category
-                                                    ] || [];
+                                                    (Array.isArray(detailData[category]) && detailData[category].length > 0)
+                                                        ? detailData[category]
+                                                        : (row ? deriveCategoryNaturalAccounts(row, category) : []);
 
                                                 return (
                                                     <React.Fragment
@@ -4161,7 +4174,8 @@ export default function ExpenseCategoryDrillDownModal({
                                                                     type="button"
                                                                     onClick={() =>
                                                                         handleToggleCategory(
-                                                                            category
+                                                                            category,
+                                                                            row
                                                                         )
                                                                     }
                                                                     style={{
