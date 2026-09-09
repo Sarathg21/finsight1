@@ -172,7 +172,7 @@ export default function FinSightDashboard() {
       <div className="grid-charts" style={{ marginBottom: 20 }}>
         {/* Revenue Trend */}
         <Card title="Revenue Trend (AED M)">
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height={160}>
             <LineChart data={scaledRevTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -190,7 +190,7 @@ export default function FinSightDashboard() {
 
         {/* Profit Trend */}
         <Card title="Profit Trend (AED M)">
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height={160}>
             <BarChart data={scaledProfTrend} barGap={2} barCategoryGap="40%" margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 9 }} axisLine={false} tickLine={false} />
@@ -209,7 +209,7 @@ export default function FinSightDashboard() {
         {/* Revenue by Geography */}
         <Card title="Revenue by Geography">
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <ResponsiveContainer width={110} height={150}>
+            <ResponsiveContainer minWidth={1} minHeight={1} width={110} height={150}>
               <PieChart>
                 <Pie data={GEO_DATA} cx="50%" cy="50%" innerRadius={34} outerRadius={52}
                   dataKey="value" startAngle={90} endAngle={-270} stroke="none">
@@ -236,7 +236,7 @@ export default function FinSightDashboard() {
         <Card title="Collection Efficiency">
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 8 }}>
             <div style={{ position: 'relative' }}>
-              <ResponsiveContainer width={140} height={100}>
+              <ResponsiveContainer minWidth={1} minHeight={1} width={140} height={100}>
                 <PieChart>
                   <Pie
                     data={[{ value: COLLECTION_EFFICIENCY }, { value: 100 - COLLECTION_EFFICIENCY }]}

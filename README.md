@@ -21,7 +21,8 @@ Create a `.env` file in the root directory. The following environment variables 
 
 - `VITE_API_BASE_URL`: The base URL of the backend API.
   - **Local Development**: Leave this empty so that API calls use relative paths (e.g., `/api/...`) and are intercepted by the Vite dev proxy.
-  - **Production Deployment**: Set this to the full backend URL (e.g., `http://13.233.207.68:8000`).
+  - **Vercel / HTTPS Production**: Leave this **empty** as well. The app uses same-origin `/api/*` requests, which are proxied to the backend by `api/proxy.js` via `vercel.json`. Do **not** set this to an `http://` backend URL on Vercel — browsers block mixed-content requests from HTTPS pages.
+  - **HTTP-only hosting (e.g. EC2/Nginx)**: You may set this to the full backend URL if needed (e.g., `http://13.233.207.68:8000`), or leave empty and proxy through Nginx.
 
 ## Available Scripts
 

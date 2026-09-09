@@ -76,7 +76,7 @@ export default function ARDashboard() {
             <span className="badge badge-neutral">By Amount</span>
           </div>
           <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
+            <ResponsiveContainer minWidth={1} minHeight={1}>
               <BarChart data={AR_AGING} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />
@@ -110,7 +110,7 @@ export default function ARDashboard() {
             <h3 className="card-title">Collection vs Target Trend</h3>
           </div>
           <div style={{ width: '100%', height: 335 }}>
-            <ResponsiveContainer>
+            <ResponsiveContainer minWidth={1} minHeight={1}>
               <LineChart data={COLLECTIONS_TREND}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />

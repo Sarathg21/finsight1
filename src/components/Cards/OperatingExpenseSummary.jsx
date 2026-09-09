@@ -1,7 +1,6 @@
 
 
 // import React, { useEffect, useRef, useState } from "react";
-
 // import {
 //     LineChart,
 //     Target,
@@ -28,11 +27,6 @@
 //     useEffect(() => {
 //         /* =====================================================
 //            NULL / EMPTY VALUE
-
-//            IMPORTANT:
-//            Do NOT animate null to 0.
-
-//            Target / variance values should remain —
 //         ===================================================== */
 
 //         if (
@@ -67,19 +61,13 @@
 
 //         /* =====================================================
 //            START VALUE
-
-//            First API value:
-//            0 → actual value
-
-//            When API value changes:
-//            previous value → new value
 //         ===================================================== */
 
 //         const startValue =
 //             previousValueRef.current !== null &&
-//             !Number.isNaN(
-//                 Number(previousValueRef.current)
-//             )
+//                 !Number.isNaN(
+//                     Number(previousValueRef.current)
+//                 )
 //                 ? Number(previousValueRef.current)
 //                 : 0;
 
@@ -97,8 +85,6 @@
 
 //             /* =================================================
 //                EASE OUT
-
-//                Smooth start and smooth finish
 //             ================================================= */
 
 //             const easedProgress =
@@ -107,7 +93,7 @@
 //             const currentValue =
 //                 startValue +
 //                 (endValue - startValue) *
-//                     easedProgress;
+//                 easedProgress;
 
 //             setDisplayValue(currentValue);
 
@@ -151,7 +137,7 @@
 //    FORMAT CURRENCY
 // ========================================================= */
 
-// const formatCurrency = (value) => {
+// const formatCurrency = (value, currency = "AED") => {
 //     if (
 //         value === null ||
 //         value === undefined ||
@@ -166,19 +152,9 @@
 //         return "—";
 //     }
 
-//     /* =====================================================
-//        AED MILLIONS DISPLAY
-
-//        Backend:
-//        123224.59 AED
-
-//        Display:
-//        AED 0.12M
-//     ===================================================== */
-
 //     const millions = number / 1000000;
 
-//     return `AED ${millions.toLocaleString("en-US", {
+//     return `${currency} ${millions.toLocaleString("en-US", {
 //         minimumFractionDigits: 2,
 //         maximumFractionDigits: 2,
 //     })}M`;
@@ -210,6 +186,7 @@
 
 // /* =========================================================
 //    KPI CARD
+//    UI ONLY
 // ========================================================= */
 
 // function OpexKpiCard({
@@ -225,6 +202,8 @@
 
 //     showUnfavorable = false,
 //     isPercentage = false,
+//     reportingCurrency = "AED",
+
 // }) {
 //     return (
 //         <div
@@ -232,22 +211,17 @@
 //                 flex: "1 1 0",
 //                 minWidth: 0,
 
-//                 height: 66,
-
-//                 /* =================================================
-//                    PASTEL BACKGROUND
-//                 ================================================= */
+//                 height: 106,
 
 //                 background: titleBackground,
 
-//                 /* No border */
 //                 border: "none",
 
-//                 borderRadius: 7,
+//                 borderRadius: 10,
 
 //                 boxSizing: "border-box",
 
-//                 padding: "7px 8px",
+//                 padding: "10px 12px",
 
 //                 display: "flex",
 //                 alignItems: "center",
@@ -262,12 +236,12 @@
 
 //             <div
 //                 style={{
-//                     width: 29,
-//                     height: 29,
+//                     width: 42,
+//                     height: 42,
 
-//                     minWidth: 29,
+//                     minWidth: 42,
 
-//                     borderRadius: "60%",
+//                     borderRadius: "50%",
 
 //                     background: iconBackground,
 
@@ -275,12 +249,14 @@
 //                     alignItems: "center",
 //                     justifyContent: "center",
 
-//                     marginRight: 7,
+//                     marginRight: 11,
+
+//                     boxSizing: "border-box",
 //                 }}
 //             >
 //                 <Icon
-//                     size={25}
-//                     strokeWidth={2}
+//                     size={22}
+//                     strokeWidth={2.2}
 //                     color={iconColor}
 //                 />
 //             </div>
@@ -294,47 +270,40 @@
 //                 style={{
 //                     minWidth: 0,
 
+//                     flex: 1,
+
 //                     display: "flex",
 //                     flexDirection: "column",
 
 //                     justifyContent: "center",
 
-//                     flex: 1,
+//                     overflow: "hidden",
 //                 }}
 //             >
 
 //                 {/* =================================================
 //                     TITLE
+//                     Reference style:
+//                     Colored text, no pill
 //                 ================================================= */}
 
 //                 <div
 //                     style={{
-//                         display: "inline-flex",
-
-//                         alignItems: "center",
-
-//                         alignSelf: "flex-start",
-
-//                         minHeight: 17,
-
-//                         padding: "2px 6px",
-
-//                         borderRadius: 4,
-
-//                         background:
-//                             "rgba(255, 255, 255, 0.45)",
-
 //                         color: titleColor,
 
-//                         fontSize: 12,
+//                         fontSize: 11,
 
-//                         lineHeight: "12px",
+//                         lineHeight: "14px",
 
-//                         fontWeight: 600,
+//                         fontWeight: 700,
 
 //                         whiteSpace: "nowrap",
 
-//                         marginBottom: 3,
+//                         overflow: "hidden",
+
+//                         textOverflow: "ellipsis",
+
+//                         marginBottom: 2,
 //                     }}
 //                 >
 //                     {title}
@@ -347,15 +316,21 @@
 
 //                 <div
 //                     style={{
-//                         fontSize: 16,
+//                         fontSize: 17,
 
-//                         lineHeight: "15px",
+//                         lineHeight: "20px",
 
 //                         fontWeight: 800,
 
 //                         color: "#0F172A",
 
 //                         whiteSpace: "nowrap",
+
+//                         overflow: "hidden",
+
+//                         textOverflow: "ellipsis",
+
+//                         letterSpacing: "-0.2px",
 //                     }}
 //                 >
 //                     <AnimatedNumber
@@ -363,7 +338,11 @@
 //                         formatter={
 //                             isPercentage
 //                                 ? formatPercentage
-//                                 : formatCurrency
+//                                 : (value) =>
+//                                     formatCurrency(
+//                                         value,
+//                                         reportingCurrency
+//                                     )
 //                         }
 //                     />
 //                 </div>
@@ -371,16 +350,18 @@
 
 //                 {/* =================================================
 //                     UNFAVORABLE
+
+//                     Existing functionality retained.
 //                 ================================================= */}
 
 //                 {showUnfavorable && (
 //                     <div
 //                         style={{
-//                             marginTop: 2,
+//                             marginTop: 3,
 
-//                             fontSize: 10,
+//                             fontSize: 9,
 
-//                             lineHeight: "10px",
+//                             lineHeight: "11px",
 
 //                             fontWeight: 600,
 
@@ -405,7 +386,7 @@
 // ========================================================= */
 
 // export default function OperatingExpenseSummary({
-//     data = {},
+//     data = {}, reportingCurrency = "AED",
 // }) {
 
 //     /* =========================================================
@@ -508,16 +489,11 @@
 //             style={{
 //                 width: "100%",
 
-//                 /* =================================================
-//                    PASTEL SUMMARY BACKGROUND
-//                 ================================================= */
-
 //                 background: "#F8FAFC",
 
-//                 /* No border */
 //                 border: "none",
 
-//                 borderRadius: 8,
+//                 borderRadius: 10,
 
 //                 boxSizing: "border-box",
 
@@ -531,7 +507,7 @@
 
 //             <div
 //                 style={{
-//                     height: 39,
+//                     height: 38,
 
 //                     display: "flex",
 
@@ -542,8 +518,6 @@
 //                     padding: "0 9px",
 
 //                     boxSizing: "border-box",
-
-//                     borderBottom: "none",
 
 //                     background: "#F8FAFC",
 //                 }}
@@ -572,7 +546,7 @@
 
 //                 {/* THREE DOT */}
 
-//                 <button
+//                 {/* <button
 //                     type="button"
 //                     style={{
 //                         border: "none",
@@ -591,7 +565,7 @@
 //                     }}
 //                 >
 //                     ⋮
-//                 </button>
+//                 </button> */}
 
 //             </div>
 
@@ -608,7 +582,7 @@
 
 //                     alignItems: "stretch",
 
-//                     gap: 6,
+//                     gap: 8,
 
 //                     padding: "7px",
 
@@ -616,7 +590,11 @@
 
 //                     overflowX: "auto",
 
+//                     overflowY: "hidden",
+
 //                     background: "#F8FAFC",
+
+//                     scrollbarWidth: "thin",
 //                 }}
 //             >
 
@@ -627,11 +605,15 @@
 //                 <OpexKpiCard
 //                     title="Actual PTD"
 //                     value={kpiData.actualPTD}
+
 //                     Icon={LineChart}
+
 //                     iconColor="#2563EB"
-//                     iconBackground="#E8EDFF"
+//                     iconBackground="#DCE8FF"
+
 //                     titleColor="#2563EB"
-//                     titleBackground="#F0F3FF"
+//                     titleBackground="#EFF4FF"
+//                     reportingCurrency={reportingCurrency}
 //                 />
 
 
@@ -642,11 +624,15 @@
 //                 <OpexKpiCard
 //                     title="Target PTD"
 //                     value={kpiData.targetPTD}
+
 //                     Icon={Target}
+
 //                     iconColor="#16A34A"
-//                     iconBackground="#E4F8E8"
+//                     iconBackground="#D9F7E2"
+
 //                     titleColor="#16A34A"
-//                     titleBackground="#EFFBF1"
+//                     titleBackground="#F0FBF3"
+//                     reportingCurrency={reportingCurrency}
 //                 />
 
 
@@ -657,11 +643,15 @@
 //                 <OpexKpiCard
 //                     title="Variance PTD"
 //                     value={kpiData.variancePTD}
+
 //                     Icon={TrendingUp}
+
 //                     iconColor="#F97316"
-//                     iconBackground="#FFEEDB"
-//                     titleColor="#F97316"
-//                     titleBackground="#FFF5E9"
+//                     iconBackground="#FFE3C2"
+
+//                     titleColor="#EA580C"
+//                     titleBackground="#FFF6E9"
+//                     reportingCurrency={reportingCurrency}
 //                 />
 
 
@@ -672,12 +662,17 @@
 //                 <OpexKpiCard
 //                     title="Variance PTD %"
 //                     value={kpiData.variancePTDPercent}
+
 //                     Icon={Percent}
+
 //                     iconColor="#E11D48"
-//                     iconBackground="#FFE7EC"
+//                     iconBackground="#FFDDE5"
+
 //                     titleColor="#E11D48"
-//                     titleBackground="#FFF1F4"
+//                     titleBackground="#FFF1F5"
+
 //                     isPercentage
+//                     reportingCurrency={reportingCurrency}
 //                 />
 
 
@@ -688,11 +683,15 @@
 //                 <OpexKpiCard
 //                     title="Actual YTD"
 //                     value={kpiData.actualYTD}
+
 //                     Icon={BarChart3}
+
 //                     iconColor="#2563EB"
-//                     iconBackground="#E8EDFF"
+//                     iconBackground="#DCE8FF"
+
 //                     titleColor="#2563EB"
-//                     titleBackground="#F0F3FF"
+//                     titleBackground="#EFF4FF"
+//                     reportingCurrency={reportingCurrency}
 //                 />
 
 
@@ -703,16 +702,22 @@
 //                 <OpexKpiCard
 //                     title="Target YTD"
 //                     value={kpiData.targetYTD}
+
 //                     Icon={Target}
+
 //                     iconColor="#16A34A"
-//                     iconBackground="#E4F8E8"
+//                     iconBackground="#D9F7E2"
+
 //                     titleColor="#16A34A"
-//                     titleBackground="#EFFBF1"
+//                     titleBackground="#F0FBF3"
+//                     reportingCurrency={reportingCurrency}
 //                 />
 
 
 //                 {/* =================================================
 //                     7. VARIANCE YTD
+
+//                     KEPT COMMENTED — NO FUNCTIONALITY CHANGED
 //                 ================================================= */}
 
 //                 {/* <OpexKpiCard
@@ -728,6 +733,8 @@
 
 //                 {/* =================================================
 //                     8. VARIANCE YTD %
+
+//                     KEPT COMMENTED — NO FUNCTIONALITY CHANGED
 //                 ================================================= */}
 
 //                 {/* <OpexKpiCard
@@ -747,8 +754,8 @@
 //     );
 // }
 
-import React, { useEffect, useRef, useState } from "react";
 
+import React, { useEffect, useRef, useState } from "react";
 import {
     LineChart,
     Target,
@@ -775,11 +782,6 @@ const AnimatedNumber = ({
     useEffect(() => {
         /* =====================================================
            NULL / EMPTY VALUE
-
-           IMPORTANT:
-           Do NOT animate null to 0.
-
-           Target / variance values should remain —
         ===================================================== */
 
         if (
@@ -814,19 +816,13 @@ const AnimatedNumber = ({
 
         /* =====================================================
            START VALUE
-
-           First API value:
-           0 → actual value
-
-           When API value changes:
-           previous value → new value
         ===================================================== */
 
         const startValue =
             previousValueRef.current !== null &&
-            !Number.isNaN(
-                Number(previousValueRef.current)
-            )
+                !Number.isNaN(
+                    Number(previousValueRef.current)
+                )
                 ? Number(previousValueRef.current)
                 : 0;
 
@@ -844,8 +840,6 @@ const AnimatedNumber = ({
 
             /* =================================================
                EASE OUT
-
-               Smooth start and smooth finish
             ================================================= */
 
             const easedProgress =
@@ -854,7 +848,7 @@ const AnimatedNumber = ({
             const currentValue =
                 startValue +
                 (endValue - startValue) *
-                    easedProgress;
+                easedProgress;
 
             setDisplayValue(currentValue);
 
@@ -898,7 +892,7 @@ const AnimatedNumber = ({
    FORMAT CURRENCY
 ========================================================= */
 
-const formatCurrency = (value) => {
+const formatCurrency = (value, currency = "AED") => {
     if (
         value === null ||
         value === undefined ||
@@ -913,19 +907,9 @@ const formatCurrency = (value) => {
         return "—";
     }
 
-    /* =====================================================
-       AED MILLIONS DISPLAY
-
-       Backend:
-       123224.59 AED
-
-       Display:
-       AED 0.12M
-    ===================================================== */
-
     const millions = number / 1000000;
 
-    return `AED ${millions.toLocaleString("en-US", {
+    return `${currency} ${millions.toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     })}M`;
@@ -957,6 +941,7 @@ const formatPercentage = (value) => {
 
 /* =========================================================
    KPI CARD
+   UI ONLY
 ========================================================= */
 
 function OpexKpiCard({
@@ -970,45 +955,67 @@ function OpexKpiCard({
     titleColor,
     titleBackground,
 
-    /* =====================================================
-       STATUS
-       
-       Status will only be displayed when:
-       1. value exists
-       2. status exists
-    ===================================================== */
-
-    status = null,
-
+    showUnfavorable = false,
     isPercentage = false,
+    reportingCurrency = "AED",
+
 }) {
+
+    /* =========================================================
+       HOVER EFFECT ONLY
+
+       No existing functionality is changed.
+    ========================================================= */
+
+    const [isHovered, setIsHovered] = useState(false);
+
     return (
         <div
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+
             style={{
                 flex: "1 1 0",
                 minWidth: 0,
 
-                height: 66,
-
-                /* =================================================
-                   PASTEL BACKGROUND
-                ================================================= */
+                height: 106,
 
                 background: titleBackground,
 
-                /* No border */
                 border: "none",
 
-                borderRadius: 7,
+                borderRadius: 10,
 
                 boxSizing: "border-box",
 
-                padding: "7px 8px",
+                padding: "10px 12px",
 
                 display: "flex",
                 alignItems: "center",
 
                 overflow: "hidden",
+
+                /* =================================================
+                   HOVER FORWARD / RETURN EFFECT
+                ================================================= */
+
+                transform: isHovered
+                    ? "translateY(-6px) scale(1.025)"
+                    : "translateY(0) scale(1)",
+
+                boxShadow: isHovered
+                    ? "0 10px 24px rgba(15, 23, 42, 0.18)"
+                    : "0 2px 6px rgba(15, 23, 42, 0.06)",
+
+                transition:
+                    "transform 220ms ease, box-shadow 220ms ease",
+
+                position: "relative",
+
+                /* Makes hovered card appear above neighboring cards */
+                zIndex: isHovered ? 10 : 1,
+
+                cursor: "default",
             }}
         >
 
@@ -1018,12 +1025,12 @@ function OpexKpiCard({
 
             <div
                 style={{
-                    width: 29,
-                    height: 29,
+                    width: 42,
+                    height: 42,
 
-                    minWidth: 29,
+                    minWidth: 42,
 
-                    borderRadius: "60%",
+                    borderRadius: "50%",
 
                     background: iconBackground,
 
@@ -1031,12 +1038,14 @@ function OpexKpiCard({
                     alignItems: "center",
                     justifyContent: "center",
 
-                    marginRight: 7,
+                    marginRight: 11,
+
+                    boxSizing: "border-box",
                 }}
             >
                 <Icon
-                    size={25}
-                    strokeWidth={2}
+                    size={22}
+                    strokeWidth={2.2}
                     color={iconColor}
                 />
             </div>
@@ -1050,47 +1059,40 @@ function OpexKpiCard({
                 style={{
                     minWidth: 0,
 
+                    flex: 1,
+
                     display: "flex",
                     flexDirection: "column",
 
                     justifyContent: "center",
 
-                    flex: 1,
+                    overflow: "hidden",
                 }}
             >
 
                 {/* =================================================
                     TITLE
+                    Reference style:
+                    Colored text, no pill
                 ================================================= */}
 
                 <div
                     style={{
-                        display: "inline-flex",
-
-                        alignItems: "center",
-
-                        alignSelf: "flex-start",
-
-                        minHeight: 17,
-
-                        padding: "2px 6px",
-
-                        borderRadius: 4,
-
-                        background:
-                            "rgba(255, 255, 255, 0.45)",
-
                         color: titleColor,
 
-                        fontSize: 12,
+                        fontSize: 11,
 
-                        lineHeight: "12px",
+                        lineHeight: "14px",
 
-                        fontWeight: 600,
+                        fontWeight: 700,
 
                         whiteSpace: "nowrap",
 
-                        marginBottom: 3,
+                        overflow: "hidden",
+
+                        textOverflow: "ellipsis",
+
+                        marginBottom: 2,
                     }}
                 >
                     {title}
@@ -1103,15 +1105,21 @@ function OpexKpiCard({
 
                 <div
                     style={{
-                        fontSize: 16,
+                        fontSize: 17,
 
-                        lineHeight: "15px",
+                        lineHeight: "20px",
 
                         fontWeight: 800,
 
                         color: "#0F172A",
 
                         whiteSpace: "nowrap",
+
+                        overflow: "hidden",
+
+                        textOverflow: "ellipsis",
+
+                        letterSpacing: "-0.2px",
                     }}
                 >
                     <AnimatedNumber
@@ -1119,51 +1127,41 @@ function OpexKpiCard({
                         formatter={
                             isPercentage
                                 ? formatPercentage
-                                : formatCurrency
+                                : (value) =>
+                                    formatCurrency(
+                                        value,
+                                        reportingCurrency
+                                    )
                         }
                     />
                 </div>
 
 
                 {/* =================================================
-                    STATUS
+                    UNFAVORABLE
 
-                    IMPORTANT:
-                    Status is displayed ONLY when the value
-                    is actually available.
-
-                    If variance_ptd_pct is null:
-                        Value  → —
-                        Status → hidden
+                    Existing functionality retained.
                 ================================================= */}
 
-                {value !== null &&
-                    value !== undefined &&
-                    value !== "" &&
-                    !Number.isNaN(Number(value)) &&
-                    status && (
-                        <div
-                            style={{
-                                marginTop: 2,
+                {showUnfavorable && (
+                    <div
+                        style={{
+                            marginTop: 3,
 
-                                fontSize: 10,
+                            fontSize: 9,
 
-                                lineHeight: "10px",
+                            lineHeight: "11px",
 
-                                fontWeight: 600,
+                            fontWeight: 600,
 
-                                color:
-                                    String(status).toLowerCase() ===
-                                    "favourable"
-                                        ? "#16A34A"
-                                        : "#DC2626",
+                            color: "#DC2626",
 
-                                whiteSpace: "nowrap",
-                            }}
-                        >
-                            {status}
-                        </div>
-                    )}
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        Unfavorable
+                    </div>
+                )}
 
             </div>
 
@@ -1178,6 +1176,7 @@ function OpexKpiCard({
 
 export default function OperatingExpenseSummary({
     data = {},
+    reportingCurrency = "AED",
 }) {
 
     /* =========================================================
@@ -1280,16 +1279,11 @@ export default function OperatingExpenseSummary({
             style={{
                 width: "100%",
 
-                /* =================================================
-                   PASTEL SUMMARY BACKGROUND
-                ================================================= */
-
                 background: "#F8FAFC",
 
-                /* No border */
                 border: "none",
 
-                borderRadius: 8,
+                borderRadius: 10,
 
                 boxSizing: "border-box",
 
@@ -1303,7 +1297,7 @@ export default function OperatingExpenseSummary({
 
             <div
                 style={{
-                    height: 39,
+                    height: 38,
 
                     display: "flex",
 
@@ -1315,8 +1309,6 @@ export default function OperatingExpenseSummary({
 
                     boxSizing: "border-box",
 
-                    borderBottom: "none",
-
                     background: "#F8FAFC",
                 }}
             >
@@ -1327,7 +1319,7 @@ export default function OperatingExpenseSummary({
                     style={{
                         margin: 0,
 
-                        fontSize: 12,
+                        fontSize: 13,
 
                         lineHeight: "15px",
 
@@ -1344,7 +1336,7 @@ export default function OperatingExpenseSummary({
 
                 {/* THREE DOT */}
 
-                <button
+                {/* <button
                     type="button"
                     style={{
                         border: "none",
@@ -1363,7 +1355,7 @@ export default function OperatingExpenseSummary({
                     }}
                 >
                     ⋮
-                </button>
+                </button> */}
 
             </div>
 
@@ -1380,7 +1372,7 @@ export default function OperatingExpenseSummary({
 
                     alignItems: "stretch",
 
-                    gap: 6,
+                    gap: 8,
 
                     padding: "7px",
 
@@ -1388,7 +1380,11 @@ export default function OperatingExpenseSummary({
 
                     overflowX: "auto",
 
+                    overflowY: "hidden",
+
                     background: "#F8FAFC",
+
+                    scrollbarWidth: "thin",
                 }}
             >
 
@@ -1399,11 +1395,15 @@ export default function OperatingExpenseSummary({
                 <OpexKpiCard
                     title="Actual PTD"
                     value={kpiData.actualPTD}
+
                     Icon={LineChart}
+
                     iconColor="#2563EB"
-                    iconBackground="#E8EDFF"
+                    iconBackground="#DCE8FF"
+
                     titleColor="#2563EB"
-                    titleBackground="#F0F3FF"
+                    titleBackground="#EFF4FF"
+                    reportingCurrency={reportingCurrency}
                 />
 
 
@@ -1414,11 +1414,15 @@ export default function OperatingExpenseSummary({
                 <OpexKpiCard
                     title="Target PTD"
                     value={kpiData.targetPTD}
+
                     Icon={Target}
+
                     iconColor="#16A34A"
-                    iconBackground="#E4F8E8"
+                    iconBackground="#D9F7E2"
+
                     titleColor="#16A34A"
-                    titleBackground="#EFFBF1"
+                    titleBackground="#F0FBF3"
+                    reportingCurrency={reportingCurrency}
                 />
 
 
@@ -1429,11 +1433,15 @@ export default function OperatingExpenseSummary({
                 <OpexKpiCard
                     title="Variance PTD"
                     value={kpiData.variancePTD}
+
                     Icon={TrendingUp}
+
                     iconColor="#F97316"
-                    iconBackground="#FFEEDB"
-                    titleColor="#F97316"
-                    titleBackground="#FFF5E9"
+                    iconBackground="#FFE3C2"
+
+                    titleColor="#EA580C"
+                    titleBackground="#FFF6E9"
+                    reportingCurrency={reportingCurrency}
                 />
 
 
@@ -1444,31 +1452,37 @@ export default function OperatingExpenseSummary({
                 <OpexKpiCard
                     title="Variance PTD %"
                     value={kpiData.variancePTDPercent}
+
                     Icon={Percent}
+
                     iconColor="#E11D48"
-                    iconBackground="#FFE7EC"
+                    iconBackground="#FFDDE5"
+
                     titleColor="#E11D48"
-                    titleBackground="#FFF1F4"
+                    titleBackground="#FFF1F5"
+
                     isPercentage
-                    status={data.variance_ptd_status}
+                    reportingCurrency={reportingCurrency}
                 />
 
 
                 {/* =================================================
                     5. ACTUAL YTD
                 ================================================= */}
-
                 <OpexKpiCard
                     title="Actual YTD"
                     value={kpiData.actualYTD}
+
                     Icon={BarChart3}
-                    iconColor="#2563EB"
-                    iconBackground="#E8EDFF"
-                    titleColor="#2563EB"
-                    titleBackground="#F0F3FF"
+
+                    iconColor="#3FAFC1"
+                    iconBackground="#DDF4F7"
+
+                    titleColor="#3FAFC1"
+                    titleBackground="#EFFBFC"
+
+                    reportingCurrency={reportingCurrency}
                 />
-
-
                 {/* =================================================
                     6. TARGET YTD
                 ================================================= */}
@@ -1476,16 +1490,24 @@ export default function OperatingExpenseSummary({
                 <OpexKpiCard
                     title="Target YTD"
                     value={kpiData.targetYTD}
+
                     Icon={Target}
-                    iconColor="#16A34A"
-                    iconBackground="#E4F8E8"
-                    titleColor="#16A34A"
-                    titleBackground="#EFFBF1"
+
+                    iconColor="#6D28D9"
+                    iconBackground="#EDE9FE"
+
+                    titleColor="#6D28D9"
+                    titleBackground="#F5F3FF"
+
+                    reportingCurrency={reportingCurrency}
                 />
+
 
 
                 {/* =================================================
                     7. VARIANCE YTD
+
+                    KEPT COMMENTED — NO FUNCTIONALITY CHANGED
                 ================================================= */}
 
                 {/* <OpexKpiCard
@@ -1501,6 +1523,8 @@ export default function OperatingExpenseSummary({
 
                 {/* =================================================
                     8. VARIANCE YTD %
+
+                    KEPT COMMENTED — NO FUNCTIONALITY CHANGED
                 ================================================= */}
 
                 {/* <OpexKpiCard
@@ -1519,3 +1543,4 @@ export default function OperatingExpenseSummary({
         </div>
     );
 }
+

@@ -1,1994 +1,32 @@
 
-// import React, { useState } from "react";
 
-// import {
-//     ChevronRight,
-//     ChevronDown,
-//     ChevronsUp,
-// } from "lucide-react";
-
-// /* =========================================================
-//    FORMAT VALUE
-// ========================================================= */
-
-// const formatValue = (value, unit = "millions") => {
-//     if (
-//         value === null ||
-//         value === undefined ||
-//         value === "" ||
-//         value === "-" ||
-//         value === "—"
-//     ) {
-//         return "—";
-//     }
-
-//     const number = Number(value);
-
-//     if (Number.isNaN(number)) {
-//         return "—";
-//     }
-
-//     if (unit === "millions") {
-//         const millions = number / 1000000;
-
-//         if (number !== 0 && Math.abs(millions) < 0.01) {
-//             return "<0.01M";
-//         }
-
-//         return `${millions.toFixed(2)}M`;
-//     }
-
-//     return Math.round(number).toLocaleString("en-IN");
-// };
-
-// /* =========================================================
-//    MONTHS
-// ========================================================= */
-
-// const months = [
-//     { key: "jan", label: "Jan" },
-//     { key: "feb", label: "Feb" },
-//     { key: "mar", label: "Mar" },
-//     { key: "apr", label: "Apr" },
-//     { key: "may", label: "May" },
-//     { key: "jun", label: "Jun" },
-//     { key: "jul", label: "Jul" },
-//     { key: "aug", label: "Aug" },
-//     { key: "sep", label: "Sep" },
-//     { key: "oct", label: "Oct" },
-//     { key: "nov", label: "Nov" },
-//     { key: "dec", label: "Dec" },
-// ];
-
-// /* =========================================================
-//    GET MONTHLY ACTUAL
-// ========================================================= */
-
-// const getMonthlyActual = (item) => {
-//     return (
-//         item?.monthly_actual ??
-//         item?.monthlyActual ??
-//         item?.monthly_actual_aed ??
-//         item?.monthlyActualAed ??
-//         null
-//     );
-// };
-
-// /* =========================================================
-//    GET MONTH VALUE
-// ========================================================= */
-
-// const getMonthValue = (item, monthKey, monthLabel) => {
-//     const monthlyActual = getMonthlyActual(item);
-
-//     if (
-//         monthlyActual === null ||
-//         monthlyActual === undefined
-//     ) {
-//         return null;
-//     }
-
-//     /* -------------------------------------------------------
-//        OBJECT
-
-//        Example:
-//        {
-//          "Jan-26": 8364319.95,
-//          "Feb-26": 8417330,
-//          "Sep-26": 664
-//        }
-//     ------------------------------------------------------- */
-
-//     if (
-//         typeof monthlyActual === "object" &&
-//         !Array.isArray(monthlyActual)
-//     ) {
-//         const keys = Object.keys(monthlyActual);
-
-//         const normalizedLabel = String(monthLabel)
-//             .trim()
-//             .toLowerCase();
-
-//         const normalizedMonthKey = String(monthKey)
-//             .trim()
-//             .toLowerCase();
-
-//         const matchingKey = keys.find((key) => {
-//             const normalizedKey = String(key)
-//                 .trim()
-//                 .toLowerCase();
-
-//             return (
-//                 normalizedKey === normalizedLabel ||
-//                 normalizedKey.startsWith(normalizedLabel) ||
-//                 normalizedKey.startsWith(normalizedMonthKey)
-//             );
-//         });
-
-//         if (matchingKey) {
-//             return monthlyActual[matchingKey];
-//         }
-
-//         return null;
-//     }
-
-//     /* -------------------------------------------------------
-//        ARRAY
-//     ------------------------------------------------------- */
-
-//     if (Array.isArray(monthlyActual)) {
-//         const monthData = monthlyActual.find((entry) => {
-//             const entryMonth =
-//                 entry?.month ??
-//                 entry?.month_name ??
-//                 entry?.monthName;
-
-//             if (!entryMonth) {
-//                 return false;
-//             }
-
-//             const normalizedEntryMonth = String(entryMonth)
-//                 .trim()
-//                 .toLowerCase();
-
-//             const normalizedLabel = String(monthLabel)
-//                 .trim()
-//                 .toLowerCase();
-
-//             const normalizedKey = String(monthKey)
-//                 .trim()
-//                 .toLowerCase();
-
-//             return (
-//                 normalizedEntryMonth === normalizedLabel ||
-//                 normalizedEntryMonth.startsWith(normalizedLabel) ||
-//                 normalizedEntryMonth.startsWith(normalizedKey)
-//             );
-//         });
-
-//         if (monthData) {
-//             return (
-//                 monthData?.value ??
-//                 monthData?.actual ??
-//                 monthData?.amount ??
-//                 monthData?.monthly_actual ??
-//                 null
-//             );
-//         }
-
-//     }
-
-//     return null;
-// };
-
-// /* =========================================================
-//    GET TOTAL MONTH VALUE
-// ========================================================= */
-
-// const getTotalMonthValue = (
-//     data,
-//     monthKey,
-//     monthLabel
-// ) => {
-//     if (!Array.isArray(data) || !data.length) {
-//         return null;
-//     }
-
-//     let total = 0;
-//     let hasValue = false;
-
-//     data.forEach((item) => {
-//         const value = getMonthValue(
-//             item,
-//             monthKey,
-//             monthLabel
-//         );
-
-//         if (
-//             value !== null &&
-//             value !== undefined &&
-//             value !== "" &&
-//             value !== "-" &&
-//             value !== "—"
-//         ) {
-//             const number = Number(value);
-
-//             if (Number.isFinite(number)) {
-//                 total += number;
-//                 hasValue = true;
-//             }
-//         }
-//     });
-
-//     return hasValue ? total : null;
-// };
-
-// /* =========================================================
-//    GET ACTUAL YTD
-// ========================================================= */
-
-// const getActualYTD = (item) => {
-//     return (
-//         item?.actual_ytd ??
-//         item?.actualYTD ??
-//         item?.actual_ytd_aed ??
-//         item?.actualYtdaed ??
-//         item?.ytd ??
-//         null
-//     );
-// };
-
-// /* =========================================================
-//    GET TOTAL YTD
-// ========================================================= */
-
-// const getTotalYTD = (data) => {
-//     if (!Array.isArray(data) || !data.length) {
-//         return null;
-//     }
-
-//     let total = 0;
-//     let hasValue = false;
-
-//     data.forEach((item) => {
-//         const value = getActualYTD(item);
-
-//         if (
-//             value !== null &&
-//             value !== undefined &&
-//             value !== "" &&
-//             value !== "-" &&
-//             value !== "—"
-//         ) {
-//             const number = Number(value);
-
-//             if (Number.isFinite(number)) {
-//                 total += number;
-//                 hasValue = true;
-//             }
-//         }
-//     });
-
-//     return hasValue ? total : null;
-// };
-
-// /* =========================================================
-//    GET TARGET YTD
-// ========================================================= */
-
-// const getTargetYTD = (item) => {
-//     return (
-//         item?.target_ytd ??
-//         item?.targetYTD ??
-//         item?.target ??
-//         null
-//     );
-// };
-
-// /* =========================================================
-//    GET VARIANCE YTD
-// ========================================================= */
-
-// const getVarianceYTD = (item) => {
-//     return (
-//         item?.variance_ytd ??
-//         item?.varianceYTD ??
-//         item?.variance ??
-//         null
-//     );
-// };
-
-// /* =========================================================
-//    GET VARIANCE %
-// ========================================================= */
-
-// const getVarianceYTDPercent = (item) => {
-//     return (
-//         item?.variance_ytd_pct ??
-//         item?.varianceYTDPercent ??
-//         item?.variancePercent ??
-//         null
-//     );
-// };
-
-// /* =========================================================
-//    GET DETAILS FROM API RESPONSE
-// ========================================================= */
-
-// const getDetails = (value) => {
-//     if (!value) {
-//         return [];
-//     }
-
-//     if (Array.isArray(value)) {
-//         return value;
-//     }
-
-//     if (Array.isArray(value?.data)) {
-//         return value.data;
-//     }
-
-//     if (Array.isArray(value?.details)) {
-//         return value.details;
-//     }
-
-//     if (Array.isArray(value?.categoryDetails)) {
-//         return value.categoryDetails;
-//     }
-
-//     if (Array.isArray(value?.naturalAccounts)) {
-//         return value.naturalAccounts;
-//     }
-
-//     return [];
-// };
-
-// /* =========================================================
-//    GET ACCOUNT NAME
-// ========================================================= */
-
-// const getAccountName = (account) => {
-//     return (
-//         account?.account_name ??
-//         account?.accountName ??
-//         account?.natural_account_name ??
-//         account?.naturalAccountName ??
-//         account?.account ??
-//         account?.name ??
-//         "—"
-//     );
-// };
-
-// /* =========================================================
-//    GET ACCOUNT CODE
-// ========================================================= */
-
-// const getAccountCode = (account) => {
-//     return (
-//         account?.account_code ??
-//         account?.accountCode ??
-//         account?.natural_account_code ??
-//         account?.naturalAccountCode ??
-//         account?.natural_account_id ??
-//         "—"
-//     );
-// };
-
-// /* =========================================================
-//    GET ACCOUNT MONTHLY DATA
-
-//    category-detail API currently returns only:
-
-//    actual_ptd
-//    actual_ytd
-
-//    It does NOT return monthly account-level values.
-
-//    Therefore Jan-Dec correctly remain —.
-// ========================================================= */
-
-// const getAccountMonthValue = (
-//     account,
-//     monthKey,
-//     monthLabel
-// ) => {
-//     return getMonthValue(
-//         account,
-//         monthKey,
-//         monthLabel
-//     );
-// };
-
-// /* =========================================================
-//    MAIN COMPONENT
-// ========================================================= */
-
-// export default function MonthOnMonthOpexReport({
-//     data = [],
-//     totalData = null,
-//     onExpandCategory,
-//     detailLoading = {},
-//     periodName = "Sep-26",
-//     reportingCurrency = "AED",
-// }) {
-//     const [collapsed, setCollapsed] =
-//         useState(false);
-
-//     const [unit, setUnit] =
-//         useState("millions");
-
-//     const [expandedRows, setExpandedRows] =
-//         useState({});
-
-//     /* =======================================================
-//        LAZY LOADED CATEGORY DETAILS
-
-//        Example:
-
-//        {
-//          "Employee Cost": [
-//            {
-//              account_code: "950016",
-//              account_name: "...",
-//              actual_ptd: "...",
-//              actual_ytd: "..."
-//            }
-//          ]
-//        }
-//     ======================================================= */
-
-//     const [categoryDetails, setCategoryDetails] =
-//         useState({});
-
-//     const [categoryDetailLoading, setCategoryDetailLoading] =
-//         useState({});
-
-//     const [categoryDetailError, setCategoryDetailError] =
-//         useState({});
-
-//     /* =======================================================
-//        NORMALIZE DATA
-
-//        Supports both:
-
-//        data = []
-
-//        and
-
-//        data = {
-//          data: []
-//        }
-//     ======================================================= */
-
-//     const rows = Array.isArray(data)
-//         ? data
-//         : Array.isArray(data?.data)
-//             ? data.data
-//             : [];
-
-//     /* =======================================================
-//        LOAD CATEGORY DETAIL
-
-//        IMPORTANT:
-//        This function is called ONLY after clicking >.
-//     ======================================================= */
-
-//     const loadCategoryDetails = async (
-//         item
-//     ) => {
-//         const category =
-//             item?.category;
-
-//         if (!category) {
-//             return [];
-//         }
-
-//         /* -----------------------------------------------------
-//            Already loaded
-//         ----------------------------------------------------- */
-
-//         if (
-//             Object.prototype.hasOwnProperty.call(
-//                 categoryDetails,
-//                 category
-//             )
-//         ) {
-//             return categoryDetails[category];
-//         }
-
-//         /* -----------------------------------------------------
-//            Already loading
-//         ----------------------------------------------------- */
-
-//         if (
-//             categoryDetailLoading?.[category]
-//         ) {
-//             return [];
-//         }
-
-//         setCategoryDetailLoading(
-//             (prev) => ({
-//                 ...prev,
-//                 [category]: true,
-//             })
-//         );
-
-//         setCategoryDetailError(
-//             (prev) => ({
-//                 ...prev,
-//                 [category]: null,
-//             })
-//         );
-
-//         try {
-//             /* ===================================================
-//                API BASE
-
-//                VITE_API_BASE_URL can be either:
-
-//                http://13.233.207.68:8000
-
-//                OR
-
-//                http://13.233.207.68:8000/api
-//             =================================================== */
-
-//             const configuredBase =
-//                 import.meta.env
-//                     .VITE_API_BASE_URL ||
-//                 "";
-
-//             const base =
-//                 configuredBase.replace(
-//                     /\/+$/,
-//                     ""
-//                 );
-
-//             const apiUrl = base.endsWith(
-//                 "/api"
-//             )
-//                 ? `${base}/opex/category-detail`
-//                 : `${base}/api/opex/category-detail`;
-
-//             const params =
-//                 new URLSearchParams({
-//                     category,
-//                     period_name:
-//                         periodName,
-//                     reporting_currency:
-//                         reportingCurrency,
-//                 });
-
-//             const token =
-//                 localStorage.getItem(
-//                     "token"
-//                 );
-
-//             const response =
-//                 await fetch(
-//                     `${apiUrl}?${params.toString()}`,
-//                     {
-//                         method: "GET",
-//                         headers: {
-//                             Accept:
-//                                 "application/json",
-
-//                             ...(token
-//                                 ? {
-//                                     Authorization: `Bearer ${token}`,
-//                                 }
-//                                 : {}),
-//                         },
-//                     }
-//                 );
-
-//             if (!response.ok) {
-//                 throw new Error(
-//                     `Category detail request failed: ${response.status}`
-//                 );
-//             }
-
-//             const responseData =
-//                 await response.json();
-
-//             const details =
-//                 getDetails(responseData);
-
-//             /* ---------------------------------------------------
-//                Save API result by category
-//             --------------------------------------------------- */
-
-//             setCategoryDetails(
-//                 (prev) => ({
-//                     ...prev,
-//                     [category]: details,
-//                 })
-//             );
-
-//             return details;
-//         } catch (error) {
-//             console.error(
-//                 "Failed to load OPEX category details:",
-//                 error
-//             );
-
-//             setCategoryDetailError(
-//                 (prev) => ({
-//                     ...prev,
-//                     [category]:
-//                         error?.message ||
-//                         "Failed to load category details.",
-//                 })
-//             );
-
-//             return [];
-//         } finally {
-//             setCategoryDetailLoading(
-//                 (prev) => ({
-//                     ...prev,
-//                     [category]: false,
-//                 })
-//             );
-//         }
-//     };
-
-//     /* =======================================================
-//        TOGGLE ROW
-
-//        > click
-//          ↓
-//        expand
-//          ↓
-//        category-detail API
-//          ↓
-//        store response
-//          ↓
-//        render accounts
-//     ======================================================= */
-
-//     const toggleRow = async (
-//         item,
-//         category
-//     ) => {
-//         const willExpand =
-//             !expandedRows[category];
-
-//         setExpandedRows(
-//             (prev) => ({
-//                 ...prev,
-//                 [category]:
-//                     willExpand,
-//             })
-//         );
-
-//         if (!willExpand) {
-//             return;
-//         }
-
-//         /* =====================================================
-//            FIRST: EXISTING CALLBACK
-
-//            Keep this so existing parent functionality is not
-//            broken.
-
-//            If parent already handles some additional logic,
-//            it will continue to work.
-//         ===================================================== */
-
-//         if (
-//             typeof onExpandCategory ===
-//             "function"
-//         ) {
-//             try {
-//                 await onExpandCategory(
-//                     item
-//                 );
-//             } catch (error) {
-//                 console.error(
-//                     "onExpandCategory failed:",
-//                     error
-//                 );
-//             }
-//         }
-
-//         /* =====================================================
-//            THEN LOAD THE ACTUAL CATEGORY DETAIL DATA
-
-//            This guarantees this component receives and stores
-//            the category-detail API response itself.
-//         ===================================================== */
-
-//         await loadCategoryDetails(
-//             item
-//         );
-//     };
-
-//     /* =======================================================
-//        DISPLAY
-//     ======================================================= */
-
-//     const displayValue = (
-//         value
-//     ) => {
-//         return formatValue(
-//             value,
-//             unit
-//         );
-//     };
-
-//     /* =======================================================
-//        VARIANCE COLOR
-//     ======================================================= */
-
-//     const getVarianceColor = (
-//         value
-//     ) => {
-//         if (
-//             value === null ||
-//             value === undefined ||
-//             value === ""
-//         ) {
-//             return "#94A3B8";
-//         }
-
-//         const number =
-//             Number(value);
-
-//         if (
-//             Number.isNaN(number)
-//         ) {
-//             return "#94A3B8";
-//         }
-
-//         return number < 0
-//             ? "#DC2626"
-//             : "#16A34A";
-//     };
-
-//     /* =======================================================
-//        TARGET
-//     ======================================================= */
-
-//     const displayTarget = (
-//         value
-//     ) => {
-//         if (
-//             value === null ||
-//             value === undefined ||
-//             value === ""
-//         ) {
-//             return "—";
-//         }
-
-//         return displayValue(
-//             value
-//         );
-//     };
-
-//     /* =======================================================
-//        VARIANCE
-//     ======================================================= */
-
-//     const displayVariance = (
-//         value
-//     ) => {
-//         if (
-//             value === null ||
-//             value === undefined ||
-//             value === ""
-//         ) {
-//             return "—";
-//         }
-
-//         const number =
-//             Number(value);
-
-//         if (
-//             Number.isNaN(number)
-//         ) {
-//             return "—";
-//         }
-
-//         if (number < 0) {
-//             if (
-//                 unit === "millions"
-//             ) {
-//                 const millions =
-//                     Math.abs(number) /
-//                     1000000;
-
-//                 return `(${millions.toFixed(
-//                     2
-//                 )}M)`;
-//             }
-
-//             return `(${Math.round(
-//                 Math.abs(number)
-//             ).toLocaleString(
-//                 "en-IN"
-//             )})`;
-//         }
-
-//         return displayValue(
-//             number
-//         );
-//     };
-
-//     /* =======================================================
-//        VARIANCE %
-//     ======================================================= */
-
-//     const displayVariancePercent =
-//         (value) => {
-//             if (
-//                 value === null ||
-//                 value === undefined ||
-//                 value === ""
-//             ) {
-//                 return "—";
-//             }
-
-//             const number =
-//                 Number(value);
-
-//             if (
-//                 Number.isNaN(number)
-//             ) {
-//                 return "—";
-//             }
-
-//             return `${number.toFixed(
-//                 1
-//             )}%`;
-//         };
-
-//     /* =======================================================
-//        TOTAL VALUES
-//     ======================================================= */
-
-//     const totalActualYTD =
-//         getTotalYTD(rows);
-
-//     return (
-//         <div
-//             style={{
-//                 width: "100%",
-//                 background: "#FFFFFF",
-//                 border:
-//                     "1px solid #E5E7EB",
-//                 borderRadius: 10,
-//                 boxSizing:
-//                     "border-box",
-//                 overflow: "hidden",
-//                 marginTop: 12,
-//             }}
-//         >
-//             {/* HEADER */}
-
-//             <div
-//                 style={{
-//                     height: 44,
-//                     display: "flex",
-//                     alignItems:
-//                         "center",
-//                     justifyContent:
-//                         "space-between",
-//                     padding: "0 12px",
-//                     boxSizing:
-//                         "border-box",
-//                     borderBottom:
-//                         collapsed
-//                             ? "none"
-//                             : "1px solid #F1F5F9",
-//                 }}
-//             >
-//                 <h3
-//                     style={{
-//                         margin: 0,
-//                         fontSize: 13,
-//                         lineHeight:
-//                             "16px",
-//                         fontWeight: 700,
-//                         color: "#0F172A",
-//                         whiteSpace:
-//                             "nowrap",
-//                     }}
-//                 >
-//                     Month-on-Month OPEX Report
-//                 </h3>
-
-//                 <div
-//                     style={{
-//                         display: "flex",
-//                         alignItems:
-//                             "center",
-//                         gap: 8,
-//                     }}
-//                 >
-//                     <button
-//                         type="button"
-//                         onClick={() =>
-//                             setCollapsed(
-//                                 (prev) =>
-//                                     !prev
-//                             )
-//                         }
-//                         style={{
-//                             display: "flex",
-//                             alignItems:
-//                                 "center",
-//                             gap: 4,
-//                             border: "none",
-//                             background:
-//                                 "transparent",
-//                             padding:
-//                                 "3px 4px",
-//                             cursor:
-//                                 "pointer",
-//                             color:
-//                                 "#5B3FE4",
-//                             fontSize: 10,
-//                             fontWeight: 600,
-//                             whiteSpace:
-//                                 "nowrap",
-//                         }}
-//                     >
-//                         {collapsed ? (
-//                             <ChevronDown
-//                                 size={11}
-//                                 strokeWidth={2}
-//                             />
-//                         ) : (
-//                             <ChevronsUp
-//                                 size={11}
-//                                 strokeWidth={2}
-//                             />
-//                         )}
-
-//                         {collapsed
-//                             ? "Expand"
-//                             : "Collapse"}
-//                     </button>
-
-//                     <button
-//                         type="button"
-//                         onClick={() =>
-//                             setUnit("aed")
-//                         }
-//                         style={{
-//                             height: 28,
-//                             minWidth: 39,
-//                             padding:
-//                                 "0 9px",
-//                             borderRadius: 6,
-//                             border:
-//                                 "1px solid #E2E8F0",
-//                             background:
-//                                 unit === "aed"
-//                                     ? "#5B3FE4"
-//                                     : "#FFFFFF",
-//                             color:
-//                                 unit === "aed"
-//                                     ? "#FFFFFF"
-//                                     : "#334155",
-//                             fontSize: 9,
-//                             fontWeight: 600,
-//                             cursor:
-//                                 "pointer",
-//                         }}
-//                     >
-//                         AED
-//                     </button>
-
-//                     <button
-//                         type="button"
-//                         onClick={() =>
-//                             setUnit(
-//                                 "millions"
-//                             )
-//                         }
-//                         style={{
-//                             height: 28,
-//                             minWidth: 74,
-//                             padding:
-//                                 "0 9px",
-//                             borderRadius: 6,
-//                             border:
-//                                 unit ===
-//                                     "millions"
-//                                     ? "1px solid #5B3FE4"
-//                                     : "1px solid #E2E8F0",
-//                             background:
-//                                 unit ===
-//                                     "millions"
-//                                     ? "#5B3FE4"
-//                                     : "#FFFFFF",
-//                             color:
-//                                 unit ===
-//                                     "millions"
-//                                     ? "#FFFFFF"
-//                                     : "#334155",
-//                             fontSize: 9,
-//                             fontWeight: 600,
-//                             cursor:
-//                                 "pointer",
-//                         }}
-//                     >
-//                         AED Millions
-//                     </button>
-
-//                     <button
-//                         type="button"
-//                         style={{
-//                             border: "none",
-//                             background:
-//                                 "transparent",
-//                             padding:
-//                                 "2px 3px",
-//                             cursor:
-//                                 "pointer",
-//                             color:
-//                                 "#64748B",
-//                             fontSize: 17,
-//                             lineHeight: 1,
-//                             marginLeft: 1,
-//                         }}
-//                     >
-//                         ⋮
-//                     </button>
-//                 </div>
-//             </div>
-
-//             {!collapsed && (
-//                 <div
-//                     style={{
-//                         width: "100%",
-//                         overflowX:
-//                             "auto",
-//                         overflowY:
-//                             "hidden",
-//                         padding:
-//                             "0 8px 10px",
-//                         boxSizing:
-//                             "border-box",
-//                     }}
-//                 >
-//                     <table
-//                         style={{
-//                             width: "100%",
-//                             minWidth: 1500,
-//                             borderCollapse:
-//                                 "collapse",
-//                             tableLayout:
-//                                 "fixed",
-//                         }}
-//                     >
-//                         <colgroup>
-//                             <col
-//                                 style={{
-//                                     width:
-//                                         "15.5%",
-//                                 }}
-//                             />
-
-//                             {months.map(
-//                                 (month) => (
-//                                     <col
-//                                         key={
-//                                             month.key
-//                                         }
-//                                         style={{
-//                                             width:
-//                                                 "4.6%",
-//                                         }}
-//                                     />
-//                                 )
-//                             )}
-
-//                             <col
-//                                 style={{
-//                                     width:
-//                                         "6.8%",
-//                                 }}
-//                             />
-
-//                             <col
-//                                 style={{
-//                                     width:
-//                                         "6.8%",
-//                                 }}
-//                             />
-
-//                             <col
-//                                 style={{
-//                                     width:
-//                                         "6.8%",
-//                                 }}
-//                             />
-
-//                             <col
-//                                 style={{
-//                                     width:
-//                                         "7.5%",
-//                                 }}
-//                             />
-//                         </colgroup>
-
-//                         <thead>
-//                             <tr
-//                                 style={{
-//                                     height: 43,
-//                                     borderBottom:
-//                                         "1px solid #E5E7EB",
-//                                 }}
-//                             >
-//                                 <th
-//                                     style={{
-//                                         padding:
-//                                             "0 7px",
-//                                         textAlign:
-//                                             "left",
-//                                         color:
-//                                             "#1E3A8A",
-//                                         fontSize: 9,
-//                                         fontWeight: 700,
-//                                     }}
-//                                 >
-//                                     Expense Category
-//                                 </th>
-
-//                                 {months.map(
-//                                     (month) => (
-//                                         <th
-//                                             key={
-//                                                 month.key
-//                                             }
-//                                             style={{
-//                                                 padding:
-//                                                     "0 8px",
-//                                                 textAlign:
-//                                                     "right",
-//                                                 color:
-//                                                     "#1E3A8A",
-//                                                 fontSize: 9,
-//                                                 fontWeight: 700,
-//                                                 whiteSpace:
-//                                                     "nowrap",
-//                                             }}
-//                                         >
-//                                             {
-//                                                 month.label
-//                                             }
-//                                         </th>
-//                                     )
-//                                 )}
-
-//                                 <th
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         color:
-//                                             "#1E3A8A",
-//                                         fontSize: 9,
-//                                         fontWeight: 700,
-//                                         borderLeft:
-//                                             "1px solid #E5E7EB",
-//                                     }}
-//                                 >
-//                                     Actual YTD
-//                                 </th>
-
-//                                 <th
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         color:
-//                                             "#1E3A8A",
-//                                         fontSize: 9,
-//                                         fontWeight: 700,
-//                                     }}
-//                                 >
-//                                     Target YTD
-//                                 </th>
-
-//                                 <th
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         color:
-//                                             "#1E3A8A",
-//                                         fontSize: 9,
-//                                         fontWeight: 700,
-//                                     }}
-//                                 >
-//                                     Variance
-//                                 </th>
-
-//                                 <th
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         color:
-//                                             "#1E3A8A",
-//                                         fontSize: 9,
-//                                         fontWeight: 700,
-//                                     }}
-//                                 >
-//                                     Variance %
-//                                 </th>
-//                             </tr>
-//                         </thead>
-
-//                         <tbody>
-//                             {rows.map(
-//                                 (
-//                                     item,
-//                                     index
-//                                 ) => {
-//                                     const rowKey =
-//                                         item?.category ||
-//                                         index;
-
-//                                     const isExpanded =
-//                                         !!expandedRows[
-//                                         rowKey
-//                                         ];
-
-//                                     const actualYTD =
-//                                         getActualYTD(
-//                                             item
-//                                         );
-
-//                                     const targetYTD =
-//                                         getTargetYTD(
-//                                             item
-//                                         );
-
-//                                     const varianceYTD =
-//                                         getVarianceYTD(
-//                                             item
-//                                         );
-
-//                                     const varianceYTDPercent =
-//                                         getVarianceYTDPercent(
-//                                             item
-//                                         );
-
-//                                     const details =
-//                                         getDetails(
-//                                             categoryDetails[
-//                                             rowKey
-//                                             ]
-//                                         );
-
-//                                     const isLoading =
-//                                         !!categoryDetailLoading[
-//                                         rowKey
-//                                         ] ||
-//                                         !!detailLoading?.[
-//                                         rowKey
-//                                         ];
-
-//                                     const error =
-//                                         categoryDetailError[
-//                                         rowKey
-//                                         ];
-
-//                                     return (
-//                                         <React.Fragment
-//                                             key={
-//                                                 rowKey
-//                                             }
-//                                         >
-//                                             <tr
-//                                                 style={{
-//                                                     height: 55,
-//                                                     borderBottom:
-//                                                         "1px solid #F1F5F9",
-//                                                 }}
-//                                             >
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "0 7px",
-//                                                         textAlign:
-//                                                             "left",
-//                                                         fontSize: 10,
-//                                                         fontWeight: 500,
-//                                                         color:
-//                                                             "#334155",
-//                                                     }}
-//                                                 >
-//                                                     <button
-//                                                         type="button"
-//                                                         onClick={() =>
-//                                                             toggleRow(
-//                                                                 item,
-//                                                                 rowKey
-//                                                             )
-//                                                         }
-//                                                         style={{
-//                                                             display:
-//                                                                 "flex",
-//                                                             alignItems:
-//                                                                 "center",
-//                                                             gap: 6,
-//                                                             border:
-//                                                                 "none",
-//                                                             background:
-//                                                                 "transparent",
-//                                                             padding: 0,
-//                                                             cursor:
-//                                                                 "pointer",
-//                                                             color:
-//                                                                 "inherit",
-//                                                             width:
-//                                                                 "100%",
-//                                                             textAlign:
-//                                                                 "left",
-//                                                         }}
-//                                                     >
-//                                                         {isExpanded ? (
-//                                                             <ChevronDown
-//                                                                 size={
-//                                                                     12
-//                                                                 }
-//                                                                 strokeWidth={
-//                                                                     1.8
-//                                                                 }
-//                                                                 color="#64748B"
-//                                                             />
-//                                                         ) : (
-//                                                             <ChevronRight
-//                                                                 size={
-//                                                                     12
-//                                                                 }
-//                                                                 strokeWidth={
-//                                                                     1.8
-//                                                                 }
-//                                                                 color="#64748B"
-//                                                             />
-//                                                         )}
-
-//                                                         <span>
-//                                                             {
-//                                                                 item?.category
-//                                                             }
-//                                                         </span>
-//                                                     </button>
-//                                                 </td>
-
-//                                                 {months.map(
-//                                                     (
-//                                                         month
-//                                                     ) => {
-//                                                         const value =
-//                                                             getMonthValue(
-//                                                                 item,
-//                                                                 month.key,
-//                                                                 month.label
-//                                                             );
-
-//                                                         const isEmpty =
-//                                                             value ===
-//                                                             null ||
-//                                                             value ===
-//                                                             undefined ||
-//                                                             value ===
-//                                                             "" ||
-//                                                             value ===
-//                                                             "-" ||
-//                                                             value ===
-//                                                             "—";
-
-//                                                         return (
-//                                                             <td
-//                                                                 key={
-//                                                                     month.key
-//                                                                 }
-//                                                                 style={{
-//                                                                     padding:
-//                                                                         "0 8px",
-//                                                                     textAlign:
-//                                                                         "right",
-//                                                                     fontSize: 10,
-//                                                                     fontWeight: 500,
-//                                                                     color:
-//                                                                         isEmpty
-//                                                                             ? "#94A3B8"
-//                                                                             : "#334155",
-//                                                                     whiteSpace:
-//                                                                         "nowrap",
-//                                                                 }}
-//                                                             >
-//                                                                 {displayValue(
-//                                                                     value
-//                                                                 )}
-//                                                             </td>
-//                                                         );
-//                                                     }
-//                                                 )}
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "0 4px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontSize: 10,
-//                                                         fontWeight: 600,
-//                                                         color:
-//                                                             "#334155",
-//                                                         borderLeft:
-//                                                             "1px solid #E5E7EB",
-//                                                     }}
-//                                                 >
-//                                                     {displayValue(
-//                                                         actualYTD
-//                                                     )}
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "0 4px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontSize: 10,
-//                                                         fontWeight: 500,
-//                                                         color:
-//                                                             "#94A3B8",
-//                                                     }}
-//                                                 >
-//                                                     {displayTarget(
-//                                                         targetYTD
-//                                                     )}
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "0 4px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontSize: 10,
-//                                                         fontWeight: 600,
-//                                                         color:
-//                                                             getVarianceColor(
-//                                                                 varianceYTD
-//                                                             ),
-//                                                     }}
-//                                                 >
-//                                                     {displayVariance(
-//                                                         varianceYTD
-//                                                     )}
-//                                                 </td>
-
-//                                                 <td
-//                                                     style={{
-//                                                         padding:
-//                                                             "0 4px",
-//                                                         textAlign:
-//                                                             "right",
-//                                                         fontSize: 10,
-//                                                         fontWeight: 600,
-//                                                         color:
-//                                                             getVarianceColor(
-//                                                                 varianceYTDPercent
-//                                                             ),
-//                                                     }}
-//                                                 >
-//                                                     {displayVariancePercent(
-//                                                         varianceYTDPercent
-//                                                     )}
-//                                                 </td>
-//                                             </tr>
-
-//                                             {/* =================================================
-//                           EXPANDED NATURAL ACCOUNT DETAILS
-//                       ================================================= */}
-
-//                                             {isExpanded && (
-//                                                 <tr
-//                                                     style={{
-//                                                         background:
-//                                                             "#FAFAFC",
-//                                                     }}
-//                                                 >
-//                                                     <td
-//                                                         colSpan={
-//                                                             months.length +
-//                                                             5
-//                                                         }
-//                                                         style={{
-//                                                             padding:
-//                                                                 "14px 27px",
-//                                                         }}
-//                                                     >
-//                                                         {isLoading ? (
-//                                                             <div
-//                                                                 style={{
-//                                                                     fontSize: 9,
-//                                                                     color:
-//                                                                         "#94A3B8",
-//                                                                 }}
-//                                                             >
-//                                                                 Loading
-//                                                                 natural-account
-//                                                                 details...
-//                                                             </div>
-//                                                         ) : error ? (
-//                                                             <div
-//                                                                 style={{
-//                                                                     fontSize: 9,
-//                                                                     color:
-//                                                                         "#DC2626",
-//                                                                 }}
-//                                                             >
-//                                                                 Failed to
-//                                                                 load
-//                                                                 natural-account
-//                                                                 details.
-//                                                             </div>
-//                                                         ) : !details.length ? (
-//                                                             <div
-//                                                                 style={{
-//                                                                     fontSize: 9,
-//                                                                     color:
-//                                                                         "#94A3B8",
-//                                                                 }}
-//                                                             >
-//                                                                 No
-//                                                                 natural-account
-//                                                                 details
-//                                                                 available.
-//                                                             </div>
-//                                                         ) : (
-//                                                             <div
-//                                                                 style={{
-//                                                                     width:
-//                                                                         "100%",
-//                                                                     overflowX:
-//                                                                         "auto",
-//                                                                 }}
-//                                                             >
-//                                                                 <div
-//                                                                     style={{
-//                                                                         fontSize: 10,
-//                                                                         fontWeight: 700,
-//                                                                         color:
-//                                                                             "#0F172A",
-//                                                                         marginBottom:
-//                                                                             8,
-//                                                                     }}
-//                                                                 >
-//                                                                     Natural-account
-//                                                                     details
-//                                                                     for{" "}
-//                                                                     {
-//                                                                         item?.category
-//                                                                     }
-//                                                                 </div>
-
-//                                                                 <table
-//                                                                     style={{
-//                                                                         width:
-//                                                                             "100%",
-//                                                                         minWidth:
-//                                                                             1300,
-//                                                                         borderCollapse:
-//                                                                             "collapse",
-//                                                                         tableLayout:
-//                                                                             "fixed",
-//                                                                     }}
-//                                                                 >
-//                                                                     <colgroup>
-//                                                                         <col
-//                                                                             style={{
-//                                                                                 width:
-//                                                                                     "25%",
-//                                                                             }}
-//                                                                         />
-
-//                                                                         {months.map(
-//                                                                             (
-//                                                                                 month
-//                                                                             ) => (
-//                                                                                 <col
-//                                                                                     key={
-//                                                                                         month.key
-//                                                                                     }
-//                                                                                     style={{
-//                                                                                         width:
-//                                                                                             "5.3%",
-//                                                                                     }}
-//                                                                                 />
-//                                                                             )
-//                                                                         )}
-//                                                                     </colgroup>
-
-//                                                                     <thead>
-//                                                                         <tr
-//                                                                             style={{
-//                                                                                 height:
-//                                                                                     34,
-//                                                                                 borderBottom:
-//                                                                                     "1px solid #E5E7EB",
-//                                                                             }}
-//                                                                         >
-//                                                                             <th
-//                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         "0 7px",
-//                                                                                     textAlign:
-//                                                                                         "left",
-//                                                                                     color:
-//                                                                                         "#1E3A8A",
-//                                                                                     fontSize: 9,
-//                                                                                     fontWeight: 700,
-//                                                                                 }}
-//                                                                             >
-//                                                                                 Natural
-//                                                                                 Account
-//                                                                             </th>
-
-//                                                                             {months.map(
-//                                                                                 (
-//                                                                                     month
-//                                                                                 ) => (
-//                                                                                     <th
-//                                                                                         key={
-//                                                                                             month.key
-//                                                                                         }
-//                                                                                         style={{
-//                                                                                             padding:
-//                                                                                                 "0 8px",
-//                                                                                             textAlign:
-//                                                                                                 "right",
-//                                                                                             color:
-//                                                                                                 "#1E3A8A",
-//                                                                                             fontSize: 9,
-//                                                                                             fontWeight: 700,
-//                                                                                             whiteSpace:
-//                                                                                                 "nowrap",
-//                                                                                         }}
-//                                                                                     >
-//                                                                                         {
-//                                                                                             month.label
-//                                                                                         }
-//                                                                                     </th>
-//                                                                                 )
-//                                                                             )}
-//                                                                         </tr>
-//                                                                     </thead>
-
-//                                                                     <tbody>
-//                                                                         {details.map(
-//                                                                             (
-//                                                                                 account,
-//                                                                                 accountIndex
-//                                                                             ) => {
-//                                                                                 const accountCode =
-//                                                                                     getAccountCode(
-//                                                                                         account
-//                                                                                     );
-
-//                                                                                 const accountName =
-//                                                                                     getAccountName(
-//                                                                                         account
-//                                                                                     );
-
-//                                                                                 return (
-//                                                                                     <tr
-//                                                                                         key={
-//                                                                                             accountCode !==
-//                                                                                                 "—"
-//                                                                                                 ? accountCode
-//                                                                                                 : accountIndex
-//                                                                                         }
-//                                                                                         style={{
-//                                                                                             height:
-//                                                                                                 42,
-//                                                                                             borderBottom:
-//                                                                                                 "1px solid #F1F5F9",
-//                                                                                         }}
-//                                                                                     >
-//                                                                                         <td
-//                                                                                             style={{
-//                                                                                                 padding:
-//                                                                                                     "0 7px",
-//                                                                                                 textAlign:
-//                                                                                                     "left",
-//                                                                                                 fontSize: 9,
-//                                                                                                 color:
-//                                                                                                     "#334155",
-//                                                                                                 fontWeight: 500,
-//                                                                                                 whiteSpace:
-//                                                                                                     "nowrap",
-//                                                                                             }}
-//                                                                                         >
-//                                                                                             {accountCode !==
-//                                                                                                 "—" && (
-//                                                                                                     <span>
-//                                                                                                         {
-//                                                                                                             accountCode
-//                                                                                                         }{" "}
-//                                                                                                     </span>
-//                                                                                                 )}
-
-//                                                                                             {
-//                                                                                                 accountName
-//                                                                                             }
-//                                                                                         </td>
-
-//                                                                                         {months.map(
-//                                                                                             (
-//                                                                                                 month
-//                                                                                             ) => {
-//                                                                                                 const value =
-//                                                                                                     getAccountMonthValue(
-//                                                                                                         account,
-//                                                                                                         month.key,
-//                                                                                                         month.label
-//                                                                                                     );
-
-//                                                                                                 return (
-//                                                                                                     <td
-//                                                                                                         key={
-//                                                                                                             month.key
-//                                                                                                         }
-//                                                                                                         style={{
-//                                                                                                             padding:
-//                                                                                                                 "0 8px",
-//                                                                                                             textAlign:
-//                                                                                                                 "right",
-//                                                                                                             fontSize: 9,
-//                                                                                                             color:
-//                                                                                                                 value ===
-//                                                                                                                     null ||
-//                                                                                                                     value ===
-//                                                                                                                     undefined ||
-//                                                                                                                     value ===
-//                                                                                                                     "" ||
-//                                                                                                                     value ===
-//                                                                                                                     "-" ||
-//                                                                                                                     value ===
-//                                                                                                                     "—"
-//                                                                                                                     ? "#94A3B8"
-//                                                                                                                     : "#334155",
-//                                                                                                             whiteSpace:
-//                                                                                                                 "nowrap",
-//                                                                                                         }}
-//                                                                                                     >
-//                                                                                                         {displayValue(
-//                                                                                                             value
-//                                                                                                         )}
-//                                                                                                     </td>
-//                                                                                                 );
-//                                                                                             }
-//                                                                                         )}
-//                                                                                     </tr>
-//                                                                                 );
-//                                                                             }
-//                                                                         )}
-//                                                                     </tbody>
-//                                                                 </table>
-//                                                             </div>
-//                                                         )}
-//                                                     </td>
-//                                                 </tr>
-//                                             )}
-//                                         </React.Fragment>
-//                                     );
-//                                 }
-//                             )}
-
-//                             {/* =================================================
-//                   TOTAL OPERATING EXPENSES
-//               ================================================= */}
-
-//                             <tr
-//                                 style={{
-//                                     height: 56,
-//                                     background:
-//                                         "#F4F2FF",
-//                                 }}
-//                             >
-//                                 <td
-//                                     style={{
-//                                         padding:
-//                                             "0 7px",
-//                                         textAlign:
-//                                             "left",
-//                                         fontSize: 10,
-//                                         fontWeight: 700,
-//                                         color:
-//                                             "#0F172A",
-//                                     }}
-//                                 >
-//                                     <div
-//                                         style={{
-//                                             display:
-//                                                 "flex",
-//                                             alignItems:
-//                                                 "center",
-//                                             gap: 6,
-//                                         }}
-//                                     >
-//                                         <ChevronRight
-//                                             size={12}
-//                                             strokeWidth={
-//                                                 1.8
-//                                             }
-//                                             color="#64748B"
-//                                         />
-
-//                                         <span>
-//                                             Total Operating
-//                                             Expenses
-//                                         </span>
-//                                     </div>
-//                                 </td>
-
-//                                 {/* TOTAL JAN - DEC */}
-
-//                                 {months.map(
-//                                     (month) => {
-//                                         const value =
-//                                             getTotalMonthValue(
-//                                                 rows,
-//                                                 month.key,
-//                                                 month.label
-//                                             );
-
-//                                         const isEmpty =
-//                                             value ===
-//                                             null ||
-//                                             value ===
-//                                             undefined ||
-//                                             value ===
-//                                             "" ||
-//                                             value ===
-//                                             "-" ||
-//                                             value ===
-//                                             "—";
-
-//                                         return (
-//                                             <td
-//                                                 key={
-//                                                     month.key
-//                                                 }
-//                                                 style={{
-//                                                     padding:
-//                                                         "0 8px",
-//                                                     textAlign:
-//                                                         "right",
-//                                                     fontSize: 10,
-//                                                     fontWeight: 700,
-//                                                     color:
-//                                                         isEmpty
-//                                                             ? "#94A3B8"
-//                                                             : "#0F172A",
-//                                                     whiteSpace:
-//                                                         "nowrap",
-//                                                 }}
-//                                             >
-//                                                 {displayValue(
-//                                                     value
-//                                                 )}
-//                                             </td>
-//                                         );
-//                                     }
-//                                 )}
-
-//                                 {/* TOTAL ACTUAL YTD */}
-
-//                                 <td
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         fontSize: 10,
-//                                         fontWeight: 700,
-//                                         color:
-//                                             "#0F172A",
-//                                         borderLeft:
-//                                             "1px solid #DDD8F7",
-//                                     }}
-//                                 >
-//                                     {displayValue(
-//                                         totalActualYTD
-//                                     )}
-//                                 </td>
-
-//                                 {/* TOTAL TARGET YTD */}
-
-//                                 <td
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         fontSize: 10,
-//                                         fontWeight: 700,
-//                                         color:
-//                                             "#94A3B8",
-//                                     }}
-//                                 >
-//                                     {displayTarget(
-//                                         null
-//                                     )}
-//                                 </td>
-
-//                                 {/* TOTAL VARIANCE */}
-
-//                                 <td
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         fontSize: 10,
-//                                         fontWeight: 700,
-//                                         color:
-//                                             getVarianceColor(
-//                                                 null
-//                                             ),
-//                                     }}
-//                                 >
-//                                     {displayVariance(
-//                                         null
-//                                     )}
-//                                 </td>
-
-//                                 {/* TOTAL VARIANCE % */}
-
-//                                 <td
-//                                     style={{
-//                                         padding:
-//                                             "0 4px",
-//                                         textAlign:
-//                                             "right",
-//                                         fontSize: 10,
-//                                         fontWeight: 700,
-//                                         color:
-//                                             getVarianceColor(
-//                                                 null
-//                                             ),
-//                                     }}
-//                                 >
-//                                     {displayVariancePercent(
-//                                         null
-//                                     )}
-//                                 </td>
-//                             </tr>
-//                         </tbody>
-//                     </table>
-//                 </div>
-//             )}
-//         </div>
-//     );
-// }
-
-import React, { useState } from "react";
+import React, {
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 
 import {
     ChevronRight,
     ChevronDown,
     ChevronsUp,
+    X,
+    MoreVertical,
+    Search,
+    FileSpreadsheet,
+    FileText, Eye,
 } from "lucide-react";
+import ExportButtons from "../Common/ExportButtons";
 
 /* =========================================================
    FORMAT VALUE
+
+   AED MODE:
+   AED 18,294,759.38
+
+   AED MILLIONS MODE:
+   18.29M
 ========================================================= */
 
 const formatValue = (value, unit = "millions") => {
@@ -2008,33 +46,43 @@ const formatValue = (value, unit = "millions") => {
         return "—";
     }
 
-    /* -------------------------------------------------------
-       GENUINE ZERO
-    ------------------------------------------------------- */
-
     if (number === 0) {
-        return "0";
+        return unit === "aed"
+            ? "AED 0.00"
+            : "0";
     }
+
+    /* =====================================================
+       AED MILLIONS
+    ===================================================== */
 
     if (unit === "millions") {
         const millions = number / 1000000;
 
-        /* ---------------------------------------------------
-           SMALL NON-ZERO VALUE
-        --------------------------------------------------- */
-
         if (Math.abs(millions) < 0.01) {
-            return millions < 0 ? "-<0.01M" : "<0.01M";
+            return millions < 0
+                ? "-<0.01M"
+                : "<0.01M";
         }
 
         return `${millions.toFixed(2)}M`;
     }
 
-    return Math.round(number).toLocaleString("en-IN");
+    /* =====================================================
+       AED INTERNATIONAL FORMAT
+    ===================================================== */
+
+    return `AED ${number.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
 };
 
 /* =========================================================
    MONTHS
+
+   ALWAYS RENDER ALL 12 MONTHS.
+   Missing backend values => —
 ========================================================= */
 
 const months = [
@@ -2051,6 +99,20 @@ const months = [
     { key: "nov", label: "Nov" },
     { key: "dec", label: "Dec" },
 ];
+
+/* =========================================================
+   EMPTY VALUE CHECK
+========================================================= */
+
+const isEmptyValue = (value) => {
+    return (
+        value === null ||
+        value === undefined ||
+        value === "" ||
+        value === "-" ||
+        value === "—"
+    );
+};
 
 /* =========================================================
    GET MONTHLY ACTUAL
@@ -2086,25 +148,6 @@ const getMonthValue = (
     ) {
         return null;
     }
-
-    /* -------------------------------------------------------
-       OBJECT
-
-       Supports:
-
-       {
-         "Jan-26": 8364319.95,
-         "Feb-26": 8417330,
-         "Sep-26": 664
-       }
-
-       Also supports:
-
-       {
-         jan: 100,
-         feb: 200
-       }
-    ------------------------------------------------------- */
 
     if (
         typeof monthlyActual === "object" &&
@@ -2144,40 +187,28 @@ const getMonthValue = (
                 );
             });
 
-        if (matchingKey) {
-            const monthValue =
-                monthlyActual[
-                matchingKey
-                ];
-
-            /* -----------------------------------------------
-               Some APIs return:
-
-               { Jan: { actual: 123 } }
-            ----------------------------------------------- */
-
-            if (
-                monthValue &&
-                typeof monthValue === "object"
-            ) {
-                return (
-                    monthValue?.value ??
-                    monthValue?.actual ??
-                    monthValue?.amount ??
-                    monthValue?.monthly_actual ??
-                    null
-                );
-            }
-
-            return monthValue;
+        if (!matchingKey) {
+            return null;
         }
 
-        return null;
-    }
+        const monthValue =
+            monthlyActual[matchingKey];
 
-    /* -------------------------------------------------------
-       ARRAY
-    ------------------------------------------------------- */
+        if (
+            monthValue &&
+            typeof monthValue === "object"
+        ) {
+            return (
+                monthValue?.value ??
+                monthValue?.actual ??
+                monthValue?.amount ??
+                monthValue?.monthly_actual ??
+                null
+            );
+        }
+
+        return monthValue;
+    }
 
     if (
         Array.isArray(monthlyActual)
@@ -2265,13 +296,7 @@ const getTotalMonthValue = (
                 monthLabel
             );
 
-        if (
-            value !== null &&
-            value !== undefined &&
-            value !== "" &&
-            value !== "-" &&
-            value !== "—"
-        ) {
+        if (!isEmptyValue(value)) {
             const number =
                 Number(value);
 
@@ -2323,13 +348,7 @@ const getTotalYTD = (data) => {
         const value =
             getActualYTD(item);
 
-        if (
-            value !== null &&
-            value !== undefined &&
-            value !== "" &&
-            value !== "-" &&
-            value !== "—"
-        ) {
+        if (!isEmptyValue(value)) {
             const number =
                 Number(value);
 
@@ -2387,7 +406,7 @@ const getVarianceYTDPercent = (item) => {
 };
 
 /* =========================================================
-   GET DETAILS FROM API RESPONSE
+   GET DETAILS
 ========================================================= */
 
 const getDetails = (value) => {
@@ -2475,19 +494,6 @@ const getAccountCode = (account) => {
 
 /* =========================================================
    GET NATURAL ACCOUNT LABEL
-
-   Prevents duplicate account code display.
-
-   Example:
-
-   Code: 610100
-   Name: 610100 - Salaries
-
-   Result:
-   610100 - Salaries
-
-   Instead of:
-   610100 610100 - Salaries
 ========================================================= */
 
 const getNaturalAccountLabel = (
@@ -2523,10 +529,6 @@ const getNaturalAccountLabel = (
     const normalizedName =
         name.toLowerCase();
 
-    /* -------------------------------------------------------
-       Account name already contains the code.
-    ------------------------------------------------------- */
-
     if (
         normalizedName ===
         normalizedCode ||
@@ -2548,10 +550,6 @@ const getNaturalAccountLabel = (
 
 /* =========================================================
    GET ACCOUNT MONTH VALUE
-
-   Reads monthly actuals returned by:
-
-   /api/opex/category-detail-monthly
 ========================================================= */
 
 const getAccountMonthValue = (
@@ -2567,6 +565,104 @@ const getAccountMonthValue = (
 };
 
 /* =========================================================
+   CSV ESCAPE
+========================================================= */
+
+const escapeCsvValue = (value) => {
+    const stringValue =
+        value === null ||
+            value === undefined
+            ? ""
+            : String(value);
+
+    return `"${stringValue.replace(
+        /"/g,
+        '""'
+    )}"`;
+};
+
+/* =========================================================
+   FILTER LABEL HELPER (Human readable key & value names)
+========================================================= */
+
+const formatFilterKey = (key) => {
+    if (!key) return "";
+    return key
+        .replace(/_/g, " ")
+        .replace(/\bid\b/gi, "")
+        .replace(/\bcode\b/gi, "")
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const resolveOptionName = (singleVal, filterKey, filterOptions) => {
+    if (singleVal === null || singleVal === undefined) return "";
+
+    let targetCode = singleVal;
+    if (typeof singleVal === "object") {
+        targetCode = singleVal.code || singleVal.id || singleVal.value || singleVal.name || singleVal.label;
+    }
+
+    const targetCodeStr = String(targetCode).trim();
+
+    if (filterOptions && typeof filterOptions === "object") {
+        const matchingOptionsList =
+            filterOptions[filterKey] ||
+            filterOptions[filterKey + "s"] ||
+            filterOptions[filterKey.replace(/_id$|_code$/i, "")] ||
+            filterOptions[filterKey.replace(/_id$|_code$/i, "") + "s"];
+
+        if (Array.isArray(matchingOptionsList)) {
+            const foundOption = matchingOptionsList.find((opt) => {
+                if (opt === null || opt === undefined) return false;
+                if (typeof opt === "object") {
+                    const optCode = opt.code ?? opt.id ?? opt.value ?? opt.key;
+                    return String(optCode).trim() === targetCodeStr;
+                }
+                return String(opt).trim() === targetCodeStr;
+            });
+
+            if (foundOption) {
+                if (typeof foundOption === "object") {
+                    return (
+                        foundOption.name ||
+                        foundOption.label ||
+                        foundOption.title ||
+                        foundOption.display_name ||
+                        foundOption.code ||
+                        targetCodeStr
+                    );
+                }
+                return String(foundOption);
+            }
+        }
+    }
+
+    if (typeof singleVal === "object") {
+        return (
+            singleVal.name ||
+            singleVal.label ||
+            singleVal.title ||
+            singleVal.code ||
+            targetCodeStr
+        );
+    }
+
+    return targetCodeStr;
+};
+
+const formatFilterValue = (val, filterKey, filterOptions) => {
+    if (val === null || val === undefined) return "";
+    if (Array.isArray(val)) {
+        return val
+            .map((item) => resolveOptionName(item, filterKey, filterOptions))
+            .filter(Boolean)
+            .join(", ");
+    }
+    return resolveOptionName(val, filterKey, filterOptions);
+};
+
+/* =========================================================
    MAIN COMPONENT
 ========================================================= */
 
@@ -2578,25 +674,8 @@ export default function MonthOnMonthOpexReport({
     periodName = "Sep-26",
     reportingCurrency = "AED",
 
-    /*
-     * Existing parent can pass the same hierarchy
-     * filters used by the main OPEX page.
-     *
-     * Example:
-     *
-     * hierarchyFilters={{
-     *   legal_group_code: "...",
-     *   legal_entity_code: "...",
-     *   parent_division_code: "...",
-     *   subdivision_code: "...",
-     *   business_unit_code: "...",
-     *   analysis_code: "..."
-     * }}
-     *
-     * No existing behavior is changed if this
-     * prop is not supplied.
-     */
     hierarchyFilters = {},
+    filterOptions = {},
 }) {
     const [collapsed, setCollapsed] =
         useState(false);
@@ -2607,22 +686,74 @@ export default function MonthOnMonthOpexReport({
     const [expandedRows, setExpandedRows] =
         useState({});
 
-    /* =======================================================
-       LAZY LOADED CATEGORY DETAILS
-    ======================================================= */
-
     const [categoryDetails, setCategoryDetails] =
         useState({});
 
-    const [categoryDetailLoading, setCategoryDetailLoading] =
-        useState({});
+    const [
+        categoryDetailLoading,
+        setCategoryDetailLoading,
+    ] = useState({});
 
-    const [categoryDetailError, setCategoryDetailError] =
-        useState({});
+    const [
+        categoryDetailError,
+        setCategoryDetailError,
+    ] = useState({});
 
-    /* =======================================================
+    /* =====================================================
+       VIEW ALL
+    ===================================================== */
+
+    const [showViewAll, setShowViewAll] =
+        useState(false);
+
+    /* =====================================================
+       THREE DOT MENU
+    ===================================================== */
+
+    const [showExportMenu, setShowExportMenu] =
+        useState(false);
+
+    const [monthMenuOpen, setMonthMenuOpen] = useState(false);
+
+    const exportMenuRef =
+        useRef(null);
+
+        const [exporting, setExporting] = useState("");
+
+    /* =====================================================
+       CLOSE MENU WHEN CLICKING OUTSIDE
+    ===================================================== */
+
+    useEffect(() => {
+        const handleOutsideClick = (
+            event
+        ) => {
+            if (
+                exportMenuRef.current &&
+                !exportMenuRef.current.contains(
+                    event.target
+                )
+            ) {
+                setShowExportMenu(false);
+            }
+        };
+
+        document.addEventListener(
+            "mousedown",
+            handleOutsideClick
+        );
+
+        return () => {
+            document.removeEventListener(
+                "mousedown",
+                handleOutsideClick
+            );
+        };
+    }, []);
+
+    /* =====================================================
        NORMALIZE DATA
-    ======================================================= */
+    ===================================================== */
 
     const rows =
         Array.isArray(data)
@@ -2631,33 +762,63 @@ export default function MonthOnMonthOpexReport({
                 ? data.data
                 : [];
 
-    /* =======================================================
+    /* =====================================================
+       ACTIVE FILTERS
+    ===================================================== */
+
+    const activeFilters = useMemo(() => {
+        const filters = {};
+
+        if (periodName) {
+            filters.period_name =
+                periodName;
+        }
+
+        if (reportingCurrency) {
+            filters.reporting_currency =
+                reportingCurrency;
+        }
+
+        if (
+            hierarchyFilters &&
+            typeof hierarchyFilters ===
+            "object"
+        ) {
+            Object.entries(
+                hierarchyFilters
+            ).forEach(
+                ([key, value]) => {
+                    if (
+                        value !== null &&
+                        value !== undefined &&
+                        value !== "" &&
+                        value !== "—"
+                    ) {
+                        filters[key] =
+                            value;
+                    }
+                }
+            );
+        }
+
+        return filters;
+    }, [
+        periodName,
+        reportingCurrency,
+        hierarchyFilters,
+    ]);
+
+
+    /* =====================================================
        LOAD CATEGORY DETAIL
-
-       LIVE API:
-       /api/opex/category-detail-monthly
-
-       Uses:
-
-       - category
-       - selected period
-       - reporting currency
-       - hierarchy filters
-    ======================================================= */
+    ===================================================== */
 
     const loadCategoryDetails = async (item) => {
-       
-
         const category = item?.category;
 
-       
         if (!category) {
-            console.log("NO CATEGORY - RETURNING");
             return [];
         }
-        /* -------------------------------------------------
-           Already loaded
-        ------------------------------------------------- */
 
         if (
             Object.prototype.hasOwnProperty.call(
@@ -2665,205 +826,194 @@ export default function MonthOnMonthOpexReport({
                 category
             )
         ) {
-            return categoryDetails[
-                category
-            ];
+            return categoryDetails[category];
         }
 
-        /* -------------------------------------------------
-           Already loading
-        ------------------------------------------------- */
-
-        if (
-            categoryDetailLoading?.[
-            category
-            ]
-        ) {
+        if (categoryDetailLoading?.[category]) {
             return [];
         }
 
-        setCategoryDetailLoading(
-            (prev) => ({
-                ...prev,
-                [category]: true,
-            })
-        );
+        setCategoryDetailLoading((prev) => ({
+            ...prev,
+            [category]: true,
+        }));
 
-        setCategoryDetailError(
-            (prev) => ({
-                ...prev,
-                [category]: null,
-            })
-        );
+        setCategoryDetailError((prev) => ({
+            ...prev,
+            [category]: null,
+        }));
 
         try {
-            /* =============================================
-               API BASE
-            ============================================= */
-
             const configuredBase =
-                import.meta.env
-                    .VITE_API_BASE_URL ||
-                "";
+                import.meta.env.VITE_API_BASE_URL || "";
 
-            const base =
-                configuredBase.replace(
-                    /\/+$/,
-                    ""
+            const base = configuredBase.replace(/\/+$/, "");
+
+            const apiUrl = base.endsWith("/api")
+                ? `${base}/opex/category-detail-monthly`
+                : `${base}/api/opex/category-detail-monthly`;
+
+            const params = new URLSearchParams();
+
+            params.set("category", String(category));
+
+            if (
+                periodName !== null &&
+                periodName !== undefined &&
+                periodName !== "" &&
+                periodName !== "—"
+            ) {
+                if (Array.isArray(periodName)) {
+                    periodName.forEach((period) => {
+                        if (
+                            period !== null &&
+                            period !== undefined &&
+                            period !== "" &&
+                            period !== "—"
+                        ) {
+                            params.append(
+                                "period_name",
+                                String(period)
+                            );
+                        }
+                    });
+                } else {
+                    params.set(
+                        "period_name",
+                        String(periodName)
+                    );
+                }
+            }
+
+            if (
+                reportingCurrency !== null &&
+                reportingCurrency !== undefined &&
+                reportingCurrency !== "" &&
+                reportingCurrency !== "—"
+            ) {
+                params.set(
+                    "reporting_currency",
+                    String(reportingCurrency)
                 );
-
-            /* =============================================
-               LIVE MONTHLY CATEGORY DETAIL ENDPOINT
-            ============================================= */
-
-            const apiUrl =
-                base.endsWith("/api")
-                    ? `${base}/opex/category-detail-monthly`
-                    : `${base}/api/opex/category-detail-monthly`;
-
-            /* =============================================
-               REQUEST PARAMETERS
-
-               Required:
-               - category
-               - period_name
-               - reporting_currency
-
-               Plus the same hierarchy filters
-               supplied by the main OPEX page.
-            ============================================= */
-
-            const params =
-                new URLSearchParams();
-
-            /* ---------------------------------------------
-               Category
-            --------------------------------------------- */
-
-            params.set(
-                "category",
-                category
-            );
-
-            /* ---------------------------------------------
-               Selected Period
-            --------------------------------------------- */
-
-            params.set(
-                "period_name",
-                periodName
-            );
-
-            /* ---------------------------------------------
-               Reporting Currency
-            --------------------------------------------- */
-
-            params.set(
-                "reporting_currency",
-                reportingCurrency
-            );
-
-            /* ---------------------------------------------
-               SAME HIERARCHY FILTERS
-
-               Only non-empty values are added.
-
-               This keeps the API request synchronized
-               with the main OPEX page filters.
-            --------------------------------------------- */
+            }
 
             if (
                 hierarchyFilters &&
-                typeof hierarchyFilters ===
-                "object"
+                typeof hierarchyFilters === "object"
             ) {
-                Object.entries(
-                    hierarchyFilters
-                ).forEach(
+                Object.entries(hierarchyFilters).forEach(
                     ([key, value]) => {
                         if (
-                            value !==
-                            null &&
-                            value !==
-                            undefined &&
-                            value !==
-                            "" &&
-                            value !==
-                            "—"
+                            value === null ||
+                            value === undefined ||
+                            value === "" ||
+                            value === "—"
                         ) {
-                            params.set(
-                                key,
-                                String(value)
-                            );
+                            return;
                         }
+
+                        if (Array.isArray(value)) {
+                            value.forEach((itemValue) => {
+                                if (
+                                    itemValue !== null &&
+                                    itemValue !== undefined &&
+                                    itemValue !== "" &&
+                                    itemValue !== "—"
+                                ) {
+                                    params.append(
+                                        key,
+                                        typeof itemValue === "object"
+                                            ? String(itemValue?.code || itemValue?.id || itemValue?.value)
+                                            : String(itemValue)
+                                    );
+                                }
+                            });
+
+                            return;
+                        }
+
+                        params.set(
+                            key,
+                            typeof value === "object"
+                                ? String(value?.code || value?.id || value?.value)
+                                : String(value)
+                        );
                     }
                 );
             }
 
-            /* =============================================
-               AUTH TOKEN
-            ============================================= */
-
             const token =
-                localStorage.getItem(
-                    "finsight_token"
-                );
+                localStorage.getItem("token");
 
-            /* =============================================
-               API REQUEST
-            ============================================= */
+            const requestUrl =
+                `${apiUrl}?${params.toString()}`;
 
-            const response =
-                await fetch(
-                    `${apiUrl}?${params.toString()}`,
-                    {
-                        method: "GET",
+            const response = await fetch(
+                requestUrl,
+                {
+                    method: "GET",
+                    headers: {
+                        Accept:
+                            "application/json",
 
-                        headers: {
-                            Accept:
-                                "application/json",
+                        ...(token
+                            ? {
+                                Authorization:
+                                    `Bearer ${token}`,
+                            }
+                            : {}),
+                    },
+                }
+            );
 
-                            ...(token
-                                ? {
-                                    Authorization:
-                                        `Bearer ${token}`,
-                                }
-                                : {}),
-                        },
+            if (!response.ok) {
+                let errorMessage =
+                    `Category detail monthly request failed: ${response.status}`;
+
+                try {
+                    const errorData =
+                        await response.json();
+
+                    if (errorData?.detail) {
+                        errorMessage =
+                            Array.isArray(
+                                errorData.detail
+                            )
+                                ? errorData.detail
+                                    .map(
+                                        (item) =>
+                                            item?.msg ||
+                                            JSON.stringify(item)
+                                    )
+                                    .join(", ")
+                                : String(
+                                    errorData.detail
+                                );
+                    } else if (
+                        errorData?.message
+                    ) {
+                        errorMessage =
+                            String(
+                                errorData.message
+                            );
                     }
-                );
+                } catch {
+                    // Keep default HTTP error message
+                }
 
-            if (
-                !response.ok
-            ) {
-                throw new Error(
-                    `Category detail monthly request failed: ${response.status}`
-                );
+                throw new Error(errorMessage);
             }
 
             const responseData =
                 await response.json();
 
-            /* =============================================
-               EXTRACT NATURAL ACCOUNT DATA
-            ============================================= */
-
             const details =
-                getDetails(
-                    responseData
-                );
+                getDetails(responseData);
 
-            /* =============================================
-               SAVE API RESULT BY CATEGORY
-            ============================================= */
-
-            setCategoryDetails(
-                (prev) => ({
-                    ...prev,
-                    [category]:
-                        details,
-                })
-            );
+            setCategoryDetails((prev) => ({
+                ...prev,
+                [category]: details,
+            }));
 
             return details;
         } catch (error) {
@@ -2872,60 +1022,53 @@ export default function MonthOnMonthOpexReport({
                 error
             );
 
-            setCategoryDetailError(
-                (prev) => ({
-                    ...prev,
-                    [category]:
-                        error?.message ||
-                        "Failed to load category monthly details.",
-                })
-            );
+            setCategoryDetailError((prev) => ({
+                ...prev,
+                [category]:
+                    error?.message ||
+                    "Failed to load category monthly details.",
+            }));
 
             return [];
         } finally {
-            setCategoryDetailLoading(
-                (prev) => ({
-                    ...prev,
-                    [category]: false,
-                })
-            );
+            setCategoryDetailLoading((prev) => ({
+                ...prev,
+                [category]: false,
+            }));
         }
     };
 
-    /* =======================================================
+    /* =====================================================
        TOGGLE ROW
+    ===================================================== */
 
-       >
-       ↓
-       expand
-       ↓
-       category-detail-monthly API
-       ↓
-       store response
-       ↓
-       render natural accounts
-    ======================================================= */
+    const toggleRow = async (
+        item,
+        category
+    ) => {
+        const willExpand =
+            !expandedRows[category];
 
-    const toggleRow = async (item, category) => {
-        const willExpand = !expandedRows[category];
-
-        setExpandedRows((prev) => ({
-            ...prev,
-            [category]: willExpand,
-        }));
+        setExpandedRows(
+            (prev) => ({
+                ...prev,
+                [category]:
+                    willExpand,
+            })
+        );
 
         if (!willExpand) {
             return;
         }
 
-        await loadCategoryDetails(item);
+        await loadCategoryDetails(
+            item
+        );
     };
 
-
-   
-    /* =======================================================
+    /* =====================================================
        DISPLAY
-    ======================================================= */
+    ===================================================== */
 
     const displayValue = (
         value
@@ -2936,9 +1079,9 @@ export default function MonthOnMonthOpexReport({
         );
     };
 
-    /* =======================================================
+    /* =====================================================
        VARIANCE COLOR
-    ======================================================= */
+    ===================================================== */
 
     const getVarianceColor = (
         value
@@ -2965,11 +1108,9 @@ export default function MonthOnMonthOpexReport({
             : "#16A34A";
     };
 
-    /* =======================================================
+    /* =====================================================
        TARGET
-
-       Null target = —
-    ======================================================= */
+    ===================================================== */
 
     const displayTarget = (
         value
@@ -2987,13 +1128,9 @@ export default function MonthOnMonthOpexReport({
         );
     };
 
-    /* =======================================================
+    /* =====================================================
        VARIANCE
-
-       Null variance = —
-
-       No status is displayed.
-    ======================================================= */
+    ===================================================== */
 
     const displayVariance = (
         value
@@ -3016,7 +1153,9 @@ export default function MonthOnMonthOpexReport({
         }
 
         if (number === 0) {
-            return "0";
+            return unit === "aed"
+                ? "AED 0.00"
+                : "0";
         }
 
         if (number < 0) {
@@ -3038,10 +1177,14 @@ export default function MonthOnMonthOpexReport({
                 )}M)`;
             }
 
-            return `(${Math.round(
-                Math.abs(number)
+            return `(AED ${Math.abs(
+                number
             ).toLocaleString(
-                "en-IN"
+                "en-US",
+                {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }
             )})`;
         }
 
@@ -3050,9 +1193,9 @@ export default function MonthOnMonthOpexReport({
         );
     };
 
-    /* =======================================================
+    /* =====================================================
        VARIANCE %
-    ======================================================= */
+    ===================================================== */
 
     const displayVariancePercent =
         (value) => {
@@ -3078,1232 +1221,2062 @@ export default function MonthOnMonthOpexReport({
             )}%`;
         };
 
-    /* =======================================================
+    /* =====================================================
        TOTAL VALUES
-    ======================================================= */
+    ===================================================== */
 
     const totalActualYTD =
         getTotalYTD(rows);
 
-    return (
-        <div
-            style={{
-                width: "100%",
-                background: "#FFFFFF",
-                border:
-                    "1px solid #E5E7EB",
-                borderRadius: 10,
-                boxSizing:
-                    "border-box",
-                overflow: "hidden",
-                marginTop: 12,
-            }}
-        >
-            {/* HEADER */}
+    /* =====================================================
+       VIEW ALL
+    ===================================================== */
 
+    const handleViewAll = () => {
+        setShowExportMenu(false);
+        setShowViewAll(true);
+    };
+
+    /* =====================================================
+       EXPORT DATA ROWS
+    ===================================================== */
+
+    const buildExportRows = () => {
+        const exportRows = [];
+
+        exportRows.push([
+            "Month-on-Month OPEX Report",
+        ]);
+
+        exportRows.push([
+            "Period",
+            periodName || "—",
+        ]);
+
+        exportRows.push([
+            "Reporting Currency",
+            reportingCurrency || "AED",
+        ]);
+
+        Object.entries(
+            hierarchyFilters || {}
+        ).forEach(
+            ([key, value]) => {
+                if (
+                    value !== null &&
+                    value !== undefined &&
+                    value !== "" &&
+                    value !== "—"
+                ) {
+                    exportRows.push([
+                        formatFilterKey(key),
+                        formatFilterValue(value, key, filterOptions),
+                    ]);
+                }
+            }
+        );
+
+        exportRows.push([]);
+
+        exportRows.push([
+            "Expense Category",
+            ...months.map(
+                (month) =>
+                    month.label
+            ),
+            "Actual YTD",
+            "Target YTD",
+            "Variance",
+            "Variance %",
+        ]);
+
+        rows.forEach((item) => {
+            exportRows.push([
+                item?.category ||
+                "—",
+
+                ...months.map(
+                    (month) => {
+                        const value =
+                            getMonthValue(
+                                item,
+                                month.key,
+                                month.label
+                            );
+
+                        return isEmptyValue(
+                            value
+                        )
+                            ? "—"
+                            : value;
+                    }
+                ),
+
+                getActualYTD(item) ??
+                "—",
+
+                getTargetYTD(item) ??
+                "—",
+
+                getVarianceYTD(item) ??
+                "—",
+
+                getVarianceYTDPercent(
+                    item
+                ) ?? "—",
+            ]);
+        });
+
+        exportRows.push([
+            "Total Operating Expenses",
+
+            ...months.map(
+                (month) => {
+                    const value =
+                        getTotalMonthValue(
+                            rows,
+                            month.key,
+                            month.label
+                        );
+
+                    return isEmptyValue(
+                        value
+                    )
+                        ? "—"
+                        : value;
+                }
+            ),
+
+            totalActualYTD ??
+            "—",
+
+            "—",
+            "—",
+            "—",
+        ]);
+
+        return exportRows;
+    };
+
+    /* =====================================================
+       EXPORT EXCEL
+    ===================================================== */
+
+    const handleExportExcel = () => {
+        setShowExportMenu(false);
+
+        const exportRows =
+            buildExportRows();
+
+        const tableRows =
+            exportRows
+                .map(
+                    (row) => `
+                        <tr>
+                            ${row
+                            .map(
+                                (cell) =>
+                                    `<td>${String(
+                                        cell ??
+                                        ""
+                                    )
+                                        .replace(
+                                            /&/g,
+                                            "&amp;"
+                                        )
+                                        .replace(
+                                            /</g,
+                                            "&lt;"
+                                        )
+                                        .replace(
+                                            />/g,
+                                            "&gt;"
+                                        )}</td>`
+                            )
+                            .join("")}
+                        </tr>
+                    `
+                )
+                .join("");
+
+        const excelHtml = `
+            <html>
+                <head>
+                    <meta charset="UTF-8" />
+                </head>
+                <body>
+                    <table border="1">
+                        ${tableRows}
+                    </table>
+                </body>
+            </html>
+        `;
+
+        const blob =
+            new Blob(
+                [excelHtml],
+                {
+                    type:
+                        "application/vnd.ms-excel;charset=utf-8;",
+                }
+            );
+
+        const url =
+            URL.createObjectURL(
+                blob
+            );
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+        link.href = url;
+
+        link.download =
+            `Month-on-Month-OPEX-${periodName || "Report"}.xls`;
+
+        document.body.appendChild(
+            link
+        );
+
+        link.click();
+
+        document.body.removeChild(
+            link
+        );
+
+        URL.revokeObjectURL(
+            url
+        );
+    };
+
+    /* =====================================================
+       EXPORT PDF (DIRECT FILE DOWNLOAD)
+    ===================================================== */
+
+    const handleExportPDF = () => {
+        setShowExportMenu(false);
+
+        const exportRows =
+            buildExportRows();
+
+        const tableRows =
+            exportRows
+                .map(
+                    (row, rowIndex) => {
+                        const isHeader =
+                            rowIndex ===
+                            exportRows.findIndex(
+                                (r) =>
+                                    r?.[0] ===
+                                    "Expense Category"
+                            );
+
+                        return `
+                            <tr>
+                                ${row
+                                .map(
+                                    (cell) =>
+                                        `<td ${isHeader
+                                            ? 'style="font-weight:700;background:#f1f5f9;"'
+                                            : ""
+                                        }>${String(
+                                            cell ??
+                                            ""
+                                        )
+                                            .replace(
+                                                /&/g,
+                                                "&amp;"
+                                            )
+                                            .replace(
+                                                /</g,
+                                                "&lt;"
+                                            )
+                                            .replace(
+                                                />/g,
+                                                "&gt;"
+                                            )}</td>`
+                                )
+                                .join("")}
+                            </tr>
+                        `;
+                    }
+                )
+                .join("");
+
+        const pdfHtml = `
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <meta charset="UTF-8" />
+                    <title>Month-on-Month OPEX Report</title>
+                    <style>
+                        @page { size: landscape; margin: 10mm; }
+                        * { box-sizing: border-box; }
+                        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #0f172a; }
+                        h1 { font-size: 18px; margin: 0 0 14px; }
+                        table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9px; }
+                        th, td { border: 1px solid #dbe2ea; padding: 6px; text-align: right; white-space: nowrap; }
+                        td:first-child, th:first-child { text-align: left; width: 18%; }
+                        th { color: #1e3a8a; background: #f8fafc; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Month-on-Month OPEX Report</h1>
+                    <table>
+                        ${tableRows}
+                    </table>
+                </body>
+            </html>
+        `;
+
+        const blob = new Blob([pdfHtml], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Month-on-Month-OPEX-${periodName || "Report"}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+
+    const filterOptionKeys = {
+        year: "years",
+        legal_group_id: "legal_groups",
+        legal_entity_id: "legal_entities",
+        parent_division_id: "parent_divisions",
+        subdivision_id: "subdivisions",
+        business_unit_id: "business_units",
+        analysis_code_id: "analysis_codes",
+        analysis_code: "analysis_codes",
+        period_name: "periods",
+        reporting_currency: "currencies",
+    };
+
+    const getOptionValue = (option) => {
+        if (option && typeof option === "object") {
+            return (
+                option?.value ??
+                option?.id ??
+                option?.code ??
+                option?.key ??
+                ""
+            );
+        }
+
+        return option;
+    };
+
+    const getOptionLabel = (option) => {
+        if (option && typeof option === "object") {
+            return (
+                option?.label ??
+                option?.name ??
+                option?.display_name ??
+                option?.displayName ??
+                option?.description ??
+                option?.title ??
+                option?.value ??
+                option?.code ??
+                option?.id ??
+                "—"
+            );
+        }
+
+        return option;
+    };
+
+    const findFilterDisplayName = (key, value) => {
+        if (
+            value === null ||
+            value === undefined ||
+            value === ""
+        ) {
+            return "";
+        }
+
+        const options =
+            filterOptions?.[filterOptionKeys[key]] || [];
+
+        if (!Array.isArray(options) || options.length === 0) {
+            return value;
+        }
+
+        const normalizedValue = String(value)
+            .trim()
+            .toLowerCase();
+
+        const matchedOption = options.find((option) => {
+            const optionValue = String(
+                getOptionValue(option) ?? ""
+            )
+                .trim()
+                .toLowerCase();
+
+            const optionCode = String(
+                option?.code ??
+                option?.id ??
+                ""
+            )
+                .trim()
+                .toLowerCase();
+
+            return (
+                optionValue === normalizedValue ||
+                optionCode === normalizedValue
+            );
+        });
+
+        return matchedOption
+            ? getOptionLabel(matchedOption)
+            : value;
+    };
+
+    const getFilterDisplayValue = (key, value) => {
+        const values = Array.isArray(value)
+            ? value
+            : [value];
+
+        return values
+            .map((item) =>
+                findFilterDisplayName(key, item)
+            )
+            .filter(
+                (item) =>
+                    item !== null &&
+                    item !== undefined &&
+                    item !== ""
+            )
+            .join(", ");
+    };
+
+    const handleModalExport = (format) => {
+        if (format === "excel") {
+            handleExportExcel();
+        } else if (format === "pdf") {
+            handleExportPDF();
+        }
+    };
+
+    /* =====================================================
+       ACTIVE FILTER DISPLAY
+    ===================================================== */
+
+    const filterEntries =
+        Object.entries(
+            activeFilters
+        );
+
+    /* =====================================================
+       TABLE COMPONENT
+    ===================================================== */
+
+    const renderMainTable = (
+        tableRows,
+        isViewAll = false
+    ) => {
+        return (
             <div
                 style={{
-                    height: 44,
-                    display: "flex",
-                    alignItems:
-                        "center",
-                    justifyContent:
-                        "space-between",
-                    padding: "0 12px",
+                    width: "100%",
+                    maxWidth:
+                        "100%",
+                    overflowX:
+                        "auto",
+                    overflowY:
+                        "hidden",
+                    padding:
+                        "0 10px 12px",
                     boxSizing:
                         "border-box",
-                    borderBottom:
-                        collapsed
-                            ? "none"
-                            : "1px solid #F1F5F9",
                 }}
             >
-                <h3
-                    style={{
-                        margin: 0,
-                        fontSize: 13,
-                        lineHeight:
-                            "16px",
-                        fontWeight: 700,
-                        color: "#0F172A",
-                        whiteSpace:
-                            "nowrap",
-                    }}
-                >
-                    Month-on-Month OPEX Report
-                </h3>
-
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems:
-                            "center",
-                        gap: 8,
-                    }}
-                >
-                    <button
-                        type="button"
-                        onClick={() =>
-                            setCollapsed(
-                                (prev) =>
-                                    !prev
-                            )
-                        }
-                        style={{
-                            display: "flex",
-                            alignItems:
-                                "center",
-                            gap: 4,
-                            border: "none",
-                            background:
-                                "transparent",
-                            padding:
-                                "3px 4px",
-                            cursor:
-                                "pointer",
-                            color:
-                                "#5B3FE4",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            whiteSpace:
-                                "nowrap",
-                        }}
-                    >
-                        {collapsed ? (
-                            <ChevronDown
-                                size={11}
-                                strokeWidth={
-                                    2
-                                }
-                            />
-                        ) : (
-                            <ChevronsUp
-                                size={11}
-                                strokeWidth={
-                                    2
-                                }
-                            />
-                        )}
-
-                        {collapsed
-                            ? "Expand"
-                            : "Collapse"}
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() =>
-                            setUnit("aed")
-                        }
-                        style={{
-                            height: 28,
-                            minWidth: 39,
-                            padding:
-                                "0 9px",
-                            borderRadius: 6,
-                            border:
-                                "1px solid #E2E8F0",
-                            background:
-                                unit === "aed"
-                                    ? "#5B3FE4"
-                                    : "#FFFFFF",
-                            color:
-                                unit === "aed"
-                                    ? "#FFFFFF"
-                                    : "#334155",
-                            fontSize: 9,
-                            fontWeight: 600,
-                            cursor:
-                                "pointer",
-                        }}
-                    >
-                        AED
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() =>
-                            setUnit(
-                                "millions"
-                            )
-                        }
-                        style={{
-                            height: 28,
-                            minWidth: 74,
-                            padding:
-                                "0 9px",
-                            borderRadius: 6,
-                            border:
-                                unit ===
-                                    "millions"
-                                    ? "1px solid #5B3FE4"
-                                    : "1px solid #E2E8F0",
-                            background:
-                                unit ===
-                                    "millions"
-                                    ? "#5B3FE4"
-                                    : "#FFFFFF",
-                            color:
-                                unit ===
-                                    "millions"
-                                    ? "#FFFFFF"
-                                    : "#334155",
-                            fontSize: 9,
-                            fontWeight: 600,
-                            cursor:
-                                "pointer",
-                        }}
-                    >
-                        AED Millions
-                    </button>
-
-                    <button
-                        type="button"
-                        style={{
-                            border: "none",
-                            background:
-                                "transparent",
-                            padding:
-                                "2px 3px",
-                            cursor:
-                                "pointer",
-                            color:
-                                "#64748B",
-                            fontSize: 17,
-                            lineHeight: 1,
-                            marginLeft: 1,
-                        }}
-                    >
-                        ⋮
-                    </button>
-                </div>
-            </div>
-
-            {!collapsed && (
-                <div
+                <table
                     style={{
                         width: "100%",
-                        overflowX:
-                            "auto",
-                        overflowY:
-                            "hidden",
-                        padding:
-                            "0 8px 10px",
-                        boxSizing:
-                            "border-box",
+                        minWidth: 2220,
+                        borderCollapse:
+                            "collapse",
+                        tableLayout:
+                            "fixed",
                     }}
                 >
-                    <table
-                        style={{
-                            width: "100%",
-                            minWidth: 1500,
-                            borderCollapse:
-                                "collapse",
-                            tableLayout:
-                                "fixed",
-                        }}
-                    >
-                        <colgroup>
-                            <col
+                    <colgroup>
+                        <col style={{ width: 270 }} />
+                        {months.map((month) => (
+                            <col key={month.key} style={{ width: 115 }} />
+                        ))}
+                        <col style={{ width: 145 }} />
+                        <col style={{ width: 145 }} />
+                        <col style={{ width: 145 }} />
+                        <col style={{ width: 150 }} />
+                    </colgroup>
+
+                    <thead>
+                        <tr
+                            style={{
+                                height: 50,
+                                borderBottom:
+                                    "1px solid #E5E7EB",
+                            }}
+                        >
+                            <th
                                 style={{
-                                    width:
-                                        "15.5%",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "left",
+                                    color:
+                                        "#1E3A8A",
+                                    fontSize: 12,
+                                    lineHeight:
+                                        "16px",
+                                    fontWeight: 700,
+                                    whiteSpace:
+                                        "normal",
                                 }}
-                            />
+                            >
+                                Expense Category
+                            </th>
 
                             {months.map(
-                                (month) => (
-                                    <col
+                                (
+                                    month
+                                ) => (
+                                    <th
                                         key={
                                             month.key
                                         }
                                         style={{
-                                            width:
-                                                "4.6%",
+                                            padding:
+                                                "0 10px",
+                                            textAlign:
+                                                "right",
+                                            color:
+                                                "#1E3A8A",
+                                            fontSize: 13,
+                                            lineHeight:
+                                                "16px",
+                                            fontWeight: 700,
+                                            whiteSpace:
+                                                "nowrap",
                                         }}
-                                    />
+                                    >
+                                        {
+                                            month.label
+                                        }
+                                    </th>
                                 )
                             )}
 
-                            <col
+                            <th
                                 style={{
-                                    width:
-                                        "6.8%",
-                                }}
-                            />
-
-                            <col
-                                style={{
-                                    width:
-                                        "6.8%",
-                                }}
-                            />
-
-                            <col
-                                style={{
-                                    width:
-                                        "6.8%",
-                                }}
-                            />
-
-                            <col
-                                style={{
-                                    width:
-                                        "7.5%",
-                                }}
-                            />
-                        </colgroup>
-
-                        <thead>
-                            <tr
-                                style={{
-                                    height: 43,
-                                    borderBottom:
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
+                                    fontSize: 13,
+                                    lineHeight:
+                                        "16px",
+                                    fontWeight: 700,
+                                    whiteSpace:
+                                        "normal",
+                                    borderLeft:
                                         "1px solid #E5E7EB",
                                 }}
                             >
-                                <th
-                                    style={{
-                                        padding:
-                                            "0 7px",
-                                        textAlign:
-                                            "left",
-                                        color:
-                                            "#1E3A8A",
-                                        fontSize: 9,
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    Expense Category
-                                </th>
+                                Actual YTD
+                            </th>
 
-                                {months.map(
-                                    (month) => (
-                                        <th
-                                            key={
-                                                month.key
-                                            }
+                            <th
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
+                                    fontSize: 13,
+                                    lineHeight:
+                                        "16px",
+                                    fontWeight: 700,
+                                    whiteSpace:
+                                        "normal",
+                                }}
+                            >
+                                Target YTD
+                            </th>
+
+                            <th
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
+                                    fontSize: 13,
+                                    lineHeight:
+                                        "16px",
+                                    fontWeight: 700,
+                                    whiteSpace:
+                                        "normal",
+                                }}
+                            >
+                                Variance
+                            </th>
+
+                            <th
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
+                                    fontSize: 13,
+                                    lineHeight:
+                                        "16px",
+                                    fontWeight: 700,
+                                    whiteSpace:
+                                        "normal",
+                                }}
+                            >
+                                Variance %
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {tableRows.map(
+                            (
+                                item,
+                                index
+                            ) => {
+                                const rowKey =
+                                    item?.category ||
+                                    index;
+
+                                const isExpanded =
+                                    !!expandedRows[
+                                    rowKey
+                                    ];
+
+                                const actualYTD =
+                                    getActualYTD(
+                                        item
+                                    );
+
+                                const targetYTD =
+                                    getTargetYTD(
+                                        item
+                                    );
+
+                                const varianceYTD =
+                                    getVarianceYTD(
+                                        item
+                                    );
+
+                                const varianceYTDPercent =
+                                    getVarianceYTDPercent(
+                                        item
+                                    );
+
+                                const details =
+                                    getDetails(
+                                        categoryDetails[
+                                        rowKey
+                                        ]
+                                    );
+
+                                const isLoading =
+                                    !!categoryDetailLoading[
+                                    rowKey
+                                    ] ||
+                                    !!detailLoading?.[
+                                    rowKey
+                                    ];
+
+                                const error =
+                                    categoryDetailError[
+                                    rowKey
+                                    ];
+
+                                return (
+                                    <React.Fragment
+                                        key={
+                                            rowKey
+                                        }
+                                    >
+                                        <tr
                                             style={{
-                                                padding:
-                                                    "0 8px",
-                                                textAlign:
-                                                    "right",
-                                                color:
-                                                    "#1E3A8A",
-                                                fontSize: 9,
-                                                fontWeight: 700,
-                                                whiteSpace:
-                                                    "nowrap",
+                                                minHeight:
+                                                    58,
+                                                height: 43,
+                                                borderBottom:
+                                                    "1px solid #F1F5F9",
                                             }}
                                         >
-                                            {
-                                                month.label
-                                            }
-                                        </th>
-                                    )
-                                )}
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "0 10px",
+                                                    textAlign:
+                                                        "left",
+                                                    fontSize: 13,
+                                                    lineHeight:
+                                                        "18px",
+                                                    fontWeight: 800,
+                                                    color:
+                                                        "#000000",
+                                                }}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        toggleRow(
+                                                            item,
+                                                            rowKey
+                                                        )
+                                                    }
+                                                    style={{
+                                                        display:
+                                                            "flex",
+                                                        alignItems:
+                                                            "center",
+                                                        gap: 7,
+                                                        border:
+                                                            "none",
+                                                        background:
+                                                            "transparent",
+                                                        padding:
+                                                            0,
+                                                        cursor:
+                                                            "pointer",
+                                                        color:
+                                                            "#000000",
+                                                        width:
+                                                            "100%",
+                                                        textAlign:
+                                                            "left",
+                                                    }}
+                                                >
+                                                    {isExpanded
+                                                        ? "▼"
+                                                        : "▶"}
 
-                                <th
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        color:
-                                            "#1E3A8A",
-                                        fontSize: 9,
-                                        fontWeight: 700,
-                                        borderLeft:
-                                            "1px solid #E5E7EB",
-                                    }}
-                                >
-                                    Actual YTD
-                                </th>
+                                                    <span
+                                                        style={{
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            color: "#374151",
+                                                            whiteSpace:
+                                                                "nowrap",
+                                                            textTransform:
+                                                                "uppercase",
+                                                        }}
+                                                    >
+                                                        {item?.category ||
+                                                            "—"}
+                                                    </span>
+                                                </button>
+                                            </td>
 
-                                <th
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        color:
-                                            "#1E3A8A",
-                                        fontSize: 9,
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    Target YTD
-                                </th>
+                                            {months.map(
+                                                (
+                                                    month
+                                                ) => {
+                                                    const value =
+                                                        getMonthValue(
+                                                            item,
+                                                            month.key,
+                                                            month.label
+                                                        );
 
-                                <th
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        color:
-                                            "#1E3A8A",
-                                        fontSize: 9,
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    Variance
-                                </th>
+                                                    const isEmpty =
+                                                        isEmptyValue(
+                                                            value
+                                                        );
 
-                                <th
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        color:
-                                            "#1E3A8A",
-                                        fontSize: 9,
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    Variance %
-                                </th>
-                            </tr>
-                        </thead>
+                                                    return (
+                                                        <td
+                                                            key={
+                                                                month.key
+                                                            }
+                                                            style={{
+                                                                padding:
+                                                                    "0 10px",
+                                                                textAlign:
+                                                                    "right",
+                                                                fontSize: 13,
+                                                                lineHeight:
+                                                                    "18px",
+                                                                fontWeight: 500,
+                                                                color:
+                                                                    isEmpty
+                                                                        ? "#94A3B8"
+                                                                        : "#334155",
+                                                                whiteSpace:
+                                                                    "nowrap",
+                                                                overflow:
+                                                                    "hidden",
+                                                                textOverflow:
+                                                                    "clip",
+                                                            }}
+                                                        >
+                                                            {
+                                                                displayValue(
+                                                                    value
+                                                                )
+                                                            }
+                                                        </td>
+                                                    );
+                                                }
+                                            )}
 
-                        <tbody>
-                            {rows.map(
-                                (
-                                    item,
-                                    index
-                                ) => {
-                                    const rowKey =
-                                        item?.category ||
-                                        index;
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "0 10px",
+                                                    textAlign:
+                                                        "right",
+                                                    fontSize: 13,
+                                                    lineHeight:
+                                                        "18px",
+                                                    fontWeight: 600,
+                                                    color:
+                                                        "#334155",
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                    overflow:
+                                                        "hidden",
+                                                    textOverflow:
+                                                        "clip",
+                                                    borderLeft:
+                                                        "1px solid #E5E7EB",
+                                                }}
+                                            >
+                                                {
+                                                    displayValue(
+                                                        actualYTD
+                                                    )
+                                                }
+                                            </td>
 
-                                    const isExpanded =
-                                        !!expandedRows[
-                                        rowKey
-                                        ];
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "0 10px",
+                                                    textAlign:
+                                                        "right",
+                                                    fontSize: 13,
+                                                    lineHeight:
+                                                        "18px",
+                                                    fontWeight: 500,
+                                                    color:
+                                                        "#94A3B8",
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                    overflow:
+                                                        "hidden",
+                                                    textOverflow:
+                                                        "clip",
+                                                }}
+                                            >
+                                                {
+                                                    displayTarget(
+                                                        targetYTD
+                                                    )
+                                                }
+                                            </td>
 
-                                    const actualYTD =
-                                        getActualYTD(
-                                            item
-                                        );
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "0 10px",
+                                                    textAlign:
+                                                        "right",
+                                                    fontSize: 13,
+                                                    lineHeight:
+                                                        "18px",
+                                                    fontWeight: 600,
+                                                    color:
+                                                        getVarianceColor(
+                                                            varianceYTD
+                                                        ),
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                    overflow:
+                                                        "hidden",
+                                                    textOverflow:
+                                                        "clip",
+                                                }}
+                                            >
+                                                {
+                                                    displayVariance(
+                                                        varianceYTD
+                                                    )
+                                                }
+                                            </td>
 
-                                    const targetYTD =
-                                        getTargetYTD(
-                                            item
-                                        );
+                                            <td
+                                                style={{
+                                                    padding:
+                                                        "0 10px",
+                                                    textAlign:
+                                                        "right",
+                                                    fontSize: 13,
+                                                    lineHeight:
+                                                        "18px",
+                                                    fontWeight: 600,
+                                                    color:
+                                                        getVarianceColor(
+                                                            varianceYTDPercent
+                                                        ),
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                    overflow:
+                                                        "hidden",
+                                                    textOverflow:
+                                                        "clip",
+                                                }}
+                                            >
+                                                {
+                                                    displayVariancePercent(
+                                                        varianceYTDPercent
+                                                    )
+                                                }
+                                            </td>
+                                        </tr>
 
-                                    const varianceYTD =
-                                        getVarianceYTD(
-                                            item
-                                        );
-
-                                    const varianceYTDPercent =
-                                        getVarianceYTDPercent(
-                                            item
-                                        );
-
-                                    const details =
-                                        getDetails(
-                                            categoryDetails[
-                                            rowKey
-                                            ]
-                                        );
-
-                                    const isLoading =
-                                        !!categoryDetailLoading[
-                                        rowKey
-                                        ] ||
-                                        !!detailLoading?.[
-                                        rowKey
-                                        ];
-
-                                    const error =
-                                        categoryDetailError[
-                                        rowKey
-                                        ];
-
-                                    return (
-                                        <React.Fragment
-                                            key={
-                                                rowKey
-                                            }
-                                        >
-                                            {/* =================================================
-                                                CATEGORY ROW
-                                            ================================================= */}
-
+                                        {isExpanded && (
                                             <tr
                                                 style={{
-                                                    height: 55,
-                                                    borderBottom:
-                                                        "1px solid #F1F5F9",
+                                                    background:
+                                                        "#FFFFFF",
                                                 }}
                                             >
                                                 <td
-                                                    style={{
-                                                        padding:
-                                                            "0 7px",
-                                                        textAlign:
-                                                            "left",
-                                                        fontSize: 10,
-                                                        fontWeight: 500,
-                                                        color:
-                                                            "#334155",
-                                                    }}
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            toggleRow(
-                                                                item,
-                                                                rowKey
-                                                            )
-                                                        }
-                                                        style={{
-                                                            display:
-                                                                "flex",
-                                                            alignItems:
-                                                                "center",
-                                                            gap: 6,
-                                                            border:
-                                                                "none",
-                                                            background:
-                                                                "transparent",
-                                                            padding: 0,
-                                                            cursor:
-                                                                "pointer",
-                                                            color:
-                                                                "inherit",
-                                                            width:
-                                                                "100%",
-                                                            textAlign:
-                                                                "left",
-                                                        }}
-                                                    >
-                                                        {isExpanded ? (
-                                                            <ChevronDown
-                                                                size={
-                                                                    12
-                                                                }
-                                                                strokeWidth={
-                                                                    1.8
-                                                                }
-                                                                color="#64748B"
-                                                            />
-                                                        ) : (
-                                                            <ChevronRight
-                                                                size={
-                                                                    12
-                                                                }
-                                                                strokeWidth={
-                                                                    1.8
-                                                                }
-                                                                color="#64748B"
-                                                            />
-                                                        )}
-
-                                                        <span>
-                                                            {
-                                                                item?.category
-                                                            }
-                                                        </span>
-                                                    </button>
-                                                </td>
-
-                                                {months.map(
-                                                    (
-                                                        month
-                                                    ) => {
-                                                        const value =
-                                                            getMonthValue(
-                                                                item,
-                                                                month.key,
-                                                                month.label
-                                                            );
-
-                                                        const isEmpty =
-                                                            value ===
-                                                            null ||
-                                                            value ===
-                                                            undefined ||
-                                                            value ===
-                                                            "" ||
-                                                            value ===
-                                                            "-" ||
-                                                            value ===
-                                                            "—";
-
-                                                        return (
-                                                            <td
-                                                                key={
-                                                                    month.key
-                                                                }
-                                                                style={{
-                                                                    padding:
-                                                                        "0 8px",
-                                                                    textAlign:
-                                                                        "right",
-                                                                    fontSize: 10,
-                                                                    fontWeight: 500,
-                                                                    color:
-                                                                        isEmpty
-                                                                            ? "#94A3B8"
-                                                                            : "#334155",
-                                                                    whiteSpace:
-                                                                        "nowrap",
-                                                                }}
-                                                            >
-                                                                {displayValue(
-                                                                    value
-                                                                )}
-                                                            </td>
-                                                        );
+                                                    colSpan={
+                                                        months.length +
+                                                        5
                                                     }
-                                                )}
-
-                                                <td
                                                     style={{
                                                         padding:
-                                                            "0 4px",
-                                                        textAlign:
-                                                            "right",
-                                                        fontSize: 10,
-                                                        fontWeight: 600,
-                                                        color:
-                                                            "#334155",
-                                                        borderLeft:
-                                                            "1px solid #E5E7EB",
+                                                            "16px 30px",
                                                     }}
                                                 >
-                                                    {displayValue(
-                                                        actualYTD
-                                                    )}
-                                                </td>
-
-                                                <td
-                                                    style={{
-                                                        padding:
-                                                            "0 4px",
-                                                        textAlign:
-                                                            "right",
-                                                        fontSize: 10,
-                                                        fontWeight: 500,
-                                                        color:
-                                                            "#94A3B8",
-                                                    }}
-                                                >
-                                                    {displayTarget(
-                                                        targetYTD
-                                                    )}
-                                                </td>
-
-                                                <td
-                                                    style={{
-                                                        padding:
-                                                            "0 4px",
-                                                        textAlign:
-                                                            "right",
-                                                        fontSize: 10,
-                                                        fontWeight: 600,
-                                                        color:
-                                                            getVarianceColor(
-                                                                varianceYTD
-                                                            ),
-                                                    }}
-                                                >
-                                                    {displayVariance(
-                                                        varianceYTD
-                                                    )}
-                                                </td>
-
-                                                <td
-                                                    style={{
-                                                        padding:
-                                                            "0 4px",
-                                                        textAlign:
-                                                            "right",
-                                                        fontSize: 10,
-                                                        fontWeight: 600,
-                                                        color:
-                                                            getVarianceColor(
-                                                                varianceYTDPercent
-                                                            ),
-                                                    }}
-                                                >
-                                                    {displayVariancePercent(
-                                                        varianceYTDPercent
-                                                    )}
-                                                </td>
-                                            </tr>
-
-                                            {/* =================================================
-                                                EXPANDED NATURAL ACCOUNT DETAILS
-                                            ================================================= */}
-
-                                            {isExpanded && (
-                                                <tr
-                                                    style={{
-                                                        background:
-                                                            "#FAFAFC",
-                                                    }}
-                                                >
-                                                    <td
-                                                        colSpan={
-                                                            months.length +
-                                                            5
-                                                        }
-                                                        style={{
-                                                            padding:
-                                                                "14px 27px",
-                                                        }}
-                                                    >
-                                                        {isLoading ? (
+                                                    {isLoading ? (
+                                                        <div
+                                                            style={{
+                                                                fontSize: 12,
+                                                                lineHeight:
+                                                                    "18px",
+                                                                color:
+                                                                    "#94A3B8",
+                                                            }}
+                                                        >
+                                                            Loading
+                                                            natural-account
+                                                            details...
+                                                        </div>
+                                                    ) : error ? (
+                                                        <div
+                                                            style={{
+                                                                fontSize: 12,
+                                                                lineHeight:
+                                                                    "18px",
+                                                                color:
+                                                                    "#DC2626",
+                                                            }}
+                                                        >
+                                                            Failed
+                                                            to
+                                                            load
+                                                            natural-account
+                                                            details.
+                                                        </div>
+                                                    ) : !details.length ? (
+                                                        <div
+                                                            style={{
+                                                                fontSize: 12,
+                                                                lineHeight:
+                                                                    "18px",
+                                                                color:
+                                                                    "#94A3B8",
+                                                            }}
+                                                        >
+                                                            No
+                                                            natural-account
+                                                            details
+                                                            available.
+                                                        </div>
+                                                    ) : (
+                                                        <div
+                                                            style={{
+                                                                width:
+                                                                    "100%",
+                                                                overflowX:
+                                                                    "auto",
+                                                                overflowY:
+                                                                    "hidden",
+                                                            }}
+                                                        >
                                                             <div
                                                                 style={{
-                                                                    fontSize: 9,
+                                                                    fontSize: 12,
+                                                                    lineHeight:
+                                                                        "18px",
+                                                                    fontWeight: 700,
                                                                     color:
-                                                                        "#94A3B8",
+                                                                        "#0F172A",
+                                                                    marginBottom:
+                                                                        10,
                                                                 }}
                                                             >
-                                                                Loading
-                                                                natural-account
-                                                                details...
-                                                            </div>
-                                                        ) : error ? (
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 9,
-                                                                    color:
-                                                                        "#DC2626",
-                                                                }}
-                                                            >
-                                                                Failed to
-                                                                load
-                                                                natural-account
-                                                                details.
-                                                            </div>
-                                                        ) : !details.length ? (
-                                                            <div
-                                                                style={{
-                                                                    fontSize: 9,
-                                                                    color:
-                                                                        "#94A3B8",
-                                                                }}
-                                                            >
-                                                                No
-                                                                natural-account
+                                                                Natural-account
                                                                 details
-                                                                available.
+                                                                for{" "}
+                                                                {
+                                                                    item?.category
+                                                                }
                                                             </div>
-                                                        ) : (
-                                                            <div
+
+                                                            <table
                                                                 style={{
-                                                                    width:
-                                                                        "100%",
-                                                                    overflowX:
-                                                                        "auto",
+                                                                    width: 2120,
+                                                                    minWidth: 2120,
+                                                                    maxWidth: "none",
+                                                                    borderCollapse:
+                                                                        "collapse",
+                                                                    tableLayout:
+                                                                        "fixed",
                                                                 }}
                                                             >
-                                                                <div
-                                                                    style={{
-                                                                        fontSize: 10,
-                                                                        fontWeight: 700,
-                                                                        color:
-                                                                            "#0F172A",
-                                                                        marginBottom:
-                                                                            8,
-                                                                    }}
-                                                                >
-                                                                    Natural-account
-                                                                    details
-                                                                    for{" "}
-                                                                    {
-                                                                        item?.category
-                                                                    }
-                                                                </div>
+                                                                <colgroup>
+                                                                    <col style={{ width: 380 }} />
+                                                                    {months.map((month) => (
+                                                                        <col key={month.key} style={{ width: 130 }} />
+                                                                    ))}
+                                                                    <col style={{ width: 180 }} />
+                                                                </colgroup>
 
-                                                                <table
-                                                                    style={{
-                                                                        width:
-                                                                            "100%",
-                                                                        minWidth:
-                                                                            1750,
-                                                                        borderCollapse:
-                                                                            "collapse",
-                                                                        tableLayout:
-                                                                            "fixed",
-                                                                    }}
-                                                                >
-                                                                    <colgroup>
-                                                                        <col
+                                                                <thead>
+                                                                    <tr
+                                                                        style={{
+                                                                            height: 42,
+                                                                            borderBottom:
+                                                                                "1px solid #E5E7EB",
+                                                                        }}
+                                                                    >
+                                                                        <th
                                                                             style={{
-                                                                                width:
-                                                                                    "25%",
+                                                                                padding:
+                                                                                    "0 9px",
+                                                                                textAlign:
+                                                                                    "left",
+                                                                                color:
+                                                                                    "#1E3A8A",
+                                                                                fontSize: 12,
+                                                                                lineHeight:
+                                                                                    "16px",
+                                                                                fontWeight: 700,
                                                                             }}
-                                                                        />
+                                                                        >
+                                                                            Natural
+                                                                            Account
+                                                                        </th>
 
                                                                         {months.map(
                                                                             (
                                                                                 month
                                                                             ) => (
-                                                                                <col
+                                                                                <th
                                                                                     key={
                                                                                         month.key
                                                                                     }
                                                                                     style={{
-                                                                                        width:
-                                                                                            "5%",
+                                                                                        padding:
+                                                                                            "0 9px",
+                                                                                        textAlign:
+                                                                                            "right",
+                                                                                        color:
+                                                                                            "#1E3A8A",
+                                                                                        fontSize: 12,
+                                                                                        lineHeight:
+                                                                                            "16px",
+                                                                                        fontWeight: 700,
+                                                                                        whiteSpace:
+                                                                                            "nowrap",
                                                                                     }}
-                                                                                />
+                                                                                >
+                                                                                    {
+                                                                                        month.label
+                                                                                    }
+                                                                                </th>
                                                                             )
                                                                         )}
 
-                                                                        <col
+                                                                        <th
                                                                             style={{
-                                                                                width:
-                                                                                    "10%",
-                                                                            }}
-                                                                        />
-                                                                    </colgroup>
-
-                                                                    <thead>
-                                                                        <tr
-                                                                            style={{
-                                                                                height:
-                                                                                    34,
-                                                                                borderBottom:
+                                                                                padding:
+                                                                                    "0 9px",
+                                                                                textAlign:
+                                                                                    "right",
+                                                                                color:
+                                                                                    "#1E3A8A",
+                                                                                fontSize: 11,
+                                                                                lineHeight:
+                                                                                    "16px",
+                                                                                fontWeight: 700,
+                                                                                whiteSpace:
+                                                                                    "nowrap",
+                                                                                borderLeft:
                                                                                     "1px solid #E5E7EB",
                                                                             }}
                                                                         >
-                                                                            <th
-                                                                                style={{
-                                                                                    padding:
-                                                                                        "0 7px",
-                                                                                    textAlign:
-                                                                                        "left",
-                                                                                    color:
-                                                                                        "#1E3A8A",
-                                                                                    fontSize: 9,
-                                                                                    fontWeight: 700,
-                                                                                }}
-                                                                            >
-                                                                                Natural
-                                                                                Account
-                                                                            </th>
+                                                                            Actual
+                                                                            YTD
+                                                                        </th>
+                                                                    </tr>
+                                                                </thead>
 
-                                                                            {months.map(
-                                                                                (
-                                                                                    month
-                                                                                ) => (
-                                                                                    <th
-                                                                                        key={
-                                                                                            month.key
-                                                                                        }
+                                                                <tbody>
+                                                                    {details.map(
+                                                                        (
+                                                                            account,
+                                                                            accountIndex
+                                                                        ) => {
+                                                                            const accountCode =
+                                                                                getAccountCode(
+                                                                                    account
+                                                                                );
+
+                                                                            const accountYTD =
+                                                                                getActualYTD(
+                                                                                    account
+                                                                                );
+
+                                                                            const naturalAccountLabel =
+                                                                                getNaturalAccountLabel(
+                                                                                    account
+                                                                                );
+
+                                                                            return (
+                                                                                <tr
+                                                                                    key={
+                                                                                        accountCode !==
+                                                                                            "—"
+                                                                                            ? accountCode
+                                                                                            : accountIndex
+                                                                                    }
+                                                                                    style={{
+                                                                                        minHeight:
+                                                                                            46,
+                                                                                        height: 46,
+                                                                                        borderBottom:
+                                                                                            "1px solid #F1F5F9",
+                                                                                    }}
+                                                                                >
+                                                                                    <td
                                                                                         style={{
                                                                                             padding:
-                                                                                                "0 8px",
+                                                                                                "0 9px",
                                                                                             textAlign:
-                                                                                                "right",
+                                                                                                "left",
+                                                                                            fontSize: 12,
+                                                                                            lineHeight:
+                                                                                                "18px",
                                                                                             color:
-                                                                                                "#1E3A8A",
-                                                                                            fontSize: 9,
-                                                                                            fontWeight: 700,
+                                                                                                "#334155",
+                                                                                            fontWeight: 500,
                                                                                             whiteSpace:
-                                                                                                "nowrap",
+                                                                                                "normal",
+                                                                                            wordBreak:
+                                                                                                "break-word",
+                                                                                            overflowWrap:
+                                                                                                "anywhere",
                                                                                         }}
                                                                                     >
                                                                                         {
-                                                                                            month.label
+                                                                                            naturalAccountLabel
                                                                                         }
-                                                                                    </th>
-                                                                                )
-                                                                            )}
+                                                                                    </td>
 
-                                                                            <th
-                                                                                style={{
-                                                                                    padding:
-                                                                                        "0 8px",
-                                                                                    textAlign:
-                                                                                        "right",
-                                                                                    color:
-                                                                                        "#1E3A8A",
-                                                                                    fontSize: 9,
-                                                                                    fontWeight: 700,
-                                                                                    whiteSpace:
-                                                                                        "nowrap",
-                                                                                    borderLeft:
-                                                                                        "1px solid #E5E7EB",
-                                                                                }}
-                                                                            >
-                                                                                Actual YTD
-                                                                            </th>
-                                                                        </tr>
-                                                                    </thead>
+                                                                                    {months.map(
+                                                                                        (
+                                                                                            month
+                                                                                        ) => {
+                                                                                            const value =
+                                                                                                getAccountMonthValue(
+                                                                                                    account,
+                                                                                                    month.key,
+                                                                                                    month.label
+                                                                                                );
 
-                                                                    <tbody>
-                                                                        {details.map(
-                                                                            (
-                                                                                account,
-                                                                                accountIndex
-                                                                            ) => {
-                                                                                const accountCode =
-                                                                                    getAccountCode(
-                                                                                        account
-                                                                                    );
+                                                                                            const isEmpty =
+                                                                                                isEmptyValue(
+                                                                                                    value
+                                                                                                );
 
-                                                                                const accountYTD =
-                                                                                    getActualYTD(
-                                                                                        account
-                                                                                    );
-
-                                                                                /*
-                                                                                 * Use the new helper here.
-                                                                                 *
-                                                                                 * This prevents:
-                                                                                 *
-                                                                                 * 610100 610100 - Salaries
-                                                                                 *
-                                                                                 * and displays:
-                                                                                 *
-                                                                                 * 610100 - Salaries
-                                                                                 */
-                                                                                const naturalAccountLabel =
-                                                                                    getNaturalAccountLabel(
-                                                                                        account
-                                                                                    );
-
-                                                                                return (
-                                                                                    <tr
-                                                                                        key={
-                                                                                            accountCode !==
-                                                                                                "—"
-                                                                                                ? accountCode
-                                                                                                : accountIndex
+                                                                                            return (
+                                                                                                <td
+                                                                                                    key={
+                                                                                                        month.key
+                                                                                                    }
+                                                                                                    style={{
+                                                                                                        padding:
+                                                                                                            "0 9px",
+                                                                                                        textAlign:
+                                                                                                            "right",
+                                                                                                        fontSize: 13,
+                                                                                                        lineHeight:
+                                                                                                            "18px",
+                                                                                                        fontWeight: 500,
+                                                                                                        color:
+                                                                                                            isEmpty
+                                                                                                                ? "#94A3B8"
+                                                                                                                : "#334155",
+                                                                                                        whiteSpace:
+                                                                                                            "nowrap",
+                                                                                                        overflow:
+                                                                                                            "hidden",
+                                                                                                        textOverflow:
+                                                                                                            "clip",
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {
+                                                                                                        displayValue(
+                                                                                                            value
+                                                                                                        )
+                                                                                                    }
+                                                                                                </td>
+                                                                                            );
                                                                                         }
+                                                                                    )}
+
+                                                                                    <td
                                                                                         style={{
-                                                                                            height:
-                                                                                                42,
-                                                                                            borderBottom:
-                                                                                                "1px solid #F1F5F9",
+                                                                                            padding:
+                                                                                                "0 9px",
+                                                                                            textAlign:
+                                                                                                "right",
+                                                                                            fontSize: 11,
+                                                                                            lineHeight:
+                                                                                                "18px",
+                                                                                            fontWeight: 600,
+                                                                                            color:
+                                                                                                "#334155",
+                                                                                            whiteSpace:
+                                                                                                "nowrap",
+                                                                                            overflow:
+                                                                                                "hidden",
+                                                                                            textOverflow:
+                                                                                                "clip",
+                                                                                            borderLeft:
+                                                                                                "1px solid #E5E7EB",
                                                                                         }}
                                                                                     >
-                                                                                        {/* =================================================
-                                                                                            NATURAL ACCOUNT
-
-                                                                                            Duplicate account code
-                                                                                            is prevented here.
-                                                                                        ================================================= */}
-
-                                                                                        <td
-                                                                                            style={{
-                                                                                                padding:
-                                                                                                    "0 7px",
-                                                                                                textAlign:
-                                                                                                    "left",
-                                                                                                fontSize: 9,
-                                                                                                color:
-                                                                                                    "#334155",
-                                                                                                fontWeight: 500,
-                                                                                                whiteSpace:
-                                                                                                    "nowrap",
-                                                                                            }}
-                                                                                        >
-                                                                                            {
-                                                                                                naturalAccountLabel
-                                                                                            }
-                                                                                        </td>
-
-                                                                                        {/* =================================================
-                                                                                            JAN - DEC ACCOUNT MONTHLY VALUES
-
-                                                                                            Live API data.
-
-                                                                                            Missing/future month:
-                                                                                            —
-
-                                                                                            Genuine zero:
-                                                                                            0
-
-                                                                                            Small non-zero AED Millions:
-                                                                                            <0.01M
-                                                                                        ================================================= */}
-
-                                                                                        {months.map(
-                                                                                            (
-                                                                                                month
-                                                                                            ) => {
-                                                                                                const value =
-                                                                                                    getAccountMonthValue(
-                                                                                                        account,
-                                                                                                        month.key,
-                                                                                                        month.label
-                                                                                                    );
-
-                                                                                                const isEmpty =
-                                                                                                    value ===
-                                                                                                    null ||
-                                                                                                    value ===
-                                                                                                    undefined ||
-                                                                                                    value ===
-                                                                                                    "" ||
-                                                                                                    value ===
-                                                                                                    "-" ||
-                                                                                                    value ===
-                                                                                                    "—";
-
-                                                                                                return (
-                                                                                                    <td
-                                                                                                        key={
-                                                                                                            month.key
-                                                                                                        }
-                                                                                                        style={{
-                                                                                                            padding:
-                                                                                                                "0 8px",
-                                                                                                            textAlign:
-                                                                                                                "right",
-                                                                                                            fontSize: 9,
-                                                                                                            color:
-                                                                                                                isEmpty
-                                                                                                                    ? "#94A3B8"
-                                                                                                                    : "#334155",
-                                                                                                            whiteSpace:
-                                                                                                                "nowrap",
-                                                                                                        }}
-                                                                                                    >
-                                                                                                        {displayValue(
-                                                                                                            value
-                                                                                                        )}
-                                                                                                    </td>
-                                                                                                );
-                                                                                            }
-                                                                                        )}
-
-                                                                                        {/* =================================================
-                                                                                            ACCOUNT ACTUAL YTD
-                                                                                        ================================================= */}
-
-                                                                                        <td
-                                                                                            style={{
-                                                                                                padding:
-                                                                                                    "0 8px",
-                                                                                                textAlign:
-                                                                                                    "right",
-                                                                                                fontSize: 9,
-                                                                                                fontWeight: 600,
-                                                                                                color:
-                                                                                                    "#334155",
-                                                                                                whiteSpace:
-                                                                                                    "nowrap",
-                                                                                                borderLeft:
-                                                                                                    "1px solid #E5E7EB",
-                                                                                            }}
-                                                                                        >
-                                                                                            {displayValue(
+                                                                                        {
+                                                                                            displayValue(
                                                                                                 accountYTD
-                                                                                            )}
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                );
-                                                                            }
-                                                                        )}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
+                                                                                            )
+                                                                                        }
+                                                                                    </td>
+                                                                                </tr>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            }
+                        )}
+
+                        <tr
+                            style={{
+                                height: 60,
+                                background:
+                                    "#F4F2FF",
+                            }}
+                        >
+                            <td
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "left",
+                                    fontSize: 13,
+                                    lineHeight:
+                                        "18px",
+                                    fontWeight: 800,
+                                    color:
+                                        "#0F172A",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display:
+                                            "flex",
+                                        alignItems:
+                                            "center",
+                                        gap: 7,
+
+                                    }}
+                                >
+
+                                    <span>
+                                        Total Operating
+                                        Expenses
+                                    </span>
+                                </div>
+                            </td>
+
+                            {months.map(
+                                (month) => {
+                                    const value =
+                                        getTotalMonthValue(
+                                            tableRows,
+                                            month.key,
+                                            month.label
+                                        );
+
+                                    const isEmpty =
+                                        isEmptyValue(
+                                            value
+                                        );
+
+                                    return (
+                                        <td
+                                            key={
+                                                month.key
+                                            }
+                                            style={{
+                                                padding:
+                                                    "0 10px",
+                                                textAlign:
+                                                    "right",
+                                                fontSize: 12,
+                                                lineHeight:
+                                                    "18px",
+                                                fontWeight: 700,
+                                                color:
+                                                    isEmpty
+                                                        ? "#94A3B8"
+                                                        : "#0F172A",
+                                                whiteSpace:
+                                                    "nowrap",
+                                                overflow:
+                                                    "hidden",
+                                                textOverflow:
+                                                    "clip",
+                                            }}
+                                        >
+                                            {
+                                                displayValue(
+                                                    value
+                                                )
+                                            }
+                                        </td>
                                     );
                                 }
                             )}
 
-                            {/* =================================================
-                                TOTAL OPERATING EXPENSES
-                            ================================================= */}
-
-                            <tr
+                            <td
                                 style={{
-                                    height: 56,
-                                    background:
-                                        "#F4F2FF",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    fontSize: 12,
+                                    lineHeight:
+                                        "18px",
+                                    fontWeight: 700,
+                                    color:
+                                        "#0F172A",
+                                    whiteSpace:
+                                        "nowrap",
+                                    overflow:
+                                        "hidden",
+                                    textOverflow:
+                                        "clip",
+                                    borderLeft:
+                                        "1px solid #DDD8F7",
                                 }}
                             >
-                                <td
+                                {
+                                    displayValue(
+                                        getTotalYTD(
+                                            tableRows
+                                        )
+                                    )
+                                }
+                            </td>
+
+                            <td
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color:
+                                        "#94A3B8",
+                                    whiteSpace:
+                                        "nowrap",
+                                }}
+                            >
+                                —
+                            </td>
+
+                            <td
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color:
+                                        "#94A3B8",
+                                    whiteSpace:
+                                        "nowrap",
+                                }}
+                            >
+                                —
+                            </td>
+
+                            <td
+                                style={{
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color:
+                                        "#94A3B8",
+                                    whiteSpace:
+                                        "nowrap",
+                                }}
+                            >
+                                —
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+
+    /* =========================================================
+       RETURN
+    ========================================================= */
+
+    return (
+        <>
+            <div
+                style={{
+                    width: "100%",
+                    background:
+                        "#FFFFFF",
+                    border:
+                        "1px solid #E5E7EB",
+                    borderRadius: 10,
+                    boxSizing:
+                        "border-box",
+                    overflow:
+                        "visible",
+                    marginTop: 12,
+                }}
+            >
+                <div
+                    style={{
+                        minHeight: 52,
+                        display:
+                            "flex",
+                        alignItems:
+                            "center",
+                        justifyContent:
+                            "space-between",
+                        padding:
+                            "0 14px",
+                        boxSizing:
+                            "border-box",
+                        borderBottom:
+                            collapsed
+                                ? "none"
+                                : "1px solid #F1F5F9",
+                    }}
+                >
+                    <h3
+                        style={{
+                            margin: 0,
+                            fontSize: 14,
+                            lineHeight:
+                                "18px",
+                            fontWeight: 700,
+                            color:
+                                "#0F172A",
+                            whiteSpace:
+                                "nowrap",
+                        }}
+                    >
+                        Month-on-Month OPEX Report
+                    </h3>
+
+                    <div
+                        style={{
+                            display:
+                                "flex",
+                            alignItems:
+                                "center",
+                            gap: 7,
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setCollapsed(
+                                    (prev) =>
+                                        !prev
+                                )
+                            }
+                            style={{
+                                display:
+                                    "flex",
+                                alignItems:
+                                    "center",
+                                gap: 5,
+                                border:
+                                    "none",
+                                background:
+                                    "transparent",
+                                padding:
+                                    "4px 5px",
+                                cursor:
+                                    "pointer",
+                                color:
+                                    "#5B3FE4",
+                                fontSize: 11,
+                                fontWeight: 600,
+                            }}
+                        >
+                            {collapsed ? (
+                                <ChevronDown
+                                    size={
+                                        13
+                                    }
+                                />
+                            ) : (
+                                <ChevronsUp
+                                    size={
+                                        13
+                                    }
+                                />
+                            )}
+
+                            {collapsed
+                                ? "Expand"
+                                : "Collapse"}
+                        </button>
+
+                        <div
+                            style={{
+                                position: "relative",
+                                display: "flex",
+                                alignItems: "center",
+                            }}
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setMonthMenuOpen((prev) => !prev);
+                                }}
+                                aria-label="Month-on-Month actions"
+                                aria-expanded={monthMenuOpen}
+                                style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    padding: "2px 6px",
+                                    cursor: "pointer",
+                                    color: "#64748B",
+                                    fontSize: 20,
+                                    lineHeight: 1,
+                                }}
+                            >
+                                ⋮
+                            </button>
+
+                            {monthMenuOpen && (
+                                <div
                                     style={{
-                                        padding:
-                                            "0 7px",
-                                        textAlign:
-                                            "left",
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        color:
-                                            "#0F172A",
+                                        position: "absolute",
+                                        top: "100%",
+                                        right: 0,
+                                        marginTop: 6,
+                                        width: 165,
+                                        background: "#FFFFFF",
+                                        border: "1px solid #E5E7EB",
+                                        borderRadius: 8,
+                                        boxShadow:
+                                            "0 8px 24px rgba(15, 23, 42, 0.12)",
+                                        padding: "5px 0",
+                                        zIndex: 99999,
                                     }}
                                 >
-                                    <div
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMonthMenuOpen(false);
+                                            handleViewAll();
+                                        }}
                                         style={{
-                                            display:
-                                                "flex",
-                                            alignItems:
-                                                "center",
-                                            gap: 6,
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 9,
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: "9px 12px",
+                                            cursor: "pointer",
+                                            textAlign: "left",
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            color: "#334155",
+                                        }}
+                                        onMouseEnter={(event) => {
+                                            event.currentTarget.style.background =
+                                                "#F8FAFC";
+                                        }}
+                                        onMouseLeave={(event) => {
+                                            event.currentTarget.style.background =
+                                                "transparent";
                                         }}
                                     >
-                                        <ChevronRight
-                                            size={
-                                                12
-                                            }
-                                            strokeWidth={
-                                                1.8
-                                            }
-                                            color="#64748B"
-                                        />
-
-                                        <span>
-                                            Total Operating
-                                            Expenses
+                                        <span style={{ fontSize: 14 }}>
+                                            🔍
                                         </span>
-                                    </div>
-                                </td>
 
-                                {/* TOTAL JAN - DEC */}
+                                        <span>View All</span>
+                                    </button>
 
-                                {months.map(
-                                    (month) => {
-                                        const value =
-                                            getTotalMonthValue(
-                                                rows,
-                                                month.key,
-                                                month.label
-                                            );
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMonthMenuOpen(false);
+                                            handleExportExcel();
+                                        }}
+                                        style={{
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 9,
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: "9px 12px",
+                                            cursor: "pointer",
+                                            textAlign: "left",
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            color: "#334155",
+                                        }}
+                                        onMouseEnter={(event) => {
+                                            event.currentTarget.style.background =
+                                                "#F8FAFC";
+                                        }}
+                                        onMouseLeave={(event) => {
+                                            event.currentTarget.style.background =
+                                                "transparent";
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 14 }}>
+                                            📊
+                                        </span>
 
-                                        const isEmpty =
-                                            value ===
-                                            null ||
-                                            value ===
-                                            undefined ||
-                                            value ===
-                                            "" ||
-                                            value ===
-                                            "-" ||
-                                            value ===
-                                            "—";
+                                        <span>Export Excel</span>
+                                    </button>
 
-                                        return (
-                                            <td
-                                                key={
-                                                    month.key
-                                                }
-                                                style={{
-                                                    padding:
-                                                        "0 8px",
-                                                    textAlign:
-                                                        "right",
-                                                    fontSize: 10,
-                                                    fontWeight: 700,
-                                                    color:
-                                                        isEmpty
-                                                            ? "#94A3B8"
-                                                            : "#0F172A",
-                                                    whiteSpace:
-                                                        "nowrap",
-                                                }}
-                                            >
-                                                {displayValue(
-                                                    value
-                                                )}
-                                            </td>
-                                        );
-                                    }
-                                )}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMonthMenuOpen(false);
+                                            handleExportPDF();
+                                        }}
+                                        style={{
+                                            width: "100%",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 9,
+                                            border: "none",
+                                            background: "transparent",
+                                            padding: "9px 12px",
+                                            cursor: "pointer",
+                                            textAlign: "left",
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            color: "#334155",
+                                        }}
+                                        onMouseEnter={(event) => {
+                                            event.currentTarget.style.background =
+                                                "#F8FAFC";
+                                        }}
+                                        onMouseLeave={(event) => {
+                                            event.currentTarget.style.background =
+                                                "transparent";
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 14 }}>
+                                            📄
+                                        </span>
 
-                                {/* TOTAL ACTUAL YTD */}
+                                        <span>Export PDF</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
 
-                                <td
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        color:
-                                            "#0F172A",
-                                        borderLeft:
-                                            "1px solid #DDD8F7",
-                                    }}
-                                >
-                                    {displayValue(
-                                        totalActualYTD
-                                    )}
-                                </td>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setUnit(
+                                    "aed"
+                                )
+                            }
+                            style={{
+                                height: 30,
+                                minWidth: 42,
+                                padding:
+                                    "0 10px",
+                                borderRadius:
+                                    6,
+                                border:
+                                    "1px solid #E2E8F0",
+                                background:
+                                    unit ===
+                                        "aed"
+                                        ? "#5B3FE4"
+                                        : "#FFFFFF",
+                                color:
+                                    unit ===
+                                        "aed"
+                                        ? "#FFFFFF"
+                                        : "#334155",
+                                fontSize: 10,
+                                fontWeight: 600,
+                                cursor:
+                                    "pointer",
+                            }}
+                        >
+                            AED
+                        </button>
 
-                                {/* TOTAL TARGET YTD */}
-
-                                <td
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        color:
-                                            "#94A3B8",
-                                    }}
-                                >
-                                    {displayTarget(
-                                        null
-                                    )}
-                                </td>
-
-                                {/* TOTAL VARIANCE */}
-
-                                <td
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        color:
-                                            getVarianceColor(
-                                                null
-                                            ),
-                                    }}
-                                >
-                                    {displayVariance(
-                                        null
-                                    )}
-                                </td>
-
-                                {/* TOTAL VARIANCE % */}
-
-                                <td
-                                    style={{
-                                        padding:
-                                            "0 4px",
-                                        textAlign:
-                                            "right",
-                                        fontSize: 10,
-                                        fontWeight: 700,
-                                        color:
-                                            getVarianceColor(
-                                                null
-                                            ),
-                                    }}
-                                >
-                                    {displayVariancePercent(
-                                        null
-                                    )}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setUnit(
+                                    "millions"
+                                )
+                            }
+                            style={{
+                                height: 30,
+                                minWidth: 78,
+                                padding:
+                                    "0 10px",
+                                borderRadius:
+                                    6,
+                                border:
+                                    unit ===
+                                        "millions"
+                                        ? "1px solid #5B3FE4"
+                                        : "1px solid #E2E8F0",
+                                background:
+                                    unit ===
+                                        "millions"
+                                        ? "#5B3FE4"
+                                        : "#FFFFFF",
+                                color:
+                                    unit ===
+                                        "millions"
+                                        ? "#FFFFFF"
+                                        : "#334155",
+                                fontSize: 10,
+                                fontWeight: 600,
+                                cursor:
+                                    "pointer",
+                            }}
+                        >
+                            AED Millions
+                        </button>
+                    </div>
                 </div>
-            )}
-        </div>
+
+                {!collapsed &&
+                    renderMainTable(
+                        rows
+                    )}
+            </div >
+
+            {/* =====================================================
+                VIEW ALL MODAL
+            ===================================================== */}
+
+            {
+                showViewAll && (
+                    <div
+                        style={{
+                            position:
+                                "fixed",
+                            inset: 0,
+                            zIndex: 9999,
+                            background:
+                                "rgba(15, 23, 42, 0.45)",
+                            display:
+                                "flex",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
+                            padding: 24,
+                        }}
+                    >
+                        <div
+                            style={{
+                                width:
+                                    "96vw",
+                                maxWidth:
+                                    1900,
+                                height:
+                                    "90vh",
+                                background:
+                                    "#FFFFFF",
+                                borderRadius:
+                                    10,
+                                boxShadow:
+                                    "0 20px 60px rgba(15,23,42,0.20)",
+                                display:
+                                    "flex",
+                                flexDirection:
+                                    "column",
+                                overflow:
+                                    "hidden",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    minHeight: 58,
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    justifyContent:
+                                        "space-between",
+                                    padding:
+                                        "0 18px",
+                                    borderBottom:
+                                        "1px solid #E5E7EB",
+                                }}
+                            >
+                                <div>
+                                    <div
+                                        style={{
+                                            fontSize: 15,
+                                            fontWeight: 700,
+                                            color:
+                                                "#0F172A",
+                                        }}
+                                    >
+                                        Month-on-Month OPEX Report
+                                    </div>
+
+                                    <div
+                                        style={{
+                                            marginTop: 3,
+                                            fontSize: 11,
+                                            color:
+                                                "#64748B",
+                                        }}
+                                    >
+                                        View All
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowViewAll(
+                                            false
+                                        )
+                                    }
+                                    style={{
+                                        width: 32,
+                                        height: 32,
+                                        borderRadius:
+                                            6,
+                                        border:
+                                            "1px solid #E2E8F0",
+                                        background:
+                                            "#FFFFFF",
+                                        color:
+                                            "#64748B",
+                                        display:
+                                            "flex",
+                                        alignItems:
+                                            "center",
+                                        justifyContent:
+                                            "center",
+                                        cursor:
+                                            "pointer",
+                                    }}
+                                >
+                                    <X
+                                        size={
+                                            17
+                                        }
+                                    />
+                                </button>
+                            </div>
+
+                            {/* ==========================================
+                                ACTIVE FILTERS & RIGHT-ALIGNED EXPORT BUTTONS
+                            ========================================== */}
+
+                            <div
+                                style={{
+                                    padding:
+                                        "10px 18px",
+                                    background:
+                                        "#F8FAFC",
+                                    borderBottom:
+                                        "1px solid #E5E7EB",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    justifyContent:
+                                        "space-between",
+                                    gap: 12,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    {filterEntries.length >
+                                        0 ? (
+                                        filterEntries.map(
+                                            ([
+                                                key,
+                                                value,
+                                            ]) => (
+                                                <div
+                                                    key={
+                                                        key
+                                                    }
+                                                    style={{
+                                                        display:
+                                                            "flex",
+                                                        alignItems:
+                                                            "center",
+                                                        gap: 5,
+                                                        padding:
+                                                            "6px 10px",
+                                                        borderRadius:
+                                                            5,
+                                                        background:
+                                                            "#FFFFFF",
+                                                        border:
+                                                            "1px solid #E2E8F0",
+                                                        fontSize: 13,
+                                                        color:
+                                                            "#475569",
+                                                    }}
+                                                >
+                                                    <span
+                                                        style={{
+                                                            fontWeight:
+                                                                600,
+                                                        }}
+                                                    >
+                                                        {formatFilterKey(key)}:
+                                                    </span>
+
+                                                    <span>
+                                                        {formatFilterValue(
+                                                            value,
+                                                            key,
+                                                            filterOptions
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            )
+                                        )
+                                    ) : (
+                                        <span
+                                            style={{
+                                                fontSize: 13,
+                                                color:
+                                                    "#64748B",
+                                            }}
+                                        >
+                                            No additional hierarchy
+                                            filters selected
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div
+                                    style={{
+                                        display:
+                                            "flex",
+                                        alignItems:
+                                            "center",
+                                        gap: 8,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <ExportButtons
+                                        endpoint="month-on-month-opex"
+                                        exporting={exporting}
+                                        handleExport={handleModalExport}
+                                    />
+                                </div>
+                            </div>
+
+                            <div
+                                style={{
+                                    flex: 1,
+                                    overflow:
+                                        "auto",
+                                    padding:
+                                        "8px 0 16px",
+                                }}
+                            >
+                                {renderMainTable(
+                                    rows,
+                                    true
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </>
     );
 }

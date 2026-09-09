@@ -69,7 +69,7 @@ export default function WCDashboard() {
             </div>
           </div>
           <div style={{ width: '100%', height: 350 }}>
-            <ResponsiveContainer>
+            <ResponsiveContainer minWidth={1} minHeight={1}>
               <AreaChart data={WORKING_CAPITAL_TREND}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
@@ -133,7 +133,7 @@ export default function WCDashboard() {
         </div>
         <div style={{ display: 'flex', gap: '32px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 300px', height: 220 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
               <BarChart data={INVENTORY_AGING} layout="vertical" barCategoryGap="25%">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
                 <XAxis type="number" hide />

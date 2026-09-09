@@ -7,8 +7,9 @@
  */
 
 // IMPORTANT: Keep ?? (not ||) here.
+import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE = getApiBaseUrl();
 
 /* ── JWT helpers ───────────────────────────────────────────────── */
 
@@ -17,7 +18,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
  * Token key: localStorage.finsight_token  (written by the real backend after login).
  */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -459,7 +460,7 @@ const MOCK_SUMMARY_DETAIL = {
 };
 
 function getMockDataForPath(path) {
-  if (path.includes('/filters')) return MOCK_FILTERS;
+  if (path.includes('/filter')) return MOCK_FILTERS;
   if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
   if (path.includes('/salesman-summary')) return MOCK_SALESMAN_SUMMARY;
   if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;
@@ -492,7 +493,7 @@ function getMockDataForPath(path) {
 const apiCache = new Map();
 
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token');
 
   // If no token exists in localStorage, fall back to high-fidelity mock data.
   // This allows the page to work seamlessly when logged in via Demo Mode.
@@ -545,7 +546,7 @@ async function apiCall(path, params = {}) {
   if (!res.ok) {
     if (res.status === 401) {
       console.warn('[salesRevenueApi] 401 Unauthorized. Token expired or invalid. Clearing token and falling back to mock data.');
-      localStorage.removeItem('finsight_token');
+      localStorage.removeItem('token');
       return getMockDataForPath(path);
     }
 
@@ -694,7 +695,7 @@ function buildParams(filters = {}) {
  * @param {object} filters  - current applied filters
  */
 export function exportSalesRevenue(endpoint, format, filters = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token');
 
   const params = {
     ...buildParams(filters),
@@ -753,7 +754,7 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
 /* ── Public API functions ──────────────────────────────────────── */
 
 /**
- * GET /api/sales-revenue/filters
+ * GET /api/sales-revenue/filter-options
  * Returns available filter options (dropdown values).
  */
 export async function fetchAccessMe() {
@@ -765,7 +766,7 @@ export async function fetchRolePermissions(roleCode) {
 }
 
 export async function fetchFilters() {
-  return apiCall('/api/sales-revenue/filters', { currency: 'AED' });
+  return apiCall('/api/sales-revenue/filter-options', { currency: 'AED' });
 }
 
 /**

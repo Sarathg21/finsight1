@@ -172,7 +172,7 @@ export default function CFODashboard() {
               {!drillMetric && <ChartLegend color={C.cyan} label="Gross Profit" square />}
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height={250}>
             <BarChart data={chartData} barGap={2} barCategoryGap="32%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
               <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
@@ -197,7 +197,7 @@ export default function CFODashboard() {
               Cash position vs monthly target
             </div>
             <div style={{ height: 130, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ResponsiveContainer>
+              <ResponsiveContainer minWidth={1} minHeight={1}>
                 <PieChart>
                   <Pie data={[{ v: 87 }, { v: 13 }]} dataKey="v" cx="50%" cy="55%"
                     innerRadius={46} outerRadius={62} startAngle={220} endAngle={-40} stroke="none">
