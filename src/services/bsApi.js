@@ -32,7 +32,7 @@ const API_BASE = getApiBaseUrl();
 const apiCache = new Map();
 
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
 
   const urlParams = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -97,7 +97,7 @@ async function apiCall(path, params = {}) {
 
 
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -145,7 +145,7 @@ function buildBSParams(filters = {}) {
  * @returns {Promise}
  */
 export function exportBS(format = 'excel', section = 'summary', filters = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('finsight_token') || localStorage.getItem('token');
   const base  = buildBSParams(filters);
   const params = { ...base, format };
 
@@ -201,7 +201,16 @@ export async function fetchBSFilters(params = {}) {
   const apiParams = {};
   if (params.analysisCode) apiParams.analysis_code = params.analysisCode;
 
-  const raw = await apiCall('/api/bs/filter-options', apiParams);
+  let raw;
+  try {
+    raw = await apiCall('/api/bs/filters', apiParams);
+  } catch (err) {
+    if (err?.status === 404) {
+      raw = await apiCall('/api/bs/filter-options', apiParams);
+    } else {
+      throw err;
+    }
+  }
   // DEV-only: log raw filters response for debugging. Fires once per real request
   // (StrictMode double-invoke is deduped at the apiCall cache level).
   if (import.meta.env.DEV) console.log('[bsApi] fetchBSFilters raw:', raw);

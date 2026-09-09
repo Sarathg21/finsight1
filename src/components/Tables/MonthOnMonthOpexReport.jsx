@@ -968,6 +968,13 @@ export default function MonthOnMonthOpexReport({
             );
 
             if (!response.ok) {
+                if (response.status === 404) {
+                    setMonthlyCategoryDetails((prev) => ({
+                        ...prev,
+                        [category]: [],
+                    }));
+                    return;
+                }
                 let errorMessage =
                     `Category detail monthly request failed: ${response.status}`;
 

@@ -211,6 +211,15 @@ export const getOpexFilterOptions = async (
         return getResponseData(response);
 
     } catch (error) {
+        if (error?.response?.status === 404 || error?.status === 404) {
+            try {
+                const params = buildParams(filters, false);
+                const plResponse = await api.get("/pl/filter-options", { params });
+                return getResponseData(plResponse);
+            } catch {
+                // fall through to throw original
+            }
+        }
         throw getApiError(error);
     }
 };
@@ -241,6 +250,35 @@ export const getOpexSummary = async (
         return getResponseData(response);
 
     } catch (error) {
+        if (error?.response?.status === 404 || error?.status === 404) {
+            try {
+                const params = buildParams(filters, true);
+                const plResponse = await api.get("/pl/expense-breakdown", { params });
+                const items = getResponseData(plResponse) || [];
+                const list = Array.isArray(items) ? items : (items?.items || items?.data || []);
+                const actualPTD = list.reduce((sum, item) => sum + (Number(item?.actual_ptd_aed ?? item?.actual_ptd ?? item?.amount_aed ?? item?.amount ?? 0) || 0), 0);
+                const actualYTD = list.reduce((sum, item) => sum + (Number(item?.actual_ytd_aed ?? item?.actual_ytd ?? 0) || 0), 0);
+                return {
+                    actual_ptd_aed: actualPTD,
+                    actual_ptd: actualPTD,
+                    actual_ytd_aed: actualYTD,
+                    actual_ytd: actualYTD,
+                    target_ptd_aed: null,
+                    target_ptd: null,
+                    variance_ptd_aed: null,
+                    variance_ptd: null,
+                    variance_ptd_pct: null,
+                    target_ytd_aed: null,
+                    target_ytd: null,
+                    variance_ytd_aed: null,
+                    variance_ytd: null,
+                    variance_ytd_pct: null,
+                    data_as_of: list[0]?.data_as_of || null,
+                };
+            } catch {
+                // fall through to throw original
+            }
+        }
         throw getApiError(error);
     }
 };
@@ -270,6 +308,15 @@ export const getOpexCategoryComparison =
             return getResponseData(response);
 
         } catch (error) {
+            if (error?.response?.status === 404 || error?.status === 404) {
+                try {
+                    const params = buildParams(filters, true);
+                    const plResponse = await api.get("/pl/expense-breakdown", { params });
+                    return getResponseData(plResponse);
+                } catch {
+                    // fall through
+                }
+            }
             throw getApiError(error);
         }
     };
@@ -299,6 +346,15 @@ export const getOpexComposition =
             return getResponseData(response);
 
         } catch (error) {
+            if (error?.response?.status === 404 || error?.status === 404) {
+                try {
+                    const params = buildParams(filters, true);
+                    const plResponse = await api.get("/pl/expense-breakdown", { params });
+                    return getResponseData(plResponse);
+                } catch {
+                    // fall through
+                }
+            }
             throw getApiError(error);
         }
     };
@@ -404,6 +460,15 @@ export const getOpexCategoryBreakdown =
             return getResponseData(response);
 
         } catch (error) {
+            if (error?.response?.status === 404 || error?.status === 404) {
+                try {
+                    const params = buildParams(filters, true);
+                    const plResponse = await api.get("/pl/expense-breakdown", { params });
+                    return getResponseData(plResponse);
+                } catch {
+                    // fall through
+                }
+            }
             throw getApiError(error);
         }
     };
@@ -445,6 +510,9 @@ export const getOpexCategoryDetail =
             return getResponseData(response);
 
         } catch (error) {
+            if (error?.response?.status === 404 || error?.status === 404) {
+                return [];
+            }
             throw getApiError(error);
         }
     };
@@ -475,6 +543,9 @@ export const getOpexMonthly = async (
         return getResponseData(response);
 
     } catch (error) {
+        if (error?.response?.status === 404 || error?.status === 404) {
+            return [];
+        }
         throw getApiError(error);
     }
 };
@@ -500,6 +571,9 @@ export const getOpexCategoryDetailMonthly = async (
 
         return getResponseData(response);
     } catch (error) {
+        if (error?.response?.status === 404 || error?.status === 404) {
+            return [];
+        }
         throw getApiError(error);
     }
 };
@@ -555,6 +629,15 @@ export const getOpexCategoryBreakdownViewAll =
             return getResponseData(response);
 
         } catch (error) {
+            if (error?.response?.status === 404 || error?.status === 404) {
+                try {
+                    const params = buildParams(filters, true);
+                    const plResponse = await api.get("/pl/expense-breakdown", { params });
+                    return getResponseData(plResponse);
+                } catch {
+                    // fall through
+                }
+            }
             throw getApiError(error);
         }
     };
@@ -680,6 +763,9 @@ export const getOpexReconciliation = async (
         return getResponseData(response);
 
     } catch (error) {
+        if (error?.response?.status === 404 || error?.status === 404) {
+            return null;
+        }
         throw getApiError(error);
     }
 };

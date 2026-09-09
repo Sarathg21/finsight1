@@ -453,6 +453,13 @@ export default function ExpenseCategoryDrillDown({
                 );
 
             if (!response.ok) {
+                if (response.status === 404) {
+                    setCategoryDetails((prev) => ({
+                        ...prev,
+                        [category]: [],
+                    }));
+                    return;
+                }
                 throw new Error(
                     `Failed to load category details (${response.status})`
                 );
