@@ -404,6 +404,15 @@ export default function ExpenseCategoryDrillDown({
             return;
         }
 
+        const derived = deriveCategoryNaturalAccounts(item, category);
+        if (Array.isArray(derived) && derived.length > 0) {
+            setCategoryDetails((prev) => ({
+                ...prev,
+                [category]: derived,
+            }));
+            return;
+        }
+
         try {
             setCategoryDetailLoading(
                 (prev) => ({

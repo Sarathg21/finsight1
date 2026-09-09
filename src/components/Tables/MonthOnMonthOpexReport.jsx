@@ -147,6 +147,20 @@ const getMonthValue = (
         monthlyActual === null ||
         monthlyActual === undefined
     ) {
+        if (item && typeof item === "object") {
+            const normKey = String(monthKey).toLowerCase();
+            const normLabel = String(monthLabel).toLowerCase();
+            for (const k of Object.keys(item)) {
+                const lk = k.toLowerCase();
+                if (lk === normKey || lk === normLabel || lk.startsWith(normKey) || lk.startsWith(normLabel)) {
+                    const v = item[k];
+                    if (v && typeof v === "object") {
+                        return v?.value ?? v?.actual ?? v?.amount ?? null;
+                    }
+                    return v;
+                }
+            }
+        }
         return null;
     }
 
@@ -832,6 +846,15 @@ export default function MonthOnMonthOpexReport({
 
         if (categoryDetailLoading?.[category]) {
             return [];
+        }
+
+        const derived = deriveCategoryNaturalAccounts(item, category);
+        if (Array.isArray(derived) && derived.length > 0) {
+            setCategoryDetails((prev) => ({
+                ...prev,
+                [category]: derived,
+            }));
+            return derived;
         }
 
         setCategoryDetailLoading((prev) => ({

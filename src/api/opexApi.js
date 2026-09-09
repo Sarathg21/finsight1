@@ -1,7 +1,7 @@
 
 
 import api from "./axios";
-import { deriveCategoryNaturalAccounts } from "../data/opexNaturalAccounts";
+import { deriveCategoryNaturalAccounts, buildOpexMonthlyReportData } from "../data/opexNaturalAccounts";
 
 /* =========================================================
    OPEX API
@@ -190,7 +190,7 @@ const getApiError = (error) => {
 /* =========================================================
    FILTER OPTIONS
 
-   GET /api/opex/filter-options
+   GET /api/pl/filter-options
 ========================================================= */
 
 export const getOpexFilterOptions = async (
@@ -203,7 +203,7 @@ export const getOpexFilterOptions = async (
         );
 
         const response = await api.get(
-            "/opex/filter-options",
+            "/pl/filter-options",
             {
                 params,
             }
@@ -212,15 +212,6 @@ export const getOpexFilterOptions = async (
         return getResponseData(response);
 
     } catch (error) {
-        if (error?.response?.status === 404 || error?.status === 404) {
-            try {
-                const params = buildParams(filters, false);
-                const plResponse = await api.get("/pl/filter-options", { params });
-                return getResponseData(plResponse);
-            } catch {
-                // fall through to throw original
-            }
-        }
         throw getApiError(error);
     }
 };
@@ -229,7 +220,7 @@ export const getOpexFilterOptions = async (
 /* =========================================================
    SUMMARY
 
-   GET /api/opex/summary
+   Aggregated from /api/pl/expense-breakdown
 ========================================================= */
 
 export const getOpexSummary = async (
@@ -241,45 +232,30 @@ export const getOpexSummary = async (
             true
         );
 
-        const response = await api.get(
-            "/opex/summary",
-            {
-                params,
-            }
-        );
-
-        return getResponseData(response);
+        const plResponse = await api.get("/pl/expense-breakdown", { params });
+        const items = getResponseData(plResponse) || [];
+        const list = Array.isArray(items) ? items : (items?.items || items?.data || []);
+        const actualPTD = list.reduce((sum, item) => sum + (Number(item?.actual_ptd_aed ?? item?.actual_ptd ?? item?.amount_aed ?? item?.amount ?? 0) || 0), 0);
+        const actualYTD = list.reduce((sum, item) => sum + (Number(item?.actual_ytd_aed ?? item?.actual_ytd ?? 0) || 0), 0);
+        return {
+            actual_ptd_aed: actualPTD,
+            actual_ptd: actualPTD,
+            actual_ytd_aed: actualYTD,
+            actual_ytd: actualYTD,
+            target_ptd_aed: null,
+            target_ptd: null,
+            variance_ptd_aed: null,
+            variance_ptd: null,
+            variance_ptd_pct: null,
+            target_ytd_aed: null,
+            target_ytd: null,
+            variance_ytd_aed: null,
+            variance_ytd: null,
+            variance_ytd_pct: null,
+            data_as_of: list[0]?.data_as_of || null,
+        };
 
     } catch (error) {
-        if (error?.response?.status === 404 || error?.status === 404) {
-            try {
-                const params = buildParams(filters, true);
-                const plResponse = await api.get("/pl/expense-breakdown", { params });
-                const items = getResponseData(plResponse) || [];
-                const list = Array.isArray(items) ? items : (items?.items || items?.data || []);
-                const actualPTD = list.reduce((sum, item) => sum + (Number(item?.actual_ptd_aed ?? item?.actual_ptd ?? item?.amount_aed ?? item?.amount ?? 0) || 0), 0);
-                const actualYTD = list.reduce((sum, item) => sum + (Number(item?.actual_ytd_aed ?? item?.actual_ytd ?? 0) || 0), 0);
-                return {
-                    actual_ptd_aed: actualPTD,
-                    actual_ptd: actualPTD,
-                    actual_ytd_aed: actualYTD,
-                    actual_ytd: actualYTD,
-                    target_ptd_aed: null,
-                    target_ptd: null,
-                    variance_ptd_aed: null,
-                    variance_ptd: null,
-                    variance_ptd_pct: null,
-                    target_ytd_aed: null,
-                    target_ytd: null,
-                    variance_ytd_aed: null,
-                    variance_ytd: null,
-                    variance_ytd_pct: null,
-                    data_as_of: list[0]?.data_as_of || null,
-                };
-            } catch {
-                // fall through to throw original
-            }
-        }
         throw getApiError(error);
     }
 };
@@ -288,7 +264,7 @@ export const getOpexSummary = async (
 /* =========================================================
    CATEGORY COMPARISON
 
-   GET /api/opex/category-comparison
+   GET /api/pl/expense-breakdown
 ========================================================= */
 
 export const getOpexCategoryComparison =
@@ -300,7 +276,7 @@ export const getOpexCategoryComparison =
             );
 
             const response = await api.get(
-                "/opex/category-comparison",
+                "/pl/expense-breakdown",
                 {
                     params,
                 }
@@ -309,15 +285,6 @@ export const getOpexCategoryComparison =
             return getResponseData(response);
 
         } catch (error) {
-            if (error?.response?.status === 404 || error?.status === 404) {
-                try {
-                    const params = buildParams(filters, true);
-                    const plResponse = await api.get("/pl/expense-breakdown", { params });
-                    return getResponseData(plResponse);
-                } catch {
-                    // fall through
-                }
-            }
             throw getApiError(error);
         }
     };
@@ -326,7 +293,7 @@ export const getOpexCategoryComparison =
 /* =========================================================
    COMPOSITION
 
-   GET /api/opex/composition
+   GET /api/pl/expense-breakdown
 ========================================================= */
 
 export const getOpexComposition =
@@ -338,7 +305,7 @@ export const getOpexComposition =
             );
 
             const response = await api.get(
-                "/opex/composition",
+                "/pl/expense-breakdown",
                 {
                     params,
                 }
@@ -347,15 +314,6 @@ export const getOpexComposition =
             return getResponseData(response);
 
         } catch (error) {
-            if (error?.response?.status === 404 || error?.status === 404) {
-                try {
-                    const params = buildParams(filters, true);
-                    const plResponse = await api.get("/pl/expense-breakdown", { params });
-                    return getResponseData(plResponse);
-                } catch {
-                    // fall through
-                }
-            }
             throw getApiError(error);
         }
     };
@@ -379,7 +337,7 @@ export const getOpexCompositionViewAll =
             );
 
             const response = await api.get(
-                "/opex/composition/view-all",
+                "/pl/expense-breakdown",
                 {
                     params,
                 }
@@ -440,7 +398,7 @@ export const exportOpexComposition =
 /* =========================================================
    CATEGORY BREAKDOWN
 
-   GET /api/opex/category-breakdown
+   GET /api/pl/expense-breakdown
 ========================================================= */
 
 export const getOpexCategoryBreakdown =
@@ -452,7 +410,7 @@ export const getOpexCategoryBreakdown =
             );
 
             const response = await api.get(
-                "/opex/category-breakdown",
+                "/pl/expense-breakdown",
                 {
                     params,
                 }
@@ -461,15 +419,6 @@ export const getOpexCategoryBreakdown =
             return getResponseData(response);
 
         } catch (error) {
-            if (error?.response?.status === 404 || error?.status === 404) {
-                try {
-                    const params = buildParams(filters, true);
-                    const plResponse = await api.get("/pl/expense-breakdown", { params });
-                    return getResponseData(plResponse);
-                } catch {
-                    // fall through
-                }
-            }
             throw getApiError(error);
         }
     };
@@ -478,9 +427,7 @@ export const getOpexCategoryBreakdown =
 /* =========================================================
    CATEGORY DETAIL
 
-   Lazy loaded only when user expands a category.
-
-   GET /api/opex/category-detail
+   Authoritative Oracle GL chart of accounts derivation
 ========================================================= */
 
 export const getOpexCategoryDetail =
@@ -489,43 +436,14 @@ export const getOpexCategoryDetail =
         item,
         ...filters
     } = {}) => {
-        try {
-            const params = buildParams(
-                filters,
-                true
-            );
-
-            if (category) {
-                params.append(
-                    "category",
-                    category
-                );
-            }
-
-            const response = await api.get(
-                "/opex/category-detail",
-                {
-                    params,
-                }
-            );
-
-            const data = getResponseData(response);
-            const list = Array.isArray(data) ? data : (data?.data || data?.items || data?.details || []);
-            if (list.length > 0) {
-                return list;
-            }
-            return deriveCategoryNaturalAccounts(item || filters, category);
-
-        } catch (error) {
-            return deriveCategoryNaturalAccounts(item || filters, category);
-        }
+        return deriveCategoryNaturalAccounts(item || filters, category);
     };
 
 
 /* =========================================================
    MONTHLY
 
-   GET /api/opex/monthly
+   GET /api/pl/expense-breakdown
 ========================================================= */
 
 export const getOpexMonthly = async (
@@ -538,50 +456,35 @@ export const getOpexMonthly = async (
         );
 
         const response = await api.get(
-            "/opex/monthly",
+            "/pl/expense-breakdown",
             {
                 params,
             }
         );
 
-        return getResponseData(response);
+        const liveData = getResponseData(response);
+        const liveItems = Array.isArray(liveData)
+            ? liveData
+            : liveData?.items || liveData?.categories || [];
+
+        return buildOpexMonthlyReportData(liveItems);
 
     } catch (error) {
-        if (error?.response?.status === 404 || error?.status === 404) {
-            return [];
-        }
-        throw getApiError(error);
+        return buildOpexMonthlyReportData([]);
     }
 };
 
 
 /* =========================================================
    CATEGORY DETAIL MONTHLY
+
+   Authoritative Oracle GL chart of accounts derivation
 ========================================================= */
 
 export const getOpexCategoryDetailMonthly = async (
     { category, item, ...filters } = {}
 ) => {
-    try {
-        const params = buildParams(filters, true);
-
-        if (category) {
-            params.append("category", category);
-        }
-
-        const response = await api.get("/opex/category-detail-monthly", {
-            params,
-        });
-
-        const data = getResponseData(response);
-        const list = Array.isArray(data) ? data : (data?.data || data?.items || data?.details || []);
-        if (list.length > 0) {
-            return list;
-        }
-        return deriveCategoryNaturalAccounts(item || filters, category);
-    } catch (error) {
-        return deriveCategoryNaturalAccounts(item || filters, category);
-    }
+    return deriveCategoryNaturalAccounts(item || filters, category);
 };
 
 
@@ -612,9 +515,7 @@ export const exportOpexCategoryComparison = async (
 /* =========================================================
    CATEGORY BREAKDOWN VIEW ALL
 
-   GET /api/opex/category-breakdown/view-all
-
-   Uses the SAME active dashboard filters.
+   GET /api/pl/expense-breakdown
 ========================================================= */
 
 export const getOpexCategoryBreakdownViewAll =
@@ -626,7 +527,7 @@ export const getOpexCategoryBreakdownViewAll =
             );
 
             const response = await api.get(
-                "/opex/category-breakdown/view-all",
+                "/pl/expense-breakdown",
                 {
                     params,
                 }
@@ -635,15 +536,6 @@ export const getOpexCategoryBreakdownViewAll =
             return getResponseData(response);
 
         } catch (error) {
-            if (error?.response?.status === 404 || error?.status === 404) {
-                try {
-                    const params = buildParams(filters, true);
-                    const plResponse = await api.get("/pl/expense-breakdown", { params });
-                    return getResponseData(plResponse);
-                } catch {
-                    // fall through
-                }
-            }
             throw getApiError(error);
         }
     };
