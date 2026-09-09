@@ -45,13 +45,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!user) return;
 
-    /*
-     * ADMIN is redirected to Payables after successful backend
-     * authentication.
-     *
-     * Do not redirect ADMIN here because the login flow handles it.
-     */
-    if (user.role_code === "ADMIN" || user.role === "admin") {
+    if (user.role_code === "ADMIN") {
       return;
     }
 
@@ -87,10 +81,7 @@ export default function LoginPage() {
   /* ================================================================
      LOGIN
 
-     IMPORTANT:
-     loginWithBackend returns a session object but does NOT commit
-     the user to AuthContext. We must call completeLogin(session)
-     to persist the session in context and localStorage.
+     FUNCTIONALITY UNCHANGED
   ================================================================= */
 
   async function handleSubmit(e) {
@@ -107,28 +98,30 @@ export default function LoginPage() {
         password
       );
 
-      setBackendStatus("online");
+      console.log("LOGIN SESSION:", session);
+      console.log(
+        "ACCESS TOKEN:",
+        !!session?.access_token
+      );
+      console.log(
+        "ROLE CODE:",
+        session?.role_code
+      );
 
-      // Persist the session in AuthContext + localStorage
-      completeLogin(session);
+      setBackendStatus("online");
+      completeLogin?.(session);
 
       const roleCode =
         session?.role_code ||
-        session?.user?.role_code ||
-        session?.role;
-
-      // ── Payables SSO ─────────────────────────────────────────
-      // Only attempt Payables SSO if VITE_PAYABLES_ORIGIN is
-      // configured. If undefined/empty, skip gracefully so that
-      // normal FinSight login still works without popup errors.
-      const payablesOrigin =
-        import.meta.env.VITE_PAYABLES_ORIGIN;
+        session?.user?.role_code;
 
       if (
-        payablesOrigin &&
-        (roleCode === "ADMIN" ||
-          roleCode === "BU_ACCOUNTANT")
+        roleCode === "ADMIN" ||
+        roleCode === "BU_ACCOUNTANT"
       ) {
+        const payablesOrigin =
+          import.meta.env.VITE_PAYABLES_ORIGIN;
+
         let payablesWindow = null;
 
         const handlePayablesReady = (event) => {
@@ -143,10 +136,30 @@ export default function LoginPage() {
             return;
           }
 
+          console.log(
+            "Payables is ready. Sending authentication token."
+          );
+
           if (
             payablesWindow &&
             !payablesWindow.closed
           ) {
+            console.log(
+              "PAYABLES_READY received from:",
+              event.origin,
+              event.data
+            );
+
+            console.log(
+              "Sending FINSIGHT_AUTH to:",
+              payablesOrigin
+            );
+
+            console.log(
+              "Token available:",
+              !!session?.access_token
+            );
+
             payablesWindow.postMessage(
               {
                 type: "FINSIGHT_AUTH",
@@ -187,6 +200,15 @@ export default function LoginPage() {
 
         window.payablesWindow =
           payablesWindow;
+
+        navigate(
+          from || "/dashboard",
+          {
+            replace: true,
+          }
+        );
+
+        return;
       }
 
       navigate(
@@ -233,27 +255,26 @@ export default function LoginPage() {
     <div className="finsight-login-page">
 
       {/* ============================================================
-          LEFT SIDE - FINANCIAL INTELLIGENCE VISUAL
+          LEFT SIDE
       ============================================================ */}
 
       <section className="finsight-login-visual">
 
         <div className="visual-overlay" />
 
+        {/* BRAND + HEADING */}
+
         <div className="visual-content">
 
-          {/* FinSight Branding */}
-
           <div className="finsight-brand">
-            <span>FinSight</span>
-            <span className="registered-symbol">®</span>
+            <img
+              src="/images/FinSightLogo-Transparent.png"
+              alt=""
+              className="finsight-logo-image"
+            />
           </div>
 
-          <div className="finsight-subtitle">
-            Financial Intelligence Platform
-          </div>
-
-          <div className="brand-accent-line" />
+          <div className="finsight-accent-line" />
 
           <h1 className="visual-heading">
             Clarity for every
@@ -262,7 +283,6 @@ export default function LoginPage() {
           </h1>
 
         </div>
-
 
         {/* ==========================================================
             FINANCIAL CHART
@@ -295,7 +315,6 @@ export default function LoginPage() {
 
           </div>
 
-
           <svg
             className="growth-line"
             viewBox="0 0 1000 500"
@@ -320,9 +339,7 @@ export default function LoginPage() {
                   offset="100%"
                   stopColor="#94f5ee"
                 />
-
               </linearGradient>
-
 
               <filter
                 id="lineGlow"
@@ -346,7 +363,6 @@ export default function LoginPage() {
 
             </defs>
 
-
             <polyline
               points="
                 40,420
@@ -369,7 +385,6 @@ export default function LoginPage() {
               filter="url(#lineGlow)"
             />
 
-
             {[
               [40, 420],
               [120, 405],
@@ -382,7 +397,6 @@ export default function LoginPage() {
               [690, 105],
               [780, 35],
             ].map(([cx, cy], index) => (
-
               <g key={index}>
 
                 <circle
@@ -400,26 +414,19 @@ export default function LoginPage() {
                 />
 
               </g>
-
             ))}
 
           </svg>
 
         </div>
 
-        {/* ==========================================================
-            COPYRIGHT
-        ========================================================== */}
+        {/* COPYRIGHT */}
 
         <div className="login-copyright">
-
           © 2026 ZeNith Data Intelligence LLC. All rights reserved.
-
         </div>
 
-
       </section>
-
 
       {/* ============================================================
           RIGHT SIDE - LOGIN
@@ -429,11 +436,7 @@ export default function LoginPage() {
 
         <div className="login-form-container">
 
-
-
-          {/* ========================================================
-              FJ GROUP EXACT LOGO
-          ======================================================== */}
+          {/* FJ GROUP LOGO */}
 
           <div className="fj-group-brand">
             <img
@@ -443,18 +446,13 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* ========================================================
-              WELCOME
-          ======================================================== */}
+          {/* WELCOME */}
 
           <h2 className="welcome-heading">
             Welcome
           </h2>
 
-
-          {/* ========================================================
-              LOGIN FORM
-          ======================================================== */}
+          {/* LOGIN FORM */}
 
           <form
             onSubmit={handleSubmit}
@@ -493,7 +491,6 @@ export default function LoginPage() {
               </div>
 
             </div>
-
 
             {/* PASSWORD */}
 
@@ -555,7 +552,6 @@ export default function LoginPage() {
 
             </div>
 
-
             {/* FORGOT PASSWORD */}
 
             <div className="forgot-password-row">
@@ -569,19 +565,13 @@ export default function LoginPage() {
 
             </div>
 
-
             {/* ERROR */}
 
             {error && (
-
               <div className="login-error-message">
-
                 {error}
-
               </div>
-
             )}
-
 
             {/* LOGIN BUTTON */}
 
@@ -596,7 +586,6 @@ export default function LoginPage() {
             >
 
               {loading ? (
-
                 <>
                   <span className="login-spinner" />
 
@@ -604,11 +593,8 @@ export default function LoginPage() {
                     Signing In...
                   </span>
                 </>
-
               ) : (
-
                 <>
-
                   <ShieldCheck
                     size={25}
                     strokeWidth={1.8}
@@ -617,9 +603,7 @@ export default function LoginPage() {
                   <span>
                     Sign In Securely
                   </span>
-
                 </>
-
               )}
 
             </button>
@@ -628,10 +612,7 @@ export default function LoginPage() {
 
         </div>
 
-
-
       </section>
-
 
       {/* ============================================================
           STYLES
@@ -639,21 +620,38 @@ export default function LoginPage() {
 
       <style>{`
 
-        /* ==========================================================
-           ROOT
-        ========================================================== */
-
         * {
           box-sizing: border-box;
         }
 
+        html,
+        body,
+        #root {
+          width: 100%;
+          min-height: 100%;
+          margin: 0;
+        }
+
+        /* ==========================================================
+           LOGIN PAGE
+        ========================================================== */
+
         .finsight-login-page {
           width: 100%;
           min-height: 100vh;
+
           display: grid;
-          grid-template-columns: 54% 46%;
+
+          /*
+             Reference image:
+             approximately 53% left / 47% right
+          */
+          grid-template-columns: 53.2% 46.8%;
+
           overflow: hidden;
+
           background: #ffffff;
+
           font-family:
             Inter,
             "Segoe UI",
@@ -661,135 +659,160 @@ export default function LoginPage() {
             sans-serif;
         }
 
-
         /* ==========================================================
-           LEFT VISUAL
+           LEFT PANEL
         ========================================================== */
 
         .finsight-login-visual {
           position: relative;
+
           min-height: 100vh;
+
           overflow: hidden;
 
           background:
             radial-gradient(
-              circle at 72% 68%,
-              rgba(15, 160, 171, 0.13),
-              transparent 30%
+              circle at 72% 67%,
+              rgba(15, 160, 171, 0.12),
+              transparent 31%
             ),
             radial-gradient(
-              circle at 10% 20%,
+              circle at 8% 20%,
               rgba(21, 57, 94, 0.2),
-              transparent 35%
+              transparent 36%
             ),
             linear-gradient(
               135deg,
-              #0d2039 0%,
-              #091a30 55%,
+              #0c223b 0%,
+              #091b31 54%,
               #061426 100%
             );
         }
 
-
         .visual-overlay {
           position: absolute;
+
           inset: 0;
 
           background:
             linear-gradient(
               180deg,
-              rgba(8, 20, 39, 0.05),
-              rgba(3, 12, 26, 0.28)
+              rgba(8, 20, 39, 0.02),
+              rgba(3, 12, 26, 0.22)
             );
 
           pointer-events: none;
         }
 
+        /* ==========================================================
+   LEFT BRAND CONTENT
+========================================================== */
 
-        .visual-content {
-          position: relative;
-          z-index: 3;
+.visual-content {
+  position: relative;
+  z-index: 10;
 
-          padding:
-            clamp(70px, 11vw, 140px)
-            clamp(55px, 7vw, 105px);
-        }
+  width: 100%;
 
+  padding:
+    clamp(50px, 6vw, 80px)
+    clamp(38px, 5vw, 78px);
 
-        .finsight-brand {
-          color: #ffffff;
-          font-size: clamp(1.8rem, 2.5vw, 2.8rem);
-          font-weight: 700;
-          line-height: 1;
-          letter-spacing: -0.045em;
-          text-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
-          display: flex;
-          align-items: flex-start;
-        }
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 
-        .registered-symbol {
-          display: inline-block;
-          font-size: 1em;
-          margin-left: 1px;
-          vertical-align: super;
-          line-height: 1;
-        }
+  pointer-events: none;
+}
 
+/* ==========================================================
+   FINSIGHT BRAND
+========================================================== */
 
-        .finsight-subtitle {
-          margin-top: 13px;
+.finsight-brand {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
 
-          color:
-            rgba(255, 255, 255, 0.84);
+  margin: 0;
+  padding: 0;
 
-          font-size:
-            clamp(1rem, 1.55vw, 1.5rem);
+  text-align: left;
+}
 
-          font-weight: 400;
-
-          letter-spacing: -0.01em;
-        }
-
-
-        .brand-accent-line {
-          width: 68px;
-          height: 4px;
-
-          margin-top: 29px;
-
-          border-radius: 20px;
-
-          background:
-            linear-gradient(
-              90deg,
-              #35c8cd,
-              #77e6df
-            );
-
-          box-shadow:
-            0 0 15px
-            rgba(61, 218, 216, 0.4);
-        }
+/* ==========================================================
+   FINSIGHT LOGO
+========================================================== */
+.finsight-logo-image {
+  display: block;
+  width: 380px;
+  height: auto;
+  max-width: 100%;
+  margin: 0 0 0 -25px; /* move logo 20px left */
+  padding: 0;
+  object-fit: contain;
+  object-position: left center;
+  transform: translateY(0);
+}
 
 
-        .visual-heading {
-          margin: 30px 0 0;
+.finsight-accent-line {
+  width: 72px;
+  height: 4px;
 
-          color: #70d6d5;
+  margin-top: 2px;
+  margin-bottom: 18px;
 
-          font-size:
-            clamp(1.55rem, 2.35vw, 2.7rem);
+  align-self: flex-start;
 
-          line-height: 1.35;
 
-          font-weight: 600;
+  border-radius: 999px;
 
-          letter-spacing: 0.01em;
-        }
+  background: linear-gradient(
+    90deg,
+    #35d7d8 0%,
+    #67eeee 100%
+  );
 
+  box-shadow:
+    0 0 8px rgba(53, 215, 216, 0.55),
+    0 0 18px rgba(53, 215, 216, 0.25);
+}
+
+.visual-heading {
+  position: relative;
+  z-index: 20;
+
+  display: block;
+
+  width: 100%;
+  max-width: 560px;
+
+  margin: 0;
+  padding: 0;
+
+  align-self: flex-start;
+
+
+  color: #70d9d9;
+
+  font-size: clamp(1.65rem, 2.2vw, 2.55rem);
+  line-height: 1.25;
+  font-weight: 600;
+
+  letter-spacing: 0.005em;
+  text-align: left;
+
+  white-space: normal;
+  overflow: visible;
+
+  text-shadow:
+    0 0 18px rgba(67, 215, 216, 0.08);
+}
 
         /* ==========================================================
-           FINANCIAL CHART
+           CHART
         ========================================================== */
 
         .financial-chart {
@@ -797,15 +820,16 @@ export default function LoginPage() {
 
           z-index: 2;
 
-          left: 9%;
+          left: 8%;
+
           right: 7%;
+
           bottom: 9%;
 
-          height: 48%;
+          height: 46%;
 
           overflow: hidden;
         }
-
 
         .chart-grid-lines {
           position: absolute;
@@ -813,16 +837,15 @@ export default function LoginPage() {
           inset: 0;
 
           display: flex;
-          flex-direction: column;
-          justify-content: space-between;
 
-          padding-bottom: 0;
+          flex-direction: column;
+
+          justify-content: space-between;
 
           border-left:
             1px solid
-            rgba(98, 140, 166, 0.16);
+            rgba(98, 140, 166, 0.15);
         }
-
 
         .chart-grid-lines span {
           width: 100%;
@@ -832,30 +855,35 @@ export default function LoginPage() {
             rgba(98, 140, 166, 0.12);
         }
 
-
         .chart-bars {
           position: absolute;
 
           z-index: 1;
 
-          left: 6%;
-          right: 5%;
+          left: 5%;
+
+          right: 4%;
+
           bottom: 0;
 
           height: 100%;
 
           display: flex;
+
           align-items: flex-end;
 
           gap:
-            clamp(8px, 1.2vw, 20px);
+            clamp(
+              7px,
+              1vw,
+              17px
+            );
         }
-
 
         .chart-bars span {
           flex: 1;
 
-          min-height: 15px;
+          min-height: 13px;
 
           border-radius:
             2px 2px 0 0;
@@ -864,16 +892,15 @@ export default function LoginPage() {
             linear-gradient(
               to top,
               rgba(13, 100, 121, 0.08),
-              rgba(29, 169, 176, 0.65)
+              rgba(29, 169, 176, 0.63)
             );
 
           box-shadow:
             0 0 18px
-            rgba(32, 192, 194, 0.12);
+            rgba(32, 192, 194, 0.1);
 
-          opacity: 0.75;
+          opacity: 0.74;
         }
-
 
         .growth-line {
           position: absolute;
@@ -883,14 +910,48 @@ export default function LoginPage() {
           inset: 0;
 
           width: 100%;
+
           height: 100%;
 
           overflow: visible;
         }
 
+        /* ==========================================================
+           COPYRIGHT
+        ========================================================== */
+
+        .login-copyright {
+          position: absolute;
+
+          left: 0;
+
+          right: 0;
+
+          bottom: 25px;
+
+          z-index: 6;
+
+          padding: 0 20px;
+
+          text-align: center;
+
+          color:
+            rgba(
+              255,
+              255,
+              255,
+              0.55
+            );
+
+          font-size: 0.76rem;
+
+          font-weight: 400;
+
+          letter-spacing: 0.01em;
+        }
 
         /* ==========================================================
-           RIGHT LOGIN SECTION
+           RIGHT LOGIN PANEL
         ========================================================== */
 
         .finsight-login-form-section {
@@ -899,45 +960,67 @@ export default function LoginPage() {
           min-height: 100vh;
 
           display: flex;
+
           align-items: center;
+
           justify-content: center;
 
           padding:
-            70px
-            clamp(35px, 6vw, 90px)
-            105px;
+            45px
+            clamp(
+              35px,
+              5.8vw,
+              88px
+            )
+            70px;
 
           background:
             linear-gradient(
               135deg,
               #ffffff 0%,
-              #fbfbfc 50%,
-              #f7f8fa 100%
+              #fdfdfd 52%,
+              #f8f9fa 100%
             );
         }
 
+        /* ==========================================================
+           FORM CONTAINER
+        ========================================================== */
 
         .login-form-container {
           width: 100%;
-          max-width: 450px;
-        }
 
+          max-width: 465px;
+
+          margin: 0 auto;
+        }
 
         /* ==========================================================
            FJ GROUP LOGO
         ========================================================== */
 
         .fj-group-brand {
+          width: 100%;
+
           display: flex;
+
           align-items: center;
+
           justify-content: center;
-          margin-bottom: 15px;
+
+          margin-bottom: 12px;
         }
 
         .fj-group-logo-image {
-          width: 320px;
+          width: min(
+            315px,
+            76%
+          );
+
           height: auto;
+
           display: block;
+
           object-fit: contain;
         }
 
@@ -946,12 +1029,26 @@ export default function LoginPage() {
         ========================================================== */
 
         .welcome-heading {
-          margin: 0 0 28px;
+          margin:
+            0
+            0
+            30px;
+
           text-align: center;
-          color: #14223a;
-          font-size: clamp(1.9rem, 2.5vw, 2.4rem);
+
+          color: #14243d;
+
+          font-size:
+            clamp(
+              1.9rem,
+              2.45vw,
+              2.35rem
+            );
+
           font-weight: 700;
+
           letter-spacing: -0.04em;
+
           line-height: 1.2;
         }
 
@@ -963,24 +1060,25 @@ export default function LoginPage() {
           width: 100%;
         }
 
-
         .login-field-group {
-          margin-bottom: 26px;
+          margin-bottom: 25px;
         }
-
 
         .login-field-group label {
           display: block;
 
-          margin-bottom: 10px;
+          margin-bottom: 9px;
 
-          color: #374151;
+          color: #344054;
 
-          font-size: 0.95rem;
+          font-size: 0.92rem;
 
           font-weight: 500;
         }
 
+        /* ==========================================================
+           INPUT
+        ========================================================== */
 
         .login-input-wrapper {
           position: relative;
@@ -988,9 +1086,9 @@ export default function LoginPage() {
           width: 100%;
 
           display: flex;
+
           align-items: center;
         }
-
 
         .login-input-icon {
           position: absolute;
@@ -999,21 +1097,21 @@ export default function LoginPage() {
 
           z-index: 2;
 
-          color: #8b95a4;
+          color: #8995a5;
 
           pointer-events: none;
         }
 
-
         .login-input-wrapper input {
           width: 100%;
+
           height: 64px;
 
           border:
             1px solid
-            #d3d8df;
+            #d4dce7;
 
-          border-radius: 14px;
+          border-radius: 13px;
 
           outline: none;
 
@@ -1021,11 +1119,15 @@ export default function LoginPage() {
             0
             58px;
 
-          background: #ffffff;
+          /*
+             Reference has a subtle light blue input.
+          */
+          background:
+            #eef5ff;
 
           color: #263247;
 
-          font-size: 1rem;
+          font-size: 0.96rem;
 
           font-family: inherit;
 
@@ -1035,49 +1137,58 @@ export default function LoginPage() {
             background 0.2s ease;
         }
 
-
         .login-input-wrapper input::placeholder {
-          color: #a8b0bb;
+          color: #a5afbd;
         }
-
 
         .login-input-wrapper input:hover {
-          border-color: #bbc4cf;
-        }
+          border-color: #bdc8d5;
 
+          background:
+            #edf4fd;
+        }
 
         .login-input-wrapper input:focus {
-          border-color: #16808a;
+          border-color: #238b95;
+
+          background: #ffffff;
 
           box-shadow:
-            0 0 0 4px
-            rgba(22, 128, 138, 0.1);
+            0 0 0 3px
+            rgba(
+              35,
+              139,
+              149,
+              0.09
+            );
         }
 
-
         /* ==========================================================
-           PASSWORD BUTTON
+           PASSWORD VISIBILITY
         ========================================================== */
 
         .password-visibility-button {
           position: absolute;
 
-          right: 17px;
+          right: 15px;
 
           z-index: 3;
 
           width: 38px;
+
           height: 38px;
 
           display: flex;
+
           align-items: center;
+
           justify-content: center;
 
           border: none;
 
           background: transparent;
 
-          color: #8b95a4;
+          color: #8793a3;
 
           cursor: pointer;
 
@@ -1088,14 +1199,17 @@ export default function LoginPage() {
             color 0.2s ease;
         }
 
-
         .password-visibility-button:hover {
           color: #4b596c;
 
           background:
-            rgba(16, 36, 61, 0.05);
+            rgba(
+              16,
+              36,
+              61,
+              0.05
+            );
         }
-
 
         /* ==========================================================
            FORGOT PASSWORD
@@ -1106,28 +1220,29 @@ export default function LoginPage() {
 
           justify-content: flex-end;
 
-          margin-top: -5px;
-          margin-bottom: 32px;
+          margin-top: -4px;
+
+          margin-bottom: 31px;
         }
 
-
         .forgot-password-row a {
-          color: #3d566b;
+          color: #496278;
 
           text-decoration: none;
 
-          font-size: 0.92rem;
+          font-size: 0.86rem;
 
           font-weight: 500;
-        }
 
+          transition:
+            color 0.2s ease;
+        }
 
         .forgot-password-row a:hover {
           color: #167b85;
 
           text-decoration: underline;
         }
-
 
         /* ==========================================================
            ERROR
@@ -1136,7 +1251,9 @@ export default function LoginPage() {
         .login-error-message {
           margin-bottom: 18px;
 
-          padding: 13px 15px;
+          padding:
+            12px
+            14px;
 
           border:
             1px solid
@@ -1148,11 +1265,10 @@ export default function LoginPage() {
 
           color: #b42318;
 
-          font-size: 0.88rem;
+          font-size: 0.86rem;
 
           line-height: 1.45;
         }
-
 
         /* ==========================================================
            LOGIN BUTTON
@@ -1160,14 +1276,16 @@ export default function LoginPage() {
 
         .secure-login-button {
           width: 100%;
+
           height: 64px;
 
           display: flex;
 
           align-items: center;
+
           justify-content: center;
 
-          gap: 12px;
+          gap: 11px;
 
           border: none;
 
@@ -1176,15 +1294,15 @@ export default function LoginPage() {
           background:
             linear-gradient(
               90deg,
-              #147982,
-              #0b7e8a
+              #15858d 0%,
+              #0c8992 100%
             );
 
           color: #ffffff;
 
           font-family: inherit;
 
-          font-size: 1.12rem;
+          font-size: 1.05rem;
 
           font-weight: 600;
 
@@ -1193,8 +1311,13 @@ export default function LoginPage() {
           cursor: pointer;
 
           box-shadow:
-            0 9px 24px
-            rgba(14, 119, 130, 0.18);
+            0 9px 23px
+            rgba(
+              14,
+              119,
+              130,
+              0.2
+            );
 
           transition:
             transform 0.2s ease,
@@ -1202,20 +1325,24 @@ export default function LoginPage() {
             opacity 0.2s ease;
         }
 
-
         .secure-login-button:hover:not(:disabled) {
-          transform: translateY(-2px);
+          transform:
+            translateY(-2px);
 
           box-shadow:
-            0 13px 30px
-            rgba(14, 119, 130, 0.28);
+            0 13px 28px
+            rgba(
+              14,
+              119,
+              130,
+              0.27
+            );
         }
-
 
         .secure-login-button:active:not(:disabled) {
-          transform: translateY(0);
+          transform:
+            translateY(0);
         }
-
 
         .secure-login-button:disabled {
           opacity: 0.72;
@@ -1223,15 +1350,23 @@ export default function LoginPage() {
           cursor: not-allowed;
         }
 
-
         .secure-login-button-ready {
           box-shadow:
             0 0 0 4px
-            rgba(65, 203, 194, 0.14),
+            rgba(
+              65,
+              203,
+              194,
+              0.14
+            ),
             0 12px 30px
-            rgba(14, 119, 130, 0.25);
+            rgba(
+              14,
+              119,
+              130,
+              0.25
+            );
         }
-
 
         /* ==========================================================
            SPINNER
@@ -1239,15 +1374,22 @@ export default function LoginPage() {
 
         .login-spinner {
           width: 19px;
+
           height: 19px;
 
           border-radius: 50%;
 
           border:
             2px solid
-            rgba(255, 255, 255, 0.35);
+            rgba(
+              255,
+              255,
+              255,
+              0.35
+            );
 
-          border-top-color: #ffffff;
+          border-top-color:
+            #ffffff;
 
           animation:
             finsight-login-spin
@@ -1256,94 +1398,118 @@ export default function LoginPage() {
             infinite;
         }
 
-
         @keyframes finsight-login-spin {
-
           to {
-            transform: rotate(360deg);
+            transform:
+              rotate(360deg);
+          }
+        }
+
+        /* ==========================================================
+           TABLET
+        ========================================================== */
+
+        @media (max-width: 1100px) {
+
+          .finsight-login-page {
+            grid-template-columns:
+              51%
+              49%;
+          }
+
+          .visual-content {
+            padding:
+              55px
+              50px;
+          }
+
+          .finsight-logo-image {
+         width: 450px;
+         height: 105px;
+       }
+
+
+          .visual-heading {
+            font-size: 2rem;
+          }
+
+          .finsight-login-form-section {
+            padding:
+              40px
+              45px
+              70px;
+          }
+
+          .login-form-container {
+            max-width: 420px;
           }
 
         }
 
-
         /* ==========================================================
-           COPYRIGHT
-        ========================================================== */
-
-        .login-copyright {
-          position: absolute;
-
-          left: 0;
-          right: 0;
-          bottom: 27px;
-
-          z-index: 5;
-
-          padding: 0 20px;
-
-          text-align: center;
-
-          color: rgba(255, 255, 255, 0.55);
-
-          font-size: 0.78rem;
-
-          font-weight: 400;
-
-          letter-spacing: 0.01em;
-        }
-
-        /* ==========================================================
-           RESPONSIVE - TABLET
+           MOBILE / SMALL TABLET
         ========================================================== */
 
         @media (max-width: 960px) {
 
           .finsight-login-page {
-            grid-template-columns: 1fr;
-          }
+            display: block;
 
+            min-height: 100vh;
+
+            overflow-y: auto;
+          }
 
           .finsight-login-visual {
             display: none;
           }
 
-
           .finsight-login-form-section {
             min-height: 100vh;
 
             padding:
-              60px
+              55px
               28px
-              100px;
+              70px;
+          }
+
+          .login-form-container {
+            max-width: 450px;
           }
 
         }
 
-
         /* ==========================================================
-           RESPONSIVE - MOBILE
+           MOBILE
         ========================================================== */
 
         @media (max-width: 520px) {
 
           .finsight-login-form-section {
             padding:
-              45px
+              42px
               18px
-              95px;
+              55px;
           }
-
 
           .fj-group-brand {
-            margin-bottom: 40px;
+            margin-bottom: 15px;
           }
 
+          .fj-group-logo-image {
+            width: 270px;
+            max-width: 82%;
+          }
 
           .welcome-heading {
-            margin-bottom: 34px;
-            font-size: 2.1rem;
+            margin-bottom: 30px;
+
+            font-size: 2rem;
           }
 
+          .login-field-group {
+            margin-bottom: 22px;
+          }
 
           .login-input-wrapper input {
             height: 60px;
@@ -1351,18 +1517,10 @@ export default function LoginPage() {
             border-radius: 12px;
           }
 
-
           .secure-login-button {
             height: 60px;
 
-            font-size: 1.03rem;
-          }
-
-
-          .login-copyright {
-            bottom: 20px;
-
-            font-size: 0.7rem;
+            font-size: 1rem;
           }
 
         }

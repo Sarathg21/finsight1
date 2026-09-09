@@ -53,6 +53,7 @@ const DEFAULT_FILTERS = {
   // People / currency filters
   salesman:           'All',
   customerType:       'All Customers',
+  salesCategories:    ['External Sales', 'RP Cross Sales'], // CFO UAT default (excludes RP Duplicate Sales)
   invoiceCurrency:    'All',
   reportingCurrency:  'AED', // will be overridden by default_reporting_currency from API on first load
   fromDate:           FIRST_DAY,
@@ -1369,6 +1370,7 @@ export default function SalesRevenueReport() {
     analysisCodes:           [],   // [{id, name}]
     salesmen:                [],   // strings or {employee_id, salesman_name}
     customerTypes:           ['All'], // strings
+    salesCategories:         [],   // strings
     invoiceCurrencies:       ['All'],
     reportingCurrencies:     ['AED'],
     defaultReportingCurrency:'AED',
@@ -1511,6 +1513,7 @@ export default function SalesRevenueReport() {
           analysisCodes: data.analysis_codes    || [],
           salesmen:      [{ label: 'All Salesperson', value: 'All' }, ...(data.salesmen || [])],
           customerTypes: ['All', ...(data.customer_types || [])],
+          salesCategories: data.sales_categories || ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],
           invoiceCurrencies: ['All', ...(data.invoice_currencies || [])],
           reportingCurrencies: mergedCurrencies,
           defaultReportingCurrency: backendDefault,
@@ -2072,7 +2075,8 @@ export default function SalesRevenueReport() {
   const customerDetailCols = [
     { label: 'Account Number',   key: 'customer_account_number', align: 'left' },
     { label: 'Customer Name',    key: 'customer_name',           align: 'left' },
-    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '—' },
+    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '?' },
+    { label: 'Sales Category',   key: 'sales_category',          align: 'left', fmt: v => v ?? '?' },
     { label: 'Legal Entity',     key: 'legal_entity',            align: 'left' },
     { label: 'Parent Division',  key: 'parent_division',         align: 'left', fmt: v => v ?? '—' },
     { label: 'Ledger Currency',  key: 'ledger_currency',         align: 'center', fmt: (v) => v ?? '—' },
@@ -2289,6 +2293,28 @@ export default function SalesRevenueReport() {
               <option value="Internal">Internal</option>
               <option value="External">External</option>
             </select>
+          </FilterField>
+
+          <FilterField label="Sales Category">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 2px' }}>
+              {(filterOptions.salesCategories && filterOptions.salesCategories.length > 0 ? filterOptions.salesCategories : ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales']).map(cat => (
+                <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.78rem', color: '#334155', fontWeight: 500 }}>
+                  <input
+                    type="checkbox"
+                    checked={filters.salesCategories?.includes(cat)}
+                    onChange={() => {
+                      const current = filters.salesCategories || [];
+                      const next = current.includes(cat)
+                        ? current.filter(c => c !== cat)
+                        : [...current, cat];
+                      updateFilter('salesCategories', next);
+                    }}
+                    style={{ width: 14, height: 14, accentColor: '#4f46e5', cursor: 'pointer' }}
+                  />
+                  {cat}
+                </label>
+              ))}
+            </div>
           </FilterField>
 
 

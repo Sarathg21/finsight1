@@ -18,7 +18,7 @@ const API_BASE = getApiBaseUrl();
  * Token key: localStorage.finsight_token  (written by the real backend after login).
  */
 function getAuthHeaders() {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -493,7 +493,7 @@ function getMockDataForPath(path) {
 const apiCache = new Map();
 
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   // If no token exists in localStorage, fall back to high-fidelity mock data.
   // This allows the page to work seamlessly when logged in via Demo Mode.
@@ -547,6 +547,7 @@ async function apiCall(path, params = {}) {
     if (res.status === 401) {
       console.warn('[salesRevenueApi] 401 Unauthorized. Token expired or invalid. Clearing token and falling back to mock data.');
       localStorage.removeItem('token');
+      localStorage.removeItem('finsight_token');
       return getMockDataForPath(path);
     }
 
@@ -682,7 +683,8 @@ function buildParams(filters = {}) {
     invoice_currency: active(filters.invoiceCurrency),
     customer_name: filters.customerName || undefined,
     customer_account_number: filters.customerAccountNumber || undefined,
-    project_reference: filters.projectReference || undefined
+    project_reference: filters.projectReference || undefined,
+    sales_category: activeStrings(filters.salesCategories)
   };
 }
 
@@ -695,7 +697,7 @@ function buildParams(filters = {}) {
  * @param {object} filters  - current applied filters
  */
 export function exportSalesRevenue(endpoint, format, filters = {}) {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   const params = {
     ...buildParams(filters),

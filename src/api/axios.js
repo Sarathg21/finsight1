@@ -27,7 +27,8 @@ api.interceptors.request.use(
   (config) => {
 
     const token =
-      localStorage.getItem("finsight_token");
+      localStorage.getItem("finsight_token") ||
+      localStorage.getItem("token");
 
 
     if (token) {
@@ -133,6 +134,9 @@ api.interceptors.response.use(
 
         localStorage.removeItem(
           "finsight_token"
+        );
+        localStorage.removeItem(
+          "token"
         );
 
 

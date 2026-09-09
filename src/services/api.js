@@ -12,7 +12,7 @@ const api = axios.create({
 
 // Inject JWT Bearer token and user context headers on every request
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
     const userStr = localStorage.getItem('finsight_user');
 
     if (token) {
@@ -129,7 +129,7 @@ api.interceptors.response.use(
             } catch (e) { /* ignore */ }
 
             // Not authenticated or not a GET request — redirect only if NOT on a public page
-            if (!localStorage.getItem('token') && !isOnPublicPage()) {
+            if (!localStorage.getItem('token') && !localStorage.getItem('finsight_token') && !isOnPublicPage()) {
                 window.location.href = '/login';
             }
         }

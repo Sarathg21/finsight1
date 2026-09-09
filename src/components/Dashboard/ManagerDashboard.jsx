@@ -41,7 +41,7 @@ const normalizeEmployeeKey = (value) => {
 
 const fetchManagerTasksFallback = async (params = {}) => {
     const baseURL = api.defaults.baseURL || '';
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
     // Convert params to query string
     const query = new URLSearchParams(params).toString();

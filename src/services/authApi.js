@@ -179,6 +179,7 @@ export async function loginWithBackend(email, password) {
 
   // ── Step 4: Store token ───────────────────────────────────────
   localStorage.setItem('finsight_token', token);
+  localStorage.setItem('token', token);
   _online = true;
   console.info('[authApi] ✓ Authenticated via', LOGIN_URL);
   return { token, raw: body };
@@ -187,10 +188,11 @@ export async function loginWithBackend(email, password) {
 /* ── Logout ──────────────────────────────────────────────────────── */
 export function logoutFromBackend() {
   localStorage.removeItem('finsight_token');
+  localStorage.removeItem('token');
   _online = null;
 }
 
 /* ── Token accessor ──────────────────────────────────────────────── */
 export function getStoredToken() {
-  return localStorage.getItem('finsight_token');
+  return localStorage.getItem('finsight_token') || localStorage.getItem('token');
 }

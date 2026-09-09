@@ -943,7 +943,8 @@ export default function MonthOnMonthOpexReport({
             }
 
             const token =
-                localStorage.getItem("token");
+                localStorage.getItem("token") ||
+                localStorage.getItem("finsight_token");
 
             const requestUrl =
                 `${apiUrl}?${params.toString()}`;

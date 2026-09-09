@@ -431,7 +431,8 @@ export default function ExpenseCategoryDrillDown({
                 });
 
             const token =
-                localStorage.getItem("token");
+                localStorage.getItem("token") ||
+                localStorage.getItem("finsight_token");
 
             const response =
                 await fetch(

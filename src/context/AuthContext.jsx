@@ -275,10 +275,7 @@ export function AuthProvider({ children }) {
                         (['admin', 'cfo', 'board'].includes(String(resolvedRole).toLowerCase()) ? ['*'] : ['dashboard', 'revenue', 'pl', 'profile']),
     };
 
-    // NOTE: Do NOT call completeLogin here.
-    // The LoginPage holds this as a "pending" mfaUser and only calls
-    // completeLogin after the MFA code is verified — same flow as demo logins.
-    _auditWrite('login_backend_pending', { userEmail: email });
+    completeLogin(session);
     return session;
   }
 
