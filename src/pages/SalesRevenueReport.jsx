@@ -2296,25 +2296,13 @@ export default function SalesRevenueReport() {
           </FilterField>
 
           <FilterField label="Sales Category">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 2px' }}>
-              {(filterOptions.salesCategories && filterOptions.salesCategories.length > 0 ? filterOptions.salesCategories : ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales']).map(cat => (
-                <label key={cat} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.78rem', color: '#334155', fontWeight: 500 }}>
-                  <input
-                    type="checkbox"
-                    checked={filters.salesCategories?.includes(cat)}
-                    onChange={() => {
-                      const current = filters.salesCategories || [];
-                      const next = current.includes(cat)
-                        ? current.filter(c => c !== cat)
-                        : [...current, cat];
-                      updateFilter('salesCategories', next);
-                    }}
-                    style={{ width: 14, height: 14, accentColor: '#4f46e5', cursor: 'pointer' }}
-                  />
-                  {cat}
-                </label>
-              ))}
-            </div>
+            <MultiSelect
+              options={filterOptions.salesCategories && filterOptions.salesCategories.length > 0 ? filterOptions.salesCategories : ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales']}
+              value={filters.salesCategories}
+              onChange={v => updateFilter('salesCategories', v)}
+              placeholder="All"
+              style={{ width: 125 }}
+            />
           </FilterField>
 
 
