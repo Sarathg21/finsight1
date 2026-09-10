@@ -646,10 +646,10 @@ export default function Profile() {
 
         .profile-page {
           width: 100%;
-          min-height: 100vh;
-          height: 100vh;
+          min-height: 100%;
+          height: auto;
 
-          padding: 14px 18px 10px;
+          padding: 14px 18px 24px;
 
           background: #f6f7fb;
           color: #111827;
@@ -660,7 +660,7 @@ export default function Profile() {
             Arial,
             sans-serif;
 
-          overflow: hidden;
+          overflow-y: auto;
         }
 
         .profile-header {
@@ -804,7 +804,6 @@ export default function Profile() {
         }
 
         .user-info-label,
-        .access-label,
         .account-label {
           color: #606a79;
 
@@ -814,8 +813,17 @@ export default function Profile() {
           font-weight: 400;
         }
 
-        .user-info-value,
-        .access-value {
+        .access-label {
+          color: #606a79;
+
+          font-size: 10.5px;
+          line-height: 16px;
+
+          font-weight: 400;
+          padding-top: 2px;
+        }
+
+        .user-info-value {
           color: #171c25;
 
           font-size: 10.5px;
@@ -826,6 +834,19 @@ export default function Profile() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .access-value {
+          color: #171c25;
+
+          font-size: 10.5px;
+          line-height: 16px;
+
+          font-weight: 500;
+
+          white-space: normal;
+          word-break: break-word;
+          overflow-wrap: break-word;
         }
 
         .active-badge {
@@ -882,7 +903,7 @@ export default function Profile() {
 
           display: grid;
 
-          grid-template-columns: 43% 57%;
+          grid-template-columns: 46% 54%;
 
           margin-top: 10px;
         }
@@ -895,12 +916,13 @@ export default function Profile() {
 
         .access-row {
           min-height: 28px;
+          padding: 5px 0;
 
           display: grid;
 
-          grid-template-columns: 150px 1fr;
+          grid-template-columns: 140px 1fr;
 
-          align-items: center;
+          align-items: start;
 
           border-bottom: 1px solid #edf0f4;
         }
