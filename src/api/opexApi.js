@@ -190,7 +190,7 @@ const getApiError = (error) => {
 /* =========================================================
    FILTER OPTIONS
 
-   GET /api/pl/filter-options
+   GET /api/opex/filter-options
 ========================================================= */
 
 export const getOpexFilterOptions = async (
@@ -203,7 +203,7 @@ export const getOpexFilterOptions = async (
         );
 
         const response = await api.get(
-            "/pl/filter-options",
+            "/opex/filter-options",
             {
                 params,
             }
@@ -216,11 +216,10 @@ export const getOpexFilterOptions = async (
     }
 };
 
-
 /* =========================================================
    SUMMARY
 
-   Aggregated from /api/pl/expense-breakdown
+   Aggregated from /api/opex/expense-breakdown
 ========================================================= */
 
 export const getOpexSummary = async (
@@ -232,27 +231,47 @@ export const getOpexSummary = async (
             true
         );
 
-        const plResponse = await api.get("/pl/expense-breakdown", { params });
-        const items = getResponseData(plResponse) || [];
-        const list = Array.isArray(items) ? items : (items?.items || items?.data || []);
-        const actualPTD = list.reduce((sum, item) => sum + (Number(item?.actual_ptd_aed ?? item?.actual_ptd ?? item?.amount_aed ?? item?.amount ?? 0) || 0), 0);
-        const actualYTD = list.reduce((sum, item) => sum + (Number(item?.actual_ytd_aed ?? item?.actual_ytd ?? 0) || 0), 0);
+        const response = await api.get(
+            "/opex/summary",
+            {
+                params,
+            }
+        );
+
+        const data = getResponseData(response) || {};
+
         return {
-            actual_ptd_aed: actualPTD,
-            actual_ptd: actualPTD,
-            actual_ytd_aed: actualYTD,
-            actual_ytd: actualYTD,
-            target_ptd_aed: null,
-            target_ptd: null,
-            variance_ptd_aed: null,
-            variance_ptd: null,
-            variance_ptd_pct: null,
-            target_ytd_aed: null,
-            target_ytd: null,
-            variance_ytd_aed: null,
-            variance_ytd: null,
-            variance_ytd_pct: null,
-            data_as_of: list[0]?.data_as_of || null,
+            data_as_of: data.data_as_of || null,
+            period_name: data.period_name || null,
+            selected_periods: data.selected_periods || [],
+            year: data.year || null,
+
+            actual_ptd_aed: data.actual_ptd_aed ?? null,
+            target_ptd_aed: data.target_ptd_aed ?? null,
+            variance_ptd_aed: data.variance_ptd_aed ?? null,
+            variance_ptd_pct: data.variance_ptd_pct ?? null,
+
+            actual_ytd_aed: data.actual_ytd_aed ?? null,
+            target_ytd_aed: data.target_ytd_aed ?? null,
+            variance_ytd_aed: data.variance_ytd_aed ?? null,
+            variance_ytd_pct: data.variance_ytd_pct ?? null,
+
+            actual_ptd: data.actual_ptd ?? null,
+            target_ptd: data.target_ptd ?? null,
+            variance_ptd: data.variance_ptd ?? null,
+
+            actual_ytd: data.actual_ytd ?? null,
+            target_ytd: data.target_ytd ?? null,
+            variance_ytd: data.variance_ytd ?? null,
+
+            variance_ptd_status: data.variance_ptd_status ?? null,
+            variance_ytd_status: data.variance_ytd_status ?? null,
+
+            reporting_currency:
+                data.reporting_currency || "AED",
+
+            conversion_rate_to_aed:
+                data.conversion_rate_to_aed ?? null,
         };
 
     } catch (error) {
@@ -276,7 +295,7 @@ export const getOpexCategoryComparison =
             );
 
             const response = await api.get(
-                "/pl/expense-breakdown",
+                "/opex/category-comparison",
                 {
                     params,
                 }
@@ -305,7 +324,7 @@ export const getOpexComposition =
             );
 
             const response = await api.get(
-                "/pl/expense-breakdown",
+                "/opex/composition",
                 {
                     params,
                 }
@@ -337,7 +356,7 @@ export const getOpexCompositionViewAll =
             );
 
             const response = await api.get(
-                "/pl/expense-breakdown",
+                "/opex/composition/view-all",
                 {
                     params,
                 }
@@ -410,7 +429,7 @@ export const getOpexCategoryBreakdown =
             );
 
             const response = await api.get(
-                "/pl/expense-breakdown",
+                "/opex/category-breakdown",
                 {
                     params,
                 }
@@ -456,7 +475,7 @@ export const getOpexMonthly = async (
         );
 
         const response = await api.get(
-            "/pl/expense-breakdown",
+            "/opex/category-detail",
             {
                 params,
             }
@@ -527,7 +546,7 @@ export const getOpexCategoryBreakdownViewAll =
             );
 
             const response = await api.get(
-                "/pl/expense-breakdown",
+                "/opex/category-breakdown/view-all",
                 {
                     params,
                 }

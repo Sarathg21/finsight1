@@ -7,7 +7,7 @@ const PAGE_TITLES = {
   '/dashboard': { title: 'CFO Dashboard', sub: 'Executive financial command centre' },
   '/exec-dashboard': { title: 'Exec Finance Dashboard', sub: 'Enterprise financial overview across all divisions' },
   '/finsight-dashboard': { title: 'Executive Dashboard', sub: 'Comprehensive financial performance overview' },
-  '/pl': { title: 'Profit & Loss Report', sub: 'Income statement analysis' },
+  '/pl': { title: 'Profitability Analysis', sub: 'Income statement analysis' },
   '/ar': { title: 'Receivables Aging', sub: 'AR aging & collection tracking' },
   '/ap': { title: 'Payables Aging', sub: 'AP aging & cash planning' },
   '/inventory': { title: 'Inventory Aging', sub: 'Stock movement & slow-moving analysis' },
