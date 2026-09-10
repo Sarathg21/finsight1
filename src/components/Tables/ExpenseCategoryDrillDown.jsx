@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 
@@ -317,11 +316,6 @@ export default function ExpenseCategoryDrillDown({
     periodName = "Sep-26",
     reportingCurrency = "AED",
 
-    /* =====================================================
-       NEW MENU CALLBACKS
-       Existing functionality is not changed.
-    ===================================================== */
-
     onViewAll,
     onExportExcel,
     onExportPdf,
@@ -377,7 +371,8 @@ export default function ExpenseCategoryDrillDown({
         item
     ) => {
         const category =
-            item?.category || (typeof item === "string" ? item : "");
+            item?.category ||
+            (typeof item === "string" ? item : "");
 
         if (!category) {
             return;
@@ -396,7 +391,10 @@ export default function ExpenseCategoryDrillDown({
             item?.naturalAccounts ||
             item?.details;
 
-        if (Array.isArray(preloadedDetails) && preloadedDetails.length > 0) {
+        if (
+            Array.isArray(preloadedDetails) &&
+            preloadedDetails.length > 0
+        ) {
             setCategoryDetails((prev) => ({
                 ...prev,
                 [category]: preloadedDetails,
@@ -404,8 +402,16 @@ export default function ExpenseCategoryDrillDown({
             return;
         }
 
-        const derived = deriveCategoryNaturalAccounts(item, category);
-        if (Array.isArray(derived) && derived.length > 0) {
+        const derived =
+            deriveCategoryNaturalAccounts(
+                item,
+                category
+            );
+
+        if (
+            Array.isArray(derived) &&
+            derived.length > 0
+        ) {
             setCategoryDetails((prev) => ({
                 ...prev,
                 [category]: derived,
@@ -454,7 +460,9 @@ export default function ExpenseCategoryDrillDown({
 
             const token =
                 localStorage.getItem("token") ||
-                localStorage.getItem("finsight_token");
+                localStorage.getItem(
+                    "finsight_token"
+                );
 
             const response =
                 await fetch(
@@ -483,7 +491,10 @@ export default function ExpenseCategoryDrillDown({
                         responseData
                     );
 
-                if (Array.isArray(details) && details.length > 0) {
+                if (
+                    Array.isArray(details) &&
+                    details.length > 0
+                ) {
                     setCategoryDetails(
                         (prev) => ({
                             ...prev,
@@ -494,8 +505,12 @@ export default function ExpenseCategoryDrillDown({
                 }
             }
 
-            // Fallback to authoritative Oracle Chart of Accounts derivation
-            const fallbackDetails = deriveCategoryNaturalAccounts(item, category);
+            const fallbackDetails =
+                deriveCategoryNaturalAccounts(
+                    item,
+                    category
+                );
+
             setCategoryDetails(
                 (prev) => ({
                     ...prev,
@@ -503,12 +518,20 @@ export default function ExpenseCategoryDrillDown({
                 })
             );
         } catch (error) {
-            const fallbackDetails = deriveCategoryNaturalAccounts(item, category);
-            if (fallbackDetails.length > 0) {
+            const fallbackDetails =
+                deriveCategoryNaturalAccounts(
+                    item,
+                    category
+                );
+
+            if (
+                fallbackDetails.length > 0
+            ) {
                 setCategoryDetails(
                     (prev) => ({
                         ...prev,
-                        [category]: fallbackDetails,
+                        [category]:
+                            fallbackDetails,
                     })
                 );
             } else {
@@ -627,18 +650,26 @@ export default function ExpenseCategoryDrillDown({
             parentItem?.details ||
             [];
 
-        if ((!details || !details.length) && parentItem) {
-            details = deriveCategoryNaturalAccounts(parentItem, category);
+        if (
+            (!details || !details.length) &&
+            parentItem
+        ) {
+            details =
+                deriveCategoryNaturalAccounts(
+                    parentItem,
+                    category
+                );
         }
 
         if (
-            categoryDetailLoading[category] && (!details || !details.length)
+            categoryDetailLoading[category] &&
+            (!details || !details.length)
         ) {
             return (
                 <div
                     style={{
                         padding: "16px 20px",
-                        fontSize: 11,
+                        fontSize: 12,
                         color: "#64748B",
                     }}
                 >
@@ -648,13 +679,14 @@ export default function ExpenseCategoryDrillDown({
         }
 
         if (
-            categoryDetailError[category] && (!details || !details.length)
+            categoryDetailError[category] &&
+            (!details || !details.length)
         ) {
             return (
                 <div
                     style={{
                         padding: "16px 20px",
-                        fontSize: 11,
+                        fontSize: 12,
                         color: "#DC2626",
                     }}
                 >
@@ -668,7 +700,7 @@ export default function ExpenseCategoryDrillDown({
                 <div
                     style={{
                         padding: "16px 20px",
-                        fontSize: 11,
+                        fontSize: 12,
                         color: "#64748B",
                     }}
                 >
@@ -725,7 +757,8 @@ export default function ExpenseCategoryDrillDown({
                     style={{
                         width: "100%",
                         minWidth: 900,
-                        borderCollapse: "collapse",
+                        borderCollapse:
+                            "collapse",
                         tableLayout: "fixed",
                     }}
                 >
@@ -781,7 +814,7 @@ export default function ExpenseCategoryDrillDown({
                                                     : "right",
                                             color:
                                                 "#1E3A8A",
-                                            fontSize: 12,
+                                            fontSize: 13,
                                             fontWeight: 700,
                                             whiteSpace:
                                                 "normal",
@@ -790,7 +823,7 @@ export default function ExpenseCategoryDrillDown({
                                             textOverflow:
                                                 "ellipsis",
                                             lineHeight:
-                                                "15px",
+                                                "16px",
                                         }}
                                     >
                                         {heading}
@@ -890,7 +923,7 @@ export default function ExpenseCategoryDrillDown({
                                                     "8px",
                                                 textAlign:
                                                     "left",
-                                                fontSize: 12,
+                                                fontSize: 13,
                                                 color:
                                                     "#334155",
                                                 fontWeight: 500,
@@ -901,7 +934,7 @@ export default function ExpenseCategoryDrillDown({
                                                 overflowWrap:
                                                     "anywhere",
                                                 lineHeight:
-                                                    "18px",
+                                                    "19px",
                                             }}
                                         >
                                             {accountCode
@@ -927,7 +960,7 @@ export default function ExpenseCategoryDrillDown({
                                                             "0 6px",
                                                         textAlign:
                                                             "right",
-                                                        fontSize: 12,
+                                                        fontSize: 13,
                                                         color:
                                                             valueIndex ===
                                                                 0
@@ -955,7 +988,7 @@ export default function ExpenseCategoryDrillDown({
                                                     "0 6px",
                                                 textAlign:
                                                     "right",
-                                                fontSize: 12,
+                                                fontSize: 13,
                                                 color:
                                                     "#64748B",
                                                 fontWeight: 600,
@@ -984,7 +1017,7 @@ export default function ExpenseCategoryDrillDown({
                                                             "0 6px",
                                                         textAlign:
                                                             "right",
-                                                        fontSize: 12,
+                                                        fontSize: 13,
                                                         color:
                                                             valueIndex ===
                                                                 0
@@ -1012,7 +1045,7 @@ export default function ExpenseCategoryDrillDown({
                                                     "0 6px",
                                                 textAlign:
                                                     "right",
-                                                fontSize: 12,
+                                                fontSize: 13,
                                                 color:
                                                     "#64748B",
                                                 fontWeight: 600,
@@ -1062,8 +1095,8 @@ export default function ExpenseCategoryDrillDown({
                 <h3
                     style={{
                         margin: 0,
-                        fontSize: 13,
-                        lineHeight: "16px",
+                        fontSize: 14,
+                        lineHeight: "17px",
                         fontWeight: 700,
                         color: "#0F172A",
                     }}
@@ -1082,7 +1115,7 @@ export default function ExpenseCategoryDrillDown({
                     {dataAsOf && (
                         <span
                             style={{
-                                fontSize: 12,
+                                fontSize: 13,
                                 color: "#64748B",
                                 whiteSpace:
                                     "nowrap",
@@ -1120,7 +1153,7 @@ export default function ExpenseCategoryDrillDown({
                                     "1px solid #FED7AA",
                                 color:
                                     "#C2410C",
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: 600,
                                 whiteSpace:
                                     "nowrap",
@@ -1204,7 +1237,7 @@ export default function ExpenseCategoryDrillDown({
                                         "pointer",
                                     textAlign:
                                         "left",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 500,
                                     color:
                                         "#334155",
@@ -1259,7 +1292,7 @@ export default function ExpenseCategoryDrillDown({
                                         "pointer",
                                     textAlign:
                                         "left",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 500,
                                     color:
                                         "#334155",
@@ -1314,7 +1347,7 @@ export default function ExpenseCategoryDrillDown({
                                         "pointer",
                                     textAlign:
                                         "left",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 500,
                                     color:
                                         "#334155",
@@ -1431,7 +1464,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "left",
                                     color: "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "nowrap",
                                 }}
@@ -1444,10 +1477,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Actual PTD (AED)
@@ -1458,10 +1491,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Target PTD (AED)
@@ -1472,10 +1505,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                   fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Variance PTD (AED)
@@ -1486,10 +1519,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                   fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Variance PTD %
@@ -1500,10 +1533,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Actual YTD (AED)
@@ -1514,10 +1547,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                   fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Target YTD (AED)
@@ -1528,10 +1561,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                   fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Variance YTD (AED)
@@ -1542,10 +1575,10 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 10px",
                                     textAlign: "right",
                                     color: "#1E3A8A",
-                                   fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     whiteSpace: "normal",
-                                    lineHeight: "16px",
+                                    lineHeight: "17px",
                                 }}
                             >
                                 Variance YTD %
@@ -1565,7 +1598,7 @@ export default function ExpenseCategoryDrillDown({
 
                                 const isExpanded =
                                     !!expandedRows[
-                                    rowKey
+                                        rowKey
                                     ];
 
                                 return (
@@ -1624,7 +1657,7 @@ export default function ExpenseCategoryDrillDown({
                                                                 "center",
                                                             justifyContent:
                                                                 "center",
-                                                             fontSize: 12,
+                                                            fontSize: 12,
                                                             lineHeight: 1,
                                                         }}
                                                     >
@@ -1633,13 +1666,9 @@ export default function ExpenseCategoryDrillDown({
                                                             : "▶"}
                                                     </button>
 
-                                                    {/* =================================================
-                                                        ONLY CHANGE:
-                                                        UPPERCASE + INCREASED FONT WEIGHT
-                                                    ================================================= */}
                                                     <span
                                                         style={{
-                                                            fontSize: 11,
+                                                            fontSize: 13,
                                                             fontWeight: 700,
                                                             color: "#374151",
                                                             whiteSpace:
@@ -1660,7 +1689,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#334155",
                                                     fontWeight: 500,
@@ -1678,7 +1707,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#64748B",
                                                     fontWeight: 500,
@@ -1696,7 +1725,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#64748B",
                                                     fontWeight: 600,
@@ -1714,7 +1743,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#64748B",
                                                     fontWeight: 600,
@@ -1738,7 +1767,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#334155",
                                                     fontWeight: 500,
@@ -1756,7 +1785,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#64748B",
                                                     fontWeight: 500,
@@ -1774,7 +1803,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#64748B",
                                                     fontWeight: 600,
@@ -1792,7 +1821,7 @@ export default function ExpenseCategoryDrillDown({
                                                         "0 6px",
                                                     textAlign:
                                                         "right",
-                                                    fontSize: 12,
+                                                    fontSize: 13,
                                                     color:
                                                         "#64748B",
                                                     fontWeight: 600,
@@ -1841,7 +1870,7 @@ export default function ExpenseCategoryDrillDown({
                                                         >
                                                             <div
                                                                 style={{
-                                                                    fontSize: 12,
+                                                                    fontSize: 13,
                                                                     fontWeight: 600,
                                                                     color:
                                                                         "#334155",
@@ -1888,7 +1917,7 @@ export default function ExpenseCategoryDrillDown({
                                     padding: "0 8px",
                                     textAlign:
                                         "left",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#0F172A",
@@ -1910,7 +1939,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     fontWeight: 700,
                                     color:
                                         "#0F172A",
@@ -1927,7 +1956,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#64748B",
@@ -1944,7 +1973,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#64748B",
@@ -1961,7 +1990,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#64748B",
@@ -1976,7 +2005,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#0F172A",
@@ -1993,7 +2022,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#64748B",
@@ -2010,7 +2039,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#64748B",
@@ -2027,7 +2056,7 @@ export default function ExpenseCategoryDrillDown({
                                         "0 6px",
                                     textAlign:
                                         "right",
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: 700,
                                     color:
                                         "#64748B",
