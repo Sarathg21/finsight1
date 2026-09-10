@@ -925,13 +925,13 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
       style={{
         background: cardBg || '#fff',
         borderRadius: 12,
-        padding: '10px 14px',
+        padding: '10px 10px',
         boxShadow: hover ? `0 8px 24px ${accent}20` : 'none',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        gap: 8,
         overflow: 'visible',
         position: 'relative',
         minHeight: 74,
@@ -972,7 +972,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
 
       {/* Left: Icon */}
       <div style={{
-        width: 34, height: 34, borderRadius: '50%', background: iconBg,
+        width: 32, height: 32, borderRadius: '50%', background: iconBg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0, color: accent,
       }}>
@@ -1018,20 +1018,22 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
 
         {/* Target & Achievement Row — CFO Standard Single-Line Layout */}
         {!loading && !error && target != null && !hideTargetUI && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            fontSize: '0.64rem', fontWeight: 600, color: '#475569',
-            marginTop: 4, padding: '3px 6px', background: 'rgba(0,0,0,0.03)', borderRadius: 6,
-            width: '100%', boxSizing: 'border-box'
-          }}>
-            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              Target: <span style={{ color: '#0f172a', fontWeight: 700 }}>{fmtAxisNum(target)}</span>
+          <div
+            title={`Target: ${currency ? currency + ' ' : ''}${fmtAxisNum(target)} | Variance: ${variancePct != null ? (variancePct >= 0 ? '+' : '') + Number(variancePct).toFixed(1) + '%' : '—'}`}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
+              fontSize: '0.62rem', fontWeight: 600, color: '#475569',
+              marginTop: 4, padding: '2px 6px', background: 'rgba(0,0,0,0.035)', borderRadius: 6,
+              width: '100%', boxSizing: 'border-box', whiteSpace: 'nowrap'
+            }}
+          >
+            <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
+              Target: <span style={{ color: '#0f172a', fontWeight: 700 }}>{currency ? `${currency} ` : ''}{fmtAxisNum(target)}</span>
             </span>
             <span style={{
               color: variancePct >= 0 ? '#10b981' : '#ef4444',
-              display: 'inline-flex', alignItems: 'center', gap: 2,
-              fontWeight: 700, flexShrink: 0
+              display: 'inline-flex', alignItems: 'center', gap: 1,
+              fontWeight: 700, flexShrink: 0, fontSize: '0.62rem'
             }}>
               {variancePct >= 0 ? '▲' : '▼'}
               {variancePct != null ? `${Math.abs(Number(variancePct)).toFixed(1)}%` : '—'}
@@ -2765,7 +2767,7 @@ export default function SalesRevenueReport() {
               <input
                 id="filter-from-date" type="date" value={filters.fromDate}
                 onChange={e => updateFilter('fromDate', e.target.value)}
-                style={{ ...selStyle, paddingLeft: 26, paddingRight: 4, cursor: 'pointer', width: 108, minWidth: 108, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
+                style={{ ...selStyle, backgroundImage: 'none', paddingLeft: 26, paddingRight: 6, cursor: 'pointer', width: 120, minWidth: 120, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
               />
             </div>
           </FilterField>
@@ -2776,7 +2778,7 @@ export default function SalesRevenueReport() {
               <input
                 id="filter-to-date" type="date" value={filters.toDate}
                 onChange={e => updateFilter('toDate', e.target.value)}
-                style={{ ...selStyle, paddingLeft: 26, paddingRight: 4, cursor: 'pointer', width: 108, minWidth: 108, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
+                style={{ ...selStyle, backgroundImage: 'none', paddingLeft: 26, paddingRight: 6, cursor: 'pointer', width: 120, minWidth: 120, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
               />
             </div>
           </FilterField>
@@ -2802,8 +2804,8 @@ export default function SalesRevenueReport() {
         <div className="grid-cols-6" style={{
           marginBottom: 16,
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: 'var(--card-gap, 12px)'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 'var(--card-gap, 10px)'
         }}>
 
           {/* 1. Total Sales (PTD) */}
