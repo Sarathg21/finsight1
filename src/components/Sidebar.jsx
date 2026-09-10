@@ -259,7 +259,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  placeholder="Search menuâ€¦"
+                  placeholder="Search menu..."
                   style={{
                     border: 'none', background: 'transparent', outline: 'none',
                     fontSize: '0.78rem', color: '#334155', width: '100%',
