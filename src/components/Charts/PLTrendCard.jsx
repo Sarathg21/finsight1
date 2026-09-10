@@ -42,38 +42,38 @@ import html2canvas from 'html2canvas';
 
 const SERIES = [
   {
-    key: 'revenue',     label: 'Revenue',      short: 'REV',
-    color: '#1E293B',   colorEnd: '#3B82F6',
-    gradId: 'gRev',     shadowColor: 'rgba(30,41,59,0.28)',
+    key: 'revenue', label: 'Revenue', short: 'REV',
+    color: '#1E293B', colorEnd: '#3B82F6',
+    gradId: 'gRev', shadowColor: 'rgba(30,41,59,0.28)',
   },
   {
     key: 'grossProfit', label: 'Gross Profit', short: 'GP',
-    color: '#10B981',   colorEnd: '#34D399',
-    gradId: 'gGP',      shadowColor: 'rgba(16,185,129,0.28)',
+    color: '#10B981', colorEnd: '#34D399',
+    gradId: 'gGP', shadowColor: 'rgba(16,185,129,0.28)',
   },
   {
-    key: 'ebitda',      label: 'EBITDA',       short: 'EBT',
-    color: '#7C3AED',   colorEnd: '#A78BFA',
-    gradId: 'gEBT',     shadowColor: 'rgba(124,58,237,0.28)',
+    key: 'ebitda', label: 'EBITDA', short: 'EBT',
+    color: '#7C3AED', colorEnd: '#A78BFA',
+    gradId: 'gEBT', shadowColor: 'rgba(124,58,237,0.28)',
   },
   {
-    key: 'netProfit',   label: 'Net Profit',   short: 'NP',
-    color: '#F97316',   colorEnd: '#FBBF24',
-    gradId: 'gNP',      shadowColor: 'rgba(249,115,22,0.28)',
+    key: 'netProfit', label: 'Net Profit', short: 'NP',
+    color: '#F97316', colorEnd: '#FBBF24',
+    gradId: 'gNP', shadowColor: 'rgba(249,115,22,0.28)',
   },
 ];
 
 /* ── Demo-mode hardcoded fallback (used when no data prop is passed) ── */
 const RAW_DATA = [
-  { month: 'Sep-25', revenue: 2500, grossProfit: 420,  ebitda: 310,  netProfit: 195  },
-  { month: 'Oct-25', revenue: 780,  grossProfit: 210,  ebitda: 155,  netProfit: 88   },
-  { month: 'Nov-25', revenue: 860,  grossProfit: 245,  ebitda: 178,  netProfit: 110  },
-  { month: 'Dec-25', revenue: 590,  grossProfit: -65,  ebitda: -48,  netProfit: -150 },
-  { month: 'Jan-26', revenue: 720,  grossProfit: 175,  ebitda: 122,  netProfit: 64   },
-  { month: 'Feb-26', revenue: 810,  grossProfit: 228,  ebitda: 162,  netProfit: 95   },
-  { month: 'Mar-26', revenue: 930,  grossProfit: 270,  ebitda: 198,  netProfit: 128  },
-  { month: 'Apr-26', revenue: 1050, grossProfit: 310,  ebitda: 234,  netProfit: 155  },
-  { month: 'May-26', revenue: 1180, grossProfit: 355,  ebitda: 272,  netProfit: 188  },
+  { month: 'Sep-25', revenue: 2500, grossProfit: 420, ebitda: 310, netProfit: 195 },
+  { month: 'Oct-25', revenue: 780, grossProfit: 210, ebitda: 155, netProfit: 88 },
+  { month: 'Nov-25', revenue: 860, grossProfit: 245, ebitda: 178, netProfit: 110 },
+  { month: 'Dec-25', revenue: 590, grossProfit: -65, ebitda: -48, netProfit: -150 },
+  { month: 'Jan-26', revenue: 720, grossProfit: 175, ebitda: 122, netProfit: 64 },
+  { month: 'Feb-26', revenue: 810, grossProfit: 228, ebitda: 162, netProfit: 95 },
+  { month: 'Mar-26', revenue: 930, grossProfit: 270, ebitda: 198, netProfit: 128 },
+  { month: 'Apr-26', revenue: 1050, grossProfit: 310, ebitda: 234, netProfit: 155 },
+  { month: 'May-26', revenue: 1180, grossProfit: 355, ebitda: 272, netProfit: 188 },
 ];
 
 /**
@@ -87,13 +87,44 @@ const RAW_DATA = [
  */
 const M = 1_000_000;
 function normalizeApiData(apiRows) {
-  if (!Array.isArray(apiRows) || apiRows.length === 0) return RAW_DATA;
+  if (!Array.isArray(apiRows) || apiRows.length === 0) {
+    return RAW_DATA;
+  }
+
   return apiRows.map(r => ({
-    month:       r.period_name   ?? r.month ?? '—',
-    revenue:     (Number(r.total_revenue  ?? r.revenue      ?? 0)) / M,
-    grossProfit: (Number(r.gross_profit   ?? r.grossProfit  ?? 0)) / M,
-    ebitda:      (Number(r.ebitda                           ?? 0)) / M,
-    netProfit:   (Number(r.net_profit     ?? r.netProfit    ?? 0)) / M,
+    month: r.period_name ?? r.month ?? '—',
+
+    // Backend values — presentation scaling only
+    revenue:
+      Number(
+        r.total_revenue_aed ??
+        r.total_revenue ??
+        r.revenue ??
+        0
+      ) / M,
+
+    grossProfit:
+      Number(
+        r.gross_profit_aed ??
+        r.gross_profit ??
+        r.grossProfit ??
+        0
+      ) / M,
+
+    ebitda:
+      Number(
+        r.ebitda_aed ??
+        r.ebitda ??
+        0
+      ) / M,
+
+    netProfit:
+      Number(
+        r.net_profit_aed ??
+        r.net_profit ??
+        r.netProfit ??
+        0
+      ) / M,
   }));
 }
 
@@ -101,22 +132,22 @@ function normalizeApiData(apiRows) {
 const KPI_ICONS = [
   (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+      <path d="M3 3v18h18" /><path d="m19 9-5 5-4-4-3 3" />
     </svg>
   ),
   (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"/><path d="M12 18V6"/>
+      <circle cx="12" cy="12" r="10" /><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8" /><path d="M12 18V6" />
     </svg>
   ),
   (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
+      <path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" />
     </svg>
   ),
   (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
     </svg>
   ),
 ];
@@ -227,7 +258,7 @@ function GradientDefs() {
       {/* Area fills */}
       {SERIES.map(s => (
         <linearGradient key={`${s.gradId}Area`} id={`${s.gradId}Area`} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%"   stopColor={s.color} stopOpacity="0.10" />
+          <stop offset="0%" stopColor={s.color} stopOpacity="0.10" />
           <stop offset="100%" stopColor={s.color} stopOpacity="0.00" />
         </linearGradient>
       ))}
@@ -256,10 +287,10 @@ const LiveDot = (props) => {
     <g transform={`translate(${cx}, ${cy})`} style={{ filter: `drop-shadow(0 0 6px ${stroke}80)` }}>
       <circle r={3.5} fill="#fff" stroke={stroke} strokeWidth={2.5} />
       <circle r={3.5} fill="none" stroke={stroke} strokeWidth={2}
-        style={{ 
-          transformOrigin: 'center', 
+        style={{
+          transformOrigin: 'center',
           transformBox: 'fill-box',
-          animation: 'plLivePulse 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1)' 
+          animation: 'plLivePulse 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1)'
         }}
       />
     </g>
@@ -301,7 +332,7 @@ function useCountUp(target, duration = 900, start = false) {
   useEffect(() => {
     if (!start) return;
     const startTime = performance.now();
-    const startVal  = 0;
+    const startVal = 0;
     const diff = target - startVal;
     const tick = (now) => {
       const elapsed = now - startTime;
@@ -323,7 +354,7 @@ function KPICard({ label, value, prev, color, bg, icon, countStart, currency }) 
   const [hov, setHov] = useState(false);
   const animated = useCountUp(value, 900, countStart);
   const change = pct(value, prev);
-  const isUp   = change !== null && parseFloat(change) >= 0;
+  const isUp = change !== null && parseFloat(change) >= 0;
 
   return (
     <div
@@ -394,7 +425,7 @@ const ExecTooltip = ({ active, payload, label, viewBox, coordinate, currency, ac
      When it is, Recharts flips the tooltip to the LEFT side automatically
      via its internal positioning. We mirror the pointer arrow direction. */
   const chartMidX = viewBox ? viewBox.x + viewBox.width / 2 : Infinity;
-  const pointX    = coordinate?.x ?? 0;
+  const pointX = coordinate?.x ?? 0;
   const isRightHalf = pointX > chartMidX;
   /* Arrow points LEFT (toward point) when tooltip is on the RIGHT of the point.
      Arrow points RIGHT (toward point) when tooltip is on the LEFT of the point. */
@@ -405,24 +436,24 @@ const ExecTooltip = ({ active, payload, label, viewBox, coordinate, currency, ac
   payload.forEach(p => { dp[p.dataKey] = p.value; });
 
   /* ── Raw values (unchanged business logic) ── */
-  const rev  = payload[0]?.payload?._rawRevenue      ?? dp.revenue      ?? 0;
-  const gp   = payload[0]?.payload?._rawGrossProfit  ?? dp.grossProfit  ?? null;
-  const ebt  = payload[0]?.payload?._rawEbitda       ?? dp.ebitda       ?? null;
-  const np   = payload[0]?.payload?._rawNetProfit    ?? dp.netProfit    ?? null;
+  const rev = payload[0]?.payload?._rawRevenue ?? dp.revenue ?? 0;
+  const gp = payload[0]?.payload?._rawGrossProfit ?? dp.grossProfit ?? null;
+  const ebt = payload[0]?.payload?._rawEbitda ?? dp.ebitda ?? null;
+  const np = payload[0]?.payload?._rawNetProfit ?? dp.netProfit ?? null;
 
   /* ── Margin calculations (unchanged logic) ── */
-  const gpM  = rev > 0 && gp  !== null ? ((gp  / rev) * 100).toFixed(1) : null;
+  const gpM = rev > 0 && gp !== null ? ((gp / rev) * 100).toFixed(1) : null;
   const ebtM = rev > 0 && ebt !== null ? ((ebt / rev) * 100).toFixed(1) : null;
-  const npM  = rev > 0 && np  !== null ? ((np  / rev) * 100).toFixed(1) : null;
+  const npM = rev > 0 && np !== null ? ((np / rev) * 100).toFixed(1) : null;
 
   /* ── MoM growth (dynamic dataset) ── */
-  const monthIdx  = activeData.findIndex(r => r.month === label);
-  const prevData  = monthIdx > 0 ? activeData[monthIdx - 1] : null;
+  const monthIdx = activeData.findIndex(r => r.month === label);
+  const prevData = monthIdx > 0 ? activeData[monthIdx - 1] : null;
 
-  const revGrowth = prevData?.revenue     ? pct(rev, prevData.revenue)     : null;
-  const gpGrowth  = prevData?.grossProfit ? pct(gp,  prevData.grossProfit) : null;
-  const ebtGrowth = prevData?.ebitda      ? pct(ebt, prevData.ebitda)      : null;
-  const npGrowth  = prevData?.netProfit   ? pct(np,  prevData.netProfit)   : null;
+  const revGrowth = prevData?.revenue ? pct(rev, prevData.revenue) : null;
+  const gpGrowth = prevData?.grossProfit ? pct(gp, prevData.grossProfit) : null;
+  const ebtGrowth = prevData?.ebitda ? pct(ebt, prevData.ebitda) : null;
+  const npGrowth = prevData?.netProfit ? pct(np, prevData.netProfit) : null;
 
   /* ── Full Intl formatter: $1,050,000,000 ── */
   const fmtIntl = (vM) => {
@@ -435,23 +466,25 @@ const ExecTooltip = ({ active, payload, label, viewBox, coordinate, currency, ac
 
   /* ── Row definitions ── */
   const rows = [
-    { s: SERIES[0], val: rev,  growth: revGrowth, margin: null  },
-    { s: SERIES[1], val: gp,   growth: gpGrowth,  margin: gpM   },
-    { s: SERIES[2], val: ebt,  growth: ebtGrowth, margin: ebtM  },
-    { s: SERIES[3], val: np,   growth: npGrowth,  margin: npM   },
+    { s: SERIES[0], val: rev, growth: revGrowth, margin: null },
+    { s: SERIES[1], val: gp, growth: gpGrowth, margin: gpM },
+    { s: SERIES[2], val: ebt, growth: ebtGrowth, margin: ebtM },
+    { s: SERIES[3], val: np, growth: npGrowth, margin: npM },
   ];
 
   /* ── Footer 3-column margin data ── */
   const footerItems = [
-    { label: 'GP Margin',  value: gpM  },
+    { label: 'GP Margin', value: gpM },
     { label: 'EBITDA Mgn', value: ebtM },
-    { label: 'Net Margin', value: npM  },
+    { label: 'Net Margin', value: npM },
   ];
 
   /* ── Shared styles ── */
   const TOKEN = {
     fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   };
+
+
 
   return (
     <div style={{
@@ -500,7 +533,7 @@ const ExecTooltip = ({ active, payload, label, viewBox, coordinate, currency, ac
           borderRight: '7px solid rgba(255,255,255,0.82)',
           filter: 'drop-shadow(-2px 0 3px rgba(15,23,42,0.06))',
         } : {
-        /* Right side: arrow on RIGHT edge pointing right (→ tooltip sits left of point) */
+          /* Right side: arrow on RIGHT edge pointing right (→ tooltip sits left of point) */
           right: -7,
           borderRight: 'none',
           borderLeft: '7px solid rgba(255,255,255,0.82)',
@@ -555,7 +588,7 @@ const ExecTooltip = ({ active, payload, label, viewBox, coordinate, currency, ac
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {rows.map(({ s, val, growth, margin }) => {
           if (val === null || val === undefined) return null;
-          const isNeg  = val < 0;
+          const isNeg = val < 0;
 
           return (
             <div
@@ -690,12 +723,12 @@ function PremiumKebab({ onCSV, onCopyData, onFullscreen, onCopyImage }) {
   }, [open]);
 
   const items = [
-    { icon: '⬇', label: 'Export CSV',         action: onCSV },
-    { icon: '📊', label: 'Export Excel',        action: () => onCSV('xlsx') },
-    { icon: '📄', label: 'Export PDF',          action: () => onCSV('pdf') },
-    { icon: '⎘',  label: 'Copy Data',           action: onCopyData },
-    { icon: '🖼', label: 'Copy Chart Image',    action: onCopyImage },
-    { icon: '⛶',  label: 'View Full Screen',    action: onFullscreen },
+    { icon: '⬇', label: 'Export CSV', action: onCSV },
+    { icon: '📊', label: 'Export Excel', action: () => onCSV('xlsx') },
+    { icon: '📄', label: 'Export PDF', action: () => onCSV('pdf') },
+    { icon: '⎘', label: 'Copy Data', action: onCopyData },
+    { icon: '🖼', label: 'Copy Chart Image', action: onCopyImage },
+    { icon: '⛶', label: 'View Full Screen', action: onFullscreen },
   ];
 
   return (
@@ -782,11 +815,13 @@ function AIInsightPanel({ data, currency }) {
     ];
 
     const fmt = (v) => {
-      const abs = Math.abs(v);
-      if (abs >= 1e9) return `${(abs / 1e9).toFixed(1)}B`;
-      if (abs >= 1e6) return `${(abs / 1e6).toFixed(0)}M`;
-      if (abs >= 1e3) return `${(abs / 1e3).toFixed(0)}K`;
-      return abs.toString();
+      const n = Number(v) || 0;
+      const abs = Math.abs(n);
+
+      if (abs >= 1000) return `${(abs / 1000).toFixed(1)}B`;
+      if (abs >= 1) return `${abs.toFixed(1)}M`;
+      if (abs >= 0.001) return `${(abs * 1000).toFixed(0)}K`;
+      return abs.toFixed(2);
     };
 
     let maxRev = -Infinity;
@@ -795,13 +830,13 @@ function AIInsightPanel({ data, currency }) {
       const rev = Number(d.revenue);
       if (!isNaN(rev) && rev > maxRev) {
         maxRev = rev;
-        maxRevMonth = d.metric;
+        maxRevMonth = d.month;
       }
     });
 
     const first = data[0];
     const last = data[data.length - 1];
-    
+
     const ebitdaFirst = Number(first.ebitda) || 0;
     const ebitdaLast = Number(last.ebitda) || 0;
     const isEbitdaUp = ebitdaLast >= ebitdaFirst;
@@ -824,7 +859,7 @@ function AIInsightPanel({ data, currency }) {
     if (negativeMonth) {
       generated.push({
         icon: '⚠',
-        text: `Profit margins experienced pressure in ${negativeMonth.metric}, with Net Profit dropping to −${currency}${fmt(negativeMonth.netProfit)}.`,
+        text: `Profit margins experienced pressure in ${negativeMonth.month}, with Net Profit dropping to −${currency}${fmt(negativeMonth.netProfit)}.`,
       });
     } else {
       generated.push({
@@ -835,7 +870,7 @@ function AIInsightPanel({ data, currency }) {
 
     generated.push({
       icon: isEbitdaUp ? '📈' : '📉',
-      text: `EBITDA ${isEbitdaUp ? 'improved' : 'contracted'} from ${currency}${fmt(ebitdaFirst)} in ${first.metric} to ${currency}${fmt(ebitdaLast)} in ${last.metric}.`,
+      text: `EBITDA ${isEbitdaUp ? 'improved' : 'contracted'} from ${currency}${fmt(ebitdaFirst)} in ${first.month} to ${currency}${fmt(ebitdaLast)} in ${last.month}.`,
     });
 
     return generated;
@@ -916,9 +951,9 @@ function PremiumLegend({ series, hidden, hoveredKey, onToggle, onHover, onHoverE
       marginTop: 12, flexWrap: 'wrap',
     }}>
       {series.map(s => {
-        const isHidden   = hidden.has(s.key);
-        const isHov      = hoveredKey === s.key;
-        const isDimmed   = hoveredKey && hoveredKey !== s.key;
+        const isHidden = hidden.has(s.key);
+        const isHov = hoveredKey === s.key;
+        const isDimmed = hoveredKey && hoveredKey !== s.key;
 
         return (
           <button
@@ -949,7 +984,7 @@ function PremiumLegend({ series, hidden, hoveredKey, onToggle, onHover, onHoverE
             <svg width="22" height="10" style={{ flexShrink: 0 }}>
               <defs>
                 <linearGradient id={`lg-${s.key}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%"   stopColor={s.color}    />
+                  <stop offset="0%" stopColor={s.color} />
                   <stop offset="100%" stopColor={s.colorEnd} />
                 </linearGradient>
               </defs>
@@ -1000,23 +1035,38 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
     [propData]
   );
 
+  const trendRangeLabel = useMemo(() => {
+    if (!activeData || activeData.length === 0) {
+      return 'Monthly performance';
+    }
+
+    const firstMonth = activeData[0]?.month;
+    const lastMonth = activeData[activeData.length - 1]?.month;
+
+    if (!firstMonth || !lastMonth) {
+      return 'Monthly performance';
+    }
+
+    return `Monthly performance · ${firstMonth} – ${lastMonth}`;
+  }, [activeData]);
+
   /* ─── State (business logic — unchanged) ─── */
-  const [hidden,       setHidden]       = useState(new Set());
+  const [hidden, setHidden] = useState(new Set());
   const autoSplit = useMemo(
     () => shouldSplitRevenueAxis(activeData, hidden, false),
     [activeData, hidden]
   );
-  const [splitScale,   setSplitScale]   = useState(autoSplit);
+  const [splitScale, setSplitScale] = useState(autoSplit);
   const [focusMargins, setFocusMargins] = useState(false);
   const effectiveSplitScale = (splitScale || autoSplit) && !focusMargins;
-  const [isAnimating,  setIsAnimating]  = useState(true);
-  const [copied,       setCopied]       = useState(false);
+  const [isAnimating, setIsAnimating] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   /* ─── UI enhancement state ─── */
   const [hoveredSeries, setHoveredSeries] = useState(null);   // legend hover
   const [kpiCountStart, setKpiCountStart] = useState(false);  // count-up trigger
-  const [isFullscreen,  setIsFullscreen]  = useState(false);
-  const cardRef   = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const cardRef = useRef(null);
   const animTimer = useRef(null);
 
   /* ── Trigger count-up on mount ── */
@@ -1052,22 +1102,22 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
         if (!hidden.has(key)) d[key] = row[key];
       });
       /* Raw values passed to tooltip for margin calculations */
-      d._rawRevenue     = row.revenue;
-      d._rawNetProfit   = row.netProfit;
+      d._rawRevenue = row.revenue;
+      d._rawNetProfit = row.netProfit;
       d._rawGrossProfit = row.grossProfit;
-      d._rawEbitda      = row.ebitda;
+      d._rawEbitda = row.ebitda;
       return d;
     });
   }, [activeData, hidden, focusMargins]);
 
   /* ─── Y-axis domain — uses live data source ─── */
   const { leftDomain, rightDomain } = useMemo(() => {
-    const visible    = SERIES.filter(s => !hidden.has(s.key));
+    const visible = SERIES.filter(s => !hidden.has(s.key));
     const profitKeys = visible.filter(s => s.key !== 'revenue').map(s => s.key);
-    const revVis     = !hidden.has('revenue') && !focusMargins;
+    const revVis = !hidden.has('revenue') && !focusMargins;
 
     const allProfit = finiteNumbers(activeData.flatMap(r => profitKeys.map(k => r[k])));
-    const allRev    = revVis ? finiteNumbers(activeData.map(r => r.revenue)) : [];
+    const allRev = revVis ? finiteNumbers(activeData.map(r => r.revenue)) : [];
 
     if (effectiveSplitScale) {
       return {
@@ -1100,10 +1150,10 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
     const headers = [`Month`, `Revenue (${propCurrency})`, `Gross Profit (${propCurrency})`, `EBITDA (${propCurrency})`, `Net Profit (${propCurrency})`, 'Net Margin %'];
     const rows = activeData.map(r => [
       r.month,
-      (r.revenue     * M).toFixed(0),
+      (r.revenue * M).toFixed(0),
       (r.grossProfit * M).toFixed(0),
-      (r.ebitda      * M).toFixed(0),
-      (r.netProfit   * M).toFixed(0),
+      (r.ebitda * M).toFixed(0),
+      (r.netProfit * M).toFixed(0),
       r.revenue ? ((r.netProfit / r.revenue) * 100).toFixed(1) : 'N/A',
     ]);
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -1156,7 +1206,7 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
   /* ─── Per-series stroke opacity (legend hover dims others) ─── */
   const seriesOpacity = useCallback((key) => {
     if (hidden.has(key)) return 0;
-    if (!hoveredSeries)  return 1;
+    if (!hoveredSeries) return 1;
     return hoveredSeries === key ? 1 : 0.40;
   }, [hidden, hoveredSeries]);
 
@@ -1335,8 +1385,13 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
                 letterSpacing: '0.04em', textTransform: 'uppercase',
               }}>Live</span>
             </h3>
-            <p style={{ margin: '3px 0 0', fontSize: '0.67rem', color: '#94a3b8', fontWeight: 500 }}>
-              Monthly performance · Sep 2025 – May 2026
+            <p style={{
+              margin: '3px 0 0',
+              fontSize: '0.67rem',
+              color: '#94a3b8',
+              fontWeight: 500
+            }}>
+              {trendRangeLabel}
             </p>
           </div>
 
@@ -1377,17 +1432,17 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
 
         {/* ══ KPI STRIP — derived from live activeData ═════════════ */}
         {(() => {
-          const last    = activeData[activeData.length - 1] || {};
+          const last = activeData[activeData.length - 1] || {};
           const prevRow = activeData[activeData.length - 2] || {};
           const kpiDefs = [
-            { key: 'revenue',     label: 'Revenue',      value: last.revenue     ?? 0, prev: prevRow.revenue     ?? 0, color: '#1E293B', bg: 'rgba(30,41,59,0.06)',     icon: KPI_ICONS[0] },
-            { key: 'grossProfit', label: 'Gross Profit', value: last.grossProfit ?? 0, prev: prevRow.grossProfit ?? 0, color: '#10B981', bg: 'rgba(16,185,129,0.08)',   icon: KPI_ICONS[1] },
-            { key: 'ebitda',      label: 'EBITDA',       value: last.ebitda      ?? 0, prev: prevRow.ebitda      ?? 0, color: '#7C3AED', bg: 'rgba(124,58,237,0.08)',  icon: KPI_ICONS[2] },
-            { key: 'netProfit',   label: 'Net Profit',   value: last.netProfit   ?? 0, prev: prevRow.netProfit   ?? 0, color: '#F97316', bg: 'rgba(249,115,22,0.08)',  icon: KPI_ICONS[3] },
+            { key: 'revenue', label: 'Revenue', value: last.revenue ?? 0, prev: prevRow.revenue ?? 0, color: '#1E293B', bg: 'rgba(30,41,59,0.06)', icon: KPI_ICONS[0] },
+            { key: 'grossProfit', label: 'Gross Profit', value: last.grossProfit ?? 0, prev: prevRow.grossProfit ?? 0, color: '#10B981', bg: 'rgba(16,185,129,0.08)', icon: KPI_ICONS[1] },
+            { key: 'ebitda', label: 'EBITDA', value: last.ebitda ?? 0, prev: prevRow.ebitda ?? 0, color: '#7C3AED', bg: 'rgba(124,58,237,0.08)', icon: KPI_ICONS[2] },
+            { key: 'netProfit', label: 'Net Profit', value: last.netProfit ?? 0, prev: prevRow.netProfit ?? 0, color: '#F97316', bg: 'rgba(249,115,22,0.08)', icon: KPI_ICONS[3] },
           ];
           return (
             <div style={{
-              display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap',
+              display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginBottom: 16, flexWrap: 'wrap',
               animation: 'plKpiIn 0.45s cubic-bezier(0.34,1.4,0.64,1) 0.1s both',
             }}>
               {kpiDefs.map((kpi, i) => (
@@ -1522,12 +1577,12 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
                    so it naturally sits above the tooltip z-stack in SVG.
               ───────────────────────────────────────────────────────── */}
               {visibleSeries.map(s => {
-                const isRev    = s.key === 'revenue';
-                const yId      = effectiveSplitScale && isRev ? 'right' : 'left';
+                const isRev = s.key === 'revenue';
+                const yId = effectiveSplitScale && isRev ? 'right' : 'left';
                 /* When legend-hovered, non-hovered series dim to 0.15.
                    When tooltip is active (tooltipActive), inactive lines
                    dim to 0.85 so lines stay faintly visible through the glass. */
-                const opacity  = seriesOpacity(s.key);
+                const opacity = seriesOpacity(s.key);
 
                 return (
                   <Fragment key={s.key}>
