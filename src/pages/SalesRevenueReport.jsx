@@ -2075,8 +2075,8 @@ export default function SalesRevenueReport() {
   const customerDetailCols = [
     { label: 'Account Number',   key: 'customer_account_number', align: 'left' },
     { label: 'Customer Name',    key: 'customer_name',           align: 'left' },
-    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '?' },
-    { label: 'Sales Category',   key: 'sales_category',          align: 'left', fmt: v => v ?? '?' },
+    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '—' },
+    { label: 'Sales Category',   key: 'sales_category',          align: 'left',   fmt: v => v ?? '—' },
     { label: 'Legal Entity',     key: 'legal_entity',            align: 'left' },
     { label: 'Parent Division',  key: 'parent_division',         align: 'left', fmt: v => v ?? '—' },
     { label: 'Ledger Currency',  key: 'ledger_currency',         align: 'center', fmt: (v) => v ?? '—' },

@@ -684,7 +684,12 @@ function buildParams(filters = {}) {
     customer_name: filters.customerName || undefined,
     customer_account_number: filters.customerAccountNumber || undefined,
     project_reference: filters.projectReference || undefined,
-    sales_category: activeStrings(filters.salesCategories)
+    sales_category: activeStrings(
+      filters.salesCategories ??
+      filters.salesCategory ??
+      filters.sales_category ??
+      filters.sales_categories
+    )
   };
 }
 
@@ -866,6 +871,10 @@ const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
       ? (res.reporting_currencies || res.currencies) : [],
     // Default reporting currency from backend
     default_reporting_currency: res.default_reporting_currency || 'AED',
+    // Sales categories
+    sales_categories: (Array.isArray(res.sales_categories) && res.sales_categories.length > 0)
+      ? res.sales_categories
+      : ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],
   };
 }
 
