@@ -3767,7 +3767,7 @@ export default function SalesRevenueReport() {
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
-                  Revenue Trend — Full Breakdown
+                  Revenue Trend — View Details
                 </h3>
                 {appliedPeriodLabel && (
                   <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2, fontWeight: 500 }}>
@@ -3777,17 +3777,17 @@ export default function SalesRevenueReport() {
               </div>
               <ModalCloseButton onClick={() => setOpenModal(null)} />
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 16px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {[
                       { label: 'Period',                            align: 'left'  },
-                      { label: 'Current Year Sales',                align: 'right' },
-                      { label: 'Current Year Target Sales',         align: 'right' },
-                      { label: 'Previous Year Sales',               align: 'right' },
-                      { label: 'Variance % (CY vs PY)',             align: 'right' },
-                      { label: 'Variance % (CY vs Target)',         align: 'right' },
+                      { label: 'SALES (PTD)',                       align: 'right' },
+                      { label: 'TARGET SALES (PTD)',                align: 'right' },
+                      { label: 'PREVIOUS YEAR SALES (PTD)',         align: 'right' },
+                      { label: 'VARIANCE % (VS PY)',                align: 'right' },
+                      { label: 'VARIANCE % (VS TARGET)',            align: 'right' },
                     ].map(col => (
                       <th key={col.label} style={{
                         ...TH,
@@ -3844,7 +3844,7 @@ export default function SalesRevenueReport() {
                     );
                   })}
                   </tbody>
-                  <tfoot style={{ position: 'sticky', bottom: -1, background: '#f8fafc', zIndex: 3, boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}>
+                  <tfoot>
                     {(() => {
                       if (trendData.length === 0) return null;
                       const sumCY = trendData.reduce((s, r) => s + (r.currentYear || 0), 0);
@@ -3867,22 +3867,33 @@ export default function SalesRevenueReport() {
                         return val >= 0 ? C.green : '#ef4444';
                       };
 
+                      const stickyFootTd = {
+                        ...TD,
+                        position: 'sticky',
+                        bottom: 0,
+                        background: '#f8fafc',
+                        zIndex: 10,
+                        borderTop: '2px solid #cbd5e1',
+                        boxShadow: '0 -3px 8px rgba(0,0,0,0.08)',
+                        padding: '10px 16px',
+                      };
+
                       return (
-                        <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
-                          <td style={{ ...TD, fontWeight: 800, color: C.navy }}>Total</td>
-                          <td style={{ ...TD, textAlign: 'right', fontWeight: 800, color: C.green }}>
+                        <tr>
+                          <td style={{ ...stickyFootTd, fontWeight: 800, color: C.navy }}>Total</td>
+                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: C.green }}>
                             {fmtCurrency(sumCY)}
                           </td>
-                          <td style={{ ...TD, textAlign: 'right', fontWeight: 800 }}>
-                            {fmtCurrency(sumTarget)}
+                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: C.navy }}>
+                            {targetIsZero ? '—' : fmtCurrency(sumTarget)}
                           </td>
-                          <td style={{ ...TD, textAlign: 'right', fontWeight: 800 }}>
+                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800 }}>
                             {pyIsZero ? '—' : fmtCurrency(sumPY)}
                           </td>
-                          <td style={{ ...TD, textAlign: 'right', fontWeight: 800, color: pctColor(varPY) }}>
+                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: pctColor(varPY) }}>
                             {fmtPct(varPY)}
                           </td>
-                          <td style={{ ...TD, textAlign: 'right', fontWeight: 800, color: pctColor(varTarget) }}>
+                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: pctColor(varTarget) }}>
                             {fmtPct(varTarget)}
                           </td>
                         </tr>
