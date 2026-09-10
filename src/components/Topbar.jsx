@@ -124,7 +124,7 @@ export default function Topbar() {
 
       <div className="topbar-actions">
         {/* Context pill — FY + Entity (Hidden on Sales Revenue) */}
-        {location.pathname !== '/sales-revenue' && (
+        {!['/revenue', '/sales-revenue'].includes(location.pathname) && (
           <div
             className="hide-on-tablet"
             style={{

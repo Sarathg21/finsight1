@@ -363,11 +363,11 @@ const MOCK_CUSTOMER_DETAIL = {
 
 const MOCK_SALESMAN_SUMMARY = {
   data: [
-    { sales_person: 'Hassan Al Nuaimi', sales_aed: 4550000, gross_margin: 1592500, percentage: 31.93, transaction_count: 58, currency: 'AED' },
-    { sales_person: 'John Doe', sales_aed: 3890000, gross_margin: 1361500, percentage: 27.30, transaction_count: 47, currency: 'AED' },
-    { sales_person: 'Sarah Connor', sales_aed: 3100000, gross_margin: 1085000, percentage: 21.75, transaction_count: 39, currency: 'AED' },
-    { sales_person: 'Mike Ross', sales_aed: 1850000, gross_margin: 647500, percentage: 12.98, transaction_count: 28, currency: 'AED' },
-    { sales_person: 'Rachel Zane', sales_aed: 860000, gross_margin: 301000, percentage: 6.04, transaction_count: 17, currency: 'AED' },
+    { sales_person: 'Hassan Al Nuaimi', sales_aed: 4550000, gross_margin: 1592500, percentage: 31.93, transaction_count: 58, currency: 'AED', parent_division: 'Corporate', subdivision: 'HQ Operations' },
+    { sales_person: 'John Doe', sales_aed: 3890000, gross_margin: 1361500, percentage: 27.30, transaction_count: 47, currency: 'AED', parent_division: 'Commercial', subdivision: 'Direct Sales' },
+    { sales_person: 'Sarah Connor', sales_aed: 3100000, gross_margin: 1085000, percentage: 21.75, transaction_count: 39, currency: 'AED', parent_division: 'Commercial', subdivision: 'Key Accounts' },
+    { sales_person: 'Mike Ross', sales_aed: 1850000, gross_margin: 647500, percentage: 12.98, transaction_count: 28, currency: 'AED', parent_division: 'Retail', subdivision: 'North Branch' },
+    { sales_person: 'Rachel Zane', sales_aed: 860000, gross_margin: 301000, percentage: 6.04, transaction_count: 17, currency: 'AED', parent_division: 'Retail', subdivision: 'South Branch' },
   ],
   total_sales_aed: 14250000,
   count: 5

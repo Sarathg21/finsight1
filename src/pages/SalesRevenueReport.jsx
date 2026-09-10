@@ -550,7 +550,7 @@ function DetailApiModal({
         </div>
 
         {/* Table */}
-        <div className="modal-table-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 16px' }}>
+        <div className="modal-table-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 0' }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 24 }}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -640,12 +640,22 @@ function DetailApiModal({
                   </tr>
                 )}
               </tbody>
-              <tfoot style={{ position: 'sticky', bottom: -1, background: '#f8fafc', zIndex: 3, boxShadow: '0 -2px 10px rgba(0,0,0,0.05)' }}>
-                <tr style={{ borderTop: '2px solid #e2e8f0', background: '#f8fafc' }}>
+              <tfoot>
+                <tr>
                   {columnDefs.map((col, ci) => {
+                    const stickyTdStyle = {
+                      ...TD,
+                      position: 'sticky',
+                      bottom: 0,
+                      background: '#f8fafc',
+                      zIndex: 10,
+                      borderTop: '2px solid #cbd5e1',
+                      boxShadow: '0 -3px 8px rgba(0,0,0,0.08)',
+                      padding: '9px 8px',
+                    };
                     if (ci === 0) {
                       return (
-                        <td key={ci} style={{ ...TD, padding: '8px 8px', fontWeight: 800, color: C.navy }}>
+                        <td key={ci} style={{ ...stickyTdStyle, fontWeight: 800, color: C.navy }}>
                           Total
                         </td>
                       );
@@ -653,13 +663,13 @@ function DetailApiModal({
                     // totalFn: receives all sorted rows, returns formatted string
                     if (col.totalFn) {
                       return (
-                        <td key={ci} style={{ ...TD, padding: '8px 8px', textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
+                        <td key={ci} style={{ ...stickyTdStyle, textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
                           {col.totalFn(sorted)}
                         </td>
                       );
                     }
                     // noTotal: show dash
-                    if (col.noTotal) return <td key={ci} style={{ ...TD, padding: '8px 8px', color: C.muted }}>—</td>;
+                    if (col.noTotal) return <td key={ci} style={{ ...stickyTdStyle, color: C.muted }}>—</td>;
                     // Auto-sum numeric columns
                     const numericVals = sorted
                       .map(row => {
@@ -671,12 +681,12 @@ function DetailApiModal({
                       const sum = numericVals.reduce((s, v) => s + v, 0);
                       const displayed = col.fmt ? col.fmt(sum, {}) : sum.toLocaleString('en-US', { maximumFractionDigits: 0 });
                       return (
-                        <td key={ci} style={{ ...TD, padding: '8px 8px', textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
+                        <td key={ci} style={{ ...stickyTdStyle, textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
                           {displayed}
                         </td>
                       );
                     }
-                    return <td key={ci} style={{ ...TD, padding: '8px 8px', color: C.muted }}>—</td>;
+                    return <td key={ci} style={{ ...stickyTdStyle, color: C.muted }}>—</td>;
                   })}
                 </tr>
               </tfoot>
@@ -864,7 +874,7 @@ function Sparkline({ data, color, height = 40 }) {
   );
 }
 
-function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, variancePct, variance, hideTargetUI }) {
+function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, variancePct, variance, hideTargetUI, title, tooltip }) {
   const [displayVal, setDisplayVal] = useState(0);
   const [hover, setHover]           = useState(false);
 
@@ -888,30 +898,65 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
     : textValue || '—';
 
   const accent = accentColor || '#2563eb';
+  const tooltipText = tooltip || title;
 
   return (
     <div
       id={`kpi-${label.replace(/\s+/g, '-').toLowerCase()}`}
+      title={tooltipText || undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         background: cardBg || '#fff',
         borderRadius: 12,
-        padding: '12px 16px',
+        padding: '10px 14px',
         boxShadow: hover ? `0 8px 24px ${accent}20` : 'none',
         transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: hover ? 'translateY(-2px)' : 'none',
         display: 'flex',
         alignItems: 'center',
-        gap: 14,
-        overflow: 'hidden',
+        gap: 10,
+        overflow: 'visible',
         position: 'relative',
         minHeight: 74,
       }}
     >
+      {/* Floating Hover Tooltip (e.g. Division info on Top Salesperson) */}
+      {hover && tooltipText && (
+        <div style={{
+          position: 'absolute',
+          bottom: 'calc(100% + 8px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#0f172a',
+          color: '#ffffff',
+          padding: '6px 12px',
+          borderRadius: 6,
+          fontSize: '0.72rem',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          pointerEvents: 'none',
+          zIndex: 9999,
+        }}>
+          {tooltipText}
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            borderWidth: '5px 5px 0',
+            borderStyle: 'solid',
+            borderColor: '#0f172a transparent transparent',
+            width: 0,
+            height: 0,
+          }} />
+        </div>
+      )}
+
       {/* Left: Icon */}
       <div style={{
-        width: 42, height: 42, borderRadius: '50%', background: iconBg,
+        width: 34, height: 34, borderRadius: '50%', background: iconBg,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0, color: accent,
       }}>
@@ -934,7 +979,7 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           <span style={{ fontSize: '0.72rem', color: '#f43f5e' }}>Error</span>
         ) : (
           <div style={{
-            fontSize: '1.05rem',
+            fontSize: '1.02rem',
             fontWeight: 800, color: '#0f172a', lineHeight: 1.1,
             letterSpacing: '-0.02em',
             display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-word'
@@ -955,22 +1000,24 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
           </div>
         )}
 
-        {/* Target & Achievement Row */}
+        {/* Target & Achievement Row — CFO Standard Single-Line Layout */}
         {!loading && !error && target != null && !hideTargetUI && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden',
-            fontSize: '0.65rem', fontWeight: 600, color: '#475569',
-            marginTop: 4, padding: '4px 6px', background: 'rgba(0,0,0,0.03)', borderRadius: 6
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            fontSize: '0.64rem', fontWeight: 600, color: '#475569',
+            marginTop: 4, padding: '3px 6px', background: 'rgba(0,0,0,0.03)', borderRadius: 6,
+            width: '100%', boxSizing: 'border-box'
           }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-              Target: <span style={{ color: '#0f172a' }}>{currency || ''} {fmtAxisNum(target)}</span>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              Target: <span style={{ color: '#0f172a', fontWeight: 700 }}>{currency ? `${currency} ` : ''}{fmtAxisNum(target)}</span>
             </span>
-            <span style={{ color: '#cbd5e1' }}>|</span>
             <span style={{
               color: variancePct >= 0 ? '#10b981' : '#ef4444',
-              display: 'flex', alignItems: 'center', gap: 2
+              display: 'inline-flex', alignItems: 'center', gap: 2,
+              fontWeight: 700, flexShrink: 0
             }}>
-              {variancePct >= 0 ? '📈' : '📉'}
+              {variancePct >= 0 ? '▲' : '▼'}
               {variancePct != null ? `${Math.abs(Number(variancePct)).toFixed(1)}%` : '—'}
             </span>
           </div>
@@ -1348,6 +1395,7 @@ export default function SalesRevenueReport() {
   // Hide all target-related UI when Customer Type = Internal or External.
   // Targets are maintained at full-group level only, not split by customer type.
   const hideTargetUI = appliedFilters.customerType === 'Internal' || appliedFilters.customerType === 'External';
+  const currentCurrency = appliedFilters.reportingCurrency || 'AED';
 
   const [userAccess, setUserAccess] = useState(null);
   const [permissions, setPermissions] = useState([]);
@@ -1429,7 +1477,7 @@ export default function SalesRevenueReport() {
   const fmtCurrency = (v) => {
     if (v === null || v === undefined) return '—';
     const numStr = Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    return filters.reportingCurrency === 'AED' ? numStr : `${filters.reportingCurrency} ${numStr}`;
+    return currentCurrency === 'AED' ? numStr : `${currentCurrency} ${numStr}`;
   };
   const fmtPctCol = (v, digits = 1) => {
     if (v == null || isNaN(v)) return '-';
@@ -1937,6 +1985,11 @@ export default function SalesRevenueReport() {
     : null;
   const topSalesmanName  = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
   const topSalesmanValue   = topSalesmanRecord ? Number(topSalesmanRecord.sales ?? topSalesmanRecord.sales_ptd ?? 0) : null;
+  const topSalesmanDiv = topSalesmanRecord?.parent_division || topSalesmanRecord?.division || (Array.isArray(topSalesmanRecord?.parent_divisions) ? topSalesmanRecord.parent_divisions.join(', ') : null) || '—';
+  const topSalesmanSubDiv = topSalesmanRecord?.subdivision || topSalesmanRecord?.sub_division || (Array.isArray(topSalesmanRecord?.subdivisions) ? topSalesmanRecord.subdivisions.join(', ') : null) || null;
+  const topSalesmanTooltip = topSalesmanRecord
+    ? `Division: ${topSalesmanDiv}${topSalesmanSubDiv && topSalesmanSubDiv !== '—' ? ` | Sub-Division: ${topSalesmanSubDiv}` : ''}`
+    : undefined;
 
   /* ── Spark data from trend ────────────────────────────────────── */
   const sparkMTD = trendData.map(d => d.currentYear).filter(Boolean);
@@ -1953,13 +2006,13 @@ export default function SalesRevenueReport() {
 
   /* ── Column definitions for View-All modals ──────────────────── */
   // rc = selected reporting currency (used in all column headers)
-  const rc = appliedFilters.reportingCurrency || filters.reportingCurrency || 'AED';
+  const rc = currentCurrency;
 
   const legalEntityHeaderGroups = [
     { label: '', colSpan: 2 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
     { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: `Target Revenue (${filters.reportingCurrency || 'AED'})`, colSpan: 2 },
+    { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
     { label: '', colSpan: 1 }
   ];
 
@@ -1983,7 +2036,7 @@ export default function SalesRevenueReport() {
   const parentDivisionHeaderGroups = [
     { label: '', colSpan: 1 },
     { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: `Target Revenue (${filters.reportingCurrency || 'AED'})`, colSpan: 2 },
+    { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
     { label: 'Variance vs Target', colSpan: 2 },
     { label: '', colSpan: 1 }
   ];
@@ -2022,7 +2075,7 @@ export default function SalesRevenueReport() {
     { label: '', colSpan: 4 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
     { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: `Target Revenue (${filters.reportingCurrency || 'AED'})`, colSpan: 2 },
+    { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
     { label: '', colSpan: 1 }
   ];
 
@@ -2167,7 +2220,7 @@ export default function SalesRevenueReport() {
               <br/><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {fmtDisplayDate(appliedFilters.fromDate)} to {fmtDisplayDate(appliedFilters.toDate)}</span>
               {dataAsOf && ` • Data as on ${dataAsOf}`}
               &nbsp;|&nbsp;
-              <span style={{ color: C.green, fontWeight: 700 }}>Currency: {filters.reportingCurrency}</span>
+              <span style={{ color: C.green, fontWeight: 700 }}>Currency: {currentCurrency}</span>
             </p>
           </div>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -2242,50 +2295,53 @@ export default function SalesRevenueReport() {
           </div>
         )}
 
-        {/* ── Filter Bar ── */}
-        <div className="card" style={{ padding: '12px 18px', marginBottom: 16, display: 'flex', alignItems: 'flex-end', gap: 6, flexWrap: 'wrap' }}>
+        {/* ── Filter Bar (Fully Visible & Aligned at 100% Zoom) ── */}
+        <div className="card" style={{
+          padding: '10px 14px', marginBottom: 16,
+          display: 'flex', alignItems: 'flex-end', gap: 6, flexWrap: 'wrap',
+          overflow: 'visible'
+        }}>
 
           {filterOptions.legalGroups && filterOptions.legalGroups.length > 0 && (
             <FilterField label="Legal Group">
-            <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroupId} onChange={v => updateFilter('legalGroupId', v)} style={{width:105}} />
-          </FilterField>
+              <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroupId} onChange={v => updateFilter('legalGroupId', v)} style={{ width: 95 }} />
+            </FilterField>
           )}
 
           {filterOptions.legalEntities.length > 0 && (
             <FilterField label="Legal Entity">
-            <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntityId} onChange={v => updateFilter('legalEntityId', v)} style={{width:105}} />
-          </FilterField>
+              <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntityId} onChange={v => updateFilter('legalEntityId', v)} style={{ width: 95 }} />
+            </FilterField>
           )}
 
           {filterOptions.parentDivs.length > 0 && (
             <FilterField label="Parent Division">
-            <MultiSelect options={filterOptions.parentDivs} value={filters.parentDivisionId} onChange={v => updateFilter('parentDivisionId', v)} style={{width:105}} />
-          </FilterField>
+              <MultiSelect options={filterOptions.parentDivs} value={filters.parentDivisionId} onChange={v => updateFilter('parentDivisionId', v)} style={{ width: 98 }} />
+            </FilterField>
           )}
 
           {(filterOptions.subDivs.length > 0 || (filters.subdivisionId && filters.subdivisionId[0] !== 'All')) && (
             <FilterField label="Sub-Division">
-            <MultiSelect options={filterOptions.subDivs} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{width:105}} />
-          </FilterField>
+              <MultiSelect options={filterOptions.subDivs} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{ width: 95 }} />
+            </FilterField>
           )}
 
           {filterOptions.salesmen.length > 2 && (
-          <FilterField label="Salesperson">
-            <select id="filter-salesman" style={{...selStyle, opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1}} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
-              {filterOptions.salesmen.map((o, idx) => {
-                const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
-                const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
-                return <option key={`salesman-${idx}`} value={val} title={label}>{truncateLabel(label)}</option>;
-              })}
-            </select>
-          </FilterField>
+            <FilterField label="Salesperson">
+              <select id="filter-salesman" style={{ ...selStyle, width: 105, minWidth: 105, height: 32, opacity: filterOptions.salesmen.length <= 2 ? 0.6 : 1 }} disabled={filterOptions.salesmen.length <= 2} value={filters.salesman} onChange={e => updateFilter('salesman', e.target.value)}>
+                {filterOptions.salesmen.map((o, idx) => {
+                  const label = typeof o === 'string' ? o : (o?.label ?? o?.salesman_name ?? o?.sales_person ?? String(o));
+                  const val   = typeof o === 'string' ? o : (o?.employee_id ?? o?.value ?? label);
+                  return <option key={`salesman-${idx}`} value={val} title={label}>{truncateLabel(label)}</option>;
+                })}
+              </select>
+            </FilterField>
           )}
-
 
           <FilterField label="Customer Type">
             <select
               id="filter-customerType"
-              style={selStyle}
+              style={{ ...selStyle, width: 98, minWidth: 98, height: 32 }}
               value={filters.customerType}
               onChange={e => updateFilter('customerType', e.target.value)}
             >
@@ -2301,60 +2357,68 @@ export default function SalesRevenueReport() {
               value={filters.salesCategories}
               onChange={v => updateFilter('salesCategories', v)}
               placeholder="All"
-              style={{ width: 125 }}
+              style={{ width: 102 }}
             />
           </FilterField>
 
-
           <FilterField label="Reporting Currency">
-            <select id="filter-currency" style={selStyle} value={filters.reportingCurrency} onChange={e => updateFilter('reportingCurrency', e.target.value)}>
+            <select id="filter-currency" style={{ ...selStyle, width: 72, minWidth: 72, height: 32 }} value={filters.reportingCurrency} onChange={e => updateFilter('reportingCurrency', e.target.value)}>
               {filterOptions.reportingCurrencies.map(o => {
-  const val = typeof o === 'object' ? (o.currency_code || o.currency) : o;
-  return <option key={val} value={val}>{val}</option>;
-})}
+                const val = typeof o === 'object' ? (o.currency_code || o.currency) : o;
+                return <option key={val} value={val}>{val}</option>;
+              })}
             </select>
           </FilterField>
 
-
-          <FilterField label={`From Date${filters.fromDate ? ': ' + fmtDisplayDate(filters.fromDate) : ''}`}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-              <svg width="15" height="15" style={{ position: 'absolute', left: 10, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <FilterField label="From Date">
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" style={{ position: 'absolute', left: 8, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               <input
                 id="filter-from-date" type="date" value={filters.fromDate}
                 onChange={e => updateFilter('fromDate', e.target.value)}
-                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', minWidth: 120, WebkitAppearance: 'none' }}
+                style={{ ...selStyle, paddingLeft: 26, paddingRight: 4, cursor: 'pointer', width: 108, minWidth: 108, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
               />
             </div>
           </FilterField>
 
-          <FilterField label={`To Date${filters.toDate ? ': ' + fmtDisplayDate(filters.toDate) : ''}`}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-              <svg width="15" height="15" style={{ position: 'absolute', left: 10, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <FilterField label="To Date">
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <svg width="13" height="13" style={{ position: 'absolute', left: 8, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               <input
                 id="filter-to-date" type="date" value={filters.toDate}
                 onChange={e => updateFilter('toDate', e.target.value)}
-                style={{ ...selStyle, paddingLeft: 32, paddingRight: 8, cursor: 'pointer', width: '100%', minWidth: 120, WebkitAppearance: 'none' }}
+                style={{ ...selStyle, paddingLeft: 26, paddingRight: 4, cursor: 'pointer', width: 108, minWidth: 108, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
               />
             </div>
           </FilterField>
 
-          <button id="btn-apply-filter" onClick={handleApply} style={{
-            ...headerBtn(C.blue, '#fff'), alignSelf: 'flex-end',
-            padding: '6px 18px', fontWeight: 700, borderRadius: 8, whiteSpace: 'nowrap', flexShrink: 0,
-          }}>Apply</button>
-          <button id="btn-reset-filter" onClick={handleReset} style={{
-            background: 'none', border: 'none', color: C.slate,
-            fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer',
-            alignSelf: 'flex-end', padding: '6px 6px', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>Reset</button>
+          {/* Action Buttons Cluster */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end', flexShrink: 0, paddingBottom: 1 }}>
+            <button id="btn-apply-filter" onClick={handleApply} style={{
+              ...headerBtn(C.blue, '#fff'),
+              height: 32, padding: '0 16px', fontWeight: 700, borderRadius: 8, whiteSpace: 'nowrap',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+            }}>Apply</button>
+            <button id="btn-reset-filter" onClick={handleReset} style={{
+              background: 'none', border: 'none', color: C.slate,
+              height: 32, fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
+              padding: '0 6px', whiteSpace: 'nowrap',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
+            }}>Reset</button>
+          </div>
         </div>
 
 
-        {/* ── Revenue Dashboard KPI Cards ── */}
-        <div className="grid-cols-6" style={{ marginBottom: 16 }}>
+        {/* ── Revenue Dashboard KPI Cards (Responsive at 100% Zoom) ── */}
+        <div className="grid-cols-6" style={{
+          marginBottom: 16,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: 'var(--card-gap, 12px)'
+        }}>
 
           {/* 1. Total Sales (PTD) */}
-          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label={"Total Sales (PTD)"}
             numericValue={mtdRevenue}
             changePct={mtdChangePct}
@@ -2363,7 +2427,7 @@ export default function SalesRevenueReport() {
             target={ptdTarget}
             variancePct={summary?.variance_target_ptd_pct ?? null}
             variance={ptdVariance}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
+            icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>}
             iconBg="#dbeafe"
             cardBg="#f0f5ff"
             accentColor="#2563eb"
@@ -2374,7 +2438,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 2. Sales (YTD) */}
-          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label={"Sales (YTD)"}
             numericValue={ytdRevenue}
             changePct={ytdChangePct}
@@ -2383,7 +2447,7 @@ export default function SalesRevenueReport() {
             target={summary?.target_sales_ytd ?? null}
             variancePct={summary?.variance_target_ytd_pct ?? null}
             variance={summary?.variance_target_ytd ?? null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
+            icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>}
             iconBg="#dcfce7"
             cardBg="#f0fdf4"
             accentColor="#16a34a"
@@ -2394,7 +2458,7 @@ export default function SalesRevenueReport() {
           />
 
           {/* 3. Gross Profit (PTD) */}
-          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label={"Gross Profit (PTD)"}
             numericValue={grossMargin}
             changePct={grossMarginChg}
@@ -2402,7 +2466,7 @@ export default function SalesRevenueReport() {
             up={grossMarginChg !== null ? grossMarginChg >= 0 : null}
             target={summary?.target_gross_margin_ptd ?? null}
             variancePct={summary?.variance_target_ptd_pct ?? null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
+            icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>}
             iconBg="#ede9fe"
             cardBg="#f5f3ff"
             accentColor="#8b5cf6"
@@ -2413,14 +2477,14 @@ export default function SalesRevenueReport() {
           />
 
           {/* 4. Top Legal Entity */}
-          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label="Top Legal Entity"
             numericValue={null}
             textValue={topLE ? topLE.name : '—'}
             changePct={null}
-            changeLabel={topLE?.value ? `${filters.reportingCurrency} ${fmtAxisNum(topLE.value)}` : ''}
+            changeLabel={topLE?.value ? `${currentCurrency} ${fmtAxisNum(topLE.value)}` : ''}
             up={null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
+            icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>}
             iconBg="#ffedd5"
             cardBg="#fff7ed"
             accentColor="#ea580c"
@@ -2431,14 +2495,14 @@ export default function SalesRevenueReport() {
           />
 
           {/* 5. Top Parent Division */}
-          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label="Top Parent Division"
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
             changePct={null}
-            changeLabel={topPD?.value ? `${filters.reportingCurrency} ${fmtAxisNum(topPD.value)}` : ''}
+            changeLabel={topPD?.value ? `${currentCurrency} ${fmtAxisNum(topPD.value)}` : ''}
             up={null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
+            icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>}
             iconBg="#cffafe"
             cardBg="#ecfeff"
             accentColor="#0891b2"
@@ -2449,15 +2513,16 @@ export default function SalesRevenueReport() {
           />
 
           {/* 6. Top Salesman */}
-          <KPICard hideTargetUI={hideTargetUI} currency={filters.reportingCurrency}
+          <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label="Top Salesperson"
-              title={topSalesmanRecord ? `Division: ${topSalesmanRecord.parent_division || "-"} | Sub-Division: ${topSalesmanRecord.subdivision || "-"}` : undefined}
+            title={topSalesmanTooltip}
+            tooltip={topSalesmanTooltip}
             numericValue={null}
             textValue={topSalesmanName}
             changePct={null}
-            changeLabel={topSalesmanValue !== null ? `${filters.reportingCurrency} ${fmtAxisNum(topSalesmanValue)}` : ''}
+            changeLabel={topSalesmanValue !== null ? `${currentCurrency} ${fmtAxisNum(topSalesmanValue)}` : ''}
             up={null}
-            icon={<svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
+            icon={<svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>}
             iconBg="#fce7f3"
             cardBg="#fdf2f8"
             accentColor="#db2777"
@@ -2481,7 +2546,7 @@ export default function SalesRevenueReport() {
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
               <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend ({filters.reportingCurrency})</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue Trend ({currentCurrency})</div>
                 {(() => {
                   const activePts = trendData.filter(d => d.currentYear != null && d.currentYear > 0);
                   if (activePts.length === 1) {
@@ -2537,10 +2602,10 @@ export default function SalesRevenueReport() {
 
                       {/* Large amount */}
                       <motion.div whileHover={{ scale: 1.01 }} className="animate-float-glow" style={{ fontSize: '1.60rem', fontWeight: 500, color: '#0f172a', lineHeight: 1, letterSpacing: '-0.2px' }}>
-                        {filters.reportingCurrency} <CountUp end={rawVal} formatter={fmtAxisNum} duration={1.5} />
+                        {currentCurrency} <CountUp end={rawVal} formatter={fmtAxisNum} duration={1.5} />
                       </motion.div>
                     <div style={{ fontSize: '0.78rem', color: C.muted, marginTop: 6, fontWeight: 500 }}>
-                      {filters.reportingCurrency} <CountUp end={rawVal} duration={1.5} formatter={(v) => v.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} />
+                      {currentCurrency} <CountUp end={rawVal} duration={1.5} formatter={(v) => v.toLocaleString('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} />
                     </div>
 
                     {/* Single bar */}
@@ -2550,7 +2615,7 @@ export default function SalesRevenueReport() {
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="transparent" />
                           <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={{ stroke: '#e2e8f0', strokeWidth: 2 }} tickLine={false} dy={8} />
                           <YAxis tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
-                          <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
+                          <Tooltip content={<CustomTooltip currency={currentCurrency} />} cursor={{ fill: 'rgba(226, 232, 240, 0.4)', rx: 8, ry: 8 }} offset={35} position={{ y: -30 }} wrapperStyle={{ animation: 'popIn 0.3s ease-out forwards' }} />
                           <Bar dataKey="currentYear" name="Sales" radius={[8, 8, 0, 0]} className="animate-bar-grow" isAnimationActive={true} animationDuration={1200} animationEasing="ease-out">
                             <Cell fill="url(#trendBarGrad)" filter="url(#barGlow)" />
                           </Bar>
@@ -2612,7 +2677,7 @@ export default function SalesRevenueReport() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" className="grid-fade-in" />
                       <XAxis className="axis-fade-in" dataKey="period" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} dy={8} padding={{ left: 24, right: 34 }} />
                       <YAxis className="axis-fade-in" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 600 }} tickCount={5} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={60} />
-                      <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
+                      <Tooltip content={<CustomTooltip currency={currentCurrency} />} cursor={{ stroke: '#e2e8f0', strokeWidth: 2, strokeDasharray: '4 4' }} position={{ y: -30 }} wrapperStyle={{ zIndex: 100, animation: 'popIn 0.3s ease-out forwards' }} />
 
                       <Line
                         type="monotone"
@@ -2703,7 +2768,7 @@ export default function SalesRevenueReport() {
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
                             <span style={{ color: '#64748b' }}>Latest:</span>
-                            <motion.span whileHover={{ scale: 1.05 }} style={{ color: '#6366f1', fontWeight: 800 }}>{filters.reportingCurrency} <CountUp end={latest.currentYear} formatter={fmtAxisNum} duration={1.5} /></motion.span>
+                            <motion.span whileHover={{ scale: 1.05 }} style={{ color: '#6366f1', fontWeight: 800 }}>{currentCurrency} <CountUp end={latest.currentYear} formatter={fmtAxisNum} duration={1.5} /></motion.span>
                           </div>
                         );
                       }
@@ -2724,7 +2789,7 @@ export default function SalesRevenueReport() {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
               <div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Legal Entity</div>
-                <div style={{ fontSize: '0.72rem', color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{filters.reportingCurrency} contribution — 100% breakdown</div>
+                <div style={{ fontSize: '0.72rem', color: '#1e293b', marginTop: 3, fontWeight: 500 }}>{currentCurrency} contribution — 100% breakdown</div>
               </div>
               <ChartMenu onViewAll={() => setOpenModal('legalEntity')} endpoint="legal-entity-detail" filters={appliedFilters} />
             </div>
@@ -2775,10 +2840,10 @@ export default function SalesRevenueReport() {
                           dominantBaseline="middle"
                           style={{ fontSize: '1rem', fontWeight: 900, fill: '#0f172a' }}
                         >
-                          {filters.reportingCurrency} {fmtAxisNum(total)}
+                          {currentCurrency} {fmtAxisNum(total)}
                         </text>
 
-                        <Tooltip content={<CustomTooltip currency={filters.reportingCurrency} />} />
+                        <Tooltip content={<CustomTooltip currency={currentCurrency} />} />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -2850,7 +2915,7 @@ export default function SalesRevenueReport() {
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', lineHeight: 1.2 }}>Revenue by Parent Division</div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3, fontWeight: 500 }}>{filters.reportingCurrency} — top divisions ranked</div>
+                <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 3, fontWeight: 500 }}>{currentCurrency} — top divisions ranked</div>
               </div>
               <ChartMenu onViewAll={() => setOpenModal('parentDiv')} endpoint="parent-division-detail" filters={appliedFilters} />
             </div>
@@ -2934,7 +2999,7 @@ export default function SalesRevenueReport() {
                             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '6px 16px', alignItems: 'center' }}>
                               <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Revenue</span>
                               <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.85rem', textAlign: 'right' }}>
-                                {filters.reportingCurrency} {Number(d.value || 0).toLocaleString()}
+                                {currentCurrency} {Number(d.value || 0).toLocaleString()}
                               </span>
 
                               <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500 }}>Share</span>
@@ -2971,8 +3036,8 @@ export default function SalesRevenueReport() {
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division ({filters.reportingCurrency})</div>
-                <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{filters.reportingCurrency} — all sub-divisions compared</div>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Sub-Division ({currentCurrency})</div>
+                <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>{currentCurrency} — all sub-divisions compared</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <button
@@ -3097,7 +3162,7 @@ export default function SalesRevenueReport() {
                                       Revenue:
                                     </span>
                                     <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '0.85rem', textAlign: 'right' }}>
-                                      {filters.reportingCurrency} {Number(data.value || 0).toLocaleString()}
+                                      {currentCurrency} {Number(data.value || 0).toLocaleString()}
                                     </span>
                                     <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 500, paddingLeft: 14 }}>Share:</span>
                                     <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '0.85rem', textAlign: 'right' }}>
@@ -3147,7 +3212,7 @@ export default function SalesRevenueReport() {
           {/* 2. Top Customers */}
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales ({filters.reportingCurrency})</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Top 10 Customers by Sales ({currentCurrency})</div>
               <ChartMenu onViewAll={() => setOpenModal('customerSummary')} endpoint="customer-summary" filters={appliedFilters} />
             </div>
             {loading.topCustomers ? (
@@ -3159,7 +3224,7 @@ export default function SalesRevenueReport() {
                     <tr>
                       <th style={{ textAlign: 'center', width: '10%' }}>#</th>
                       <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal' }}>Customer Name</th>
-                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales ({filters.reportingCurrency})</th>
+                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales ({currentCurrency})</th>
                       <th style={{ textAlign: 'right', width: '20%', whiteSpace: 'normal' }}>% Share</th>
                     </tr>
                   </thead>
@@ -3213,7 +3278,7 @@ export default function SalesRevenueReport() {
           {/* 3. Revenue by Salesman */}
           <div className="card" style={{ padding: '16px 20px 12px', display: 'flex', flexDirection: 'column', flex: '1 1 300px', minWidth: 300 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesperson ({filters.reportingCurrency})</div>
+              <div style={{ fontSize: '0.88rem', fontWeight: 800, color: C.navy }}>Revenue by Salesperson ({currentCurrency})</div>
               <ChartMenu onViewAll={() => setOpenModal('salesmanSummary')} endpoint="salesman-summary" filters={appliedFilters} />
             </div>
             {loading.salesmanSummary ? (
@@ -3225,7 +3290,7 @@ export default function SalesRevenueReport() {
                     <tr>
                       <th style={{ textAlign: 'center', width: '10%' }}>#</th>
                       <th style={{ textAlign: 'left', width: '38%', whiteSpace: 'normal' }}>Salesperson</th>
-                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales ({filters.reportingCurrency})</th>
+                      <th style={{ textAlign: 'right', width: '32%', whiteSpace: 'normal' }}>Sales ({currentCurrency})</th>
                       <th style={{ textAlign: 'right', width: '20%', whiteSpace: 'normal' }}>% Share</th>
                     </tr>
                   </thead>
@@ -3277,7 +3342,7 @@ export default function SalesRevenueReport() {
                 Sales Revenue Detailed View
               </span>
               <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500, padding: '2px 8px', background: '#f1f5f9', borderRadius: 12 }}>
-                Amounts in {filters.reportingCurrency}
+                Amounts in {currentCurrency}
               </span>
             </div>
             <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
@@ -3412,7 +3477,7 @@ export default function SalesRevenueReport() {
 
           {/* Footer note */}
           <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
-            <span>All values are in <strong>{filters.reportingCurrency}</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
+            <span>All values are in <strong>{currentCurrency}</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
             <span>Source: Oracle Fusion Cloud</span>
           </div>
         </div>
@@ -3423,7 +3488,7 @@ export default function SalesRevenueReport() {
           paddingTop: 10, paddingBottom: 4, flexWrap: 'wrap', gap: 4,
         }}>
           <span>
-            All values are in <strong>{filters.reportingCurrency}</strong>&nbsp;|&nbsp;
+            All values are in <strong>{currentCurrency}</strong>&nbsp;|&nbsp;
             {dataAsOf && `Data as on ${dataAsOf}`}&nbsp;|&nbsp;
             <span style={{ color: C.green, fontWeight: 700 }}>● Live</span>
           </span>
