@@ -1234,10 +1234,10 @@ function ErrorBanner({ message, onRetry }) {
   );
 }
 
-function FilterField({ label, children }) {
+function FilterField({ label, children, style }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 80, flex: '1 1 0' }}>
-      <span style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, letterSpacing: '-0.02em' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 80, flex: '1 1 0', ...style }}>
+      <span style={{ fontSize: '0.66rem', color: '#1e3a8a', fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
         {label}
       </span>
       {children}
@@ -2619,7 +2619,14 @@ export default function PLAnalytics() {
       .then(data => {
         const years = data.years || [];
         const periods = data.periods || [];
-        const comparePeriods = data.comparePeriods || [];
+        const backendCompare = data.comparePeriods || [];
+
+        // Prior periods from backend (e.g. ['Jan-26'] for Feb-26)
+        const priorPeriods = backendCompare.filter(p => p !== filters.periodName);
+        // All other periods in fiscal year (excluding current selected period and prior periods)
+        const otherPeriods = periods.filter(p => p !== (filters.periodName || periods[0]) && !priorPeriods.includes(p));
+        // Combined comparison periods: prior periods first, then other available periods
+        const comparePeriods = [...priorPeriods, ...otherPeriods];
         const currencies = data.currencies?.length ? data.currencies : ['AED'];
 
         setFilterOptions(prev => ({
@@ -2634,11 +2641,10 @@ export default function PLAnalytics() {
           currencies,
         }));
 
-
         setFilters(f => {
           const nextComparePeriod = comparePeriods.includes(f.comparePeriodName)
             ? f.comparePeriodName
-            : comparePeriods[0] || '';
+            : (priorPeriods[0] || '');
 
           return {
             ...f,
@@ -2652,7 +2658,7 @@ export default function PLAnalytics() {
         setAppliedFilters(f => {
           const nextComparePeriod = comparePeriods.includes(f.comparePeriodName)
             ? f.comparePeriodName
-            : comparePeriods[0] || '';
+            : (priorPeriods[0] || '');
 
           return {
             ...f,
@@ -2661,7 +2667,7 @@ export default function PLAnalytics() {
             comparePeriodName: nextComparePeriod,
             currency: f.currency || currencies[0] || 'AED',
           };
-        })
+        });
       })
       .catch(err => setErrors(prev => ({ ...prev, filters: err?.message || 'Failed to load filters' })))
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
@@ -2694,7 +2700,7 @@ export default function PLAnalytics() {
       ...DEFAULT_FILTERS,
       year: filterOptions.years[0] || '',
       periodName: filterOptions.periods[0] || '',
-      comparePeriodName: filterOptions.comparePeriods[0] || '',
+      comparePeriodName: '',
       currency: filterOptions.currencies[0] || 'AED',
     };
     setFilters(reset); setAppliedFilters(reset); fetchAll(reset);
@@ -2856,26 +2862,19 @@ export default function PLAnalytics() {
         <FilterField label="Sub-Division">
           <MultiSelect options={filterOptions.subdivisions} value={filters.subdivisionId} onChange={v => updateFilter('subdivisionId', v)} style={{ width: 150 }} />
         </FilterField>
-        <FilterField label="Year">
+        <FilterField label="Year" style={{ minWidth: 70, flex: '0.7 1 0' }}>
           <select id="filter-pl-year" style={selStyle} value={filters.year} onChange={e => setFilters(prev => ({ ...prev, year: e.target.value }))} disabled={loading.filters}>
             {filterOptions.years.length === 0 && <option key="loading" value="">Loading…</option>}
             {filterOptions.years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
         </FilterField>
-        <FilterField label="Period">
+        <FilterField label="Period" style={{ minWidth: 90, flex: '0.8 1 0' }}>
           <select id="filter-pl-period" style={selStyle} value={filters.periodName} onChange={e => setFilters(prev => ({ ...prev, periodName: e.target.value }))} disabled={loading.filters}>
             {filterOptions.periods.length === 0 && <option key="loading" value="">Loading…</option>}
             {filterOptions.periods.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </FilterField>
-        {/* <FilterField label="Compare With">
-          <select id="filter-pl-compare" style={selStyle} value={filters.comparePeriodName} onChange={e => setFilters(prev => ({ ...prev, comparePeriodName: e.target.value }))} disabled={loading.filters}>
-            {filterOptions.comparePeriods.length === 0 && <option key="loading" value="">Loading…</option>}
-            {filterOptions.comparePeriods.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-        </FilterField> */}
-
-        <FilterField label="Compare With">
+        <FilterField label="Compare With" style={{ minWidth: 125, flex: '1.2 1 0' }}>
           <select
             id="filter-pl-compare"
             style={selStyle}
@@ -2888,10 +2887,7 @@ export default function PLAnalytics() {
             }
             disabled={loading.filters}
           >
-            {filterOptions.comparePeriods.length === 0 && (
-              <option value="">No comparison periods available</option>
-            )}
-
+            <option value="">None</option>
             {filterOptions.comparePeriods.map((period) => (
               <option key={period} value={period}>
                 {period}
