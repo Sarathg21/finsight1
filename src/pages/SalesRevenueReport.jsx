@@ -890,7 +890,7 @@ function Sparkline({ data, color, height = 40 }) {
   );
 }
 
-function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, variancePct, variance, hideTargetUI, title, tooltip }) {
+function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, icon, iconBg, sparkData, sparkColor, loading, error, cardBg, accentColor, currency, target, variancePct, variance, hideTargetUI, title, tooltip, tooltipAlign }) {
   const [displayVal, setDisplayVal] = useState(0);
   const [hover, setHover]           = useState(false);
 
@@ -942,25 +942,60 @@ function KPICard({ label, numericValue, textValue, changePct, changeLabel, up, i
         <div style={{
           position: 'absolute',
           bottom: 'calc(100% + 8px)',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          ...(tooltipAlign === 'right' ? {
+            right: 0,
+            left: 'auto',
+            transform: 'none',
+          } : tooltipAlign === 'left' ? {
+            left: 0,
+            right: 'auto',
+            transform: 'none',
+          } : {
+            left: '50%',
+            transform: 'translateX(-50%)',
+          }),
           background: '#0f172a',
           color: '#ffffff',
-          padding: '6px 12px',
-          borderRadius: 6,
+          padding: '7px 12px',
+          borderRadius: 8,
           fontSize: '0.72rem',
           fontWeight: 600,
           whiteSpace: 'nowrap',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
           pointerEvents: 'none',
           zIndex: 9999,
+          lineHeight: 1.4,
         }}>
-          {tooltipText}
+          {typeof tooltipText === 'string' && tooltipText.includes(' | ') ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {tooltipText.split(' | ').map((part, idx) => {
+                const [k, ...v] = part.split(': ');
+                return (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ color: '#94a3b8', fontWeight: 500 }}>{k}:</span>
+                    <span style={{ color: '#f8fafc', fontWeight: 700 }}>{v.join(': ')}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            tooltipText
+          )}
           <div style={{
             position: 'absolute',
             top: '100%',
-            left: '50%',
-            transform: 'translateX(-50%)',
+            ...(tooltipAlign === 'right' ? {
+              right: 28,
+              left: 'auto',
+              transform: 'none',
+            } : tooltipAlign === 'left' ? {
+              left: 28,
+              right: 'auto',
+              transform: 'none',
+            } : {
+              left: '50%',
+              transform: 'translateX(-50%)',
+            }),
             borderWidth: '5px 5px 0',
             borderStyle: 'solid',
             borderColor: '#0f172a transparent transparent',
@@ -2892,6 +2927,7 @@ export default function SalesRevenueReport() {
           {/* 5. Top Parent Division */}
           <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label="Top Parent Division"
+            tooltipAlign="right"
             numericValue={null}
             textValue={topPD ? topPD.name : '—'}
             changePct={null}
@@ -2910,6 +2946,7 @@ export default function SalesRevenueReport() {
           {/* 6. Top Salesman */}
           <KPICard hideTargetUI={hideTargetUI} currency={currentCurrency}
             label="Top Salesperson"
+            tooltipAlign="right"
             title={topSalesmanTooltip}
             tooltip={topSalesmanTooltip}
             numericValue={null}
