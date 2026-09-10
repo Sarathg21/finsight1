@@ -1,4 +1,4 @@
-import { Search, Bell, LogOut, Calendar, Globe } from 'lucide-react';
+import { Search, Bell, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
@@ -28,7 +28,6 @@ const PAGE_TITLES = {
 };
 export default function Topbar() {
   const { user, logout } = useAuth();
-  const isRestricted = !['ADMIN', 'FGT_SUPER_ADMIN', 'CEO', 'CFO', 'CFO_GROUP', 'COO', 'MD', 'BOARD', 'EXECUTIVE', 'cfo', 'board', 'executive'].includes(user?.role?.toUpperCase() || '');
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const page = PAGE_TITLES[pathname] || { title: 'Finsight', sub: 'FJ Group Finance Intelligence' };
@@ -123,31 +122,6 @@ export default function Topbar() {
       </div>
 
       <div className="topbar-actions">
-        {/* Context pill — FY + Entity (Hidden on Sales Revenue) */}
-        {!['/revenue', '/sales-revenue'].includes(location.pathname) && (
-          <div
-            className="hide-on-tablet"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              background: 'var(--clr-surface-2)',
-              padding: '5px 12px', borderRadius: 'var(--radius-full)',
-              border: '1px solid var(--clr-border)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Calendar size={12} style={{ color: 'var(--clr-primary)' }} />
-              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>FY 2026</span>
-            </div>
-            <div className="filter-divider" style={{ height: 12, margin: 0 }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Globe size={12} style={{ color: 'var(--clr-emerald)' }} />
-              <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--clr-text)' }}>{isRestricted ? 'Authorized Entities' : 'All Entities'}</span>
-            </div>
-          </div>
-        )}
-
-        <div className="filter-divider hide-on-tablet" />
-
         {/* Search */}
         <div className="search-wrap hide-on-tablet" ref={searchRef} style={{ position: 'relative' }}>
           <Search size={14} className="search-icon" />
