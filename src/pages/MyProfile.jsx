@@ -1,5 +1,5 @@
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import {
     UserRound,
     ShieldCheck,
@@ -230,10 +230,24 @@ const getUniqueActions = (modules) => {
 // This is the user's organizational/data hierarchy access.
 // =====================================================
 
-const buildScopeData = (accessScopes) => {
+const buildScopeData = (accessScopes, fallbackScope = null) => {
     const scopes = Array.isArray(accessScopes)
         ? accessScopes
         : [];
+
+    if (scopes.length === 0 && fallbackScope) {
+        const entStr = fallbackScope.entities === 'all' ? 'All Entities' : (Array.isArray(fallbackScope.entities) ? fallbackScope.entities.join(', ') : '—');
+        const divStr = fallbackScope.divisions === 'all' ? 'All Divisions' : (Array.isArray(fallbackScope.divisions) ? fallbackScope.divisions.join(', ') : '—');
+        const countryStr = fallbackScope.countries === 'all' ? 'All Countries' : (Array.isArray(fallbackScope.countries) ? fallbackScope.countries.join(', ') : '—');
+        return {
+            accessScope: "Default Assigned Scope",
+            legalGroup: "FJ Group",
+            legalEntity: entStr || "—",
+            parentDivision: divStr || "—",
+            subDivision: countryStr ? `Region: ${countryStr}` : "—",
+            analysis: "—",
+        };
+    }
 
     const getUniqueValues = (key) => {
         const values = scopes
@@ -313,7 +327,15 @@ export default function Profile() {
         loading,
         logout,
         getAccessScopes,
+        refreshProfile,
     } = useAuth();
+
+    // Call /api/access/me when viewing the Profile page to guarantee authoritative data
+    useEffect(() => {
+        if (typeof refreshProfile === "function") {
+            refreshProfile();
+        }
+    }, [refreshProfile]);
 
 
     // =====================================================
@@ -417,8 +439,8 @@ export default function Profile() {
     // =====================================================
 
     const scopeData = useMemo(() => {
-        return buildScopeData(accessScopes);
-    }, [accessScopes]);
+        return buildScopeData(accessScopes, user?.scope);
+    }, [accessScopes, user?.scope]);
 
 
     // =====================================================
