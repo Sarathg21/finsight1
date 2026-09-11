@@ -365,6 +365,14 @@ export default function OperatingAnalysis() {
         setCompositionViewAllLoading,
     ] = useState(false);
 
+    const [
+        viewAllAppliedFilters,
+        setViewAllAppliedFilters,
+    ] = useState({});
+
+    const [monthOnMonthViewAllData, setMonthOnMonthViewAllData] = useState([]);
+    const [monthOnMonthViewAllLoading, setMonthOnMonthViewAllLoading] = useState(false);
+
     /* =====================================================
        ACTIVE API FILTERS
 
@@ -803,6 +811,10 @@ export default function OperatingAnalysis() {
                     rows
                 );
 
+                setViewAllAppliedFilters(
+                    activeOpexFilters
+                );
+
                 setViewAllType(
                     "composition"
                 );
@@ -810,7 +822,6 @@ export default function OperatingAnalysis() {
                 setCompositionViewAllOpen(
                     true
                 );
-
             } catch (error) {
 
                 console.error(
@@ -944,6 +955,10 @@ export default function OperatingAnalysis() {
                     normalizedRows
                 );
 
+                setViewAllAppliedFilters(
+                    activeOpexFilters
+                );
+
                 setViewAllType(
                     "actual-vs-target"
                 );
@@ -1024,6 +1039,10 @@ export default function OperatingAnalysis() {
                     rows
                 );
 
+                setViewAllAppliedFilters(
+                    activeOpexFilters
+                );
+
                 setViewAllType(
                     "expense-category"
                 );
@@ -1052,6 +1071,335 @@ export default function OperatingAnalysis() {
             }
         };
 
+
+    /* =========================================================
+APPLY VIEW ALL FILTERS
+
+Filters changed inside View All are sent back here.
+
+IMPORTANT:
+These filters do NOT change the main dashboard filters.
+Only the View All API is refreshed.
+========================================================= */
+
+    const handleApplyViewAllFilters = async (
+        selectedFilters
+    ) => {
+        try {
+            setError("");
+            setCompositionViewAllLoading(true);
+
+            /* ---------------------------------------------
+               NORMALIZE VIEW ALL FILTERS
+            --------------------------------------------- */
+
+            const normalizedFilters = {
+                ...selectedFilters,
+
+                year: Array.isArray(selectedFilters?.year)
+                    ? selectedFilters.year
+                    : selectedFilters?.year
+                        ? [selectedFilters.year]
+                        : [],
+
+                legal_group: Array.isArray(
+                    selectedFilters?.legal_group
+                )
+                    ? selectedFilters.legal_group
+                    : selectedFilters?.legal_group
+                        ? [selectedFilters.legal_group]
+                        : [],
+
+                legal_entity: Array.isArray(
+                    selectedFilters?.legal_entity
+                )
+                    ? selectedFilters.legal_entity
+                    : selectedFilters?.legal_entity
+                        ? [selectedFilters.legal_entity]
+                        : [],
+
+                parent_division: Array.isArray(
+                    selectedFilters?.parent_division
+                )
+                    ? selectedFilters.parent_division
+                    : selectedFilters?.parent_division
+                        ? [selectedFilters.parent_division]
+                        : [],
+
+                subdivision: Array.isArray(
+                    selectedFilters?.subdivision
+                )
+                    ? selectedFilters.subdivision
+                    : selectedFilters?.subdivision
+                        ? [selectedFilters.subdivision]
+                        : [],
+
+                period: Array.isArray(
+                    selectedFilters?.period
+                )
+                    ? selectedFilters.period
+                    : selectedFilters?.period
+                        ? [String(selectedFilters.period)]
+                        : [],
+
+                reporting_currency:
+                    selectedFilters?.reporting_currency ||
+                    activeOpexFilters?.reporting_currency ||
+                    "AED",
+            };
+
+            /* ---------------------------------------------
+               PERIOD VALIDATION
+            --------------------------------------------- */
+
+            if (
+                !Array.isArray(normalizedFilters.period) ||
+                normalizedFilters.period.length === 0
+            ) {
+                setError(
+                    "Please select at least one Period."
+                );
+
+                return;
+            }
+
+            /* ---------------------------------------------
+               SAVE VIEW ALL FILTERS
+            --------------------------------------------- */
+
+            setViewAllAppliedFilters(
+                normalizedFilters
+            );
+
+            /* ---------------------------------------------
+               BUILD API FILTERS
+            --------------------------------------------- */
+
+            const apiFilters =
+                buildApiFilters(
+                    normalizedFilters
+                );
+
+            let response;
+
+            /* ---------------------------------------------
+               CALL API BASED ON VIEW TYPE
+            --------------------------------------------- */
+
+            if (
+                viewAllType === "composition"
+            ) {
+                response =
+                    await getOpexCompositionViewAll(
+                        apiFilters
+                    );
+
+            } else if (
+                viewAllType === "actual-vs-target"
+            ) {
+                response =
+                    await getOpexCategoryComparison(
+                        apiFilters
+                    );
+
+            } else if (
+                viewAllType === "expense-category"
+            ) {
+                response =
+                    await getOpexCategoryBreakdownViewAll(
+                        apiFilters
+                    );
+
+            } else {
+                return;
+            }
+
+            /* ---------------------------------------------
+               NORMALIZE RESPONSE
+            --------------------------------------------- */
+
+            const rows =
+                Array.isArray(response)
+                    ? response
+                    : response?.items ||
+                    response?.categories ||
+                    response?.data ||
+                    response?.results ||
+                    [];
+
+            /* ---------------------------------------------
+               ACTUAL VS TARGET NORMALIZATION
+            --------------------------------------------- */
+
+            if (
+                viewAllType ===
+                "actual-vs-target"
+            ) {
+                const normalizedRows =
+                    rows.map(
+                        (item) => ({
+                            category:
+                                item?.category ?? "",
+
+                            actual:
+                                item?.actual_ptd_aed ??
+                                item?.actual_ptd ??
+                                null,
+
+                            target:
+                                item?.target_ptd_aed ??
+                                item?.target_ptd ??
+                                null,
+
+                            variance:
+                                item?.variance_ptd_aed ??
+                                item?.variance_ptd ??
+                                null,
+
+                            variance_pct:
+                                item?.variance_ptd_pct ??
+                                null,
+
+                            actual_ptd_aed:
+                                item?.actual_ptd_aed ??
+                                null,
+
+                            target_ptd_aed:
+                                item?.target_ptd_aed ??
+                                null,
+
+                            variance_ptd_aed:
+                                item?.variance_ptd_aed ??
+                                null,
+
+                            variance_ptd_pct:
+                                item?.variance_ptd_pct ??
+                                null,
+
+                            reporting_currency:
+                                item?.reporting_currency ??
+                                normalizedFilters.reporting_currency ??
+                                "AED",
+                        })
+                    );
+
+                setCompositionViewAllData(
+                    normalizedRows
+                );
+
+            } else {
+                setCompositionViewAllData(
+                    rows
+                );
+            }
+
+        } catch (error) {
+            console.error(
+                "Failed to apply View All filters:",
+                error
+            );
+
+            setError(
+                error?.message ||
+                "Failed to refresh View All data."
+            );
+
+        } finally {
+            setCompositionViewAllLoading(
+                false
+            );
+        }
+    };
+
+
+    // FIX: View All Apply filter mapping
+    // FIX: Apply View All filters and update ONLY Month-on-Month View All data
+    const handleMonthOnMonthViewAllFilters = async (filters) => {
+        try {
+            setMonthOnMonthViewAllLoading(true);
+
+            const apiFilters = {
+                year: Array.isArray(filters?.year)
+                    ? filters.year
+                    : filters?.year
+                        ? [filters.year]
+                        : [],
+
+                legal_entity_id: Array.isArray(filters?.legal_entity)
+                    ? filters.legal_entity
+                    : filters?.legal_entity
+                        ? [filters.legal_entity]
+                        : [],
+
+                parent_division_id: Array.isArray(filters?.parent_division)
+                    ? filters.parent_division
+                    : filters?.parent_division
+                        ? [filters.parent_division]
+                        : [],
+
+                subdivision_id: Array.isArray(filters?.subdivision)
+                    ? filters.subdivision
+                    : filters?.subdivision
+                        ? [filters.subdivision]
+                        : [],
+
+                period_name: Array.isArray(filters?.period)
+                    ? filters.period
+                    : filters?.period
+                        ? [filters.period]
+                        : [],
+
+                reporting_currency:
+                    activeOpexFilters?.reporting_currency || "AED",
+            };
+
+            // FIX: Backend requires at least one period
+            if (!apiFilters.period_name.length) {
+                console.warn(
+                    "Month-on-Month View All requires at least one period_name."
+                );
+                return;
+            }
+
+            console.log(
+                "Month-on-Month View All APPLY:",
+                apiFilters
+            );
+
+            const response = await getOpexMonthly(apiFilters);
+
+            console.log(
+                "Month-on-Month View All RESPONSE:",
+                response
+            );
+
+            // FIX: Normalize the API response before updating View All data
+            const filteredData =
+                Array.isArray(response)
+                    ? response
+                    : Array.isArray(response?.data)
+                        ? response.data
+                        : Array.isArray(response?.items)
+                            ? response.items
+                            : [];
+
+            console.log(
+                "Month-on-Month View All FILTERED DATA:",
+                filteredData
+            );
+
+            // FIX: This is the data rendered by View All
+            setMonthOnMonthViewAllData(filteredData);
+
+        } catch (error) {
+            console.error(
+                "Failed to load Month-on-Month View All:",
+                error
+            );
+        } finally {
+            setMonthOnMonthViewAllLoading(false);
+        }
+    };
     /* =====================================================
        ACTUAL VS TARGET EXPORT
     ===================================================== */
@@ -1088,9 +1436,12 @@ export default function OperatingAnalysis() {
             false
         );
 
+        setViewAllAppliedFilters(
+            {}
+        );
+
         setViewAllType(null);
     };
-
     /* =====================================================
        OPEX COMPOSITION EXPORT
     ===================================================== */
@@ -2117,17 +2468,20 @@ export default function OperatingAnalysis() {
                 {/* =================================================
                     MONTH ON MONTH
                 ================================================= */}
-
                 <MonthOnMonthOpexReport
-                    data={
-                        monthOnMonthOpexData
+                    data={monthOnMonthOpexData}
+
+                    viewAllData={
+                        monthOnMonthViewAllData
                     }
 
-                    /*
-                     * IMPORTANT:
-                     * Month-on-Month uses the dedicated
-                     * natural-account detail endpoint.
-                     */
+                    viewAllLoading={
+                        monthOnMonthViewAllLoading
+                    }
+
+                    onApplyFilters={
+                        handleMonthOnMonthViewAllFilters
+                    }
 
                     onExpandCategory={
                         handleExpandMonthlyCategory
@@ -2145,7 +2499,10 @@ export default function OperatingAnalysis() {
                         activeOpexFilters?.reporting_currency ||
                         "AED"
                     }
-                     filterOptions={filterOptions}
+
+                    filterOptions={
+                        filterOptions
+                    }
 
                     hierarchyFilters={{
                         year:
@@ -2180,35 +2537,69 @@ export default function OperatingAnalysis() {
                     compositionViewAllOpen &&
                     viewAllType !== "expense-category"
                 }
-                onClose={handleCloseViewAll}
-                data={compositionViewAllData}
-                activeFilters={activeOpexFilters}
-                filterOptions={filterOptions}
-                reportingCurrency={
-                    activeOpexFilters?.reporting_currency || "AED"
+
+                onClose={
+                    handleCloseViewAll
                 }
-                viewAllType={viewAllType}
+
+                data={
+                    compositionViewAllData
+                }
+
+                loading={
+                    compositionViewAllLoading
+                }
+
+                activeFilters={
+                    Object.keys(viewAllAppliedFilters).length > 0
+                        ? viewAllAppliedFilters
+                        : activeOpexFilters
+                }
+
+                filterOptions={
+                    filterOptions
+                }
+
+                reportingCurrency={
+                    activeOpexFilters?.reporting_currency ||
+                    "AED"
+                }
+
+                viewAllType={
+                    viewAllType
+                }
+
                 title={
                     viewAllType === "actual-vs-target"
                         ? "Actual vs Target by Expense Category"
                         : "OPEX Composition"
                 }
+
                 subtitle={
                     viewAllType === "actual-vs-target"
                         ? "Detailed actual versus target expense category analysis"
                         : "Detailed operating expense composition by category"
                 }
+
+                onApplyFilters={
+                    handleApplyViewAllFilters
+                }
+
                 onExportExcel={
                     viewAllType === "actual-vs-target"
                         ? handleActualVsTargetExportExcel
                         : handleCompositionExportExcel
                 }
+
                 onExportPdf={
                     viewAllType === "actual-vs-target"
                         ? handleActualVsTargetExportPdf
                         : handleCompositionExportPdf
                 }
-                exporting={exporting}
+
+                exporting={
+                    exporting
+                }
             />
 
             {/* =====================================================
@@ -2219,21 +2610,48 @@ export default function OperatingAnalysis() {
                     compositionViewAllOpen &&
                     viewAllType === "expense-category"
                 }
+
                 onClose={handleCloseViewAll}
+
                 data={compositionViewAllData}
+
                 loading={compositionViewAllLoading}
-                activeFilters={activeOpexFilters}
-                filterOptions={filterOptions}
-                reportingCurrency={
-                    activeOpexFilters?.reporting_currency || "AED"
+
+                activeFilters={
+                    Object.keys(
+                        viewAllAppliedFilters || {}
+                    ).length > 0
+                        ? viewAllAppliedFilters
+                        : activeOpexFilters
                 }
+
+                filterOptions={filterOptions}
+
+                reportingCurrency={
+                    viewAllAppliedFilters?.reporting_currency ||
+                    activeOpexFilters?.reporting_currency ||
+                    "AED"
+                }
+
+                onApplyFilters={
+                    handleApplyViewAllFilters
+                }
+
                 onExpandCategory={
-                    async (category, item) => {
+                    async (category) => {
+                        const filtersForDetail =
+                            Object.keys(
+                                viewAllAppliedFilters || {}
+                            ).length > 0
+                                ? viewAllAppliedFilters
+                                : activeOpexFilters;
+
                         const response =
                             await getOpexCategoryDetail({
                                 category,
-                                item,
-                                ...compositionApiFilters,
+                                ...buildApiFilters(
+                                    filtersForDetail
+                                ),
                             });
 
                         return response;

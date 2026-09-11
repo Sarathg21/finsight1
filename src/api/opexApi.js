@@ -283,7 +283,7 @@ export const getOpexSummary = async (
 /* =========================================================
    CATEGORY COMPARISON
 
-   GET /api/pl/expense-breakdown
+   GET /api/opex/CategoryComparison
 ========================================================= */
 
 export const getOpexCategoryComparison =
@@ -309,10 +309,53 @@ export const getOpexCategoryComparison =
     };
 
 
+    /* =========================================================
+   CATEGORY COMPARISON EXPORT
+
+   GET /api/opex/category-comparison/export
+
+   format:
+      excel
+      pdf
+
+   Response is binary/blob.
+========================================================= */
+
+export const exportOpexCategoryComparison =
+    async (
+        filters = {},
+        format = "excel"
+    ) => {
+        try {
+            const params = buildParams(
+                filters,
+                true
+            );
+
+            params.append(
+                "format",
+                format
+            );
+
+            const response = await api.get(
+                "/opex/category-comparison/export",
+                {
+                    params,
+                    responseType: "blob",
+                }
+            );
+
+            return response;
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
+
 /* =========================================================
    COMPOSITION
 
-   GET /api/pl/expense-breakdown
+   GET /api/opex/composition
 ========================================================= */
 
 export const getOpexComposition =
@@ -417,7 +460,7 @@ export const exportOpexComposition =
 /* =========================================================
    CATEGORY BREAKDOWN
 
-   GET /api/pl/expense-breakdown
+   GET /api/opex/ExpenseCategoryDrilldown
 ========================================================= */
 
 export const getOpexCategoryBreakdown =
@@ -449,29 +492,26 @@ export const getOpexCategoryBreakdown =
    Authoritative Oracle GL chart of accounts derivation
 ========================================================= */
 
-export const getOpexCategoryDetail =
-    async ({
+export const getOpexCategoryDetail = async (
+    {
         category,
         item,
         ...filters
-    } = {}) => {
-        return deriveCategoryNaturalAccounts(item || filters, category);
-    };
-
-
-/* =========================================================
-   MONTHLY
-
-   GET /api/pl/expense-breakdown
-========================================================= */
-
-export const getOpexMonthly = async (
-    filters = {}
+    } = {}
 ) => {
     try {
+        if (!category) {
+            return [];
+        }
+
         const params = buildParams(
             filters,
             true
+        );
+
+        params.append(
+            "category",
+            String(category)
         );
 
         const response = await api.get(
@@ -481,17 +521,41 @@ export const getOpexMonthly = async (
             }
         );
 
-        const liveData = getResponseData(response);
-        const liveItems = Array.isArray(liveData)
-            ? liveData
-            : liveData?.items || liveData?.categories || [];
-
-        return buildOpexMonthlyReportData(liveItems);
+        return getResponseData(response);
 
     } catch (error) {
-        return buildOpexMonthlyReportData([]);
+        throw getApiError(error);
     }
 };
+
+/* =========================================================
+   MONTHLY
+
+   GET /api/opex/monthly
+========================================================= */
+
+export const getOpexMonthly =
+    async (filters = {}) => {
+        try {
+            const params = buildParams(
+                filters,
+                true
+            );
+
+            const response = await api.get(
+                "/opex/monthly",
+                {
+                    params,
+                }
+            );
+
+            return getResponseData(response);
+
+        } catch (error) {
+            throw getApiError(error);
+        }
+    };
+
 
 
 /* =========================================================
@@ -501,35 +565,40 @@ export const getOpexMonthly = async (
 ========================================================= */
 
 export const getOpexCategoryDetailMonthly = async (
-    { category, item, ...filters } = {}
-) => {
-    return deriveCategoryNaturalAccounts(item || filters, category);
-};
-
-
-export const exportOpexCategoryComparison = async (
-    filters = {},
-    format = "excel"
+    {
+        category,
+        item,
+        ...filters
+    } = {}
 ) => {
     try {
-        const params = buildParams(filters, true);
+        if (!category) {
+            return [];
+        }
 
-        params.append("format", format);
+        const params = buildParams(
+            filters,
+            true
+        );
+
+        params.append(
+            "category",
+            String(category)
+        );
 
         const response = await api.get(
-            "/opex/category-comparison/export",
+            "/opex/category-detail-monthly",
             {
                 params,
-                responseType: "blob",
             }
         );
 
-        return response;
+        return getResponseData(response);
+
     } catch (error) {
         throw getApiError(error);
     }
 };
-
 
 /* =========================================================
    CATEGORY BREAKDOWN VIEW ALL
