@@ -12,7 +12,14 @@ import {
   fetchBSDrilldown,
   fetchBSReconciliation,
   exportBS,
+  fetchBS6MonthTrend,
 } from '../services/bsApi';
+import {
+  exportTrendToExcel,
+  exportTrendToPDF,
+  exportCompositionToExcel,
+  exportCompositionToPDF,
+} from '../utils/bsExport';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
 // MultiSelectDropdown replaced by inline MultiSelect (matches Sales Revenue style)
@@ -1314,44 +1321,630 @@ function SubDivisionViewAll({ data, currency }) {
   );
 }
 
-/* Trend View All Table */
-function TrendViewAll({ trendData, currency }) {
-    const series = Array.isArray(trendData) ? trendData : (trendData?.series || trendData?.data || []);
-    if (!series.length)
-      return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
-  
-    return (
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={MTH_L}>Period</th>
-            <th style={MTH}>Balance Amount</th>
-            <th style={MTH}>MoM Change</th>
-            <th style={MTH}>MoM %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {series.map((row, i) => {
-            const bal = row.total_balance ?? row.balance_amount ?? row.balance ?? 0;
-            const chg = row.mom_variance ?? row.mom_change ?? row.variance ?? row.period_change;
-            const pct = row.mom_pct ?? row.period_pct ?? row.variance_pct;
-            return (
-              <tr
-                key={i}
-                onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <td style={{ ...MTD_L, fontWeight: 600 }}>{row.period_name || row.period_code || row.period || 'Unknown'}</td>
-                <td style={{ ...MTD, fontWeight: 600 }}>{fmtNum(Math.abs(bal), currency)}</td>
-                <td style={MTD}>{chg != null ? <VarBadge v={chg} /> : '—'}</td>
-                <td style={MTD}>{pct != null ? <VarBadge v={pct} isPct /> : '—'}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    );
+/* ── Trend View All Modal Content (Multi-Select Filters, Chart, Table & Exports) ── */
+function TrendViewAll({
+  trendData,
+  currency,
+  filterOptions,
+  appliedFilters,
+  onApplyFilters,
+  loading,
+}) {
+  const [modalFilters, setModalFilters] = useState({
+    legalEntity: appliedFilters?.legalEntity || [],
+    parentDivision: appliedFilters?.parentDivision || [],
+    subdivision: appliedFilters?.subdivision || [],
+    period: appliedFilters?.period || '',
+    currency: currency || 'AED',
+  });
+
+  const series = trendData?.series || [];
+
+  const handleApply = () => {
+    if (onApplyFilters) onApplyFilters(modalFilters);
+  };
+
+  const handleExcel = () => {
+    exportTrendToExcel(series, modalFilters.currency);
+  };
+
+  const handlePDF = () => {
+    exportTrendToPDF(series, modalFilters.currency);
+  };
+
+  return (
+    <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Filter Bar inside Modal */}
+      <div style={{
+        padding: '12px 14px',
+        background: '#f8fafc',
+        borderRadius: 10,
+        border: '1px solid #e2e8f0',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 10,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', flex: 1 }}>
+          {/* Legal Entity */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Legal Entity
+            </label>
+            <MultiSelect
+              options={filterOptions?.legalEntities || []}
+              value={modalFilters.legalEntity}
+              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v }))}
+              placeholder="All Entities"
+            />
+          </div>
+
+          {/* Parent Division */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Parent Division
+            </label>
+            <MultiSelect
+              options={filterOptions?.parentDivisions || []}
+              value={modalFilters.parentDivision}
+              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v }))}
+              placeholder="All Divisions"
+            />
+          </div>
+
+          {/* Sub-Division */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Sub-Division
+            </label>
+            <MultiSelect
+              options={filterOptions?.subdivisions || []}
+              value={modalFilters.subdivision}
+              onChange={v => setModalFilters(f => ({ ...f, subdivision: v }))}
+              placeholder="All Sub-Divisions"
+            />
+          </div>
+
+          {/* As on Date */}
+          <div style={{ minWidth: 120 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              As on Date
+            </label>
+            <select
+              style={selStyle}
+              value={modalFilters.period}
+              onChange={e => setModalFilters(f => ({ ...f, period: e.target.value }))}
+            >
+              {(filterOptions?.periods || []).map(p => {
+                const val = typeof p === 'object' ? p.period : p;
+                const lbl = typeof p === 'object' ? p.period_name : formatPeriod(p);
+                return <option key={val} value={val}>{lbl || val}</option>;
+              })}
+            </select>
+          </div>
+
+          {/* Currency */}
+          <div style={{ minWidth: 90 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Currency
+            </label>
+            <select
+              style={selStyle}
+              value={modalFilters.currency}
+              onChange={e => setModalFilters(f => ({ ...f, currency: e.target.value }))}
+            >
+              {['AED', 'USD', 'SAR', 'QAR', 'OMR'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Apply Button */}
+          <button
+            onClick={handleApply}
+            style={{
+              marginTop: 16,
+              padding: '6px 14px',
+              background: C.primary,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 7,
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Apply
+          </button>
+        </div>
+
+        {/* Export Buttons */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 }}>
+          <button
+            onClick={handleExcel}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px',
+              background: '#f0fdf4', color: '#15803d',
+              border: '1px solid #bbf7d0', borderRadius: 7,
+              fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            📊 Excel
+          </button>
+          <button
+            onClick={handlePDF}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px',
+              background: '#fff1f2', color: '#be123c',
+              border: '1px solid #fecdd3', borderRadius: 7,
+              fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            📄 PDF
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[...Array(6)].map((_, i) => <Skeleton key={i} h={30} />)}
+        </div>
+      ) : !series.length ? (
+        <div style={{ padding: 40, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>
+          No trend data available for the selected filters
+        </div>
+      ) : (
+        <>
+          {/* Chart in Modal */}
+          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 18px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.84rem', color: C.navy }}>
+                Previous 6 Months Trend: Assets vs Liabilities vs Equity
+              </div>
+              <div style={{ display: 'flex', gap: 16, fontSize: '0.72rem', fontWeight: 600 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#4f46e5' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#4f46e5' }} /> Total Assets
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#be123c' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#be123c' }} /> Total Liabilities
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#15803d' }}>
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#15803d' }} /> Total Equity
+                </span>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={series} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis dataKey="period" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} dy={6} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={52} />
+                <Tooltip formatter={(v, n) => [fmtKPI(v, modalFilters.currency), n]} contentStyle={{ fontSize: 11, borderRadius: 8, border: `1px solid ${C.border}` }} />
+                <Line type="monotone" dataKey="totalAssets" name="Total Assets" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 4, fill: '#4f46e5' }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="totalLiabilities" name="Total Liabilities" stroke="#be123c" strokeWidth={2.5} dot={{ r: 4, fill: '#be123c' }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="totalEquity" name="Total Equity" stroke="#15803d" strokeWidth={2.5} dot={{ r: 4, fill: '#15803d' }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Table in Modal */}
+          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={MTH_L}>Period</th>
+                  <th style={MTH}>Total Assets ({modalFilters.currency})</th>
+                  <th style={MTH}>Assets MoM %</th>
+                  <th style={MTH}>Total Liabilities ({modalFilters.currency})</th>
+                  <th style={MTH}>Liab MoM %</th>
+                  <th style={MTH}>Total Equity ({modalFilters.currency})</th>
+                  <th style={MTH}>Equity MoM %</th>
+                  <th style={MTH}>Liab/Equity</th>
+                  <th style={MTH}>Debt/Equity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {series.map(row => (
+                  <tr
+                    key={row.period}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    style={{ borderBottom: '1px solid #f1f5f9' }}
+                  >
+                    <td style={{ ...MTD_L, fontWeight: 700 }}>{row.period}</td>
+                    <td style={{ ...MTD, fontWeight: 600, color: '#4f46e5' }}>{fmtTableCell(row.totalAssets)}</td>
+                    <td style={{ ...MTD, color: getVarColor(row.assetsMoMPct), fontWeight: 600 }}>
+                      {row.assetsMoMPct != null ? `${row.assetsMoMPct >= 0 ? '+' : ''}${row.assetsMoMPct.toFixed(2)}%` : '—'}
+                    </td>
+                    <td style={{ ...MTD, fontWeight: 600, color: '#be123c' }}>{fmtTableCell(row.totalLiabilities)}</td>
+                    <td style={{ ...MTD, color: getVarColor(row.liabMoMPct), fontWeight: 600 }}>
+                      {row.liabMoMPct != null ? `${row.liabMoMPct >= 0 ? '+' : ''}${row.liabMoMPct.toFixed(2)}%` : '—'}
+                    </td>
+                    <td style={{ ...MTD, fontWeight: 600, color: '#15803d' }}>{fmtTableCell(row.totalEquity)}</td>
+                    <td style={{ ...MTD, color: getVarColor(row.equityMoMPct), fontWeight: 600 }}>
+                      {row.equityMoMPct != null ? `${row.equityMoMPct >= 0 ? '+' : ''}${row.equityMoMPct.toFixed(2)}%` : '—'}
+                    </td>
+                    <td style={{ ...MTD, fontWeight: 600 }}>{row.liabilityToEquity != null ? `${row.liabilityToEquity.toFixed(2)}x` : '—'}</td>
+                    <td style={{ ...MTD, fontWeight: 600 }}>{row.debtToEquity != null ? `${row.debtToEquity.toFixed(2)}x` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── Composition View All Modal Content (Multi-Select Filters, Donut Charts, Breakdown Tables & Exports) ── */
+function CompositionViewAll({
+  statementData,
+  currency,
+  periodLabel,
+  comparePeriodLabel,
+  hasCompare,
+  filterOptions,
+  appliedFilters,
+  onApplyFilters,
+  loading,
+}) {
+  const [modalFilters, setModalFilters] = useState({
+    legalEntity: appliedFilters?.legalEntity || [],
+    parentDivision: appliedFilters?.parentDivision || [],
+    subdivision: appliedFilters?.subdivision || [],
+    period: appliedFilters?.period || '',
+    currency: currency || 'AED',
+  });
+
+  if (!statementData) {
+    return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No composition data available</div>;
   }
+
+  const assetTotal = statementData.totalAssets.current || 1;
+  const nonCurrentAssetPct = ((statementData.nonCurrentAssets.totalCurrent / assetTotal) * 100).toFixed(1);
+  const currentAssetPct = ((statementData.currentAssets.totalCurrent / assetTotal) * 100).toFixed(1);
+
+  const liabEqTotal = statementData.totalEqLiab.current || 1;
+  const equityPct = ((statementData.equity.totalCurrent / liabEqTotal) * 100).toFixed(1);
+  const nonCurrentLiabPct = ((statementData.nonCurrentLiab.totalCurrent / liabEqTotal) * 100).toFixed(1);
+  const currentLiabPct = ((statementData.currentLiab.totalCurrent / liabEqTotal) * 100).toFixed(1);
+
+  const assetSegments = [
+    { name: 'Non-current Assets', value: statementData.nonCurrentAssets.totalCurrent, color: '#6366f1', pct: nonCurrentAssetPct },
+    { name: 'Current Assets', value: statementData.currentAssets.totalCurrent, color: '#3b82f6', pct: currentAssetPct },
+  ];
+
+  const liabEqSegments = [
+    { name: 'Equity', value: statementData.equity.totalCurrent, color: '#10b981', pct: equityPct },
+    { name: 'Non-current Liabilities', value: statementData.nonCurrentLiab.totalCurrent, color: '#8b5cf6', pct: nonCurrentLiabPct },
+    { name: 'Current Liabilities', value: statementData.currentLiab.totalCurrent, color: '#f59e0b', pct: currentLiabPct },
+  ];
+
+  const handleApply = () => {
+    if (onApplyFilters) onApplyFilters(modalFilters);
+  };
+
+  const handleExcel = () => {
+    exportCompositionToExcel({
+      period: periodLabel,
+      assets: {
+        total: statementData.totalAssets.current,
+        nonCurrent: { amount: statementData.nonCurrentAssets.totalCurrent, pct: nonCurrentAssetPct },
+        current: { amount: statementData.currentAssets.totalCurrent, pct: currentAssetPct },
+      },
+      liabEquity: {
+        total: statementData.totalEqLiab.current,
+        equity: { amount: statementData.equity.totalCurrent, pct: equityPct },
+        nonCurrentLiab: { amount: statementData.nonCurrentLiab.totalCurrent, pct: nonCurrentLiabPct },
+        currentLiab: { amount: statementData.currentLiab.totalCurrent, pct: currentLiabPct },
+      },
+    }, modalFilters.currency);
+  };
+
+  const handlePDF = () => {
+    exportCompositionToPDF({
+      period: periodLabel,
+      assets: {
+        total: statementData.totalAssets.current,
+        nonCurrent: { amount: statementData.nonCurrentAssets.totalCurrent, pct: nonCurrentAssetPct },
+        current: { amount: statementData.currentAssets.totalCurrent, pct: currentAssetPct },
+      },
+      liabEquity: {
+        total: statementData.totalEqLiab.current,
+        equity: { amount: statementData.equity.totalCurrent, pct: equityPct },
+        nonCurrentLiab: { amount: statementData.nonCurrentLiab.totalCurrent, pct: nonCurrentLiabPct },
+        currentLiab: { amount: statementData.currentLiab.totalCurrent, pct: currentLiabPct },
+      },
+    }, modalFilters.currency);
+  };
+
+  return (
+    <div style={{ padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Filter Bar inside Modal */}
+      <div style={{
+        padding: '12px 14px',
+        background: '#f8fafc',
+        borderRadius: 10,
+        border: '1px solid #e2e8f0',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 10,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', flex: 1 }}>
+          {/* Legal Entity */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Legal Entity
+            </label>
+            <MultiSelect
+              options={filterOptions?.legalEntities || []}
+              value={modalFilters.legalEntity}
+              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v }))}
+              placeholder="All Entities"
+            />
+          </div>
+
+          {/* Parent Division */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Parent Division
+            </label>
+            <MultiSelect
+              options={filterOptions?.parentDivisions || []}
+              value={modalFilters.parentDivision}
+              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v }))}
+              placeholder="All Divisions"
+            />
+          </div>
+
+          {/* Sub-Division */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Sub-Division
+            </label>
+            <MultiSelect
+              options={filterOptions?.subdivisions || []}
+              value={modalFilters.subdivision}
+              onChange={v => setModalFilters(f => ({ ...f, subdivision: v }))}
+              placeholder="All Sub-Divisions"
+            />
+          </div>
+
+          {/* As on Date */}
+          <div style={{ minWidth: 120 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              As on Date
+            </label>
+            <select
+              style={selStyle}
+              value={modalFilters.period}
+              onChange={e => setModalFilters(f => ({ ...f, period: e.target.value }))}
+            >
+              {(filterOptions?.periods || []).map(p => {
+                const val = typeof p === 'object' ? p.period : p;
+                const lbl = typeof p === 'object' ? p.period_name : formatPeriod(p);
+                return <option key={val} value={val}>{lbl || val}</option>;
+              })}
+            </select>
+          </div>
+
+          {/* Currency */}
+          <div style={{ minWidth: 90 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Currency
+            </label>
+            <select
+              style={selStyle}
+              value={modalFilters.currency}
+              onChange={e => setModalFilters(f => ({ ...f, currency: e.target.value }))}
+            >
+              {['AED', 'USD', 'SAR', 'QAR', 'OMR'].map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Apply Button */}
+          <button
+            onClick={handleApply}
+            style={{
+              marginTop: 16,
+              padding: '6px 14px',
+              background: C.primary,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 7,
+              fontSize: '0.74rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Apply
+          </button>
+        </div>
+
+        {/* Export Buttons */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 }}>
+          <button
+            onClick={handleExcel}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px',
+              background: '#f0fdf4', color: '#15803d',
+              border: '1px solid #bbf7d0', borderRadius: 7,
+              fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            📊 Excel
+          </button>
+          <button
+            onClick={handlePDF}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px',
+              background: '#fff1f2', color: '#be123c',
+              border: '1px solid #fecdd3', borderRadius: 7,
+              fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
+            }}
+          >
+            📄 PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Two Composition Breakdown Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 16 }}>
+        {/* 1. Asset Composition Card */}
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy, marginBottom: 4 }}>
+            1. Asset Composition
+          </div>
+          <div style={{ fontSize: '0.68rem', color: C.muted, marginBottom: 12 }}>
+            Non-current Assets vs Current Assets share of Total Assets
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, position: 'relative' }}>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie
+                  data={assetSegments}
+                  cx="50%" cy="50%"
+                  innerRadius={45} outerRadius={65}
+                  dataKey="value"
+                  paddingAngle={3}
+                >
+                  {assetSegments.map(d => <Cell key={d.name} fill={d.color} stroke="none" />)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [fmtKPI(v, modalFilters.currency), n]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+              <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 600 }}>Total Assets</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 900, color: C.navy }}>{fmtKPI(statementData.totalAssets.current, modalFilters.currency)}</div>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', marginTop: 12 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={MTH_L}>Component</th>
+                <th style={MTH}>Accounts</th>
+                <th style={MTH}>Balance ({modalFilters.currency})</th>
+                <th style={MTH}>Share %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ ...MTD_L, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1' }} />
+                  <span style={{ fontWeight: 600 }}>Non-current Assets</span>
+                </td>
+                <td style={MTD}>{statementData.nonCurrentAssets.rows.length}</td>
+                <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.nonCurrentAssets.totalCurrent)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: '#6366f1' }}>{nonCurrentAssetPct}%</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ ...MTD_L, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} />
+                  <span style={{ fontWeight: 600 }}>Current Assets</span>
+                </td>
+                <td style={MTD}>{statementData.currentAssets.rows.length}</td>
+                <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.currentAssets.totalCurrent)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: '#3b82f6' }}>{currentAssetPct}%</td>
+              </tr>
+              <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
+                <td style={{ ...MTD_L, fontWeight: 800, color: C.navy }}>TOTAL ASSETS</td>
+                <td style={{ ...MTD, fontWeight: 800 }}>{statementData.nonCurrentAssets.rows.length + statementData.currentAssets.rows.length}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: C.navy }}>{fmtTableCell(statementData.totalAssets.current)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: C.navy }}>100.0%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* 2. Liabilities & Equity Composition Card */}
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy, marginBottom: 4 }}>
+            2. Liabilities & Equity Composition
+          </div>
+          <div style={{ fontSize: '0.68rem', color: C.muted, marginBottom: 12 }}>
+            Equity, Non-current Liabilities & Current Liabilities share of Total Sources
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 160, position: 'relative' }}>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie
+                  data={liabEqSegments}
+                  cx="50%" cy="50%"
+                  innerRadius={45} outerRadius={65}
+                  dataKey="value"
+                  paddingAngle={3}
+                >
+                  {liabEqSegments.map(d => <Cell key={d.name} fill={d.color} stroke="none" />)}
+                </Pie>
+                <Tooltip formatter={(v, n) => [fmtKPI(v, modalFilters.currency), n]} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+              <div style={{ fontSize: '0.6rem', color: C.muted, fontWeight: 600 }}>Total Liab & Eq</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 900, color: C.navy }}>{fmtKPI(statementData.totalEqLiab.current, modalFilters.currency)}</div>
+            </div>
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', marginTop: 12 }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <th style={MTH_L}>Component</th>
+                <th style={MTH}>Accounts</th>
+                <th style={MTH}>Balance ({modalFilters.currency})</th>
+                <th style={MTH}>Share %</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ ...MTD_L, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
+                  <span style={{ fontWeight: 600 }}>Equity</span>
+                </td>
+                <td style={MTD}>{statementData.equity.rows.length}</td>
+                <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.equity.totalCurrent)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: '#10b981' }}>{equityPct}%</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ ...MTD_L, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#8b5cf6' }} />
+                  <span style={{ fontWeight: 600 }}>Non-current Liabilities</span>
+                </td>
+                <td style={MTD}>{statementData.nonCurrentLiab.rows.length}</td>
+                <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.nonCurrentLiab.totalCurrent)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: '#8b5cf6' }}>{nonCurrentLiabPct}%</td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ ...MTD_L, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }} />
+                  <span style={{ fontWeight: 600 }}>Current Liabilities</span>
+                </td>
+                <td style={MTD}>{statementData.currentLiab.rows.length}</td>
+                <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.currentLiab.totalCurrent)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: '#f59e0b' }}>{currentLiabPct}%</td>
+              </tr>
+              <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
+                <td style={{ ...MTD_L, fontWeight: 800, color: C.navy }}>TOTAL LIAB. & EQUITY</td>
+                <td style={{ ...MTD, fontWeight: 800 }}>
+                  {statementData.equity.rows.length + statementData.nonCurrentLiab.rows.length + statementData.currentLiab.rows.length}
+                </td>
+                <td style={{ ...MTD, fontWeight: 800, color: C.navy }}>{fmtTableCell(statementData.totalEqLiab.current)}</td>
+                <td style={{ ...MTD, fontWeight: 800, color: C.navy }}>100.0%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* Drilldown Modal Content */
 function DrilldownModal({ isOpen, onClose, data, currency }) {
@@ -1563,6 +2156,7 @@ export default function BalanceSheet() {
   const [compareSummaryData, setCompareSummaryData] = useState(null);
   const [subdivisionData,    setSubdivisionData]    = useState(null);
   const [trendData,          setTrendData]          = useState(null);
+  const [trend6MonthData,    setTrend6MonthData]    = useState(null);
   const [reconciliationRows, setReconciliationRows] = useState([]);
 
   /* ── Drilldown ─────────────────────────────────────────────────── */
@@ -1699,11 +2293,16 @@ export default function BalanceSheet() {
     }
 
     guard('subdivision', fetchBSSubDivision(f)).then(d => { if (d) setSubdivisionData(d); });
-    guard('trend', fetchBSTrend(f)).then(d => { if (d) setTrendData(d); });
+    guard('trend', fetchBS6MonthTrend(f, filterOptions.periods)).then(d => {
+      if (d) {
+        setTrend6MonthData(d);
+        setTrendData(d.series);
+      }
+    });
     guard('reconciliation', fetchBSReconciliation({ currency: f.currency })).then(d => {
       if (d) setReconciliationRows(Array.isArray(d) ? d : []);
     });
-  }, []);
+  }, [filterOptions.periods]);
 
   /* ── Trigger fetch when applied filters change ─────────────────── */
   // FIX M2/C3: depend on a stable serialised key of the full applied filter set so
@@ -1811,7 +2410,16 @@ export default function BalanceSheet() {
     { icon: '📊', label: 'Export Excel', action: () => handleExport('excel', 'subdivision') },
     { icon: '📄', label: 'Export PDF',   action: () => handleExport('pdf',   'subdivision') },
   ], [handleExport]);
-  const trendMenuItems  = useMemo(() => [{ icon: '🔎', label: 'View All', action: () => setOpenModal('trend') }], []);
+  const trendMenuItems  = useMemo(() => [
+    { icon: '🔎', label: 'View All',     action: () => setOpenModal('trend') },
+    { icon: '📊', label: 'Export Excel', action: () => exportTrendToExcel(trend6MonthData?.series || [], currency, appliedFilters) },
+    { icon: '📄', label: 'Export PDF',   action: () => exportTrendToPDF(trend6MonthData?.series || [], currency, appliedFilters) },
+  ], [trend6MonthData, currency, appliedFilters]);
+  const compositionMenuItems = useMemo(() => [
+    { icon: '🔎', label: 'View All',     action: () => setOpenModal('composition') },
+    { icon: '📊', label: 'Export Excel', action: () => exportCompositionToExcel(statementData, currency, appliedFilters) },
+    { icon: '📄', label: 'Export PDF',   action: () => exportCompositionToPDF(statementData, currency, appliedFilters) },
+  ], [statementData, currency, appliedFilters]);
   const reconMenuItems  = useMemo(() => [{ icon: '🔎', label: 'View All', action: () => setOpenModal('reconciliation') }], []);
 
   /* ── KPI Card definitions (CFO UAT-1 Revisions) ────────────────── */
@@ -1933,10 +2541,40 @@ export default function BalanceSheet() {
       </ViewAllModal>
 
       <ViewAllModal isOpen={openModal === 'trend'} onClose={closeModal}
-        title="Balance Sheet Trend — All Periods"
-        subtitle={`Currency: ${currency} | Granularity: ${trendData?.granularity || 'monthly'}`}
+        title="Assets vs Liabilities vs Equity Trend (Previous 6 Months)"
+        subtitle={`Currency: ${currency} | Periods: ${trend6MonthData?.startPeriod || '—'} → ${trend6MonthData?.endPeriod || '—'}`}
       >
-        <TrendViewAll trendData={trendData} currency={currency} />
+        <TrendViewAll
+          trendData={trend6MonthData}
+          currency={currency}
+          filterOptions={filterOptions}
+          appliedFilters={appliedFilters}
+          onApplyFilters={(f) => {
+            setAppliedFilters(prev => ({ ...prev, ...f }));
+            fetchAll({ ...appliedFilters, ...f });
+          }}
+          loading={loading.trend}
+        />
+      </ViewAllModal>
+
+      <ViewAllModal isOpen={openModal === 'composition'} onClose={closeModal}
+        title="Balance Sheet Composition Analysis"
+        subtitle={`Asset Composition and Liabilities & Equity Breakdown | Period: ${periodLabel} | Currency: ${currency}`}
+      >
+        <CompositionViewAll
+          statementData={statementData}
+          currency={currency}
+          periodLabel={periodLabel}
+          comparePeriodLabel={comparePeriodFormatted}
+          hasCompare={hasCompareData}
+          filterOptions={filterOptions}
+          appliedFilters={appliedFilters}
+          onApplyFilters={(f) => {
+            setAppliedFilters(prev => ({ ...prev, ...f }));
+            fetchAll({ ...appliedFilters, ...f });
+          }}
+          loading={loading.summary}
+        />
       </ViewAllModal>
 
       <ViewAllModal isOpen={openModal === 'reconciliation'} onClose={closeModal}
@@ -2131,17 +2769,35 @@ export default function BalanceSheet() {
       {/* FIX m5: bs-chart-grid responsive class applied via media-query above */}
       {(() => {
         /* ── Shared DonutCard renderer ── */
-        const DonutCard = ({ title, subtitle, segments, isLoading }) => {
-          const total = segments.reduce((s, d) => s + d.value, 0);
-          // Key on segment count so React fully remounts (and re-animates) the
-          // moment real API data replaces the empty/loading state.
+        const DonutCard = ({ title, subtitle, segments, total, totalLabel, isLoading, menuItems, onViewAll }) => {
           const chartKey = `donut-${segments.length}-${Math.round(total)}`;
           return (
             <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy, marginBottom: 3 }}>{title}</div>
-              <div style={{ fontSize: '0.65rem', color: C.muted, marginBottom: 10 }}>{subtitle}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>{title}</div>
+                  <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>{subtitle}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {onViewAll && (
+                    <button
+                      onClick={onViewAll}
+                      style={{
+                        fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff',
+                        border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
+                      }}
+                      title={`Open ${title} detailed breakdown`}
+                    >
+                      <span>🔎</span> View All
+                    </button>
+                  )}
+                  {menuItems && <KebabMenu id={`menu-bs-${title.toLowerCase().replace(/[^a-z0-9]/g, '-')}`} items={menuItems} />}
+                </div>
+              </div>
+
               {isLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
                   {[...Array(4)].map((_, i) => <Skeleton key={i} h={22} />)}
                 </div>
               ) : total === 0 ? (
@@ -2150,20 +2806,18 @@ export default function BalanceSheet() {
                 </div>
               ) : (
                 <>
-                  <div style={{ position: 'relative', height: 170 }}>
-                    {/* key forces a clean remount + fresh draw-in animation once data is ready */}
-                    <ResponsiveContainer key={chartKey} width="100%" height={170}>
+                  <div style={{ position: 'relative', height: 165 }}>
+                    <ResponsiveContainer key={chartKey} width="100%" height={165}>
                       <PieChart>
                         <Pie
                           data={segments}
                           cx="50%" cy="50%"
-                          innerRadius={50} outerRadius={72}
+                          innerRadius={48} outerRadius={68}
                           dataKey="value"
                           paddingAngle={3}
                           startAngle={90} endAngle={-270}
                           isAnimationActive={true}
-                          animationBegin={0}
-                          animationDuration={1000}
+                          animationDuration={800}
                         >
                           {segments.map(d => (
                             <Cell key={d.name} fill={d.color} stroke="none" />
@@ -2176,13 +2830,13 @@ export default function BalanceSheet() {
                       </PieChart>
                     </ResponsiveContainer>
                     <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                      <div style={{ fontSize: '0.58rem', color: C.muted, fontWeight: 600 }}>Total</div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 900, color: C.navy }}>{fmtKPI(total, currency)}</div>
+                      <div style={{ fontSize: '0.56rem', color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>{totalLabel || 'Total'}</div>
+                      <div style={{ fontSize: '0.80rem', fontWeight: 900, color: C.navy }}>{fmtKPI(total, currency)}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                     {segments.map(d => {
-                      const pct = total ? ((d.value / total) * 100).toFixed(1) : '0.0';
+                      const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0.0';
                       return (
                         <div key={d.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2203,98 +2857,149 @@ export default function BalanceSheet() {
           );
         };
 
+        const totAssets = statementData?.totalAssets?.current || 0;
+        const ncAssets = statementData?.nonCurrentAssets?.totalCurrent || 0;
+        const cAssets = statementData?.currentAssets?.totalCurrent || 0;
+        const assetSegments = [
+          { name: 'Non-current Assets', value: ncAssets, color: '#3b82f6' },
+          { name: 'Current Assets', value: cAssets, color: '#06b6d4' },
+        ];
 
-        const appSection = summaryData?.sections?.find(s => s.name === 'APPLICATION OF FUNDS');
-        const srcSection = summaryData?.sections?.find(s => s.name === 'SOURCES OF FUNDS');
-        const assetSegments = (appSection?.sub_sections || []).map((sub, i) => ({
-          name: sub.name.replace(/^[A-Z]\.\s*/, ''),
-          value: Math.abs(sub.total || 0),
-          color: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6'][i % 4],
-        }));
-        const liabSegments = (srcSection?.sub_sections || []).map((sub, i) => ({
-          name: sub.name.replace(/^[A-Z]\.\s*/, ''),
-          value: Math.abs(sub.total || 0),
-          color: ['#9333ea', '#f59e0b', '#ef4444', '#0d9488'][i % 4],
-        }));
+        const totEqLiab = statementData?.totalEqLiab?.current || 0;
+        const eqAmt = statementData?.equity?.totalCurrent || 0;
+        const ncLiabAmt = statementData?.nonCurrentLiab?.totalCurrent || 0;
+        const cLiabAmt = statementData?.currentLiab?.totalCurrent || 0;
+        const liabEqSegments = [
+          { name: 'Equity', value: eqAmt, color: '#10b981' },
+          { name: 'Non-current Liabilities', value: ncLiabAmt, color: '#8b5cf6' },
+          { name: 'Current Liabilities', value: cLiabAmt, color: '#f59e0b' },
+        ];
+
+        const trendList = trend6MonthData?.series || [];
+        const latestPoint = trendList.length > 0 ? trendList[trendList.length - 1] : null;
 
         return (
           <div className="bs-chart-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
 
-            {/* ── Balance Sheet Trend ── */}
+            {/* ── Balance Sheet Trend (Assets vs Liabilities vs Equity - Previous 6 Months) ── */}
             <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Balance Sheet Trend</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Assets vs Liabilities vs Equity Trend</div>
                   <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>
-                    {(Array.isArray(trendData) && trendData.length > 0 ? trendData[0].period_code : null) || '—'} → {(Array.isArray(trendData) && trendData.length > 0 ? trendData[trendData.length - 1].period_code : null) || '—'} | {appliedFilters?.section || 'APPLICATION OF FUNDS'}
+                    Previous 6 Months ({trend6MonthData?.startPeriod || '—'} → {trend6MonthData?.endPeriod || '—'}) | {currency}
                   </div>
                 </div>
-                <KebabMenu id="menu-bs-trend" items={trendMenuItems} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    onClick={() => setOpenModal('trend')}
+                    style={{
+                      fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff',
+                      border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
+                    }}
+                    title="Open detailed 6-month trend view with full table and filters"
+                  >
+                    <span>🔎</span> View All
+                  </button>
+                  <KebabMenu id="menu-bs-trend" items={trendMenuItems} />
+                </div>
               </div>
+
               {errors.trend ? (
                 <ErrorBanner message={errors.trend} onRetry={() => fetchAll(appliedFilters)} />
               ) : loading.trend ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0' }}>
                   {[...Array(5)].map((_, i) => <Skeleton key={i} h={20} />)}
                 </div>
-              ) : trendSeries.length === 0 ? (
+              ) : trendList.length === 0 ? (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem' }}>
                   No trend data available
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'flex', gap: 14, marginBottom: 8, paddingLeft: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', fontWeight: 600, color: C.slate }}>
-                      <div style={{ width: 20, height: 2.5, borderRadius: 1, background: C.primary }} />
-                      {appliedFilters?.accountCode || appliedFilters?.section || 'Balance'}
+                  <div style={{ display: 'flex', gap: 14, marginBottom: 6, paddingLeft: 4, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.66rem', fontWeight: 600, color: C.slate }}>
+                      <div style={{ width: 14, height: 3, borderRadius: 1.5, background: '#4f46e5' }} />
+                      Total Assets
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.66rem', fontWeight: 600, color: C.slate }}>
+                      <div style={{ width: 14, height: 3, borderRadius: 1.5, background: '#be123c' }} />
+                      Total Liabilities
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.66rem', fontWeight: 600, color: C.slate }}>
+                      <div style={{ width: 14, height: 3, borderRadius: 1.5, background: '#15803d' }} />
+                      Total Equity
                     </div>
                   </div>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <LineChart data={trendSeries} margin={{ top: 5, right: 16, left: -10, bottom: 0 }}>
+
+                  <ResponsiveContainer width="100%" height={170}>
+                    <LineChart data={trendList} margin={{ top: 5, right: 14, left: -14, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis dataKey="period" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} dy={6} interval="preserveStartEnd" />
+                      <XAxis dataKey="period" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} dy={6} />
                       <YAxis tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }} axisLine={false} tickLine={false} tickFormatter={fmtAxisNum} width={48} />
                       <Tooltip content={<ChartTooltip currency={currency} />} />
-                      <Line type="monotone" dataKey="balance" name={appliedFilters?.accountCode || appliedFilters?.section || 'Balance'}
-                        stroke={C.primary} strokeWidth={2.5} dot={{ r: 3, fill: C.primary }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="totalAssets" name="Total Assets" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 3, fill: '#4f46e5' }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="totalLiabilities" name="Total Liabilities" stroke="#be123c" strokeWidth={2.5} dot={{ r: 3, fill: '#be123c' }} activeDot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="totalEquity" name="Total Equity" stroke="#15803d" strokeWidth={2.5} dot={{ r: 3, fill: '#15803d' }} activeDot={{ r: 5 }} />
                     </LineChart>
                   </ResponsiveContainer>
-                  {trendData?.summary && (
-                    <div style={{ display: 'flex', gap: 16, marginTop: 8, padding: '8px 12px', background: '#f8fafc', borderRadius: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>OPENING</div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: C.navy }}>{fmtKPI(trendData.summary.opening_balance, currency)}</div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 8, padding: '8px 10px', background: '#f8fafc', borderRadius: 8 }}>
+                    <div>
+                      <div style={{ fontSize: '0.58rem', color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>Assets (6M Δ)</div>
+                      <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#4f46e5' }}>
+                        {latestPoint ? fmtKPI(latestPoint.totalAssets, currency) : '—'}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>CLOSING</div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: C.primary }}>{fmtKPI(trendData.summary.closing_balance, currency)}</div>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '0.64rem', color: C.muted, fontWeight: 600 }}>CHANGE</div>
-                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: (trendData.summary.period_change ?? 0) >= 0 ? C.green : C.rose }}>
-                          {trendData.summary.period_pct != null ? `${trendData.summary.period_pct >= 0 ? '+' : ''}${Number(trendData.summary.period_pct).toFixed(2)}%` : '—'}
-                        </div>
+                      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: (trend6MonthData?.summary?.assetsChange ?? 0) >= 0 ? C.green : C.rose }}>
+                        {trend6MonthData?.summary?.assetsPct != null ? `${trend6MonthData.summary.assetsPct >= 0 ? '+' : ''}${trend6MonthData.summary.assetsPct.toFixed(1)}%` : '—'}
                       </div>
                     </div>
-                  )}
+                    <div>
+                      <div style={{ fontSize: '0.58rem', color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>Liabilities (6M Δ)</div>
+                      <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#be123c' }}>
+                        {latestPoint ? fmtKPI(latestPoint.totalLiabilities, currency) : '—'}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: (trend6MonthData?.summary?.liabChange ?? 0) <= 0 ? C.green : C.rose }}>
+                        {trend6MonthData?.summary?.liabPct != null ? `${trend6MonthData.summary.liabPct >= 0 ? '+' : ''}${trend6MonthData.summary.liabPct.toFixed(1)}%` : '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.58rem', color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>Equity (6M Δ)</div>
+                      <div style={{ fontSize: '0.74rem', fontWeight: 800, color: '#15803d' }}>
+                        {latestPoint ? fmtKPI(latestPoint.totalEquity, currency) : '—'}
+                      </div>
+                      <div style={{ fontSize: '0.62rem', fontWeight: 700, color: (trend6MonthData?.summary?.equityChange ?? 0) >= 0 ? C.green : C.rose }}>
+                        {trend6MonthData?.summary?.equityPct != null ? `${trend6MonthData.summary.equityPct >= 0 ? '+' : ''}${trend6MonthData.summary.equityPct.toFixed(1)}%` : '—'}
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
 
-            {/* ── Assets Composition ── */}
+            {/* ── Asset Composition (Non-current vs Current Assets) ── */}
             <DonutCard
-              title="Assets Composition"
+              title="Asset Composition"
               subtitle={`Application of Funds — ${currency}`}
               segments={assetSegments}
+              total={totAssets}
+              totalLabel="Total Assets"
               isLoading={loading.summary}
+              menuItems={compositionMenuItems}
+              onViewAll={() => setOpenModal('composition')}
             />
 
-            {/* ── Liabilities Composition ── */}
+            {/* ── Liabilities & Equity Composition (Equity vs Non-current vs Current Liabilities) ── */}
             <DonutCard
-              title="Liabilities Composition"
+              title="Liabilities & Equity Composition"
               subtitle={`Sources of Funds — ${currency}`}
-              segments={liabSegments}
+              segments={liabEqSegments}
+              total={totEqLiab}
+              totalLabel="Total Liab & Eq"
               isLoading={loading.summary}
+              menuItems={compositionMenuItems}
+              onViewAll={() => setOpenModal('composition')}
             />
           </div>
         );
