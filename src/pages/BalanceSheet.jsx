@@ -27,6 +27,7 @@ import {
 } from '../utils/bsExport';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
+import { Calendar, ChevronDown } from 'lucide-react';
 // MultiSelectDropdown replaced by inline MultiSelect (matches Sales Revenue style)
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -35,7 +36,9 @@ import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_FILTERS = {
   period:        '',
+  asOnDate:      '',
   comparePeriod: '',
+  compareDate:   '',
   currency:      'AED',
   legalGroup:    [],
   legalEntity:   [],
@@ -43,6 +46,436 @@ const DEFAULT_FILTERS = {
   subdivision:   [],
   ledger:        '',
 };
+
+/* ══════════════════════════════════════════════════════════════════════
+   CALENDAR FILTER (Interactive Date & Month Picker for Balance Sheet)
+══════════════════════════════════════════════════════════════════════ */
+
+function CalendarFilter({
+  id,
+  value,
+  onChange,
+  allowNone = false,
+  availablePeriods = [],
+  disabled = false,
+  placeholder = 'Select date',
+  width = 115,
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Parse current value (could be '2026-06', '2026-06-30', etc.)
+  const parsedDate = useMemo(() => {
+    if (!value) return null;
+    const str = String(value).trim();
+    const mFull = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (mFull) {
+      return new Date(parseInt(mFull[1], 10), parseInt(mFull[2], 10) - 1, parseInt(mFull[3], 10));
+    }
+    const mMonth = str.match(/^(\d{4})-(\d{2})$/);
+    if (mMonth) {
+      const y = parseInt(mMonth[1], 10);
+      const m = parseInt(mMonth[2], 10);
+      const lastDay = new Date(y, m, 0).getDate();
+      return new Date(y, m - 1, lastDay);
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }, [value]);
+
+  const [viewYear, setViewYear] = useState(() => parsedDate ? parsedDate.getFullYear() : 2026);
+  const [viewMonth, setViewMonth] = useState(() => parsedDate ? parsedDate.getMonth() : 5); // 0-indexed
+
+  // Keep view aligned when value changes externally
+  useEffect(() => {
+    if (parsedDate) {
+      setViewYear(parsedDate.getFullYear());
+      setViewMonth(parsedDate.getMonth());
+    }
+  }, [parsedDate]);
+
+  // Click outside and Escape key to close
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  // Display label on trigger
+  const displayLabel = useMemo(() => {
+    if (!value) return allowNone ? 'None' : placeholder;
+    if (parsedDate) {
+      const day = String(parsedDate.getDate()).padStart(2, '0');
+      const mon = MONTH_NAMES[parsedDate.getMonth()];
+      const yr = String(parsedDate.getFullYear()).slice(-2);
+      return `${day}-${mon}-${yr}`;
+    }
+    return String(value);
+  }, [value, parsedDate, allowNone, placeholder]);
+
+  // Navigation handlers
+  const prevMonth = (e) => {
+    e.stopPropagation();
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear(y => y - 1);
+    } else {
+      setViewMonth(m => m - 1);
+    }
+  };
+
+  const nextMonth = (e) => {
+    e.stopPropagation();
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear(y => y + 1);
+    } else {
+      setViewMonth(m => m + 1);
+    }
+  };
+
+  const prevYear = (e) => {
+    e.stopPropagation();
+    setViewYear(y => y - 1);
+  };
+
+  const nextYear = (e) => {
+    e.stopPropagation();
+    setViewYear(y => y + 1);
+  };
+
+  // Calendar grid calculation
+  const calendarDays = useMemo(() => {
+    const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun, 1 = Mon...
+    const daysInCurMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+    const days = [];
+
+    // Leading days from prev month
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      days.push({
+        day: daysInPrevMonth - i,
+        month: viewMonth - 1,
+        year: viewMonth === 0 ? viewYear - 1 : viewYear,
+        isCurrentMonth: false,
+      });
+    }
+
+    // Days in current month
+    for (let d = 1; d <= daysInCurMonth; d++) {
+      days.push({
+        day: d,
+        month: viewMonth,
+        year: viewYear,
+        isCurrentMonth: true,
+      });
+    }
+
+    // Trailing days from next month
+    const remainingSlots = (7 - (days.length % 7)) % 7;
+    for (let d = 1; d <= remainingSlots; d++) {
+      days.push({
+        day: d,
+        month: viewMonth + 1,
+        year: viewMonth === 11 ? viewYear + 1 : viewYear,
+        isCurrentMonth: false,
+      });
+    }
+
+    return days;
+  }, [viewYear, viewMonth]);
+
+  const daysInCurrentMonthCount = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const handleSelectDay = (dayObj) => {
+    const y = dayObj.year;
+    const m = String(dayObj.month + 1).padStart(2, '0');
+    const d = String(dayObj.day).padStart(2, '0');
+    const fullDate = `${y}-${m}-${d}`;
+    const periodCode = `${y}-${m}`;
+    onChange(periodCode, fullDate);
+    setIsOpen(false);
+  };
+
+  const handleSelectMonthEnd = (e) => {
+    e.stopPropagation();
+    const lastDay = daysInCurrentMonthCount;
+    const y = viewYear;
+    const m = String(viewMonth + 1).padStart(2, '0');
+    const d = String(lastDay).padStart(2, '0');
+    const fullDate = `${y}-${m}-${d}`;
+    const periodCode = `${y}-${m}`;
+    onChange(periodCode, fullDate);
+    setIsOpen(false);
+  };
+
+  const handleSelectNone = (e) => {
+    e.stopPropagation();
+    onChange('', '');
+    setIsOpen(false);
+  };
+
+  // Check if current month in view corresponds to an available period
+  const viewPeriodCode = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+  const isPeriodAvailable = availablePeriods.length === 0 || availablePeriods.includes(viewPeriodCode);
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        type="button"
+        id={id}
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(prev => !prev)}
+        style={{
+          appearance: 'none',
+          padding: '0 8px 0 9px',
+          fontSize: '0.76rem',
+          fontWeight: 600,
+          color: value ? '#1e293b' : '#64748b',
+          background: '#fff',
+          border: `1px solid ${isOpen ? '#6366f1' : '#cbd5e1'}`,
+          borderRadius: 7,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          outline: 'none',
+          height: 32,
+          minWidth: width,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 6,
+          boxShadow: isOpen ? '0 0 0 3px rgba(99,102,241,0.15)' : 'none',
+          transition: 'all 0.15s ease',
+          boxSizing: 'border-box',
+        }}
+        title={`Click to open calendar (Selected: ${displayLabel})`}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
+          <Calendar size={13} style={{ color: isOpen ? '#4f46e5' : '#6366f1', flexShrink: 0 }} />
+          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {displayLabel}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+          {allowNone && value ? (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange('', '');
+              }}
+              title="Clear (Set to None)"
+              style={{
+                color: '#94a3b8',
+                fontSize: '0.68rem',
+                padding: '1px 3px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+            >
+              ✕
+            </span>
+          ) : (
+            <ChevronDown size={12} style={{ color: '#94a3b8' }} />
+          )}
+        </div>
+      </button>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 5px)',
+            left: 0,
+            zIndex: 1050,
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 12,
+            boxShadow: '0 12px 28px -4px rgba(0,0,0,0.12), 0 6px 12px -3px rgba(0,0,0,0.06)',
+            padding: '12px',
+            width: 248,
+            boxSizing: 'border-box',
+            userSelect: 'none',
+          }}
+        >
+          {/* Calendar Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 3 }}>
+              <button
+                type="button"
+                onClick={prevYear}
+                title="Previous year"
+                style={{
+                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
+                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
+                }}
+              >
+                «
+              </button>
+              <button
+                type="button"
+                onClick={prevMonth}
+                title="Previous month"
+                style={{
+                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
+                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
+                }}
+              >
+                ‹
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.80rem', fontWeight: 800, color: '#0f172a', textAlign: 'center' }}>
+              {MONTH_NAMES[viewMonth]} {viewYear}
+              {isPeriodAvailable && (
+                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#10b981', marginLeft: 5, verticalAlign: 'middle' }} title="Period data active" />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 3 }}>
+              <button
+                type="button"
+                onClick={nextMonth}
+                title="Next month"
+                style={{
+                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
+                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
+                }}
+              >
+                ›
+              </button>
+              <button
+                type="button"
+                onClick={nextYear}
+                title="Next year"
+                style={{
+                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
+                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
+                }}
+              >
+                »
+              </button>
+            </div>
+          </div>
+
+          {/* Weekday Labels */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', marginBottom: 6 }}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+              <span key={d} style={{ fontSize: '0.64rem', fontWeight: 700, color: '#94a3b8' }}>{d}</span>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+            {calendarDays.map((d, i) => {
+              const isSelected = parsedDate &&
+                parsedDate.getFullYear() === d.year &&
+                parsedDate.getMonth() === d.month &&
+                parsedDate.getDate() === d.day;
+              const isMonthEndDay = d.day === daysInCurrentMonthCount && d.isCurrentMonth;
+
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSelectDay(d)}
+                  style={{
+                    height: 27,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 6,
+                    border: isSelected ? 'none' : isMonthEndDay ? '1px dashed #c7d2fe' : 'none',
+                    background: isSelected ? '#4f46e5' : isMonthEndDay ? '#eef2ff' : 'transparent',
+                    color: isSelected ? '#fff' : d.isCurrentMonth ? '#1e293b' : '#cbd5e1',
+                    fontSize: '0.70rem',
+                    fontWeight: isSelected ? 800 : isMonthEndDay ? 700 : d.isCurrentMonth ? 500 : 400,
+                    cursor: 'pointer',
+                    transition: 'all 0.1s ease',
+                    position: 'relative',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSelected) e.currentTarget.style.background = isMonthEndDay ? '#eef2ff' : 'transparent';
+                  }}
+                  title={`${d.day} ${MONTH_NAMES[d.month]} ${d.year}${isMonthEndDay ? ' (Month End)' : ''}`}
+                >
+                  {d.day}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Quick Action Footer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+            <button
+              type="button"
+              onClick={handleSelectMonthEnd}
+              style={{
+                fontSize: '0.67rem',
+                color: '#4f46e5',
+                background: '#eef2ff',
+                border: '1px solid #c7d2fe',
+                borderRadius: 6,
+                padding: '3px 8px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+              title={`Select ${daysInCurrentMonthCount} ${MONTH_NAMES[viewMonth]} ${viewYear}`}
+            >
+              📅 Month End ({daysInCurrentMonthCount} {MONTH_NAMES[viewMonth]})
+            </button>
+
+            {allowNone && (
+              <button
+                type="button"
+                onClick={handleSelectNone}
+                style={{
+                  fontSize: '0.67rem',
+                  color: '#64748b',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 6,
+                  padding: '3px 8px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                title="Clear comparison period"
+              >
+                None
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 /* ══════════════════════════════════════════════════════════════════════
    SHARED STYLES  (mirror PLAnalytics.jsx)
@@ -100,9 +533,31 @@ const fmtPct = (v) =>
   v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const periodToDate = (period) => {
+  if (!period) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(period))) return String(period);
+  const m = String(period).match(/^(\d{4})-(\d{2})$/);
+  if (m) {
+    const y = parseInt(m[1], 10);
+    const mon = parseInt(m[2], 10);
+    const lastDay = new Date(y, mon, 0).getDate();
+    return `${m[1]}-${m[2]}-${String(lastDay).padStart(2, '0')}`;
+  }
+  return String(period);
+};
+
 const formatPeriod = (val) => {
   if (!val) return '—';
   if (typeof val === 'object') return val.period_name || val.period || '—';
+  const mDate = String(val).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (mDate) {
+    const day = mDate[3];
+    const monthIdx = parseInt(mDate[2], 10) - 1;
+    const yearShort = mDate[1].slice(-2);
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${day}-${MONTH_NAMES[monthIdx]}-${yearShort}`;
+    }
+  }
   const m = String(val).match(/^(\d{4})-(\d{2})$/);
   if (m) {
     const monthIdx = parseInt(m[2], 10) - 1;
@@ -128,11 +583,14 @@ const extractBSMetrics = (summary) => {
       totalAssets: 0,
       totalLiabilities: 0,
       totalEquity: 0,
+      currentAssets: 0,
+      nonCurrentAssets: 0,
       nonCurrentLiab: 0,
       currentLiab: 0,
       longTermBorrowings: 0,
       shortTermBorrowings: 0,
       totalDebt: 0,
+      currentRatio: null,
       debtToEquity: null,
       liabilityToEquity: null,
       balanceStatus: summary?.status || null,
@@ -141,6 +599,8 @@ const extractBSMetrics = (summary) => {
   }
 
   let totalAssets = 0;
+  let currentAssets = 0;
+  let nonCurrentAssets = 0;
   let nonCurrentLiab = 0;
   let currentLiab = 0;
   let totalEquity = 0;
@@ -157,7 +617,11 @@ const extractBSMetrics = (summary) => {
       const subName = (sub.name || sub.sub_section || '').toUpperCase();
       const subTotal = Math.abs(sub.total ?? sub.sub_total ?? 0);
 
-      if (subName.includes('EQUITY')) {
+      if (subName.includes('CURRENT ASSETS') && !subName.includes('NON')) {
+        currentAssets = subTotal;
+      } else if (subName.includes('NON CURRENT ASSETS') || subName.includes('NON-CURRENT ASSETS')) {
+        nonCurrentAssets = subTotal;
+      } else if (subName.includes('EQUITY')) {
         totalEquity = subTotal;
       } else if (subName.includes('NON CURRENT LIABILITIES') || subName.includes('NON-CURRENT LIABILITIES')) {
         nonCurrentLiab = subTotal;
@@ -199,6 +663,9 @@ const extractBSMetrics = (summary) => {
 
   const totalDebt = longTermBorrowings + shortTermBorrowings;
 
+  // Current Ratio = Current Assets / Current Liabilities
+  const currentRatio = currentLiab > 0 ? (currentAssets / currentLiab) : null;
+
   // Debt-to-Equity Ratio = (Long-term Bank Borrowings + Short-term Bank Borrowings) / Total Equity
   const debtToEquity = totalEquity > 0 ? (totalDebt / totalEquity) : null;
 
@@ -209,11 +676,14 @@ const extractBSMetrics = (summary) => {
     totalAssets,
     totalLiabilities,
     totalEquity,
+    currentAssets,
+    nonCurrentAssets,
     nonCurrentLiab,
     currentLiab,
     longTermBorrowings,
     shortTermBorrowings,
     totalDebt,
+    currentRatio,
     debtToEquity,
     liabilityToEquity,
     balanceStatus: summary.status,
@@ -650,10 +1120,13 @@ function VarBadge({ v, isPct = false }) {
 }
 
 /* ── KPI Card ──────────────────────────────────────────────────────── */
-function KPICard({ id, label, value, subValue, changePct, compareLabel, color, iconBg, icon, loading, error }) {
+function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, compareLabel, color, iconBg, icon, loading, error }) {
   const [hover, setHover] = useState(false);
   const accent = color || C.primary;
-  const up = changePct >= 0;
+  const up = isRatio ? ((changeDiff ?? 0) >= 0) : ((changePct ?? 0) >= 0);
+  const showChange = isRatio
+    ? (changeDiff !== null && changeDiff !== undefined && compareLabel)
+    : (changePct !== null && changePct !== undefined && compareLabel);
 
   return (
     <div
@@ -691,10 +1164,10 @@ function KPICard({ id, label, value, subValue, changePct, compareLabel, color, i
               {value}
             </div>
             {subValue && <div style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 500 }}>{subValue}</div>}
-            {changePct !== null && changePct !== undefined && compareLabel && (
+            {showChange && (
               <div style={{ fontSize: '0.62rem', fontWeight: 600, lineHeight: 1.1, marginTop: 2 }}>
                 <span style={{ color: up ? C.green : C.rose, marginRight: 3 }}>
-                  {up ? '▲' : '▼'} {Math.abs(changePct).toFixed(2)}%
+                  {up ? '▲' : '▼'} {isRatio ? Math.abs(changeDiff).toFixed(2) : `${Math.abs(changePct).toFixed(2)}%`}
                 </span>
                 <span style={{ color: C.muted }}>{compareLabel}</span>
               </div>
@@ -837,12 +1310,72 @@ const MTD   = { padding: '9px 14px', textAlign: 'right', fontSize: '0.74rem', co
 const MTD_L = { ...MTD, textAlign: 'left', color: C.navy };
 
 /* ── Helpers for 3-Column Balance Sheet Statement (matching sample layout) ── */
-const fmtTableCell = (val) => {
-  if (val === null || val === undefined) return '—';
+const fmtTableCell = (val, unit = 'aed') => {
+  if (val === null || val === undefined || val === '') return '—';
   const n = Number(val);
   if (isNaN(n)) return String(val);
+  if (unit === 'millions') {
+    if (n === 0) return '0.00M';
+    const millions = n / 1000000;
+    if (Math.abs(millions) < 0.01 && millions !== 0) {
+      return millions < 0 ? '-<0.01M' : '<0.01M';
+    }
+    return `${millions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
+  }
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+
+/* Reusable AED / AED Millions Toggle Button (matches OPEX Report style) */
+function UnitToggle({ unit, onToggle, currency = 'AED' }) {
+  const isAED = unit === 'aed';
+  const isMillions = unit === 'millions';
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <button
+        type="button"
+        onClick={() => onToggle('aed')}
+        style={{
+          height: 28,
+          minWidth: 42,
+          padding: '0 10px',
+          borderRadius: 6,
+          border: isAED ? '1px solid #5B3FE4' : '1px solid #E2E8F0',
+          background: isAED ? '#5B3FE4' : '#FFFFFF',
+          color: isAED ? '#FFFFFF' : '#334155',
+          fontSize: 10,
+          fontWeight: 600,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          outline: 'none',
+        }}
+        title={`Display in ${currency}`}
+      >
+        {currency}
+      </button>
+      <button
+        type="button"
+        onClick={() => onToggle('millions')}
+        style={{
+          height: 28,
+          minWidth: 78,
+          padding: '0 10px',
+          borderRadius: 6,
+          border: isMillions ? '1px solid #5B3FE4' : '1px solid #E2E8F0',
+          background: isMillions ? '#5B3FE4' : '#FFFFFF',
+          color: isMillions ? '#FFFFFF' : '#334155',
+          fontSize: 10,
+          fontWeight: 600,
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          outline: 'none',
+        }}
+        title={`Display in ${currency} Millions`}
+      >
+        {currency} Millions
+      </button>
+    </div>
+  );
+}
 
 const fmtTablePct = (val) => {
   if (val === null || val === undefined) return '—';
@@ -990,6 +1523,9 @@ function StatementCards({
   expanded = { currentAssets: true, nonCurrentAssets: true, currentLiab: true, nonCurrentLiab: true, equity: true },
   onToggle,
 }) {
+  const [assetsUnit, setAssetsUnit] = useState('aed');
+  const [liabUnit, setLiabUnit] = useState('aed');
+  const [equityUnit, setEquityUnit] = useState('aed');
   if (loading) {
     return (
       <div className="bs-statement-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
@@ -1010,14 +1546,14 @@ function StatementCards({
   const STH = {
     padding: '8px 8px',
     textAlign: 'right',
-    fontSize: '0.68rem',
+    fontSize: '0.67rem',
     fontWeight: 700,
     color: '#1e3a8a',
     background: '#f8fafc',
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const STH_L = { ...STH, textAlign: 'left' };
+  const STH_L = { ...STH, textAlign: 'left', paddingLeft: 12 };
 
   const SSH = {
     padding: '7px 8px',
@@ -1030,59 +1566,66 @@ function StatementCards({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const SSH_L = { ...SSH, textAlign: 'left' };
+  const SSH_L = { ...SSH, textAlign: 'left', paddingLeft: 12 };
 
   const STD = {
     padding: '6px 8px',
     textAlign: 'right',
-    fontSize: '0.72rem',
+    fontSize: '0.71rem',
     color: '#334155',
     borderBottom: '1px solid #f8fafc',
     whiteSpace: 'nowrap',
   };
-  const STD_L = { ...STD, textAlign: 'left', color: '#1e293b', fontWeight: 500 };
+  const STD_L = {
+    ...STD,
+    textAlign: 'left',
+    color: '#1e293b',
+    fontWeight: 500,
+    whiteSpace: 'nowrap',
+    paddingLeft: 12,
+  };
 
   const STOT = {
-    padding: '9px 8px',
+    padding: '10px 8px',
     textAlign: 'right',
-    fontSize: '0.76rem',
+    fontSize: '0.74rem',
     fontWeight: 900,
-    color: '#312e81',
-    background: '#f8faff',
-    borderTop: '2px solid #c7d2fe',
+    color: '#1e3a8a',
+    background: '#eff6ff',
+    borderTop: '2px solid #bfdbfe',
     whiteSpace: 'nowrap',
   };
-  const STOT_L = { ...STOT, textAlign: 'left' };
+  const STOT_L = { ...STOT, textAlign: 'left', paddingLeft: 12 };
 
   const SGREEN_TOT = {
-    padding: '9px 8px',
+    padding: '10px 8px',
     textAlign: 'right',
-    fontSize: '0.76rem',
+    fontSize: '0.74rem',
     fontWeight: 900,
     color: '#15803d',
     background: '#f0fdf4',
     borderTop: '2px solid #86efac',
     whiteSpace: 'nowrap',
   };
-  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left' };
+  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left', paddingLeft: 12 };
 
-  const renderHeaders = () => (
+  const renderHeaders = (unit = 'aed') => (
     <thead>
       <tr>
-        <th style={{ ...STH_L, width: hasCompare ? '34%' : '60%' }}>Particulars</th>
-        <th style={STH}>As on {periodLabel}</th>
+        <th style={{ ...STH_L, minWidth: 175 }}>Particulars</th>
+        <th style={{ ...STH, minWidth: 92 }}>As on {periodLabel}</th>
         {hasCompare && (
           <>
-            <th style={STH}>As on {comparePeriodLabel}</th>
-            <th style={STH}>Variance ({currency})</th>
-            <th style={STH}>Variance (%)</th>
+            <th style={{ ...STH, minWidth: 92 }}>As on {comparePeriodLabel}</th>
+            <th style={{ ...STH, minWidth: 90 }}>Variance ({unit === 'millions' ? `${currency} M` : currency})</th>
+            <th style={{ ...STH, minWidth: 72 }}>Variance (%)</th>
           </>
         )}
       </tr>
     </thead>
   );
 
-  const renderSubSection = (title, subData, sectionKey) => {
+  const renderSubSection = (title, subData, sectionKey, unit = 'aed') => {
     const isExpanded = expanded[sectionKey] !== false;
     return (
       <Fragment key={sectionKey}>
@@ -1091,28 +1634,31 @@ function StatementCards({
           style={{ background: '#f8fafc', cursor: 'pointer', userSelect: 'none' }}
           title={`Click to ${isExpanded ? 'collapse' : 'expand'} ${title}`}
         >
-          <td style={{ ...SSH_L, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{
-              fontSize: '0.62rem',
-              color: '#64748b',
-              transition: 'transform 0.2s',
-              transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-              display: 'inline-block',
-              width: 12,
-              textAlign: 'center',
-            }}>
-              ▶
-            </span>
-            <span>{title}</span>
-            <span style={{ fontSize: '0.58rem', fontWeight: 600, color: '#64748b', background: '#e2e8f0', borderRadius: 8, padding: '1px 5px', marginLeft: 2 }}>
-              {subData?.rows?.length || 0}
-            </span>
+          <td style={SSH_L}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                fontSize: '0.62rem',
+                color: '#64748b',
+                transition: 'transform 0.2s',
+                transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                display: 'inline-block',
+                width: 12,
+                textAlign: 'center',
+                flexShrink: 0,
+              }}>
+                ▶
+              </span>
+              <span style={{ whiteSpace: 'nowrap' }}>{title}</span>
+              <span style={{ fontSize: '0.58rem', fontWeight: 600, color: '#64748b', background: '#e2e8f0', borderRadius: 8, padding: '1px 5px', marginLeft: 2, flexShrink: 0 }}>
+                {subData?.rows?.length || 0}
+              </span>
+            </div>
           </td>
-          <td style={{ ...SSH, color: '#1e3a8a' }}>{fmtTableCell(subData.totalCurrent)}</td>
+          <td style={{ ...SSH, color: '#1e3a8a' }}>{fmtTableCell(subData.totalCurrent, unit)}</td>
           {hasCompare && (
             <>
-              <td style={{ ...SSH, color: '#64748b' }}>{fmtTableCell(subData.totalCompare)}</td>
-              <td style={{ ...SSH, color: getVarColor(subData.totalVariance) }}>{fmtTableCell(subData.totalVariance)}</td>
+              <td style={{ ...SSH, color: '#64748b' }}>{fmtTableCell(subData.totalCompare, unit)}</td>
+              <td style={{ ...SSH, color: getVarColor(subData.totalVariance) }}>{fmtTableCell(subData.totalVariance, unit)}</td>
               <td style={{ ...SSH, color: getVarColor(subData.totalVariancePct) }}>{fmtTablePct(subData.totalVariancePct)}</td>
             </>
           )}
@@ -1126,15 +1672,15 @@ function StatementCards({
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             title={onDrilldown ? `Click to view drilldown for ${row.name}` : undefined}
           >
-            <td style={{ ...STD_L, paddingLeft: 22 }}>
+            <td style={{ ...STD_L, paddingLeft: 24 }}>
               {row.name}
             </td>
-            <td style={{ ...STD, fontWeight: 600 }}>{fmtTableCell(row.current)}</td>
+            <td style={{ ...STD, fontWeight: 600 }}>{fmtTableCell(row.current, unit)}</td>
             {hasCompare && (
               <>
-                <td style={{ ...STD, color: '#64748b' }}>{fmtTableCell(row.compare)}</td>
+                <td style={{ ...STD, color: '#64748b' }}>{fmtTableCell(row.compare, unit)}</td>
                 <td style={{ ...STD, color: getVarColor(row.variance), fontWeight: 600 }}>
-                  {fmtTableCell(row.variance)}
+                  {fmtTableCell(row.variance, unit)}
                 </td>
                 <td style={{ ...STD, color: getVarColor(row.variancePct), fontWeight: 600 }}>
                   {fmtTablePct(row.variancePct)}
@@ -1150,27 +1696,30 @@ function StatementCards({
   const isEquityExpanded = expanded['equity'] !== false;
 
   return (
-    <div className="bs-statement-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+    <div className="bs-statement-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, alignItems: 'stretch' }}>
       {/* ── CARD 1: ASSETS ── */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy }}>Assets ({currency})</span>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, height: '100%' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, boxSizing: 'border-box' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy }}>
+            Assets ({assetsUnit === 'millions' ? `${currency} Millions` : currency})
+          </span>
+          <UnitToggle unit={assetsUnit} onToggle={setAssetsUnit} currency={currency} />
         </div>
-        <div style={{ flex: 1, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-            {renderHeaders()}
+        <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', minWidth: 525, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
+            {renderHeaders(assetsUnit)}
             <tbody>
-              {renderSubSection('I. CURRENT ASSETS', statementData.currentAssets, 'currentAssets')}
-              {renderSubSection('II. NON CURRENT ASSETS', statementData.nonCurrentAssets, 'nonCurrentAssets')}
+              {renderSubSection('I. CURRENT ASSETS', statementData.currentAssets, 'currentAssets', assetsUnit)}
+              {renderSubSection('II. NON CURRENT ASSETS', statementData.nonCurrentAssets, 'nonCurrentAssets', assetsUnit)}
             </tbody>
             <tfoot>
               <tr>
                 <td style={STOT_L}>TOTAL ASSETS</td>
-                <td style={STOT}>{fmtTableCell(statementData.totalAssets.current)}</td>
+                <td style={STOT}>{fmtTableCell(statementData.totalAssets.current, assetsUnit)}</td>
                 {hasCompare && (
                   <>
-                    <td style={STOT}>{fmtTableCell(statementData.totalAssets.compare)}</td>
-                    <td style={{ ...STOT, color: getVarColor(statementData.totalAssets.variance) }}>{fmtTableCell(statementData.totalAssets.variance)}</td>
+                    <td style={STOT}>{fmtTableCell(statementData.totalAssets.compare, assetsUnit)}</td>
+                    <td style={{ ...STOT, color: getVarColor(statementData.totalAssets.variance) }}>{fmtTableCell(statementData.totalAssets.variance, assetsUnit)}</td>
                     <td style={{ ...STOT, color: getVarColor(statementData.totalAssets.variancePct) }}>{fmtTablePct(statementData.totalAssets.variancePct)}</td>
                   </>
                 )}
@@ -1181,25 +1730,28 @@ function StatementCards({
       </div>
 
       {/* ── CARD 2: EQUITY & LIABILITIES ── */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy }}>Equity & Liabilities ({currency})</span>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, height: '100%' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, boxSizing: 'border-box' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy }}>
+            Equity & Liabilities ({liabUnit === 'millions' ? `${currency} Millions` : currency})
+          </span>
+          <UnitToggle unit={liabUnit} onToggle={setLiabUnit} currency={currency} />
         </div>
-        <div style={{ flex: 1, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-            {renderHeaders()}
+        <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', minWidth: 525, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
+            {renderHeaders(liabUnit)}
             <tbody>
-              {renderSubSection('I. CURRENT LIABILITIES', statementData.currentLiab, 'currentLiab')}
-              {renderSubSection('II. NON CURRENT LIABILITIES', statementData.nonCurrentLiab, 'nonCurrentLiab')}
+              {renderSubSection('I. CURRENT LIABILITIES', statementData.currentLiab, 'currentLiab', liabUnit)}
+              {renderSubSection('II. NON CURRENT LIABILITIES', statementData.nonCurrentLiab, 'nonCurrentLiab', liabUnit)}
             </tbody>
             <tfoot>
               <tr>
                 <td style={STOT_L}>TOTAL LIABILITIES</td>
-                <td style={STOT}>{fmtTableCell(statementData.totalLiab.current)}</td>
+                <td style={STOT}>{fmtTableCell(statementData.totalLiab.current, liabUnit)}</td>
                 {hasCompare && (
                   <>
-                    <td style={STOT}>{fmtTableCell(statementData.totalLiab.compare)}</td>
-                    <td style={{ ...STOT, color: getVarColor(statementData.totalLiab.variance) }}>{fmtTableCell(statementData.totalLiab.variance)}</td>
+                    <td style={STOT}>{fmtTableCell(statementData.totalLiab.compare, liabUnit)}</td>
+                    <td style={{ ...STOT, color: getVarColor(statementData.totalLiab.variance) }}>{fmtTableCell(statementData.totalLiab.variance, liabUnit)}</td>
                     <td style={{ ...STOT, color: getVarColor(statementData.totalLiab.variancePct) }}>{fmtTablePct(statementData.totalLiab.variancePct)}</td>
                   </>
                 )}
@@ -1210,41 +1762,47 @@ function StatementCards({
       </div>
 
       {/* ── CARD 3: EQUITY ── */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#15803d' }}>Equity ({currency})</span>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, height: '100%' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: 48, boxSizing: 'border-box' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#15803d' }}>
+            Equity ({equityUnit === 'millions' ? `${currency} Millions` : currency})
+          </span>
+          <UnitToggle unit={equityUnit} onToggle={setEquityUnit} currency={currency} />
         </div>
-        <div style={{ flex: 1, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-            {renderHeaders()}
+        <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', minWidth: 525, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
+            {renderHeaders(equityUnit)}
             <tbody>
               <tr
                 onClick={() => onToggle && onToggle('equity')}
                 style={{ background: '#f8fafc', cursor: 'pointer', userSelect: 'none' }}
                 title={`Click to ${isEquityExpanded ? 'collapse' : 'expand'} Equity accounts`}
               >
-                <td style={{ ...SSH_L, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{
-                    fontSize: '0.62rem',
-                    color: '#64748b',
-                    transition: 'transform 0.2s',
-                    transform: isEquityExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                    display: 'inline-block',
-                    width: 12,
-                    textAlign: 'center',
-                  }}>
-                    ▶
-                  </span>
-                  <span>III. EQUITY</span>
-                  <span style={{ fontSize: '0.58rem', fontWeight: 600, color: '#64748b', background: '#e2e8f0', borderRadius: 8, padding: '1px 5px', marginLeft: 2 }}>
-                    {statementData.equity?.rows?.length || 0}
-                  </span>
+                <td style={SSH_L}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{
+                      fontSize: '0.62rem',
+                      color: '#64748b',
+                      transition: 'transform 0.2s',
+                      transform: isEquityExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                      display: 'inline-block',
+                      width: 12,
+                      textAlign: 'center',
+                      flexShrink: 0,
+                    }}>
+                      ▶
+                    </span>
+                    <span style={{ whiteSpace: 'nowrap' }}>III. EQUITY</span>
+                    <span style={{ fontSize: '0.58rem', fontWeight: 600, color: '#64748b', background: '#e2e8f0', borderRadius: 8, padding: '1px 5px', marginLeft: 2, flexShrink: 0 }}>
+                      {statementData.equity?.rows?.length || 0}
+                    </span>
+                  </div>
                 </td>
-                <td style={{ ...SSH, color: '#15803d' }}>{fmtTableCell(statementData.equity.totalCurrent)}</td>
+                <td style={{ ...SSH, color: '#15803d' }}>{fmtTableCell(statementData.equity.totalCurrent, equityUnit)}</td>
                 {hasCompare && (
                   <>
-                    <td style={{ ...SSH, color: '#64748b' }}>{fmtTableCell(statementData.equity.totalCompare)}</td>
-                    <td style={{ ...SSH, color: getVarColor(statementData.equity.totalVariance) }}>{fmtTableCell(statementData.equity.totalVariance)}</td>
+                    <td style={{ ...SSH, color: '#64748b' }}>{fmtTableCell(statementData.equity.totalCompare, equityUnit)}</td>
+                    <td style={{ ...SSH, color: getVarColor(statementData.equity.totalVariance) }}>{fmtTableCell(statementData.equity.totalVariance, equityUnit)}</td>
                     <td style={{ ...SSH, color: getVarColor(statementData.equity.totalVariancePct) }}>{fmtTablePct(statementData.equity.totalVariancePct)}</td>
                   </>
                 )}
@@ -1258,13 +1816,13 @@ function StatementCards({
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   title={onDrilldown ? `Click to view drilldown for ${row.name}` : undefined}
                 >
-                  <td style={{ ...STD_L, paddingLeft: 22 }}>{row.name}</td>
-                  <td style={{ ...STD, fontWeight: 600 }}>{fmtTableCell(row.current)}</td>
+                  <td style={{ ...STD_L, paddingLeft: 24 }}>{row.name}</td>
+                  <td style={{ ...STD, fontWeight: 600 }}>{fmtTableCell(row.current, equityUnit)}</td>
                   {hasCompare && (
                     <>
-                      <td style={{ ...STD, color: '#64748b' }}>{fmtTableCell(row.compare)}</td>
+                      <td style={{ ...STD, color: '#64748b' }}>{fmtTableCell(row.compare, equityUnit)}</td>
                       <td style={{ ...STD, color: getVarColor(row.variance), fontWeight: 600 }}>
-                        {fmtTableCell(row.variance)}
+                        {fmtTableCell(row.variance, equityUnit)}
                       </td>
                       <td style={{ ...STD, color: getVarColor(row.variancePct), fontWeight: 600 }}>
                         {fmtTablePct(row.variancePct)}
@@ -1275,67 +1833,63 @@ function StatementCards({
               ))}
               <tr style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                 <td style={{ ...STD_L, fontWeight: 800, color: C.navy }}>Total Equity</td>
-                <td style={{ ...STD, fontWeight: 800, color: C.navy }}>{fmtTableCell(statementData.equity.totalCurrent)}</td>
+                <td style={{ ...STD, fontWeight: 800, color: C.navy }}>{fmtTableCell(statementData.equity.totalCurrent, equityUnit)}</td>
                 {hasCompare && (
                   <>
-                    <td style={{ ...STD, fontWeight: 800, color: '#64748b' }}>{fmtTableCell(statementData.equity.totalCompare)}</td>
-                    <td style={{ ...STD, fontWeight: 800, color: getVarColor(statementData.equity.totalVariance) }}>{fmtTableCell(statementData.equity.totalVariance)}</td>
+                    <td style={{ ...STD, fontWeight: 800, color: '#64748b' }}>{fmtTableCell(statementData.equity.totalCompare, equityUnit)}</td>
+                    <td style={{ ...STD, fontWeight: 800, color: getVarColor(statementData.equity.totalVariance) }}>{fmtTableCell(statementData.equity.totalVariance, equityUnit)}</td>
                     <td style={{ ...STD, fontWeight: 800, color: getVarColor(statementData.equity.totalVariancePct) }}>{fmtTablePct(statementData.equity.totalVariancePct)}</td>
                   </>
                 )}
               </tr>
+              {/* Equity Insight Widget embedded inside table as spanning row */}
+              <tr>
+                <td colSpan={hasCompare ? 5 : 2} style={{ padding: '10px 12px', border: 'none', background: '#fff' }}>
+                  <div style={{
+                    background: 'linear-gradient(90deg, #f0fdf4, #ecfdf5)',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: 12,
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: '#dcfce7', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        fontSize: '1.1rem', flexShrink: 0,
+                      }}>
+                        🏢
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#15803d' }}>
+                          Total Equity represents {statementData.equitySharePct}% of Total Assets
+                        </div>
+                        {hasCompare && (
+                          <div style={{ fontSize: '0.68rem', color: '#16a34a', marginTop: 2 }}>
+                            vs {statementData.compareEquitySharePct}% as on {comparePeriodLabel}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ color: '#16a34a', fontSize: '1.4rem', fontWeight: 800 }}>
+                      ↗
+                    </div>
+                  </div>
+                </td>
+              </tr>
             </tbody>
-          </table>
-        </div>
-
-        {/* Equity Insight Widget */}
-        <div style={{
-          margin: '12px 14px',
-          background: 'linear-gradient(90deg, #f0fdf4, #ecfdf5)',
-          border: '1px solid #bbf7d0',
-          borderRadius: 12,
-          padding: '10px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '50%',
-              background: '#dcfce7', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              fontSize: '1.1rem', flexShrink: 0,
-            }}>
-              🏢
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#15803d' }}>
-                Total Equity represents {statementData.equitySharePct}% of Total Assets
-              </div>
-              {hasCompare && (
-                <div style={{ fontSize: '0.68rem', color: '#16a34a', marginTop: 2 }}>
-                  vs {statementData.compareEquitySharePct}% as on {comparePeriodLabel}
-                </div>
-              )}
-            </div>
-          </div>
-          <div style={{ color: '#16a34a', fontSize: '1.4rem', fontWeight: 800 }}>
-            ↗
-          </div>
-        </div>
-
-        {/* Bottom Total Row: TOTAL EQUITY & LIABILITIES */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
             <tfoot>
               <tr>
-                <td style={{ ...SGREEN_TOT_L, width: hasCompare ? '34%' : '60%' }}>TOTAL EQUITY & LIABILITIES</td>
-                <td style={SGREEN_TOT}>{fmtTableCell(statementData.totalEqLiab.current)}</td>
+                <td style={SGREEN_TOT_L}>TOTAL EQUITY & LIABILITIES</td>
+                <td style={SGREEN_TOT}>{fmtTableCell(statementData.totalEqLiab.current, equityUnit)}</td>
                 {hasCompare && (
                   <>
-                    <td style={SGREEN_TOT}>{fmtTableCell(statementData.totalEqLiab.compare)}</td>
-                    <td style={{ ...SGREEN_TOT, color: getVarColor(statementData.totalEqLiab.variance) }}>{fmtTableCell(statementData.totalEqLiab.variance)}</td>
+                    <td style={SGREEN_TOT}>{fmtTableCell(statementData.totalEqLiab.compare, equityUnit)}</td>
+                    <td style={{ ...SGREEN_TOT, color: getVarColor(statementData.totalEqLiab.variance) }}>{fmtTableCell(statementData.totalEqLiab.variance, equityUnit)}</td>
                     <td style={{ ...SGREEN_TOT, color: getVarColor(statementData.totalEqLiab.variancePct) }}>{fmtTablePct(statementData.totalEqLiab.variancePct)}</td>
                   </>
                 )}
@@ -1372,6 +1926,7 @@ function StatementViewAll({
     currency: currency || 'AED',
   });
 
+  const [modalUnit, setModalUnit] = useState('aed');
   const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState({
     currentAssets: true,
@@ -1496,11 +2051,11 @@ function StatementViewAll({
               {rows.length} {isQueryActive ? `of ${subData?.rows?.length}` : 'accounts'}
             </span>
           </td>
-          <td style={{ ...VSH, color: '#1e3a8a' }}>{fmtTableCell(subData.totalCurrent)}</td>
+          <td style={{ ...VSH, color: '#1e3a8a' }}>{fmtTableCell(subData.totalCurrent, modalUnit)}</td>
           {hasCompare && (
             <>
-              <td style={{ ...VSH, color: '#64748b' }}>{fmtTableCell(subData.totalCompare)}</td>
-              <td style={{ ...VSH, color: getVarColor(subData.totalVariance) }}>{fmtTableCell(subData.totalVariance)}</td>
+              <td style={{ ...VSH, color: '#64748b' }}>{fmtTableCell(subData.totalCompare, modalUnit)}</td>
+              <td style={{ ...VSH, color: getVarColor(subData.totalVariance) }}>{fmtTableCell(subData.totalVariance, modalUnit)}</td>
               <td style={{ ...VSH, color: getVarColor(subData.totalVariancePct) }}>{fmtTablePct(subData.totalVariancePct)}</td>
             </>
           )}
@@ -1518,11 +2073,11 @@ function StatementViewAll({
               <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#64748b', marginRight: 8 }}>{r.code}</span>
               <span style={{ fontWeight: 500, color: '#1e293b' }}>{r.name}</span>
             </td>
-            <td style={{ ...VTD, fontWeight: 600 }}>{fmtTableCell(r.current)}</td>
+            <td style={{ ...VTD, fontWeight: 600 }}>{fmtTableCell(r.current, modalUnit)}</td>
             {hasCompare && (
               <>
-                <td style={{ ...VTD, color: '#64748b' }}>{fmtTableCell(r.compare)}</td>
-                <td style={{ ...VTD, color: getVarColor(r.variance), fontWeight: 600 }}>{fmtTableCell(r.variance)}</td>
+                <td style={{ ...VTD, color: '#64748b' }}>{fmtTableCell(r.compare, modalUnit)}</td>
+                <td style={{ ...VTD, color: getVarColor(r.variance), fontWeight: 600 }}>{fmtTableCell(r.variance, modalUnit)}</td>
                 <td style={{ ...VTD, color: getVarColor(r.variancePct), fontWeight: 600 }}>{fmtTablePct(r.variancePct)}</td>
               </>
             )}
@@ -1540,7 +2095,7 @@ function StatementViewAll({
         {hasCompare && (
           <>
             <th style={VTH}>As on {comparePeriodLabel}</th>
-            <th style={VTH}>Variance ({modalFilters.currency})</th>
+            <th style={VTH}>Variance ({modalUnit === 'millions' ? `${modalFilters.currency} M` : modalFilters.currency})</th>
             <th style={VTH}>Variance (%)</th>
           </>
         )}
@@ -1603,39 +2158,30 @@ function StatementViewAll({
           </div>
 
           {/* As on Date */}
-          <div style={{ minWidth: 115 }}>
+          <div style={{ minWidth: 120 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
               As on Date
             </label>
-            <select
-              style={selStyle}
-              value={modalFilters.period}
-              onChange={e => setModalFilters(f => ({ ...f, period: e.target.value }))}
-            >
-              {(filterOptions?.periods || []).map(p => {
-                const val = typeof p === 'object' ? p.period : p;
-                return <option key={val} value={val}>{formatPeriod(val)}</option>;
-              })}
-            </select>
+            <CalendarFilter
+              value={modalFilters.asOnDate || modalFilters.period}
+              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: fullDate }))}
+              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
+              width={120}
+            />
           </div>
 
           {/* Compare With */}
-          <div style={{ minWidth: 115 }}>
+          <div style={{ minWidth: 120 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
               Compare With
             </label>
-            <select
-              style={selStyle}
-              value={modalFilters.comparePeriod}
-              onChange={e => setModalFilters(f => ({ ...f, comparePeriod: e.target.value }))}
-            >
-              <option value="">None</option>
-              {(filterOptions?.periods || []).map(p => {
-                const val = typeof p === 'object' ? p.period : p;
-                if (val === modalFilters.period) return null;
-                return <option key={val} value={val}>{formatPeriod(val)}</option>;
-              })}
-            </select>
+            <CalendarFilter
+              value={modalFilters.compareDate || modalFilters.comparePeriod}
+              allowNone={true}
+              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, comparePeriod: periodCode, compareDate: fullDate }))}
+              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
+              width={120}
+            />
           </div>
 
           {/* Currency */}
@@ -1715,6 +2261,7 @@ function StatementViewAll({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={modalFilters.currency} />
           <div style={{ display: 'flex', alignItems: 'center', background: '#f1f5f9', borderRadius: 6, padding: 2 }}>
             <button
               onClick={expandAll}
@@ -1769,9 +2316,11 @@ function StatementViewAll({
             padding: '10px 14px', background: 'linear-gradient(90deg, #eff6ff, #fff)',
             borderBottom: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
-            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#1e3a8a' }}>1. ASSETS</span>
+            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#1e3a8a' }}>
+              1. ASSETS ({modalUnit === 'millions' ? `${modalFilters.currency} Millions` : modalFilters.currency})
+            </span>
             <span style={{ fontWeight: 800, fontSize: '0.80rem', color: '#2563eb' }}>
-              {fmtTableCell(initialStatementData.totalAssets.current)} {modalFilters.currency}
+              {fmtTableCell(initialStatementData.totalAssets.current, modalUnit)}
             </span>
           </div>
           <div style={{ overflowX: 'auto', flex: 1 }}>
@@ -1784,11 +2333,11 @@ function StatementViewAll({
               <tfoot>
                 <tr>
                   <td style={VTOT_L}>TOTAL ASSETS</td>
-                  <td style={VTOT}>{fmtTableCell(initialStatementData.totalAssets.current)}</td>
+                  <td style={VTOT}>{fmtTableCell(initialStatementData.totalAssets.current, modalUnit)}</td>
                   {hasCompare && (
                     <>
-                      <td style={VTOT}>{fmtTableCell(initialStatementData.totalAssets.compare)}</td>
-                      <td style={{ ...VTOT, color: getVarColor(initialStatementData.totalAssets.variance) }}>{fmtTableCell(initialStatementData.totalAssets.variance)}</td>
+                      <td style={VTOT}>{fmtTableCell(initialStatementData.totalAssets.compare, modalUnit)}</td>
+                      <td style={{ ...VTOT, color: getVarColor(initialStatementData.totalAssets.variance) }}>{fmtTableCell(initialStatementData.totalAssets.variance, modalUnit)}</td>
                       <td style={{ ...VTOT, color: getVarColor(initialStatementData.totalAssets.variancePct) }}>{fmtTablePct(initialStatementData.totalAssets.variancePct)}</td>
                     </>
                   )}
@@ -1804,9 +2353,11 @@ function StatementViewAll({
             padding: '10px 14px', background: 'linear-gradient(90deg, #f0fdf4, #fff)',
             borderBottom: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
-            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#14532d' }}>2. EQUITY & LIABILITIES</span>
+            <span style={{ fontWeight: 800, fontSize: '0.84rem', color: '#14532d' }}>
+              2. EQUITY & LIABILITIES ({modalUnit === 'millions' ? `${modalFilters.currency} Millions` : modalFilters.currency})
+            </span>
             <span style={{ fontWeight: 800, fontSize: '0.80rem', color: '#15803d' }}>
-              {fmtTableCell(initialStatementData.totalEqLiab.current)} {modalFilters.currency}
+              {fmtTableCell(initialStatementData.totalEqLiab.current, modalUnit)}
             </span>
           </div>
           <div style={{ overflowX: 'auto', flex: 1 }}>
@@ -1817,11 +2368,11 @@ function StatementViewAll({
                 {renderSectionTable('II. NON CURRENT LIABILITIES', initialStatementData.nonCurrentLiab, ncLiabRows, 'nonCurrentLiab')}
                 <tr style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                   <td style={{ ...VSH_L, color: '#c2410c' }}>TOTAL LIABILITIES</td>
-                  <td style={{ ...VSH, color: '#c2410c' }}>{fmtTableCell(initialStatementData.totalLiab.current)}</td>
+                  <td style={{ ...VSH, color: '#c2410c' }}>{fmtTableCell(initialStatementData.totalLiab.current, modalUnit)}</td>
                   {hasCompare && (
                     <>
-                      <td style={{ ...VSH, color: '#64748b' }}>{fmtTableCell(initialStatementData.totalLiab.compare)}</td>
-                      <td style={{ ...VSH, color: getVarColor(initialStatementData.totalLiab.variance) }}>{fmtTableCell(initialStatementData.totalLiab.variance)}</td>
+                      <td style={{ ...VSH, color: '#64748b' }}>{fmtTableCell(initialStatementData.totalLiab.compare, modalUnit)}</td>
+                      <td style={{ ...VSH, color: getVarColor(initialStatementData.totalLiab.variance) }}>{fmtTableCell(initialStatementData.totalLiab.variance, modalUnit)}</td>
                       <td style={{ ...VSH, color: getVarColor(initialStatementData.totalLiab.variancePct) }}>{fmtTablePct(initialStatementData.totalLiab.variancePct)}</td>
                     </>
                   )}
@@ -1829,11 +2380,11 @@ function StatementViewAll({
                 {renderSectionTable('III. EQUITY', initialStatementData.equity, equityRows, 'equity')}
                 <tr style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                   <td style={{ ...VSH_L, color: '#15803d' }}>TOTAL EQUITY</td>
-                  <td style={{ ...VSH, color: '#15803d' }}>{fmtTableCell(initialStatementData.equity.totalCurrent)}</td>
+                  <td style={{ ...VSH, color: '#15803d' }}>{fmtTableCell(initialStatementData.equity.totalCurrent, modalUnit)}</td>
                   {hasCompare && (
                     <>
-                      <td style={{ ...VSH, color: '#64748b' }}>{fmtTableCell(initialStatementData.equity.totalCompare)}</td>
-                      <td style={{ ...VSH, color: getVarColor(initialStatementData.equity.totalVariance) }}>{fmtTableCell(initialStatementData.equity.totalVariance)}</td>
+                      <td style={{ ...VSH, color: '#64748b' }}>{fmtTableCell(initialStatementData.equity.totalCompare, modalUnit)}</td>
+                      <td style={{ ...VSH, color: getVarColor(initialStatementData.equity.totalVariance) }}>{fmtTableCell(initialStatementData.equity.totalVariance, modalUnit)}</td>
                       <td style={{ ...VSH, color: getVarColor(initialStatementData.equity.totalVariancePct) }}>{fmtTablePct(initialStatementData.equity.totalVariancePct)}</td>
                     </>
                   )}
@@ -1845,15 +2396,15 @@ function StatementViewAll({
                     TOTAL EQUITY & LIABILITIES
                   </td>
                   <td style={{ ...VTOT, color: '#15803d', background: '#f0fdf4', borderTop: '2px solid #86efac' }}>
-                    {fmtTableCell(initialStatementData.totalEqLiab.current)}
+                    {fmtTableCell(initialStatementData.totalEqLiab.current, modalUnit)}
                   </td>
                   {hasCompare && (
                     <>
                       <td style={{ ...VTOT, color: '#15803d', background: '#f0fdf4', borderTop: '2px solid #86efac' }}>
-                        {fmtTableCell(initialStatementData.totalEqLiab.compare)}
+                        {fmtTableCell(initialStatementData.totalEqLiab.compare, modalUnit)}
                       </td>
                       <td style={{ ...VTOT, color: getVarColor(initialStatementData.totalEqLiab.variance), background: '#f0fdf4', borderTop: '2px solid #86efac' }}>
-                        {fmtTableCell(initialStatementData.totalEqLiab.variance)}
+                        {fmtTableCell(initialStatementData.totalEqLiab.variance, modalUnit)}
                       </td>
                       <td style={{ ...VTOT, color: getVarColor(initialStatementData.totalEqLiab.variancePct), background: '#f0fdf4', borderTop: '2px solid #86efac' }}>
                         {fmtTablePct(initialStatementData.totalEqLiab.variancePct)}
@@ -1872,6 +2423,7 @@ function StatementViewAll({
 
 /* Subdivision View All Table */
 function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters = {} }) {
+  const [subdivModalUnit, setSubdivModalUnit] = useState('aed');
   const rows = Array.isArray(data) ? data : (data?.data || []);
   if (!rows.length)
     return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
@@ -1882,7 +2434,8 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
         <div style={{ fontSize: '0.74rem', color: C.slate }}>
           Total Sub-Divisions: <strong style={{ color: C.navy }}>{rows.length}</strong> | Period: <strong style={{ color: C.navy }}>{periodLabel || '—'}</strong> | Currency: <strong style={{ color: C.navy }}>{currency}</strong>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <UnitToggle unit={subdivModalUnit} onToggle={setSubdivModalUnit} currency={currency} />
           <button
             onClick={() => exportSubDivisionToExcel(data, currency, { period: periodLabel, ...appliedFilters })}
             style={{
@@ -1916,7 +2469,7 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
               <th style={MTH_L}>Legal Entity</th>
               <th style={MTH_L}>Parent Division</th>
               <th style={{ ...MTH, width: 80 }}>Code</th>
-              <th style={MTH}>Net Balance</th>
+              <th style={MTH}>Net Balance ({subdivModalUnit === 'millions' ? `${currency} Millions` : currency})</th>
             </tr>
           </thead>
           <tbody>
@@ -1934,7 +2487,7 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
                   <td style={{ ...MTD_L, fontSize: '0.7rem', color: C.slate }}>{row.parent_division_name || '—'}</td>
                   <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.sub_division_code || '—'}</td>
                   <td style={{ ...MTD, fontWeight: 700, color: netColor }}>
-                    {fmtNum(Math.abs(net), currency)}
+                    {subdivModalUnit === 'millions' ? fmtTableCell(Math.abs(net), 'millions') : `${currency} ${fmtTableCell(Math.abs(net), 'aed')}`}
                     {net < 0 && <span style={{ marginLeft: 4, fontSize: '0.6rem', color: C.rose, fontWeight: 600 }}>Δ</span>}
                   </td>
                 </tr>
@@ -2037,17 +2590,12 @@ function TrendViewAll({
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
               As on Date
             </label>
-            <select
-              style={selStyle}
-              value={modalFilters.period}
-              onChange={e => setModalFilters(f => ({ ...f, period: e.target.value }))}
-            >
-              {(filterOptions?.periods || []).map(p => {
-                const val = typeof p === 'object' ? p.period : p;
-                const lbl = typeof p === 'object' ? p.period_name : formatPeriod(p);
-                return <option key={val} value={val}>{lbl || val}</option>;
-              })}
-            </select>
+            <CalendarFilter
+              value={modalFilters.asOnDate || modalFilters.period}
+              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: fullDate }))}
+              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
+              width={120}
+            />
           </div>
 
           {/* Currency */}
@@ -2344,17 +2892,12 @@ function CompositionViewAll({
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
               As on Date
             </label>
-            <select
-              style={selStyle}
-              value={modalFilters.period}
-              onChange={e => setModalFilters(f => ({ ...f, period: e.target.value }))}
-            >
-              {(filterOptions?.periods || []).map(p => {
-                const val = typeof p === 'object' ? p.period : p;
-                const lbl = typeof p === 'object' ? p.period_name : formatPeriod(p);
-                return <option key={val} value={val}>{lbl || val}</option>;
-              })}
-            </select>
+            <CalendarFilter
+              value={modalFilters.asOnDate || modalFilters.period}
+              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: fullDate }))}
+              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
+              width={120}
+            />
           </div>
 
           {/* Currency */}
@@ -2787,6 +3330,7 @@ export default function BalanceSheet() {
   const [summaryData,        setSummaryData]        = useState(null);
   const [compareSummaryData, setCompareSummaryData] = useState(null);
   const [subdivisionData,    setSubdivisionData]    = useState(null);
+  const [subdivUnit,         setSubdivUnit]         = useState('aed');
   const [trendData,          setTrendData]          = useState(null);
   const [trend6MonthData,    setTrend6MonthData]    = useState(null);
   const [reconciliationRows, setReconciliationRows] = useState([]);
@@ -2848,25 +3392,6 @@ export default function BalanceSheet() {
 
   /* ── Export ────────────────────────────────────────────────────── */
   const [exporting, setExporting] = useState(null);
-  const handleExport = useCallback((format, section = 'summary') => {
-    if (exporting) return;
-    setExporting(`${section}-${format}`);
-    try {
-      if (section === 'subdivision') {
-        if (format === 'excel') exportSubDivisionToExcel(subdivisionData, currency, { period: periodLabel, ...appliedFilters });
-        else exportSubDivisionToPDF(subdivisionData, currency, { period: periodLabel, ...appliedFilters });
-        showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success');
-      } else {
-        if (format === 'excel') exportStatementToExcel(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodFormatted, ...appliedFilters });
-        else exportStatementToPDF(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodFormatted, ...appliedFilters });
-        showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success');
-      }
-    } catch (err) {
-      showToast(`Export failed: ${err?.message || 'Unknown error'}. Please try again.`, 'error');
-    } finally {
-      setExporting(null);
-    }
-  }, [exporting, subdivisionData, statementData, currency, periodLabel, comparePeriodFormatted, appliedFilters, showToast]);
 
   /* ── Load filter options (supports cascading) ─────────────────── */
   const loadFilterOptions = useCallback(async (currentFilters = {}) => {
@@ -2888,8 +3413,10 @@ export default function BalanceSheet() {
       if (periods.length && !currentFilters.isCascade) {
         const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
         const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
-        setFilters(f        => ({ ...f, period: f.period || first, comparePeriod: f.comparePeriod || second }));
-        setAppliedFilters(f => ({ ...f, period: f.period || first, comparePeriod: f.comparePeriod || second }));
+        const firstDate = periodToDate(first);
+        const secondDate = periodToDate(second);
+        setFilters(f        => ({ ...f, period: f.period || first, asOnDate: f.asOnDate || firstDate, comparePeriod: f.comparePeriod || second, compareDate: f.compareDate || secondDate }));
+        setAppliedFilters(f => ({ ...f, period: f.period || first, asOnDate: f.asOnDate || firstDate, comparePeriod: f.comparePeriod || second, compareDate: f.compareDate || secondDate }));
       }
     } catch (err) {
       console.error('[BalanceSheet] loadFilterOptions error:', err);
@@ -3006,7 +3533,18 @@ export default function BalanceSheet() {
   // when appliedFilters changes, preventing a double API request.
   const handleApply = useCallback(() => { setAppliedFilters({ ...filters }); }, [filters]);
   const handleReset = useCallback(() => {
-    const reset = { ...DEFAULT_FILTERS, period: (filterOptions.periods[0] && typeof filterOptions.periods[0] === 'object' ? filterOptions.periods[0].period : filterOptions.periods[0]) || '', comparePeriod: (filterOptions.periods[1] && typeof filterOptions.periods[1] === 'object' ? filterOptions.periods[1].period : filterOptions.periods[1]) || '', currency: 'AED' };
+    const p1 = filterOptions.periods[0];
+    const p2 = filterOptions.periods[1];
+    const first  = (p1 && typeof p1 === 'object' ? p1.period : p1) || '';
+    const second = (p2 && typeof p2 === 'object' ? p2.period : p2) || '';
+    const reset = {
+      ...DEFAULT_FILTERS,
+      period: first,
+      asOnDate: periodToDate(first),
+      comparePeriod: second,
+      compareDate: periodToDate(second),
+      currency: 'AED',
+    };
     setFilters(reset); setAppliedFilters(reset);
   }, [filterOptions.periods]);
 
@@ -3037,16 +3575,22 @@ export default function BalanceSheet() {
         assets: null,
         liabilities: null,
         equity: null,
+        debtToEquityDiff: null,
+        liabilityToEquityDiff: null,
         debtToEquity: null,
         liabilityToEquity: null,
       };
     }
     return {
-      assets:            calcMovement(currentMetrics.totalAssets, compareMetrics.totalAssets),
-      liabilities:       calcMovement(currentMetrics.totalLiabilities, compareMetrics.totalLiabilities),
-      equity:            calcMovement(currentMetrics.totalEquity, compareMetrics.totalEquity),
-      debtToEquity:      calcMovement(currentMetrics.debtToEquity, compareMetrics.debtToEquity),
-      liabilityToEquity: calcMovement(currentMetrics.liabilityToEquity, compareMetrics.liabilityToEquity),
+      assets:                calcMovement(currentMetrics.totalAssets, compareMetrics.totalAssets),
+      liabilities:           calcMovement(currentMetrics.totalLiabilities, compareMetrics.totalLiabilities),
+      equity:                calcMovement(currentMetrics.totalEquity, compareMetrics.totalEquity),
+      debtToEquityDiff:      (currentMetrics.debtToEquity !== null && compareMetrics.debtToEquity !== null)
+                               ? (currentMetrics.debtToEquity - compareMetrics.debtToEquity) : null,
+      liabilityToEquityDiff: (currentMetrics.liabilityToEquity !== null && compareMetrics.liabilityToEquity !== null)
+                               ? (currentMetrics.liabilityToEquity - compareMetrics.liabilityToEquity) : null,
+      debtToEquity:          calcMovement(currentMetrics.debtToEquity, compareMetrics.debtToEquity),
+      liabilityToEquity:     calcMovement(currentMetrics.liabilityToEquity, compareMetrics.liabilityToEquity),
     };
   }, [hasCompareData, currentMetrics, compareMetrics]);
 
@@ -3060,6 +3604,27 @@ export default function BalanceSheet() {
 
   /* ── Sub-division table rows ───────────────────────────────────── */
   const subdivRows = Array.isArray(subdivisionData) ? subdivisionData : (subdivisionData?.data || []);
+
+  /* ── Export ────────────────────────────────────────────────────── */
+  const handleExport = useCallback((format, section = 'summary') => {
+    if (exporting) return;
+    setExporting(`${section}-${format}`);
+    try {
+      if (section === 'subdivision') {
+        if (format === 'excel') exportSubDivisionToExcel(subdivisionData, currency, { period: periodLabel, ...appliedFilters });
+        else exportSubDivisionToPDF(subdivisionData, currency, { period: periodLabel, ...appliedFilters });
+        showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success');
+      } else {
+        if (format === 'excel') exportStatementToExcel(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodFormatted, ...appliedFilters });
+        else exportStatementToPDF(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodFormatted, ...appliedFilters });
+        showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success');
+      }
+    } catch (err) {
+      showToast(`Export failed: ${err?.message || 'Unknown error'}. Please try again.`, 'error');
+    } finally {
+      setExporting(null);
+    }
+  }, [exporting, subdivisionData, statementData, currency, periodLabel, comparePeriodFormatted, appliedFilters, showToast]);
 
   /* ── Kebab menu items ──────────────────────────────────────────── */
   // FIX M6: memoize menu item arrays — prevents KebabMenu re-renders on every keystroke
@@ -3120,9 +3685,9 @@ export default function BalanceSheet() {
     {
       id: 'debt-to-equity',
       label: 'Debt-to-Equity Ratio',
-      value: loading.summary ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)}x` : '—'),
-      subValue: loading.summary ? null : (currentMetrics.totalDebt > 0 ? `Debt: ${fmtKPI(currentMetrics.totalDebt, currency)}` : 'Bank Debt: 0'),
-      changePct: movements.debtToEquity,
+      value: loading.summary ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)} : 1` : '—'),
+      isRatio: true,
+      changeDiff: movements.debtToEquityDiff,
       compareLabel: compareLbl,
       color: '#0284c7', iconBg: '#f0f9ff',
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>,
@@ -3130,9 +3695,9 @@ export default function BalanceSheet() {
     {
       id: 'liability-to-equity',
       label: 'Liability-to-Equity Ratio',
-      value: loading.summary ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)}x` : '—'),
-      subValue: loading.summary ? null : `Liab: ${fmtKPI(currentMetrics.totalLiabilities, currency)}`,
-      changePct: movements.liabilityToEquity,
+      value: loading.summary ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)} : 1` : '—'),
+      isRatio: true,
+      changeDiff: movements.liabilityToEquityDiff,
       compareLabel: compareLbl,
       color: '#0d9488', iconBg: '#f0fdfa',
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>,
@@ -3343,38 +3908,33 @@ export default function BalanceSheet() {
 
         {/* 5. As on Date */}
         <FilterField label="As on Date">
-          <select
+          <CalendarFilter
             id="filter-bs-period"
-            style={{ ...selStyle, width: 105, minWidth: 105 }}
-            value={filters.period}
-            onChange={e => setFilters(prev => ({ ...prev, period: e.target.value }))}
+            value={filters.asOnDate || filters.period}
+            onChange={(periodCode, fullDate) => {
+              setFilters(prev => ({ ...prev, period: periodCode, asOnDate: fullDate }));
+              setAppliedFilters(prev => ({ ...prev, period: periodCode, asOnDate: fullDate }));
+            }}
+            availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
             disabled={loading.filters}
-          >
-            {filterOptions.periods.length === 0 && <option value="">Loading…</option>}
-            {filterOptions.periods.map(p => {
-              const val = typeof p === 'object' ? p.period : p;
-              const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
-              return <option key={val} value={val}>{label}</option>;
-            })}
-          </select>
+            width={120}
+          />
         </FilterField>
 
         {/* 6. Compare With */}
         <FilterField label="Compare With">
-          <select
+          <CalendarFilter
             id="filter-bs-compare"
-            style={{ ...selStyle, width: 105, minWidth: 105 }}
-            value={filters.comparePeriod}
-            onChange={e => setFilters(prev => ({ ...prev, comparePeriod: e.target.value }))}
+            value={filters.compareDate || filters.comparePeriod}
+            allowNone={true}
+            onChange={(periodCode, fullDate) => {
+              setFilters(prev => ({ ...prev, comparePeriod: periodCode, compareDate: fullDate }));
+              setAppliedFilters(prev => ({ ...prev, comparePeriod: periodCode, compareDate: fullDate }));
+            }}
+            availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
             disabled={loading.filters}
-          >
-            <option value="">None</option>
-            {filterOptions.periods.map(p => {
-              const val = typeof p === 'object' ? p.period : p;
-              const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
-              return <option key={val} value={val}>{label}</option>;
-            })}
-          </select>
+            width={120}
+          />
         </FilterField>
 
         {/* 7. Reporting Currency */}
@@ -3383,7 +3943,11 @@ export default function BalanceSheet() {
             id="filter-bs-currency"
             style={{ ...selStyle, width: 95, minWidth: 95 }}
             value={filters.currency}
-            onChange={e => setFilters(prev => ({ ...prev, currency: e.target.value }))}
+            onChange={e => {
+              const c = e.target.value;
+              setFilters(prev => ({ ...prev, currency: c }));
+              setAppliedFilters(prev => ({ ...prev, currency: c }));
+            }}
           >
             {filterOptions.currencies.map(c => <option key={c}>{c}</option>)}
           </select>
@@ -3792,76 +4356,7 @@ export default function BalanceSheet() {
         </div>
       )}
 
-      {/* ══ RECONCILIATION ROW ══ */}
-      <div style={{ marginBottom: 18 }}>
-        <div className="card" style={{ padding: '16px 18px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Reconciliation Status</div>
-              <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>Period-wise BALANCED / VARIANCE status</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button
-                onClick={() => setOpenModal('reconciliation')}
-                style={{
-                  fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff',
-                  border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
-                }}
-                title="Open detailed reconciliation view"
-              >
-                <span>🔎</span> View All
-              </button>
-              <KebabMenu id="menu-bs-recon" items={reconMenuItems} />
-            </div>
-          </div>
-          {errors.reconciliation ? (
-            <ErrorBanner message={errors.reconciliation} onRetry={() => fetchAll(appliedFilters)} />
-          ) : loading.reconciliation ? (
-            <div style={{ display: 'flex', gap: 8 }}>
-              {[...Array(6)].map((_, i) => <div key={i} style={{ flex: 1 }}><Skeleton h={52} /></div>)}
-            </div>
-          ) : reconciliationRows.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.muted, fontSize: '0.78rem', padding: '20px 0' }}>
-              No reconciliation data available
-            </div>
-          ) : (
-            /* bs-recon-row: responsive flex wrap + minWidth 120 (media-query above) */
-            <div className="bs-recon-row" style={{ display: 'flex', gap: 8 }}>
-              {reconciliationRows.map((row, i) => {
-                const isBalanced = row.balance_status === 'BALANCED';
-                return (
-                  <div key={row.period || i} style={{
-                    flex: 1,
-                    padding: '9px 14px', borderRadius: 9,
-                    background: isBalanced ? '#f0fdf4' : '#fff7ed',
-                    border: `1px solid ${isBalanced ? '#d1fae5' : '#fed7aa'}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                    minWidth: 120,
-                  }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: C.navy, whiteSpace: 'nowrap' }}>{row.period_name || row.period}</div>
-                      <div style={{ fontSize: '0.62rem', color: C.slate }}>{row.currency}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <span style={{ fontSize: '0.63rem', fontWeight: 700, padding: '2px 7px', borderRadius: 8,
-                        background: isBalanced ? '#dcfce7' : '#ffedd5', color: isBalanced ? '#15803d' : '#c2410c',
-                        whiteSpace: 'nowrap' }}>
-                        {row.balance_status}
-                      </span>
-                      {!isBalanced && row.net_variance != null && (
-                        <div style={{ fontSize: '0.6rem', color: '#c2410c', marginTop: 2, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {fmtKPI(Math.abs(row.net_variance), row.currency)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+
 
       {/* ══ BALANCE SHEET STATEMENT TABLE ══ */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 18 }}>
@@ -3883,7 +4378,8 @@ export default function BalanceSheet() {
               />
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <UnitToggle unit={subdivUnit} onToggle={setSubdivUnit} currency={currency} />
             <button
               onClick={() => setOpenModal('subdivision')}
               style={{
@@ -3917,7 +4413,7 @@ export default function BalanceSheet() {
                   <th style={TH_L}>Sub-Division</th>
                   <th style={{ ...TH, width: 72 }}>Code</th>
                   
-                  <th style={TH}>Net Balance</th>
+                  <th style={TH}>Net Balance ({subdivUnit === 'millions' ? `${currency} Millions` : currency})</th>
                 </tr>
               </thead>
               <tbody>
@@ -3938,7 +4434,7 @@ export default function BalanceSheet() {
                       <td style={{ ...TD, fontFamily: 'monospace', fontSize: '0.67rem', color: C.slate }}>{row.sub_division_code}</td>
                       
                       <td style={{ ...TD, fontWeight: 700, color: netColor }}>
-                        {fmtNum(Math.abs(net), currency)}
+                        {subdivUnit === 'millions' ? fmtTableCell(Math.abs(net), 'millions') : `${currency} ${fmtTableCell(Math.abs(net), 'aed')}`}
                         {net < 0 && (
                           <span style={{ marginLeft: 4, fontSize: '0.6rem', color: C.rose, fontWeight: 600 }}>Δ</span>
                         )}

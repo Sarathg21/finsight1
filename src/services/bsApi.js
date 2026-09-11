@@ -115,9 +115,25 @@ function buildBSParams(filters = {}) {
       return val && val !== 'All' && val !== 'all' ? val : undefined;
   };
 
+  const toPeriod = (val) => {
+    const act = active(val);
+    if (!act) return undefined;
+    if (typeof act === 'string') {
+      const m = act.match(/^(\d{4}-\d{2})/);
+      return m ? m[1] : act;
+    }
+    return act;
+  };
+
+  const periodVal = toPeriod(filters.period);
+  const comparePeriodVal = toPeriod(filters.comparePeriod);
+
   return {
-    period:              active(filters.period),
-    compare_period:      active(filters.comparePeriod),
+    period:              periodVal,
+    period_name:         periodVal,
+    compare_period:      comparePeriodVal,
+    compare_period_name: comparePeriodVal,
+    as_on_date:          active(filters.asOnDate || filters.period),
     reporting_currency:  active(filters.currency),
     legal_group_id:      active(filters.legalGroup),
     legal_entity_id:     active(filters.legalEntity),
@@ -487,8 +503,10 @@ export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
  * @returns {{ period, account_code, account_name, consolidated_balance, data: [...] }}
  */
 export async function fetchBSDrilldown(filters) {
+  const periodVal = filters.period ? (String(filters.period).match(/^(\d{4}-\d{2})/)?.[1] || filters.period) : undefined;
   const params = {
-    period:       filters.period,
+    period:       periodVal,
+    period_name:  periodVal,
     reporting_currency: filters.currency,
     account_code: filters.accountCode,
     ledger:       filters.ledger || undefined,
