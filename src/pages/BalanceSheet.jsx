@@ -22,6 +22,8 @@ import {
   exportCompositionToPDF,
   exportStatementToExcel,
   exportStatementToPDF,
+  exportSubDivisionToExcel,
+  exportSubDivisionToPDF,
 } from '../utils/bsExport';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
@@ -1869,38 +1871,79 @@ function StatementViewAll({
 }
 
 /* Subdivision View All Table */
-function SubDivisionViewAll({ data, currency }) {
+function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters = {} }) {
   const rows = Array.isArray(data) ? data : (data?.data || []);
   if (!rows.length)
     return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-      <thead>
-        <tr>
-          <th style={MTH_L}>Sub-Division</th>
-          <th style={MTH}>Code</th>
-          
-          <th style={MTH}>Net Balance</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, i) => (
-          <tr
-            key={i}
-            onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+    <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingBottom: 8, borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ fontSize: '0.74rem', color: C.slate }}>
+          Total Sub-Divisions: <strong style={{ color: C.navy }}>{rows.length}</strong> | Period: <strong style={{ color: C.navy }}>{periodLabel || '—'}</strong> | Currency: <strong style={{ color: C.navy }}>{currency}</strong>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => exportSubDivisionToExcel(data, currency, { period: periodLabel, ...appliedFilters })}
+            style={{
+              padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, borderRadius: 6,
+              border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+            }}
+            title="Export sub-divisions to Excel (.xlsx)"
           >
-            <td style={{ ...MTD_L, fontWeight: 600 }}>{row.sub_division_name}</td>
-            <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.sub_division_code}</td>
-            
-            <td style={{ ...MTD, fontWeight: 700, color: (row.grand_total ?? 0) >= 0 ? C.navy : C.rose }}>
-              {fmtNum(Math.abs(row.grand_total ?? 0), currency)}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+            📊 Excel
+          </button>
+          <button
+            onClick={() => exportSubDivisionToPDF(data, currency, { period: periodLabel, ...appliedFilters })}
+            style={{
+              padding: '4px 10px', fontSize: '0.72rem', fontWeight: 700, borderRadius: 6,
+              border: '1px solid #fecdd3', background: '#fff1f2', color: '#be123c',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+            }}
+            title="Export sub-divisions to PDF (.pdf)"
+          >
+            📄 PDF
+          </button>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={MTH_L}>Sub-Division</th>
+              <th style={MTH_L}>Legal Entity</th>
+              <th style={MTH_L}>Parent Division</th>
+              <th style={{ ...MTH, width: 80 }}>Code</th>
+              <th style={MTH}>Net Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const net = row.grand_total ?? row.balance_amount ?? 0;
+              const netColor = net >= 0 ? C.navy : C.rose;
+              return (
+                <tr
+                  key={`${row.sub_division_id ?? row.sub_division_code ?? 'subdiv'}-${i}`}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <td style={{ ...MTD_L, fontWeight: 600 }}>{row.sub_division_name || '—'}</td>
+                  <td style={{ ...MTD_L, fontSize: '0.7rem', color: C.slate }}>{row.legal_entity_name || '—'}</td>
+                  <td style={{ ...MTD_L, fontSize: '0.7rem', color: C.slate }}>{row.parent_division_name || '—'}</td>
+                  <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.sub_division_code || '—'}</td>
+                  <td style={{ ...MTD, fontWeight: 700, color: netColor }}>
+                    {fmtNum(Math.abs(net), currency)}
+                    {net < 0 && <span style={{ marginLeft: 4, fontSize: '0.6rem', color: C.rose, fontWeight: 600 }}>Δ</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -2643,7 +2686,15 @@ function ReconciliationViewAll({ rows, currency }) {
 
 import { getApiBaseUrl } from '../utils/apiBase';
 
-function ExportButtons({ endpoint, filters, size = 'sm' }) {
+function ExportButtons({
+  endpoint,
+  filters,
+  subdivisionData,
+  statementData,
+  currency = 'AED',
+  periodLabel = '',
+  comparePeriodLabel = '',
+}) {
   const [exporting, setExporting] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -2657,49 +2708,25 @@ function ExportButtons({ endpoint, filters, size = 'sm' }) {
     setExporting(format);
 
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
-      const active = (val) => {
-        if (Array.isArray(val)) {
-          const f = val.filter(v => v !== 'All' && v !== 'all');
-          return f.length > 0 ? f : undefined;
+      if (endpoint === 'subdivision') {
+        if (format === 'excel') {
+          exportSubDivisionToExcel(subdivisionData, currency, { period: periodLabel, ...filters });
+        } else {
+          exportSubDivisionToPDF(subdivisionData, currency, { period: periodLabel, ...filters });
         }
-        return val && val !== 'All' && val !== 'all' ? val : undefined;
-      };
+        showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export downloaded`, 'success');
+        return;
+      }
 
-      const params = {
-        legal_group_id: active(filters.legalGroup),
-        legal_entity_id: active(filters.legalEntity),
-        parent_division_id: active(filters.parentDivision),
-        subdivision_id: active(filters.subdivision),
-        period: active(filters.period),
-        reporting_currency: active(filters.currency),
-        format
-      };
-
-      const urlParams = new URLSearchParams();
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== undefined) {
-          if (Array.isArray(v)) v.forEach(val => urlParams.append(k, val));
-          else urlParams.append(k, v);
+      if (endpoint === 'summary') {
+        if (format === 'excel') {
+          exportStatementToExcel(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodLabel, ...filters });
+        } else {
+          exportStatementToPDF(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodLabel, ...filters });
         }
-      });
-      const qs = urlParams.toString();
-      const url = `${getApiBaseUrl()}/api/bs/${endpoint}/export${qs ? `?${qs}` : ''}`;
-
-      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`Export failed: ${res.statusText}`);
-
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = `bs_${endpoint}_${format === 'excel' ? 'xlsx' : 'pdf'}`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
-
-      showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export started`, 'success');
+        showToast(`${format === 'excel' ? 'Excel' : 'PDF'} export downloaded`, 'success');
+        return;
+      }
     } catch (e) {
       showToast(e.message || 'Export failed', 'error');
     } finally {
@@ -2710,8 +2737,30 @@ function ExportButtons({ endpoint, filters, size = 'sm' }) {
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
       {toast && <span style={{ fontSize: '0.7rem', color: toast.type === 'error' ? 'red' : 'green' }}>{toast.msg}</span>}
-      <button onClick={() => handleExport('excel')} disabled={!!exporting} style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 4, border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d', cursor: exporting ? 'not-allowed' : 'pointer' }}>Excel</button>
-      <button onClick={() => handleExport('pdf')} disabled={!!exporting} style={{ padding: '4px 8px', fontSize: '0.75rem', borderRadius: 4, border: '1px solid #fecdd3', background: '#fff1f2', color: '#be123c', cursor: exporting ? 'not-allowed' : 'pointer' }}>PDF</button>
+      <button
+        onClick={() => handleExport('excel')}
+        disabled={!!exporting}
+        style={{
+          padding: '4px 8px', fontSize: '0.75rem', borderRadius: 4,
+          border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#15803d',
+          cursor: exporting ? 'not-allowed' : 'pointer', fontWeight: 600,
+        }}
+        title={`Export ${endpoint === 'subdivision' ? 'sub-divisions' : 'statement'} to Excel (.xlsx)`}
+      >
+        Excel
+      </button>
+      <button
+        onClick={() => handleExport('pdf')}
+        disabled={!!exporting}
+        style={{
+          padding: '4px 8px', fontSize: '0.75rem', borderRadius: 4,
+          border: '1px solid #fecdd3', background: '#fff1f2', color: '#be123c',
+          cursor: exporting ? 'not-allowed' : 'pointer', fontWeight: 600,
+        }}
+        title={`Export ${endpoint === 'subdivision' ? 'sub-divisions' : 'statement'} to PDF (.pdf)`}
+      >
+        PDF
+      </button>
     </div>
   );
 }
@@ -2799,16 +2848,25 @@ export default function BalanceSheet() {
 
   /* ── Export ────────────────────────────────────────────────────── */
   const [exporting, setExporting] = useState(null);
-  // FIX M5: memoize handleExport so KebabMenu items don't change reference every render
   const handleExport = useCallback((format, section = 'summary') => {
     if (exporting) return;
     setExporting(`${section}-${format}`);
-    exportBS(format, section, appliedFilters)
-      .then(() => showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success'))
-      .catch(err => showToast(`Export failed: ${err?.message || 'Unknown error'}. Please try again.`, 'error'))
-      .finally(() => setExporting(null));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exporting, appliedFilters, showToast]);
+    try {
+      if (section === 'subdivision') {
+        if (format === 'excel') exportSubDivisionToExcel(subdivisionData, currency, { period: periodLabel, ...appliedFilters });
+        else exportSubDivisionToPDF(subdivisionData, currency, { period: periodLabel, ...appliedFilters });
+        showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success');
+      } else {
+        if (format === 'excel') exportStatementToExcel(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodFormatted, ...appliedFilters });
+        else exportStatementToPDF(statementData, currency, { period: periodLabel, comparePeriod: comparePeriodFormatted, ...appliedFilters });
+        showToast(`${format.toUpperCase()} export downloaded successfully.`, 'success');
+      }
+    } catch (err) {
+      showToast(`Export failed: ${err?.message || 'Unknown error'}. Please try again.`, 'error');
+    } finally {
+      setExporting(null);
+    }
+  }, [exporting, subdivisionData, statementData, currency, periodLabel, comparePeriodFormatted, appliedFilters, showToast]);
 
   /* ── Load filter options (supports cascading) ─────────────────── */
   const loadFilterOptions = useCallback(async (currentFilters = {}) => {
@@ -3151,7 +3209,7 @@ export default function BalanceSheet() {
         title="Balance Sheet by Sub-Division"
         subtitle={`Period: ${periodLabel} | ${subdivisionData?.pagination?.total_subdivisions ?? '—'} sub-divisions`}
       >
-        <SubDivisionViewAll data={subdivisionData} currency={currency} />
+        <SubDivisionViewAll data={subdivisionData} currency={currency} periodLabel={periodLabel} appliedFilters={appliedFilters} />
       </ViewAllModal>
 
       <ViewAllModal isOpen={openModal === 'trend'} onClose={closeModal}
@@ -3355,7 +3413,16 @@ export default function BalanceSheet() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <span style={{ fontWeight: 700, fontSize: '0.82rem', color: C.navy }}>Key Performance Indicators</span>
-            {hasExportRight("BALANCE_SHEET") && <ExportButtons endpoint="summary" filters={appliedFilters} />}
+            {hasExportRight("BALANCE_SHEET") && (
+              <ExportButtons
+                endpoint="summary"
+                filters={appliedFilters}
+                statementData={statementData}
+                currency={currency}
+                periodLabel={periodLabel}
+                comparePeriodLabel={comparePeriodFormatted}
+              />
+            )}
           </div>
           {/* Balance status badge */}
           {!loading.summary && summaryData && (
@@ -3806,7 +3873,15 @@ export default function BalanceSheet() {
                 {subdivisionData?.pagination?.total_subdivisions ?? '-'} sub-divisions &nbsp;|&nbsp; Page {subdivisionData?.pagination?.page ?? 1} of {subdivisionData?.pagination?.total_pages ?? 1}
               </span>
             </div>
-            {hasExportRight("BALANCE_SHEET") && <ExportButtons endpoint="subdivision" filters={appliedFilters} />}
+            {hasExportRight("BALANCE_SHEET") && (
+              <ExportButtons
+                endpoint="subdivision"
+                filters={appliedFilters}
+                subdivisionData={subdivisionData}
+                currency={currency}
+                periodLabel={periodLabel}
+              />
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button
