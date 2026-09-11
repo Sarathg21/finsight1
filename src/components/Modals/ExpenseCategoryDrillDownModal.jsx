@@ -154,20 +154,34 @@ const normalizeMultiValue = (value) => {
 /* =========================================================
    CUSTOM MULTI-SELECT DROPDOWN COMPONENT (MATCHING UI REFERENCE)
 ========================================================= */
-
-const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChange }) => {
+const MultiSelectDropdown = ({
+    label,
+    options = [],
+    selectedValues = [],
+    onChange,
+}) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const containerRef = useRef(null);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(event.target)
+            ) {
                 setIsOpen(false);
             }
         };
+
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
+
+        return () => {
+            document.removeEventListener(
+                "mousedown",
+                handleClickOutside
+            );
+        };
     }, []);
 
     const formattedOptions = useMemo(() => {
@@ -177,23 +191,53 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
         }));
     }, [options]);
 
+    const normalizedSelectedValues = useMemo(() => {
+        if (!Array.isArray(selectedValues)) {
+            return [];
+        }
+
+        return selectedValues.map((value) => String(value));
+    }, [selectedValues]);
+
     const filteredOptions = useMemo(() => {
-        if (!searchTerm.trim()) return formattedOptions;
+        if (!searchTerm.trim()) {
+            return formattedOptions;
+        }
+
         return formattedOptions.filter((opt) =>
-            opt.name.toLowerCase().includes(searchTerm.toLowerCase())
+            opt.name
+                .toLowerCase()
+                .includes(searchTerm.toLowerCase())
         );
     }, [formattedOptions, searchTerm]);
 
     const handleToggle = (id) => {
-        if (selectedValues.includes(id)) {
-            onChange(selectedValues.filter((v) => v !== id));
+        const normalizedId = String(id);
+
+        if (
+            normalizedSelectedValues.includes(
+                normalizedId
+            )
+        ) {
+            onChange(
+                normalizedSelectedValues.filter(
+                    (value) =>
+                        value !== normalizedId
+                )
+            );
         } else {
-            onChange([...selectedValues, id]);
+            onChange([
+                ...normalizedSelectedValues,
+                normalizedId,
+            ]);
         }
     };
 
     const handleSelectAll = () => {
-        const allIds = formattedOptions.map((opt) => opt.id);
+        const allIds = formattedOptions.map(
+            (opt) => opt.id
+        );
+
         onChange(allIds);
     };
 
@@ -202,45 +246,95 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
     };
 
     const displayLabel = useMemo(() => {
-        if (selectedValues.length === 0 || selectedValues.length === formattedOptions.length) {
-            return "All";
+        if (
+            normalizedSelectedValues.length === 0
+        ) {
+            return "Select";
         }
-        if (selectedValues.length === 1) {
-            const found = formattedOptions.find((opt) => opt.id === selectedValues[0]);
-            return found ? found.name : "1 Selected";
+
+        if (
+            normalizedSelectedValues.length === 1
+        ) {
+            const found =
+                formattedOptions.find(
+                    (opt) =>
+                        opt.id ===
+                        normalizedSelectedValues[0]
+                );
+
+            return found
+                ? found.name
+                : "1 Selected";
         }
-        return `${selectedValues.length} Selected`;
-    }, [selectedValues, formattedOptions]);
+
+        return `${normalizedSelectedValues.length} Selected`;
+    }, [
+        normalizedSelectedValues,
+        formattedOptions,
+    ]);
 
     return (
-        <div ref={containerRef} style={{ position: "relative", display: "flex", flexDirection: "column", gap: "6px" }}>
-            <label style={{ fontSize: "12px", fontWeight: 700, color: "#2b3b75" }}>
+        <div
+            ref={containerRef}
+            style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+            }}
+        >
+            <label
+                style={{
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#2b3b75",
+                }}
+            >
                 {label}
             </label>
+
             <button
                 type="button"
-                onClick={() => setIsOpen((prev) => !prev)}
+                onClick={() =>
+                    setIsOpen((prev) => !prev)
+                }
                 style={{
                     height: "38px",
                     minWidth: "130px",
                     padding: "0 12px",
                     borderRadius: "10px",
                     border: "1px solid #e0e6ed",
-                    background: "#f4f6fc",
+                    background: "#ffffff",
                     color: "#2b3b75",
                     fontSize: "13px",
                     fontWeight: 600,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    justifyContent:
+                        "space-between",
                     cursor: "pointer",
                     outline: "none",
                 }}
             >
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: "8px" }}>
+                <span
+                    style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        marginRight: "8px",
+                    }}
+                >
                     {displayLabel}
                 </span>
-                <span style={{ fontSize: "10px", color: "#2b3b75" }}>▼</span>
+
+                <span
+                    style={{
+                        fontSize: "10px",
+                        color: "#2b3b75",
+                    }}
+                >
+                    ▼
+                </span>
             </button>
 
             {isOpen && (
@@ -254,27 +348,50 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                         background: "#ffffff",
                         border: "1px solid #e2e8f0",
                         borderRadius: "12px",
-                        boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                        boxShadow:
+                            "0 10px 25px rgba(0,0,0,0.1)",
                         zIndex: 1050,
                         padding: "8px",
                     }}
                 >
-                    <div style={{ position: "relative", marginBottom: "8px" }}>
-                        <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#94a3b8", fontSize: "12px" }}>
+                    {/* SEARCH */}
+                    <div
+                        style={{
+                            position: "relative",
+                            marginBottom: "8px",
+                        }}
+                    >
+                        <span
+                            style={{
+                                position: "absolute",
+                                left: "10px",
+                                top: "50%",
+                                transform:
+                                    "translateY(-50%)",
+                                color: "#94a3b8",
+                                fontSize: "12px",
+                            }}
+                        >
                             🔍
                         </span>
+
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) =>
+                                setSearchTerm(
+                                    e.target.value
+                                )
+                            }
                             style={{
                                 width: "100%",
                                 height: "32px",
                                 paddingLeft: "30px",
                                 paddingRight: "8px",
                                 borderRadius: "6px",
-                                border: "1px solid #e2e8f0",
+                                border:
+                                    "1px solid #e2e8f0",
                                 fontSize: "12px",
                                 outline: "none",
                                 boxSizing: "border-box",
@@ -282,47 +399,132 @@ const MultiSelectDropdown = ({ label, options = [], selectedValues = [], onChang
                         />
                     </div>
 
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 4px 8px 4px", fontSize: "12px", fontWeight: 700 }}>
-                        <span onClick={handleSelectAll} style={{ color: "#2b3b75", cursor: "pointer" }}>
+                    {/* SELECT ALL / CLEAR */}
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent:
+                                "space-between",
+                            padding:
+                                "4px 4px 8px 4px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                        }}
+                    >
+                        <span
+                            onClick={handleSelectAll}
+                            style={{
+                                color: "#2b3b75",
+                                cursor: "pointer",
+                            }}
+                        >
                             Select All
                         </span>
-                        <span onClick={handleClear} style={{ color: "#64748b", cursor: "pointer" }}>
+
+                        <span
+                            onClick={handleClear}
+                            style={{
+                                color: "#64748b",
+                                cursor: "pointer",
+                            }}
+                        >
                             Clear
                         </span>
                     </div>
 
-                    <div style={{ maxHeight: "160px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
-                        {filteredOptions.length === 0 ? (
-                            <div style={{ fontSize: "12px", color: "#94a3b8", padding: "6px 4px" }}>No options</div>
+                    {/* OPTIONS */}
+                    <div
+                        style={{
+                            maxHeight: "160px",
+                            overflowY: "auto",
+                            display: "flex",
+                            flexDirection:
+                                "column",
+                            gap: "6px",
+                        }}
+                    >
+                        {filteredOptions.length ===
+                            0 ? (
+                            <div
+                                style={{
+                                    fontSize: "12px",
+                                    color: "#94a3b8",
+                                    padding:
+                                        "6px 4px",
+                                }}
+                            >
+                                No options
+                            </div>
                         ) : (
-                            filteredOptions.map((opt) => {
-                                const isChecked = selectedValues.length === 0 || selectedValues.includes(opt.id);
-                                return (
-                                    <label
-                                        key={opt.id}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                            fontSize: "12px",
-                                            color: "#2b3b75",
-                                            fontWeight: 600,
-                                            cursor: "pointer",
-                                            padding: "2px 4px",
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => handleToggle(opt.id)}
-                                            style={{ accentColor: "#5c60f5", cursor: "pointer" }}
-                                        />
-                                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                            {opt.name}
-                                        </span>
-                                    </label>
-                                );
-                            })
+                            filteredOptions.map(
+                                (opt) => {
+                                    /*
+                                     * IMPORTANT:
+                                     * Empty selection means
+                                     * NOTHING is selected.
+                                     */
+                                    const isChecked =
+                                        normalizedSelectedValues.includes(
+                                            opt.id
+                                        );
+
+                                    return (
+                                        <label
+                                            key={opt.id}
+                                            style={{
+                                                display:
+                                                    "flex",
+                                                alignItems:
+                                                    "center",
+                                                gap: "8px",
+                                                fontSize:
+                                                    "12px",
+                                                color:
+                                                    "#2b3b75",
+                                                fontWeight:
+                                                    600,
+                                                cursor:
+                                                    "pointer",
+                                                padding:
+                                                    "2px 4px",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    isChecked
+                                                }
+                                                onChange={() =>
+                                                    handleToggle(
+                                                        opt.id
+                                                    )
+                                                }
+                                                style={{
+                                                    accentColor:
+                                                        "#5c60f5",
+                                                    cursor:
+                                                        "pointer",
+                                                }}
+                                            />
+
+                                            <span
+                                                style={{
+                                                    overflow:
+                                                        "hidden",
+                                                    textOverflow:
+                                                        "ellipsis",
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                }}
+                                            >
+                                                {
+                                                    opt.name
+                                                }
+                                            </span>
+                                        </label>
+                                    );
+                                }
+                            )
                         )}
                     </div>
                 </div>
@@ -395,30 +597,68 @@ export default function ExpenseCategoryDrillDownModal({
         if (!open) return;
 
         setViewAllFilters({
-            year: getSelectedFilterValues(activeFilters?.year),
-            legal_entity: getSelectedFilterValues(
-                activeFilters?.legal_entity
-            ),
-            parent_division: getSelectedFilterValues(
-                activeFilters?.parent_division
-            ),
-            subdivision: getSelectedFilterValues(
-                activeFilters?.subdivision
-            ),
-            period: getSelectedFilterValues(
-                activeFilters?.period
-            ),
-        });
-    }, [open, activeFilters]);
+            year: Array.isArray(activeFilters?.year)
+                ? activeFilters.year.map((v) => String(v))
+                : activeFilters?.year
+                    ? [String(activeFilters.year)]
+                    : [],
 
-    const handleFilterChange = (key, newValues) => {
+            legal_entity: Array.isArray(
+                activeFilters?.legal_entity
+            )
+                ? activeFilters.legal_entity.map((v) =>
+                    String(v)
+                )
+                : activeFilters?.legal_entity
+                    ? [String(activeFilters.legal_entity)]
+                    : [],
+
+            parent_division: Array.isArray(
+                activeFilters?.parent_division
+            )
+                ? activeFilters.parent_division.map(
+                    (v) => String(v)
+                )
+                : activeFilters?.parent_division
+                    ? [
+                        String(
+                            activeFilters.parent_division
+                        ),
+                    ]
+                    : [],
+
+            subdivision: Array.isArray(
+                activeFilters?.subdivision
+            )
+                ? activeFilters.subdivision.map((v) =>
+                    String(v)
+                )
+                : activeFilters?.subdivision
+                    ? [String(activeFilters.subdivision)]
+                    : [],
+
+            period: Array.isArray(
+                activeFilters?.period
+            )
+                ? activeFilters.period.map((v) =>
+                    String(v)
+                )
+                : activeFilters?.period
+                    ? [String(activeFilters.period)]
+                    : [],
+        });
+    }, [open]);
+
+    const handleFilterChange = (key, values) => {
         setViewAllFilters((prev) => ({
             ...prev,
-            [key]: newValues,
+            [key]: Array.isArray(values)
+                ? values.map((value) =>
+                    String(value)
+                )
+                : [],
         }));
     };
-
-
     const cleanFilterValues = (values) => {
         if (!Array.isArray(values)) return [];
 
@@ -431,42 +671,93 @@ export default function ExpenseCategoryDrillDownModal({
         );
     };
 
-    const handleApplyFilters = () => {
-        const updatedFilters = {
-            ...activeFilters,
-            year: cleanFilterValues(viewAllFilters.year),
-            legal_entity: cleanFilterValues(viewAllFilters.legal_entity),
-            parent_division: cleanFilterValues(viewAllFilters.parent_division),
-            subdivision: cleanFilterValues(viewAllFilters.subdivision),
-            period: cleanFilterValues(viewAllFilters.period),
+    const handleApplyFilters = async () => {
+        if (typeof onApplyFilters !== "function") {
+            return;
+        }
+
+        const selectedFilters = {
+            year: viewAllFilters.year,
+            legal_entity:
+                viewAllFilters.legal_entity,
+            parent_division:
+                viewAllFilters.parent_division,
+            subdivision:
+                viewAllFilters.subdivision,
+            period: viewAllFilters.period,
         };
 
-        if (typeof onApplyFilters === "function") {
-            onApplyFilters(updatedFilters);
-        } else if (typeof onRefresh === "function") {
-            onRefresh(updatedFilters);
+        if (
+            !Array.isArray(selectedFilters.period) ||
+            selectedFilters.period.length === 0
+        ) {
+            return;
+        }
+
+        await onApplyFilters(selectedFilters);
+    };
+
+
+    const handleResetFilters = async () => {
+        /*
+         * RESET should return to the default OPEX filter state,
+         * NOT the filters that were present when the modal opened.
+         *
+         * Default:
+         * - Year = first/default available year
+         * - Period = latest available period
+         * - Legal Entity = empty
+         * - Parent Division = empty
+         * - Sub-Division = empty
+         */
+
+        const defaultYear =
+            filterOptions?.years?.length > 0
+                ? getFilterOptionId(
+                    filterOptions.years[0]
+                )
+                : "";
+
+        const latestPeriod =
+            filterOptions?.periods?.length > 0
+                ? getFilterOptionId(
+                    filterOptions.periods[
+                    filterOptions.periods.length - 1
+                    ]
+                )
+                : "";
+
+        const resetFilters = {
+            year: defaultYear
+                ? [String(defaultYear)]
+                : [],
+
+            legal_entity: [],
+
+            parent_division: [],
+
+            subdivision: [],
+
+            period: latestPeriod
+                ? [String(latestPeriod)]
+                : [],
+        };
+
+        /*
+         * Immediately update dropdowns.
+         */
+        setViewAllFilters(resetFilters);
+
+        /*
+         * Refresh the View All table using
+         * the reset/default filters.
+         */
+        if (
+            typeof onApplyFilters === "function"
+        ) {
+            await onApplyFilters(resetFilters);
         }
     };
-
-
-    const handleResetFilters = () => {
-        setViewAllFilters({
-            year: getSelectedFilterValues(activeFilters?.year),
-            legal_entity: getSelectedFilterValues(
-                activeFilters?.legal_entity
-            ),
-            parent_division: getSelectedFilterValues(
-                activeFilters?.parent_division
-            ),
-            subdivision: getSelectedFilterValues(
-                activeFilters?.subdivision
-            ),
-            period: getSelectedFilterValues(
-                activeFilters?.period
-            ),
-        });
-    };
-
     /* =====================================================
        NORMALIZE CATEGORY DATA
     ===================================================== */

@@ -784,13 +784,13 @@ export default function ExpenseCategoryDrillDown({
                         >
                             {[
                                 "Natural Account",
-                                "Actual PTD (AED)",
-                                "Target PTD (AED)",
-                                "Variance PTD (AED)",
+                                `Actual PTD (${reportingCurrency})`,
+                                `Target PTD (${reportingCurrency})`,
+                                `Variance PTD (${reportingCurrency})`,
                                 "Variance PTD %",
-                                "Actual YTD (AED)",
-                                "Target YTD (AED)",
-                                "Variance YTD (AED)",
+                                `Actual YTD (${reportingCurrency})`,
+                                `Target YTD (${reportingCurrency})`,
+                                `Variance YTD (${reportingCurrency})`,
                                 "Variance YTD %",
                             ].map(
                                 (
@@ -1483,7 +1483,7 @@ export default function ExpenseCategoryDrillDown({
                                     lineHeight: "17px",
                                 }}
                             >
-                                Actual PTD (AED)
+                                Actual PTD ({reportingCurrency})
                             </th>
 
                             <th
@@ -1497,7 +1497,7 @@ export default function ExpenseCategoryDrillDown({
                                     lineHeight: "17px",
                                 }}
                             >
-                                Target PTD (AED)
+                                Target PTD ({reportingCurrency})
                             </th>
 
                             <th
@@ -1511,7 +1511,7 @@ export default function ExpenseCategoryDrillDown({
                                     lineHeight: "17px",
                                 }}
                             >
-                                Variance PTD (AED)
+                                Variance PTD ({reportingCurrency})
                             </th>
 
                             <th
@@ -1539,7 +1539,7 @@ export default function ExpenseCategoryDrillDown({
                                     lineHeight: "17px",
                                 }}
                             >
-                                Actual YTD (AED)
+                                Actual YTD ({reportingCurrency})
                             </th>
 
                             <th
@@ -1553,7 +1553,7 @@ export default function ExpenseCategoryDrillDown({
                                     lineHeight: "17px",
                                 }}
                             >
-                                Target YTD (AED)
+                                Target YTD ({reportingCurrency})
                             </th>
 
                             <th
@@ -1567,7 +1567,7 @@ export default function ExpenseCategoryDrillDown({
                                     lineHeight: "17px",
                                 }}
                             >
-                                Variance YTD (AED)
+                                Variance YTD ({reportingCurrency})
                             </th>
 
                             <th
@@ -1598,7 +1598,7 @@ export default function ExpenseCategoryDrillDown({
 
                                 const isExpanded =
                                     !!expandedRows[
-                                        rowKey
+                                    rowKey
                                     ];
 
                                 return (
