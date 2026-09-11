@@ -328,6 +328,158 @@ export async function fetchBSTrend(filters) {
 }
 
 /**
+ * Fetch 6 consecutive monthly balance sheet summaries ending at filters.period
+ * and compute multi-series metrics: Total Assets, Total Liabilities, Total Equity.
+ */
+export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
+  const selectedPeriod = filters.period || (availablePeriods[0] && (typeof availablePeriods[0] === 'object' ? availablePeriods[0].period : availablePeriods[0])) || '2026-06';
+  const normPeriods = availablePeriods.map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
+
+  let targetPeriods = [];
+  const idx = normPeriods.indexOf(selectedPeriod);
+  if (idx !== -1) {
+    targetPeriods = normPeriods.slice(idx, idx + 6).reverse(); // chronological (oldest to newest)
+  } else {
+    // If not in available periods, calculate past 6 months from selectedPeriod (YYYY-MM)
+    const [yStr, mStr] = selectedPeriod.split('-');
+    let curY = parseInt(yStr, 10) || 2026;
+    let curM = parseInt(mStr, 10) || 6;
+    for (let i = 0; i < 6; i++) {
+      const pStr = `${curY}-${String(curM).padStart(2, '0')}`;
+      targetPeriods.unshift(pStr);
+      curM--;
+      if (curM === 0) {
+        curM = 12;
+        curY--;
+      }
+    }
+  }
+
+  // Fetch summaries in parallel
+  const summaries = await Promise.all(
+    targetPeriods.map(p => fetchBSSummary({ ...filters, period: p }).catch(() => null))
+  );
+
+  // Extract metrics & compute MoM changes
+  const series = targetPeriods.map((p, i) => {
+    const s = summaries[i];
+    let totalAssets = 0;
+    let nonCurrentLiab = 0;
+    let currentLiab = 0;
+    let totalEquity = 0;
+    let longTermBorrowings = 0;
+    let shortTermBorrowings = 0;
+
+    if (s?.sections) {
+      s.sections.forEach(sec => {
+        const secName = (sec.name || '').toUpperCase();
+        if (secName.includes('APPLICATION OF FUNDS')) {
+          totalAssets = Math.abs(sec.total ?? 0);
+        }
+        (sec.sub_sections || []).forEach(sub => {
+          const subName = (sub.name || sub.sub_section || '').toUpperCase();
+          const subTotal = Math.abs(sub.total ?? sub.sub_total ?? 0);
+          if (subName.includes('EQUITY')) {
+            totalEquity = subTotal;
+          } else if (subName.includes('NON CURRENT LIABILITIES') || subName.includes('NON-CURRENT LIABILITIES')) {
+            nonCurrentLiab = subTotal;
+          } else if (subName.includes('CURRENT LIABILITIES')) {
+            currentLiab = subTotal;
+          }
+          (sub.accounts || []).forEach(acct => {
+            const code = String(acct.account_code || '');
+            const name = (acct.account_name || '').toUpperCase();
+            const amt = Math.abs(acct.balance_amount ?? 0);
+            if (code === '920001' || (name.includes('LONG TERM') && (name.includes('LOAN') || name.includes('BORROW')))) {
+              longTermBorrowings += amt;
+            } else if (code === '920004' || (name.includes('SHORT TERM') && (name.includes('LOAN') || name.includes('BORROW')))) {
+              shortTermBorrowings += amt;
+            }
+          });
+        });
+      });
+      let totalLiabilities = nonCurrentLiab + currentLiab;
+      if (totalLiabilities === 0 && totalEquity > 0) {
+        const sourcesSec = s.sections.find(sec => (sec.name || '').toUpperCase().includes('SOURCES OF FUNDS'));
+        if (sourcesSec?.total) {
+          totalLiabilities = Math.max(0, Math.abs(sourcesSec.total) - totalEquity);
+        }
+      }
+      if (totalAssets === 0 && (totalLiabilities > 0 || totalEquity > 0)) {
+        totalAssets = totalLiabilities + totalEquity;
+      }
+      const totalDebt = longTermBorrowings + shortTermBorrowings;
+      const debtToEquity = totalEquity > 0 ? (totalDebt / totalEquity) : null;
+      const liabilityToEquity = totalEquity > 0 ? (totalLiabilities / totalEquity) : null;
+
+      return {
+        period: p,
+        period_code: p,
+        totalAssets,
+        totalLiabilities,
+        totalEquity,
+        nonCurrentLiab,
+        currentLiab,
+        debtToEquity,
+        liabilityToEquity,
+        summary: s,
+      };
+    }
+
+    return {
+      period: p,
+      period_code: p,
+      totalAssets: 0,
+      totalLiabilities: 0,
+      totalEquity: 0,
+      nonCurrentLiab: 0,
+      currentLiab: 0,
+      debtToEquity: null,
+      liabilityToEquity: null,
+      summary: null,
+    };
+  });
+
+  // Calculate MoM for each period
+  series.forEach((curr, i) => {
+    if (i === 0) {
+      curr.assetsMoM = 0;
+      curr.assetsMoMPct = null;
+      curr.liabMoM = 0;
+      curr.liabMoMPct = null;
+      curr.equityMoM = 0;
+      curr.equityMoMPct = null;
+    } else {
+      const prev = series[i - 1];
+      curr.assetsMoM = curr.totalAssets - prev.totalAssets;
+      curr.assetsMoMPct = prev.totalAssets ? (curr.assetsMoM / prev.totalAssets) * 100 : null;
+      curr.liabMoM = curr.totalLiabilities - prev.totalLiabilities;
+      curr.liabMoMPct = prev.totalLiabilities ? (curr.liabMoM / prev.totalLiabilities) * 100 : null;
+      curr.equityMoM = curr.totalEquity - prev.totalEquity;
+      curr.equityMoMPct = prev.totalEquity ? (curr.equityMoM / prev.totalEquity) * 100 : null;
+    }
+  });
+
+  const latest = series[series.length - 1] || {};
+  const earliest = series[0] || {};
+  const summary = {
+    assetsChange: (latest.totalAssets || 0) - (earliest.totalAssets || 0),
+    assetsPct: earliest.totalAssets ? (((latest.totalAssets || 0) - earliest.totalAssets) / earliest.totalAssets) * 100 : null,
+    liabChange: (latest.totalLiabilities || 0) - (earliest.totalLiabilities || 0),
+    liabPct: earliest.totalLiabilities ? (((latest.totalLiabilities || 0) - earliest.totalLiabilities) / earliest.totalLiabilities) * 100 : null,
+    equityChange: (latest.totalEquity || 0) - (earliest.totalEquity || 0),
+    equityPct: earliest.totalEquity ? (((latest.totalEquity || 0) - earliest.totalEquity) / earliest.totalEquity) * 100 : null,
+  };
+
+  return {
+    series,
+    summary,
+    startPeriod: targetPeriods[0] || '',
+    endPeriod: targetPeriods[targetPeriods.length - 1] || '',
+  };
+}
+
+/**
  * GET /api/bs/drilldown
  * All subdivisions contributing to one GL account for a given period.
  *
