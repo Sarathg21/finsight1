@@ -595,448 +595,448 @@ const FilterChip = ({
 ========================================================= */
 
 const MultiSelectDropdown = ({
-  label,
-  options = [],
-  selectedValues = [],
-  onChange,
+    label,
+    options = [],
+    selectedValues = [],
+    onChange,
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const containerRef = useRef(null);
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const containerRef = useRef(null);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
-        setIsOpen(false);
-      }
-    };
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (
+                containerRef.current &&
+                !containerRef.current.contains(event.target)
+            ) {
+                setIsOpen(false);
+            }
+        };
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
-    };
-  }, []);
-
-  /* ---------------------------------------------------------
-     FORMAT OPTIONS
-  --------------------------------------------------------- */
-
-  const formattedOptions = useMemo(() => {
-    return options.map((option) => ({
-      id: String(getOptionId(option)),
-      name: String(getOptionDisplayName(option)),
-    }));
-  }, [options]);
-
-  /* ---------------------------------------------------------
-     NORMALIZE SELECTED VALUES
-  --------------------------------------------------------- */
-
-  const normalizedSelectedValues = useMemo(() => {
-    if (!Array.isArray(selectedValues)) {
-      return [];
-    }
-
-    return selectedValues.map((value) => {
-      if (typeof value === "object") {
-        return String(getOptionId(value));
-      }
-
-      return String(value);
-    });
-  }, [selectedValues]);
-
-  /* ---------------------------------------------------------
-     SEARCH
-  --------------------------------------------------------- */
-
-  const filteredOptions = useMemo(() => {
-    const keyword = searchTerm
-      .trim()
-      .toLowerCase();
-
-    if (!keyword) {
-      return formattedOptions;
-    }
-
-    return formattedOptions.filter(
-      (option) =>
-        option.name
-          .toLowerCase()
-          .includes(keyword) ||
-        option.id
-          .toLowerCase()
-          .includes(keyword)
-    );
-  }, [
-    formattedOptions,
-    searchTerm,
-  ]);
-
-  /* ---------------------------------------------------------
-     TOGGLE OPTION
-  --------------------------------------------------------- */
-
-  const handleToggle = (id) => {
-    const normalizedId = String(id);
-
-    if (
-      normalizedSelectedValues.includes(
-        normalizedId
-      )
-    ) {
-      onChange(
-        normalizedSelectedValues.filter(
-          (value) =>
-            value !== normalizedId
-        )
-      );
-    } else {
-      onChange([
-        ...normalizedSelectedValues,
-        normalizedId,
-      ]);
-    }
-  };
-
-  /* ---------------------------------------------------------
-     SELECT ALL
-  --------------------------------------------------------- */
-
-  const handleSelectAll = () => {
-    onChange(
-      formattedOptions.map(
-        (option) => option.id
-      )
-    );
-  };
-
-  /* ---------------------------------------------------------
-     CLEAR
-  --------------------------------------------------------- */
-
-  const handleClear = () => {
-    onChange([]);
-  };
-
-  /* ---------------------------------------------------------
-     DISPLAY LABEL
-  --------------------------------------------------------- */
-
-  const displayLabel = useMemo(() => {
-    if (
-      normalizedSelectedValues.length === 0
-    ) {
-      return "Select";
-    }
-
-    if (
-      normalizedSelectedValues.length === 1
-    ) {
-      const found =
-        formattedOptions.find(
-          (option) =>
-            option.id ===
-            normalizedSelectedValues[0]
+        document.addEventListener(
+            "mousedown",
+            handleClickOutside
         );
 
-      return found
-        ? found.name
-        : "1 Selected";
-    }
+        return () => {
+            document.removeEventListener(
+                "mousedown",
+                handleClickOutside
+            );
+        };
+    }, []);
 
-    return `${normalizedSelectedValues.length} Selected`;
-  }, [
-    normalizedSelectedValues,
-    formattedOptions,
-  ]);
+    /* ---------------------------------------------------------
+       FORMAT OPTIONS
+    --------------------------------------------------------- */
 
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-      }}
-    >
-      {/* LABEL */}
+    const formattedOptions = useMemo(() => {
+        return options.map((option) => ({
+            id: String(getOptionId(option)),
+            name: String(getOptionDisplayName(option)),
+        }));
+    }, [options]);
 
-      <label
-        style={{
-          fontSize: "12px",
-          fontWeight: 700,
-          color: "#2b3b75",
-        }}
-      >
-        {label}
-      </label>
+    /* ---------------------------------------------------------
+       NORMALIZE SELECTED VALUES
+    --------------------------------------------------------- */
 
-      {/* DROPDOWN BUTTON */}
+    const normalizedSelectedValues = useMemo(() => {
+        if (!Array.isArray(selectedValues)) {
+            return [];
+        }
 
-      <button
-        type="button"
-        onClick={() => {
-          setIsOpen(
-            (previous) => !previous
-          );
+        return selectedValues.map((value) => {
+            if (typeof value === "object") {
+                return String(getOptionId(value));
+            }
 
-          if (isOpen) {
-            setSearchTerm("");
-          }
-        }}
-        style={{
-          height: "38px",
-          minWidth: "130px",
-          padding: "0 12px",
-          borderRadius: "10px",
-          border:
-            "1px solid #e0e6ed",
-          background: "#f4f6fc",
-          color: "#2b3b75",
-          fontSize: "13px",
-          fontWeight: 600,
-          display: "flex",
-          alignItems: "center",
-          justifyContent:
-            "space-between",
-          cursor: "pointer",
-          outline: "none",
-        }}
-      >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            marginRight: "8px",
-          }}
-        >
-          {displayLabel}
-        </span>
+            return String(value);
+        });
+    }, [selectedValues]);
 
-        <span
-          style={{
-            fontSize: "10px",
-            color: "#2b3b75",
-          }}
-        >
-          ▼
-        </span>
-      </button>
+    /* ---------------------------------------------------------
+       SEARCH
+    --------------------------------------------------------- */
 
-      {/* DROPDOWN MENU */}
+    const filteredOptions = useMemo(() => {
+        const keyword = searchTerm
+            .trim()
+            .toLowerCase();
 
-      {isOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            marginTop: "4px",
-            width: "220px",
-            background: "#ffffff",
-            border:
-              "1px solid #e2e8f0",
-            borderRadius: "12px",
-            boxShadow:
-              "0 10px 25px rgba(0,0,0,0.1)",
-            zIndex: 1050,
-            padding: "8px",
-          }}
-        >
-          {/* SEARCH */}
+        if (!keyword) {
+            return formattedOptions;
+        }
 
-          <div
-            style={{
-              position: "relative",
-              marginBottom: "8px",
-            }}
-          >
-            <span
-              style={{
-                position:
-                  "absolute",
-                left: "10px",
-                top: "50%",
-                transform:
-                  "translateY(-50%)",
-                color: "#94a3b8",
-                fontSize: "12px",
-              }}
-            >
-              🔍
-            </span>
+        return formattedOptions.filter(
+            (option) =>
+                option.name
+                    .toLowerCase()
+                    .includes(keyword) ||
+                option.id
+                    .toLowerCase()
+                    .includes(keyword)
+        );
+    }, [
+        formattedOptions,
+        searchTerm,
+    ]);
 
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(event) =>
-                setSearchTerm(
-                  event.target.value
+    /* ---------------------------------------------------------
+       TOGGLE OPTION
+    --------------------------------------------------------- */
+
+    const handleToggle = (id) => {
+        const normalizedId = String(id);
+
+        if (
+            normalizedSelectedValues.includes(
+                normalizedId
+            )
+        ) {
+            onChange(
+                normalizedSelectedValues.filter(
+                    (value) =>
+                        value !== normalizedId
                 )
-              }
-              style={{
-                width: "100%",
-                height: "32px",
-                paddingLeft: "30px",
-                paddingRight: "8px",
-                borderRadius: "6px",
-                border:
-                  "1px solid #e2e8f0",
-                fontSize: "12px",
-                outline: "none",
-                boxSizing:
-                  "border-box",
-              }}
-            />
-          </div>
+            );
+        } else {
+            onChange([
+                ...normalizedSelectedValues,
+                normalizedId,
+            ]);
+        }
+    };
 
-          {/* SELECT ALL / CLEAR */}
+    /* ---------------------------------------------------------
+       SELECT ALL
+    --------------------------------------------------------- */
 
-          <div
+    const handleSelectAll = () => {
+        onChange(
+            formattedOptions.map(
+                (option) => option.id
+            )
+        );
+    };
+
+    /* ---------------------------------------------------------
+       CLEAR
+    --------------------------------------------------------- */
+
+    const handleClear = () => {
+        onChange([]);
+    };
+
+    /* ---------------------------------------------------------
+       DISPLAY LABEL
+    --------------------------------------------------------- */
+
+    const displayLabel = useMemo(() => {
+        if (
+            normalizedSelectedValues.length === 0
+        ) {
+            return "Select";
+        }
+
+        if (
+            normalizedSelectedValues.length === 1
+        ) {
+            const found =
+                formattedOptions.find(
+                    (option) =>
+                        option.id ===
+                        normalizedSelectedValues[0]
+                );
+
+            return found
+                ? found.name
+                : "1 Selected";
+        }
+
+        return `${normalizedSelectedValues.length} Selected`;
+    }, [
+        normalizedSelectedValues,
+        formattedOptions,
+    ]);
+
+    return (
+        <div
+            ref={containerRef}
             style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              padding:
-                "4px 4px 8px 4px",
-              fontSize: "12px",
-              fontWeight: 700,
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
             }}
-          >
-            <span
-              onClick={
-                handleSelectAll
-              }
-              style={{
-                color: "#2b3b75",
-                cursor: "pointer",
-              }}
-            >
-              Select All
-            </span>
+        >
+            {/* LABEL */}
 
-            <span
-              onClick={handleClear}
-              style={{
-                color: "#64748b",
-                cursor: "pointer",
-              }}
-            >
-              Clear
-            </span>
-          </div>
-
-          {/* OPTIONS */}
-
-          <div
-            style={{
-              maxHeight: "160px",
-              overflowY: "auto",
-              display: "flex",
-              flexDirection:
-                "column",
-              gap: "6px",
-            }}
-          >
-            {filteredOptions.length ===
-              0 ? (
-              <div
+            <label
                 style={{
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  padding:
-                    "6px 4px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#2b3b75",
                 }}
-              >
-                No options
-              </div>
-            ) : (
-              filteredOptions.map(
-                (option) => {
-                  const isChecked =
-                    normalizedSelectedValues.includes(
-                      option.id
+            >
+                {label}
+            </label>
+
+            {/* DROPDOWN BUTTON */}
+
+            <button
+                type="button"
+                onClick={() => {
+                    setIsOpen(
+                        (previous) => !previous
                     );
 
-                  return (
-                    <label
-                      key={
-                        option.id
-                      }
-                      style={{
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        gap: "8px",
-                        fontSize:
-                          "12px",
-                        color:
-                          "#2b3b75",
-                        fontWeight:
-                          600,
-                        cursor:
-                          "pointer",
-                        padding:
-                          "2px 4px",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={
-                          isChecked
-                        }
-                        onChange={() =>
-                          handleToggle(
-                            option.id
-                          )
-                        }
-                        style={{
-                          accentColor:
-                            "#5c60f5",
-                          cursor:
-                            "pointer",
-                        }}
-                      />
+                    if (isOpen) {
+                        setSearchTerm("");
+                    }
+                }}
+                style={{
+                    height: "38px",
+                    minWidth: "130px",
+                    padding: "0 12px",
+                    borderRadius: "10px",
+                    border:
+                        "1px solid #e0e6ed",
+                    background: "#f4f6fc",
+                    color: "#2b3b75",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent:
+                        "space-between",
+                    cursor: "pointer",
+                    outline: "none",
+                }}
+            >
+                <span
+                    style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        marginRight: "8px",
+                    }}
+                >
+                    {displayLabel}
+                </span>
 
-                      <span
+                <span
+                    style={{
+                        fontSize: "10px",
+                        color: "#2b3b75",
+                    }}
+                >
+                    ▼
+                </span>
+            </button>
+
+            {/* DROPDOWN MENU */}
+
+            {isOpen && (
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        marginTop: "4px",
+                        width: "220px",
+                        background: "#ffffff",
+                        border:
+                            "1px solid #e2e8f0",
+                        borderRadius: "12px",
+                        boxShadow:
+                            "0 10px 25px rgba(0,0,0,0.1)",
+                        zIndex: 1050,
+                        padding: "8px",
+                    }}
+                >
+                    {/* SEARCH */}
+
+                    <div
                         style={{
-                          overflow:
-                            "hidden",
-                          textOverflow:
-                            "ellipsis",
-                          whiteSpace:
-                            "nowrap",
+                            position: "relative",
+                            marginBottom: "8px",
                         }}
-                      >
-                        {
-                          option.name
-                        }
-                      </span>
-                    </label>
-                  );
-                }
-              )
+                    >
+                        <span
+                            style={{
+                                position:
+                                    "absolute",
+                                left: "10px",
+                                top: "50%",
+                                transform:
+                                    "translateY(-50%)",
+                                color: "#94a3b8",
+                                fontSize: "12px",
+                            }}
+                        >
+                            🔍
+                        </span>
+
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={(event) =>
+                                setSearchTerm(
+                                    event.target.value
+                                )
+                            }
+                            style={{
+                                width: "100%",
+                                height: "32px",
+                                paddingLeft: "30px",
+                                paddingRight: "8px",
+                                borderRadius: "6px",
+                                border:
+                                    "1px solid #e2e8f0",
+                                fontSize: "12px",
+                                outline: "none",
+                                boxSizing:
+                                    "border-box",
+                            }}
+                        />
+                    </div>
+
+                    {/* SELECT ALL / CLEAR */}
+
+                    <div
+                        style={{
+                            display: "flex",
+                            justifyContent:
+                                "space-between",
+                            padding:
+                                "4px 4px 8px 4px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                        }}
+                    >
+                        <span
+                            onClick={
+                                handleSelectAll
+                            }
+                            style={{
+                                color: "#2b3b75",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Select All
+                        </span>
+
+                        <span
+                            onClick={handleClear}
+                            style={{
+                                color: "#64748b",
+                                cursor: "pointer",
+                            }}
+                        >
+                            Clear
+                        </span>
+                    </div>
+
+                    {/* OPTIONS */}
+
+                    <div
+                        style={{
+                            maxHeight: "160px",
+                            overflowY: "auto",
+                            display: "flex",
+                            flexDirection:
+                                "column",
+                            gap: "6px",
+                        }}
+                    >
+                        {filteredOptions.length ===
+                        0 ? (
+                            <div
+                                style={{
+                                    fontSize: "12px",
+                                    color: "#94a3b8",
+                                    padding:
+                                        "6px 4px",
+                                }}
+                            >
+                                No options
+                            </div>
+                        ) : (
+                            filteredOptions.map(
+                                (option) => {
+                                    const isChecked =
+                                        normalizedSelectedValues.includes(
+                                            option.id
+                                        );
+
+                                    return (
+                                        <label
+                                            key={
+                                                option.id
+                                            }
+                                            style={{
+                                                display:
+                                                    "flex",
+                                                alignItems:
+                                                    "center",
+                                                gap: "8px",
+                                                fontSize:
+                                                    "12px",
+                                                color:
+                                                    "#2b3b75",
+                                                fontWeight:
+                                                    600,
+                                                cursor:
+                                                    "pointer",
+                                                padding:
+                                                    "2px 4px",
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={
+                                                    isChecked
+                                                }
+                                                onChange={() =>
+                                                    handleToggle(
+                                                        option.id
+                                                    )
+                                                }
+                                                style={{
+                                                    accentColor:
+                                                        "#5c60f5",
+                                                    cursor:
+                                                        "pointer",
+                                                }}
+                                            />
+
+                                            <span
+                                                style={{
+                                                    overflow:
+                                                        "hidden",
+                                                    textOverflow:
+                                                        "ellipsis",
+                                                    whiteSpace:
+                                                        "nowrap",
+                                                }}
+                                            >
+                                                {
+                                                    option.name
+                                                }
+                                            </span>
+                                        </label>
+                                    );
+                                }
+                            )
+                        )}
+                    </div>
+                </div>
             )}
-          </div>
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
 
@@ -2639,15 +2639,13 @@ export default function OperatingAnalysisViewAllModal({
 
   return (
     <>
-      <style>
-        {`
+      <style>{`
         .finsight-modal-backdrop {
           position: fixed;
           inset: 0;
           z-index: 1000;
           background: rgba(15, 23, 42, 0.45);
           backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
           display: flex;
           align-items: flex-start;
           justify-content: center;
@@ -2670,6 +2668,24 @@ export default function OperatingAnalysisViewAllModal({
           margin-top: 0;
           flex-shrink: 0;
         }
+
+                .finsight-detail-backdrop {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 1000;
+                    background:
+                        rgba(15, 23, 42, 0.42);
+                    backdrop-filter:
+                        blur(5px);
+                    -webkit-backdrop-filter:
+                        blur(5px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 28px;
+                    box-sizing: border-box;
+                }
+
 
                 .finsight-detail-modal {
                     width: 100%;
@@ -3739,177 +3755,177 @@ export default function OperatingAnalysisViewAllModal({
         FILTER ROW
     ===================================================== */}
 
-            <div
-              style={{
-                padding: "16px 22px",
-                borderBottom:
-                  "1px solid #f1f5f9",
-                display: "flex",
-                alignItems: "flex-end",
-                flexWrap: "wrap",
-                gap: "12px",
+     <div
+    style={{
+        padding: "16px 22px",
+        borderBottom:
+            "1px solid #f1f5f9",
+        display: "flex",
+        alignItems: "flex-end",
+        flexWrap: "wrap",
+        gap: "12px",
+        background: "#ffffff",
+        flexShrink: 0,
+    }}
+>
+    {/* Year Filter */}
+
+    <MultiSelectDropdown
+        label="Year"
+        options={
+            filterOptions?.years ||
+            filterOptions?.fiscal_years ||
+            []
+        }
+        selectedValues={
+            viewAllFilters.year
+        }
+        onChange={(values) =>
+            setViewAllFilters(
+                (previous) => ({
+                    ...previous,
+                    year: values,
+                })
+            )
+        }
+    />
+
+    {/* Legal Entity Filter */}
+
+    <MultiSelectDropdown
+        label="Legal Entity"
+        options={
+            filterOptions?.legal_entities ||
+            []
+        }
+        selectedValues={
+            viewAllFilters.legal_entity
+        }
+        onChange={(values) =>
+            setViewAllFilters(
+                (previous) => ({
+                    ...previous,
+                    legal_entity: values,
+                })
+            )
+        }
+    />
+
+    {/* Parent Division Filter */}
+
+    <MultiSelectDropdown
+        label="Parent Division"
+        options={
+            filterOptions?.parent_divisions ||
+            []
+        }
+        selectedValues={
+            viewAllFilters.parent_division
+        }
+        onChange={(values) =>
+            setViewAllFilters(
+                (previous) => ({
+                    ...previous,
+                    parent_division: values,
+                })
+            )
+        }
+    />
+
+    {/* Sub-Division Filter */}
+
+    <MultiSelectDropdown
+        label="Sub-Division"
+        options={
+            filterOptions?.subdivisions ||
+            []
+        }
+        selectedValues={
+            viewAllFilters.subdivision
+        }
+        onChange={(values) =>
+            setViewAllFilters(
+                (previous) => ({
+                    ...previous,
+                    subdivision: values,
+                })
+            )
+        }
+    />
+
+    {/* Period Filter */}
+
+    <MultiSelectDropdown
+        label="Period"
+        options={
+            filterOptions?.periods ||
+            []
+        }
+        selectedValues={
+            viewAllFilters.period
+        }
+        onChange={(values) =>
+            setViewAllFilters(
+                (previous) => ({
+                    ...previous,
+                    period: values,
+                })
+            )
+        }
+    />
+
+    {/* Apply / Reset / Export */}
+
+    <div
+        style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginLeft: "auto",
+        }}
+    >
+        <button
+            type="button"
+            onClick={handleApplyViewAllFilters}
+            style={{
+                height: "38px",
+                padding: "0 22px",
+                borderRadius: "10px",
+                border: "none",
+                background: "#5c60f5",
+                color: "#ffffff",
+                fontSize: "13px",
+                fontWeight: 700,
+                cursor: "pointer",
+                outline: "none",
+            }}
+        >
+            Apply
+        </button>
+
+        <button
+            type="button"
+            onClick={handleViewAllReset}
+            style={{
+                height: "38px",
+                padding: "0 18px",
+                borderRadius: "10px",
+                border:
+                    "1px solid #e0e6ed",
                 background: "#ffffff",
-                flexShrink: 0,
-              }}
-            >
-              {/* Year Filter */}
+                color: "#2b3b75",
+                fontSize: "13px",
+                fontWeight: 700,
+                cursor: "pointer",
+                outline: "none",
+            }}
+        >
+            Reset
+        </button>
 
-              <MultiSelectDropdown
-                label="Year"
-                options={
-                  filterOptions?.years ||
-                  filterOptions?.fiscal_years ||
-                  []
-                }
-                selectedValues={
-                  viewAllFilters.year
-                }
-                onChange={(values) =>
-                  setViewAllFilters(
-                    (previous) => ({
-                      ...previous,
-                      year: values,
-                    })
-                  )
-                }
-              />
-
-              {/* Legal Entity Filter */}
-
-              <MultiSelectDropdown
-                label="Legal Entity"
-                options={
-                  filterOptions?.legal_entities ||
-                  []
-                }
-                selectedValues={
-                  viewAllFilters.legal_entity
-                }
-                onChange={(values) =>
-                  setViewAllFilters(
-                    (previous) => ({
-                      ...previous,
-                      legal_entity: values,
-                    })
-                  )
-                }
-              />
-
-              {/* Parent Division Filter */}
-
-              <MultiSelectDropdown
-                label="Parent Division"
-                options={
-                  filterOptions?.parent_divisions ||
-                  []
-                }
-                selectedValues={
-                  viewAllFilters.parent_division
-                }
-                onChange={(values) =>
-                  setViewAllFilters(
-                    (previous) => ({
-                      ...previous,
-                      parent_division: values,
-                    })
-                  )
-                }
-              />
-
-              {/* Sub-Division Filter */}
-
-              <MultiSelectDropdown
-                label="Sub-Division"
-                options={
-                  filterOptions?.subdivisions ||
-                  []
-                }
-                selectedValues={
-                  viewAllFilters.subdivision
-                }
-                onChange={(values) =>
-                  setViewAllFilters(
-                    (previous) => ({
-                      ...previous,
-                      subdivision: values,
-                    })
-                  )
-                }
-              />
-
-              {/* Period Filter */}
-
-              <MultiSelectDropdown
-                label="Period"
-                options={
-                  filterOptions?.periods ||
-                  []
-                }
-                selectedValues={
-                  viewAllFilters.period
-                }
-                onChange={(values) =>
-                  setViewAllFilters(
-                    (previous) => ({
-                      ...previous,
-                      period: values,
-                    })
-                  )
-                }
-              />
-
-              {/* Apply / Reset / Export */}
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  marginLeft: "auto",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleApplyViewAllFilters}
-                  style={{
-                    height: "38px",
-                    padding: "0 22px",
-                    borderRadius: "10px",
-                    border: "none",
-                    background: "#5c60f5",
-                    color: "#ffffff",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    outline: "none",
-                  }}
-                >
-                  Apply
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleViewAllReset}
-                  style={{
-                    height: "38px",
-                    padding: "0 18px",
-                    borderRadius: "10px",
-                    border:
-                      "1px solid #e0e6ed",
-                    background: "#ffffff",
-                    color: "#2b3b75",
-                    fontSize: "13px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    outline: "none",
-                  }}
-                >
-                  Reset
-                </button>
-
-
-              </div>
-            </div>
+        
+    </div>
+</div>
 
 
             {/* =====================================================
