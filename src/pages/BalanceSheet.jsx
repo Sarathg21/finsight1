@@ -804,73 +804,477 @@ const MTH_L = { ...MTH, textAlign: 'left' };
 const MTD   = { padding: '9px 14px', textAlign: 'right', fontSize: '0.74rem', color: '#334155', borderBottom: '1px solid #f1f5f9' };
 const MTD_L = { ...MTD, textAlign: 'left', color: C.navy };
 
-/* Statement View All — full BS in modal */
-function StatementViewAll({ summaryData, currency }) {
-  const [expanded, setExpanded] = useState({});
-  if (!summaryData?.sections?.length)
-    return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
+/* ── Helpers for 3-Column Balance Sheet Statement (matching sample layout) ── */
+const fmtTableCell = (val) => {
+  if (val === null || val === undefined) return '—';
+  const n = Number(val);
+  if (isNaN(n)) return String(val);
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 
-  const toggle = (key) => setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+const fmtTablePct = (val) => {
+  if (val === null || val === undefined) return '—';
+  const n = Number(val);
+  if (isNaN(n)) return '—';
+  return `${n.toFixed(2)}%`;
+};
+
+const getVarColor = (val) => (val != null && Number(val) < 0) ? '#dc2626' : '#334155';
+
+function buildStatementData(summaryData, compareSummaryData) {
+  if (!summaryData?.sections) return null;
+
+  const getSub = (summary, predicate) => {
+    for (const s of (summary?.sections || [])) {
+      for (const sub of (s.sub_sections || [])) {
+        const name = (sub.name || sub.sub_section || '').toUpperCase();
+        if (predicate(name)) return sub;
+      }
+    }
+    return null;
+  };
+
+  const processSub = (curSub, cmpSub, isCreditNormal = false) => {
+    const sign = isCreditNormal ? -1 : 1;
+    const curMap = new Map();
+    const cmpMap = new Map();
+
+    (curSub?.accounts || []).forEach(a => {
+      const code = String(a.account_code || a.account_name);
+      if (!curMap.has(code)) curMap.set(code, { code, name: a.account_name || code, current: 0 });
+      curMap.get(code).current += sign * Number(a.balance_amount || 0);
+    });
+
+    (cmpSub?.accounts || []).forEach(a => {
+      const code = String(a.account_code || a.account_name);
+      if (!cmpMap.has(code)) cmpMap.set(code, { code, name: a.account_name || code, compare: 0 });
+      cmpMap.get(code).compare += sign * Number(a.balance_amount || 0);
+    });
+
+    const allCodes = Array.from(new Set([...curMap.keys(), ...cmpMap.keys()]));
+    const rows = allCodes.map(code => {
+      const curItem = curMap.get(code);
+      const cmpItem = cmpMap.get(code);
+      const name = curItem?.name || cmpItem?.name || code;
+      const current = curItem?.current ?? 0;
+      const compare = cmpItem?.compare ?? 0;
+      const variance = current - compare;
+      const variancePct = compare !== 0 ? (variance / Math.abs(compare)) * 100 : null;
+      return { code, name, current, compare, variance, variancePct };
+    });
+
+    const totalCurrent = rows.reduce((s, r) => s + r.current, 0);
+    const totalCompare = rows.reduce((s, r) => s + r.compare, 0);
+    const totalVariance = totalCurrent - totalCompare;
+    const totalVariancePct = totalCompare !== 0 ? (totalVariance / Math.abs(totalCompare)) * 100 : null;
+
+    return { rows, totalCurrent, totalCompare, totalVariance, totalVariancePct };
+  };
+
+  const currentAssets = processSub(
+    getSub(summaryData, n => !n.includes('NON') && n.includes('ASSET')),
+    getSub(compareSummaryData, n => !n.includes('NON') && n.includes('ASSET')),
+    false
+  );
+  const nonCurrentAssets = processSub(
+    getSub(summaryData, n => n.includes('NON') && n.includes('ASSET')),
+    getSub(compareSummaryData, n => n.includes('NON') && n.includes('ASSET')),
+    false
+  );
+  const currentLiab = processSub(
+    getSub(summaryData, n => !n.includes('NON') && n.includes('LIABILIT')),
+    getSub(compareSummaryData, n => !n.includes('NON') && n.includes('LIABILIT')),
+    true
+  );
+  const nonCurrentLiab = processSub(
+    getSub(summaryData, n => n.includes('NON') && n.includes('LIABILIT')),
+    getSub(compareSummaryData, n => n.includes('NON') && n.includes('LIABILIT')),
+    true
+  );
+  const equity = processSub(
+    getSub(summaryData, n => n.includes('EQUITY')),
+    getSub(compareSummaryData, n => n.includes('EQUITY')),
+    true
+  );
+
+  // Totals
+  const totalAssetsCurrent = currentAssets.totalCurrent + nonCurrentAssets.totalCurrent;
+  const totalAssetsCompare = currentAssets.totalCompare + nonCurrentAssets.totalCompare;
+  const totalAssetsVar = totalAssetsCurrent - totalAssetsCompare;
+  const totalAssetsVarPct = totalAssetsCompare !== 0 ? (totalAssetsVar / Math.abs(totalAssetsCompare)) * 100 : null;
+
+  const totalLiabCurrent = currentLiab.totalCurrent + nonCurrentLiab.totalCurrent;
+  const totalLiabCompare = currentLiab.totalCompare + nonCurrentLiab.totalCompare;
+  const totalLiabVar = totalLiabCurrent - totalLiabCompare;
+  const totalLiabVarPct = totalLiabCompare !== 0 ? (totalLiabVar / Math.abs(totalLiabCompare)) * 100 : null;
+
+  const totalEqLiabCurrent = totalLiabCurrent + equity.totalCurrent;
+  const totalEqLiabCompare = totalLiabCompare + equity.totalCompare;
+  const totalEqLiabVar = totalEqLiabCurrent - totalEqLiabCompare;
+  const totalEqLiabVarPct = totalEqLiabCompare !== 0 ? (totalEqLiabVar / Math.abs(totalEqLiabCompare)) * 100 : null;
+
+  // Equity % of Total Assets
+  const equitySharePct = totalAssetsCurrent > 0 ? ((equity.totalCurrent / totalAssetsCurrent) * 100).toFixed(2) : '0.00';
+  const compareEquitySharePct = totalAssetsCompare > 0 ? ((equity.totalCompare / totalAssetsCompare) * 100).toFixed(2) : '0.00';
+
+  return {
+    currentAssets,
+    nonCurrentAssets,
+    currentLiab,
+    nonCurrentLiab,
+    equity,
+    totalAssets: {
+      current: totalAssetsCurrent,
+      compare: totalAssetsCompare,
+      variance: totalAssetsVar,
+      variancePct: totalAssetsVarPct,
+    },
+    totalLiab: {
+      current: totalLiabCurrent,
+      compare: totalLiabCompare,
+      variance: totalLiabVar,
+      variancePct: totalLiabVarPct,
+    },
+    totalEqLiab: {
+      current: totalEqLiabCurrent,
+      compare: totalEqLiabCompare,
+      variance: totalEqLiabVar,
+      variancePct: totalEqLiabVarPct,
+    },
+    equitySharePct,
+    compareEquitySharePct,
+  };
+}
+
+/* StatementCards — 3-column Balance Sheet Statement layout matching sample */
+function StatementCards({
+  statementData,
+  currency,
+  periodLabel,
+  comparePeriodLabel,
+  hasCompare,
+  onDrilldown,
+  loading,
+}) {
+  if (loading) {
+    return (
+      <div className="bs-statement-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="card" style={{ padding: 18 }}>
+            <Skeleton h={22} w="60%" />
+            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[...Array(6)].map((_, j) => <Skeleton key={j} h={20} />)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (!statementData) return null;
+
+  const STH = {
+    padding: '8px 8px',
+    textAlign: 'right',
+    fontSize: '0.68rem',
+    fontWeight: 700,
+    color: '#1e3a8a',
+    background: '#f8fafc',
+    borderBottom: '1px solid #e2e8f0',
+    whiteSpace: 'nowrap',
+  };
+  const STH_L = { ...STH, textAlign: 'left' };
+
+  const SSH = {
+    padding: '7px 8px',
+    textAlign: 'right',
+    fontSize: '0.71rem',
+    fontWeight: 800,
+    color: '#1e1b4b',
+    background: '#f8fafc',
+    borderTop: '1px solid #e2e8f0',
+    borderBottom: '1px solid #e2e8f0',
+    whiteSpace: 'nowrap',
+  };
+  const SSH_L = { ...SSH, textAlign: 'left' };
+
+  const STD = {
+    padding: '6px 8px',
+    textAlign: 'right',
+    fontSize: '0.72rem',
+    color: '#334155',
+    borderBottom: '1px solid #f8fafc',
+    whiteSpace: 'nowrap',
+  };
+  const STD_L = { ...STD, textAlign: 'left', color: '#1e293b', fontWeight: 500 };
+
+  const STOT = {
+    padding: '9px 8px',
+    textAlign: 'right',
+    fontSize: '0.76rem',
+    fontWeight: 900,
+    color: '#312e81',
+    background: '#f8faff',
+    borderTop: '2px solid #c7d2fe',
+    whiteSpace: 'nowrap',
+  };
+  const STOT_L = { ...STOT, textAlign: 'left' };
+
+  const SGREEN_TOT = {
+    padding: '9px 8px',
+    textAlign: 'right',
+    fontSize: '0.76rem',
+    fontWeight: 900,
+    color: '#15803d',
+    background: '#f0fdf4',
+    borderTop: '2px solid #86efac',
+    whiteSpace: 'nowrap',
+  };
+  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left' };
+
+  const renderHeaders = () => (
+    <thead>
+      <tr>
+        <th style={{ ...STH_L, width: hasCompare ? '34%' : '60%' }}>Particulars</th>
+        <th style={STH}>As on {periodLabel}</th>
+        {hasCompare && (
+          <>
+            <th style={STH}>As on {comparePeriodLabel}</th>
+            <th style={STH}>Variance ({currency})</th>
+            <th style={STH}>Variance (%)</th>
+          </>
+        )}
+      </tr>
+    </thead>
+  );
+
+  const renderSubSection = (title, subData) => (
+    <>
+      <tr style={{ background: '#f8fafc' }}>
+        <td style={SSH_L}>{title}</td>
+        <td style={{ ...SSH, color: '#1e3a8a' }}>{fmtTableCell(subData.totalCurrent)}</td>
+        {hasCompare && (
+          <>
+            <td style={{ ...SSH, color: '#64748b' }}>{fmtTableCell(subData.totalCompare)}</td>
+            <td style={{ ...SSH, color: getVarColor(subData.totalVariance) }}>{fmtTableCell(subData.totalVariance)}</td>
+            <td style={{ ...SSH, color: getVarColor(subData.totalVariancePct) }}>{fmtTablePct(subData.totalVariancePct)}</td>
+          </>
+        )}
+      </tr>
+      {subData.rows.map(row => (
+        <tr
+          key={row.code}
+          onClick={onDrilldown ? () => onDrilldown({ account_code: row.code, account_name: row.name }) : undefined}
+          style={{ cursor: onDrilldown ? 'pointer' : 'default' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          title={onDrilldown ? `Click to view drilldown for ${row.name}` : undefined}
+        >
+          <td style={STD_L}>
+            {row.name}
+          </td>
+          <td style={{ ...STD, fontWeight: 600 }}>{fmtTableCell(row.current)}</td>
+          {hasCompare && (
+            <>
+              <td style={{ ...STD, color: '#64748b' }}>{fmtTableCell(row.compare)}</td>
+              <td style={{ ...STD, color: getVarColor(row.variance), fontWeight: 600 }}>
+                {fmtTableCell(row.variance)}
+              </td>
+              <td style={{ ...STD, color: getVarColor(row.variancePct), fontWeight: 600 }}>
+                {fmtTablePct(row.variancePct)}
+              </td>
+            </>
+          )}
+        </tr>
+      ))}
+    </>
+  );
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-      <thead>
-        <tr>
-          <th style={{ ...MTH_L, width: '36%' }}>Account</th>
-          <th style={MTH}>Balance Amount</th>
-          <th style={{ ...MTH, width: 60 }}>DR/CR</th>
-          <th style={MTH}>Compare Amount</th>
-          <th style={MTH}>Variance</th>
-        </tr>
-      </thead>
-      <tbody>
-        {summaryData.sections.map((sec) => {
-          const secKey = sec.name;
-          const isExpanded = expanded[secKey] !== false; // default expanded
-          return (
-            // FIX C1: keyed Fragment prevents React reconciliation warning in <tbody>
-            <Fragment key={secKey}>
-              <tr
-                onClick={() => toggle(secKey)}
-                style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', cursor: 'pointer', borderBottom: `2px solid ${C.border}` }}
-              >
-                <td colSpan={5} style={{ padding: '10px 14px', fontSize: '0.73rem', fontWeight: 800, color: C.navy }}>
-                  <span style={{ marginRight: 8, fontSize: '0.6rem', display: 'inline-block', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
-                  {secKey}
-                  <span style={{ marginLeft: 8, fontSize: '0.68rem', fontWeight: 600, color: C.slate }}>
-                    ({fmtNum(Math.abs(sec.total), currency)})
-                  </span>
-                </td>
+    <div className="bs-statement-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+      {/* ── CARD 1: ASSETS ── */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy }}>Assets ({currency})</span>
+        </div>
+        <div style={{ flex: 1, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+            {renderHeaders()}
+            <tbody>
+              {renderSubSection('I. CURRENT ASSETS', statementData.currentAssets)}
+              {renderSubSection('II. NON CURRENT ASSETS', statementData.nonCurrentAssets)}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style={STOT_L}>TOTAL ASSETS</td>
+                <td style={STOT}>{fmtTableCell(statementData.totalAssets.current)}</td>
+                {hasCompare && (
+                  <>
+                    <td style={STOT}>{fmtTableCell(statementData.totalAssets.compare)}</td>
+                    <td style={{ ...STOT, color: getVarColor(statementData.totalAssets.variance) }}>{fmtTableCell(statementData.totalAssets.variance)}</td>
+                    <td style={{ ...STOT, color: getVarColor(statementData.totalAssets.variancePct) }}>{fmtTablePct(statementData.totalAssets.variancePct)}</td>
+                  </>
+                )}
               </tr>
-              {isExpanded && sec.sub_sections.map((sub) => (
-                <Fragment key={sub.sub_section}>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <td colSpan={5} style={{ padding: '6px 14px 6px 28px', fontSize: '0.68rem', fontWeight: 700, color: '#3730a3', borderBottom: '1px solid #e2e8f0' }}>
-                      {sub.sub_section}
-                      <span style={{ marginLeft: 8, fontSize: '0.64rem', color: C.slate, fontWeight: 500 }}>
-                        ({fmtNum(Math.abs(sub.total), currency)})
-                      </span>
-                    </td>
-                  </tr>
-                  {sub.accounts.map((acct, ai) => (
-                    <tr key={`${subKey}-${acct.account_code ?? 'account'}-${ai}`} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'} style={{ transition: 'background 0.2s', borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ ...MTD_L, paddingLeft: 42, fontSize: '0.73rem' }}>
-                        <span style={{ color: C.slate, fontSize: '0.65rem', marginRight: 6, fontFamily: 'monospace' }}>{acct.account_code}</span>
-                        {acct.account_name}
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* ── CARD 2: EQUITY & LIABILITIES ── */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy }}>Equity & Liabilities ({currency})</span>
+        </div>
+        <div style={{ flex: 1, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+            {renderHeaders()}
+            <tbody>
+              {renderSubSection('I. CURRENT LIABILITIES', statementData.currentLiab)}
+              {renderSubSection('II. NON CURRENT LIABILITIES', statementData.nonCurrentLiab)}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td style={STOT_L}>TOTAL LIABILITIES</td>
+                <td style={STOT}>{fmtTableCell(statementData.totalLiab.current)}</td>
+                {hasCompare && (
+                  <>
+                    <td style={STOT}>{fmtTableCell(statementData.totalLiab.compare)}</td>
+                    <td style={{ ...STOT, color: getVarColor(statementData.totalLiab.variance) }}>{fmtTableCell(statementData.totalLiab.variance)}</td>
+                    <td style={{ ...STOT, color: getVarColor(statementData.totalLiab.variancePct) }}>{fmtTablePct(statementData.totalLiab.variancePct)}</td>
+                  </>
+                )}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* ── CARD 3: EQUITY ── */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontWeight: 800, fontSize: '0.86rem', color: '#15803d' }}>Equity ({currency})</span>
+        </div>
+        <div style={{ flex: 1, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+            {renderHeaders()}
+            <tbody>
+              {statementData.equity.rows.map(row => (
+                <tr
+                  key={row.code}
+                  onClick={onDrilldown ? () => onDrilldown({ account_code: row.code, account_name: row.name }) : undefined}
+                  style={{ cursor: onDrilldown ? 'pointer' : 'default' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  title={onDrilldown ? `Click to view drilldown for ${row.name}` : undefined}
+                >
+                  <td style={STD_L}>{row.name}</td>
+                  <td style={{ ...STD, fontWeight: 600 }}>{fmtTableCell(row.current)}</td>
+                  {hasCompare && (
+                    <>
+                      <td style={{ ...STD, color: '#64748b' }}>{fmtTableCell(row.compare)}</td>
+                      <td style={{ ...STD, color: getVarColor(row.variance), fontWeight: 600 }}>
+                        {fmtTableCell(row.variance)}
                       </td>
-                      <td style={{ ...MTD, fontWeight: 600 }}>{fmtNum(Math.abs(acct.balance_amount), currency)}</td>
-                      <td style={{ ...MTD, fontSize: '0.65rem', color: acct.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700 }}>{acct.dr_cr}</td>
-                      <td style={MTD}>{acct.compare_amount != null ? fmtNum(Math.abs(acct.compare_amount), currency) : '—'}</td>
-                      <td style={MTD}>{acct.variance != null ? <VarBadge v={acct.variance} /> : '—'}</td>
-                    </tr>
-                  ))}
-                </Fragment>
+                      <td style={{ ...STD, color: getVarColor(row.variancePct), fontWeight: 600 }}>
+                        {fmtTablePct(row.variancePct)}
+                      </td>
+                    </>
+                  )}
+                </tr>
               ))}
-            </Fragment>
-          );
-        })}
-      </tbody>
-    </table>
+              <tr style={{ background: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                <td style={{ ...STD_L, fontWeight: 800, color: C.navy }}>Total Equity</td>
+                <td style={{ ...STD, fontWeight: 800, color: C.navy }}>{fmtTableCell(statementData.equity.totalCurrent)}</td>
+                {hasCompare && (
+                  <>
+                    <td style={{ ...STD, fontWeight: 800, color: '#64748b' }}>{fmtTableCell(statementData.equity.totalCompare)}</td>
+                    <td style={{ ...STD, fontWeight: 800, color: getVarColor(statementData.equity.totalVariance) }}>{fmtTableCell(statementData.equity.totalVariance)}</td>
+                    <td style={{ ...STD, fontWeight: 800, color: getVarColor(statementData.equity.totalVariancePct) }}>{fmtTablePct(statementData.equity.totalVariancePct)}</td>
+                  </>
+                )}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Equity Insight Widget (Green card from sample image) */}
+        <div style={{
+          margin: '12px 14px',
+          background: 'linear-gradient(90deg, #f0fdf4, #ecfdf5)',
+          border: '1px solid #bbf7d0',
+          borderRadius: 12,
+          padding: '10px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%',
+              background: '#dcfce7', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.1rem', flexShrink: 0,
+            }}>
+              🏢
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#15803d' }}>
+                Total Equity represents {statementData.equitySharePct}% of Total Assets
+              </div>
+              {hasCompare && (
+                <div style={{ fontSize: '0.68rem', color: '#16a34a', marginTop: 2 }}>
+                  vs {statementData.compareEquitySharePct}% as on {comparePeriodLabel}
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ color: '#16a34a', fontSize: '1.4rem', fontWeight: 800 }}>
+            ↗
+          </div>
+        </div>
+
+        {/* Bottom Total Row: TOTAL EQUITY & LIABILITIES */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+            <tfoot>
+              <tr>
+                <td style={{ ...SGREEN_TOT_L, width: hasCompare ? '34%' : '60%' }}>TOTAL EQUITY & LIABILITIES</td>
+                <td style={SGREEN_TOT}>{fmtTableCell(statementData.totalEqLiab.current)}</td>
+                {hasCompare && (
+                  <>
+                    <td style={SGREEN_TOT}>{fmtTableCell(statementData.totalEqLiab.compare)}</td>
+                    <td style={{ ...SGREEN_TOT, color: getVarColor(statementData.totalEqLiab.variance) }}>{fmtTableCell(statementData.totalEqLiab.variance)}</td>
+                    <td style={{ ...SGREEN_TOT, color: getVarColor(statementData.totalEqLiab.variancePct) }}>{fmtTablePct(statementData.totalEqLiab.variancePct)}</td>
+                  </>
+                )}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatementViewAll({ summaryData, compareSummaryData, currency, periodLabel, comparePeriodLabel, onDrilldown }) {
+  const statementData = buildStatementData(summaryData, compareSummaryData);
+  if (!statementData) {
+    return <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>;
+  }
+  return (
+    <div style={{ padding: 12 }}>
+      <StatementCards
+        statementData={statementData}
+        currency={currency}
+        periodLabel={periodLabel}
+        comparePeriodLabel={comparePeriodLabel}
+        hasCompare={Boolean(compareSummaryData)}
+        onDrilldown={onDrilldown}
+        loading={false}
+      />
+    </div>
   );
 }
 
@@ -1361,6 +1765,10 @@ export default function BalanceSheet() {
 
   const hasCompareData = Boolean(appliedFilters.comparePeriod && appliedFilters.comparePeriod !== appliedFilters.period && compareSummaryData);
 
+  const statementData = useMemo(() => {
+    return buildStatementData(summaryData, hasCompareData ? compareSummaryData : null);
+  }, [summaryData, compareSummaryData, hasCompareData]);
+
   const movements = useMemo(() => {
     if (!hasCompareData) {
       return {
@@ -1471,7 +1879,7 @@ export default function BalanceSheet() {
         @keyframes bs-fadeIn   { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
         @keyframes bs-menuPop  { from { opacity: 0; transform: scale(0.94) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes bs-modalPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-        @media (max-width: 1200px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 1200px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } .bs-statement-grid { grid-template-columns: 1fr !important; } }
         @media (max-width: 900px) { .bs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
         @media (max-width: 560px) { .bs-kpi-grid { grid-template-columns: 1fr !important; } .bs-chart-grid { grid-template-columns: 1fr !important; } .bs-recon-row { flex-wrap: wrap !important; } }
       `}</style>
@@ -1505,9 +1913,16 @@ export default function BalanceSheet() {
       {/* ══ VIEW ALL MODALS ══ */}
       <ViewAllModal isOpen={openModal === 'statement'} onClose={closeModal}
         title="Balance Sheet Statement"
-        subtitle={`Period: ${periodLabel} | Currency: ${currency}`}
+        subtitle={`Period: ${periodLabel} ${hasCompareData ? `vs ${comparePeriodFormatted}` : ''} | Currency: ${currency}`}
       >
-        <StatementViewAll summaryData={summaryData} currency={currency} />
+        <StatementViewAll
+          summaryData={summaryData}
+          compareSummaryData={hasCompareData ? compareSummaryData : null}
+          currency={currency}
+          periodLabel={periodLabel}
+          comparePeriodLabel={comparePeriodFormatted}
+          onDrilldown={handleDrilldown}
+        />
       </ViewAllModal>
 
       <ViewAllModal isOpen={openModal === 'subdivision'} onClose={closeModal}
@@ -1885,176 +2300,65 @@ export default function BalanceSheet() {
         );
       })()}
 
-      {/* ══ BALANCE SHEET STATEMENT (inline) ══ */}
-      {summaryData?.sections?.length > 0 && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 18 }}>
-          {/* Header */}
-          <div style={{ padding: '12px 18px', borderBottom: `1px solid ${C.border}`, background: 'linear-gradient(90deg,#f8fafc,#fff)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <span style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>Balance Sheet Statement</span>
-              <span style={{ fontSize: '0.7rem', color: C.slate, marginLeft: 12 }}>Period: {periodLabel} | Currency: {currency}</span>
+      {/* == BALANCE SHEET STATEMENT (inline 3-column card layout matching sample) == */}
+      {(loading.summary || summaryData?.sections?.length > 0) && (
+        <div style={{ marginBottom: 20 }}>
+          {/* Header Bar */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 12,
+            padding: '10px 16px',
+            background: '#fff',
+            borderRadius: 12,
+            border: '1px solid #e2e8f0',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontWeight: 800, fontSize: '0.92rem', color: C.navy }}>Balance Sheet Statement</span>
+              <span style={{ fontSize: '0.72rem', color: C.slate }}>
+                Period: {periodLabel} {hasCompareData ? 'vs ' + comparePeriodFormatted : ''} | Currency: {currency}
+              </span>
+              {summaryData?.status && (
+                <span style={{
+                  padding: '2px 8px', borderRadius: 8, fontSize: '0.66rem', fontWeight: 700,
+                  background: summaryData.status === 'BALANCED' ? '#dcfce7' : '#ffedd5',
+                  color: summaryData.status === 'BALANCED' ? '#15803d' : '#c2410c',
+                  border: '1px solid ' + (summaryData.status === 'BALANCED' ? '#bbf7d0' : '#fed7aa'),
+                }}>
+                  {summaryData.status}
+                </span>
+              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {hasExportRight('BALANCE_SHEET') && <ExportButtons endpoint="summary" filters={appliedFilters} />}
-              <button onClick={() => setOpenModal('statement')} style={{ fontSize: '0.7rem', color: C.primary, background: 'none', border: `1px solid ${C.primary}`, borderRadius: 6, padding: '3px 10px', cursor: 'pointer', fontWeight: 600 }}>View All</button>
+              {hasExportRight('BALANCE_SHEET') && <ExportButtons endpoint='summary' filters={appliedFilters} />}
+              <button
+                onClick={() => setOpenModal('statement')}
+                style={{
+                  fontSize: '0.72rem',
+                  color: C.primary,
+                  background: 'none',
+                  border: '1px solid ' + C.primary,
+                  borderRadius: 6,
+                  padding: '4px 12px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                View All
+              </button>
             </div>
           </div>
-          {/* Two-column layout: one card per section */}
-          {loading.summary ? (
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[...Array(6)].map((_, i) => <Skeleton key={i} h={28} w={`${60 + (i % 3) * 12}%`} />)}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
-              {summaryData.sections.map((sec, si) => {
-                const hasCompare = appliedFilters.comparePeriod && sec.compare_total != null;
-                return (
-                  <div key={sec.name} style={{ flex: 1, minWidth: 380, borderRight: si < summaryData.sections.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                    {/* Section title bar */}
-                    <div style={{ padding: '8px 16px', background: '#f0f4ff', borderBottom: `1px solid ${C.border}`, fontWeight: 800, fontSize: '0.74rem', color: C.navy }}>
-                      {sec.name}
-                    </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ ...TH_L, padding: '7px 12px', background: '#f8fafc', fontSize: '0.68rem' }}>Particulars</th>
-                          <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>
-                            {periodLabel || 'Current'}
-                          </th>
-                          {hasCompare && <>
-                            <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>{getPeriodLabel(appliedFilters.comparePeriod)}</th>
-                            <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>Variance</th>
-                            <th style={{ ...TH, padding: '7px 10px', background: '#f8fafc', fontSize: '0.68rem' }}>Var %</th>
-                          </>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(sec.sub_sections || []).map((sub) => {
-                          const subKey = `${si}-${sub.name}`;
-                          const isExpanded = sectionExpanded[subKey] !== false;
-                          const subVariance = sub.compare_total != null ? (sub.total ?? 0) - (sub.compare_total ?? 0) : null;
-                          const subVarPct = sub.compare_total ? (subVariance / Math.abs(sub.compare_total) * 100) : null;
-                          return (
-                            <Fragment key={subKey}>
-                              {/* Sub-section header */}
-                              <tr onClick={() => setSectionExpanded(prev => ({ ...prev, [subKey]: !isExpanded }))}
-                                style={{ cursor: 'pointer', background: '#f8fafc' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#eef2ff'}
-                                onMouseLeave={e => e.currentTarget.style.background = '#f8fafc'}
-                              >
-                                <td style={{ ...TD_L, padding: '6px 12px', fontWeight: 700, color: C.navy, fontSize: '0.71rem' }}>
-                                  <span style={{ marginRight: 5, fontSize: '0.58rem', color: C.slate }}>{isExpanded ? '▼' : '▶'}</span>
-                                  {sub.name}
-                                </td>
-                                <td style={{ ...TD, padding: '6px 10px', fontWeight: 700, color: C.primary }}>{fmtNum(Math.abs(sub.total ?? 0), currency)}</td>
-                                {hasCompare && <>
-                                  <td style={{ ...TD, padding: '6px 10px', color: C.slate }}>{sub.compare_total != null ? fmtNum(Math.abs(sub.compare_total), currency) : '—'}</td>
-                                  <td style={{ ...TD, padding: '6px 10px', color: subVariance != null ? (subVariance >= 0 ? '#16a34a' : C.rose) : C.muted, fontWeight: 600 }}>
-                                    {subVariance != null ? (subVariance >= 0 ? '+' : '') + fmtNum(subVariance, currency) : '—'}
-                                  </td>
-                                  <td style={{ ...TD, padding: '6px 10px', color: subVarPct != null ? (subVarPct >= 0 ? '#16a34a' : C.rose) : C.muted, fontWeight: 600 }}>
-                                    {subVarPct != null ? (subVarPct >= 0 ? '+' : '') + subVarPct.toFixed(2) + '%' : '—'}
-                                  </td>
-                                </>}
-                              </tr>
-                              {/* Account rows (up to 15) */}
-                              {isExpanded && (sub.accounts || []).slice(0, 15).map((acct, ai) => {
-                                const variance = acct.variance ?? (acct.compare_amount != null ? (acct.balance_amount ?? 0) - acct.compare_amount : null);
-                                const varPct = acct.compare_amount ? (variance / Math.abs(acct.compare_amount) * 100) : null;
-                                return (
-                                  <tr key={`${subKey}-${acct.account_code ?? 'account'}-${ai}`}
-                                    onClick={() => handleDrilldown({ account_code: acct.account_code, account_name: acct.account_name })}
-                                    style={{ cursor: 'pointer' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                  >
-                                    <td style={{ ...TD_L, padding: '4px 12px 4px 26px', color: C.slate, fontSize: '0.69rem' }}>
-                                      {acct.account_name}
-                                      <span style={{ marginLeft: 5, fontSize: '0.57rem', color: '#cbd5e1', fontFamily: 'monospace' }}>{acct.account_code}</span>
-                                    </td>
-                                    <td style={{ ...TD, padding: '4px 10px', color: (acct.balance_amount ?? 0) < 0 ? C.rose : C.navy }}>
-                                      {acct.balance_amount < 0 ? '-' : ''}{fmtNum(Math.abs(acct.balance_amount ?? 0), currency)}
-                                    </td>
-                                    {hasCompare && <>
-                                      <td style={{ ...TD, padding: '4px 10px', color: C.slate }}>{acct.compare_amount != null ? fmtNum(Math.abs(acct.compare_amount), currency) : '—'}</td>
-                                      <td style={{ ...TD, padding: '4px 10px', color: variance != null ? (variance >= 0 ? '#16a34a' : C.rose) : C.muted, fontSize: '0.69rem' }}>
-                                        {variance != null ? (variance >= 0 ? '+' : '') + fmtNum(variance, currency) : '—'}
-                                      </td>
-                                      <td style={{ ...TD, padding: '4px 10px', color: varPct != null ? (varPct >= 0 ? '#16a34a' : C.rose) : C.muted, fontSize: '0.69rem' }}>
-                                        {varPct != null ? (varPct >= 0 ? '+' : '') + varPct.toFixed(2) + '%' : '—'}
-                                      </td>
-                                    </>}
-                                  </tr>
-                                );
-                              })}
-                              {isExpanded && (sub.accounts || []).length > 15 && (
-                                <tr>
-                                  <td colSpan={hasCompare ? 5 : 2} style={{ padding: '3px 26px', fontSize: '0.67rem', color: C.primary, cursor: 'pointer' }} onClick={() => setOpenModal('statement')}>
-                                    +{sub.accounts.length - 15} more — View All →
-                                  </td>
-                                </tr>
-                              )}
-                              {/* Equity insight card after EQUITY sub-section */}
-                              {isExpanded && sub.name.toUpperCase().includes('EQUITY') && kpiTotals.totalAssets > 0 && (
-                                <tr>
-                                  <td colSpan={hasCompare ? 5 : 2} style={{ padding: '8px 12px' }}>
-                                    <div style={{ background: 'linear-gradient(90deg,#f0fdf4,#ecfdf5)', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                                      <div style={{ fontSize: '1.4rem' }}>🏢</div>
-                                      <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 700, fontSize: '0.78rem', color: '#15803d' }}>
-                                          Total Equity represents {(kpiTotals.totalAssets ? ((kpiTotals.totalEquity / kpiTotals.totalAssets) * 100) : 0).toFixed(2)}% of Total Assets
-                                        </div>
-                                        {appliedFilters.comparePeriod && (
-                                          <div style={{ fontSize: '0.66rem', color: '#16a34a', marginTop: 2 }}>
-                                            vs {getPeriodLabel(appliedFilters.comparePeriod)}
-                                          </div>
-                                        )}
-                                      </div>
-                                      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </Fragment>
-                          );
-                        })}
-                        {/* Section Total */}
-                        <tr style={{ background: 'linear-gradient(90deg,#eef2ff,#f8fafc)', borderTop: `2px solid ${C.border}` }}>
-                          <td style={{ ...TD_L, padding: '8px 12px', fontWeight: 900, fontSize: '0.74rem', color: C.navy }}>TOTAL {sec.name}</td>
-                          <td style={{ ...TD, padding: '8px 10px', fontWeight: 900, color: C.primary, fontSize: '0.75rem' }}>{fmtNum(Math.abs(sec.total ?? 0), currency)}</td>
-                          {hasCompare && <>
-                            <td style={{ ...TD, padding: '8px 10px', fontWeight: 700, color: C.slate }}>{sec.compare_total != null ? fmtNum(Math.abs(sec.compare_total), currency) : '—'}</td>
-                            <td style={{ ...TD, padding: '8px 10px', fontWeight: 700, color: '#16a34a' }}>
-                              {sec.compare_total != null ? (((sec.total ?? 0) - sec.compare_total) >= 0 ? '+' : '') + fmtNum((sec.total ?? 0) - sec.compare_total, currency) : '—'}
-                            </td>
-                            <td style={{ ...TD, padding: '8px 10px', fontWeight: 700, color: '#16a34a' }}>
-                              {sec.compare_total ? (((sec.total ?? 0) - sec.compare_total) / Math.abs(sec.compare_total) * 100).toFixed(2) + '%' : '—'}
-                            </td>
-                          </>}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {/* Grand Total bar */}
-          {!loading.summary && summaryData && (
-            <div style={{ padding: '10px 18px', borderTop: `2px solid #c7d2fe`, background: 'linear-gradient(90deg,#f0f4ff,#eef2ff)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 900, fontSize: '0.78rem', color: C.navy }}>GRAND TOTAL (Net Variance)</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontWeight: 900, fontSize: '0.78rem', color: Math.abs(summaryData.grand_total ?? 0) < 1000 ? '#16a34a' : C.rose }}>
-                  {fmtNum(Math.abs(summaryData.grand_total ?? 0), currency)}
-                </span>
-                {summaryData.status && (
-                  <span style={{ padding: '2px 10px', borderRadius: 10, fontSize: '0.66rem', fontWeight: 700, background: summaryData.status === 'BALANCED' ? '#dcfce7' : '#ffedd5', color: summaryData.status === 'BALANCED' ? '#15803d' : '#c2410c', border: `1px solid ${summaryData.status === 'BALANCED' ? '#bbf7d0' : '#fed7aa'}` }}>
-                    {summaryData.status}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+
+          <StatementCards
+            statementData={statementData}
+            currency={currency}
+            periodLabel={periodLabel}
+            comparePeriodLabel={comparePeriodFormatted}
+            hasCompare={Boolean(hasCompareData)}
+            onDrilldown={handleDrilldown}
+            loading={loading.summary || (Boolean(appliedFilters.comparePeriod) && loading.compareSummary)}
+          />
         </div>
       )}
 
