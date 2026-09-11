@@ -1146,6 +1146,7 @@
 
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -1429,32 +1430,50 @@ function ModalCloseButton({ onClick }) {
 }
 
 function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
+  const bodyRef = useRef(null);
+  const overlayRef = useRef(null);
+
   useEffect(() => {
     if (!isOpen) return;
     const esc = (e) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', esc);
-    return () => document.removeEventListener('keydown', esc);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    if (overlayRef.current) overlayRef.current.scrollTop = 0;
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+
+    return () => {
+      document.removeEventListener('keydown', esc);
+      document.body.style.overflow = prevOverflow;
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div
+      ref={overlayRef}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, animation: 'fadeIn 0.18s ease',
+        background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '20px 16px 28px',
+        overflowY: 'auto',
+        zIndex: 99999, animation: 'fadeIn 0.18s ease',
       }}
     >
       <div style={{
         background: '#fff', borderRadius: 16,
         width: '94%', maxWidth: 1000,
-        maxHeight: '88vh', display: 'flex', flexDirection: 'column',
-        boxShadow: '0 24px 48px rgba(0,0,0,0.16)',
+        maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 48px rgba(0,0,0,0.18)',
         animation: 'modalPop 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards',
         overflow: 'hidden', border: '1px solid #e2e8f0',
+        marginTop: 0, flexShrink: 0,
       }}>
         {/* Modal Header */}
         <div style={{
@@ -1477,17 +1496,19 @@ function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
             }}
             onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
             onMouseLeave={e => e.currentTarget.style.background = 'none'}
-            title="Close"
+            title="Close (Esc)"
           >✕</button>
         </div>
 
         {/* Modal Body */}
-        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+        <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           {children}
         </div>
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 /* ── Variance Cell ────────────────────────────────────────────── */
