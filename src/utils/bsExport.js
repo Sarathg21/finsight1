@@ -438,3 +438,86 @@ export function exportStatementToPDF(statementData, currency = 'AED', metadata =
 
   doc.save(`Balance_Sheet_Statement_${currency}_${curPeriod}.pdf`);
 }
+
+export function exportSubDivisionToExcel(subdivData, currency = 'AED', metadata = {}) {
+  const rows = Array.isArray(subdivData) ? subdivData : (subdivData?.data || []);
+  if (!rows || !rows.length) return;
+
+  const curPeriod = metadata.period || 'Current';
+
+  const wsData = [
+    ['FinSight — Balance Sheet by Sub-Division'],
+    ['Period: ' + curPeriod, 'Currency: ' + currency],
+    ['Generated: ' + new Date().toLocaleString()],
+    [],
+    ['Sub-Division Name', 'Sub-Division Code', 'Legal Entity', 'Parent Division', `Net Balance (${currency})`],
+    ...rows.map(r => [
+      r.sub_division_name || '—',
+      r.sub_division_code || '—',
+      r.legal_entity_name || '—',
+      r.parent_division_name || '—',
+      r.grand_total ?? r.balance_amount ?? 0,
+    ])
+  ];
+
+  const total = rows.reduce((sum, r) => sum + (Number(r.grand_total ?? r.balance_amount ?? 0) || 0), 0);
+  wsData.push([]);
+  wsData.push(['TOTAL', '', '', '', total]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 32 }, { wch: 18 }, { wch: 28 }, { wch: 24 }, { wch: 22 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'BS_Subdivision');
+  XLSX.writeFile(wb, `Balance_Sheet_SubDivision_${currency}_${curPeriod}.xlsx`);
+}
+
+export function exportSubDivisionToPDF(subdivData, currency = 'AED', metadata = {}) {
+  const rows = Array.isArray(subdivData) ? subdivData : (subdivData?.data || []);
+  if (!rows || !rows.length) return;
+
+  const curPeriod = metadata.period || 'Current';
+  const doc = new jsPDF({ orientation: 'portrait' });
+
+  doc.setFontSize(14);
+  doc.text('FinSight — Balance Sheet by Sub-Division', 14, 15);
+  doc.setFontSize(9);
+  doc.text(
+    `Period: ${curPeriod} | Currency: ${currency} | Total Sub-Divisions: ${rows.length} | Generated: ${new Date().toLocaleDateString()}`,
+    14, 22
+  );
+
+  const fmt = n => n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
+  const tableHead = [['Sub-Division Name', 'Code', 'Legal Entity', 'Parent Division', `Net Balance (${currency})`]];
+  const tableBody = rows.map(r => [
+    r.sub_division_name || '—',
+    r.sub_division_code || '—',
+    r.legal_entity_name || '—',
+    r.parent_division_name || '—',
+    fmt(r.grand_total ?? r.balance_amount ?? 0),
+  ]);
+
+  const total = rows.reduce((sum, r) => sum + (Number(r.grand_total ?? r.balance_amount ?? 0) || 0), 0);
+  tableBody.push([
+    { content: 'TOTAL', colSpan: 4, styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } },
+    { content: fmt(total), styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }
+  ]);
+
+  autoTable(doc, {
+    startY: 28,
+    head: tableHead,
+    body: tableBody,
+    theme: 'striped',
+    headStyles: { fillColor: [30, 58, 138] },
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    columnStyles: {
+      0: { cellWidth: 44 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 38 },
+      4: { halign: 'right' },
+    }
+  });
+
+  doc.save(`Balance_Sheet_SubDivision_${currency}_${curPeriod}.pdf`);
+}
