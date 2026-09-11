@@ -6694,16 +6694,17 @@ export default function OperatingAnalysisViewAllModal({
           background: rgba(15, 23, 42, 0.45);
           backdrop-filter: blur(4px);
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: center;
-          padding: 24px;
+          padding: 20px 16px 28px;
+          overflow-y: auto;
           box-sizing: border-box;
         }
 
         .finsight-modal-container {
           width: 100%;
           max-width: 1300px;
-          max-height: 88vh;
+          max-height: calc(100vh - 40px);
           background: #ffffff;
           border-radius: 12px;
           display: flex;
@@ -6711,6 +6712,8 @@ export default function OperatingAnalysisViewAllModal({
           box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
           overflow: hidden;
           border: 1px solid #e2e8f0;
+          margin-top: 0;
+          flex-shrink: 0;
         }
 
         .finsight-modal-header {
