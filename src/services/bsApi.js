@@ -198,15 +198,17 @@ export function exportBS(format = 'excel', section = 'summary', filters = {}) {
  * @returns {{ periods, currencies, legal_entities, ledgers, sections, sub_sections }}
  */
 export async function fetchBSFilters(params = {}) {
-  const apiParams = {};
+  const apiParams = {
+    ...buildBSParams(params),
+  };
   if (params.analysisCode) apiParams.analysis_code = params.analysisCode;
 
   let raw;
   try {
-    raw = await apiCall('/api/bs/filters', apiParams);
+    raw = await apiCall('/api/bs/filter-options', apiParams);
   } catch (err) {
     if (err?.status === 404) {
-      raw = await apiCall('/api/bs/filter-options', apiParams);
+      raw = await apiCall('/api/bs/filters', apiParams);
     } else {
       throw err;
     }

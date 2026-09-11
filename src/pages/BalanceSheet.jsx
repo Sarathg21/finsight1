@@ -87,6 +87,128 @@ const fmtAxisNum = (v) => {
 const fmtPct = (v) =>
   v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
 
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const formatPeriod = (val) => {
+  if (!val) return '—';
+  if (typeof val === 'object') return val.period_name || val.period || '—';
+  const m = String(val).match(/^(\d{4})-(\d{2})$/);
+  if (m) {
+    const monthIdx = parseInt(m[2], 10) - 1;
+    const yearShort = m[1].slice(-2);
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${MONTH_NAMES[monthIdx]}-${yearShort}`;
+    }
+  }
+  return String(val);
+};
+
+const calcMovement = (cur, cmp) => {
+  if (cur === null || cur === undefined || cmp === null || cmp === undefined) return null;
+  const c = Number(cur);
+  const p = Number(cmp);
+  if (isNaN(c) || isNaN(p) || p === 0) return null;
+  return ((c - p) / Math.abs(p)) * 100;
+};
+
+const extractBSMetrics = (summary) => {
+  if (!summary?.sections) {
+    return {
+      totalAssets: 0,
+      totalLiabilities: 0,
+      totalEquity: 0,
+      nonCurrentLiab: 0,
+      currentLiab: 0,
+      longTermBorrowings: 0,
+      shortTermBorrowings: 0,
+      totalDebt: 0,
+      debtToEquity: null,
+      liabilityToEquity: null,
+      balanceStatus: summary?.status || null,
+      balanceVariance: summary?.grand_total ?? null,
+    };
+  }
+
+  let totalAssets = 0;
+  let nonCurrentLiab = 0;
+  let currentLiab = 0;
+  let totalEquity = 0;
+  let longTermBorrowings = 0;
+  let shortTermBorrowings = 0;
+
+  summary.sections.forEach(sec => {
+    const secName = (sec.name || '').toUpperCase();
+    if (secName.includes('APPLICATION OF FUNDS')) {
+      totalAssets = Math.abs(sec.total ?? 0);
+    }
+
+    (sec.sub_sections || []).forEach(sub => {
+      const subName = (sub.name || sub.sub_section || '').toUpperCase();
+      const subTotal = Math.abs(sub.total ?? sub.sub_total ?? 0);
+
+      if (subName.includes('EQUITY')) {
+        totalEquity = subTotal;
+      } else if (subName.includes('NON CURRENT LIABILITIES') || subName.includes('NON-CURRENT LIABILITIES')) {
+        nonCurrentLiab = subTotal;
+      } else if (subName.includes('CURRENT LIABILITIES')) {
+        currentLiab = subTotal;
+      }
+
+      // Check accounts for bank borrowings:
+      // Code 920001 = Long Term Loans / Long-term Bank Borrowings
+      // Code 920004 = Short Term Loans / Short-term Bank Borrowings
+      (sub.accounts || []).forEach(acct => {
+        const code = String(acct.account_code || '');
+        const name = (acct.account_name || '').toUpperCase();
+        const amt = Math.abs(acct.balance_amount ?? 0);
+
+        if (code === '920001' || (name.includes('LONG TERM') && (name.includes('LOAN') || name.includes('BORROW')))) {
+          longTermBorrowings += amt;
+        } else if (code === '920004' || (name.includes('SHORT TERM') && (name.includes('LOAN') || name.includes('BORROW')))) {
+          shortTermBorrowings += amt;
+        }
+      });
+    });
+  });
+
+  // Total Liabilities = Non-current Liabilities + Current Liabilities
+  let totalLiabilities = nonCurrentLiab + currentLiab;
+
+  // Fallbacks if sub-sections were not split
+  if (totalLiabilities === 0 && totalEquity > 0) {
+    const sourcesSec = summary.sections.find(s => (s.name || '').toUpperCase().includes('SOURCES OF FUNDS'));
+    if (sourcesSec?.total) {
+      totalLiabilities = Math.max(0, Math.abs(sourcesSec.total) - totalEquity);
+    }
+  }
+
+  if (totalAssets === 0 && (totalLiabilities > 0 || totalEquity > 0)) {
+    totalAssets = totalLiabilities + totalEquity;
+  }
+
+  const totalDebt = longTermBorrowings + shortTermBorrowings;
+
+  // Debt-to-Equity Ratio = (Long-term Bank Borrowings + Short-term Bank Borrowings) / Total Equity
+  const debtToEquity = totalEquity > 0 ? (totalDebt / totalEquity) : null;
+
+  // Liability-to-Equity Ratio = Total Liabilities / Total Equity
+  const liabilityToEquity = totalEquity > 0 ? (totalLiabilities / totalEquity) : null;
+
+  return {
+    totalAssets,
+    totalLiabilities,
+    totalEquity,
+    nonCurrentLiab,
+    currentLiab,
+    longTermBorrowings,
+    shortTermBorrowings,
+    totalDebt,
+    debtToEquity,
+    liabilityToEquity,
+    balanceStatus: summary.status,
+    balanceVariance: summary.grand_total,
+  };
+};
+
 /* ══════════════════════════════════════════════════════════════════════
    HELPER COMPONENTS  (mirror PLAnalytics.jsx)
 ══════════════════════════════════════════════════════════════════════ */
@@ -1017,18 +1139,6 @@ function ExportButtons({ endpoint, filters, size = 'sm' }) {
 export default function BalanceSheet() {
   const { hasExportRight } = useAuth();
 
-  // Format YYYY-MM to MMM-YY for display
-  const formatPeriod = (p) => {
-    if (!p) return '';
-    if (/^\d{4}-\d{2}$/.test(p)) {
-      const parts = p.split('-');
-      const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
-      return date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }).replace(' ', '-');
-    }
-    return p;
-  };
-
-
   /* ── Filter state ──────────────────────────────────────────────── */
   const [filters,        setFilters]        = useState(DEFAULT_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState(DEFAULT_FILTERS);
@@ -1037,12 +1147,16 @@ export default function BalanceSheet() {
   const [filterOptions, setFilterOptions] = useState({
     periods:        [],
     currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-    legalGroups: ['All'], legalEntities: ['All'], parentDivisions: ['All'], subdivisions: ['All'],
+    legalGroups:    ['All'],
+    legalEntities:  ['All'],
+    parentDivisions:['All'],
+    subdivisions:   ['All'],
     ledgers:        ['All'],
   });
 
   /* ── Data state ────────────────────────────────────────────────── */
   const [summaryData,        setSummaryData]        = useState(null);
+  const [compareSummaryData, setCompareSummaryData] = useState(null);
   const [subdivisionData,    setSubdivisionData]    = useState(null);
   const [trendData,          setTrendData]          = useState(null);
   const [reconciliationRows, setReconciliationRows] = useState([]);
@@ -1058,8 +1172,12 @@ export default function BalanceSheet() {
 
   /* ── Loading & Error ───────────────────────────────────────────── */
   const [loading, setLoading] = useState({
-    filters: true, summary: false, subdivision: false,
-    trend: false, reconciliation: false,
+    filters: true,
+    summary: false,
+    compareSummary: false,
+    subdivision: false,
+    trend: false,
+    reconciliation: false,
   });
   const [errors, setErrors] = useState({});
 
@@ -1089,25 +1207,24 @@ export default function BalanceSheet() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exporting, appliedFilters, showToast]);
 
-  /* ── Load filter options ───────────────────────────────────────── */
-  const loadFilterOptions = useCallback(async () => {
+  /* ── Load filter options (supports cascading) ─────────────────── */
+  const loadFilterOptions = useCallback(async (currentFilters = {}) => {
     setLoading(prev => ({ ...prev, filters: true }));
     try {
-      const data = await fetchBSFilters();
+      const data = await fetchBSFilters(currentFilters);
       const periods = data?.periods || [];
-        const periodVals = periods.map(p => typeof p === 'object' ? p.period : p);
       setFilterOptions(prev => ({
         ...prev,
-        periods,
-        currencies:    ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
-        legalGroups: data?.legal_groups || [],
-          legalEntities: data?.legal_entities || [],
-          parentDivisions: data?.parent_divisions || [],
-          subdivisions: data?.subdivisions || [],
-        ledgers:       ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
+        periods: periods.length ? periods : prev.periods,
+        currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
+        legalGroups:    data?.legal_groups || prev.legalGroups || [],
+        legalEntities:  data?.legal_entities || [],
+        parentDivisions:data?.parent_divisions || [],
+        subdivisions:   data?.subdivisions || [],
+        ledgers:        ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
-      // Auto-select first period
-      if (periods.length) {
+      // Auto-select first period on initial load
+      if (periods.length && !currentFilters.isCascade) {
         const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
         const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
         setFilters(f        => ({ ...f, period: f.period || first, comparePeriod: f.comparePeriod || second }));
@@ -1121,17 +1238,45 @@ export default function BalanceSheet() {
     }
   }, []);
 
-  /* ── Initial filter load ───────────────────────────────────────── */
+  /* ── Cascading filter options on hierarchy change ──────────────── */
+  const hierarchyKey = useMemo(
+    () => JSON.stringify({
+      lg: filters.legalGroup,
+      le: filters.legalEntity,
+      pd: filters.parentDivision,
+    }),
+    [filters.legalGroup, filters.legalEntity, filters.parentDivision]
+  );
+
+  const isInitialMount = useRef(true);
   useEffect(() => {
-    loadFilterOptions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      loadFilterOptions();
+      return;
+    }
+    loadFilterOptions({
+      legalGroup: filters.legalGroup,
+      legalEntity: filters.legalEntity,
+      parentDivision: filters.parentDivision,
+      isCascade: true,
+    });
+  }, [hierarchyKey, loadFilterOptions]);
 
   /* ── Fetch all data ────────────────────────────────────────────── */
   const fetchAll = useCallback((f) => {
     if (!f.period || !f.currency) return;
 
-    setLoading({ filters: false, summary: true, subdivision: true, trend: true, reconciliation: true });
+    const hasCompare = Boolean(f.comparePeriod && f.comparePeriod !== f.period);
+
+    setLoading({
+      filters: false,
+      summary: true,
+      compareSummary: hasCompare,
+      subdivision: true,
+      trend: true,
+      reconciliation: true,
+    });
     setErrors({});
 
     const guard = (key, promise) =>
@@ -1140,6 +1285,15 @@ export default function BalanceSheet() {
         .finally(() => setLoading(prev => ({ ...prev, [key]: false })));
 
     guard('summary', fetchBSSummary(f)).then(d => { if (d) setSummaryData(d); });
+
+    if (hasCompare) {
+      guard('compareSummary', fetchBSSummary({ ...f, period: f.comparePeriod })).then(d => {
+        setCompareSummaryData(d || null);
+      });
+    } else {
+      setCompareSummaryData(null);
+    }
+
     guard('subdivision', fetchBSSubDivision(f)).then(d => { if (d) setSubdivisionData(d); });
     guard('trend', fetchBSTrend(f)).then(d => { if (d) setTrendData(d); });
     guard('reconciliation', fetchBSReconciliation({ currency: f.currency })).then(d => {
@@ -1193,34 +1347,38 @@ export default function BalanceSheet() {
   /* ── Derived values ────────────────────────────────────────────── */
   const currency    = appliedFilters.currency || 'AED';
   const getPeriodLabel = (val) => {
-      const p = filterOptions.periods.find(x => (typeof x === 'object' ? x.period : x) === val);
-      return typeof p === 'object' ? p.period_name : (p || val);
-    };
-  const compareLbl  = appliedFilters.comparePeriod ? `vs ${getPeriodLabel(appliedFilters.comparePeriod)}` : '';
-    const periodLabel = getPeriodLabel(appliedFilters.period) || '—';
+    const p = filterOptions.periods.find(x => (typeof x === 'object' ? x.period : x) === val);
+    return typeof p === 'object' ? p.period_name : (formatPeriod(p || val) || val);
+  };
+  const periodLabel = getPeriodLabel(appliedFilters.period) || '—';
+  const comparePeriodFormatted = appliedFilters.comparePeriod ? getPeriodLabel(appliedFilters.comparePeriod) : '';
+  const compareLbl  = comparePeriodFormatted ? `vs ${comparePeriodFormatted}` : '';
 
-  // Derive KPI values from summary sections
-  const kpiTotals = (() => {
-    if (!summaryData?.sections) return {};
-    let sources = 0, applications = 0;
-    summaryData.sections.forEach(sec => {
-      if (sec.name === 'SOURCES OF FUNDS')    sources       = sec.total ?? 0;
-      if (sec.name === 'APPLICATION OF FUNDS') applications  = sec.total ?? 0;
-    });
-    const equity = Math.abs(
-      summaryData.sections
-        .find(s => s.name === 'SOURCES OF FUNDS')
-        ?.sub_sections?.find(ss => ss.name === 'A. EQUITY')
-        ?.sub_total ?? 0
-    );
+  // Current & Compare metrics extraction
+  const currentMetrics = useMemo(() => extractBSMetrics(summaryData), [summaryData]);
+  const compareMetrics = useMemo(() => extractBSMetrics(compareSummaryData), [compareSummaryData]);
+  const kpiTotals = currentMetrics; // preserve compatibility with statement view & inline insights
+
+  const hasCompareData = Boolean(appliedFilters.comparePeriod && appliedFilters.comparePeriod !== appliedFilters.period && compareSummaryData);
+
+  const movements = useMemo(() => {
+    if (!hasCompareData) {
+      return {
+        assets: null,
+        liabilities: null,
+        equity: null,
+        debtToEquity: null,
+        liabilityToEquity: null,
+      };
+    }
     return {
-      totalAssets:       Math.abs(applications),
-      totalLiabilities:  Math.abs(sources) - equity,
-      totalEquity:       equity,
-      balanceStatus:     summaryData.status,
-      balanceVariance:   summaryData.grand_total,
+      assets:            calcMovement(currentMetrics.totalAssets, compareMetrics.totalAssets),
+      liabilities:       calcMovement(currentMetrics.totalLiabilities, compareMetrics.totalLiabilities),
+      equity:            calcMovement(currentMetrics.totalEquity, compareMetrics.totalEquity),
+      debtToEquity:      calcMovement(currentMetrics.debtToEquity, compareMetrics.debtToEquity),
+      liabilityToEquity: calcMovement(currentMetrics.liabilityToEquity, compareMetrics.liabilityToEquity),
     };
-  })();
+  }, [hasCompareData, currentMetrics, compareMetrics]);
 
   /* ── Trend chart data ──────────────────────────────────────────── */
   const _rawTrendData = Array.isArray(trendData) ? trendData : (trendData?.series || trendData?.data || []);
@@ -1248,14 +1406,14 @@ export default function BalanceSheet() {
   const trendMenuItems  = useMemo(() => [{ icon: '🔎', label: 'View All', action: () => setOpenModal('trend') }], []);
   const reconMenuItems  = useMemo(() => [{ icon: '🔎', label: 'View All', action: () => setOpenModal('reconciliation') }], []);
 
-  /* ── KPI Card definitions ──────────────────────────────────────── */
+  /* ── KPI Card definitions (CFO UAT-1 Revisions) ────────────────── */
   const kpiCards = [
     {
       id: 'total-assets',
       label: 'Total Assets',
-      value: loading.summary ? '—' : fmtKPI(kpiTotals.totalAssets, currency),
+      value: loading.summary ? '—' : fmtKPI(currentMetrics.totalAssets, currency),
       subValue: periodLabel,
-      changePct: null,
+      changePct: movements.assets,
       compareLabel: compareLbl,
       color: '#2563eb', iconBg: '#eff6ff',
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>,
@@ -1263,57 +1421,42 @@ export default function BalanceSheet() {
     {
       id: 'total-liabilities',
       label: 'Total Liabilities',
-      value: loading.summary ? '—' : fmtKPI(kpiTotals.totalLiabilities, currency),
+      value: loading.summary ? '—' : fmtKPI(currentMetrics.totalLiabilities, currency),
       subValue: periodLabel,
-      changePct: null,
+      changePct: movements.liabilities,
       compareLabel: compareLbl,
-      color: '#f59e0b', iconBg: '#fffbeb',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z" fillOpacity="0.5"/><path d="M6 4h12v4H6z"/><circle cx="12" cy="14" r="2" fill="#fff"/></svg>,
+      color: '#ea580c', iconBg: '#fff7ed',
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
     },
     {
       id: 'total-equity',
       label: 'Total Equity',
-      value: loading.summary ? '—' : fmtKPI(kpiTotals.totalEquity, currency),
+      value: loading.summary ? '—' : fmtKPI(currentMetrics.totalEquity, currency),
       subValue: periodLabel,
-      changePct: null,
+      changePct: movements.equity,
       compareLabel: compareLbl,
       color: '#9333ea', iconBg: '#faf5ff',
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/></svg>,
     },
     {
-      id: 'balance-status',
-      label: 'Balance Status',
-      value: loading.summary ? '—' : (kpiTotals.balanceStatus || '—'),
-      subValue: kpiTotals.balanceStatus === 'UNBALANCED'
-        ? `Oracle Diff: ${fmtKPI(kpiTotals.balanceVariance, currency)}`
-        : 'Books are balanced',
-      changePct: null,
-      compareLabel: null,
-      color: kpiTotals.balanceStatus === 'BALANCED' ? '#16a34a' : '#ea580c',
-      iconBg: kpiTotals.balanceStatus === 'BALANCED' ? '#f0fdf4' : '#fff7ed',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22V12"/><path d="m5 9 7-7 7 7"/><path d="M5 15a2 2 0 0 0 4 0c0-1.5-1-2-2-3-1 1-2 1.5-2 3Z"/><path d="M15 21a2 2 0 0 0 4 0c0-1.5-1-2-2-3-1 1-2 1.5-2 3Z"/></svg>,
+      id: 'debt-to-equity',
+      label: 'Debt-to-Equity Ratio',
+      value: loading.summary ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)}x` : '—'),
+      subValue: loading.summary ? null : (currentMetrics.totalDebt > 0 ? `Debt: ${fmtKPI(currentMetrics.totalDebt, currency)}` : 'Bank Debt: 0'),
+      changePct: movements.debtToEquity,
+      compareLabel: compareLbl,
+      color: '#0284c7', iconBg: '#f0f9ff',
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><line x1="12" y1="6" x2="12" y2="8"/><line x1="12" y1="16" x2="12" y2="18"/></svg>,
     },
     {
-      id: 'total-periods',
-      label: 'Trend Periods',
-      value: loading.trend ? '—' : String(Array.isArray(trendData) ? trendData.length : '—'),
-      subValue: trendData?.summary
-        ? `${trendData.summary.from_period || ''} — ${trendData.summary.to_period || ''}`
-        : null,
-      changePct: null,
-      compareLabel: null,
+      id: 'liability-to-equity',
+      label: 'Liability-to-Equity Ratio',
+      value: loading.summary ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)}x` : '—'),
+      subValue: loading.summary ? null : `Liab: ${fmtKPI(currentMetrics.totalLiabilities, currency)}`,
+      changePct: movements.liabilityToEquity,
+      compareLabel: compareLbl,
       color: '#0d9488', iconBg: '#f0fdfa',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>,
-    },
-    {
-      id: 'subdivisions',
-      label: 'Sub-Divisions',
-      value: loading.subdivision ? '—' : String(subdivisionData?.pagination?.total_subdivisions ?? subdivRows.length),
-      subValue: 'Contributing entities',
-      changePct: null,
-      compareLabel: null,
-      color: '#db2777', iconBg: '#fdf2f8',
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="6" height="14"/><rect x="9" y="3" width="6" height="18"/><rect x="16" y="10" width="6" height="11"/></svg>,
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>,
     },
   ];
 
@@ -1328,8 +1471,9 @@ export default function BalanceSheet() {
         @keyframes bs-fadeIn   { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
         @keyframes bs-menuPop  { from { opacity: 0; transform: scale(0.94) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes bs-modalPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-        @media (max-width: 900px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
-        @media (max-width: 560px) { .bs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } .bs-chart-grid { grid-template-columns: 1fr !important; } .bs-recon-row { flex-wrap: wrap !important; } }
+        @media (max-width: 1200px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 900px) { .bs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 560px) { .bs-kpi-grid { grid-template-columns: 1fr !important; } .bs-chart-grid { grid-template-columns: 1fr !important; } .bs-recon-row { flex-wrap: wrap !important; } }
       `}</style>
 
       {/* FIX C4: visible amber banner when backend is unavailable and mock data is active */}
@@ -1396,16 +1540,6 @@ export default function BalanceSheet() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Currency selector */}
-          <select
-            id="bs-currency"
-            value={filters.currency}
-            onChange={e => setFilters(prev => ({ ...prev, currency: e.target.value }))}
-            style={{ ...selStyle, width: 80, fontSize: '0.74rem', padding: '7px 22px 7px 8px' }}
-            title="Select currency"
-          >
-            {filterOptions.currencies.map(c => <option key={c}>{c}</option>)}
-          </select>
           {/* Export buttons */}
           <button
             id="btn-bs-export-excel"
@@ -1440,46 +1574,89 @@ export default function BalanceSheet() {
         </div>
       </div>
 
-      {/* ══ FILTER BAR ══ */}
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap', overflow: 'visible' }}>
-        <FilterField label="Period">
+      {/* ══ FILTER BAR (CFO UAT-1 Revisions) ══ */}
+      <div className="card" style={{ padding: '12px 16px', marginBottom: 18, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap', overflow: 'visible' }}>
+        {/* 1. Legal Group (Multi-select) */}
+        <FilterField label="Legal Group">
+          <MultiSelect
+            options={filterOptions.legalGroups}
+            value={filters.legalGroup}
+            onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }}
+            style={{ width: 110, minWidth: 110 }}
+          />
+        </FilterField>
+
+        {/* 2. Legal Entity (Multi-select) */}
+        <FilterField label="Legal Entity">
+          <MultiSelect
+            options={filterOptions.legalEntities}
+            value={filters.legalEntity}
+            onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))}
+            style={{ width: 120, minWidth: 120 }}
+          />
+        </FilterField>
+
+        {/* 3. Parent Division (Multi-select) */}
+        <FilterField label="Parent Division">
+          <MultiSelect
+            options={filterOptions.parentDivisions}
+            value={filters.parentDivision}
+            onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))}
+            style={{ width: 120, minWidth: 120 }}
+          />
+        </FilterField>
+
+        {/* 4. Sub-Division (Multi-select) */}
+        <FilterField label="Sub-Division">
+          <MultiSelect
+            options={filterOptions.subdivisions}
+            value={filters.subdivision}
+            onChange={v => setFilters(prev => ({ ...prev, subdivision: v }))}
+            style={{ width: 120, minWidth: 120 }}
+          />
+        </FilterField>
+
+        {/* 5. As on Date */}
+        <FilterField label="As on Date">
           <select
             id="filter-bs-period"
-            style={selStyle}
+            style={{ ...selStyle, width: 105, minWidth: 105 }}
             value={filters.period}
             onChange={e => setFilters(prev => ({ ...prev, period: e.target.value }))}
             disabled={loading.filters}
           >
             {filterOptions.periods.length === 0 && <option value="">Loading…</option>}
             {filterOptions.periods.map(p => {
-                const val = typeof p === 'object' ? p.period : p;
-                const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
-                return <option key={val} value={val}>{label}</option>;
-              })}
+              const val = typeof p === 'object' ? p.period : p;
+              const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
+              return <option key={val} value={val}>{label}</option>;
+            })}
           </select>
         </FilterField>
 
+        {/* 6. Compare With */}
         <FilterField label="Compare With">
           <select
             id="filter-bs-compare"
-            style={selStyle}
+            style={{ ...selStyle, width: 105, minWidth: 105 }}
             value={filters.comparePeriod}
             onChange={e => setFilters(prev => ({ ...prev, comparePeriod: e.target.value }))}
             disabled={loading.filters}
           >
             <option value="">None</option>
             {filterOptions.periods.map(p => {
-                const val = typeof p === 'object' ? p.period : p;
-                const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
-                return <option key={val} value={val}>{label}</option>;
-              })}
+              const val = typeof p === 'object' ? p.period : p;
+              const label = typeof p === 'object' ? p.period_name : formatPeriod(val);
+              return <option key={val} value={val}>{label}</option>;
+            })}
           </select>
         </FilterField>
 
-        <FilterField label="Currency">
+        {/* 7. Reporting Currency */}
+        <FilterField label="Reporting Currency">
           <select
             id="filter-bs-currency"
-            style={selStyle}
+            style={{ ...selStyle, width: 95, minWidth: 95 }}
             value={filters.currency}
             onChange={e => setFilters(prev => ({ ...prev, currency: e.target.value }))}
           >
@@ -1487,34 +1664,7 @@ export default function BalanceSheet() {
           </select>
         </FilterField>
 
-        <FilterField label="Legal Group">
-          <MultiSelect options={filterOptions.legalGroups} value={filters.legalGroup} onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }} style={{width:105}} />
-        </FilterField>
-
-        <FilterField label="Legal Entity">
-          <MultiSelect options={filterOptions.legalEntities} value={filters.legalEntity} onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))} style={{width:105}} />
-        </FilterField>
-
-        <FilterField label="Parent Division">
-          <MultiSelect options={filterOptions.parentDivisions} value={filters.parentDivision} onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))} style={{width:105}} />
-        </FilterField>
-
-        <FilterField label="Sub-Division">
-          <MultiSelect options={filterOptions.subdivisions} value={filters.subdivision} onChange={v => setFilters(prev => ({ ...prev, subdivision: v }))} style={{width:105}} />
-        </FilterField>
-
-        <FilterField label="Ledger">
-          <select
-            id="filter-bs-ledger"
-            style={selStyle}
-            value={filters.ledger}
-            onChange={e => setFilters(prev => ({ ...prev, ledger: e.target.value }))}
-            disabled={loading.filters}
-          >
-            {filterOptions.ledgers.map(l => <option key={l}>{l}</option>)}
-          </select>
-        </FilterField>
-
+        {/* Apply & Reset */}
         <button
           id="btn-bs-apply"
           onClick={handleApply}
@@ -1549,28 +1699,16 @@ export default function BalanceSheet() {
             />
           )}
         </div>
-        {/* FIX m4: auto-fill responsive KPI grid; bs-kpi-grid class applies media-query breakpoints */}
-        <div className="bs-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-          {kpiCards.map(kpi => {
-            // FIX M1: explicit ID→loadingKey map prevents total-periods from hitting loading.summary
-            const loadingKeyMap = {
-              'total-assets':       'summary',
-              'total-liabilities':  'summary',
-              'total-equity':       'summary',
-              'balance-status':     'summary',
-              'total-periods':      'trend',
-              'subdivisions':       'subdivision',
-            };
-            const lk = loadingKeyMap[kpi.id] ?? 'summary';
-            return (
-              <KPICard
-                key={kpi.id}
-                {...kpi}
-                loading={loading[lk]}
-                error={errors[lk]}
-              />
-            );
-          })}
+        {/* 5-column responsive KPI grid */}
+        <div className="bs-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+          {kpiCards.map(kpi => (
+            <KPICard
+              key={kpi.id}
+              {...kpi}
+              loading={loading.summary || loading.compareSummary}
+              error={errors.summary}
+            />
+          ))}
         </div>
       </div>
 
