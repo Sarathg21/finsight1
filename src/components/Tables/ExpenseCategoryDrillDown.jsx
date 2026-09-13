@@ -923,7 +923,7 @@ export default function ExpenseCategoryDrillDown({
                                                     "8px",
                                                 textAlign:
                                                     "left",
-                                                fontSize: 13,
+                                                fontSize: 14,
                                                 color:
                                                     "#334155",
                                                 fontWeight: 500,
@@ -938,7 +938,14 @@ export default function ExpenseCategoryDrillDown({
                                             }}
                                         >
                                             {accountCode
-                                                ? `${accountCode} - ${accountName}`
+                                                ? `${accountCode} - ${String(accountName || "")
+                                                    .replace(
+                                                        new RegExp(
+                                                            `^${String(accountCode).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*-\\s*`,
+                                                            "i"
+                                                        ),
+                                                        ""
+                                                    )}`
                                                 : accountName}
                                         </td>
 
