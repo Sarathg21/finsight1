@@ -185,8 +185,61 @@
 
 
 // /* =========================================================
+//    FORMAT VARIANCE
+//    Uses backend variance percentage directly.
+
+//    IMPORTANT:
+//    No variance calculation is performed here.
+// ========================================================= */
+
+// const formatVariance = (value) => {
+//     if (
+//         value === null ||
+//         value === undefined ||
+//         value === ""
+//     ) {
+//         return "—";
+//     }
+
+//     const number = Number(value);
+
+//     if (Number.isNaN(number)) {
+//         return "—";
+//     }
+
+//     const arrow = number < 0 ? "▼" : "▲";
+
+//     return `${arrow}${Math.abs(number).toFixed(1)}%`;
+// };
+
+
+// /* =========================================================
+//    FORMAT RAW TOOLTIP VALUE
+// ========================================================= */
+
+// const formatRawValue = (value) => {
+//     if (
+//         value === null ||
+//         value === undefined ||
+//         value === ""
+//     ) {
+//         return "—";
+//     }
+
+//     const number = Number(value);
+
+//     if (Number.isNaN(number)) {
+//         return String(value);
+//     }
+
+//     return number.toLocaleString("en-US", {
+//         maximumFractionDigits: 2,
+//     });
+// };
+
+
+// /* =========================================================
 //    KPI CARD
-//    UI ONLY
 // ========================================================= */
 
 // function OpexKpiCard({
@@ -204,9 +257,41 @@
 //     isPercentage = false,
 //     reportingCurrency = "AED",
 
+//     /* =====================================================
+//        TARGET / VARIANCE
+//     ===================================================== */
+
+//     targetValue = null,
+//     varianceValue = null,
+
 // }) {
+
+//     /* =========================================================
+//        HOVER EFFECT ONLY
+//     ========================================================= */
+
+//     const [isHovered, setIsHovered] = useState(false);
+
+//     const targetTooltipValue =
+//         targetValue === null ||
+//             targetValue === undefined ||
+//             targetValue === ""
+//             ? "—"
+//             : `${reportingCurrency} ${formatRawValue(targetValue)}`;
+
+//     const varianceTooltipValue =
+//         varianceValue === null ||
+//             varianceValue === undefined ||
+//             varianceValue === ""
+//             ? "—"
+//             : `${formatRawValue(varianceValue)}%`;
+
+
 //     return (
 //         <div
+//             onMouseEnter={() => setIsHovered(true)}
+//             onMouseLeave={() => setIsHovered(false)}
+
 //             style={{
 //                 flex: "1 1 0",
 //                 minWidth: 0,
@@ -227,6 +312,23 @@
 //                 alignItems: "center",
 
 //                 overflow: "hidden",
+
+//                 transform: isHovered
+//                     ? "translateY(-6px) scale(1.025)"
+//                     : "translateY(0) scale(1)",
+
+//                 boxShadow: isHovered
+//                     ? "0 10px 24px rgba(15, 23, 42, 0.18)"
+//                     : "0 2px 6px rgba(15, 23, 42, 0.06)",
+
+//                 transition:
+//                     "transform 220ms ease, box-shadow 220ms ease",
+
+//                 position: "relative",
+
+//                 zIndex: isHovered ? 10 : 1,
+
+//                 cursor: "default",
 //             }}
 //         >
 
@@ -277,14 +379,12 @@
 
 //                     justifyContent: "center",
 
-//                     overflow: "hidden",
+//                     overflow: "visible",
 //                 }}
 //             >
 
 //                 {/* =================================================
 //                     TITLE
-//                     Reference style:
-//                     Colored text, no pill
 //                 ================================================= */}
 
 //                 <div
@@ -311,7 +411,7 @@
 
 
 //                 {/* =================================================
-//                     VALUE
+//                     MAIN VALUE
 //                 ================================================= */}
 
 //                 <div
@@ -349,9 +449,201 @@
 
 
 //                 {/* =================================================
-//                     UNFAVORABLE
+//                     TARGET + VARIANCE
 
-//                     Existing functionality retained.
+//                     DISPLAY:
+
+//                     Target: AED 98.90M ▼74.8%
+
+//                     Target has light grey background.
+
+//                     Hovering over this area shows backend values.
+//                 ================================================= */}
+
+//                 <div
+//                     style={{
+//                         position: "relative",
+
+//                         display: "inline-flex",
+
+//                         alignItems: "center",  background: "#E5E7EB",
+
+//                         gap: 7,
+
+//                         marginTop: 3,
+
+//                         fontSize: 10,
+
+//                         lineHeight: "12px",
+
+//                         fontWeight: 600,
+
+//                         whiteSpace: "nowrap",
+
+//                         minWidth: 0,
+
+//                         width: "fit-content",
+
+//                         maxWidth: "100%",
+
+//                         cursor: "help",
+//                     }}
+//                 >
+
+//                     {/* =================================================
+//                         TARGET
+//                     ================================================= */}
+
+//                     <span
+//                         style={{
+//                             color: "#64748B",
+
+//                             borderRadius: 4,
+
+//                             padding: "2px 5px",
+
+//                             minWidth: 0,
+
+//                             overflow: "hidden",
+
+//                             textOverflow: "ellipsis",
+
+//                             fontSize: 10,
+
+//                             fontWeight: 600,
+
+//                             boxSizing: "border-box",
+//                         }}
+//                     >
+//                         Target:{" "}
+//                         {formatCurrency(
+//                             targetValue,
+//                             reportingCurrency
+//                         )}
+//                     </span>
+
+
+//                     {/* =================================================
+//                         VARIANCE %
+//                     ================================================= */}
+
+//                     <span
+//                         style={{
+//                             color:
+//                                 varianceValue !== null &&
+//                                     varianceValue !== undefined &&
+//                                     varianceValue !== "" &&
+//                                     Number(varianceValue) >= 0
+//                                     ? "#16A34A"
+//                                     : "#DC2626",
+
+//                             fontWeight: 700,
+
+//                             flexShrink: 0,
+
+//                             fontSize: 10,
+//                         }}
+//                     >
+//                         {formatVariance(
+//                             varianceValue
+//                         )}
+//                     </span>
+
+
+//                     {/* =================================================
+//                         BACKEND VALUE TOOLTIP
+//                     ================================================= */}
+
+//                     <div
+//                         style={{
+//                             position: "absolute",
+
+//                             left: 0,
+
+//                             bottom: "calc(100% + 8px)",
+
+//                               background: "#FFFFFF",
+                            
+//                             color: "#0F172A",
+
+//                             padding: "8px 10px",
+
+//                             borderRadius: 6,
+
+//                             fontSize: 10,
+
+//                             lineHeight: "15px",
+
+//                             fontWeight: 500,
+
+//                             whiteSpace: "nowrap",
+
+//                             boxShadow:
+//                                 "0 6px 18px rgba(15, 23, 42, 0.22)",
+
+//                             opacity: 0,
+
+//                             visibility: "hidden",
+
+//                             pointerEvents: "none",
+
+//                             transform: "translateY(3px)",
+
+//                             transition:
+//                                 "opacity 160ms ease, transform 160ms ease, visibility 160ms ease",
+
+//                             zIndex: 100,
+
+//                             minWidth: 145,
+//                         }}
+
+//                         className="opex-kpi-backend-tooltip"
+//                     >
+//                         <div
+//                             style={{
+//                                 fontWeight: 700,
+//                                 marginBottom: 3,
+//                             }}
+//                         >
+                          
+//                         </div>
+
+//                         <div>
+//                             Target: {targetTooltipValue}
+//                         </div>
+
+//                         <div>
+//                             Variance: {varianceTooltipValue}
+//                         </div>
+
+//                     </div>
+
+//                 </div>
+
+
+//                 {/* =================================================
+//                     TOOLTIP HOVER CSS
+//                 ================================================= */}
+
+//                 <style>
+//                     {`
+//                         .opex-kpi-backend-tooltip {
+//                             opacity: 0;
+//                             visibility: hidden;
+//                             transform: translateY(3px);
+//                         }
+
+//                         div:hover > .opex-kpi-backend-tooltip {
+//                             opacity: 1 !important;
+//                             visibility: visible !important;
+//                             transform: translateY(0) !important;
+//                         }
+//                     `}
+//                 </style>
+
+
+//                 {/* =================================================
+//                     UNFAVORABLE
 //                 ================================================= */}
 
 //                 {showUnfavorable && (
@@ -386,13 +678,14 @@
 // ========================================================= */
 
 // export default function OperatingExpenseSummary({
-//     data = {}, reportingCurrency = "AED",
+//     data = {},
+//     reportingCurrency = "AED",
 // }) {
 
 //     /* =========================================================
 //        API RESPONSE MAPPING
 
-//        API:
+//        Backend response:
 
 //        actual_ptd_aed
 //        target_ptd_aed
@@ -450,6 +743,13 @@
 //         data.variancePTD ??
 //         null;
 
+
+//     /* =========================================================
+//        BACKEND PROVIDES PERCENTAGE DIRECTLY
+
+//        No calculation.
+//     ========================================================= */
+
 //     kpiData.variancePTDPercent =
 //         data.variance_ptd_pct ??
 //         data.variancePTDPercent ??
@@ -477,6 +777,13 @@
 //         data.variance_ytd_aed ??
 //         data.varianceYTD ??
 //         null;
+
+
+//     /* =========================================================
+//        BACKEND PROVIDES PERCENTAGE DIRECTLY
+
+//        No calculation.
+//     ========================================================= */
 
 //     kpiData.varianceYTDPercent =
 //         data.variance_ytd_pct ??
@@ -523,13 +830,11 @@
 //                 }}
 //             >
 
-//                 {/* TITLE */}
-
 //                 <h3
 //                     style={{
 //                         margin: 0,
 
-//                         fontSize: 12,
+//                         fontSize: 13,
 
 //                         lineHeight: "15px",
 
@@ -542,30 +847,6 @@
 //                 >
 //                     Operating Expense Summary
 //                 </h3>
-
-
-//                 {/* THREE DOT */}
-
-//                 {/* <button
-//                     type="button"
-//                     style={{
-//                         border: "none",
-
-//                         background: "transparent",
-
-//                         padding: "2px 3px",
-
-//                         cursor: "pointer",
-
-//                         color: "#64748B",
-
-//                         fontSize: 17,
-
-//                         lineHeight: 1,
-//                     }}
-//                 >
-//                     ⋮
-//                 </button> */}
 
 //             </div>
 
@@ -613,7 +894,14 @@
 
 //                     titleColor="#2563EB"
 //                     titleBackground="#EFF4FF"
+
 //                     reportingCurrency={reportingCurrency}
+
+//                     targetValue={kpiData.targetPTD}
+
+//                     varianceValue={
+//                         kpiData.variancePTDPercent
+//                     }
 //                 />
 
 
@@ -632,7 +920,14 @@
 
 //                     titleColor="#16A34A"
 //                     titleBackground="#F0FBF3"
+
 //                     reportingCurrency={reportingCurrency}
+
+//                     targetValue={kpiData.targetPTD}
+
+//                     varianceValue={
+//                         kpiData.variancePTDPercent
+//                     }
 //                 />
 
 
@@ -651,7 +946,14 @@
 
 //                     titleColor="#EA580C"
 //                     titleBackground="#FFF6E9"
+
 //                     reportingCurrency={reportingCurrency}
+
+//                     targetValue={kpiData.targetPTD}
+
+//                     varianceValue={
+//                         kpiData.variancePTDPercent
+//                     }
 //                 />
 
 
@@ -672,7 +974,14 @@
 //                     titleBackground="#FFF1F5"
 
 //                     isPercentage
+
 //                     reportingCurrency={reportingCurrency}
+
+//                     targetValue={null}
+
+//                     varianceValue={
+//                         kpiData.variancePTDPercent
+//                     }
 //                 />
 
 
@@ -686,12 +995,19 @@
 
 //                     Icon={BarChart3}
 
-//                     iconColor="#2563EB"
-//                     iconBackground="#DCE8FF"
+//                     iconColor="#3FAFC1"
+//                     iconBackground="#DDF4F7"
 
-//                     titleColor="#2563EB"
-//                     titleBackground="#EFF4FF"
+//                     titleColor="#3FAFC1"
+//                     titleBackground="#EFFBFC"
+
 //                     reportingCurrency={reportingCurrency}
+
+//                     targetValue={kpiData.targetYTD}
+
+//                     varianceValue={
+//                         kpiData.varianceYTDPercent
+//                     }
 //                 />
 
 
@@ -705,55 +1021,26 @@
 
 //                     Icon={Target}
 
-//                     iconColor="#16A34A"
-//                     iconBackground="#D9F7E2"
+//                     iconColor="#6D28D9"
+//                     iconBackground="#EDE9FE"
 
-//                     titleColor="#16A34A"
-//                     titleBackground="#F0FBF3"
+//                     titleColor="#6D28D9"
+//                     titleBackground="#F5F3FF"
+
 //                     reportingCurrency={reportingCurrency}
+
+//                     targetValue={kpiData.targetYTD}
+
+//                     varianceValue={
+//                         kpiData.varianceYTDPercent
+//                     }
 //                 />
-
-
-//                 {/* =================================================
-//                     7. VARIANCE YTD
-
-//                     KEPT COMMENTED — NO FUNCTIONALITY CHANGED
-//                 ================================================= */}
-
-//                 {/* <OpexKpiCard
-//                     title="Variance YTD"
-//                     value={kpiData.varianceYTD}
-//                     Icon={TrendingUp}
-//                     iconColor="#F97316"
-//                     iconBackground="#FFEEDB"
-//                     titleColor="#F97316"
-//                     titleBackground="#FFF5E9"
-//                 /> */}
-
-
-//                 {/* =================================================
-//                     8. VARIANCE YTD %
-
-//                     KEPT COMMENTED — NO FUNCTIONALITY CHANGED
-//                 ================================================= */}
-
-//                 {/* <OpexKpiCard
-//                     title="Variance YTD %"
-//                     value={kpiData.varianceYTDPercent}
-//                     Icon={Percent}
-//                     iconColor="#E11D48"
-//                     iconBackground="#FFE7EC"
-//                     titleColor="#E11D48"
-//                     titleBackground="#FFF1F4"
-//                     isPercentage
-//                 /> */}
 
 //             </div>
 
 //         </div>
 //     );
 // }
-
 
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -940,8 +1227,63 @@ const formatPercentage = (value) => {
 
 
 /* =========================================================
+   FORMAT VARIANCE
+   Uses backend variance percentage directly.
+
+   IMPORTANT:
+   No variance calculation is performed here.
+========================================================= */
+
+const formatVariance = (value) => {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return "▲ 0.00%";
+    }
+
+    const number = Number(value);
+
+    if (Number.isNaN(number)) {
+        return "—";
+    }
+
+    const arrow = number < 0 ? "▼" : "▲";
+
+    return `${arrow} ${Math.abs(number).toFixed(2)}%`;
+};
+
+
+/* =========================================================
+   FORMAT RAW TOOLTIP VALUE
+========================================================= */
+
+const formatRawValue = (value) => {
+    if (
+        value === null ||
+        value === undefined ||
+        value === ""
+    ) {
+        return "—";
+    }
+
+    const number = Number(value);
+
+    if (Number.isNaN(number)) {
+        return String(value);
+    }
+
+    return number.toLocaleString("en-US", {
+        maximumFractionDigits: 2,
+    });
+};
+
+
+/* =========================================================
    KPI CARD
-   UI ONLY
+   Screenshot-style presentation only.
+   Data / target / variance behavior is unchanged.
 ========================================================= */
 
 function OpexKpiCard({
@@ -959,32 +1301,71 @@ function OpexKpiCard({
     isPercentage = false,
     reportingCurrency = "AED",
 
+    /* =====================================================
+       TARGET / VARIANCE
+    ===================================================== */
+
+    targetValue = null,
+    varianceValue = null,
+
 }) {
 
     /* =========================================================
        HOVER EFFECT ONLY
-
-       No existing functionality is changed.
     ========================================================= */
 
     const [isHovered, setIsHovered] = useState(false);
+
+    const hasTarget =
+        targetValue !== null &&
+        targetValue !== undefined &&
+        targetValue !== "";
+
+    const hasVariance =
+        varianceValue !== null &&
+        varianceValue !== undefined &&
+        varianceValue !== "";
+
+    const numericVariance = Number(varianceValue);
+
+    const varianceIsPositive =
+        hasVariance &&
+        !Number.isNaN(numericVariance) &&
+        numericVariance >= 0;
+
+    const targetTooltipValue =
+        !hasTarget
+            ? "—"
+            : `${reportingCurrency} ${formatRawValue(targetValue)}`;
+
+    const varianceTooltipValue =
+        !hasVariance
+            ? "—"
+            : `${formatRawValue(varianceValue)}%`;
 
     return (
         <div
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
-
             style={{
                 flex: "1 1 0",
                 minWidth: 0,
 
-                height: 106,
+                height: 82,
 
-                background: titleBackground,
+                background: `linear-gradient(
+                    145deg,
+                    #FFFFFF 0%,
+                    ${iconBackground} 100%
+                )`,
 
-                border: "none",
+                border:
+                    `1px solid ${isHovered
+                        ? `${iconColor}35`
+                        : "rgba(15, 23, 42, 0.05)"
+                    }`,
 
-                borderRadius: 10,
+                borderRadius: 12,
 
                 boxSizing: "border-box",
 
@@ -993,27 +1374,22 @@ function OpexKpiCard({
                 display: "flex",
                 alignItems: "center",
 
-                overflow: "hidden",
-
-                /* =================================================
-                   HOVER FORWARD / RETURN EFFECT
-                ================================================= */
+                overflow: "visible",
 
                 transform: isHovered
-                    ? "translateY(-6px) scale(1.025)"
-                    : "translateY(0) scale(1)",
+                    ? "translateY(-2px)"
+                    : "translateY(0)",
 
                 boxShadow: isHovered
-                    ? "0 10px 24px rgba(15, 23, 42, 0.18)"
-                    : "0 2px 6px rgba(15, 23, 42, 0.06)",
+                    ? `0 8px 20px ${iconColor}20`
+                    : "0 2px 8px rgba(15, 23, 42, 0.05)",
 
                 transition:
-                    "transform 220ms ease, box-shadow 220ms ease",
+                    "transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease",
 
                 position: "relative",
 
-                /* Makes hovered card appear above neighboring cards */
-                zIndex: isHovered ? 10 : 1,
+                zIndex: isHovered ? 20 : 1,
 
                 cursor: "default",
             }}
@@ -1025,10 +1401,10 @@ function OpexKpiCard({
 
             <div
                 style={{
-                    width: 42,
-                    height: 42,
+                    width: 44,
+                    height: 44,
 
-                    minWidth: 42,
+                    minWidth: 44,
 
                     borderRadius: "50%",
 
@@ -1038,14 +1414,16 @@ function OpexKpiCard({
                     alignItems: "center",
                     justifyContent: "center",
 
-                    marginRight: 11,
+                    marginRight: 10,
 
                     boxSizing: "border-box",
+
+                    color: iconColor,
                 }}
             >
                 <Icon
                     size={22}
-                    strokeWidth={2.2}
+                    strokeWidth={2.35}
                     color={iconColor}
                 />
             </div>
@@ -1066,23 +1444,21 @@ function OpexKpiCard({
 
                     justifyContent: "center",
 
-                    overflow: "hidden",
+                    overflow: "visible",
                 }}
             >
 
                 {/* =================================================
                     TITLE
-                    Reference style:
-                    Colored text, no pill
                 ================================================= */}
 
                 <div
                     style={{
                         color: titleColor,
 
-                        fontSize: 11,
+                        fontSize: 10.5,
 
-                        lineHeight: "14px",
+                        lineHeight: "12px",
 
                         fontWeight: 700,
 
@@ -1100,7 +1476,7 @@ function OpexKpiCard({
 
 
                 {/* =================================================
-                    VALUE
+                    MAIN VALUE
                 ================================================= */}
 
                 <div
@@ -1119,7 +1495,7 @@ function OpexKpiCard({
 
                         textOverflow: "ellipsis",
 
-                        letterSpacing: "-0.2px",
+                        letterSpacing: "-0.25px",
                     }}
                 >
                     <AnimatedNumber
@@ -1127,9 +1503,9 @@ function OpexKpiCard({
                         formatter={
                             isPercentage
                                 ? formatPercentage
-                                : (value) =>
+                                : (animatedValue) =>
                                     formatCurrency(
-                                        value,
+                                        animatedValue,
                                         reportingCurrency
                                     )
                         }
@@ -1138,15 +1514,175 @@ function OpexKpiCard({
 
 
                 {/* =================================================
-                    UNFAVORABLE
+                    TARGET / VARIANCE PILL
 
-                    Existing functionality retained.
+                    Matches reference:
+                    Target: AED 98.90M  ▼74.5%
+
+                    The pill is compact and sits below the
+                    main KPI value.
+                ================================================= */}
+
+                <div
+                    style={{
+                        position: "relative",
+
+                        display: "inline-flex",
+
+                        alignItems: "center",
+
+                        alignSelf: "flex-start",
+
+                        gap: 5,
+
+                        marginTop: 2,
+
+                        padding: "3px 6px",
+
+                        borderRadius: 5,
+
+                        background: "#EEF2F7",
+
+                        fontSize: 9.5,
+
+                        lineHeight: "11px",
+
+                        fontWeight: 600,
+
+                        whiteSpace: "nowrap",
+
+                        minWidth: 0,
+
+                        maxWidth: "100%",
+
+                        boxSizing: "border-box",
+
+                        cursor: "help",
+                    }}
+                >
+
+                    {/* =================================================
+                        TARGET
+                    ================================================= */}
+
+                    <span
+                        style={{
+                            color: "#64748B",
+
+                            minWidth: 0,
+
+                            overflow: "hidden",
+
+                            textOverflow: "ellipsis",
+
+                            fontSize: 9.5,
+
+                            fontWeight: 600,
+                        }}
+                    >
+                        Target:{" "}
+                        {hasTarget
+                            ? formatCurrency(
+                                targetValue,
+                                reportingCurrency
+                            )
+                            : "—"}
+                    </span>
+
+
+                    {/* =================================================
+                        VARIANCE
+                    ================================================= */}
+
+                    <span
+                        style={{
+                            color:
+                                !hasVariance || varianceIsPositive
+                                    ? "#16A34A"
+                                    : "#DC2626",
+
+                            fontWeight: 700,
+
+                            flexShrink: 0,
+
+                            fontSize: 9.5,
+                        }}
+                    >
+                        {formatVariance(
+                            varianceValue
+                        )}
+                    </span>
+
+
+                    {/* =================================================
+                        BACKEND VALUE TOOLTIP
+                    ================================================= */}
+
+                    <div
+                        style={{
+                            position: "absolute",
+
+                            left: 0,
+
+                            bottom: "calc(100% + 7px)",
+
+                            background: "#FFFFFF",
+
+                            color: "#0F172A",
+
+                            padding: "8px 10px",
+
+                            borderRadius: 6,
+
+                            fontSize: 10,
+
+                            lineHeight: "15px",
+
+                            fontWeight: 500,
+
+                            whiteSpace: "nowrap",
+
+                            boxShadow:
+                                "0 6px 18px rgba(15, 23, 42, 0.22)",
+
+                            opacity: 0,
+
+                            visibility: "hidden",
+
+                            pointerEvents: "none",
+
+                            transform: "translateY(3px)",
+
+                            transition:
+                                "opacity 160ms ease, transform 160ms ease, visibility 160ms ease",
+
+                            zIndex: 100,
+
+                            minWidth: 145,
+                        }}
+
+                        className="opex-kpi-backend-tooltip"
+                    >
+                        <div>
+                            Target: {targetTooltipValue}
+                        </div>
+
+                        <div>
+                            Variance: {varianceTooltipValue}
+                        </div>
+                    </div>
+
+                </div>
+
+
+                {/* =================================================
+                    UNFAVORABLE
                 ================================================= */}
 
                 {showUnfavorable && (
                     <div
                         style={{
-                            marginTop: 3,
+                            marginTop: 2,
 
                             fontSize: 9,
 
@@ -1165,6 +1701,27 @@ function OpexKpiCard({
 
             </div>
 
+
+            {/* =====================================================
+                TOOLTIP HOVER CSS
+            ===================================================== */}
+
+            <style>
+                {`
+                    .opex-kpi-backend-tooltip {
+                        opacity: 0;
+                        visibility: hidden;
+                        transform: translateY(3px);
+                    }
+
+                    div:hover > .opex-kpi-backend-tooltip {
+                        opacity: 1 !important;
+                        visibility: visible !important;
+                        transform: translateY(0) !important;
+                    }
+                `}
+            </style>
+
         </div>
     );
 }
@@ -1182,7 +1739,7 @@ export default function OperatingExpenseSummary({
     /* =========================================================
        API RESPONSE MAPPING
 
-       API:
+       Backend response:
 
        actual_ptd_aed
        target_ptd_aed
@@ -1240,6 +1797,13 @@ export default function OperatingExpenseSummary({
         data.variancePTD ??
         null;
 
+
+    /* =========================================================
+       BACKEND PROVIDES PERCENTAGE DIRECTLY
+
+       No calculation.
+    ========================================================= */
+
     kpiData.variancePTDPercent =
         data.variance_ptd_pct ??
         data.variancePTDPercent ??
@@ -1268,6 +1832,13 @@ export default function OperatingExpenseSummary({
         data.varianceYTD ??
         null;
 
+
+    /* =========================================================
+       BACKEND PROVIDES PERCENTAGE DIRECTLY
+
+       No calculation.
+    ========================================================= */
+
     kpiData.varianceYTDPercent =
         data.variance_ytd_pct ??
         data.varianceYTDPercent ??
@@ -1287,7 +1858,7 @@ export default function OperatingExpenseSummary({
 
                 boxSizing: "border-box",
 
-                overflow: "hidden",
+                overflow: "visible",
             }}
         >
 
@@ -1313,8 +1884,6 @@ export default function OperatingExpenseSummary({
                 }}
             >
 
-                {/* TITLE */}
-
                 <h3
                     style={{
                         margin: 0,
@@ -1332,30 +1901,6 @@ export default function OperatingExpenseSummary({
                 >
                     Operating Expense Summary
                 </h3>
-
-
-                {/* THREE DOT */}
-
-                {/* <button
-                    type="button"
-                    style={{
-                        border: "none",
-
-                        background: "transparent",
-
-                        padding: "2px 3px",
-
-                        cursor: "pointer",
-
-                        color: "#64748B",
-
-                        fontSize: 17,
-
-                        lineHeight: 1,
-                    }}
-                >
-                    ⋮
-                </button> */}
 
             </div>
 
@@ -1380,7 +1925,7 @@ export default function OperatingExpenseSummary({
 
                     overflowX: "auto",
 
-                    overflowY: "hidden",
+                    overflowY: "visible",
 
                     background: "#F8FAFC",
 
@@ -1399,11 +1944,18 @@ export default function OperatingExpenseSummary({
                     Icon={LineChart}
 
                     iconColor="#2563EB"
-                    iconBackground="#DCE8FF"
+                    iconBackground="#EFF6FF"
 
                     titleColor="#2563EB"
                     titleBackground="#EFF4FF"
+
                     reportingCurrency={reportingCurrency}
+
+                    targetValue={kpiData.targetPTD}
+
+                    varianceValue={
+                        kpiData.variancePTDPercent
+                    }
                 />
 
 
@@ -1418,11 +1970,18 @@ export default function OperatingExpenseSummary({
                     Icon={Target}
 
                     iconColor="#16A34A"
-                    iconBackground="#D9F7E2"
+                    iconBackground="#ECFDF3"
 
                     titleColor="#16A34A"
                     titleBackground="#F0FBF3"
+
                     reportingCurrency={reportingCurrency}
+
+                    targetValue={kpiData.targetPTD}
+
+                    varianceValue={
+                        kpiData.variancePTDPercent
+                    }
                 />
 
 
@@ -1437,11 +1996,18 @@ export default function OperatingExpenseSummary({
                     Icon={TrendingUp}
 
                     iconColor="#F97316"
-                    iconBackground="#FFE3C2"
+                    iconBackground="#FFF7ED"
 
                     titleColor="#EA580C"
                     titleBackground="#FFF6E9"
+
                     reportingCurrency={reportingCurrency}
+
+                    targetValue={kpiData.targetPTD}
+
+                    varianceValue={
+                        kpiData.variancePTDPercent
+                    }
                 />
 
 
@@ -1455,34 +2021,50 @@ export default function OperatingExpenseSummary({
 
                     Icon={Percent}
 
-                    iconColor="#E11D48"
-                    iconBackground="#FFDDE5"
+                    iconColor="#DB2777"
+                    iconBackground="#FDF2F8"
 
-                    titleColor="#E11D48"
+                    titleColor="#DB2777"
                     titleBackground="#FFF1F5"
 
                     isPercentage
+
                     reportingCurrency={reportingCurrency}
+
+                    targetValue={null}
+
+                    varianceValue={
+                        kpiData.variancePTDPercent
+                    }
                 />
 
 
                 {/* =================================================
                     5. ACTUAL YTD
                 ================================================= */}
+
                 <OpexKpiCard
                     title="Actual YTD"
                     value={kpiData.actualYTD}
 
                     Icon={BarChart3}
 
-                    iconColor="#3FAFC1"
-                    iconBackground="#DDF4F7"
+                    iconColor="#0891B2"
+                    iconBackground="#ECFEFF"
 
-                    titleColor="#3FAFC1"
+                    titleColor="#0891B2"
                     titleBackground="#EFFBFC"
 
                     reportingCurrency={reportingCurrency}
+
+                    targetValue={kpiData.targetYTD}
+
+                    varianceValue={
+                        kpiData.varianceYTDPercent
+                    }
                 />
+
+
                 {/* =================================================
                     6. TARGET YTD
                 ================================================= */}
@@ -1493,54 +2075,23 @@ export default function OperatingExpenseSummary({
 
                     Icon={Target}
 
-                    iconColor="#6D28D9"
-                    iconBackground="#EDE9FE"
+                    iconColor="#7C3AED"
+                    iconBackground="#F5F3FF"
 
-                    titleColor="#6D28D9"
+                    titleColor="#7C3AED"
                     titleBackground="#F5F3FF"
 
                     reportingCurrency={reportingCurrency}
+
+                    targetValue={kpiData.targetYTD}
+
+                    varianceValue={
+                        kpiData.varianceYTDPercent
+                    }
                 />
-
-
-
-                {/* =================================================
-                    7. VARIANCE YTD
-
-                    KEPT COMMENTED — NO FUNCTIONALITY CHANGED
-                ================================================= */}
-
-                {/* <OpexKpiCard
-                    title="Variance YTD"
-                    value={kpiData.varianceYTD}
-                    Icon={TrendingUp}
-                    iconColor="#F97316"
-                    iconBackground="#FFEEDB"
-                    titleColor="#F97316"
-                    titleBackground="#FFF5E9"
-                /> */}
-
-
-                {/* =================================================
-                    8. VARIANCE YTD %
-
-                    KEPT COMMENTED — NO FUNCTIONALITY CHANGED
-                ================================================= */}
-
-                {/* <OpexKpiCard
-                    title="Variance YTD %"
-                    value={kpiData.varianceYTDPercent}
-                    Icon={Percent}
-                    iconColor="#E11D48"
-                    iconBackground="#FFE7EC"
-                    titleColor="#E11D48"
-                    titleBackground="#FFF1F4"
-                    isPercentage
-                /> */}
 
             </div>
 
         </div>
     );
 }
-
