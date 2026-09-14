@@ -426,65 +426,218 @@ function buildPLParams(filters = {}) {
   };
 }
 
+
+
 /* ══════════════════════════════════════════════════════════════════
    EXPORT HELPER
 ══════════════════════════════════════════════════════════════════ */
 
 /**
- * Trigger a file download for P&L export.
+ * Trigger a file download for P&L section export.
+ *
+ * Backend endpoints:
+ *   GET /api/pl/trend/export
+ *   GET /api/pl/comparison/export
+ *   GET /api/pl/expense-breakdown/export
+ *   GET /api/pl/statement/export
+ *
+ * Backend format:
+ *   excel | pdf
+ *
+ * @param {'trend'|'comparison'|'expense'|'statement'} reportName
  * @param {'excel'|'pdf'} format
- * @param {object} filters — current applied filters
+ * @param {object} filters - current applied filters
  */
-export function exportPL(format, filters = {}) {
+export function exportPL(reportName, format, filters = {}) {
   const token = localStorage.getItem('finsight_token');
+
+  const reportPathMap = {
+    trend: 'trend',
+    comparison: 'comparison',
+    expense: 'expense-breakdown',
+    statement: 'statement',
+  };
+
+  const backendReportName = reportPathMap[reportName];
+
+  if (!backendReportName) {
+    return Promise.reject(
+      new Error(`Export is not supported for "${reportName}".`)
+    );
+  }
+
+  // Backend accepts only: excel | pdf
+  const backendFormat = format === 'xlsx' ? 'excel' : format;
 
   const params = {
     ...buildPLParams(filters),
-    format,
+    format: backendFormat,
   };
 
   const urlParams = new URLSearchParams();
-  for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
-    if (Array.isArray(v)) {
-      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
-      v.forEach(item => {
-        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+
+  for (const [key, value] of Object.entries(params)) {
+    if (
+      value === undefined ||
+      value === null ||
+      value === '' ||
+      value === 'All' ||
+      value === 'all'
+    ) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+
+      value.forEach((item) => {
+        if (
+          item !== undefined &&
+          item !== null &&
+          item !== '' &&
+          item !== 'All' &&
+          item !== 'all'
+        ) {
+          urlParams.append(key, item);
+        }
       });
     } else {
-      urlParams.append(k, v);
+      urlParams.append(key, value);
     }
   }
+
   const qs = urlParams.toString();
 
-  const url = `${API_BASE}/api/pl/export${qs ? `?${qs}` : ''}`;
+  const url =
+    `${API_BASE}/api/pl/${backendReportName}/export` +
+    `${qs ? `?${qs}` : ''}`;
 
-  const a = document.createElement('a');
-  a.href = url;
-  if (token) {
-    return fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => {
-        if (!res.ok) throw new Error(`Export failed: ${res.status} ${res.statusText}`);
-        return res.blob();
-      })
-      .then(blob => {
-        const _url = window.URL.createObjectURL(blob);
-        const _a = document.createElement('a');
-        _a.href = _url;
-        _a.download = `PL_Export_${new Date().toISOString().slice(0, 10)}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
-        document.body.appendChild(_a);
-        _a.click();
-        _a.remove();
-        window.URL.revokeObjectURL(_url);
+  console.log('[plApi] Export request:', url);
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+    .then(async (response) => {
+      console.log('[plApi] Export response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length'),
       });
-  } else {
-    // Demo fallback
-    a.download = `PL_Export_Mock.${format === 'excel' ? 'xlsx' : 'pdf'}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    return Promise.resolve();
-  }
+
+      if (!response.ok) {
+        let errorMessage =
+          `Export failed: ${response.status} ${response.statusText}`;
+
+        try {
+          const errorData = await response.json();
+
+          if (Array.isArray(errorData?.detail)) {
+            errorMessage = errorData.detail
+              .map(
+                (item) =>
+                  item?.msg ||
+                  item?.message ||
+                  JSON.stringify(item)
+              )
+              .join(', ');
+          } else if (errorData?.detail) {
+            errorMessage =
+              typeof errorData.detail === 'string'
+                ? errorData.detail
+                : JSON.stringify(errorData.detail);
+          } else {
+            errorMessage =
+              errorData?.message ||
+              errorData?.error ||
+              errorMessage;
+          }
+        } catch {
+          // Keep default error message
+        }
+
+        console.error(
+          `[plApi] Export failed: ${response.status}`,
+          errorMessage
+        );
+
+        throw new Error(errorMessage);
+      }
+
+      // IMPORTANT:
+      // Read the response body exactly once as a Blob.
+      const blob = await response.blob();
+
+      console.log('[plApi] Export blob:', {
+        type: blob.type,
+        size: blob.size,
+      });
+
+      // Verify that PDF really starts with %PDF-
+      if (backendFormat === 'pdf') {
+        const firstBytes = await blob.slice(0, 10).text();
+
+        console.log('[plApi] PDF first bytes:', firstBytes);
+
+        if (!firstBytes.startsWith('%PDF-')) {
+          console.error(
+            '[plApi] Invalid PDF response. First bytes:',
+            firstBytes
+          );
+
+          throw new Error(
+            'Backend did not return a valid PDF file.'
+          );
+        }
+      }
+
+      return blob;
+    })
+    .then((blob) => {
+      const contentType =
+        backendFormat === 'pdf'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+      const fileBlob =
+        blob.type === contentType
+          ? blob
+          : new Blob([blob], {
+            type: contentType,
+          });
+
+      const blobUrl = window.URL.createObjectURL(fileBlob);
+
+      const link = document.createElement('a');
+
+      link.href = blobUrl;
+
+      const extension =
+        backendFormat === 'excel'
+          ? 'xlsx'
+          : 'pdf';
+
+      link.download =
+        `PL_${backendReportName}_Export_` +
+        `${new Date().toISOString().slice(0, 10)}.${extension}`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      // Give browser time to start download.
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+
+      console.log(
+        '[plApi] Export download triggered:',
+        link.download
+      );
+    });
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -993,3 +1146,5 @@ export async function fetchPLStatement(filters = {}) {
     rows,
   };
 }
+
+

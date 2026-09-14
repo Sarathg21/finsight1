@@ -1,7 +1,10 @@
+
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import ExportButtons from "../Common/ExportButtons";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+
+const FINSIGHT_LOGO_PATH = "/images/Finsight-Transparent-Logo.png";
 
 /* =========================================================
    FORMAT AMOUNT
@@ -25,8 +28,22 @@ const formatAmount = (value) => {
 
   return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   }).format(number);
+};
+
+
+/* =========================================================
+   CHECK NEGATIVE VALUE
+========================================================= */
+
+const isNegativeValue = (value) => {
+  if (!hasValue(value)) {
+    return false;
+  }
+
+  const number = Number(value);
+  return !Number.isNaN(number) && number < 0;
 };
 
 
@@ -595,448 +612,448 @@ const FilterChip = ({
 ========================================================= */
 
 const MultiSelectDropdown = ({
-    label,
-    options = [],
-    selectedValues = [],
-    onChange,
+  label,
+  options = [],
+  selectedValues = [],
+  onChange,
 }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState("");
-    const containerRef = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const containerRef = useRef(null);
 
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (
-                containerRef.current &&
-                !containerRef.current.contains(event.target)
-            ) {
-                setIsOpen(false);
-            }
-        };
-
-        document.addEventListener(
-            "mousedown",
-            handleClickOutside
-        );
-
-        return () => {
-            document.removeEventListener(
-                "mousedown",
-                handleClickOutside
-            );
-        };
-    }, []);
-
-    /* ---------------------------------------------------------
-       FORMAT OPTIONS
-    --------------------------------------------------------- */
-
-    const formattedOptions = useMemo(() => {
-        return options.map((option) => ({
-            id: String(getOptionId(option)),
-            name: String(getOptionDisplayName(option)),
-        }));
-    }, [options]);
-
-    /* ---------------------------------------------------------
-       NORMALIZE SELECTED VALUES
-    --------------------------------------------------------- */
-
-    const normalizedSelectedValues = useMemo(() => {
-        if (!Array.isArray(selectedValues)) {
-            return [];
-        }
-
-        return selectedValues.map((value) => {
-            if (typeof value === "object") {
-                return String(getOptionId(value));
-            }
-
-            return String(value);
-        });
-    }, [selectedValues]);
-
-    /* ---------------------------------------------------------
-       SEARCH
-    --------------------------------------------------------- */
-
-    const filteredOptions = useMemo(() => {
-        const keyword = searchTerm
-            .trim()
-            .toLowerCase();
-
-        if (!keyword) {
-            return formattedOptions;
-        }
-
-        return formattedOptions.filter(
-            (option) =>
-                option.name
-                    .toLowerCase()
-                    .includes(keyword) ||
-                option.id
-                    .toLowerCase()
-                    .includes(keyword)
-        );
-    }, [
-        formattedOptions,
-        searchTerm,
-    ]);
-
-    /* ---------------------------------------------------------
-       TOGGLE OPTION
-    --------------------------------------------------------- */
-
-    const handleToggle = (id) => {
-        const normalizedId = String(id);
-
-        if (
-            normalizedSelectedValues.includes(
-                normalizedId
-            )
-        ) {
-            onChange(
-                normalizedSelectedValues.filter(
-                    (value) =>
-                        value !== normalizedId
-                )
-            );
-        } else {
-            onChange([
-                ...normalizedSelectedValues,
-                normalizedId,
-            ]);
-        }
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
     };
 
-    /* ---------------------------------------------------------
-       SELECT ALL
-    --------------------------------------------------------- */
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
 
-    const handleSelectAll = () => {
-        onChange(
-            formattedOptions.map(
-                (option) => option.id
-            )
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+  /* ---------------------------------------------------------
+     FORMAT OPTIONS
+  --------------------------------------------------------- */
+
+  const formattedOptions = useMemo(() => {
+    return options.map((option) => ({
+      id: String(getOptionId(option)),
+      name: String(getOptionDisplayName(option)),
+    }));
+  }, [options]);
+
+  /* ---------------------------------------------------------
+     NORMALIZE SELECTED VALUES
+  --------------------------------------------------------- */
+
+  const normalizedSelectedValues = useMemo(() => {
+    if (!Array.isArray(selectedValues)) {
+      return [];
+    }
+
+    return selectedValues.map((value) => {
+      if (typeof value === "object") {
+        return String(getOptionId(value));
+      }
+
+      return String(value);
+    });
+  }, [selectedValues]);
+
+  /* ---------------------------------------------------------
+     SEARCH
+  --------------------------------------------------------- */
+
+  const filteredOptions = useMemo(() => {
+    const keyword = searchTerm
+      .trim()
+      .toLowerCase();
+
+    if (!keyword) {
+      return formattedOptions;
+    }
+
+    return formattedOptions.filter(
+      (option) =>
+        option.name
+          .toLowerCase()
+          .includes(keyword) ||
+        option.id
+          .toLowerCase()
+          .includes(keyword)
+    );
+  }, [
+    formattedOptions,
+    searchTerm,
+  ]);
+
+  /* ---------------------------------------------------------
+     TOGGLE OPTION
+  --------------------------------------------------------- */
+
+  const handleToggle = (id) => {
+    const normalizedId = String(id);
+
+    if (
+      normalizedSelectedValues.includes(
+        normalizedId
+      )
+    ) {
+      onChange(
+        normalizedSelectedValues.filter(
+          (value) =>
+            value !== normalizedId
+        )
+      );
+    } else {
+      onChange([
+        ...normalizedSelectedValues,
+        normalizedId,
+      ]);
+    }
+  };
+
+  /* ---------------------------------------------------------
+     SELECT ALL
+  --------------------------------------------------------- */
+
+  const handleSelectAll = () => {
+    onChange(
+      formattedOptions.map(
+        (option) => option.id
+      )
+    );
+  };
+
+  /* ---------------------------------------------------------
+     CLEAR
+  --------------------------------------------------------- */
+
+  const handleClear = () => {
+    onChange([]);
+  };
+
+  /* ---------------------------------------------------------
+     DISPLAY LABEL
+  --------------------------------------------------------- */
+
+  const displayLabel = useMemo(() => {
+    if (
+      normalizedSelectedValues.length === 0
+    ) {
+      return "Select";
+    }
+
+    if (
+      normalizedSelectedValues.length === 1
+    ) {
+      const found =
+        formattedOptions.find(
+          (option) =>
+            option.id ===
+            normalizedSelectedValues[0]
         );
-    };
 
-    /* ---------------------------------------------------------
-       CLEAR
-    --------------------------------------------------------- */
+      return found
+        ? found.name
+        : "1 Selected";
+    }
 
-    const handleClear = () => {
-        onChange([]);
-    };
+    return `${normalizedSelectedValues.length} Selected`;
+  }, [
+    normalizedSelectedValues,
+    formattedOptions,
+  ]);
 
-    /* ---------------------------------------------------------
-       DISPLAY LABEL
-    --------------------------------------------------------- */
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+      }}
+    >
+      {/* LABEL */}
 
-    const displayLabel = useMemo(() => {
-        if (
-            normalizedSelectedValues.length === 0
-        ) {
-            return "Select";
-        }
+      <label
+        style={{
+          fontSize: "12px",
+          fontWeight: 700,
+          color: "#2b3b75",
+        }}
+      >
+        {label}
+      </label>
 
-        if (
-            normalizedSelectedValues.length === 1
-        ) {
-            const found =
-                formattedOptions.find(
-                    (option) =>
-                        option.id ===
-                        normalizedSelectedValues[0]
-                );
+      {/* DROPDOWN BUTTON */}
 
-            return found
-                ? found.name
-                : "1 Selected";
-        }
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen(
+            (previous) => !previous
+          );
 
-        return `${normalizedSelectedValues.length} Selected`;
-    }, [
-        normalizedSelectedValues,
-        formattedOptions,
-    ]);
-
-    return (
-        <div
-            ref={containerRef}
-            style={{
-                position: "relative",
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-            }}
+          if (isOpen) {
+            setSearchTerm("");
+          }
+        }}
+        style={{
+          height: "38px",
+          minWidth: "130px",
+          padding: "0 12px",
+          borderRadius: "10px",
+          border:
+            "1px solid #e0e6ed",
+          background: "#f4f6fc",
+          color: "#2b3b75",
+          fontSize: "13px",
+          fontWeight: 600,
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            "space-between",
+          cursor: "pointer",
+          outline: "none",
+        }}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            marginRight: "8px",
+          }}
         >
-            {/* LABEL */}
+          {displayLabel}
+        </span>
 
-            <label
-                style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#2b3b75",
-                }}
+        <span
+          style={{
+            fontSize: "10px",
+            color: "#2b3b75",
+          }}
+        >
+          ▼
+        </span>
+      </button>
+
+      {/* DROPDOWN MENU */}
+
+      {isOpen && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: "4px",
+            width: "220px",
+            background: "#ffffff",
+            border:
+              "1px solid #e2e8f0",
+            borderRadius: "12px",
+            boxShadow:
+              "0 10px 25px rgba(0,0,0,0.1)",
+            zIndex: 1050,
+            padding: "8px",
+          }}
+        >
+          {/* SEARCH */}
+
+          <div
+            style={{
+              position: "relative",
+              marginBottom: "8px",
+            }}
+          >
+            <span
+              style={{
+                position:
+                  "absolute",
+                left: "10px",
+                top: "50%",
+                transform:
+                  "translateY(-50%)",
+                color: "#94a3b8",
+                fontSize: "12px",
+              }}
             >
-                {label}
-            </label>
+              🔍
+            </span>
 
-            {/* DROPDOWN BUTTON */}
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(event) =>
+                setSearchTerm(
+                  event.target.value
+                )
+              }
+              style={{
+                width: "100%",
+                height: "32px",
+                paddingLeft: "30px",
+                paddingRight: "8px",
+                borderRadius: "6px",
+                border:
+                  "1px solid #e2e8f0",
+                fontSize: "12px",
+                outline: "none",
+                boxSizing:
+                  "border-box",
+              }}
+            />
+          </div>
 
-            <button
-                type="button"
-                onClick={() => {
-                    setIsOpen(
-                        (previous) => !previous
+          {/* SELECT ALL / CLEAR */}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent:
+                "space-between",
+              padding:
+                "4px 4px 8px 4px",
+              fontSize: "12px",
+              fontWeight: 700,
+            }}
+          >
+            <span
+              onClick={
+                handleSelectAll
+              }
+              style={{
+                color: "#2b3b75",
+                cursor: "pointer",
+              }}
+            >
+              Select All
+            </span>
+
+            <span
+              onClick={handleClear}
+              style={{
+                color: "#64748b",
+                cursor: "pointer",
+              }}
+            >
+              Clear
+            </span>
+          </div>
+
+          {/* OPTIONS */}
+
+          <div
+            style={{
+              maxHeight: "160px",
+              overflowY: "auto",
+              display: "flex",
+              flexDirection:
+                "column",
+              gap: "6px",
+            }}
+          >
+            {filteredOptions.length ===
+              0 ? (
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#94a3b8",
+                  padding:
+                    "6px 4px",
+                }}
+              >
+                No options
+              </div>
+            ) : (
+              filteredOptions.map(
+                (option) => {
+                  const isChecked =
+                    normalizedSelectedValues.includes(
+                      option.id
                     );
 
-                    if (isOpen) {
-                        setSearchTerm("");
-                    }
-                }}
-                style={{
-                    height: "38px",
-                    minWidth: "130px",
-                    padding: "0 12px",
-                    borderRadius: "10px",
-                    border:
-                        "1px solid #e0e6ed",
-                    background: "#f4f6fc",
-                    color: "#2b3b75",
-                    fontSize: "13px",
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent:
-                        "space-between",
-                    cursor: "pointer",
-                    outline: "none",
-                }}
-            >
-                <span
-                    style={{
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        marginRight: "8px",
-                    }}
-                >
-                    {displayLabel}
-                </span>
-
-                <span
-                    style={{
-                        fontSize: "10px",
-                        color: "#2b3b75",
-                    }}
-                >
-                    ▼
-                </span>
-            </button>
-
-            {/* DROPDOWN MENU */}
-
-            {isOpen && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        marginTop: "4px",
-                        width: "220px",
-                        background: "#ffffff",
-                        border:
-                            "1px solid #e2e8f0",
-                        borderRadius: "12px",
-                        boxShadow:
-                            "0 10px 25px rgba(0,0,0,0.1)",
-                        zIndex: 1050,
-                        padding: "8px",
-                    }}
-                >
-                    {/* SEARCH */}
-
-                    <div
-                        style={{
-                            position: "relative",
-                            marginBottom: "8px",
-                        }}
+                  return (
+                    <label
+                      key={
+                        option.id
+                      }
+                      style={{
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        gap: "8px",
+                        fontSize:
+                          "12px",
+                        color:
+                          "#2b3b75",
+                        fontWeight:
+                          600,
+                        cursor:
+                          "pointer",
+                        padding:
+                          "2px 4px",
+                      }}
                     >
-                        <span
-                            style={{
-                                position:
-                                    "absolute",
-                                left: "10px",
-                                top: "50%",
-                                transform:
-                                    "translateY(-50%)",
-                                color: "#94a3b8",
-                                fontSize: "12px",
-                            }}
-                        >
-                            🔍
-                        </span>
-
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            value={searchTerm}
-                            onChange={(event) =>
-                                setSearchTerm(
-                                    event.target.value
-                                )
-                            }
-                            style={{
-                                width: "100%",
-                                height: "32px",
-                                paddingLeft: "30px",
-                                paddingRight: "8px",
-                                borderRadius: "6px",
-                                border:
-                                    "1px solid #e2e8f0",
-                                fontSize: "12px",
-                                outline: "none",
-                                boxSizing:
-                                    "border-box",
-                            }}
-                        />
-                    </div>
-
-                    {/* SELECT ALL / CLEAR */}
-
-                    <div
+                      <input
+                        type="checkbox"
+                        checked={
+                          isChecked
+                        }
+                        onChange={() =>
+                          handleToggle(
+                            option.id
+                          )
+                        }
                         style={{
-                            display: "flex",
-                            justifyContent:
-                                "space-between",
-                            padding:
-                                "4px 4px 8px 4px",
-                            fontSize: "12px",
-                            fontWeight: 700,
+                          accentColor:
+                            "#5c60f5",
+                          cursor:
+                            "pointer",
                         }}
-                    >
-                        <span
-                            onClick={
-                                handleSelectAll
-                            }
-                            style={{
-                                color: "#2b3b75",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Select All
-                        </span>
+                      />
 
-                        <span
-                            onClick={handleClear}
-                            style={{
-                                color: "#64748b",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Clear
-                        </span>
-                    </div>
-
-                    {/* OPTIONS */}
-
-                    <div
+                      <span
                         style={{
-                            maxHeight: "160px",
-                            overflowY: "auto",
-                            display: "flex",
-                            flexDirection:
-                                "column",
-                            gap: "6px",
+                          overflow:
+                            "hidden",
+                          textOverflow:
+                            "ellipsis",
+                          whiteSpace:
+                            "nowrap",
                         }}
-                    >
-                        {filteredOptions.length ===
-                        0 ? (
-                            <div
-                                style={{
-                                    fontSize: "12px",
-                                    color: "#94a3b8",
-                                    padding:
-                                        "6px 4px",
-                                }}
-                            >
-                                No options
-                            </div>
-                        ) : (
-                            filteredOptions.map(
-                                (option) => {
-                                    const isChecked =
-                                        normalizedSelectedValues.includes(
-                                            option.id
-                                        );
-
-                                    return (
-                                        <label
-                                            key={
-                                                option.id
-                                            }
-                                            style={{
-                                                display:
-                                                    "flex",
-                                                alignItems:
-                                                    "center",
-                                                gap: "8px",
-                                                fontSize:
-                                                    "12px",
-                                                color:
-                                                    "#2b3b75",
-                                                fontWeight:
-                                                    600,
-                                                cursor:
-                                                    "pointer",
-                                                padding:
-                                                    "2px 4px",
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={
-                                                    isChecked
-                                                }
-                                                onChange={() =>
-                                                    handleToggle(
-                                                        option.id
-                                                    )
-                                                }
-                                                style={{
-                                                    accentColor:
-                                                        "#5c60f5",
-                                                    cursor:
-                                                        "pointer",
-                                                }}
-                                            />
-
-                                            <span
-                                                style={{
-                                                    overflow:
-                                                        "hidden",
-                                                    textOverflow:
-                                                        "ellipsis",
-                                                    whiteSpace:
-                                                        "nowrap",
-                                                }}
-                                            >
-                                                {
-                                                    option.name
-                                                }
-                                            </span>
-                                        </label>
-                                    );
-                                }
-                            )
-                        )}
-                    </div>
-                </div>
+                      >
+                        {
+                          option.name
+                        }
+                      </span>
+                    </label>
+                  );
+                }
+              )
             )}
+          </div>
         </div>
-    );
+      )}
+    </div>
+  );
 };
 
 
@@ -1228,16 +1245,26 @@ const ActualVsTargetTable = ({
                   </td>
 
 
-                  <td className="text-right">
+                  <td
+                    className={`text-right ${isNegativeValue(actual)
+                        ? "finsight-negative-value"
+                        : ""
+                      }`}
+                  >
                     {hasValue(actual)
-                      ? `${currency} ${formatAmount(actual)}`
+                      ? formatAmount(actual)
                       : "—"}
                   </td>
 
 
-                  <td className="text-right">
+                  <td
+                    className={`text-right ${isNegativeValue(target)
+                        ? "finsight-negative-value"
+                        : ""
+                      }`}
+                  >
                     {hasValue(target)
-                      ? `${currency} ${formatAmount(target)}`
+                      ? formatAmount(target)
                       : "—"}
                   </td>
 
@@ -1256,16 +1283,23 @@ const ActualVsTargetTable = ({
               Total
             </td>
 
-            <td className="text-right">
-              {currency}{" "}
+            <td
+              className={`text-right ${isNegativeValue(totalActual)
+                  ? "finsight-negative-value"
+                  : ""
+                }`}
+            >
               {formatAmount(totalActual)}
             </td>
 
-            <td className="text-right">
+            <td
+              className={`text-right ${isNegativeValue(totalTarget)
+                  ? "finsight-negative-value"
+                  : ""
+                }`}
+            >
               {targetValuesExist
-                ? `${currency} ${formatAmount(
-                  totalTarget
-                )}`
+                ? formatAmount(totalTarget)
                 : "—"}
             </td>
 
@@ -1354,7 +1388,17 @@ const GenericTable = ({
       firstMetricType ===
       "amount"
     ) {
-      return formatAmount(value);
+      return (
+        <span
+          className={
+            isNegativeValue(value)
+              ? "finsight-negative-value"
+              : ""
+          }
+        >
+          {formatAmount(value)}
+        </span>
+      );
     }
 
 
@@ -1388,7 +1432,17 @@ const GenericTable = ({
       secondMetricType ===
       "amount"
     ) {
-      return formatAmount(value);
+      return (
+        <span
+          className={
+            isNegativeValue(value)
+              ? "finsight-negative-value"
+              : ""
+          }
+        >
+          {formatAmount(value)}
+        </span>
+      );
     }
 
 
@@ -1715,10 +1769,12 @@ export default function OperatingAnalysisViewAllModal({
   ===================================================== */
 
   const currency =
-    rows?.[0]?.reporting_currency ||
-    activeFilters?.reporting_currency ||
-    reportingCurrency ||
-    "AED";
+    String(
+      activeFilters?.reporting_currency ||
+      reportingCurrency ||
+      rows?.[0]?.reporting_currency ||
+      "AED"
+    ).toUpperCase();
 
 
   /* =====================================================
@@ -2223,7 +2279,7 @@ export default function OperatingAnalysisViewAllModal({
     PDF EXPORT - DIRECT DOWNLOAD
  ===================================================== */
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     if (!filteredRows.length) {
       return;
     }
@@ -2236,6 +2292,42 @@ export default function OperatingAnalysisViewAllModal({
       });
 
       /* =====================================================
+         FINSIGHT LOGO
+         PDF ONLY - DOES NOT AFFECT UI/API
+      ===================================================== */
+
+      try {
+        const logoResponse = await fetch(FINSIGHT_LOGO_PATH);
+
+        if (logoResponse.ok) {
+          const logoBlob = await logoResponse.blob();
+
+          const logoDataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+
+            reader.readAsDataURL(logoBlob);
+          });
+
+          doc.addImage(
+            logoDataUrl,
+            "PNG",
+            14,
+            7,
+            42,
+            12
+          );
+        }
+      } catch (logoError) {
+        console.warn(
+          "FinSight logo could not be loaded for PDF:",
+          logoError
+        );
+      }
+
+      /* =====================================================
          TITLE
       ===================================================== */
 
@@ -2246,10 +2338,10 @@ export default function OperatingAnalysisViewAllModal({
       doc.text(
         String(title || "Detailed View"),
         14,
-        15
+        25
       );
 
-      let currentY = 22;
+      let currentY = 32;
 
       /* =====================================================
          SUBTITLE
@@ -2570,9 +2662,15 @@ export default function OperatingAnalysisViewAllModal({
               "bold";
 
             data.cell.styles.fillColor = [
-              243,
-              246,
-              249,
+              226,
+              232,
+              240,
+            ];
+
+            data.cell.styles.textColor = [
+              15,
+              23,
+              42,
             ];
           }
         },
@@ -3605,6 +3703,11 @@ export default function OperatingAnalysisViewAllModal({
                         #e8eef5;
                 }
 
+                /* Negative financial values */
+                .finsight-negative-value {
+                    color: #dc2626 !important;
+                }
+
 
                 @media (max-width: 1100px) {
 
@@ -3730,11 +3833,9 @@ export default function OperatingAnalysisViewAllModal({
               </div>
 
 
-              {subtitle && (
-                <div className="finsight-detail-subtitle">
-                  {subtitle}
-                </div>
-              )}
+              <div className="finsight-detail-subtitle">
+                {subtitle || `Amounts in ${currency}`}
+              </div>
 
             </div>
 
@@ -3755,177 +3856,177 @@ export default function OperatingAnalysisViewAllModal({
         FILTER ROW
     ===================================================== */}
 
-     <div
-    style={{
-        padding: "16px 22px",
-        borderBottom:
-            "1px solid #f1f5f9",
-        display: "flex",
-        alignItems: "flex-end",
-        flexWrap: "wrap",
-        gap: "12px",
-        background: "#ffffff",
-        flexShrink: 0,
-    }}
->
-    {/* Year Filter */}
-
-    <MultiSelectDropdown
-        label="Year"
-        options={
-            filterOptions?.years ||
-            filterOptions?.fiscal_years ||
-            []
-        }
-        selectedValues={
-            viewAllFilters.year
-        }
-        onChange={(values) =>
-            setViewAllFilters(
-                (previous) => ({
-                    ...previous,
-                    year: values,
-                })
-            )
-        }
-    />
-
-    {/* Legal Entity Filter */}
-
-    <MultiSelectDropdown
-        label="Legal Entity"
-        options={
-            filterOptions?.legal_entities ||
-            []
-        }
-        selectedValues={
-            viewAllFilters.legal_entity
-        }
-        onChange={(values) =>
-            setViewAllFilters(
-                (previous) => ({
-                    ...previous,
-                    legal_entity: values,
-                })
-            )
-        }
-    />
-
-    {/* Parent Division Filter */}
-
-    <MultiSelectDropdown
-        label="Parent Division"
-        options={
-            filterOptions?.parent_divisions ||
-            []
-        }
-        selectedValues={
-            viewAllFilters.parent_division
-        }
-        onChange={(values) =>
-            setViewAllFilters(
-                (previous) => ({
-                    ...previous,
-                    parent_division: values,
-                })
-            )
-        }
-    />
-
-    {/* Sub-Division Filter */}
-
-    <MultiSelectDropdown
-        label="Sub-Division"
-        options={
-            filterOptions?.subdivisions ||
-            []
-        }
-        selectedValues={
-            viewAllFilters.subdivision
-        }
-        onChange={(values) =>
-            setViewAllFilters(
-                (previous) => ({
-                    ...previous,
-                    subdivision: values,
-                })
-            )
-        }
-    />
-
-    {/* Period Filter */}
-
-    <MultiSelectDropdown
-        label="Period"
-        options={
-            filterOptions?.periods ||
-            []
-        }
-        selectedValues={
-            viewAllFilters.period
-        }
-        onChange={(values) =>
-            setViewAllFilters(
-                (previous) => ({
-                    ...previous,
-                    period: values,
-                })
-            )
-        }
-    />
-
-    {/* Apply / Reset / Export */}
-
-    <div
-        style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            marginLeft: "auto",
-        }}
-    >
-        <button
-            type="button"
-            onClick={handleApplyViewAllFilters}
-            style={{
-                height: "38px",
-                padding: "0 22px",
-                borderRadius: "10px",
-                border: "none",
-                background: "#5c60f5",
-                color: "#ffffff",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
-                outline: "none",
-            }}
-        >
-            Apply
-        </button>
-
-        <button
-            type="button"
-            onClick={handleViewAllReset}
-            style={{
-                height: "38px",
-                padding: "0 18px",
-                borderRadius: "10px",
-                border:
-                    "1px solid #e0e6ed",
+            <div
+              style={{
+                padding: "16px 22px",
+                borderBottom:
+                  "1px solid #f1f5f9",
+                display: "flex",
+                alignItems: "flex-end",
+                flexWrap: "wrap",
+                gap: "12px",
                 background: "#ffffff",
-                color: "#2b3b75",
-                fontSize: "13px",
-                fontWeight: 700,
-                cursor: "pointer",
-                outline: "none",
-            }}
-        >
-            Reset
-        </button>
+                flexShrink: 0,
+              }}
+            >
+              {/* Year Filter */}
 
-        
-    </div>
-</div>
+              <MultiSelectDropdown
+                label="Year"
+                options={
+                  filterOptions?.years ||
+                  filterOptions?.fiscal_years ||
+                  []
+                }
+                selectedValues={
+                  viewAllFilters.year
+                }
+                onChange={(values) =>
+                  setViewAllFilters(
+                    (previous) => ({
+                      ...previous,
+                      year: values,
+                    })
+                  )
+                }
+              />
+
+              {/* Legal Entity Filter */}
+
+              <MultiSelectDropdown
+                label="Legal Entity"
+                options={
+                  filterOptions?.legal_entities ||
+                  []
+                }
+                selectedValues={
+                  viewAllFilters.legal_entity
+                }
+                onChange={(values) =>
+                  setViewAllFilters(
+                    (previous) => ({
+                      ...previous,
+                      legal_entity: values,
+                    })
+                  )
+                }
+              />
+
+              {/* Parent Division Filter */}
+
+              <MultiSelectDropdown
+                label="Parent Division"
+                options={
+                  filterOptions?.parent_divisions ||
+                  []
+                }
+                selectedValues={
+                  viewAllFilters.parent_division
+                }
+                onChange={(values) =>
+                  setViewAllFilters(
+                    (previous) => ({
+                      ...previous,
+                      parent_division: values,
+                    })
+                  )
+                }
+              />
+
+              {/* Sub-Division Filter */}
+
+              <MultiSelectDropdown
+                label="Sub-Division"
+                options={
+                  filterOptions?.subdivisions ||
+                  []
+                }
+                selectedValues={
+                  viewAllFilters.subdivision
+                }
+                onChange={(values) =>
+                  setViewAllFilters(
+                    (previous) => ({
+                      ...previous,
+                      subdivision: values,
+                    })
+                  )
+                }
+              />
+
+              {/* Period Filter */}
+
+              <MultiSelectDropdown
+                label="Period"
+                options={
+                  filterOptions?.periods ||
+                  []
+                }
+                selectedValues={
+                  viewAllFilters.period
+                }
+                onChange={(values) =>
+                  setViewAllFilters(
+                    (previous) => ({
+                      ...previous,
+                      period: values,
+                    })
+                  )
+                }
+              />
+
+              {/* Apply / Reset / Export */}
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  marginLeft: "auto",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleApplyViewAllFilters}
+                  style={{
+                    height: "38px",
+                    padding: "0 22px",
+                    borderRadius: "10px",
+                    border: "none",
+                    background: "#5c60f5",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  Apply
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleViewAllReset}
+                  style={{
+                    height: "38px",
+                    padding: "0 18px",
+                    borderRadius: "10px",
+                    border:
+                      "1px solid #e0e6ed",
+                    background: "#ffffff",
+                    color: "#2b3b75",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  Reset
+                </button>
+
+
+              </div>
+            </div>
 
 
             {/* =====================================================

@@ -2569,6 +2569,7 @@ Only the View All API is refreshed.
                     viewAllType
                 }
 
+
                 title={
                     viewAllType === "actual-vs-target"
                         ? "Actual vs Target by Expense Category"
@@ -2577,9 +2578,11 @@ Only the View All API is refreshed.
 
                 subtitle={
                     viewAllType === "actual-vs-target"
-                        ? "Detailed actual versus target expense category analysis"
-                        : "Detailed operating expense composition by category"
+                        ? `Detailed actual versus target expense category analysis — Amounts in ${reportingCurrency || "AED"}`
+                        : `Detailed operating expense composition by category — Amounts in ${reportingCurrency || "AED"}`
                 }
+
+
 
                 onApplyFilters={
                     handleApplyViewAllFilters
@@ -2678,7 +2681,7 @@ Only the View All API is refreshed.
 
                 <FooterNote
                     title="Note:"
-                    message={`All values are in ${reportingCurrency}, | Data as of ${formatDataAsOf(dataAsOf)}`}
+                    message={`All values are in ${reportingCurrency}, | Last Updated On ${formatDataAsOf(dataAsOf)}`}
                     showRefresh={false}
                 />
 

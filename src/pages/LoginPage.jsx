@@ -268,7 +268,7 @@ export default function LoginPage() {
 
           <div className="finsight-brand">
             <img
-              src="/images/FinSightLogo-Transparent.png"
+              src="/images/Finsight-Transparent-Logo.png"
               alt=""
               className="finsight-logo-image"
             />

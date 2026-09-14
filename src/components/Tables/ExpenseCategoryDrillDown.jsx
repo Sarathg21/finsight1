@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
 
@@ -22,6 +23,7 @@ const MONTHS = [
 
 /* =========================================================
    FORMAT NUMBER
+   No decimal points
 ========================================================= */
 
 const formatNumber = (value) => {
@@ -33,13 +35,55 @@ const formatNumber = (value) => {
         return "—";
     }
 
-    const number = Number(value);
+    const number = Number(
+        typeof value === "string"
+            ? value.replace(/,/g, "")
+            : value
+    );
 
-    if (Number.isNaN(number)) {
+    if (!Number.isFinite(number)) {
         return "—";
     }
 
-    return number.toLocaleString("en-US");
+    return number.toLocaleString("en-US", {
+        maximumFractionDigits: 0,
+        minimumFractionDigits: 0,
+    });
+};
+
+/* =========================================================
+   GET NUMBER COLOR
+   Negative values = RED
+========================================================= */
+
+const getNumberColor = (
+    value,
+    defaultColor = "#334155"
+) => {
+    if (
+        value === null ||
+        value === undefined ||
+        value === "" ||
+        value === "-" ||
+        value === "—"
+    ) {
+        return defaultColor;
+    }
+
+    const number = Number(
+        typeof value === "string"
+            ? value.replace(/,/g, "")
+            : value
+    );
+
+    if (
+        Number.isFinite(number) &&
+        number < 0
+    ) {
+        return "#DC2626";
+    }
+
+    return defaultColor;
 };
 
 /* =========================================================
@@ -90,7 +134,8 @@ const formatDataAsOf = (value) => {
     );
 
     if (dateOnlyMatch) {
-        const [, year, month, day] = dateOnlyMatch;
+        const [, year, month, day] =
+            dateOnlyMatch;
 
         const date = new Date(
             Number(year),
@@ -98,11 +143,14 @@ const formatDataAsOf = (value) => {
             Number(day)
         );
 
-        return date.toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        });
+        return date.toLocaleDateString(
+            "en-GB",
+            {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }
+        );
     }
 
     const date = new Date(value);
@@ -111,11 +159,14 @@ const formatDataAsOf = (value) => {
         return valueString;
     }
 
-    return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-    });
+    return date.toLocaleDateString(
+        "en-GB",
+        {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        }
+    );
 };
 
 /* =========================================================
@@ -131,12 +182,13 @@ const getMonthValue = (
     }
 
     if (Array.isArray(monthData)) {
-        const monthItem = monthData.find(
-            (item) =>
-                item?.month === month ||
-                item?.month_name === month ||
-                item?.monthName === month
-        );
+        const monthItem =
+            monthData.find(
+                (item) =>
+                    item?.month === month ||
+                    item?.month_name === month ||
+                    item?.monthName === month
+            );
 
         return (
             monthItem?.value ??
@@ -181,7 +233,9 @@ const getDetails = (item) => {
    NORMALIZE CATEGORY DETAIL API RESPONSE
 ========================================================= */
 
-const normalizeCategoryDetails = (response) => {
+const normalizeCategoryDetails = (
+    response
+) => {
     if (Array.isArray(response)) {
         return response;
     }
@@ -194,11 +248,19 @@ const normalizeCategoryDetails = (response) => {
         return response.details;
     }
 
-    if (Array.isArray(response?.categoryDetails)) {
+    if (
+        Array.isArray(
+            response?.categoryDetails
+        )
+    ) {
         return response.categoryDetails;
     }
 
-    if (Array.isArray(response?.naturalAccounts)) {
+    if (
+        Array.isArray(
+            response?.naturalAccounts
+        )
+    ) {
         return response.naturalAccounts;
     }
 
@@ -366,13 +428,20 @@ export default function ExpenseCategoryDrillDown({
     /* =======================================================
        LOAD CATEGORY DETAIL
     ======================================================= */
+    /* =======================================================
+       LOAD CATEGORY DETAIL
+       Backend response is the primary source.
+       Existing fallback logic remains unchanged.
+    ======================================================= */
 
     const loadCategoryDetails = async (
         item
     ) => {
         const category =
             item?.category ||
-            (typeof item === "string" ? item : "");
+            (typeof item === "string"
+                ? item
+                : "");
 
         if (!category) {
             return;
@@ -380,42 +449,11 @@ export default function ExpenseCategoryDrillDown({
 
         if (
             categoryDetails[category] &&
-            Array.isArray(categoryDetails[category]) &&
+            Array.isArray(
+                categoryDetails[category]
+            ) &&
             categoryDetails[category].length > 0
         ) {
-            return;
-        }
-
-        const preloadedDetails =
-            item?.categoryDetails ||
-            item?.naturalAccounts ||
-            item?.details;
-
-        if (
-            Array.isArray(preloadedDetails) &&
-            preloadedDetails.length > 0
-        ) {
-            setCategoryDetails((prev) => ({
-                ...prev,
-                [category]: preloadedDetails,
-            }));
-            return;
-        }
-
-        const derived =
-            deriveCategoryNaturalAccounts(
-                item,
-                category
-            );
-
-        if (
-            Array.isArray(derived) &&
-            derived.length > 0
-        ) {
-            setCategoryDetails((prev) => ({
-                ...prev,
-                [category]: derived,
-            }));
             return;
         }
 
@@ -434,6 +472,11 @@ export default function ExpenseCategoryDrillDown({
                 })
             );
 
+            /* ===================================================
+               BACKEND API
+               Backend response is used first.
+            =================================================== */
+
             const configuredBaseUrl =
                 import.meta.env
                     .VITE_API_BASE_URL || "";
@@ -444,11 +487,10 @@ export default function ExpenseCategoryDrillDown({
                     ""
                 );
 
-            const apiUrl = baseUrl.endsWith(
-                "/api"
-            )
-                ? `${baseUrl}/opex/category-detail`
-                : `${baseUrl}/api/opex/category-detail`;
+            const apiUrl =
+                baseUrl.endsWith("/api")
+                    ? `${baseUrl}/opex/category-detail`
+                    : `${baseUrl}/api/opex/category-detail`;
 
             const params =
                 new URLSearchParams({
@@ -491,6 +533,10 @@ export default function ExpenseCategoryDrillDown({
                         responseData
                     );
 
+                /* =================================================
+                   USE BACKEND DETAILS DIRECTLY
+                ================================================= */
+
                 if (
                     Array.isArray(details) &&
                     details.length > 0
@@ -498,12 +544,42 @@ export default function ExpenseCategoryDrillDown({
                     setCategoryDetails(
                         (prev) => ({
                             ...prev,
-                            [category]: details,
+                            [category]:
+                                details,
                         })
                     );
+
                     return;
                 }
             }
+
+            /* ===================================================
+               EXISTING PRELOADED DATA FALLBACK
+            =================================================== */
+
+            const preloadedDetails =
+                item?.categoryDetails ||
+                item?.naturalAccounts ||
+                item?.details;
+
+            if (
+                Array.isArray(preloadedDetails) &&
+                preloadedDetails.length > 0
+            ) {
+                setCategoryDetails(
+                    (prev) => ({
+                        ...prev,
+                        [category]:
+                            preloadedDetails,
+                    })
+                );
+
+                return;
+            }
+
+            /* ===================================================
+               EXISTING DERIVED DATA FALLBACK
+            =================================================== */
 
             const fallbackDetails =
                 deriveCategoryNaturalAccounts(
@@ -514,10 +590,35 @@ export default function ExpenseCategoryDrillDown({
             setCategoryDetails(
                 (prev) => ({
                     ...prev,
-                    [category]: fallbackDetails,
+                    [category]:
+                        fallbackDetails,
                 })
             );
         } catch (error) {
+            /* ===================================================
+               EXISTING FALLBACK ON API ERROR
+            =================================================== */
+
+            const preloadedDetails =
+                item?.categoryDetails ||
+                item?.naturalAccounts ||
+                item?.details;
+
+            if (
+                Array.isArray(preloadedDetails) &&
+                preloadedDetails.length > 0
+            ) {
+                setCategoryDetails(
+                    (prev) => ({
+                        ...prev,
+                        [category]:
+                            preloadedDetails,
+                    })
+                );
+
+                return;
+            }
+
             const fallbackDetails =
                 deriveCategoryNaturalAccounts(
                     item,
@@ -525,6 +626,7 @@ export default function ExpenseCategoryDrillDown({
                 );
 
             if (
+                Array.isArray(fallbackDetails) &&
                 fallbackDetails.length > 0
             ) {
                 setCategoryDetails(
@@ -560,7 +662,6 @@ export default function ExpenseCategoryDrillDown({
             );
         }
     };
-
     /* =======================================================
        TOGGLE
     ======================================================= */
@@ -668,7 +769,8 @@ export default function ExpenseCategoryDrillDown({
             return (
                 <div
                     style={{
-                        padding: "16px 20px",
+                        padding:
+                            "16px 20px",
                         fontSize: 12,
                         color: "#64748B",
                     }}
@@ -685,12 +787,17 @@ export default function ExpenseCategoryDrillDown({
             return (
                 <div
                     style={{
-                        padding: "16px 20px",
+                        padding:
+                            "16px 20px",
                         fontSize: 12,
                         color: "#DC2626",
                     }}
                 >
-                    {categoryDetailError[category]}
+                    {
+                        categoryDetailError[
+                        category
+                        ]
+                    }
                 </div>
             );
         }
@@ -699,20 +806,28 @@ export default function ExpenseCategoryDrillDown({
             return (
                 <div
                     style={{
-                        padding: "16px 20px",
+                        padding:
+                            "16px 20px",
                         fontSize: 12,
                         color: "#64748B",
                     }}
                 >
-                    No natural-account details available.
+                    No natural-account details
+                    available.
                 </div>
             );
         }
 
+        /* ===================================================
+           GET DETAIL VALUE
+           Supports both camelCase and backend snake_case.
+        =================================================== */
+
         const getDetailValue = (
             account,
             camelCaseKey,
-            snakeCaseKey
+            snakeCaseKey,
+            aedKey = null
         ) => {
             const camelValue =
                 account?.[camelCaseKey];
@@ -725,8 +840,36 @@ export default function ExpenseCategoryDrillDown({
                 return camelValue;
             }
 
-            return account?.[snakeCaseKey];
+            const snakeValue =
+                account?.[snakeCaseKey];
+
+            if (
+                snakeValue !== undefined &&
+                snakeValue !== null &&
+                snakeValue !== ""
+            ) {
+                return snakeValue;
+            }
+
+            if (aedKey) {
+                const aedValue =
+                    account?.[aedKey];
+
+                if (
+                    aedValue !== undefined &&
+                    aedValue !== null &&
+                    aedValue !== ""
+                ) {
+                    return aedValue;
+                }
+            }
+
+            return null;
         };
+
+        /* ===================================================
+           FORMAT PERCENT
+        =================================================== */
 
         const formatPercent = (value) => {
             if (
@@ -757,79 +900,56 @@ export default function ExpenseCategoryDrillDown({
                     style={{
                         width: "100%",
                         minWidth: 900,
-                        borderCollapse:
-                            "collapse",
+                        borderCollapse: "collapse",
                         tableLayout: "fixed",
                     }}
                 >
                     <colgroup>
-                        <col style={{ width: "23%" }} />
-                        <col style={{ width: "9%" }} />
-                        <col style={{ width: "9%" }} />
+                        <col style={{ width: "17%" }} />
                         <col style={{ width: "10%" }} />
-                        <col style={{ width: "9%" }} />
                         <col style={{ width: "10%" }} />
-                        <col style={{ width: "9%" }} />
                         <col style={{ width: "10%" }} />
-                        <col style={{ width: "7%" }} />
+                        <col style={{ width: "8%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "10%" }} />
+                        <col style={{ width: "8%" }} />
                     </colgroup>
 
                     <thead>
                         <tr
                             style={{
-                                height: 44,
-                                borderBottom:
-                                    "1px solid #E5E7EB",
+                                height: 38,
+                                borderBottom: "1px solid #E5E7EB",
                             }}
                         >
                             {[
-                                "Natural Account",
-                                `Actual PTD (${reportingCurrency})`,
-                                `Target PTD (${reportingCurrency})`,
-                                `Variance PTD (${reportingCurrency})`,
-                                "Variance PTD %",
-                                `Actual YTD (${reportingCurrency})`,
-                                `Target YTD (${reportingCurrency})`,
-                                `Variance YTD (${reportingCurrency})`,
-                                "Variance YTD %",
-                            ].map(
-                                (
-                                    heading,
-                                    index
-                                ) => (
-                                    <th
-                                        key={
-                                            heading
-                                        }
-                                        style={{
-                                            padding:
-                                                index ===
-                                                    0
-                                                    ? "0 10px"
-                                                    : "0 9px",
-                                            textAlign:
-                                                index ===
-                                                    0
-                                                    ? "left"
-                                                    : "right",
-                                            color:
-                                                "#1E3A8A",
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            whiteSpace:
-                                                "normal",
-                                            overflow:
-                                                "hidden",
-                                            textOverflow:
-                                                "ellipsis",
-                                            lineHeight:
-                                                "16px",
-                                        }}
-                                    >
-                                        {heading}
-                                    </th>
-                                )
-                            )}
+                                "EXPENSE CATEGORY",
+                                "ACTUAL PTD",
+                                "TARGET PTD",
+                                "VARIANCE PTD",
+                                "VARIANCE PTD %",
+                                "ACTUAL YTD",
+                                "TARGET YTD",
+                                "VARIANCE YTD",
+                                "VARIANCE YTD %",
+                            ].map((heading, index) => (
+                                <th
+                                    key={`${heading}-${index}`}
+                                    style={{
+                                        padding: "0 10px",
+                                        textAlign:
+                                            index === 0 ? "left" : "right",
+                                        color: "#1E3A8A",
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        whiteSpace: "normal",
+                                        lineHeight: "17px",
+                                    }}
+                                >
+                                    {heading}
+                                </th>
+                            ))}
                         </tr>
                     </thead>
 
@@ -849,11 +969,23 @@ export default function ExpenseCategoryDrillDown({
                                         account
                                     );
 
+                                /*
+                                 * Backend response:
+                                 *
+                                 * actual_ptd
+                                 * actual_ytd
+                                 *
+                                 * Also supports:
+                                 * actual_ptd_aed
+                                 * actual_ytd_aed
+                                 */
+
                                 const actualPTD =
                                     getDetailValue(
                                         account,
                                         "actualPTD",
-                                        "actual_ptd"
+                                        "actual_ptd",
+                                        "actual_ptd_aed"
                                     );
 
                                 const targetPTD =
@@ -881,7 +1013,8 @@ export default function ExpenseCategoryDrillDown({
                                     getDetailValue(
                                         account,
                                         "actualYTD",
-                                        "actual_ytd"
+                                        "actual_ytd",
+                                        "actual_ytd_aed"
                                     );
 
                                 const targetYTD =
@@ -917,6 +1050,7 @@ export default function ExpenseCategoryDrillDown({
                                                 "1px solid #E5E7EB",
                                         }}
                                     >
+                                        {/* NATURAL ACCOUNT */}
                                         <td
                                             style={{
                                                 padding:
@@ -938,17 +1072,25 @@ export default function ExpenseCategoryDrillDown({
                                             }}
                                         >
                                             {accountCode
-                                                ? `${accountCode} - ${String(accountName || "")
-                                                    .replace(
-                                                        new RegExp(
-                                                            `^${String(accountCode).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*-\\s*`,
-                                                            "i"
-                                                        ),
-                                                        ""
-                                                    )}`
+                                                ? `${accountCode} - ${String(
+                                                    accountName ||
+                                                    ""
+                                                ).replace(
+                                                    new RegExp(
+                                                        `^${String(
+                                                            accountCode
+                                                        ).replace(
+                                                            /[.*+?^${}()|[\]\\]/g,
+                                                            "\\$&"
+                                                        )}\\s*-\\s*`,
+                                                        "i"
+                                                    ),
+                                                    ""
+                                                )}`
                                                 : accountName}
                                         </td>
 
+                                        {/* PTD ACTUAL / TARGET / VARIANCE */}
                                         {[
                                             actualPTD,
                                             targetPTD,
@@ -969,10 +1111,13 @@ export default function ExpenseCategoryDrillDown({
                                                             "right",
                                                         fontSize: 13,
                                                         color:
-                                                            valueIndex ===
-                                                                0
-                                                                ? "#334155"
-                                                                : "#64748B",
+                                                            getNumberColor(
+                                                                value,
+                                                                valueIndex ===
+                                                                    0
+                                                                    ? "#334155"
+                                                                    : "#64748B"
+                                                            ),
                                                         fontWeight:
                                                             valueIndex ===
                                                                 2
@@ -989,6 +1134,7 @@ export default function ExpenseCategoryDrillDown({
                                             )
                                         )}
 
+                                        {/* PTD VARIANCE % */}
                                         <td
                                             style={{
                                                 padding:
@@ -997,7 +1143,10 @@ export default function ExpenseCategoryDrillDown({
                                                     "right",
                                                 fontSize: 13,
                                                 color:
-                                                    "#64748B",
+                                                    getNumberColor(
+                                                        variancePTDPercent,
+                                                        "#64748B"
+                                                    ),
                                                 fontWeight: 600,
                                                 whiteSpace:
                                                     "nowrap",
@@ -1008,6 +1157,7 @@ export default function ExpenseCategoryDrillDown({
                                             )}
                                         </td>
 
+                                        {/* YTD ACTUAL / TARGET / VARIANCE */}
                                         {[
                                             actualYTD,
                                             targetYTD,
@@ -1026,10 +1176,13 @@ export default function ExpenseCategoryDrillDown({
                                                             "right",
                                                         fontSize: 13,
                                                         color:
-                                                            valueIndex ===
-                                                                0
-                                                                ? "#334155"
-                                                                : "#64748B",
+                                                            getNumberColor(
+                                                                value,
+                                                                valueIndex ===
+                                                                    0
+                                                                    ? "#334155"
+                                                                    : "#64748B"
+                                                            ),
                                                         fontWeight:
                                                             valueIndex ===
                                                                 2
@@ -1046,6 +1199,7 @@ export default function ExpenseCategoryDrillDown({
                                             )
                                         )}
 
+                                        {/* YTD VARIANCE % */}
                                         <td
                                             style={{
                                                 padding:
@@ -1054,7 +1208,10 @@ export default function ExpenseCategoryDrillDown({
                                                     "right",
                                                 fontSize: 13,
                                                 color:
-                                                    "#64748B",
+                                                    getNumberColor(
+                                                        varianceYTDPercent,
+                                                        "#64748B"
+                                                    ),
                                                 fontWeight: 600,
                                                 whiteSpace:
                                                     "nowrap",
@@ -1108,7 +1265,7 @@ export default function ExpenseCategoryDrillDown({
                         color: "#0F172A",
                     }}
                 >
-                    Expense Category Drill-Down
+                    Expense Category Drill-Down <span style={{ color: "#6B7280", marginLeft: "6px" }}>(Amounts in {reportingCurrency || "AED"})</span>
                 </h3>
 
                 <div
@@ -1176,11 +1333,14 @@ export default function ExpenseCategoryDrillDown({
                         type="button"
                         onClick={() =>
                             setMenuOpen(
-                                (prev) => !prev
+                                (prev) =>
+                                    !prev
                             )
                         }
                         aria-label="Expense category actions"
-                        aria-expanded={menuOpen}
+                        aria-expanded={
+                            menuOpen
+                        }
                         style={{
                             border: "none",
                             background:
@@ -1468,127 +1628,171 @@ export default function ExpenseCategoryDrillDown({
                         >
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "left",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "left",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "nowrap",
+                                    whiteSpace:
+                                        "nowrap",
                                 }}
                             >
-                                Expense Category
+                                EXPENSE CATEGORY
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Actual PTD ({reportingCurrency})
+                                ACTUAL PTD
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Target PTD ({reportingCurrency})
+                                TARGET PTD
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Variance PTD ({reportingCurrency})
+                                VARIANCE PTD
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Variance PTD %
+                                VARIANCE PTD %
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Actual YTD ({reportingCurrency})
+                                ACTUAL YTD
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Target YTD ({reportingCurrency})
+                                TARGET YTD
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Variance YTD ({reportingCurrency})
+                                VARIANCE YTD
                             </th>
 
                             <th
                                 style={{
-                                    padding: "0 10px",
-                                    textAlign: "right",
-                                    color: "#1E3A8A",
+                                    padding:
+                                        "0 10px",
+                                    textAlign:
+                                        "right",
+                                    color:
+                                        "#1E3A8A",
                                     fontSize: 13,
                                     fontWeight: 700,
-                                    whiteSpace: "normal",
-                                    lineHeight: "17px",
+                                    whiteSpace:
+                                        "normal",
+                                    lineHeight:
+                                        "17px",
                                 }}
                             >
-                                Variance YTD %
+                                VARIANCE YTD %
                             </th>
                         </tr>
                     </thead>
@@ -1608,12 +1812,46 @@ export default function ExpenseCategoryDrillDown({
                                     rowKey
                                     ];
 
+                                const actualPTD =
+                                    item?.actualPTD ??
+                                    item?.actual_ptd;
+
+                                const targetPTD =
+                                    item?.targetPTD ??
+                                    item?.target_ptd;
+
+                                const variancePTD =
+                                    item?.variancePTD ??
+                                    item?.variance_ptd;
+
+                                const variancePTDPercent =
+                                    item?.variancePTDPercent ??
+                                    item?.variance_ptd_pct;
+
+                                const actualYTD =
+                                    item?.actualYTD ??
+                                    item?.actual_ytd;
+
+                                const targetYTD =
+                                    item?.targetYTD ??
+                                    item?.target_ytd;
+
+                                const varianceYTD =
+                                    item?.varianceYTD ??
+                                    item?.variance_ytd;
+
+                                const varianceYTDPercent =
+                                    item?.varianceYTDPercent ??
+                                    item?.variance_ytd_pct;
+
                                 return (
                                     <React.Fragment
                                         key={
                                             rowKey
                                         }
                                     >
+                                        {/* MAIN CATEGORY ROW */}
+
                                         <tr
                                             style={{
                                                 height: 39,
@@ -1690,6 +1928,8 @@ export default function ExpenseCategoryDrillDown({
                                                 </div>
                                             </td>
 
+                                            {/* PTD ACTUAL */}
+
                                             <td
                                                 style={{
                                                     padding:
@@ -1698,15 +1938,19 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#334155",
+                                                        getNumberColor(
+                                                            actualPTD,
+                                                            "#334155"
+                                                        ),
                                                     fontWeight: 500,
                                                 }}
                                             >
                                                 {formatNumber(
-                                                    item?.actualPTD ??
-                                                    item?.actual_ptd
+                                                    actualPTD
                                                 )}
                                             </td>
+
+                                            {/* PTD TARGET */}
 
                                             <td
                                                 style={{
@@ -1716,15 +1960,19 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#64748B",
+                                                        getNumberColor(
+                                                            targetPTD,
+                                                            "#64748B"
+                                                        ),
                                                     fontWeight: 500,
                                                 }}
                                             >
                                                 {formatNumber(
-                                                    item?.targetPTD ??
-                                                    item?.target_ptd
+                                                    targetPTD
                                                 )}
                                             </td>
+
+                                            {/* PTD VARIANCE */}
 
                                             <td
                                                 style={{
@@ -1734,15 +1982,19 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#64748B",
+                                                        getNumberColor(
+                                                            variancePTD,
+                                                            "#64748B"
+                                                        ),
                                                     fontWeight: 600,
                                                 }}
                                             >
                                                 {formatNumber(
-                                                    item?.variancePTD ??
-                                                    item?.variance_ptd
+                                                    variancePTD
                                                 )}
                                             </td>
+
+                                            {/* PTD VARIANCE % */}
 
                                             <td
                                                 style={{
@@ -1752,22 +2004,29 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#64748B",
+                                                        getNumberColor(
+                                                            variancePTDPercent,
+                                                            "#64748B"
+                                                        ),
                                                     fontWeight: 600,
                                                 }}
                                             >
-                                                {item?.variancePTDPercent ??
-                                                    item?.variance_ptd_pct ??
-                                                    null
+                                                {variancePTDPercent !==
+                                                    null &&
+                                                    variancePTDPercent !==
+                                                    undefined &&
+                                                    variancePTDPercent !==
+                                                    ""
                                                     ? `${Number(
-                                                        item?.variancePTDPercent ??
-                                                        item?.variance_ptd_pct
+                                                        variancePTDPercent
                                                     ).toFixed(
                                                         1
                                                     )}%`
                                                     : "—"}
                                             </td>
 
+                                            {/* YTD ACTUAL */}
+
                                             <td
                                                 style={{
                                                     padding:
@@ -1776,15 +2035,19 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#334155",
+                                                        getNumberColor(
+                                                            actualYTD,
+                                                            "#334155"
+                                                        ),
                                                     fontWeight: 500,
                                                 }}
                                             >
                                                 {formatNumber(
-                                                    item?.actualYTD ??
-                                                    item?.actual_ytd
+                                                    actualYTD
                                                 )}
                                             </td>
+
+                                            {/* YTD TARGET */}
 
                                             <td
                                                 style={{
@@ -1794,15 +2057,19 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#64748B",
+                                                        getNumberColor(
+                                                            targetYTD,
+                                                            "#64748B"
+                                                        ),
                                                     fontWeight: 500,
                                                 }}
                                             >
                                                 {formatNumber(
-                                                    item?.targetYTD ??
-                                                    item?.target_ytd
+                                                    targetYTD
                                                 )}
                                             </td>
+
+                                            {/* YTD VARIANCE */}
 
                                             <td
                                                 style={{
@@ -1812,15 +2079,19 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#64748B",
+                                                        getNumberColor(
+                                                            varianceYTD,
+                                                            "#64748B"
+                                                        ),
                                                     fontWeight: 600,
                                                 }}
                                             >
                                                 {formatNumber(
-                                                    item?.varianceYTD ??
-                                                    item?.variance_ytd
+                                                    varianceYTD
                                                 )}
                                             </td>
+
+                                            {/* YTD VARIANCE % */}
 
                                             <td
                                                 style={{
@@ -1830,16 +2101,21 @@ export default function ExpenseCategoryDrillDown({
                                                         "right",
                                                     fontSize: 13,
                                                     color:
-                                                        "#64748B",
+                                                        getNumberColor(
+                                                            varianceYTDPercent,
+                                                            "#64748B"
+                                                        ),
                                                     fontWeight: 600,
                                                 }}
                                             >
-                                                {item?.varianceYTDPercent ??
-                                                    item?.variance_ytd_pct ??
-                                                    null
+                                                {varianceYTDPercent !==
+                                                    null &&
+                                                    varianceYTDPercent !==
+                                                    undefined &&
+                                                    varianceYTDPercent !==
+                                                    ""
                                                     ? `${Number(
-                                                        item?.varianceYTDPercent ??
-                                                        item?.variance_ytd_pct
+                                                        varianceYTDPercent
                                                     ).toFixed(
                                                         1
                                                     )}%`
@@ -1847,18 +2123,16 @@ export default function ExpenseCategoryDrillDown({
                                             </td>
                                         </tr>
 
+                                        {/* EXPANDED ROW */}
+
                                         {isExpanded && (
                                             <tr>
                                                 <td
-                                                    colSpan={
-                                                        9
-                                                    }
+                                                    colSpan={9}
                                                     style={{
                                                         background: "#FFFFFF",
-                                                        padding:
-                                                            "10px 20px",
-                                                        borderBottom:
-                                                            "1px solid #E5E7EB",
+                                                        padding: "10px 0",
+                                                        borderBottom: "1px solid #E5E7EB",
                                                     }}
                                                 >
                                                     <div
@@ -1883,7 +2157,9 @@ export default function ExpenseCategoryDrillDown({
                                                                         "#334155",
                                                                 }}
                                                             >
-                                                                Natural-account details for{" "}
+                                                                Natural-account
+                                                                details
+                                                                for{" "}
                                                                 <strong
                                                                     style={{
                                                                         color:
@@ -1921,7 +2197,8 @@ export default function ExpenseCategoryDrillDown({
                         >
                             <td
                                 style={{
-                                    padding: "0 8px",
+                                    padding:
+                                        "0 8px",
                                     textAlign:
                                         "left",
                                     fontSize: 13,
@@ -1940,6 +2217,8 @@ export default function ExpenseCategoryDrillDown({
                                 </span>
                             </td>
 
+                            {/* TOTAL PTD ACTUAL */}
+
                             <td
                                 style={{
                                     padding:
@@ -1949,7 +2228,10 @@ export default function ExpenseCategoryDrillDown({
                                     fontSize: 14,
                                     fontWeight: 700,
                                     color:
-                                        "#0F172A",
+                                        getNumberColor(
+                                            totalActualPTD,
+                                            "#0F172A"
+                                        ),
                                 }}
                             >
                                 {formatNumber(
@@ -1957,22 +2239,7 @@ export default function ExpenseCategoryDrillDown({
                                 )}
                             </td>
 
-                            <td
-                                style={{
-                                    padding:
-                                        "0 6px",
-                                    textAlign:
-                                        "right",
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                    color:
-                                        "#64748B",
-                                }}
-                            >
-                                {formatNumber(
-                                    null
-                                )}
-                            </td>
+                            {/* TARGET PTD */}
 
                             <td
                                 style={{
@@ -1990,6 +2257,27 @@ export default function ExpenseCategoryDrillDown({
                                     null
                                 )}
                             </td>
+
+                            {/* VARIANCE PTD */}
+
+                            <td
+                                style={{
+                                    padding:
+                                        "0 6px",
+                                    textAlign:
+                                        "right",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color:
+                                        "#64748B",
+                                }}
+                            >
+                                {formatNumber(
+                                    null
+                                )}
+                            </td>
+
+                            {/* VARIANCE PTD % */}
 
                             <td
                                 style={{
@@ -2006,6 +2294,8 @@ export default function ExpenseCategoryDrillDown({
                                 —
                             </td>
 
+                            {/* TOTAL YTD ACTUAL */}
+
                             <td
                                 style={{
                                     padding:
@@ -2015,7 +2305,10 @@ export default function ExpenseCategoryDrillDown({
                                     fontSize: 13,
                                     fontWeight: 700,
                                     color:
-                                        "#0F172A",
+                                        getNumberColor(
+                                            totalActualYTD,
+                                            "#0F172A"
+                                        ),
                                 }}
                             >
                                 {formatNumber(
@@ -2023,22 +2316,7 @@ export default function ExpenseCategoryDrillDown({
                                 )}
                             </td>
 
-                            <td
-                                style={{
-                                    padding:
-                                        "0 6px",
-                                    textAlign:
-                                        "right",
-                                    fontSize: 13,
-                                    fontWeight: 700,
-                                    color:
-                                        "#64748B",
-                                }}
-                            >
-                                {formatNumber(
-                                    null
-                                )}
-                            </td>
+                            {/* TARGET YTD */}
 
                             <td
                                 style={{
@@ -2056,6 +2334,27 @@ export default function ExpenseCategoryDrillDown({
                                     null
                                 )}
                             </td>
+
+                            {/* VARIANCE YTD */}
+
+                            <td
+                                style={{
+                                    padding:
+                                        "0 6px",
+                                    textAlign:
+                                        "right",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color:
+                                        "#64748B",
+                                }}
+                            >
+                                {formatNumber(
+                                    null
+                                )}
+                            </td>
+
+                            {/* VARIANCE YTD % */}
 
                             <td
                                 style={{

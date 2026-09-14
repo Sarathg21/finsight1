@@ -5,35 +5,36 @@ import {
   LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
   FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,
-  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog,
+  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign,
 } from 'lucide-react';
 
 /* â”€â”€ Icon map per route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ROUTE_ICON = {
-  '/finsight-dashboard':  Star,
-  '/exec-dashboard':      Briefcase,
-  '/dashboard':           LayoutDashboard,
-  '/pl':                  FileText,
-  '/balance-sheet':       BookOpen,
-    '/operating-expenses':  BarChart2,
-  '/revenue':             DollarSign,
-  '/fixed-assets':        Building2,
-  '/ar':                  Receipt,
-  '/ap':                  CreditCard,
-  '/inventory':           Package,
-  '/working-capital':     LayoutGrid,
-  '/cash-collection':     Wallet,
-  '/excel-consolidator':  FileSpreadsheet,
-  '/admin':               Shield,
-  '/admin/dashboard':     LayoutDashboard,
-  '/admin/users':         Users,
-  '/admin/roles':         Shield,
-  '/admin/useraccess':    UserCog,
-  '/admin/master-data':   Layers,
+  '/finsight-dashboard': Star,
+  '/exec-dashboard': Briefcase,
+  '/dashboard': LayoutDashboard,
+  '/pl': FileText,
+  '/balance-sheet': BookOpen,
+  '/operating-expenses': BarChart2,
+  '/revenue': DollarSign,
+  '/receivables': CircleDollarSign,
+  '/fixed-assets': Building2,
+  '/ar': Receipt,
+  '/ap': CreditCard,
+  '/inventory': Package,
+  '/working-capital': LayoutGrid,
+  '/cash-collection': Wallet,
+  '/excel-consolidator': FileSpreadsheet,
+  '/admin': Shield,
+  '/admin/dashboard': LayoutDashboard,
+  '/admin/users': Users,
+  '/admin/roles': Shield,
+  '/admin/useraccess': UserCog,
+  '/admin/master-data': Layers,
   '/country-performance': Globe,
-  '/division':            PieChart,
-  '/bu-pack':             Briefcase,
-  '/salesman':            UserCheck,
+  '/division': PieChart,
+  '/bu-pack': Briefcase,
+  '/salesman': UserCheck,
 };
 
 /* â”€â”€ Nav item definitions per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -42,25 +43,28 @@ const NAV_BY_ROLE = {
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
     // { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Board View'       },
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Reports'          },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Reports'          },
+    { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Reports' },
+
+
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
     // { to: '/working-capital',    label: 'Overview',                            group: 'Reports'          },
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin/dashboard',    label: 'Dashboard',                           group: 'Admin'            },
-    { to: '/admin/users',        label: 'Users',                               group: 'Admin'            },
-    { to: '/admin/roles',        label: 'Roles & Permissions',                 group: 'Admin'            },
-    { to: '/admin/useraccess',   label: 'User Access',                         group: 'Admin'            },
-    { to: '/admin/master-data',  label: 'Master Data',                         group: 'Admin'            },
+    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
+    { to: '/admin/users', label: 'Users', group: 'Admin' },
+    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
+    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
+    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
   ],
   cfo: [
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
     // { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Overview'         },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Financials'       },
-    { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Financials'       },
-      { to: '/operating-expenses', label: 'Operating Expenses',              group: 'Financials'       },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Financials'       },
+    { to: '/pl', label: 'P&L Report', group: 'Financials' },
+    { to: '/balance-sheet', label: 'Balance Sheet', group: 'Financials' },
+    { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Financials' },
+    { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'Working Capital'  },
@@ -68,18 +72,18 @@ const NAV_BY_ROLE = {
     // { to: '/working-capital',    label: 'Overview',                            group: 'Working Capital'  },
     // { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Treasury'         },
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin/dashboard',    label: 'Dashboard',                           group: 'Admin'            },
-    { to: '/admin/users',        label: 'Users',                               group: 'Admin'            },
-    { to: '/admin/roles',        label: 'Roles & Permissions',                 group: 'Admin'            },
-    { to: '/admin/useraccess',   label: 'User Access',                         group: 'Admin'            },
-    { to: '/admin/master-data',  label: 'Master Data',                         group: 'Admin'            },
+    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
+    { to: '/admin/users', label: 'Users', group: 'Admin' },
+    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
+    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
+    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
   ],
   executive: [
     // { to: '/finsight-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
     // { to: '/exec-dashboard',      label: 'Exec Finance Dashboard',             group: 'Overview'         },
     // { to: '/dashboard',           label: 'CFO Dashboard',                      group: 'Overview'         },
-    { to: '/pl',                  label: 'P&L Report',                         group: 'Reports'          },
-    { to: '/revenue',             label: 'Sales Revenue Report',               group: 'Reports'          },
+    { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Reports' },
     // { to: '/working-capital',     label: 'Overview',                           group: 'Reports'          },
     // { to: '/country-performance', label: 'Country Performance',                group: 'Reports'          },
     // { to: '/excel-consolidator',  label: 'Excel Consolidator',                 group: 'Utilities'        },
@@ -88,8 +92,8 @@ const NAV_BY_ROLE = {
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
     // { to: '/division',           label: 'Division Reports',                    group: 'Reports'          },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Reports'          },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Reports'          },
+    { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Reports' },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
     // { to: '/inventory',          label: 'Inventory Aging',                     group: 'Reports'          },
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
@@ -98,8 +102,8 @@ const NAV_BY_ROLE = {
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
     // { to: '/bu-pack',            label: 'BU Financial Pack',                   group: 'BU Reports'       },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'BU Reports'       },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'BU Reports'       },
+    { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'BU Reports' },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'BU Reports'       },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'BU Reports'       },
     // { to: '/inventory',          label: 'Inventory Aging',                     group: 'BU Reports'       },
@@ -108,30 +112,30 @@ const NAV_BY_ROLE = {
   ],
   accountant: [
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Finance'          },
-    { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Finance'          },
-      { to: '/operating-expenses', label: 'Operating Expenses',              group: 'Finance'          },
+    { to: '/pl', label: 'P&L Report', group: 'Finance' },
+    { to: '/balance-sheet', label: 'Balance Sheet', group: 'Finance' },
+    { to: '/operating-expenses', label: 'Operating Expenses', group: 'Finance' },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Finance'          },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'Finance'          },
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Finance'          },
     // { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Finance'          },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Finance'          },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Finance' },
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   sales: [
     // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
     // { to: '/salesman',           label: 'Salesman Dashboard',                  group: 'Sales'            },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Sales'            },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Sales' },
   ],
 };
 
 /* â”€â”€ Role theme helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function roleBg(role) {
-  const m = { board:'#eef2ff', cfo:'#eef2ff', executive:'#f5f3ff', gm:'#eff6ff', bu_manager:'#eff6ff', accountant:'#f0fdf4', sales:'#fff1f2' };
+  const m = { board: '#eef2ff', cfo: '#eef2ff', executive: '#f5f3ff', gm: '#eff6ff', bu_manager: '#eff6ff', accountant: '#f0fdf4', sales: '#fff1f2' };
   return m[role] || '#eef2ff';
 }
 function roleColor(role) {
-  const m = { board:'#6366f1', cfo:'#6366f1', executive:'#7c3aed', gm:'#2563eb', bu_manager:'#2563eb', accountant:'#16a34a', sales:'#f43f5e' };
+  const m = { board: '#6366f1', cfo: '#6366f1', executive: '#7c3aed', gm: '#2563eb', bu_manager: '#2563eb', accountant: '#16a34a', sales: '#f43f5e' };
   return m[role] || '#6366f1';
 }
 
@@ -147,7 +151,7 @@ function Tip({ label, children, show }) {
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
   const { user, logout } = useAuth();
-  const navigate         = useNavigate();
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
   const navItems = NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.cfo;
@@ -218,7 +222,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
               pointerEvents: isExpanded ? 'auto' : 'none',
             }}>
               <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>FJ Group</div>
-              <div style={{ fontSize: '0.6rem', fontWeight: 700,color: '#cbd5e1', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#cbd5e1', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
             </div>
           </div>
 
@@ -345,7 +349,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                             ) : (
                               <Icon
                                 size={15}
-                              color={isActive ? '#fff' : '#e2e8f0'}
+                                color={isActive ? '#fff' : '#e2e8f0'}
                                 strokeWidth={isActive ? 2.5 : 1.8}
                               />
                             )}
@@ -355,7 +359,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                           <span style={{
                             fontSize: '0.82rem',
                             fontWeight: isActive ? 700 : 500,
-                           color: isActive ? '#fff' : '#ffffff',
+                            color: isActive ? '#fff' : '#ffffff',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -421,10 +425,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             {/* Name & email */}
             {isExpanded && (
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700,color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.name || 'User'}
                 </div>
-                <div style={{ fontSize: '0.62rem',color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '0.62rem', color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.email || user?.roleLabel || ''}
                 </div>
               </div>
@@ -443,7 +447,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                   transition: 'background 0.15s, color 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none';    e.currentTarget.style.color = '#94a3b8'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94a3b8'; }}
               >
                 <LogOut size={14} />
               </button>
@@ -470,7 +474,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             transition: 'background 0.15s, border-color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--clr-primary)'; e.currentTarget.style.borderColor = 'var(--clr-primary)'; e.currentTarget.querySelector('svg').style.stroke = '#fff'; }}
-          onMouseLeave={e => {e.currentTarget.style.background = '#fff';e.currentTarget.style.borderColor = 'var(--clr-border)'; e.currentTarget.querySelector('svg').style.stroke = '#64748b'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = 'var(--clr-border)'; e.currentTarget.querySelector('svg').style.stroke = '#64748b'; }}
         >
           <ChevronLeft
             size={13}

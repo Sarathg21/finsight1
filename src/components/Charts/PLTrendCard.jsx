@@ -164,13 +164,24 @@ const fmtAxis = (v) => {
 
 const fmtCompact = (vM) => {
   if (vM === null || vM === undefined) return '—';
+
   const n = vM * M;
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
-  if (abs >= 1e9) return `${sign}${(abs / 1e9).toFixed(2)}B`;
-  if (abs >= 1e6) return `${sign}${(abs / 1e6).toFixed(0)}M`;
-  if (abs >= 1e3) return `${sign}${(abs / 1e3).toFixed(0)}K`;
-  return `${sign}${abs}`;
+
+  if (abs >= 1e9) {
+    return `${sign}${(abs / 1e9).toFixed(2)}B`;
+  }
+
+  if (abs >= 1e6) {
+    return `${sign}${(abs / 1e6).toFixed(2)}M`;
+  }
+
+  if (abs >= 1e3) {
+    return `${sign}${(abs / 1e3).toFixed(2)}K`;
+  }
+
+  return `${sign}${abs.toFixed(2)}`;
 };
 
 const FMT_FULL = (vM) => {

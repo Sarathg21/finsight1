@@ -23,6 +23,7 @@ import MasterDataDashboard from './pages/MasterDataDashboard';
 
 import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
+import ReceivablesDashboard from './pages/ReceivablesDashboard'
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
 import OperatingAnalysis from './pages/OperatingAnalysis';
@@ -73,6 +74,8 @@ function App() {
               <Route path="/balance-sheet"      element={<ProtectedRoute pageKey="balance-sheet"     element={<BalanceSheet />} />} />
               <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses" element={<OperatingAnalysis />} />} />
               <Route path="/revenue"            element={<ProtectedRoute pageKey="revenue"            element={<SalesRevenueReport />} />} />
+
+               <Route path="/receivables"            element={<ProtectedRoute pageKey="receivables"            element={<ReceivablesDashboard />} />} />
               {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
               {/* <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} /> */}
               {/* <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} /> */}
