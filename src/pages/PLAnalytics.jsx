@@ -3450,22 +3450,13 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
   );
 
   const isAll = normalizedValue.length === 0 || (normalizedValue.length === 1 && String(normalizedValue[0]) === 'All');
-  const allRealIds = normOptions.filter(o => String(o.id) !== 'All').map(o => String(o.id));
-
   const toggle = (optId) => {
     if (String(optId) === 'All') { onChange(['All']); return; }
-    const cur = isAll ? allRealIds : normalizedValue.map(String).filter(v => v !== 'All');
-    const targetId = String(optId);
-    
-    const next = cur.includes(targetId)
-      ? cur.filter(v => v !== targetId)
-      : [...cur, targetId];
-
-    if (allRealIds.length > 0 && next.length === allRealIds.length) {
-      onChange(['All']);
-    } else {
-      onChange(next.length === 0 ? ['All'] : next);
-    }
+    const cur = isAll ? [] : normalizedValue.filter(v => String(v) !== 'All');
+    const next = cur.some(v => String(v) === String(optId))
+      ? cur.filter(v => String(v) !== String(optId))
+      : [...cur, optId];
+    onChange(next.length === 0 ? ['All'] : next);
   };
 
   const selectedVals = normOptions.filter(o => normalizedValue.some(v => String(v) === String(o.id)));
@@ -3501,7 +3492,7 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
 
           {filteredOptions.map(opt => {
             if (opt.id === 'All') return null;
-            const selected = isAll || normalizedValue.some(v => String(v) === String(opt.id));
+            const selected = !isAll && normalizedValue.some(v => String(v) === String(opt.id));
             return (
               <div key={opt.id} onClick={() => toggle(opt.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: selected ? '#eff6ff' : '#fff', color: selected ? '#2563eb' : '#334155', fontWeight: selected ? 600 : 400, borderBottom: '1px solid #f8fafc', whiteSpace: 'normal', lineHeight: 1.25 }} onMouseEnter={e => { if (!selected) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!selected) e.currentTarget.style.background = '#fff'; }}>
                 <span style={{ width: 14, height: 14, border: '1.5px solid ' + (selected ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: selected ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
