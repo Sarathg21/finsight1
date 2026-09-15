@@ -33,6 +33,7 @@ import {
 } from '../services/salesRevenueApi';
 
 import { C, CHART_COLORS } from '../utils/theme';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 
 /* ─── Default filter state ──────────────────────────────────────── */
@@ -351,6 +352,42 @@ function InfoTooltip({ text }) {
   );
 }
 
+/* ─── AED / AED Millions Toggle (matches Balance Sheet style) ───── */
+function UnitToggle({ unit, onToggle, currency = 'AED' }) {
+  const isAED = unit === 'aed';
+  const isMillions = unit === 'millions';
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <button
+        type="button"
+        onClick={() => onToggle('aed')}
+        style={{
+          height: 28, minWidth: 42, padding: '0 10px', borderRadius: 6,
+          border: isAED ? '1px solid #5B3FE4' : '1px solid #E2E8F0',
+          background: isAED ? '#5B3FE4' : '#FFFFFF',
+          color: isAED ? '#FFFFFF' : '#334155',
+          fontSize: 10, fontWeight: 600, cursor: 'pointer',
+          transition: 'all 0.15s ease', outline: 'none',
+        }}
+        title={`Display in ${currency}`}
+      >{currency}</button>
+      <button
+        type="button"
+        onClick={() => onToggle('millions')}
+        style={{
+          height: 28, minWidth: 78, padding: '0 10px', borderRadius: 6,
+          border: isMillions ? '1px solid #5B3FE4' : '1px solid #E2E8F0',
+          background: isMillions ? '#5B3FE4' : '#FFFFFF',
+          color: isMillions ? '#FFFFFF' : '#334155',
+          fontSize: 10, fontWeight: 600, cursor: 'pointer',
+          transition: 'all 0.15s ease', outline: 'none',
+        }}
+        title={`Display in ${currency} Millions`}
+      >{currency} Millions</button>
+    </div>
+  );
+}
+
 /* ─── Detail API Modal ───────────────────────────────────────────── */
 /**
  * A View-All modal that fetches from a backend detail API on open,
@@ -373,6 +410,8 @@ function DetailApiModal({
   headerGroups = null,
 
   localFiltersConfig = null, // e.g. [{ key: 'subdivisionId', label: 'Sub-Divs', options: [...] }]
+  dateFiltersConfig = null,  // e.g. [{ fromKey: 'fromDate', toKey: 'toDate', label: 'Period' }]
+  showUnitToggle = false,    // show AED / AED Millions toggle in modal header
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -383,6 +422,8 @@ function DetailApiModal({
   const pageSize = 15;
 
   const [localFiltersState, setLocalFiltersState] = useState({});
+  const [dateFiltersState, setDateFiltersState]   = useState({});
+  const [modalUnit, setModalUnit]                 = useState('aed');  // 'aed' | 'millions'
 
   useEffect(() => {
     if (isOpen && localFiltersConfig && filters) {
@@ -393,7 +434,15 @@ function DetailApiModal({
       });
       setLocalFiltersState(initialState);
     }
-  }, [isOpen, filters, localFiltersConfig]);
+    if (isOpen && dateFiltersConfig && filters) {
+      const initial = {};
+      dateFiltersConfig.forEach(cfg => {
+        initial[cfg.fromKey] = filters[cfg.fromKey] || '';
+        initial[cfg.toKey]   = filters[cfg.toKey]   || '';
+      });
+      setDateFiltersState(initial);
+    }
+  }, [isOpen, filters, localFiltersConfig, dateFiltersConfig]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -409,6 +458,12 @@ function DetailApiModal({
         }
       });
     }
+    if (dateFiltersConfig) {
+      dateFiltersConfig.forEach(cfg => {
+        if (dateFiltersState[cfg.fromKey]) activeFilters[cfg.fromKey] = dateFiltersState[cfg.fromKey];
+        if (dateFiltersState[cfg.toKey])   activeFilters[cfg.toKey]   = dateFiltersState[cfg.toKey];
+      });
+    }
 
     fetchFn(activeFilters)
       .then(res => {
@@ -417,7 +472,7 @@ function DetailApiModal({
       })
       .catch(err => setError(err?.message || 'Failed to load data'))
       .finally(() => setLoading(false));
-  }, [isOpen, filters, fetchFn, localFiltersConfig, localFiltersState]);
+  }, [isOpen, filters, fetchFn, localFiltersConfig, localFiltersState, dateFiltersConfig, dateFiltersState]);
 
   if (!isOpen) return null;
 
@@ -463,6 +518,21 @@ function DetailApiModal({
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const paginated = sorted.slice(page * pageSize, (page + 1) * pageSize);
 
+  // Helper: re-format a raw numeric value per the modal's unit toggle.
+  // Only called for currency columns (col.isCurrency === true).
+  const currency = filters?.reportingCurrency || 'AED';
+  const modalFmtNum = (v) => {
+    if (v === null || v === undefined || isNaN(Number(v))) return '—';
+    const raw = Number(v);
+    if (modalUnit === 'millions') {
+      const m = raw / 1_000_000;
+      const str = m.toFixed(2) + 'M';
+      return currency === 'AED' ? str : `${currency} ${str}`;
+    }
+    const numStr = raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return currency === 'AED' ? numStr : `${currency} ${numStr}`;
+  };
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -498,7 +568,16 @@ function DetailApiModal({
               </div>
             )}
           </div>
-          <ModalCloseButton onClick={onClose} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {showUnitToggle && (
+              <UnitToggle
+                unit={modalUnit}
+                onToggle={setModalUnit}
+                currency={filters?.reportingCurrency || 'AED'}
+              />
+            )}
+            <ModalCloseButton onClick={onClose} />
+          </div>
         </div>
 
         {/* Search & Export Bar */}
@@ -538,6 +617,24 @@ function DetailApiModal({
                 </div>
               );
             })}
+            {dateFiltersConfig && dateFiltersConfig.map((cfg, idx) => (
+              <div key={`df-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Period:</span>
+                <input
+                  type="date"
+                  value={dateFiltersState[cfg.fromKey] || ''}
+                  onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.fromKey]: e.target.value }))}
+                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.74rem', height: 30, cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>–</span>
+                <input
+                  type="date"
+                  value={dateFiltersState[cfg.toKey] || ''}
+                  onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.toKey]: e.target.value }))}
+                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.74rem', height: 30, cursor: 'pointer' }}
+                />
+              </div>
+            ))}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             {!loading && sorted.length > 0 && (
@@ -551,163 +648,198 @@ function DetailApiModal({
 
         {/* Table */}
         <div className="modal-table-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 0' }}>
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 24 }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} h={18} />
-              ))}
-            </div>
-          ) : error ? (
-            <div style={{
-              margin: '24px 0', padding: '14px 18px',
-              background: '#fff1f2', border: '1px solid #fecdd3',
-              borderRadius: 10, color: '#be123c', fontSize: '0.8rem',
-            }}>
-              ⚠ {error}
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, marginTop: 12 }}>
-              <thead>
-                {headerGroups && (
+          <ErrorBoundary name="DetailApiModalTable">
+            {loading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 24 }}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} h={18} />
+                ))}
+              </div>
+            ) : error ? (
+              <div style={{
+                margin: '24px 0', padding: '14px 18px',
+                background: '#fff1f2', border: '1px solid #fecdd3',
+                borderRadius: 10, color: '#be123c', fontSize: '0.8rem',
+              }}>
+                ⚠ {error}
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, marginTop: 12 }}>
+                <thead>
+                  {headerGroups && (
+                    <tr>
+                      {headerGroups.map((group, i) => (
+                        <th key={`hg-${i}`} colSpan={group.colSpan} style={{
+                          ...TH, padding: '9px 8px',
+                          position: 'sticky', top: 0,
+                          background: '#f1f5f9', zIndex: 3,
+                          textAlign: 'center',
+                          borderBottom: '1px solid #cbd5e1',
+                          borderRight: i < headerGroups.length - 1 ? '1px solid #cbd5e1' : 'none',
+                          color: C.navy,
+                        }}>
+                          {group.label}
+                        </th>
+                      ))}
+                    </tr>
+                  )}
                   <tr>
-                    {headerGroups.map((group, i) => (
-                      <th key={`hg-${i}`} colSpan={group.colSpan} style={{
-                        ...TH, padding: '9px 8px',
-                        position: 'sticky', top: 0,
-                        background: '#f1f5f9', zIndex: 3,
-                        textAlign: 'center',
-                        borderBottom: '1px solid #cbd5e1',
-                        borderRight: i < headerGroups.length - 1 ? '1px solid #cbd5e1' : 'none',
-                        color: C.navy,
+                    {columnDefs.map((col, i) => (
+                      <th key={i} onClick={() => handleSort(col.key)} style={{
+                        ...TH, padding: '9px 10px',
+                        position: 'sticky', top: headerGroups ? 35 : 0,
+                        background: '#f8fafc', zIndex: 3,
+                        textAlign: col.align || 'left',
+                        borderBottom: '2px solid #e2e8f0',
+                        cursor: 'pointer', userSelect: 'none',
+                        borderRight: (headerGroups && col.groupEnd) ? '1px solid #cbd5e1' : 'none',
+                        width: col.width,
+                        minWidth: col.minWidth,
+                        maxWidth: col.maxWidth,
+                        whiteSpace: 'nowrap',
                       }}>
-                        {group.label}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : col.align === 'center' ? 'center' : 'flex-start', gap: 4, whiteSpace: 'nowrap' }}>
+                          {col.label}
+                          {sortConfig.key === col.key && (
+                            <span style={{ fontSize: '0.7rem', color: C.blue }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                        </div>
                       </th>
                     ))}
                   </tr>
-                )}
-                <tr>
-                  {columnDefs.map((col, i) => (
-                    <th key={i} onClick={() => handleSort(col.key)} style={{
-                      ...TH, padding: '9px 10px',
-                      position: 'sticky', top: headerGroups ? 35 : 0,
-                      background: '#f8fafc', zIndex: 3,
-                      textAlign: col.align || 'left',
-                      borderBottom: '2px solid #e2e8f0',
-                      cursor: 'pointer', userSelect: 'none',
-                      borderRight: (headerGroups && col.groupEnd) ? '1px solid #cbd5e1' : 'none',
-                      width: col.width,
-                      minWidth: col.minWidth,
-                      maxWidth: col.maxWidth,
-                      whiteSpace: 'nowrap',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.align === 'right' ? 'flex-end' : col.align === 'center' ? 'center' : 'flex-start', gap: 4, whiteSpace: 'nowrap' }}>
-                        {col.label}
-                        {sortConfig.key === col.key && (
-                          <span style={{ fontSize: '0.7rem', color: C.blue }}>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {paginated.length > 0 ? (
-                  paginated.map((row, idx) => (
-                    <tr key={idx} style={{
-                      borderBottom: '1px solid #f1f5f9',
-                      background: idx % 2 === 0 ? '#fff' : '#f8fafc',
-                      transition: 'background 0.1s',
-                    }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
-                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
-                    >
-                      {columnDefs.map((col, ci) => (
-                        <td key={ci}
-                          title={row[col.key] != null ? String(row[col.key]) : undefined}
-                          style={{
-                            ...TD, padding: '8px 10px',
-                            textAlign: col.align || 'left',
-                            fontWeight: ci === 0 ? 600 : 'normal',
-                            color: ci === 0 ? C.navy : '#334155',
-                            borderRight: (headerGroups && col.groupEnd) ? '1px solid #e2e8f0' : 'none',
-                            width: col.width,
-                            minWidth: col.minWidth,
-                            maxWidth: col.maxWidth,
-                            whiteSpace: col.whiteSpace || 'nowrap',
-                          }}>
-                          {col.fmt ? col.fmt(row[col.key], row) : (row[col.key] ?? '—')}
-                        </td>
-                      ))}
+                </thead>
+                <tbody>
+                  {paginated.length > 0 ? (
+                    paginated.map((row, idx) => (
+                      <tr key={idx} style={{
+                        borderBottom: '1px solid #f1f5f9',
+                        background: idx % 2 === 0 ? '#fff' : '#f8fafc',
+                        transition: 'background 0.1s',
+                      }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
+                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+                      >
+                        {columnDefs.map((col, ci) => (
+                          <td key={ci}
+                            title={row[col.key] != null ? String(row[col.key]) : undefined}
+                            style={{
+                              ...TD, padding: '8px 10px',
+                              textAlign: col.align || 'left',
+                              fontWeight: ci === 0 ? 600 : 'normal',
+                              color: ci === 0 ? C.navy : '#334155',
+                              borderRight: (headerGroups && col.groupEnd) ? '1px solid #e2e8f0' : 'none',
+                              width: col.width,
+                              minWidth: col.minWidth,
+                              maxWidth: col.maxWidth,
+                              whiteSpace: col.whiteSpace || 'normal',
+                              wordBreak: 'break-word',
+                              overflow: col.overflow,
+                              textOverflow: col.textOverflow,
+                            }}>
+                            {(() => {
+                              try {
+                                // If modal has unit toggle and this is a currency column,
+                                // bypass the parent's fmtCurrency and use modal-local formatter
+                                if (showUnitToggle && col.isCurrency) {
+                                  return modalFmtNum(row[col.key]);
+                                }
+                                return col.fmt ? col.fmt(row[col.key], row) : (row[col.key] ?? '—');
+                              } catch (e) {
+                                return String(row[col.key] ?? '—');
+                              }
+                            })()}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={columnDefs.length} style={{
+                        textAlign: 'center', padding: '36px 0',
+                        color: C.muted, fontSize: '0.8rem',
+                      }}>
+                        No records found.
+                      </td>
                     </tr>
-                  ))
-                ) : (
+                  )}
+                </tbody>
+                <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 10 }}>
                   <tr>
-                    <td colSpan={columnDefs.length} style={{
-                      textAlign: 'center', padding: '36px 0',
-                      color: C.muted, fontSize: '0.8rem',
-                    }}>
-                      No records found.
-                    </td>
+                    {columnDefs.map((col, ci) => {
+                      const stickyTdStyle = {
+                        ...TD,
+                        position: 'sticky',
+                        bottom: 0,
+                        background: '#f8fafc',
+                        zIndex: 10,
+                        borderTop: '2px solid #cbd5e1',
+                        borderRight: (headerGroups && col.groupEnd) ? '1px solid #cbd5e1' : 'none',
+                        boxShadow: '0 -3px 8px rgba(0,0,0,0.08)',
+                        padding: '9px 10px',
+                        width: col.width,
+                        minWidth: col.minWidth,
+                        maxWidth: col.maxWidth,
+                        whiteSpace: col.whiteSpace || 'nowrap',
+                      };
+                      if (ci === 0) {
+                        return (
+                          <td key={ci} style={{ ...stickyTdStyle, fontWeight: 800, color: C.navy }}>
+                            Total
+                          </td>
+                        );
+                      }
+                      // totalFn: receives all sorted rows, returns formatted string
+                      if (col.totalFn) {
+                        let totalVal = '—';
+                        try {
+                          if (showUnitToggle && col.isCurrency) {
+                            // compute raw numeric total and re-format via modal's unit formatter
+                            const rawSum = sorted.reduce((s, r) => s + (Number(r[col.key]) || 0), 0);
+                            totalVal = modalFmtNum(rawSum);
+                          } else {
+                            totalVal = col.totalFn(sorted);
+                          }
+                        } catch (e) {
+                          console.warn('[DetailApiModal] totalFn error for', col.key, e);
+                        }
+                        return (
+                          <td key={ci} style={{ ...stickyTdStyle, textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
+                            {totalVal}
+                          </td>
+                        );
+                      }
+                      // noTotal: show dash
+                      if (col.noTotal) return <td key={ci} style={{ ...stickyTdStyle, color: C.muted }}>—</td>;
+                      // Auto-sum numeric columns
+                      const numericVals = sorted
+                        .map(row => {
+                          const raw = row[col.key];
+                          return raw != null && !isNaN(Number(raw)) ? Number(raw) : null;
+                        })
+                        .filter(v => v !== null);
+                      if (numericVals.length > 0 && numericVals.length === sorted.length) {
+                        const sum = numericVals.reduce((s, v) => s + v, 0);
+                        let displayed = sum.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                        if (col.fmt) {
+                          try {
+                            displayed = col.fmt(sum, {});
+                          } catch (e) {
+                            // fallback
+                          }
+                        }
+                        return (
+                          <td key={ci} style={{ ...stickyTdStyle, textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
+                            {displayed}
+                          </td>
+                        );
+                      }
+                      return <td key={ci} style={{ ...stickyTdStyle, color: C.muted }}>—</td>;
+                    })}
                   </tr>
-                )}
-              </tbody>
-              <tfoot style={{ position: 'sticky', bottom: 0, zIndex: 10 }}>
-                <tr>
-                  {columnDefs.map((col, ci) => {
-                    const stickyTdStyle = {
-                      ...TD,
-                      position: 'sticky',
-                      bottom: 0,
-                      background: '#f8fafc',
-                      zIndex: 10,
-                      borderTop: '2px solid #cbd5e1',
-                      borderRight: (headerGroups && col.groupEnd) ? '1px solid #cbd5e1' : 'none',
-                      boxShadow: '0 -3px 8px rgba(0,0,0,0.08)',
-                      padding: '9px 10px',
-                      width: col.width,
-                      minWidth: col.minWidth,
-                      maxWidth: col.maxWidth,
-                      whiteSpace: col.whiteSpace || 'nowrap',
-                    };
-                    if (ci === 0) {
-                      return (
-                        <td key={ci} style={{ ...stickyTdStyle, fontWeight: 800, color: C.navy }}>
-                          Total
-                        </td>
-                      );
-                    }
-                    // totalFn: receives all sorted rows, returns formatted string
-                    if (col.totalFn) {
-                      return (
-                        <td key={ci} style={{ ...stickyTdStyle, textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
-                          {col.totalFn(sorted)}
-                        </td>
-                      );
-                    }
-                    // noTotal: show dash
-                    if (col.noTotal) return <td key={ci} style={{ ...stickyTdStyle, color: C.muted }}>—</td>;
-                    // Auto-sum numeric columns
-                    const numericVals = sorted
-                      .map(row => {
-                        const raw = row[col.key];
-                        return raw != null && !isNaN(Number(raw)) ? Number(raw) : null;
-                      })
-                      .filter(v => v !== null);
-                    if (numericVals.length > 0 && numericVals.length === sorted.length) {
-                      const sum = numericVals.reduce((s, v) => s + v, 0);
-                      const displayed = col.fmt ? col.fmt(sum, {}) : sum.toLocaleString('en-US', { maximumFractionDigits: 0 });
-                      return (
-                        <td key={ci} style={{ ...stickyTdStyle, textAlign: col.align || 'left', fontWeight: 800, color: C.navy }}>
-                          {displayed}
-                        </td>
-                      );
-                    }
-                    return <td key={ci} style={{ ...stickyTdStyle, color: C.muted }}>—</td>;
-                  })}
-                </tr>
-              </tfoot>
-            </table>
-          )}
+                </tfoot>
+              </table>
+            )}
+          </ErrorBoundary>
         </div>
 
         {/* Footer with Pagination */}
@@ -1310,7 +1442,7 @@ const getEntityColor = (name) => {
   return color;
 };
 /* ─── Multi-Select Dropdown ────────────────────────────────────── */
-function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
+function MultiSelect({ options = [], value, onChange, placeholder = 'All', style }) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const ref = useRef(null);
@@ -1336,17 +1468,18 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
     if (!open) setSearchQuery('');
   }, [open]);
 
-  const normOptions = options.map(o => {
-    if (typeof o === 'string') return { id: o, name: o };
-    const id = o.value !== undefined ? o.value : o.id;
-    const name = o.label !== undefined ? o.label : o.name;
-    return { id, name };
+  const normOptions = (options || []).map(o => {
+    if (o == null) return { id: '', name: '' };
+    if (typeof o === 'string' || typeof o === 'number') return { id: String(o), name: String(o) };
+    const id = o.value !== undefined ? o.value : (o.id !== undefined ? o.id : '');
+    const name = o.label !== undefined ? o.label : (o.name !== undefined ? o.name : String(id));
+    return { id: String(id), name: typeof name === 'object' ? String(name?.label || name?.name || id) : String(name) };
   });
 
   // Filter visible options by search query — selected values are NEVER removed
   const q = searchQuery.trim().toLowerCase();
   const visibleOptions = q
-    ? normOptions.filter(o => String(o.id) !== 'All' && o.name.toLowerCase().includes(q))
+    ? normOptions.filter(o => String(o.id) !== 'All' && String(o.name || '').toLowerCase().includes(q))
     : normOptions;
 
   const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
@@ -1360,7 +1493,7 @@ function MultiSelect({ options, value, onChange, placeholder = 'All', style }) {
   };
 
   const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
-  const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
+  const label = isAll ? placeholder : selectedVals.length === 1 ? String(selectedVals[0].name || '') : (selectedVals.length + ' selected');
 
   return (
     <div ref={ref} style={{ position: 'relative', ...style }}>
@@ -1504,6 +1637,9 @@ export default function SalesRevenueReport() {
   /* ── View-All modal state ─────────────────────────────────────── */
   const [openModal, setOpenModal] = useState(null); // 'legalEntity' | 'parentDiv' | 'subDiv' | 'salesman'
 
+  /* ── Display unit toggle: AED full vs AED in Millions ─────────── */
+  const [inMillions, setInMillions] = useState(false);
+
   /* ── Loading flags ────────────────────────────────────────────── */
   const [loading, setLoading] = useState({
     filters: true, summary: true, trend: true,
@@ -1529,7 +1665,13 @@ export default function SalesRevenueReport() {
   /* ── Formatters ───────────────────────────────────────────────── */
   const fmtCurrency = (v) => {
     if (v === null || v === undefined) return '—';
-    const numStr = Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const raw = Number(v);
+    if (inMillions) {
+      const m = raw / 1_000_000;
+      const str = m.toFixed(2) + 'M';
+      return currentCurrency === 'AED' ? str : `${currentCurrency} ${str}`;
+    }
+    const numStr = raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     return currentCurrency === 'AED' ? numStr : `${currentCurrency} ${numStr}`;
   };
   const fmtPctCol = (v, digits = 1) => {
@@ -1893,7 +2035,8 @@ export default function SalesRevenueReport() {
       const grouped = {};
       const pctMap  = {};
       d.data.forEach(row => {
-        const name = (row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown').replace(/\s/g, '\n');
+        const rawName = row.subdivision || row.subdivision_name || row.subdivision_code || 'Unknown';
+        const name = String(rawName).replace(/\s/g, '\n');
         // CFO UAT: use sales_ptd as primary
         grouped[name] = (grouped[name] || 0) + (Number(row.sales_ptd ?? row.sales_aed ?? row.sales) || 0);
         if (pctMap[name] === undefined) pctMap[name] = Number(row.percentage) || 0;
@@ -2075,8 +2218,8 @@ export default function SalesRevenueReport() {
       label: 'Legal Entity',
       key: 'legal_entity',
       align: 'left',
-      minWidth: '220px',
-      whiteSpace: 'nowrap',
+      minWidth: '120px',
+      whiteSpace: 'normal',
       fmt: (v, row) => v ?? row.entity_name ?? '-',
     },
     {
@@ -2109,6 +2252,7 @@ export default function SalesRevenueReport() {
       key: 'sales_ptd_aed',
       align: 'right',
       minWidth: '105px',
+      isCurrency: true,
       fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ptd_aed) || 0), 0)),
     },
@@ -2117,6 +2261,7 @@ export default function SalesRevenueReport() {
       key: 'sales_ytd_aed',
       align: 'right',
       minWidth: '105px',
+      isCurrency: true,
       fmt: v => (v != null) ? fmtCurrency(v) : '-',
       groupEnd: true,
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ytd_aed) || 0), 0)),
@@ -2126,6 +2271,7 @@ export default function SalesRevenueReport() {
       key: 'target_sales_ptd',
       align: 'right',
       minWidth: '105px',
+      isCurrency: true,
       fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => {
         const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ptd) || 0), 0);
@@ -2137,6 +2283,7 @@ export default function SalesRevenueReport() {
       key: 'target_sales_ytd',
       align: 'right',
       minWidth: '105px',
+      isCurrency: true,
       fmt: v => (v != null) ? fmtCurrency(v) : '-',
       groupEnd: true,
       totalFn: rows => {
@@ -2193,10 +2340,7 @@ export default function SalesRevenueReport() {
       align: 'right',
       minWidth: '85px',
       fmt: v => fmtPctCol(v, 2),
-      totalFn: rows => {
-        const s = rows.reduce((acc, r) => acc + (Number(r.percentage) || 0), 0);
-        return fmtPctCol(s, 2);
-      }
+      totalFn: () => '100.00%'
     },
   ];
 
@@ -2209,20 +2353,20 @@ export default function SalesRevenueReport() {
   ];
 
   const parentDivisionCols = [
-    { label: 'Parent Division', key: 'parent_division',       align: 'left', minWidth: '180px', fmt: (v, row) => v ?? row.division_name ?? '-', groupEnd: true },
-    { label: 'PTD',             key: 'sales_ptd_aed',         align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-',
+    { label: 'Parent Division', key: 'parent_division',       align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row.division_name ?? '-', groupEnd: true },
+    { label: 'PTD',             key: 'sales_ptd_aed',         align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ptd_aed) || 0), 0)),
     },
-    { label: 'YTD',             key: 'sales_ytd_aed',         align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
+    { label: 'YTD',             key: 'sales_ytd_aed',         align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ytd_aed) || 0), 0)),
     },
-    { label: 'PTD',             key: 'target_sales_ptd',      align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-',
+    { label: 'PTD',             key: 'target_sales_ptd',      align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => {
         const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ptd) || 0), 0);
         return sum > 0 ? fmtCurrency(sum) : '-';
       },
     },
-    { label: 'YTD',             key: 'target_sales_ytd',      align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
+    { label: 'YTD',             key: 'target_sales_ytd',      align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
       totalFn: rows => {
         const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ytd) || 0), 0);
         return sum > 0 ? fmtCurrency(sum) : '-';
@@ -2263,10 +2407,7 @@ export default function SalesRevenueReport() {
       }
     },
     { label: '% Share',         key: 'percentage',            align: 'right', minWidth: '85px', fmt: v => fmtPctCol(v, 2),
-      totalFn: rows => {
-        const s = rows.reduce((acc, r) => acc + (Number(r.percentage) || 0), 0);
-        return fmtPctCol(s, 2);
-      }
+      totalFn: () => '100.00%'
     },
   ];
 
@@ -2280,25 +2421,25 @@ export default function SalesRevenueReport() {
   ];
 
   const subdivisionCols = [
-    { label: 'Sub-Division',                 key: 'subdivision',               align: 'left', minWidth: '180px', fmt: (v, row) => v ?? row.subdivision_name ?? row.name ?? '-' },
-    { label: 'Parent Division',              key: 'parent_division',           align: 'left', minWidth: '150px', fmt: (v, row) => v ?? row.division_name ?? '-' },
-    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', minWidth: '170px', fmt: (v, row) => v ?? row.entity_name ?? '-' },
-    { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', minWidth: '135px', fmt: v => v ?? '-', groupEnd: true },
-    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', minWidth: '110px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
-    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', minWidth: '110px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
-    { label: 'PTD',                          key: 'sales_ptd_aed',             align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-',
+    { label: 'Sub-Division',                 key: 'subdivision',               align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.subdivision_name ?? row?.name ?? '-', noTotal: true },
+    { label: 'Parent Division',              key: 'parent_division',           align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.division_name ?? '-', noTotal: true },
+    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.entity_name ?? '-', noTotal: true },
+    { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', minWidth: '95px', fmt: v => v ?? '-', groupEnd: true, noTotal: true },
+    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', minWidth: '105px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
+    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', minWidth: '105px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
+    { label: 'PTD',                          key: 'sales_ptd_aed',             align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ptd_aed) || 0), 0)),
     },
-    { label: 'YTD',                          key: 'sales_ytd_aed',             align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
+    { label: 'YTD',                          key: 'sales_ytd_aed',             align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ytd_aed) || 0), 0)),
     },
-    { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-',
+    { label: 'PTD',                          key: 'target_sales_ptd',          align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => {
         const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ptd) || 0), 0);
         return sum > 0 ? fmtCurrency(sum) : '-';
       },
     },
-    { label: 'YTD',                          key: 'target_sales_ytd',          align: 'right', minWidth: '105px', fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
+    { label: 'YTD',                          key: 'target_sales_ytd',          align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
       totalFn: rows => {
         const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ytd) || 0), 0);
         return sum > 0 ? fmtCurrency(sum) : '-';
@@ -2339,18 +2480,15 @@ export default function SalesRevenueReport() {
       }
     },
     { label: '% Share',                      key: 'percentage',                align: 'right', minWidth: '85px', fmt: v => fmtPctCol(v, 2),
-      totalFn: rows => {
-        const s = rows.reduce((acc, r) => acc + (Number(r.percentage) || 0), 0);
-        return fmtPctCol(s, 2);
-      }
+      totalFn: () => '100.00%'
     },
   ];
 
   const customerSummaryCols = [
-    { label: 'Customer Name',       key: 'customer_name',           align: 'left', noTotal: true },
-    { label: 'Account No.',         key: 'customer_account_number', align: 'left', fmt: v => v ?? '-', noTotal: true },
-    { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
-    { label: 'Parent Division',     key: 'parent_division',         align: 'left', fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
+    { label: 'Customer Name',       key: 'customer_name',           align: 'left', minWidth: '130px', whiteSpace: 'normal', noTotal: true },
+    { label: 'Account No.',         key: 'customer_account_number', align: 'left', minWidth: '95px', fmt: v => v ?? '-', noTotal: true },
+    { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
+    { label: 'Parent Division',     key: 'parent_division',         align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
     { label: 'Sales Revenue (AED)', key: 'sales_aed',               align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin (AED)',  key: 'gross_margin_aed',        align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin %',      key: 'gross_margin_pct',        align: 'right',
@@ -2366,12 +2504,12 @@ export default function SalesRevenueReport() {
   ];
 
   const customerDetailCols = [
-    { label: 'Account Number',   key: 'customer_account_number', align: 'left' },
-    { label: 'Customer Name',    key: 'customer_name',           align: 'left' },
-    { label: 'Type',             key: 'customer_type',           align: 'center', fmt: v => v ?? '—' },
-    { label: 'Sales Category',   key: 'sales_category',          align: 'left',   fmt: v => v ?? '—' },
-    { label: 'Legal Entity',     key: 'legal_entity',            align: 'left' },
-    { label: 'Parent Division',  key: 'parent_division',         align: 'left', fmt: v => v ?? '—' },
+    { label: 'Account Number',   key: 'customer_account_number', align: 'left', minWidth: '95px' },
+    { label: 'Customer Name',    key: 'customer_name',           align: 'left', minWidth: '130px', whiteSpace: 'normal' },
+    { label: 'Type',             key: 'customer_type',           align: 'center', minWidth: '85px', fmt: v => v ?? '—' },
+    { label: 'Sales Category',   key: 'sales_category',          align: 'left',   minWidth: '110px', whiteSpace: 'normal', fmt: v => v ?? '—' },
+    { label: 'Legal Entity',     key: 'legal_entity',            align: 'left', minWidth: '120px', whiteSpace: 'normal' },
+    { label: 'Parent Division',  key: 'parent_division',         align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: v => v ?? '—' },
     { label: 'Ledger Currency',  key: 'ledger_currency',         align: 'center', fmt: (v) => v ?? '—' },
     { label: 'Sales in Ledger Currency', key: 'sales_ledger_currency', align: 'right',
       fmt: (v, row) => {
@@ -2393,15 +2531,15 @@ export default function SalesRevenueReport() {
       label: 'Salesperson',
       key: 'salesman_name',
       align: 'left',
-      minWidth: '180px',
-      whiteSpace: 'nowrap',
+      minWidth: '130px',
+      whiteSpace: 'normal',
       fmt: (v, row) => v ?? row.sales_person ?? row.salesman ?? '—',
     },
     {
       label: 'Code',
       key: 'employee_id',
       align: 'center',
-      minWidth: '85px',
+      minWidth: '75px',
       fmt: v => v ?? '—',
       noTotal: true,
     },
@@ -2409,8 +2547,8 @@ export default function SalesRevenueReport() {
       label: 'Legal Entity',
       key: 'legal_entity',
       align: 'left',
-      minWidth: '150px',
-      whiteSpace: 'nowrap',
+      minWidth: '120px',
+      whiteSpace: 'normal',
       fmt: (v, row) => {
         const x = row.legal_entities || row.legal_entity;
         return Array.isArray(x) ? (x.length > 0 ? x.join(', ') : '—') : (x ?? '—');
@@ -2421,8 +2559,8 @@ export default function SalesRevenueReport() {
       label: 'Parent Division',
       key: 'parent_division',
       align: 'left',
-      minWidth: '150px',
-      whiteSpace: 'nowrap',
+      minWidth: '120px',
+      whiteSpace: 'normal',
       fmt: (v, row) => {
         const x = row.parent_divisions || row.parent_division;
         return Array.isArray(x) ? (x.length > 0 ? x.join(', ') : '—') : (x ?? '—');
@@ -2433,8 +2571,8 @@ export default function SalesRevenueReport() {
       label: 'Sub-Division',
       key: 'subdivision',
       align: 'left',
-      minWidth: '150px',
-      whiteSpace: 'nowrap',
+      minWidth: '120px',
+      whiteSpace: 'normal',
       fmt: (v, row) => {
         const x = row.subdivisions || row.subdivision;
         return Array.isArray(x) ? (x.length > 0 ? x.join(', ') : '—') : (x ?? '—');
@@ -2621,13 +2759,22 @@ export default function SalesRevenueReport() {
   /*  RENDER                                                        */
   /* ────────────────────────────────────────────────────────────── */
   return (
-    <>
+    <ErrorBoundary name="SalesRevenueReport">
+      <>
       {/* Shimmer keyframes */}
       <style>{`
         @keyframes shimmer {
           0%   { background-position: 200% 0; }
           100% { background-position: -200% 0; }
         }
+        .modal-table-scroll::-webkit-scrollbar,
+        .sr-table-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        .modal-table-scroll::-webkit-scrollbar-track,
+        .sr-table-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .modal-table-scroll::-webkit-scrollbar-thumb,
+        .sr-table-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .modal-table-scroll::-webkit-scrollbar-thumb:hover,
+        .sr-table-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
       `}</style>
 
       <div className="animate-in" style={{
@@ -2683,43 +2830,54 @@ export default function SalesRevenueReport() {
 
 
         {/* ── Authorized Scope Banner (For Single-Scope Context) ── */}
-        {(filterOptions.legalEntities.length === 2 || filterOptions.parentDivs.length === 2 || filterOptions.subDivs.length === 2 || filterOptions.salesmen.length === 2) && (
-          <div className="card" style={{ padding: '16px 20px', marginBottom: 16, backgroundColor: '#f8fafc', borderLeft: '4px solid #4f46e5' }}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-              <svg style={{ marginRight: 8 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>Your Authorized Scope</span>
-              <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: 'auto' }}>Data shown is restricted to your assigned access scope.</span>
+        {(() => {
+          const getScopeDisplayName = (opt) => {
+            if (!opt) return '—';
+            if (typeof opt === 'string' || typeof opt === 'number') return String(opt);
+            return opt.label || opt.name || opt.subdivision_name || opt.subdivision || opt.division_name || opt.parent_division || opt.entity_name || opt.legal_entity || String(opt.value ?? opt.id ?? '—');
+          };
+
+          const isSingleScope = filterOptions.legalEntities.length === 2 || filterOptions.parentDivs.length === 2 || filterOptions.subDivs.length === 2 || filterOptions.salesmen.length === 2;
+          if (!isSingleScope) return null;
+
+          return (
+            <div className="card" style={{ padding: '16px 20px', marginBottom: 16, backgroundColor: '#f8fafc', borderLeft: '4px solid #4f46e5' }}>
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+                <svg style={{ marginRight: 8 }} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e293b' }}>Your Authorized Scope</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: 'auto' }}>Data shown is restricted to your assigned access scope.</span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
+                {filterOptions.legalEntities.length === 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Legal Entity</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{getScopeDisplayName(filterOptions.legalEntities[1] || filterOptions.legalEntities[0])}</span>
+                  </div>
+                )}
+                {filterOptions.parentDivs.length === 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Parent Division</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{getScopeDisplayName(filterOptions.parentDivs[1] || filterOptions.parentDivs[0])}</span>
+                  </div>
+                )}
+                {filterOptions.subDivs.length === 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Sub-Division</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{getScopeDisplayName(filterOptions.subDivs[1] || filterOptions.subDivs[0])}</span>
+                  </div>
+                )}
+                {filterOptions.salesmen.length === 2 && (
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Salesperson</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
+                      {getScopeDisplayName(filterOptions.salesmen[1] || filterOptions.salesmen[0])}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
-              {filterOptions.legalEntities.length === 2 && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Legal Entity</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{filterOptions.legalEntities[1]}</span>
-                </div>
-              )}
-              {filterOptions.parentDivs.length === 2 && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Parent Division</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{filterOptions.parentDivs[1]}</span>
-                </div>
-              )}
-              {filterOptions.subDivs.length === 2 && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Sub-Division</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>{filterOptions.subDivs[1]}</span>
-                </div>
-              )}
-              {filterOptions.salesmen.length === 2 && (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Salesperson</span>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0f172a' }}>
-                    {typeof filterOptions.salesmen[1] === 'string' ? filterOptions.salesmen[1] : (filterOptions.salesmen[1]?.label || filterOptions.salesmen[1]?.salesman_name || filterOptions.salesmen[1]?.sales_person || String(filterOptions.salesmen[1]))}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Filter Bar (Fully Visible & Aligned at 100% Zoom) ── */}
         <div className="card" style={{
@@ -2794,6 +2952,14 @@ export default function SalesRevenueReport() {
                 return <option key={val} value={val}>{val}</option>;
               })}
             </select>
+          </FilterField>
+
+          <FilterField label="Display Unit">
+            <UnitToggle
+              unit={inMillions ? 'millions' : 'aed'}
+              onToggle={(val) => setInMillions(val === 'millions')}
+              currency={filters.reportingCurrency || 'AED'}
+            />
           </FilterField>
 
           <FilterField label="From Date">
@@ -3774,15 +3940,16 @@ export default function SalesRevenueReport() {
                 Sales Revenue Consolidated View
               </span>
               <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 500, padding: '2px 8px', background: '#f1f5f9', borderRadius: 12 }}>
-                Amounts in {currentCurrency}
+                Amounts in {currentCurrency}{inMillions ? ' (M)' : ''}
               </span>
             </div>
             <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
           </div>
 
           {/* Table body */}
-          {loading.subDiv ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '16px 20px' }}>
+          <ErrorBoundary name="SalesRevenueConsolidatedView">
+            {loading.subDiv ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '16px 20px' }}>
               {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} h={16} />)}
             </div>
           ) : (() => {
@@ -3860,15 +4027,15 @@ export default function SalesRevenueReport() {
                 pct:            r.percentage ?? null,
               };
             }).sort((a, b) => {
-              const c1 = a.legalEntity.localeCompare(b.legalEntity);
+              const c1 = String(a.legalEntity ?? '').localeCompare(String(b.legalEntity ?? ''));
               if (c1 !== 0) return c1;
-              const c2 = a.parentDiv.localeCompare(b.parentDiv);
+              const c2 = String(a.parentDiv ?? '').localeCompare(String(b.parentDiv ?? ''));
               if (c2 !== 0) return c2;
-              return a.subDiv.localeCompare(b.subDiv);
+              return String(a.subDiv ?? '').localeCompare(String(b.subDiv ?? ''));
             });
 
             return (
-              <div style={{ overflowX: 'auto' }}>
+              <div className="sr-table-scroll" style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
@@ -3903,10 +4070,10 @@ export default function SalesRevenueReport() {
                           onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = bgBase; }}
                         >
-                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b' }}
+                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b', whiteSpace: 'normal', minWidth: 100 }}
                               title={row.legalEntity}>{row.legalEntity}</td>
-                          <td style={{ ...TD_S, textAlign: 'left' }}>{row.subDiv}</td>
-                          <td style={{ ...TD_S, textAlign: 'left' }}>{row.parentDiv}</td>
+                          <td style={{ ...TD_S, textAlign: 'left', whiteSpace: 'normal', minWidth: 100 }}>{row.subDiv}</td>
+                          <td style={{ ...TD_S, textAlign: 'left', whiteSpace: 'normal', minWidth: 100 }}>{row.parentDiv}</td>
                           <td style={{ ...TD_S, textAlign: 'center', fontWeight: 600 }}>
                             {row.ledgerCurrency || '—'}
                           </td>
@@ -3952,7 +4119,7 @@ export default function SalesRevenueReport() {
                         })()}
                       </td>
                       <td style={{ ...TD_FOOT, textAlign: 'right' }}>
-                        {fmtPctCol(detailRows2.reduce((s, r) => s + (Number(r.pct) || 0), 0), 2)}
+                        100.00%
                       </td>
                     </tr>
                   </tfoot>
@@ -3960,6 +4127,7 @@ export default function SalesRevenueReport() {
               </div>
             );
           })()}
+          </ErrorBoundary>
 
           {/* Footer note */}
           <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
@@ -3997,9 +4165,11 @@ export default function SalesRevenueReport() {
         headerGroups={legalEntityHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
+        showUnitToggle={true}
         searchPlaceholder="Search legal entities..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4019,6 +4189,7 @@ export default function SalesRevenueReport() {
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
+        showUnitToggle={true}
         searchPlaceholder="Search parent divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4039,6 +4210,10 @@ export default function SalesRevenueReport() {
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
+        ]}
+        showUnitToggle={true}
         searchPlaceholder="Search sub-divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4389,6 +4564,7 @@ export default function SalesRevenueReport() {
           </div>
         </div>
       )}
-    </>
+      </>
+    </ErrorBoundary>
   );
 }

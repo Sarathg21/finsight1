@@ -1120,7 +1120,7 @@ function VarBadge({ v, isPct = false }) {
 }
 
 /* ── KPI Card ──────────────────────────────────────────────────────── */
-function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, compareLabel, color, iconBg, icon, loading, error }) {
+function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, lowerIsBetter = false, compareLabel, color, iconBg, icon, loading, error }) {
   const [hover, setHover] = useState(false);
   const accent = color || C.primary;
   const up = isRatio ? ((changeDiff ?? 0) >= 0) : ((changePct ?? 0) >= 0);
@@ -1166,7 +1166,7 @@ function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = 
             {subValue && <div style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 500 }}>{subValue}</div>}
             {showChange && (
               <div style={{ fontSize: '0.62rem', fontWeight: 600, lineHeight: 1.1, marginTop: 2 }}>
-                <span style={{ color: up ? C.green : C.rose, marginRight: 3 }}>
+                <span style={{ color: lowerIsBetter ? (up ? C.rose : C.green) : (up ? C.green : C.rose), marginRight: 3 }}>
                   {up ? '▲' : '▼'} {isRatio ? Math.abs(changeDiff).toFixed(2) : `${Math.abs(changePct).toFixed(2)}%`}
                 </span>
                 <span style={{ color: C.muted }}>{compareLabel}</span>
@@ -1305,9 +1305,9 @@ const MTH = {
   fontWeight: 700, color: '#1e3a8a', background: '#f8fafc',
   borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap', position: 'sticky', top: 0, zIndex: 1,
 };
-const MTH_L = { ...MTH, textAlign: 'left' };
+const MTH_L = { ...MTH, textAlign: 'left', whiteSpace: 'normal', minWidth: '130px' };
 const MTD   = { padding: '9px 14px', textAlign: 'right', fontSize: '0.74rem', color: '#334155', borderBottom: '1px solid #f1f5f9' };
-const MTD_L = { ...MTD, textAlign: 'left', color: C.navy };
+const MTD_L = { ...MTD, textAlign: 'left', color: C.navy, whiteSpace: 'normal', minWidth: '130px', wordBreak: 'break-word' };
 
 /* ── Helpers for 3-Column Balance Sheet Statement (matching sample layout) ── */
 const fmtTableCell = (val, unit = 'aed') => {
@@ -1553,7 +1553,7 @@ function StatementCards({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const STH_L = { ...STH, textAlign: 'left', paddingLeft: 12 };
+  const STH_L = { ...STH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
 
   const SSH = {
     padding: '7px 8px',
@@ -1566,7 +1566,7 @@ function StatementCards({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const SSH_L = { ...SSH, textAlign: 'left', paddingLeft: 12 };
+  const SSH_L = { ...SSH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
 
   const STD = {
     padding: '6px 8px',
@@ -1581,8 +1581,10 @@ function StatementCards({
     textAlign: 'left',
     color: '#1e293b',
     fontWeight: 500,
-    whiteSpace: 'nowrap',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
     paddingLeft: 12,
+    minWidth: 120,
   };
 
   const STOT = {
@@ -1595,7 +1597,7 @@ function StatementCards({
     borderTop: '2px solid #bfdbfe',
     whiteSpace: 'nowrap',
   };
-  const STOT_L = { ...STOT, textAlign: 'left', paddingLeft: 12 };
+  const STOT_L = { ...STOT, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
 
   const SGREEN_TOT = {
     padding: '10px 8px',
@@ -1607,7 +1609,7 @@ function StatementCards({
     borderTop: '2px solid #86efac',
     whiteSpace: 'nowrap',
   };
-  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left', paddingLeft: 12 };
+  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
 
   const renderHeaders = (unit = 'aed') => (
     <thead>
@@ -1711,6 +1713,9 @@ function StatementCards({
             <tbody>
               {renderSubSection('I. CURRENT ASSETS', statementData.currentAssets, 'currentAssets', assetsUnit)}
               {renderSubSection('II. NON CURRENT ASSETS', statementData.nonCurrentAssets, 'nonCurrentAssets', assetsUnit)}
+              <tr style={{ height: '100%' }}>
+                <td colSpan={hasCompare ? 5 : 2} style={{ border: 'none', padding: 0, background: 'transparent' }} />
+              </tr>
             </tbody>
             <tfoot>
               <tr>
@@ -1743,6 +1748,9 @@ function StatementCards({
             <tbody>
               {renderSubSection('I. CURRENT LIABILITIES', statementData.currentLiab, 'currentLiab', liabUnit)}
               {renderSubSection('II. NON CURRENT LIABILITIES', statementData.nonCurrentLiab, 'nonCurrentLiab', liabUnit)}
+              <tr style={{ height: '100%' }}>
+                <td colSpan={hasCompare ? 5 : 2} style={{ border: 'none', padding: 0, background: 'transparent' }} />
+              </tr>
             </tbody>
             <tfoot>
               <tr>
@@ -1881,6 +1889,9 @@ function StatementCards({
                   </div>
                 </td>
               </tr>
+              <tr style={{ height: '100%' }}>
+                <td colSpan={hasCompare ? 5 : 2} style={{ border: 'none', padding: 0, background: 'transparent' }} />
+              </tr>
             </tbody>
             <tfoot>
               <tr>
@@ -1988,7 +1999,7 @@ function StatementViewAll({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const VTH_L = { ...VTH, textAlign: 'left' };
+  const VTH_L = { ...VTH, textAlign: 'left', whiteSpace: 'normal', minWidth: '120px' };
 
   const VSH = {
     padding: '8px 12px',
@@ -2001,7 +2012,7 @@ function StatementViewAll({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const VSH_L = { ...VSH, textAlign: 'left' };
+  const VSH_L = { ...VSH, textAlign: 'left', whiteSpace: 'normal', minWidth: '120px' };
 
   const VTD = {
     padding: '7px 12px',
@@ -2011,7 +2022,7 @@ function StatementViewAll({
     borderBottom: '1px solid #f1f5f9',
     whiteSpace: 'nowrap',
   };
-  const VTD_L = { ...VTD, textAlign: 'left' };
+  const VTD_L = { ...VTD, textAlign: 'left', whiteSpace: 'normal', wordBreak: 'break-word', minWidth: '120px' };
 
   const VTOT = {
     padding: '10px 12px',
@@ -2023,7 +2034,7 @@ function StatementViewAll({
     borderTop: '2px solid #bfdbfe',
     whiteSpace: 'nowrap',
   };
-  const VTOT_L = { ...VTOT, textAlign: 'left' };
+  const VTOT_L = { ...VTOT, textAlign: 'left', whiteSpace: 'normal', minWidth: '120px' };
 
   const renderSectionTable = (subTitle, subData, rows, sectionKey) => {
     const isExp = isQueryActive || expanded[sectionKey] !== false;
@@ -2323,12 +2334,15 @@ function StatementViewAll({
               {fmtTableCell(initialStatementData.totalAssets.current, modalUnit)}
             </span>
           </div>
-          <div style={{ overflowX: 'auto', flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+          <div style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
               {renderTableHeaders()}
               <tbody>
                 {renderSectionTable('I. CURRENT ASSETS', initialStatementData.currentAssets, cAssetsRows, 'currentAssets')}
                 {renderSectionTable('II. NON CURRENT ASSETS', initialStatementData.nonCurrentAssets, ncAssetsRows, 'nonCurrentAssets')}
+                <tr style={{ height: '100%' }}>
+                  <td colSpan={hasCompare ? 5 : 2} style={{ border: 'none', padding: 0, background: 'transparent' }} />
+                </tr>
               </tbody>
               <tfoot>
                 <tr>
@@ -2360,8 +2374,8 @@ function StatementViewAll({
               {fmtTableCell(initialStatementData.totalEqLiab.current, modalUnit)}
             </span>
           </div>
-          <div style={{ overflowX: 'auto', flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
+          <div style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
               {renderTableHeaders()}
               <tbody>
                 {renderSectionTable('I. CURRENT LIABILITIES', initialStatementData.currentLiab, cLiabRows, 'currentLiab')}
@@ -2388,6 +2402,9 @@ function StatementViewAll({
                       <td style={{ ...VSH, color: getVarColor(initialStatementData.equity.totalVariancePct) }}>{fmtTablePct(initialStatementData.equity.totalVariancePct)}</td>
                     </>
                   )}
+                </tr>
+                <tr style={{ height: '100%' }}>
+                  <td colSpan={hasCompare ? 5 : 2} style={{ border: 'none', padding: 0, background: 'transparent' }} />
                 </tr>
               </tbody>
               <tfoot>
@@ -3684,6 +3701,7 @@ export default function BalanceSheet() {
     },
     {
       id: 'debt-to-equity',
+        lowerIsBetter: true,
       label: 'Debt-to-Equity Ratio',
       value: loading.summary ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)} : 1` : '—'),
       isRatio: true,
@@ -3694,6 +3712,7 @@ export default function BalanceSheet() {
     },
     {
       id: 'liability-to-equity',
+        lowerIsBetter: true,
       label: 'Liability-to-Equity Ratio',
       value: loading.summary ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)} : 1` : '—'),
       isRatio: true,
@@ -4014,7 +4033,7 @@ export default function BalanceSheet() {
       {/* FIX m5: bs-chart-grid responsive class applied via media-query above */}
       {(() => {
         /* ── Shared DonutCard renderer ── */
-        const DonutCard = ({ title, subtitle, segments, total, totalLabel, isLoading, menuItems, onViewAll }) => {
+        const DonutCard = ({ title, subtitle, segments, total, totalLabel, isLoading, menuItems }) => {
           const chartKey = `donut-${segments.length}-${Math.round(total)}`;
           return (
             <div className="card" style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
@@ -4024,19 +4043,6 @@ export default function BalanceSheet() {
                   <div style={{ fontSize: '0.65rem', color: C.muted, marginTop: 1 }}>{subtitle}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {onViewAll && (
-                    <button
-                      onClick={onViewAll}
-                      style={{
-                        fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff',
-                        border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
-                      }}
-                      title={`Open ${title} detailed breakdown`}
-                    >
-                      <span>🔎</span> View All
-                    </button>
-                  )}
                   {menuItems && <KebabMenu id={`menu-bs-${title.toLowerCase().replace(/[^a-z0-9]/g, '-')}`} items={menuItems} />}
                 </div>
               </div>
@@ -4136,17 +4142,6 @@ export default function BalanceSheet() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    onClick={() => setOpenModal('trend')}
-                    style={{
-                      fontSize: '0.66rem', fontWeight: 700, color: '#2563eb', background: '#eff6ff',
-                      border: '1px solid #bfdbfe', borderRadius: 6, padding: '3px 8px', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 4, transition: 'all 0.15s'
-                    }}
-                    title="Open detailed 6-month trend view with full table and filters"
-                  >
-                    <span>🔎</span> View All
-                  </button>
                   <KebabMenu id="menu-bs-trend" items={trendMenuItems} />
                 </div>
               </div>
@@ -4232,7 +4227,6 @@ export default function BalanceSheet() {
               totalLabel="Total Assets"
               isLoading={loading.summary}
               menuItems={compositionMenuItems}
-              onViewAll={() => setOpenModal('composition')}
             />
 
             {/* ── Liabilities & Equity Composition (Equity vs Non-current vs Current Liabilities) ── */}
@@ -4244,7 +4238,6 @@ export default function BalanceSheet() {
               totalLabel="Total Liab & Eq"
               isLoading={loading.summary}
               menuItems={compositionMenuItems}
-              onViewAll={() => setOpenModal('composition')}
             />
           </div>
         );
