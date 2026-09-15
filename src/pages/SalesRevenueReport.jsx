@@ -2954,13 +2954,7 @@ export default function SalesRevenueReport() {
             </select>
           </FilterField>
 
-          <FilterField label="Display Unit">
-            <UnitToggle
-              unit={inMillions ? 'millions' : 'aed'}
-              onToggle={(val) => setInMillions(val === 'millions')}
-              currency={filters.reportingCurrency || 'AED'}
-            />
-          </FilterField>
+
 
           <FilterField label="From Date">
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
