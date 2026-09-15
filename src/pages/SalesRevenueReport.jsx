@@ -3953,7 +3953,7 @@ export default function SalesRevenueReport() {
                 Amounts in {currentCurrency}{inMillions ? ' (M)' : ''}
               </span>
             </div>
-            <ChartMenu onViewAll={() => setOpenModal('subDiv')} endpoint="subdivision-detail" filters={appliedFilters} />
+            <ChartMenu onViewAll={() => setOpenModal('consolidatedView')} endpoint="subdivision-detail" filters={appliedFilters} />
           </div>
 
           {/* Table body */}
@@ -4214,6 +4214,30 @@ export default function SalesRevenueReport() {
       <DetailApiModal
         canExport={canExport}
         isOpen={openModal === 'subDiv'}
+        onClose={() => setOpenModal(null)}
+        title="Revenue by Sub-Division — View All"
+        endpoint="subdivision-detail"
+        fetchFn={fetchSubdivisionDetail}
+        columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
+        headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
+        filters={appliedFilters}
+        localFiltersConfig={[
+          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
+          { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
+        ]}
+        showUnitToggle={true}
+        searchPlaceholder="Search sub-divisions..."
+        periodLabel={appliedPeriodLabel}
+      />
+
+      {/* Consolidated View — View All Modal (separate from Sub-Division bar chart modal) */}
+      <DetailApiModal
+        canExport={canExport}
+        isOpen={openModal === 'consolidatedView'}
         onClose={() => setOpenModal(null)}
         title="Sales Revenue Consolidated View"
         endpoint="subdivision-detail"
