@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
-  FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,
-  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign,
+  FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,WalletCards,
+  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign, 
 } from 'lucide-react';
 
 /* â”€â”€ Icon map per route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -17,7 +17,7 @@ const ROUTE_ICON = {
   '/balance-sheet': BookOpen,
   '/operating-expenses': BarChart2,
   '/revenue': DollarSign,
-  '/receivables': CircleDollarSign,
+  '/receivables': Receipt,
   '/fixed-assets': Building2,
   '/ar': Receipt,
   '/ap': CreditCard,

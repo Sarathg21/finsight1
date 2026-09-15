@@ -10,15 +10,17 @@ import ChartMenu from "../components/ChartMenu";
 import Filters from "../components/Filters/Filters";
 import { Download, CalendarClock } from "lucide-react";
 import { AgingSummaryCard, OverDueSummaryCard, PayablesTrendCard, ParentDivisionCard, } from "../components/Charts/Charts";
-import { TopVendorsTable,  SubDivisionTable, SalesmanTable, } from "../components/Tables/Tables";
+import { TopVendorsTable, SubDivisionTable, SalesmanTable, } from "../components/Tables/Tables";
 import DetailedViewTable from "../components/Tables/DetailedViewTable";
 import KPICards from "../components/Cards/KPICards";
 import { agingData, trendData, divisionData, topVendors, overdueData, businessUnitData, detailedViewData, } from '../data/dashboardData';
 import {
-    getReceivableFilters, getReceivableSummary, getReceivableAgingSummary, getReceivableTrend, getSalesmanPerformance,
-    getReceivableDivisionWise, getReceivableTopCustomers, getReceivableDetails,
-    getReceivableOverdueSummary, getReceivableSubDivision, getReceivableExport
-} from "../api/recevablesApi"
+    getReceivableFilters,
+    getReceivableSummary,
+    getReceivableDivisionWise,
+    getReceivableTopCustomers,
+    getReceivableBuckets
+} from "../api/recevablesApi";
 import ExportButtons from "../components/Common/ExportButtons";
 import PageHeader from "../components/Common/PageHeader";
 import FooterNote from "../components/FooterNote";
@@ -209,20 +211,17 @@ export default function ReceivablesDashboard() {
     const loadDashboardData = async () => {
         try {
             setLoading(true);
+
             await Promise.all([
                 fetchFilters(),
                 fetchSummary(),
-                fetchAgingSummary(),
                 fetchDivisionWise(),
                 fetchTopCustomers(),
-                fetchDetails(),
-                fetchTrend(),
-                fetchOverdueSummary(),
-                fetchSubDivisions(),
-                loadSalesman(),
+                fetchBuckets(),
             ]);
+
         } catch (error) {
-            console.error(error);
+            console.error("Error loading receivables dashboard:", error);
         } finally {
             setLoading(false);
         }
@@ -230,37 +229,74 @@ export default function ReceivablesDashboard() {
 
 
     {/*-------------Load Filter Data--------------------*/ }
-    const fetchFilters = async (filters = {}) => {
+    const fetchFilters = async () => {
         try {
             const response = await getReceivableFilters();
-            setFilterOptions(response?.data?.data || {});
+
+            console.log("Receivables Filters:", response);
+
+            setFilterOptions(response || {});
+
         } catch (error) {
-            console.log("Error is", error)
+            console.error("Error loading receivables filters:", error);
+            setFilterOptions({});
         }
     };
 
     {/*-------------Load SummaryCards--------------------*/ }
 
-    const fetchSummary = async (filters = {}) => {
+    const fetchSummary = async (currentFilters = filters) => {
         try {
-            const response = await getReceivableSummary(filters);
-            setSummary(response.data.data);
+            const result = await getReceivableSummary(currentFilters);
+
+            console.log("Receivables Summary Response:", result);
+
+            if (!result) {
+                console.warn("Receivables summary API returned no response");
+                setSummary({});
+                return;
+            }
+
+            const data = result?.data?.data ?? result?.data ?? {};
+
+            setSummary(data);
+
         } catch (error) {
-            console.error("Error is", error);
+            console.error("Receivables Summary API Error:", error);
+            setSummary({});
         }
     };
 
     {/*-------------Load AgingSummary--------------------*/ }
-    const fetchAgingSummary = async (filters = {}) => {
+    const fetchBuckets = async (filters = {}) => {
         try {
-            const response = await getReceivableAgingSummary(filters);
-            const result = response?.data?.data || {};
-            setAgingSummary(result.buckets || []);
-            setAgingTotal(result.total_amount || 0);
+            const response = await getReceivableBuckets(filters);
+
+            const data = response?.data || response?.data?.data || {};
+
+            console.log("Buckets API response:", response);
+
+            // Adjust this depending on actual backend response
+            const buckets = Array.isArray(data)
+                ? data
+                : data?.buckets || [];
+
+            setAgingSummary(buckets);
+
+            const total = buckets.reduce(
+                (sum, item) => sum + Number(item.amount || 0),
+                0
+            );
+
+            setAgingTotal(total);
+
         } catch (error) {
-            console.error("Error is", error);
+            console.error("Error loading receivable buckets:", error);
+            setAgingSummary([]);
+            setAgingTotal(0);
         }
     };
+
     {/*-------------Load parent division--------------------*/ }
     const fetchDivisionWise = async (filters = {}) => {
         try {
@@ -411,14 +447,9 @@ export default function ReceivablesDashboard() {
         try {
             await Promise.all([
                 fetchSummary(selectedFilters),
-                fetchAgingSummary(selectedFilters),
+                fetchBuckets(selectedFilters),
                 fetchDivisionWise(selectedFilters),
                 fetchTopCustomers(selectedFilters),
-                fetchDetails(selectedFilters, 1, detailsSort),
-                fetchTrend(selectedFilters),
-                fetchOverdueSummary(selectedFilters),
-                fetchSubDivisions(selectedFilters),
-                loadSalesman(selectedFilters)
             ]);
         } catch (error) {
             console.error("Error loading receivables data:", error);
@@ -461,14 +492,9 @@ export default function ReceivablesDashboard() {
         setFilters({});
 
         fetchSummary();
-        fetchAgingSummary();
+        fetchBuckets();
         fetchDivisionWise();
         fetchTopCustomers();
-        fetchDetails();
-        fetchTrend();
-        fetchOverdueSummary();
-        fetchSubDivisions();
-        loadSalesman();
     };
     const bucketColors = {
         CURRENT: "#22C55E",
@@ -635,6 +661,7 @@ export default function ReceivablesDashboard() {
                     filterOptions={filterOptions}
                     onApply={handleApply}
                     onReset={handleReset}
+                     isReceivables={true}
                 />
                 {/* -----KPI Cards----- */}
                 <div style={{ marginTop: "-18px" }}>
@@ -729,11 +756,11 @@ export default function ReceivablesDashboard() {
                         onExportExcel={handleExportExcel}
                         onExportPdf={handleExportPdf}
                     />
-                    <ReceivablesDetailsModal
+                    {/* <ReceivablesDetailsModal
                         open={showDetailsModal}
                         onClose={() => setShowDetailsModal(false)}
                         filters={filters}
-                    />
+                    /> */}
 
 
                 </div>
