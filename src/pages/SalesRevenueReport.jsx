@@ -4179,6 +4179,9 @@ export default function SalesRevenueReport() {
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
+        ]}
         showUnitToggle={true}
         searchPlaceholder="Search legal entities..."
         periodLabel={appliedPeriodLabel}
@@ -4198,6 +4201,9 @@ export default function SalesRevenueReport() {
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+        ]}
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
         showUnitToggle={true}
         searchPlaceholder="Search parent divisions..."
@@ -4244,6 +4250,9 @@ export default function SalesRevenueReport() {
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
+        ]}
         searchPlaceholder="Search salespeople..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4285,7 +4294,9 @@ export default function SalesRevenueReport() {
           { key: 'subdivisionId', label: 'Sub-Divs', options: filterOptions.subDivs },
           { key: 'customerType', label: 'Type', options: filterOptions.customerTypes }
         ]}
-
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
+        ]}
         searchPlaceholder="Search customers..."
         periodLabel={appliedPeriodLabel}
       />
