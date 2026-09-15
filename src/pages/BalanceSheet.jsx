@@ -828,14 +828,14 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     ? normOptions.filter(o => String(o.id) !== 'All' && o.name.toLowerCase().includes(q))
     : normOptions;
 
-  const isAll = !value || value.length === 0 || (value.length === 1 && String(value[0]) === 'All');
+  const isAll = !value || (value.length === 1 && String(value[0]) === 'All');
   const allRealIds = normOptions.filter(o => String(o.id) !== 'All').map(o => String(o.id));
 
   const toggle = (optId) => {
     if (String(optId) === 'All') { onChange(['All']); return; }
-    const cur = isAll ? allRealIds : value.map(String).filter(v => v !== 'All');
+    const cur = isAll ? allRealIds : (value || []).map(String).filter(v => v !== 'All');
     const targetId = String(optId);
-    
+
     const next = cur.includes(targetId)
       ? cur.filter(v => v !== targetId)
       : [...cur, targetId];
@@ -843,9 +843,10 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     if (allRealIds.length > 0 && next.length === allRealIds.length) {
       onChange(['All']);
     } else {
-      onChange(next.length === 0 ? ['All'] : next);
+      onChange(next);
     }
   };
+
 
   const selectedVals = normOptions.filter(o => value && value.some(v => String(v) === String(o.id)));
   const label = isAll ? placeholder : selectedVals.length === 1 ? selectedVals[0].name : (selectedVals.length + ' selected');
@@ -881,17 +882,23 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
             </div>
           </div>
 
+          {/* ── Select All / Clear action bar ── */}
+          {!q && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <span
+                onClick={() => onChange(['All'])}
+                style={{ fontSize: '0.75rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
+              >Select All</span>
+              <span
+                onClick={() => onChange([])}
+                style={{ fontSize: '0.75rem', fontWeight: 600, color: '#ef4444', cursor: 'pointer' }}
+              >Clear</span>
+            </div>
+          )}
+
           {/* ── Scrollable options list ── */}
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
-            {/* "All" option — only shown when search is empty */}
-            {!q && (
-              <div onClick={() => toggle('All')} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '7px 12px', cursor: 'pointer', fontSize: '0.78rem', background: isAll ? '#eff6ff' : '#fff', color: isAll ? '#2563eb' : '#334155', fontWeight: isAll ? 600 : 400, borderBottom: '1px solid #f8fafc' }} onMouseEnter={e => { if (!isAll) e.currentTarget.style.background = '#f8fafc'; }} onMouseLeave={e => { if (!isAll) e.currentTarget.style.background = '#fff'; }}>
-                <span style={{ width: 14, height: 14, border: '1.5px solid ' + (isAll ? '#2563eb' : '#cbd5e1'), borderRadius: 3, background: isAll ? '#2563eb' : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {isAll && <span style={{ color: '#fff', fontSize: '0.6rem', lineHeight: 1 }}>✓</span>}
-                </span>
-                All
-              </div>
-            )}
+            {/* Individual option rows — no "All" item shown anymore */}
 
             {/* Filtered option rows */}
             {visibleOptions.map(opt => {
