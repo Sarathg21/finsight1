@@ -2427,75 +2427,7 @@ export default function SalesRevenueReport() {
     },
   ];
 
-  // "Revenue by Sub-Division — View All" (Aggregated modal view)
-  const subdivisionAggHeaderGroups = [
-    { label: '', colSpan: 1 },
-    { label: 'Sales Revenue – AED', colSpan: 2 },
-    { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
-    { label: 'Variance', colSpan: 2 },
-    { label: '', colSpan: 1 }
-  ];
-
-  const subdivisionAggCols = [
-    { label: 'Sub-Division', key: 'subdivision',       align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.subdivision_name ?? row?.name ?? '-', groupEnd: true },
-    { label: 'PTD',          key: 'sales_ptd_aed',     align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
-      totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ptd_aed) || 0), 0)),
-    },
-    { label: 'YTD',          key: 'sales_ytd_aed',     align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
-      totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ytd_aed) || 0), 0)),
-    },
-    { label: 'PTD',          key: 'target_sales_ptd',  align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
-      totalFn: rows => {
-        const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ptd) || 0), 0);
-        return sum > 0 ? fmtCurrency(sum) : '-';
-      },
-    },
-    { label: 'YTD',          key: 'target_sales_ytd',  align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true,
-      totalFn: rows => {
-        const sum = rows.reduce((s, r) => s + (Number(r.target_sales_ytd) || 0), 0);
-        return sum > 0 ? fmtCurrency(sum) : '-';
-      },
-    },
-    { label: 'PTD %',        key: 'variance_target_ptd_pct', align: 'right', minWidth: '90px',
-      fmt: (v, row) => {
-        if (v != null && !isNaN(v)) return fmtPctCol(v, 1);
-        if (row && row.sales_ptd_aed != null && row.target_sales_ptd) {
-          const s = Number(row.sales_ptd_aed) || 0;
-          const t = Number(row.target_sales_ptd) || 0;
-          if (t !== 0) return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
-        }
-        return '-';
-      },
-      totalFn: rows => {
-        const s = rows.reduce((acc, r) => acc + (Number(r.sales_ptd_aed) || 0), 0);
-        const t = rows.reduce((acc, r) => acc + (Number(r.target_sales_ptd) || 0), 0);
-        if (!t) return '-';
-        return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
-      }
-    },
-    { label: 'YTD %',        key: 'variance_target_ytd_pct', align: 'right', minWidth: '90px', groupEnd: true,
-      fmt: (v, row) => {
-        if (v != null && !isNaN(v)) return fmtPctCol(v, 1);
-        if (row && row.sales_ytd_aed != null && row.target_sales_ytd) {
-          const s = Number(row.sales_ytd_aed) || 0;
-          const t = Number(row.target_sales_ytd) || 0;
-          if (t !== 0) return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
-        }
-        return '-';
-      },
-      totalFn: rows => {
-        const s = rows.reduce((acc, r) => acc + (Number(r.sales_ytd_aed) || 0), 0);
-        const t = rows.reduce((acc, r) => acc + (Number(r.target_sales_ytd) || 0), 0);
-        if (!t) return '-';
-        return fmtPctCol(((s - t) / Math.abs(t)) * 100, 1);
-      }
-    },
-    { label: '% Share',      key: 'share_pct',         align: 'center', minWidth: '85px',
-      fmt: v => (v != null) ? fmtPctCol(v * 100, 2) : '-',
-      totalFn: () => '100.00%'
-    },
-  ];
-
+  // Consolidated View (Full details per sub-division)
   const subDivisionHeaderGroups = [
     { label: '', colSpan: 4 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
@@ -4284,11 +4216,11 @@ export default function SalesRevenueReport() {
         canExport={canExport}
         isOpen={openModal === 'subDiv'}
         onClose={() => setOpenModal(null)}
-        title="Revenue by Sub-Division — View All"
+        title="Sales Revenue by Sub Division - Detailed View"
         endpoint="subdivision-detail"
         fetchFn={fetchSubdivisionDetail}
-        columnDefs={subdivisionAggCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
-        headerGroups={subdivisionAggHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
+        columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
+        headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
