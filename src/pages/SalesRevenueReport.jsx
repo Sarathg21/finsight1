@@ -2139,6 +2139,9 @@ export default function SalesRevenueReport() {
       if (key === 'legalGroupId') { next.legalEntityId = ['All']; next.parentDivisionId = ['All']; next.subdivisionId = ['All']; }
       if (key === 'legalEntityId') { next.parentDivisionId = ['All']; next.subdivisionId = ['All']; }
       if (key === 'parentDivisionId') { next.subdivisionId = ['All']; }
+      
+      // Auto-apply
+      setTimeout(() => setAppliedFilters(next), 0);
       return next;
     });
   };
@@ -2984,21 +2987,7 @@ export default function SalesRevenueReport() {
             </div>
           </FilterField>
 
-          {/* Action Buttons Cluster */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end', flexShrink: 0, paddingBottom: 1 }}>
-            <button id="btn-apply-filter" onClick={handleApply} style={{
-              ...headerBtn(C.blue, '#fff'),
-              height: 32, padding: '0 16px', fontWeight: 700, borderRadius: 8, whiteSpace: 'nowrap',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-            }}>Apply</button>
-            <button id="btn-reset-filter" onClick={handleReset} style={{
-              background: 'none', border: 'none', color: C.slate,
-              height: 32, fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
-              padding: '0 6px', whiteSpace: 'nowrap',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center'
-            }}>Reset</button>
           </div>
-        </div>
 
 
         {/* ── Revenue Dashboard KPI Cards (Responsive at 100% Zoom) ── */}
