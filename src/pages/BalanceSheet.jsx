@@ -4384,11 +4384,11 @@ export default function BalanceSheet() {
 
 
 
-      {/* ══ FOOTER ══ */}
       <div style={{ fontSize: '0.64rem', color: C.muted, display: 'flex', justifyContent: 'space-between', paddingTop: 8, flexWrap: 'wrap', gap: 4 }}>
         <span>
           All values in {currency} &nbsp;|&nbsp; Period: {periodLabel}
           {appliedFilters.comparePeriod ? ` | Compared with: ${formatPeriod(appliedFilters.comparePeriod)}` : ''}
+          {lastFetchedAt ? ` | Last Updated On: ${lastFetchedAt}` : ''}
         </span>
         <span>☁️ Source: Oracle Fusion Cloud</span>
       </div>
@@ -4396,5 +4396,6 @@ export default function BalanceSheet() {
     </div>
   );
 }
+
 
 

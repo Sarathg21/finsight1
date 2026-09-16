@@ -2808,7 +2808,7 @@ export default function SalesRevenueReport() {
             <p style={{ fontSize: '0.78rem', color: C.slate, margin: '3px 0 0' }}>
               Track and analyze sales performance across all dimensions
               <br/><span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600 }}>Viewing: {fmtDisplayDate(appliedFilters.fromDate)} to {fmtDisplayDate(appliedFilters.toDate)}</span>
-              {dataAsOf && ` • Data as on ${dataAsOf}`}
+              {dataAsOf && ` • Last Updated On: ${dataAsOf}`}
               &nbsp;|&nbsp;
               <span style={{ color: C.green, fontWeight: 700 }}>Currency: {currentCurrency}</span>
             </p>
@@ -4138,7 +4138,7 @@ export default function SalesRevenueReport() {
 
           {/* Footer note */}
           <div style={{ fontSize: '0.62rem', color: C.muted, padding: '8px 20px 10px', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: 4 }}>
-            <span>All values are in <strong>{currentCurrency}</strong> &nbsp;|&nbsp; {dataAsOf && `Data as on ${dataAsOf}`}</span>
+            <span>All values are in <strong>{currentCurrency}</strong> &nbsp;|&nbsp; {dataAsOf && `Last Updated On: ${dataAsOf}`}</span>
             <span>Source: Oracle Fusion Cloud</span>
           </div>
         </div>
@@ -4150,7 +4150,7 @@ export default function SalesRevenueReport() {
         }}>
           <span>
             All values are in <strong>{currentCurrency}</strong>&nbsp;|&nbsp;
-            {dataAsOf && `Data as on ${dataAsOf}`}&nbsp;|&nbsp;
+            {dataAsOf && `Last Updated On: ${dataAsOf}`}&nbsp;|&nbsp;
             <span style={{ color: C.green, fontWeight: 700 }}>● Live</span>
           </span>
           <span>☁️ Source: Oracle Fusion Cloud</span>
@@ -4612,6 +4612,7 @@ export default function SalesRevenueReport() {
     </ErrorBoundary>
   );
 }
+
 
 
 
