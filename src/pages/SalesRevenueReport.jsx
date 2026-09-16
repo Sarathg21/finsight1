@@ -1684,11 +1684,9 @@ export default function SalesRevenueReport() {
     const raw = Number(v);
     if (inMillions) {
       const m = raw / 1_000_000;
-      const str = m.toFixed(2) + 'M';
-      return currentCurrency === 'AED' ? str : `${currentCurrency} ${str}`;
+      return m.toFixed(2) + 'M';
     }
-    const numStr = raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    return currentCurrency === 'AED' ? numStr : `${currentCurrency} ${numStr}`;
+    return raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
   const fmtPctCol = (v, digits = 1) => {
     if (v == null || isNaN(v)) return '-';
@@ -2223,7 +2221,7 @@ export default function SalesRevenueReport() {
   const legalEntityHeaderGroups = [
     { label: '', colSpan: 2 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
-    { label: 'Sales Revenue – AED', colSpan: 2 },
+    { label: `Sales Revenue (${currentCurrency})`, colSpan: 2 },
     { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
     { label: 'Variance vs Target', colSpan: 2 },
     { label: '', colSpan: 1 }
@@ -2362,7 +2360,7 @@ export default function SalesRevenueReport() {
 
   const parentDivisionHeaderGroups = [
     { label: '', colSpan: 1 },
-    { label: 'Sales Revenue – AED', colSpan: 2 },
+    { label: `Sales Revenue (${currentCurrency})`, colSpan: 2 },
     { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
     { label: 'Variance vs Target', colSpan: 2 },
     { label: '', colSpan: 1 }
@@ -2431,7 +2429,7 @@ export default function SalesRevenueReport() {
   const subDivisionHeaderGroups = [
     { label: '', colSpan: 4 },
     { label: 'Sales Revenue – Ledger Currency', colSpan: 2 },
-    { label: 'Sales Revenue – AED', colSpan: 2 },
+    { label: `Sales Revenue (${currentCurrency})`, colSpan: 2 },
     { label: `Target Revenue (${currentCurrency})`, colSpan: 2 },
     { label: 'Variance', colSpan: 2 },
     { label: '', colSpan: 1 }
@@ -2506,8 +2504,8 @@ export default function SalesRevenueReport() {
     { label: 'Account No.',         key: 'customer_account_number', align: 'left', minWidth: '95px', fmt: v => v ?? '-', noTotal: true },
     { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
     { label: 'Parent Division',     key: 'parent_division',         align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
-    { label: 'Sales Revenue (AED)', key: 'sales_aed',               align: 'right', fmt: fmtCurrency },
-    { label: 'Gross Margin (AED)',  key: 'gross_margin_aed',        align: 'right', fmt: fmtCurrency },
+    { label: `Sales Revenue (${currentCurrency})`, key: 'sales_aed',               align: 'right', fmt: fmtCurrency },
+    { label: `Gross Margin (${currentCurrency})`,  key: 'gross_margin_aed',        align: 'right', fmt: fmtCurrency },
     { label: 'Gross Margin %',      key: 'gross_margin_pct',        align: 'right',
       fmt: (v, row) => {
         if (!row) return '-';
@@ -4365,11 +4363,11 @@ export default function SalesRevenueReport() {
           { label: 'LE',                        colSpan: 1 },
           { label: 'Parent Division',           colSpan: 1 },
           { label: 'Sub Division',              colSpan: 1 },
-          { label: 'Sales Revenue (AED)',       colSpan: 2 },
-          { label: 'Target Sales Revenue (AED)',colSpan: 2 },
+          { label: `Sales Revenue (${currentCurrency})`,       colSpan: 2 },
+          { label: `Target Sales Revenue (${currentCurrency})`,colSpan: 2 },
           { label: 'Change %',                  colSpan: 1 },
-          { label: 'Gross Margin (AED)',        colSpan: 3 },
-          { label: 'Target Gross Margin (AED)', colSpan: 3 },
+          { label: `Gross Margin (${currentCurrency})`,        colSpan: 3 },
+          { label: `Target Gross Margin (${currentCurrency})`, colSpan: 3 },
           { label: 'Change %',                  colSpan: 1 },
         ]}
         columnDefs={(() => {

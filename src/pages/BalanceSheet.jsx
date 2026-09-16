@@ -2520,7 +2520,7 @@ function SubDivisionViewAll({ data, currency, periodLabel = '', appliedFilters =
                   <td style={{ ...MTD_L, fontSize: '0.7rem', color: C.slate }}>{row.parent_division_name || '—'}</td>
                   <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.sub_division_code || '—'}</td>
                   <td style={{ ...MTD, fontWeight: 700, color: netColor }}>
-                    {subdivModalUnit === 'millions' ? fmtTableCell(Math.abs(net), 'millions') : `${currency} ${fmtTableCell(Math.abs(net), 'aed')}`}
+                    {fmtTableCell(Math.abs(net), subdivModalUnit)}
                     {net < 0 && <span style={{ marginLeft: 4, fontSize: '0.6rem', color: C.rose, fontWeight: 600 }}>Δ</span>}
                   </td>
                 </tr>
