@@ -2502,8 +2502,8 @@ export default function SalesRevenueReport() {
     { label: 'Account No.',         key: 'customer_account_number', align: 'left', minWidth: '95px', fmt: v => v ?? '-', noTotal: true },
     { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
     { label: 'Parent Division',     key: 'parent_division',         align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
-    { label: `Sales Revenue (${currentCurrency})`, key: 'sales_aed',               align: 'right', fmt: fmtCurrency },
-    { label: `Gross Margin (${currentCurrency})`,  key: 'gross_margin_aed',        align: 'right', fmt: fmtCurrency },
+    { label: `Sales Revenue (${currentCurrency})`, key: 'sales_aed',               align: 'right', isCurrency: true, fmt: fmtCurrency },
+    { label: `Gross Margin (${currentCurrency})`,  key: 'gross_margin_aed',        align: 'right', isCurrency: true, fmt: fmtCurrency },
     { label: 'Gross Margin %',      key: 'gross_margin_pct',        align: 'right',
       fmt: (v, row) => {
         if (!row) return '-';
@@ -2532,9 +2532,9 @@ export default function SalesRevenueReport() {
           : '—';
       }
     },
-    { label: `Revenue (${rc})`,  key: 'sales',                   align: 'right', fmt: fmtCurrency },
+    { label: `Revenue (${rc})`,  key: 'sales',                   align: 'right', isCurrency: true, fmt: fmtCurrency },
     // Gross Margin currency treatment under review — not changing
-    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
+    { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', isCurrency: true, fmt: fmtCurrency },
     { label: '% Share',          key: 'contribution_pct',        align: 'right', fmt: v => fmtPctCol(v, 2) },
   ];
 
@@ -2599,6 +2599,7 @@ export default function SalesRevenueReport() {
       key: 'sales_aed',
       align: 'right',
       minWidth: '115px',
+      isCurrency: true,
       fmt: (v, row) => {
         const val = v ?? row?.sales_ptd_aed ?? row?.sales;
         return val != null ? fmtCurrency(val) : '—';
@@ -2610,6 +2611,7 @@ export default function SalesRevenueReport() {
       key: 'gross_margin_aed',
       align: 'right',
       minWidth: '115px',
+      isCurrency: true,
       fmt: (v, row) => {
         const val = v ?? row?.gross_margin_ptd_aed ?? row?.gross_margin;
         return val != null ? fmtCurrency(val) : '—';
@@ -2642,6 +2644,7 @@ export default function SalesRevenueReport() {
       key: 'target_sales',
       align: 'right',
       minWidth: '115px',
+      isCurrency: true,
       fmt: (v, row) => {
         const val = v ?? row?.target_sales_aed ?? row?.target_sales_ptd ?? row?.sales_target;
         return (val != null && !isNaN(val) && val !== '') ? fmtCurrency(val) : '—';
@@ -2658,6 +2661,7 @@ export default function SalesRevenueReport() {
       key: 'target_gm',
       align: 'right',
       minWidth: '115px',
+      isCurrency: true,
       fmt: (v, row) => {
         const val = v ?? row?.target_gm_aed ?? row?.target_gross_margin ?? row?.gm_target;
         return (val != null && !isNaN(val) && val !== '') ? fmtCurrency(val) : '—';
@@ -4608,5 +4612,6 @@ export default function SalesRevenueReport() {
     </ErrorBoundary>
   );
 }
+
 
 
