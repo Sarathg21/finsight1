@@ -53,7 +53,7 @@ const DEFAULT_FILTERS = {
   analysisCodeId:     'All',
   // People / currency filters
   salesman:           'All',
-  customerType:       'All Customers',
+  customerType:       'All',
   salesCategories:    ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],
   invoiceCurrency:    'All',
   reportingCurrency:  'AED', // will be overridden by default_reporting_currency from API on first load
@@ -2946,7 +2946,7 @@ export default function SalesRevenueReport() {
               value={filters.customerType}
               onChange={e => updateFilter('customerType', e.target.value)}
             >
-              <option value="All Customers">All Customers</option>
+              <option value="All">All Customers</option>
               <option value="Internal">Internal</option>
               <option value="External">External</option>
             </select>
@@ -4612,6 +4612,7 @@ export default function SalesRevenueReport() {
     </ErrorBoundary>
   );
 }
+
 
 
 
