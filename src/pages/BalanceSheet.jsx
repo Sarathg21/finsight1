@@ -1723,8 +1723,8 @@ function StatementCards({
           </span>
           <UnitToggle unit={assetsUnit} onToggle={setAssetsUnit} currency={currency} />
         </div>
-        <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <table style={{ width: '100%', minWidth: 525, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
+        <div className="bs-statement-table-scroll" style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', minWidth: 400, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
             {renderHeaders(assetsUnit)}
             <tbody>
               {renderSubSection('I. CURRENT ASSETS', statementData.currentAssets, 'currentAssets', assetsUnit)}
@@ -1758,8 +1758,8 @@ function StatementCards({
           </span>
           <UnitToggle unit={liabUnit} onToggle={setLiabUnit} currency={currency} />
         </div>
-        <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <table style={{ width: '100%', minWidth: 525, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
+        <div className="bs-statement-table-scroll" style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', minWidth: 400, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
             {renderHeaders(liabUnit)}
             <tbody>
               {renderSubSection('I. CURRENT LIABILITIES', statementData.currentLiab, 'currentLiab', liabUnit)}
@@ -1793,8 +1793,8 @@ function StatementCards({
           </span>
           <UnitToggle unit={equityUnit} onToggle={setEquityUnit} currency={currency} />
         </div>
-        <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <table style={{ width: '100%', minWidth: 525, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
+        <div className="bs-statement-table-scroll" style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <table style={{ width: '100%', minWidth: 400, borderCollapse: 'collapse', fontSize: '0.72rem', height: '100%' }}>
             {renderHeaders(equityUnit)}
             <tbody>
               <tr
@@ -2350,7 +2350,7 @@ function StatementViewAll({
               {fmtTableCell(initialStatementData.totalAssets.current, modalUnit)}
             </span>
           </div>
-          <div style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="bs-statement-table-scroll" style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
             <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
               {renderTableHeaders()}
               <tbody>
@@ -2390,7 +2390,7 @@ function StatementViewAll({
               {fmtTableCell(initialStatementData.totalEqLiab.current, modalUnit)}
             </span>
           </div>
-          <div style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="bs-statement-table-scroll" style={{ overflowX: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
             <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', fontSize: '0.72rem' }}>
               {renderTableHeaders()}
               <tbody>
@@ -3367,6 +3367,7 @@ export default function BalanceSheet() {
   const [trendData,          setTrendData]          = useState(null);
   const [trend6MonthData,    setTrend6MonthData]    = useState(null);
   const [reconciliationRows, setReconciliationRows] = useState([]);
+  const [lastFetchedAt,      setLastFetchedAt]      = useState(null);
 
   /* ── Drilldown ─────────────────────────────────────────────────── */
   const [drilldownOpen,    setDrilldownOpen]    = useState(false);
@@ -3505,7 +3506,7 @@ export default function BalanceSheet() {
         .catch(err => { setErrors(prev => ({ ...prev, [key]: err?.message || 'Failed to load data' })); return null; })
         .finally(() => setLoading(prev => ({ ...prev, [key]: false })));
 
-    guard('summary', fetchBSSummary(f)).then(d => { if (d) setSummaryData(d); });
+    guard('summary', fetchBSSummary(f)).then(d => { if (d) { setSummaryData(d); setLastFetchedAt(new Date()); } });
 
     if (hasCompare) {
       guard('compareSummary', fetchBSSummary({ ...f, period: f.comparePeriod })).then(d => {
@@ -3750,9 +3751,14 @@ export default function BalanceSheet() {
         @keyframes bs-fadeIn   { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
         @keyframes bs-menuPop  { from { opacity: 0; transform: scale(0.94) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes bs-modalPop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-        @media (max-width: 1200px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } .bs-statement-grid { grid-template-columns: 1fr !important; } }
-        @media (max-width: 900px) { .bs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } }
-        @media (max-width: 560px) { .bs-kpi-grid { grid-template-columns: 1fr !important; } .bs-chart-grid { grid-template-columns: 1fr !important; } .bs-recon-row { flex-wrap: wrap !important; } }
+        @media (max-width: 1400px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+        @media (max-width: 1200px) { .bs-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; } .bs-statement-grid { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 900px)  { .bs-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; } .bs-statement-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 560px)  { .bs-kpi-grid { grid-template-columns: 1fr !important; } .bs-chart-grid { grid-template-columns: 1fr !important; } .bs-recon-row { flex-wrap: wrap !important; } }
+        .bs-statement-table-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+        .bs-statement-table-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 6px; }
+        .bs-statement-table-scroll::-webkit-scrollbar-thumb { background: #64748b; border-radius: 6px; border: 3px solid #e2e8f0; }
+        .bs-statement-table-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
       `}</style>
 
       {/* FIX C4: visible amber banner when backend is unavailable and mock data is active */}
@@ -3863,6 +3869,16 @@ export default function BalanceSheet() {
           <p style={{ fontSize: '0.76rem', color: C.slate, margin: '3px 0 0' }}>
             View the financial position of the company across different dimensions.
           </p>
+          {lastFetchedAt && (
+            <p style={{ fontSize: '0.7rem', color: C.muted, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
+              Last Updated On: <strong style={{ color: C.slate }}>
+                {lastFetchedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                {' '}at{' '}
+                {lastFetchedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+              </strong>
+            </p>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Export buttons */}
@@ -4380,3 +4396,5 @@ export default function BalanceSheet() {
     </div>
   );
 }
+
+

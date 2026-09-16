@@ -2234,7 +2234,7 @@ export default function SalesRevenueReport() {
       label: 'Legal Entity',
       key: 'legal_entity',
       align: 'left',
-      minWidth: '120px',
+      minWidth: '85px',
       whiteSpace: 'normal',
       fmt: (v, row) => v ?? row.entity_name ?? '-',
     },
@@ -2242,7 +2242,7 @@ export default function SalesRevenueReport() {
       label: 'Ledger Currency',
       key: 'ledger_currency',
       align: 'center',
-      minWidth: '150px',
+      minWidth: '90px',
       fmt: v => v ?? '-',
       groupEnd: true,
     },
@@ -2438,10 +2438,10 @@ export default function SalesRevenueReport() {
   ];
 
   const subdivisionCols = [
-    { label: 'Sub-Division',                 key: 'subdivision',               align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.subdivision_name ?? row?.name ?? '-', noTotal: true },
-    { label: 'Parent Division',              key: 'parent_division',           align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.division_name ?? '-', noTotal: true },
-    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.entity_name ?? '-', noTotal: true },
-    { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', minWidth: '95px', fmt: v => v ?? '-', groupEnd: true, noTotal: true },
+    { label: 'Sub-Division',                 key: 'subdivision',               align: 'left', minWidth: '100px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.subdivision_name ?? row?.name ?? '-', noTotal: true },
+    { label: 'Parent Division',              key: 'parent_division',           align: 'left', minWidth: '100px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.division_name ?? '-', noTotal: true },
+    { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', minWidth: '85px',  whiteSpace: 'normal', fmt: (v, row) => v ?? row?.entity_name ?? '-', noTotal: true },
+    { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', minWidth: '85px', fmt: v => v ?? '-', noTotal: true },
     { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', minWidth: '105px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
     { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', minWidth: '105px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
     { label: 'PTD',                          key: 'sales_ptd_aed',             align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
@@ -2539,7 +2539,7 @@ export default function SalesRevenueReport() {
     { label: `Revenue (${rc})`,  key: 'sales',                   align: 'right', fmt: fmtCurrency },
     // Gross Margin currency treatment under review — not changing
     { label: 'Gross Margin',     key: 'gross_margin',            align: 'right', fmt: fmtCurrency },
-    { label: '% Share',          key: 'contribution_pct',        align: 'right', fmt: v => fmtPct(v) },
+    { label: '% Share',          key: 'contribution_pct',        align: 'right', fmt: v => fmtPctCol(v, 2) },
   ];
 
   // Salesman View All — aggregated (13 cols grouped: 5 dims, 3 Achievement, 3 Target, 2 Variance)
@@ -2785,13 +2785,13 @@ export default function SalesRevenueReport() {
           100% { background-position: -200% 0; }
         }
         .modal-table-scroll::-webkit-scrollbar,
-        .sr-table-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+        .sr-table-scroll::-webkit-scrollbar { width: 14px; height: 14px; }
         .modal-table-scroll::-webkit-scrollbar-track,
-        .sr-table-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .sr-table-scroll::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 6px; }
         .modal-table-scroll::-webkit-scrollbar-thumb,
-        .sr-table-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        .sr-table-scroll::-webkit-scrollbar-thumb { background: #64748b; border-radius: 6px; border: 3px solid #e2e8f0; }
         .modal-table-scroll::-webkit-scrollbar-thumb:hover,
-        .sr-table-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .sr-table-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
       `}</style>
 
       <div className="animate-in" style={{
@@ -4278,6 +4278,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
+        showUnitToggle={true}
         searchPlaceholder="Search salespeople..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4322,6 +4323,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
+        showUnitToggle={true}
         searchPlaceholder="Search customers..."
         periodLabel={appliedPeriodLabel}
       />
