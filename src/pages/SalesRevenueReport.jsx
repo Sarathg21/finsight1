@@ -54,7 +54,7 @@ const DEFAULT_FILTERS = {
   // People / currency filters
   salesman:           'All',
   customerType:       'All Customers',
-  salesCategories:    ['External Sales', 'RP Cross Sales'], // CFO UAT default (excludes RP Duplicate Sales)
+  salesCategories:    ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],
   invoiceCurrency:    'All',
   reportingCurrency:  'AED', // will be overridden by default_reporting_currency from API on first load
   fromDate:           FIRST_DAY,
@@ -4612,6 +4612,7 @@ export default function SalesRevenueReport() {
     </ErrorBoundary>
   );
 }
+
 
 
 
