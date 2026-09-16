@@ -507,17 +507,17 @@ const fmtNum = (v, currency = 'AED') => {
   if (v === null || v === undefined) return '—';
   const n = Number(v);
   if (isNaN(n)) return v;
-  return `${currency} ${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 };
 
 const fmtKPI = (v, currency = 'AED') => {
   if (v === null || v === undefined) return '—';
   const n = Math.abs(Number(v));
   if (isNaN(n)) return v;
-  if (n >= 1_000_000_000) return `${currency} ${(n / 1_000_000_000).toFixed(2)}B`;
-  if (n >= 1_000_000)     return `${currency} ${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000)         return `${currency} ${(n / 1_000).toFixed(1)}K`;
-  return `${currency} ${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 1_000_000)     return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000)         return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 };
 
 const fmtAxisNum = (v) => {

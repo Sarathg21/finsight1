@@ -522,15 +522,13 @@ function DetailApiModal({
   // Only called for currency columns (col.isCurrency === true).
   const currency = filters?.reportingCurrency || 'AED';
   const modalFmtNum = (v) => {
-    if (v === null || v === undefined || isNaN(Number(v))) return '—';
+    if (v === null || v === undefined || isNaN(Number(v))) return '-';
     const raw = Number(v);
     if (modalUnit === 'millions') {
       const m = raw / 1_000_000;
-      const str = m.toFixed(2) + 'M';
-      return currency === 'AED' ? str : `${currency} ${str}`;
+      return m.toFixed(2) + 'M';
     }
-    const numStr = raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-    return currency === 'AED' ? numStr : `${currency} ${numStr}`;
+    return raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   };
 
   return (
