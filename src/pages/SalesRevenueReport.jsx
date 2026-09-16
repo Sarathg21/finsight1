@@ -2249,7 +2249,7 @@ export default function SalesRevenueReport() {
       key: 'sales_ptd_ledger_currency',
       align: 'right',
       minWidth: '120px',
-      fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-',
+      fmt: v => v != null ? fmtCurrency(v) : '-',
       noTotal: true,
     },
     {
@@ -2257,7 +2257,7 @@ export default function SalesRevenueReport() {
       key: 'sales_ytd_ledger_currency',
       align: 'right',
       minWidth: '120px',
-      fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-',
+      fmt: v => v != null ? fmtCurrency(v) : '-',
       groupEnd: true,
       noTotal: true,
     },
@@ -2440,8 +2440,8 @@ export default function SalesRevenueReport() {
     { label: 'Parent Division',              key: 'parent_division',           align: 'left', minWidth: '100px', whiteSpace: 'normal', fmt: (v, row) => v ?? row?.division_name ?? '-', noTotal: true },
     { label: 'Legal Entity',                 key: 'legal_entity',              align: 'left', minWidth: '85px',  whiteSpace: 'normal', fmt: (v, row) => v ?? row?.entity_name ?? '-', noTotal: true },
     { label: 'Ledger Currency',              key: 'ledger_currency',           align: 'center', minWidth: '85px', fmt: v => v ?? '-', noTotal: true },
-    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', minWidth: '105px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', noTotal: true },
-    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', minWidth: '105px', fmt: (v) => (v != null) ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '-', groupEnd: true, noTotal: true },
+    { label: 'PTD',                          key: 'sales_ptd_ledger_currency', align: 'right', minWidth: '105px', fmt: v => v != null ? fmtCurrency(v) : '-', noTotal: true },
+    { label: 'YTD',                          key: 'sales_ytd_ledger_currency', align: 'right', minWidth: '105px', fmt: v => v != null ? fmtCurrency(v) : '-', groupEnd: true, noTotal: true },
     { label: 'PTD',                          key: 'sales_ptd_aed',             align: 'right', minWidth: '105px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-',
       totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_ptd_aed) || 0), 0)),
     },
@@ -3999,11 +3999,7 @@ export default function SalesRevenueReport() {
               ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
               : '—';
             // Only prepend currency if it is a real ISO code (not null / '—' / 'AED')
-            const fmtLedger = (v, currency) => {
-              if (v === null || v === undefined || isNaN(v)) return '—';
-              const prefix = (currency && currency !== '—' && currency !== 'AED') ? `${currency} ` : '';
-              return `${prefix}${Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-            };
+            const fmtLedger = (v, currency) => { if (v === null || v === undefined || isNaN(v)) return '-'; return inMillions ? (Number(v) / 1000000).toFixed(2) + 'M' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
 
             // Map subdivisionRawData rows — field names from /subdivision-detail endpoint
             const detailRows2 = [...subdivisionRawData].map(r => {
@@ -4614,3 +4610,5 @@ export default function SalesRevenueReport() {
     </ErrorBoundary>
   );
 }
+
+
