@@ -1039,7 +1039,7 @@ function PremiumLegend({ series, hidden, hoveredKey, onToggle, onHover, onHoverE
  *   loading   {boolean} Shows skeleton shimmer overlay while data is loading
  *   currency  {string}  Currency code shown in axis labels (default: 'AED')
  */
-export default function PLTrendCard({ data: propData, loading: propLoading = false, currency: propCurrency = 'AED' }) {
+export default function PLTrendCard({ data: propData, loading: propLoading = false, currency: propCurrency = 'AED', onExport }) {
   /* ─── Resolve live vs demo data source ─── */
   const activeData = useMemo(
     () => (propData && propData.length > 0 ? normalizeApiData(propData) : RAW_DATA),
@@ -1157,23 +1157,70 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
   }, []);
 
   /* ─── Export / copy — uses live data source ─── */
-  const handleDownloadCSV = (type = 'csv') => {
-    const headers = [`Month`, `Revenue (${propCurrency})`, `Gross Profit (${propCurrency})`, `EBITDA (${propCurrency})`, `Net Profit (${propCurrency})`, 'Net Margin %'];
-    const rows = activeData.map(r => [
-      r.month,
-      (r.revenue * M).toFixed(0),
-      (r.grossProfit * M).toFixed(0),
-      (r.ebitda * M).toFixed(0),
-      (r.netProfit * M).toFixed(0),
-      r.revenue ? ((r.netProfit / r.revenue) * 100).toFixed(1) : 'N/A',
-    ]);
-    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    a.download = `pl_trend.${type === 'csv' ? 'csv' : type}`;
-    a.click();
-  };
+  const handleDownloadCSV = async (type = 'csv') => {
+    // CSV stays exactly as frontend export
+    if (type === 'csv') {
+      const headers = [
+        'Month',
+        `Revenue (${propCurrency})`,
+        `Gross Profit (${propCurrency})`,
+        `EBITDA (${propCurrency})`,
+        `Net Profit (${propCurrency})`,
+        'Net Margin %'
+      ];
 
+      const rows = activeData.map(r => [
+        r.month,
+        (r.revenue * M).toFixed(0),
+        (r.grossProfit * M).toFixed(0),
+        (r.ebitda * M).toFixed(0),
+        (r.netProfit * M).toFixed(0),
+        r.revenue
+          ? ((r.netProfit / r.revenue) * 100).toFixed(1)
+          : 'N/A'
+      ]);
+
+      const csv = [headers, ...rows]
+        .map(r => r.join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], {
+        type: 'text/csv;charset=utf-8;'
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+
+      a.href = url;
+      a.download = 'pl_trend.csv';
+
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      return;
+    }
+
+    // Excel / PDF should use backend export
+    if (type === 'xlsx' || type === 'pdf') {
+      if (typeof onExport !== 'function') {
+        console.error('[PLTrendCard] onExport callback is missing');
+        return;
+      }
+
+      try {
+        await onExport(type === 'xlsx' ? 'excel' : 'pdf');
+      } catch (error) {
+        console.error(
+          `[PLTrendCard] ${type.toUpperCase()} export failed:`,
+          error
+        );
+      }
+    }
+  };
+  
   const handleCopyData = () => {
     const text = activeData.map(r =>
       `${r.month}: Rev $${r.revenue}M | GP $${r.grossProfit}M | EBITDA $${r.ebitda}M | NP $${r.netProfit}M`

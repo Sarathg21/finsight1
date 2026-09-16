@@ -466,8 +466,14 @@ export function exportPL(reportName, format, filters = {}) {
     );
   }
 
-  // Backend accepts only: excel | pdf
+  // Backend accepts: excel | pdf
   const backendFormat = format === 'xlsx' ? 'excel' : format;
+
+  if (!['excel', 'pdf'].includes(backendFormat)) {
+    return Promise.reject(
+      new Error(`Unsupported export format: ${format}`)
+    );
+  }
 
   const params = {
     ...buildPLParams(filters),
@@ -476,7 +482,7 @@ export function exportPL(reportName, format, filters = {}) {
 
   const urlParams = new URLSearchParams();
 
-  for (const [key, value] of Object.entries(params)) {
+  Object.entries(params).forEach(([key, value]) => {
     if (
       value === undefined ||
       value === null ||
@@ -484,12 +490,10 @@ export function exportPL(reportName, format, filters = {}) {
       value === 'All' ||
       value === 'all'
     ) {
-      continue;
+      return;
     }
 
     if (Array.isArray(value)) {
-      if (value.length === 0) continue;
-
       value.forEach((item) => {
         if (
           item !== undefined &&
@@ -498,13 +502,13 @@ export function exportPL(reportName, format, filters = {}) {
           item !== 'All' &&
           item !== 'all'
         ) {
-          urlParams.append(key, item);
+          urlParams.append(key, String(item));
         }
       });
     } else {
-      urlParams.append(key, value);
+      urlParams.append(key, String(value));
     }
-  }
+  });
 
   const qs = urlParams.toString();
 
@@ -512,12 +516,25 @@ export function exportPL(reportName, format, filters = {}) {
     `${API_BASE}/api/pl/${backendReportName}/export` +
     `${qs ? `?${qs}` : ''}`;
 
-  console.log('[plApi] Export request:', url);
+  console.log('[plApi] Export request:', {
+    reportName,
+    backendReportName,
+    format: backendFormat,
+    url,
+  });
 
   return fetch(url, {
     method: 'GET',
     headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token
+        ? {
+          Authorization: `Bearer ${token}`,
+        }
+        : {}),
+      Accept:
+        backendFormat === 'pdf'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     },
   })
     .then(async (response) => {
@@ -525,6 +542,7 @@ export function exportPL(reportName, format, filters = {}) {
         status: response.status,
         statusText: response.statusText,
         contentType: response.headers.get('content-type'),
+        contentDisposition: response.headers.get('content-disposition'),
         contentLength: response.headers.get('content-length'),
       });
 
@@ -532,64 +550,92 @@ export function exportPL(reportName, format, filters = {}) {
         let errorMessage =
           `Export failed: ${response.status} ${response.statusText}`;
 
+        const responseContentType =
+          response.headers.get('content-type') || '';
+
         try {
-          const errorData = await response.json();
+          if (responseContentType.includes('application/json')) {
+            const errorData = await response.json();
 
-          if (Array.isArray(errorData?.detail)) {
-            errorMessage = errorData.detail
-              .map(
-                (item) =>
-                  item?.msg ||
-                  item?.message ||
-                  JSON.stringify(item)
-              )
-              .join(', ');
-          } else if (errorData?.detail) {
-            errorMessage =
-              typeof errorData.detail === 'string'
-                ? errorData.detail
-                : JSON.stringify(errorData.detail);
+            if (Array.isArray(errorData?.detail)) {
+              errorMessage = errorData.detail
+                .map(
+                  (item) =>
+                    item?.msg ||
+                    item?.message ||
+                    JSON.stringify(item)
+                )
+                .join(', ');
+            } else if (errorData?.detail) {
+              errorMessage =
+                typeof errorData.detail === 'string'
+                  ? errorData.detail
+                  : JSON.stringify(errorData.detail);
+            } else {
+              errorMessage =
+                errorData?.message ||
+                errorData?.error ||
+                errorMessage;
+            }
           } else {
-            errorMessage =
-              errorData?.message ||
-              errorData?.error ||
-              errorMessage;
-          }
-        } catch {
-          // Keep default error message
-        }
+            const text = await response.text();
 
-        console.error(
-          `[plApi] Export failed: ${response.status}`,
-          errorMessage
-        );
+            if (text) {
+              errorMessage = text;
+            }
+          }
+        } catch (error) {
+          console.error(
+            '[plApi] Could not parse error response:',
+            error
+          );
+        }
 
         throw new Error(errorMessage);
       }
 
       // IMPORTANT:
-      // Read the response body exactly once as a Blob.
+      // Fetch binary response exactly once as Blob.
       const blob = await response.blob();
 
-      console.log('[plApi] Export blob:', {
+      console.log('[plApi] Binary response:', {
         type: blob.type,
         size: blob.size,
       });
 
-      // Verify that PDF really starts with %PDF-
+      if (!blob || blob.size === 0) {
+        throw new Error(
+          'Backend returned an empty export file.'
+        );
+      }
+
+      // ------------------------------------------------------------
+      // Validate PDF
+      // ------------------------------------------------------------
       if (backendFormat === 'pdf') {
-        const firstBytes = await blob.slice(0, 10).text();
+        const header = await blob.slice(0, 5).text();
 
-        console.log('[plApi] PDF first bytes:', firstBytes);
+        console.log('[plApi] PDF signature:', header);
 
-        if (!firstBytes.startsWith('%PDF-')) {
-          console.error(
-            '[plApi] Invalid PDF response. First bytes:',
-            firstBytes
-          );
-
+        if (header !== '%PDF-') {
           throw new Error(
             'Backend did not return a valid PDF file.'
+          );
+        }
+      }
+
+      // ------------------------------------------------------------
+      // Validate XLSX
+      // XLSX is a ZIP file and starts with PK
+      // ------------------------------------------------------------
+      if (backendFormat === 'excel') {
+        const header = await blob.slice(0, 2).text();
+
+        console.log('[plApi] XLSX signature:', header);
+
+        if (header !== 'PK') {
+          throw new Error(
+            'Backend did not return a valid Excel XLSX file.'
           );
         }
       }
@@ -602,16 +648,16 @@ export function exportPL(reportName, format, filters = {}) {
           ? 'application/pdf'
           : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-      const fileBlob =
-        blob.type === contentType
-          ? blob
-          : new Blob([blob], {
-            type: contentType,
-          });
+      // Force the correct MIME type.
+      const fileBlob = new Blob([blob], {
+        type: contentType,
+      });
 
-      const blobUrl = window.URL.createObjectURL(fileBlob);
+      const blobUrl =
+        window.URL.createObjectURL(fileBlob);
 
-      const link = document.createElement('a');
+      const link =
+        document.createElement('a');
 
       link.href = blobUrl;
 
@@ -620,23 +666,32 @@ export function exportPL(reportName, format, filters = {}) {
           ? 'xlsx'
           : 'pdf';
 
-      link.download =
-        `PL_${backendReportName}_Export_` +
-        `${new Date().toISOString().slice(0, 10)}.${extension}`;
+      const date =
+        new Date().toISOString().slice(0, 10);
 
+      const fileName =
+        `PL_${backendReportName}_Export_${date}.${extension}`;
+
+      link.download = fileName;
+
+      // Some browsers need the element in DOM.
       document.body.appendChild(link);
-      link.click();
-      link.remove();
-
-      // Give browser time to start download.
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-      }, 1000);
 
       console.log(
-        '[plApi] Export download triggered:',
-        link.download
+        '[plApi] Starting download:',
+        fileName
       );
+
+      link.click();
+
+      link.remove();
+
+      // Revoke after browser has started reading the Blob.
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 2000);
+
+      return fileBlob;
     });
 }
 
