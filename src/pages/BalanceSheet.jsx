@@ -27,7 +27,7 @@ import {
 } from '../utils/bsExport';
 import { C } from '../utils/theme';
 import { useAuth } from '../context/AuthContext';
-import { Calendar, ChevronDown } from 'lucide-react';
+// Calendar and ChevronDown removed -- PeriodDropdown uses native <select>
 // MultiSelectDropdown replaced by inline MultiSelect (matches Sales Revenue style)
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -47,434 +47,76 @@ const DEFAULT_FILTERS = {
   ledger:        '',
 };
 
-/* ══════════════════════════════════════════════════════════════════════
-   CALENDAR FILTER (Interactive Date & Month Picker for Balance Sheet)
-══════════════════════════════════════════════════════════════════════ */
+/* ======================================================================
+   PERIOD DROPDOWN  (replaces CalendarFilter -- no new Date(), no calendar)
+   Renders available accounting periods (incl. Period 13) as a <select>.
+     value    = period code  e.g. '2026-06' | '2026-13' | ''
+     onChange = (periodCode: string) => void
+     periods  = [{period, period_name}, ...] or plain strings from API
+====================================================================== */
 
-function CalendarFilter({
+function PeriodDropdown({
   id,
   value,
   onChange,
   allowNone = false,
-  availablePeriods = [],
+  periods = [],
   disabled = false,
-  placeholder = 'Select date',
-  width = 115,
+  placeholder = 'Select month',
+  width = 140,
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef(null);
-
-  // Parse current value (could be '2026-06', '2026-06-30', etc.)
-  const parsedDate = useMemo(() => {
-    if (!value) return null;
-    const str = String(value).trim();
-    const mFull = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (mFull) {
-      return new Date(parseInt(mFull[1], 10), parseInt(mFull[2], 10) - 1, parseInt(mFull[3], 10));
-    }
-    const mMonth = str.match(/^(\d{4})-(\d{2})$/);
-    if (mMonth) {
-      const y = parseInt(mMonth[1], 10);
-      const m = parseInt(mMonth[2], 10);
-      const lastDay = new Date(y, m, 0).getDate();
-      return new Date(y, m - 1, lastDay);
-    }
-    const d = new Date(str);
-    return isNaN(d.getTime()) ? null : d;
-  }, [value]);
-
-  const [viewYear, setViewYear] = useState(() => parsedDate ? parsedDate.getFullYear() : 2026);
-  const [viewMonth, setViewMonth] = useState(() => parsedDate ? parsedDate.getMonth() : 5); // 0-indexed
-
-  // Keep view aligned when value changes externally
-  useEffect(() => {
-    if (parsedDate) {
-      setViewYear(parsedDate.getFullYear());
-      setViewMonth(parsedDate.getMonth());
-    }
-  }, [parsedDate]);
-
-  // Click outside and Escape key to close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setIsOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-
-  // Display label on trigger
-  const displayLabel = useMemo(() => {
+  // Derive display label for the currently selected period
+  const displayLabel = (() => {
     if (!value) return allowNone ? 'None' : placeholder;
-    if (parsedDate) {
-      const day = String(parsedDate.getDate()).padStart(2, '0');
-      const mon = MONTH_NAMES[parsedDate.getMonth()];
-      const yr = String(parsedDate.getFullYear()).slice(-2);
-      return `${day}-${mon}-${yr}`;
-    }
-    return String(value);
-  }, [value, parsedDate, allowNone, placeholder]);
-
-  // Navigation handlers
-  const prevMonth = (e) => {
-    e.stopPropagation();
-    if (viewMonth === 0) {
-      setViewMonth(11);
-      setViewYear(y => y - 1);
-    } else {
-      setViewMonth(m => m - 1);
-    }
-  };
-
-  const nextMonth = (e) => {
-    e.stopPropagation();
-    if (viewMonth === 11) {
-      setViewMonth(0);
-      setViewYear(y => y + 1);
-    } else {
-      setViewMonth(m => m + 1);
-    }
-  };
-
-  const prevYear = (e) => {
-    e.stopPropagation();
-    setViewYear(y => y - 1);
-  };
-
-  const nextYear = (e) => {
-    e.stopPropagation();
-    setViewYear(y => y + 1);
-  };
-
-  // Calendar grid calculation
-  const calendarDays = useMemo(() => {
-    const firstDayIndex = new Date(viewYear, viewMonth, 1).getDay(); // 0 = Sun, 1 = Mon...
-    const daysInCurMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-    const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
-
-    const days = [];
-
-    // Leading days from prev month
-    for (let i = firstDayIndex - 1; i >= 0; i--) {
-      days.push({
-        day: daysInPrevMonth - i,
-        month: viewMonth - 1,
-        year: viewMonth === 0 ? viewYear - 1 : viewYear,
-        isCurrentMonth: false,
-      });
-    }
-
-    // Days in current month
-    for (let d = 1; d <= daysInCurMonth; d++) {
-      days.push({
-        day: d,
-        month: viewMonth,
-        year: viewYear,
-        isCurrentMonth: true,
-      });
-    }
-
-    // Trailing days from next month
-    const remainingSlots = (7 - (days.length % 7)) % 7;
-    for (let d = 1; d <= remainingSlots; d++) {
-      days.push({
-        day: d,
-        month: viewMonth + 1,
-        year: viewMonth === 11 ? viewYear + 1 : viewYear,
-        isCurrentMonth: false,
-      });
-    }
-
-    return days;
-  }, [viewYear, viewMonth]);
-
-  const daysInCurrentMonthCount = new Date(viewYear, viewMonth + 1, 0).getDate();
-
-  const handleSelectDay = (dayObj) => {
-    const y = dayObj.year;
-    const m = String(dayObj.month + 1).padStart(2, '0');
-    const d = String(dayObj.day).padStart(2, '0');
-    const fullDate = `${y}-${m}-${d}`;
-    const periodCode = `${y}-${m}`;
-    onChange(periodCode, fullDate);
-    setIsOpen(false);
-  };
-
-  const handleSelectMonthEnd = (e) => {
-    e.stopPropagation();
-    const lastDay = daysInCurrentMonthCount;
-    const y = viewYear;
-    const m = String(viewMonth + 1).padStart(2, '0');
-    const d = String(lastDay).padStart(2, '0');
-    const fullDate = `${y}-${m}-${d}`;
-    const periodCode = `${y}-${m}`;
-    onChange(periodCode, fullDate);
-    setIsOpen(false);
-  };
-
-  const handleSelectNone = (e) => {
-    e.stopPropagation();
-    onChange('', '');
-    setIsOpen(false);
-  };
-
-  // Check if current month in view corresponds to an available period
-  const viewPeriodCode = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
-  const isPeriodAvailable = availablePeriods.length === 0 || availablePeriods.includes(viewPeriodCode);
+    const found = periods.find(p => (typeof p === 'object' ? p.period : p) === value);
+    if (found && typeof found === 'object' && found.period_name) return found.period_name;
+    return formatPeriodCode(value);
+  })();
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'inline-block' }}>
-      <button
-        type="button"
+    <div style={{ position: 'relative', display: 'inline-block', minWidth: width }}>
+      <select
         id={id}
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(prev => !prev)}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
         style={{
           appearance: 'none',
-          padding: '0 8px 0 9px',
+          padding: '0 28px 0 9px',
           fontSize: '0.76rem',
           fontWeight: 600,
           color: value ? '#1e293b' : '#64748b',
           background: '#fff',
-          border: `1px solid ${isOpen ? '#6366f1' : '#cbd5e1'}`,
+          border: `1px solid ${disabled ? '#e2e8f0' : '#cbd5e1'}`,
           borderRadius: 7,
           cursor: disabled ? 'not-allowed' : 'pointer',
           outline: 'none',
           height: 32,
           minWidth: width,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 6,
-          boxShadow: isOpen ? '0 0 0 3px rgba(99,102,241,0.15)' : 'none',
-          transition: 'all 0.15s ease',
+          width: '100%',
+          backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
+          backgroundRepeat: 'no-repeat',
+          backgroundPosition: 'right 8px center',
           boxSizing: 'border-box',
+          opacity: disabled ? 0.6 : 1,
         }}
-        title={`Click to open calendar (Selected: ${displayLabel})`}
+        title={`Selected: ${displayLabel}`}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, overflow: 'hidden' }}>
-          <Calendar size={13} style={{ color: isOpen ? '#4f46e5' : '#6366f1', flexShrink: 0 }} />
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {displayLabel}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
-          {allowNone && value ? (
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange('', '');
-              }}
-              title="Clear (Set to None)"
-              style={{
-                color: '#94a3b8',
-                fontSize: '0.68rem',
-                padding: '1px 3px',
-                borderRadius: 4,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
-              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-            >
-              ✕
-            </span>
-          ) : (
-            <ChevronDown size={12} style={{ color: '#94a3b8' }} />
-          )}
-        </div>
-      </button>
-
-      {isOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 5px)',
-            left: 0,
-            zIndex: 1050,
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: 12,
-            boxShadow: '0 12px 28px -4px rgba(0,0,0,0.12), 0 6px 12px -3px rgba(0,0,0,0.06)',
-            padding: '12px',
-            width: 248,
-            boxSizing: 'border-box',
-            userSelect: 'none',
-          }}
-        >
-          {/* Calendar Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ display: 'flex', gap: 3 }}>
-              <button
-                type="button"
-                onClick={prevYear}
-                title="Previous year"
-                style={{
-                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
-                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
-                }}
-              >
-                «
-              </button>
-              <button
-                type="button"
-                onClick={prevMonth}
-                title="Previous month"
-                style={{
-                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
-                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
-                }}
-              >
-                ‹
-              </button>
-            </div>
-
-            <div style={{ fontSize: '0.80rem', fontWeight: 800, color: '#0f172a', textAlign: 'center' }}>
-              {MONTH_NAMES[viewMonth]} {viewYear}
-              {isPeriodAvailable && (
-                <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#10b981', marginLeft: 5, verticalAlign: 'middle' }} title="Period data active" />
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 3 }}>
-              <button
-                type="button"
-                onClick={nextMonth}
-                title="Next month"
-                style={{
-                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
-                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
-                }}
-              >
-                ›
-              </button>
-              <button
-                type="button"
-                onClick={nextYear}
-                title="Next year"
-                style={{
-                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 5,
-                  width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', fontSize: '0.7rem', color: '#475569', fontWeight: 800
-                }}
-              >
-                »
-              </button>
-            </div>
-          </div>
-
-          {/* Weekday Labels */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', marginBottom: 6 }}>
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
-              <span key={d} style={{ fontSize: '0.64rem', fontWeight: 700, color: '#94a3b8' }}>{d}</span>
-            ))}
-          </div>
-
-          {/* Days Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
-            {calendarDays.map((d, i) => {
-              const isSelected = parsedDate &&
-                parsedDate.getFullYear() === d.year &&
-                parsedDate.getMonth() === d.month &&
-                parsedDate.getDate() === d.day;
-              const isMonthEndDay = d.day === daysInCurrentMonthCount && d.isCurrentMonth;
-
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => handleSelectDay(d)}
-                  style={{
-                    height: 27,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: 6,
-                    border: isSelected ? 'none' : isMonthEndDay ? '1px dashed #c7d2fe' : 'none',
-                    background: isSelected ? '#4f46e5' : isMonthEndDay ? '#eef2ff' : 'transparent',
-                    color: isSelected ? '#fff' : d.isCurrentMonth ? '#1e293b' : '#cbd5e1',
-                    fontSize: '0.70rem',
-                    fontWeight: isSelected ? 800 : isMonthEndDay ? 700 : d.isCurrentMonth ? 500 : 400,
-                    cursor: 'pointer',
-                    transition: 'all 0.1s ease',
-                    position: 'relative',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected) e.currentTarget.style.background = '#f1f5f9';
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected) e.currentTarget.style.background = isMonthEndDay ? '#eef2ff' : 'transparent';
-                  }}
-                  title={`${d.day} ${MONTH_NAMES[d.month]} ${d.year}${isMonthEndDay ? ' (Month End)' : ''}`}
-                >
-                  {d.day}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Quick Action Footer */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
-            <button
-              type="button"
-              onClick={handleSelectMonthEnd}
-              style={{
-                fontSize: '0.67rem',
-                color: '#4f46e5',
-                background: '#eef2ff',
-                border: '1px solid #c7d2fe',
-                borderRadius: 6,
-                padding: '3px 8px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-              title={`Select ${daysInCurrentMonthCount} ${MONTH_NAMES[viewMonth]} ${viewYear}`}
-            >
-              📅 Month End ({daysInCurrentMonthCount} {MONTH_NAMES[viewMonth]})
-            </button>
-
-            {allowNone && (
-              <button
-                type="button"
-                onClick={handleSelectNone}
-                style={{
-                  fontSize: '0.67rem',
-                  color: '#64748b',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 6,
-                  padding: '3px 8px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-                title="Clear comparison period"
-              >
-                None
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+        {allowNone && <option value="">None</option>}
+        {!value && !allowNone && (
+          <option value="" disabled>{placeholder}</option>
+        )}
+        {periods.map(p => {
+          const code = typeof p === 'object' ? p.period : p;
+          const name = typeof p === 'object'
+            ? (p.period_name || formatPeriodCode(code))
+            : formatPeriodCode(code);
+          return <option key={code} value={code}>{name}</option>;
+        })}
+      </select>
     </div>
   );
 }
-
 
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -533,12 +175,34 @@ const fmtPct = (v) =>
   v !== null && v !== undefined ? `${Number(v).toFixed(2)}%` : '—';
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// Returns true for accounting periods beyond month 12 (e.g. '2026-13')
+const isExtendedPeriod = (str) => {
+  const m = String(str || '').match(/^(\d{4})-(\d{2,})$/);
+  return m ? parseInt(m[2], 10) > 12 : false;
+};
+
+const formatPeriodCode = (periodCode, periodName) => {
+  // Always prefer the backend-supplied period_name (e.g. "Jan-26", "Period 13-26")
+  if (periodName) return periodName;
+  if (!periodCode) return '\u2014';
+  const m = String(periodCode).match(/^(\d{4})-(\d{2})$/);
+  if (!m) return String(periodCode);
+  const num = parseInt(m[2], 10);
+  const yr  = m[1].slice(-2);               // 2-digit year, e.g. "26"
+  if (num >= 1 && num <= 12) return `${MONTH_NAMES[num - 1]}-${yr}`;
+  return `Period ${num}-${yr}`;             // e.g. "Period 13-26"
+};
+
+// Converts period code to month-end date string for API compat.
+// Period 13+ returns the period code as-is (no calendar math possible).
 const periodToDate = (period) => {
   if (!period) return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(String(period))) return String(period);
+  if (isExtendedPeriod(period)) return String(period);
   const m = String(period).match(/^(\d{4})-(\d{2})$/);
   if (m) {
-    const y = parseInt(m[1], 10);
+    const y   = parseInt(m[1], 10);
     const mon = parseInt(m[2], 10);
     const lastDay = new Date(y, mon, 0).getDate();
     return `${m[1]}-${m[2]}-${String(lastDay).padStart(2, '0')}`;
@@ -546,27 +210,19 @@ const periodToDate = (period) => {
   return String(period);
 };
 
+// Formats a period value for display -- uses period_name from API if available
 const formatPeriod = (val) => {
-  if (!val) return '—';
-  if (typeof val === 'object') return val.period_name || val.period || '—';
+  if (!val) return '\u2014';
+  if (typeof val === 'object') return val.period_name || formatPeriodCode(val.period) || '\u2014';
   const mDate = String(val).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (mDate) {
-    const day = mDate[3];
-    const monthIdx = parseInt(mDate[2], 10) - 1;
-    const yearShort = mDate[1].slice(-2);
-    if (monthIdx >= 0 && monthIdx < 12) {
-      return `${day}-${MONTH_NAMES[monthIdx]}-${yearShort}`;
+    const num = parseInt(mDate[2], 10);
+    if (num >= 1 && num <= 12) {
+      return `${mDate[3]}-${MONTH_NAMES[num - 1]}-${mDate[1].slice(-2)}`;
     }
+    return String(val);
   }
-  const m = String(val).match(/^(\d{4})-(\d{2})$/);
-  if (m) {
-    const monthIdx = parseInt(m[2], 10) - 1;
-    const yearShort = m[1].slice(-2);
-    if (monthIdx >= 0 && monthIdx < 12) {
-      return `${MONTH_NAMES[monthIdx]}-${yearShort}`;
-    }
-  }
-  return String(val);
+  return formatPeriodCode(val);
 };
 
 const calcMovement = (cur, cmp) => {
@@ -1498,6 +1154,12 @@ function buildStatementData(summaryData, compareSummaryData) {
   const equitySharePct = totalAssetsCurrent > 0 ? ((equity.totalCurrent / totalAssetsCurrent) * 100).toFixed(2) : '0.00';
   const compareEquitySharePct = totalAssetsCompare > 0 ? ((equity.totalCompare / totalAssetsCompare) * 100).toFixed(2) : '0.00';
 
+  // Balance check: Assets should equal Equity + Liabilities.
+  // Tolerance of 1 AED absorbs floating-point rounding artefacts from
+  // multi-row accumulation (e.g. 0.29 AED diff on a 2.3 bn balance sheet).
+  const diff = totalAssetsCurrent - totalEqLiabCurrent;
+  const isBalanced = Math.abs(diff) < 1;
+
   return {
     currentAssets,
     nonCurrentAssets,
@@ -1524,6 +1186,8 @@ function buildStatementData(summaryData, compareSummaryData) {
     },
     equitySharePct,
     compareEquitySharePct,
+    isBalanced,
+    diff,
   };
 }
 
@@ -2184,30 +1848,30 @@ function StatementViewAll({
             />
           </div>
 
-          {/* As on Date */}
-          <div style={{ minWidth: 120 }}>
+          {/* Month (was "As on Date") */}
+          <div style={{ minWidth: 130 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
-              As on Date
+              Month
             </label>
-            <CalendarFilter
-              value={modalFilters.asOnDate || modalFilters.period}
-              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: fullDate }))}
-              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
-              width={120}
+            <PeriodDropdown
+              value={modalFilters.period}
+              onChange={(periodCode) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: periodCode }))}
+              periods={filterOptions?.periods || []}
+              width={130}
             />
           </div>
 
-          {/* Compare With */}
-          <div style={{ minWidth: 120 }}>
+          {/* Compare Month (was "Compare With") */}
+          <div style={{ minWidth: 130 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
-              Compare With
+              Compare Month
             </label>
-            <CalendarFilter
-              value={modalFilters.compareDate || modalFilters.comparePeriod}
+            <PeriodDropdown
+              value={modalFilters.comparePeriod}
               allowNone={true}
-              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, comparePeriod: periodCode, compareDate: fullDate }))}
-              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
-              width={120}
+              onChange={(periodCode) => setModalFilters(f => ({ ...f, comparePeriod: periodCode, compareDate: periodCode }))}
+              periods={filterOptions?.periods || []}
+              width={130}
             />
           </div>
 
@@ -2618,16 +2282,16 @@ function TrendViewAll({
             />
           </div>
 
-          {/* As on Date */}
-          <div style={{ minWidth: 120 }}>
+          {/* Month (was "As on Date") */}
+          <div style={{ minWidth: 130 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
-              As on Date
+              Month
             </label>
-            <CalendarFilter
-              value={modalFilters.asOnDate || modalFilters.period}
-              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: fullDate }))}
-              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
-              width={120}
+            <PeriodDropdown
+              value={modalFilters.period}
+              onChange={(periodCode) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: periodCode }))}
+              periods={filterOptions?.periods || []}
+              width={130}
             />
           </div>
 
@@ -2920,16 +2584,16 @@ function CompositionViewAll({
             />
           </div>
 
-          {/* As on Date */}
-          <div style={{ minWidth: 120 }}>
+          {/* Month (was "As on Date") */}
+          <div style={{ minWidth: 130 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
-              As on Date
+              Month
             </label>
-            <CalendarFilter
-              value={modalFilters.asOnDate || modalFilters.period}
-              onChange={(periodCode, fullDate) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: fullDate }))}
-              availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
-              width={120}
+            <PeriodDropdown
+              value={modalFilters.period}
+              onChange={(periodCode) => setModalFilters(f => ({ ...f, period: periodCode, asOnDate: periodCode }))}
+              periods={filterOptions?.periods || []}
+              width={130}
             />
           </div>
 
@@ -2995,8 +2659,8 @@ function CompositionViewAll({
         </div>
       </div>
 
-      {/* Two Composition Breakdown Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 16 }}>
+      {/* Two Composition Breakdown Cards — totals pinned to bottom so they align on the same line */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 16, alignItems: 'end' }}>
         {/* 1. Asset Composition Card */}
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, background: '#fff', display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontWeight: 800, fontSize: '0.86rem', color: C.navy, marginBottom: 4 }}>
@@ -3027,7 +2691,8 @@ function CompositionViewAll({
             </div>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', marginTop: 12 }}>
+          {/* Data rows — flex-grow so they push total to bottom */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', marginTop: 12, flexGrow: 1 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <th style={MTH_L}>Component</th>
@@ -3055,6 +2720,11 @@ function CompositionViewAll({
                 <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.currentAssets.totalCurrent)}</td>
                 <td style={{ ...MTD, fontWeight: 800, color: '#3b82f6' }}>{currentAssetPct}%</td>
               </tr>
+            </tbody>
+          </table>
+          {/* Total row — pinned at card bottom */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', borderTop: '2px solid #e2e8f0', marginTop: 0 }}>
+            <tbody>
               <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
                 <td style={{ ...MTD_L, fontWeight: 800, color: C.navy }}>TOTAL ASSETS</td>
                 <td style={{ ...MTD, fontWeight: 800 }}>{statementData.nonCurrentAssets.rows.length + statementData.currentAssets.rows.length}</td>
@@ -3095,7 +2765,8 @@ function CompositionViewAll({
             </div>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', marginTop: 12 }}>
+          {/* Data rows — flex-grow so they push total to bottom */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', marginTop: 12, flexGrow: 1 }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <th style={MTH_L}>Component</th>
@@ -3132,6 +2803,11 @@ function CompositionViewAll({
                 <td style={{ ...MTD, fontWeight: 600 }}>{fmtTableCell(statementData.currentLiab.totalCurrent)}</td>
                 <td style={{ ...MTD, fontWeight: 800, color: '#f59e0b' }}>{currentLiabPct}%</td>
               </tr>
+            </tbody>
+          </table>
+          {/* Total row — pinned at card bottom, aligns with TOTAL ASSETS on the left */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', borderTop: '2px solid #e2e8f0', marginTop: 0 }}>
+            <tbody>
               <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
                 <td style={{ ...MTD_L, fontWeight: 800, color: C.navy }}>TOTAL LIAB. & EQUITY</td>
                 <td style={{ ...MTD, fontWeight: 800 }}>
@@ -3144,6 +2820,7 @@ function CompositionViewAll({
           </table>
         </div>
       </div>
+
     </div>
   );
 }
@@ -3447,10 +3124,9 @@ export default function BalanceSheet() {
       if (periods.length && !currentFilters.isCascade) {
         const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
         const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
-        const firstDate = periodToDate(first);
-        const secondDate = periodToDate(second);
-        setFilters(f        => ({ ...f, period: f.period || first, asOnDate: f.asOnDate || firstDate, comparePeriod: f.comparePeriod || second, compareDate: f.compareDate || secondDate }));
-        setAppliedFilters(f => ({ ...f, period: f.period || first, asOnDate: f.asOnDate || firstDate, comparePeriod: f.comparePeriod || second, compareDate: f.compareDate || secondDate }));
+        // Use period code directly -- no calendar date conversion needed (supports Period 13)
+        setFilters(f        => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second }));
+        setAppliedFilters(f => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second }));
       }
     } catch (err) {
       console.error('[BalanceSheet] loadFilterOptions error:', err);
@@ -3574,9 +3250,9 @@ export default function BalanceSheet() {
     const reset = {
       ...DEFAULT_FILTERS,
       period: first,
-      asOnDate: periodToDate(first),
+      asOnDate: first,          // period code directly
       comparePeriod: second,
-      compareDate: periodToDate(second),
+      compareDate: second,      // period code directly
       currency: 'AED',
     };
     setFilters(reset); setAppliedFilters(reset);
@@ -3957,34 +3633,34 @@ export default function BalanceSheet() {
           />
         </FilterField>
 
-        {/* 5. As on Date */}
-        <FilterField label="As on Date">
-          <CalendarFilter
+        {/* 5. Month (accounting period selector — no day-level date picker) */}
+        <FilterField label="Month">
+          <PeriodDropdown
             id="filter-bs-period"
-            value={filters.asOnDate || filters.period}
-            onChange={(periodCode, fullDate) => {
-              setFilters(prev => ({ ...prev, period: periodCode, asOnDate: fullDate }));
-              setAppliedFilters(prev => ({ ...prev, period: periodCode, asOnDate: fullDate }));
+            value={filters.period}
+            onChange={(periodCode) => {
+              setFilters(prev => ({ ...prev, period: periodCode, asOnDate: periodCode }));
+              setAppliedFilters(prev => ({ ...prev, period: periodCode, asOnDate: periodCode }));
             }}
-            availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
+            periods={filterOptions?.periods || []}
             disabled={loading.filters}
-            width={120}
+            width={130}
           />
         </FilterField>
 
-        {/* 6. Compare With */}
-        <FilterField label="Compare With">
-          <CalendarFilter
+        {/* 6. Compare Month (accounting period selector) */}
+        <FilterField label="Compare Month">
+          <PeriodDropdown
             id="filter-bs-compare"
-            value={filters.compareDate || filters.comparePeriod}
+            value={filters.comparePeriod}
             allowNone={true}
-            onChange={(periodCode, fullDate) => {
-              setFilters(prev => ({ ...prev, comparePeriod: periodCode, compareDate: fullDate }));
-              setAppliedFilters(prev => ({ ...prev, comparePeriod: periodCode, compareDate: fullDate }));
+            onChange={(periodCode) => {
+              setFilters(prev => ({ ...prev, comparePeriod: periodCode, compareDate: periodCode }));
+              setAppliedFilters(prev => ({ ...prev, comparePeriod: periodCode, compareDate: periodCode }));
             }}
-            availablePeriods={(filterOptions?.periods || []).map(p => typeof p === 'object' ? p.period : p)}
+            periods={filterOptions?.periods || []}
             disabled={loading.filters}
-            width={120}
+            width={130}
           />
         </FilterField>
 

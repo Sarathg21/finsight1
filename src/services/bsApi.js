@@ -348,7 +348,9 @@ export async function fetchBSTrend(filters) {
  * and compute multi-series metrics: Total Assets, Total Liabilities, Total Equity.
  */
 export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
-  const selectedPeriod = filters.period || (availablePeriods[0] && (typeof availablePeriods[0] === 'object' ? availablePeriods[0].period : availablePeriods[0])) || '2026-06';
+  const _now = new Date();
+  const _defaultPeriod = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}`;
+  const selectedPeriod = filters.period || (availablePeriods[0] && (typeof availablePeriods[0] === 'object' ? availablePeriods[0].period : availablePeriods[0])) || _defaultPeriod;
   const normPeriods = availablePeriods.map(p => typeof p === 'object' ? p.period : p).filter(Boolean);
 
   let targetPeriods = [];
@@ -356,10 +358,15 @@ export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
   if (idx !== -1) {
     targetPeriods = normPeriods.slice(idx, idx + 6).reverse(); // chronological (oldest to newest)
   } else {
-    // If not in available periods, calculate past 6 months from selectedPeriod (YYYY-MM)
+    // Fallback: calculate 6 calendar months backwards from selectedPeriod.
+    // This path is only reached when selectedPeriod is not in availablePeriods.
+    // Period 13 codes always exist in availablePeriods when data is loaded, so
+    // this loop is only exercised for normal month codes (1-12).
     const [yStr, mStr] = selectedPeriod.split('-');
-    let curY = parseInt(yStr, 10) || 2026;
-    let curM = parseInt(mStr, 10) || 6;
+    const nowYear = new Date().getFullYear();
+    let curY = parseInt(yStr, 10) || nowYear;
+    let curM = parseInt(mStr, 10);
+    if (!curM || curM > 12) curM = 12; // clamp; Period 13 never reaches here
     for (let i = 0; i < 6; i++) {
       const pStr = `${curY}-${String(curM).padStart(2, '0')}`;
       targetPeriods.unshift(pStr);
