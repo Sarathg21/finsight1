@@ -4403,7 +4403,7 @@ export default function ExpenseCategoryDrillDownModal({
                     <body>
                         <div style="display: flex; align-items: center; margin-bottom: 10px;">
                             <img
-                                src="/images/Finsight-Transparent-Logo.png"
+                                src="/images/FinSightLogo.jpeg"
                                 alt="FinSight"
                                 style="width: 150px; height: auto; object-fit: contain;"
                             />

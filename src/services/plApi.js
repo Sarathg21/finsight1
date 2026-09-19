@@ -1202,4 +1202,258 @@ export async function fetchPLStatement(filters = {}) {
   };
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   COST STRUCTURE ANALYSIS API
+   ──────────────────────────────────────────────────────────────────
+
+   Backend endpoints:
+
+   GET /api/pl/cost-classification-monthly
+   GET /api/pl/direct-cost-breakdown
+   GET /api/pl/direct-cost-detail?category={category}
+   GET /api/pl/direct-cost-monthly
+   GET /api/pl/direct-cost-detail-monthly?category={category}
+
+   IMPORTANT:
+   - Uses the existing apiCall()
+   - Uses the existing buildPLParams()
+   - Uses existing JWT authentication
+   - Does NOT calculate or reclassify financial values
+   - Backend values are returned directly
+   - Category is passed exactly as returned by backend
+   - Existing P&L API functions are untouched
+══════════════════════════════════════════════════════════════════ */
+
+
+/**
+ * Normalize an API response that may be:
+ *
+ * 1. Direct array
+ * 2. { data: [] }
+ * 3. { rows: [] }
+ * 4. { items: [] }
+ * 5. Object response
+ *
+ * No financial calculations are performed here.
+ */
+function normalizeCostStructureResponse(response) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response?.rows)) {
+    return response.rows;
+  }
+
+  if (Array.isArray(response?.items)) {
+    return response.items;
+  }
+
+  return response || {};
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   1. COST CLASSIFICATION MONTHLY
+   GET /api/pl/cost-classification-monthly
+══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Month-on-Month Cost Classification chart data.
+ *
+ * Backend endpoint:
+ * GET /api/pl/cost-classification-monthly
+ *
+ * @param {object} filters
+ * @returns {object|Array}
+ */
+export async function fetchPLCostClassificationMonthly(filters = {}) {
+  const params = buildPLParams(filters);
+
+  const response = await apiCall(
+    '/api/pl/cost-classification-monthly',
+    params
+  );
+
+  return normalizeCostStructureResponse(response);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   2. DIRECT COST BREAKDOWN
+   GET /api/pl/direct-cost-breakdown
+══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Current PTD Cost Mix / Direct Cost Breakdown.
+ *
+ * Backend endpoint:
+ * GET /api/pl/direct-cost-breakdown
+ *
+ * Direct-cost categories are supplied by the backend.
+ *
+ * Expected categories include:
+ * - Cost of Material
+ * - Direct Labour
+ * - Manufacturing / Direct Overheads
+ * - Overhead Absorption
+ * - Direct Expenses - RKME
+ *
+ * No classification or recalculation is performed here.
+ *
+ * @param {object} filters
+ * @returns {object|Array}
+ */
+export async function fetchPLDirectCostBreakdown(filters = {}) {
+  const params = buildPLParams(filters);
+
+  const response = await apiCall(
+    '/api/pl/direct-cost-breakdown',
+    params
+  );
+
+  return normalizeCostStructureResponse(response);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   3. DIRECT COST DETAIL
+   GET /api/pl/direct-cost-detail?category={category}
+══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Direct Cost Drill-Down.
+ *
+ * IMPORTANT:
+ * The category MUST be the exact category value returned by
+ * the backend.
+ *
+ * Example:
+ * category = "Cost of Material"
+ *
+ * Backend request:
+ * GET /api/pl/direct-cost-detail?category=Cost%20of%20Material
+ *
+ * @param {object} filters
+ * @param {string} category
+ * @returns {object|Array}
+ */
+export async function fetchPLDirectCostDetail(
+  filters = {},
+  category
+) {
+  if (
+    category === undefined ||
+    category === null ||
+    category === '' ||
+    category === 'All' ||
+    category === 'all'
+  ) {
+    throw new Error(
+      'A direct-cost category is required for the detail API.'
+    );
+  }
+
+  const params = {
+    ...buildPLParams(filters),
+
+    // IMPORTANT:
+    // Pass the backend category value exactly as received.
+    category,
+  };
+
+  const response = await apiCall(
+    '/api/pl/direct-cost-detail',
+    params
+  );
+
+  return normalizeCostStructureResponse(response);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   4. DIRECT COST MONTHLY
+   GET /api/pl/direct-cost-monthly
+══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Month-on-Month Direct Cost data.
+ *
+ * Backend endpoint:
+ * GET /api/pl/direct-cost-monthly
+ *
+ * @param {object} filters
+ * @returns {object|Array}
+ */
+export async function fetchPLDirectCostMonthly(filters = {}) {
+  const params = buildPLParams(filters);
+
+  const response = await apiCall(
+    '/api/pl/direct-cost-monthly',
+    params
+  );
+
+  return normalizeCostStructureResponse(response);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+   5. DIRECT COST DETAIL MONTHLY
+   GET /api/pl/direct-cost-detail-monthly?category={category}
+══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Monthly account-level drill-down.
+ *
+ * IMPORTANT:
+ * The category MUST be the exact category returned by
+ * the backend.
+ *
+ * Backend request:
+ * GET /api/pl/direct-cost-detail-monthly?category=Cost%20of%20Material
+ *
+ * @param {object} filters
+ * @param {string} category
+ * @returns {object|Array}
+ */
+export async function fetchPLDirectCostDetailMonthly(
+  filters = {},
+  category
+) {
+  if (
+    category === undefined ||
+    category === null ||
+    category === '' ||
+    category === 'All' ||
+    category === 'all'
+  ) {
+    throw new Error(
+      'A direct-cost category is required for the monthly detail API.'
+    );
+  }
+
+  const params = {
+    ...buildPLParams(filters),
+
+    // IMPORTANT:
+    // Do not transform this value.
+    // Backend category value is passed directly.
+    category,
+  };
+
+  const response = await apiCall(
+    '/api/pl/direct-cost-detail-monthly',
+    params
+  );
+
+  return normalizeCostStructureResponse(response);
+}
+
+
+
+
 

@@ -6627,7 +6627,7 @@ export default function MonthOnMonthOpexReport({
             <body> 
                 <div style="display:flex;align-items:center;margin:0 0 12px 0;"> 
                     <img 
-                        src="/images/Finsight-Transparent-Logo.png" 
+                        src="/images/FinSightLogo.jpeg" 
                         alt="FinSight" 
                         style="width:150px;height:auto;display:block;object-fit:contain;" 
                     /> 
@@ -6671,7 +6671,7 @@ export default function MonthOnMonthOpexReport({
         };
 
         const logo = printWindow.document.querySelector(
-            'img[src="/images/Finsight-Transparent-Logo.png"]'
+            'img[src="/images/FinSightLogo.jpeg]'
         );
 
         if (logo && !logo.complete) {
