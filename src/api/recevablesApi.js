@@ -1,4 +1,3 @@
-
 import api from "./axios";
 
 /* =========================================================
@@ -38,10 +37,10 @@ const buildParams = (
        * Multi-select filters.
        *
        * Example:
-       * legal_entity_id: [1, 2, 3]
+       * legal_entity: [1, 2, 3]
        *
        * Axios will send:
-       * ?legal_entity_id=1&legal_entity_id=2&legal_entity_id=3
+       * ?legal_entity=1&legal_entity=2&legal_entity=3
        */
       if (Array.isArray(value)) {
         value.forEach((item) => {
@@ -73,18 +72,21 @@ const buildParams = (
 };
 
 
-/*
- * Extract Axios response data.
- */
+/* =========================================================
+   RESPONSE HELPER
+========================================================= */
+
 const getResponseData = (response) => {
   return response?.data;
 };
 
 
-/*
- * Normalize API errors.
- */
+/* =========================================================
+   ERROR HELPER
+========================================================= */
+
 const getApiError = (error) => {
+
   /*
    * Backend validation errors
    */
@@ -140,60 +142,190 @@ const getApiError = (error) => {
   );
 };
 
+
+/* =========================================================
+   FILTERS
+   GET /api/receivables/filters
+========================================================= */
+
 export const getReceivableFilters = async () => {
-    try {
-        const response = await api.get("/receivables/filters");
+  try {
+    const response = await api.get(
+      "/receivables/filters"
+    );
 
-        return response.data;
-    } catch (error) {
-        console.error("Receivables Filters API Error:", error);
-        throw error;
-    }
-};
+    return response.data;
+  } catch (error) {
+    console.error(
+      "Receivables Filters API Error:",
+      error
+    );
 
-export const getReceivableSummary = async (filters = {}) => {
-  const params = buildParams(filters, false);
-
-  const response = await api.get(
-    "/receivables/summary",
-    { params }
-  );
-
-  return getResponseData(response);
+    throw getApiError(error);
+  }
 };
 
 
-export const getReceivableDivisionWise = async (filters = {}) => {
-  const params = buildParams(filters, false);
+/* =========================================================
+   SUMMARY / KPI
+   GET /api/receivables/summary
+========================================================= */
 
-  const response = await api.get(
-    "/receivables/division-wise",
-    { params }
-  );
+export const getReceivableSummary = async (
+  filters = {}
+) => {
+  try {
+    const params = buildParams(
+      filters,
+      false
+    );
 
-  return getResponseData(response);
+    const response = await api.get(
+      "/receivables/summary",
+      {
+        params,
+      }
+    );
+
+    return getResponseData(response);
+  } catch (error) {
+    console.error(
+      "Receivables Summary API Error:",
+      error
+    );
+
+    throw getApiError(error);
+  }
 };
 
 
-export const getReceivableTopCustomers = async (filters = {}) => {
-  const params = buildParams(filters, false);
+/* =========================================================
+   TOP CUSTOMERS
+   GET /api/receivables/top-customers
+========================================================= */
 
-  const response = await api.get(
-    "/receivables/top-customers",
-    { params }
-  );
+export const getReceivableTopCustomers = async (
+  filters = {}
+) => {
+  try {
+    const params = buildParams(
+      filters,
+      false
+    );
 
-  return getResponseData(response);
+    const response = await api.get(
+      "/receivables/top-customers",
+      {
+        params,
+      }
+    );
+
+    return getResponseData(response);
+  } catch (error) {
+    console.error(
+      "Receivables Top Customers API Error:",
+      error
+    );
+
+    throw getApiError(error);
+  }
 };
 
 
-export const getReceivableBuckets = async (filters = {}) => {
-  const params = buildParams(filters, false);
+/* =========================================================
+   DIVISION-WISE
+   GET /api/receivables/division-wise
+========================================================= */
 
-  const response = await api.get(
-    "/receivables/buckets",
-    { params }
-  );
+export const getReceivableDivisionWise = async (
+  filters = {}
+) => {
+  try {
+    const params = buildParams(
+      filters,
+      false
+    );
 
-  return getResponseData(response);
+    const response = await api.get(
+      "/receivables/division-wise",
+      {
+        params,
+      }
+    );
+
+    return getResponseData(response);
+  } catch (error) {
+    console.error(
+      "Receivables Division-wise API Error:",
+      error
+    );
+
+    throw getApiError(error);
+  }
+};
+
+
+/* =========================================================
+   AGING BUCKETS
+   GET /api/receivables/buckets
+========================================================= */
+
+export const getReceivableBuckets = async (
+  filters = {}
+) => {
+  try {
+    const params = buildParams(
+      filters,
+      false
+    );
+
+    const response = await api.get(
+      "/receivables/buckets",
+      {
+        params,
+      }
+    );
+
+    return getResponseData(response);
+  } catch (error) {
+    console.error(
+      "Receivables Aging Buckets API Error:",
+      error
+    );
+
+    throw getApiError(error);
+  }
+};
+
+
+/* =========================================================
+   OVERDUE AGEING
+   GET /api/receivables/overdue-buckets
+========================================================= */
+
+export const getReceivableOverdueBuckets = async (
+  filters = {}
+) => {
+  try {
+    const params = buildParams(
+      filters,
+      false
+    );
+
+    const response = await api.get(
+      "/receivables/overdue-buckets",
+      {
+        params,
+      }
+    );
+
+    return getResponseData(response);
+  } catch (error) {
+    console.error(
+      "Receivables Overdue Buckets API Error:",
+      error
+    );
+
+    throw getApiError(error);
+  }
 };

@@ -4,7 +4,7 @@ import ExportButtons from "../Common/ExportButtons";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-const FINSIGHT_LOGO_PATH = "/images/Finsight-Transparent-Logo.png";
+const FINSIGHT_LOGO_PATH = "/images/FinSightLogo.jpeg";
 
 /* =========================================================
    FORMAT AMOUNT

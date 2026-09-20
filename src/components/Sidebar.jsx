@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
-  FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,WalletCards,
-  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign, 
+  FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase, WalletCards,
+  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign,
 } from 'lucide-react';
 
 /* â”€â”€ Icon map per route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -18,6 +18,7 @@ const ROUTE_ICON = {
   '/operating-expenses': BarChart2,
   '/revenue': DollarSign,
   '/receivables': Receipt,
+  '/payables': FileSpreadsheet,
   '/fixed-assets': Building2,
   '/ar': Receipt,
   '/ap': CreditCard,
@@ -65,6 +66,8 @@ const NAV_BY_ROLE = {
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
     { to: '/revenue', label: 'Sales Revenue Report', group: 'Financials' },
     { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
+    { to: '/payables', label: 'Payables Report', group: 'Reports' },
+
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
     // { to: '/ap',                 label: 'Payables Aging',                      group: 'Working Capital'  },

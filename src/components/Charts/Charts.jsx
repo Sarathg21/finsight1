@@ -1,185 +1,1811 @@
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   ResponsiveContainer, BarChart, Bar, Line, LineChart, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, LabelList, ComposedChart, ReferenceLine, Label
+  Legend, LabelList, ComposedChart, ReferenceLine, Label,
 } from 'recharts';
-import { Clock3, PackageOpen, CircleDollarSign, RefreshCw, CircleCheck, } from "lucide-react";
+import { Clock3, PackageOpen, CircleDollarSign, RefreshCw, CircleCheck, MoreVertical, Eye, FileSpreadsheet, FileText, } from "lucide-react";
 
-export function AgingSummaryCard({ title, data, legendData = [], total, date, showSummaryHeader = false,
-  wideLegend = false, currency = "AED", }) {
+import { createPortal } from "react-dom";
 
-  const formatAmount = (value) => {
-    if (value == null) return "-";
+/* =========================================================
+   RECEIVABLES AGING SUMMARY CARD
+
+   UI:
+   - Donut LEFT
+   - Aging Bucket / % / Amount RIGHT
+   - Total inside donut
+   - As-on date below donut
+   - 3-dot action menu
+   - Hover fade interaction
+   - Existing callbacks remain optional
+========================================================= */
+
+export function AgingSummaryCard({
+  title,
+  data,
+  legendData = [],
+  total,
+  date,
+  showSummaryHeader = false,
+  wideLegend = false,
+  currency = "AED",
+
+  /* =========================================================
+     OPTIONAL ACTION CALLBACKS
+     Existing functions are NOT affected
+  ========================================================= */
+  onViewAll,
+  onExportExcel,
+  onExportPdf,
+
+  /* =========================================================
+     OPTIONAL COMMON EXPORT STATE
+  ========================================================= */
+  commonExporting = null,
+}) {
+
+  /* =========================================================
+     HOVER STATE
+  ========================================================= */
+
+  const [activeIndex, setActiveIndex] =
+    useState(null);
+
+
+  /* =========================================================
+     ACTION MENU STATE
+  ========================================================= */
+
+  const [menuOpen, setMenuOpen] =
+    useState(false);
+
+  const [menuPosition, setMenuPosition] =
+    useState({
+      top: 0,
+      right: 0,
+    });
+
+
+  const menuRef = useRef(null);
+
+  const buttonRef = useRef(null);
+
+
+  /* =========================================================
+     UPDATE MENU POSITION
+
+     Menu is rendered through portal so it will not be
+     clipped by dashboard/card containers.
+  ========================================================= */
+
+  const updateMenuPosition = () => {
+
+    if (!buttonRef.current) {
+      return;
+    }
+
+    const rect =
+      buttonRef.current.getBoundingClientRect();
+
+    setMenuPosition({
+      top: rect.bottom + 6,
+
+      right: Math.max(
+        8,
+        window.innerWidth - rect.right
+      ),
+    });
+  };
+
+
+  /* =========================================================
+     MENU POSITION EFFECT
+  ========================================================= */
+
+  useEffect(() => {
+
+    if (!menuOpen) {
+      return;
+    }
+
+    updateMenuPosition();
+
+    const handleResize = () => {
+      updateMenuPosition();
+    };
+
+    const handleScroll = () => {
+      updateMenuPosition();
+    };
+
+    window.addEventListener(
+      "resize",
+      handleResize
+    );
+
+    window.addEventListener(
+      "scroll",
+      handleScroll,
+      true
+    );
+
+    return () => {
+
+      window.removeEventListener(
+        "resize",
+        handleResize
+      );
+
+      window.removeEventListener(
+        "scroll",
+        handleScroll,
+        true
+      );
+    };
+
+  }, [menuOpen]);
+
+
+  /* =========================================================
+     CLOSE MENU WHEN CLICKING OUTSIDE
+  ========================================================= */
+
+  useEffect(() => {
+
+    if (!menuOpen) {
+      return;
+    }
+
+    const handleOutsideClick = (event) => {
+
+      const clickedMenu =
+        menuRef.current &&
+        menuRef.current.contains(
+          event.target
+        );
+
+      const clickedButton =
+        buttonRef.current &&
+        buttonRef.current.contains(
+          event.target
+        );
+
+      if (
+        !clickedMenu &&
+        !clickedButton
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+
+    return () => {
+
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
+    };
+
+  }, [menuOpen]);
+
+
+  /* =========================================================
+     FORMAT AMOUNT
+
+     Center / Tooltip:
+       AED 740.41M
+
+     Table:
+       740.41M
+  ========================================================= */
+
+  const formatAmount = (
+    value,
+    withCurrency = false
+  ) => {
+
+    if (
+      value === null ||
+      value === undefined ||
+      value === ""
+    ) {
+      return "-";
+    }
 
     const amount = Number(value);
 
-    if (isNaN(amount)) return "-";
-
-    if (amount >= 1_000_000) {
-      return `${currency} ${(amount / 1_000_000).toFixed(2)}M`;
+    if (Number.isNaN(amount)) {
+      return "-";
     }
 
-    if (amount >= 1_000) {
-      return `${currency} ${(amount / 1_000).toFixed(2)}K`;
+    let formattedValue;
+
+    if (
+      Math.abs(amount) >=
+      1_000_000_000
+    ) {
+
+      formattedValue =
+        `${(
+          amount / 1_000_000_000
+        ).toFixed(2)}B`;
+
+    } else if (
+      Math.abs(amount) >=
+      1_000_000
+    ) {
+
+      formattedValue =
+        `${(
+          amount / 1_000_000
+        ).toFixed(2)}M`;
+
+    } else if (
+      Math.abs(amount) >=
+      1_000
+    ) {
+
+      formattedValue =
+        `${(
+          amount / 1_000
+        ).toFixed(2)}K`;
+
+    } else {
+
+      formattedValue =
+        amount.toLocaleString(
+          "en-US",
+          {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }
+        );
     }
 
-    return `${currency} ${amount.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    return withCurrency
+      ? `${currency} ${formattedValue}`
+      : formattedValue;
   };
 
-  return (
-    <div className="card flex flex-col h-80 w-full min-w-0">
 
-      <h3 className="text-[14px] font-bold text-[#081B46] tracking-tight mb-2 flex items-center justify-between">
-        <span>{title}</span>
-        <span className="text-[9px] text-gray-400 font-medium">
-          {date}
-        </span>
-      </h3>
+  /* =========================================================
+     SAFE DATA
+  ========================================================= */
 
-      {data.length === 0 ? (
+  const safeData =
+    Array.isArray(data)
+      ? data
+      : [];
+
+
+  const safeLegendData =
+    Array.isArray(legendData)
+      ? legendData
+      : [];
+
+
+  /* =========================================================
+     CUSTOM TOOLTIP
+  ========================================================= */
+
+  const AgingTooltip = ({
+    active,
+    payload,
+  }) => {
+
+    if (
+      !active ||
+      !payload ||
+      !payload.length
+    ) {
+      return null;
+    }
+
+    const item =
+      payload[0]?.payload;
+
+    if (!item) {
+      return null;
+    }
+
+    return (
+      <div
+        style={{
+          background: "#FFFFFF",
+          border:
+            "1px solid #E2E8F0",
+          borderRadius: "8px",
+          padding: "10px 12px",
+          minWidth: "185px",
+          boxShadow:
+            "0 8px 24px rgba(15, 23, 42, 0.14)",
+          fontFamily:
+            "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          pointerEvents: "none",
+        }}
+      >
+
+        {/* TOOLTIP HEADER */}
+
         <div
-          className="
-            flex
-            h-57.5
-            items-center
-            justify-center
-            text-sm
-            font-medium
-            text-slate-400
-        "
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "7px",
+            paddingBottom: "7px",
+            marginBottom: "7px",
+            borderBottom:
+              "1px solid #E2E8F0",
+          }}
         >
-          No Data Available
+
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              minWidth: "8px",
+              borderRadius: "50%",
+              background:
+                item.color ||
+                "#2563EB",
+              display: "inline-block",
+            }}
+          />
+
+          <span
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "#081B46",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {item.name}
+          </span>
+
         </div>
-      ) : (
 
 
-        <div className="flex-1 flex items-center justify-between gap-1">
+        {/* AMOUNT */}
 
-          {/* PIE */}
-          <div className="w-1/2 h-full relative flex items-center justify-center">
-            <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data}
-                  innerRadius={60}
-                  outerRadius={85}
-                  paddingAngle={1}
-                  dataKey="value"
-                >
-                  {data.map((entry, idx) => (
-                    <Cell key={idx} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, name, props) => [
-                    formatAmount(value),
-                    props.payload.name,
-                  ]}
-                  contentStyle={{
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                    fontSize: "11px",
-                  }}
-                />
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            gap: "18px",
+            marginBottom: "5px",
+          }}
+        >
 
-              </PieChart>
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "#64748B",
+            }}
+          >
+            Amount
+          </span>
 
-            </ResponsiveContainer>
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 800,
+              color: "#081B46",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {formatAmount(
+              item.value,
+              true
+            )}
+          </span>
 
-            <div className="absolute text-center" style={{ pointerEvents: "none" }}>
-              <p className="text-[13px] font-extrabold text-gray-900 leading-none">
-                {formatAmount(total)}
-              </p>
-
-              <span className="text-[8px] font-extrabold text-gray-600 uppercase tracking-wider">
-                Total
-              </span>
-            </div>
-          </div>
+        </div>
 
 
-          {/* LEGEND */}
-          <div className="w-1/2 flex flex-col justify-center gap-2">
+        {/* PERCENTAGE */}
 
-            {legendData.map((item, idx) => (
-              <div
-                key={idx}
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            gap: "18px",
+          }}
+        >
+
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "#64748B",
+            }}
+          >
+            Percentage
+          </span>
+
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 800,
+              color: "#081B46",
+            }}
+          >
+            {Number(
+              item.percentage || 0
+            ).toFixed(2)}
+            %
+          </span>
+
+        </div>
+
+      </div>
+    );
+  };
+
+
+  /* =========================================================
+     MENU HANDLERS
+  ========================================================= */
+
+  const handleViewAll = () => {
+
+    setMenuOpen(false);
+
+    if (typeof onViewAll === "function") {
+      onViewAll();
+    }
+  };
+
+
+  const handleExportExcel = () => {
+
+    if (
+      commonExporting === "excel"
+    ) {
+      return;
+    }
+
+    setMenuOpen(false);
+
+    if (
+      typeof onExportExcel ===
+      "function"
+    ) {
+      onExportExcel();
+    }
+  };
+
+
+  const handleExportPdf = () => {
+
+    if (
+      commonExporting === "pdf"
+    ) {
+      return;
+    }
+
+    setMenuOpen(false);
+
+    if (
+      typeof onExportPdf ===
+      "function"
+    ) {
+      onExportPdf();
+    }
+  };
+
+
+  /* =========================================================
+     PORTAL ACTION MENU
+
+     IMPORTANT:
+     - Always renders the 3 actions
+     - Does not affect export functions
+     - Appears above all cards
+  ========================================================= */
+
+  const actionMenu =
+    menuOpen &&
+      typeof document !== "undefined"
+      ? createPortal(
+
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{
+            position: "fixed",
+
+            top:
+              `${menuPosition.top}px`,
+
+            right:
+              `${menuPosition.right}px`,
+
+            width: "175px",
+
+            minWidth: "175px",
+
+            background:
+              "#FFFFFF",
+
+            border:
+              "1px solid #E5E7EB",
+
+            borderRadius: "8px",
+
+            boxShadow:
+              "0 8px 24px rgba(15, 23, 42, 0.14)",
+
+            padding: "5px 0",
+
+            zIndex: 999999,
+
+            boxSizing:
+              "border-box",
+
+            overflow: "hidden",
+          }}
+        >
+
+          {/* =================================================
+                VIEW ALL
+            ================================================= */}
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={
+              handleViewAll
+            }
+            disabled={
+              !onViewAll
+            }
+            style={{
+              width: "100%",
+
+              height: "36px",
+
+              display: "flex",
+
+              alignItems:
+                "center",
+
+              gap: "10px",
+
+              border: "none",
+
+              background:
+                "transparent",
+
+              padding:
+                "0 12px",
+
+              cursor:
+                onViewAll
+                  ? "pointer"
+                  : "not-allowed",
+
+              textAlign: "left",
+
+              fontFamily:
+                "Inter, ui-sans-serif, system-ui, sans-serif",
+
+              fontSize: "12px",
+
+              fontWeight: 600,
+
+              color:
+                "#334155",
+
+              opacity:
+                onViewAll
+                  ? 1
+                  : 0.5,
+
+              boxSizing:
+                "border-box",
+            }}
+
+            onMouseEnter={(
+              event
+            ) => {
+
+              if (onViewAll) {
+
+                event.currentTarget.style.background =
+                  "#F8FAFC";
+              }
+            }}
+
+            onMouseLeave={(
+              event
+            ) => {
+
+              event.currentTarget.style.background =
+                "transparent";
+            }}
+          >
+
+            <span
+              style={{
+                width: "20px",
+                fontSize: "14px",
+                textAlign: "center",
+              }}
+            >
+              🔍
+            </span>
+
+            <span>
+              View All
+            </span>
+
+          </button>
+
+
+          {/* =================================================
+                EXPORT EXCEL
+            ================================================= */}
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={
+              handleExportExcel
+            }
+            disabled={
+              !onExportExcel ||
+              commonExporting ===
+              "excel"
+            }
+            style={{
+              width: "100%",
+
+              height: "36px",
+
+              display: "flex",
+
+              alignItems:
+                "center",
+
+              gap: "10px",
+
+              border: "none",
+
+              background:
+                "transparent",
+
+              padding:
+                "0 12px",
+
+              cursor:
+                onExportExcel &&
+                  commonExporting !==
+                  "excel"
+                  ? "pointer"
+                  : "not-allowed",
+
+              textAlign: "left",
+
+              fontFamily:
+                "Inter, ui-sans-serif, system-ui, sans-serif",
+
+              fontSize: "12px",
+
+              fontWeight: 600,
+
+              color:
+                "#334155",
+
+              opacity:
+                !onExportExcel ||
+                  commonExporting ===
+                  "excel"
+                  ? 0.5
+                  : 1,
+
+              boxSizing:
+                "border-box",
+            }}
+
+            onMouseEnter={(
+              event
+            ) => {
+
+              if (
+                onExportExcel &&
+                commonExporting !==
+                "excel"
+              ) {
+
+                event.currentTarget.style.background =
+                  "#F8FAFC";
+              }
+            }}
+
+            onMouseLeave={(
+              event
+            ) => {
+
+              event.currentTarget.style.background =
+                "transparent";
+            }}
+          >
+
+            <span
+              style={{
+                width: "20px",
+                fontSize: "14px",
+                textAlign: "center",
+              }}
+            >
+              📊
+            </span>
+
+            <span>
+              Export Excel
+            </span>
+
+          </button>
+
+
+          {/* =================================================
+                EXPORT PDF
+            ================================================= */}
+
+          <button
+            type="button"
+            role="menuitem"
+            onClick={
+              handleExportPdf
+            }
+            disabled={
+              !onExportPdf ||
+              commonExporting ===
+              "pdf"
+            }
+            style={{
+              width: "100%",
+
+              height: "36px",
+
+              display: "flex",
+
+              alignItems:
+                "center",
+
+              gap: "10px",
+
+              border: "none",
+
+              background:
+                "transparent",
+
+              padding:
+                "0 12px",
+
+              cursor:
+                onExportPdf &&
+                  commonExporting !==
+                  "pdf"
+                  ? "pointer"
+                  : "not-allowed",
+
+              textAlign: "left",
+
+              fontFamily:
+                "Inter, ui-sans-serif, system-ui, sans-serif",
+
+              fontSize: "12px",
+
+              fontWeight: 600,
+
+              color:
+                "#334155",
+
+              opacity:
+                !onExportPdf ||
+                  commonExporting ===
+                  "pdf"
+                  ? 0.5
+                  : 1,
+
+              boxSizing:
+                "border-box",
+            }}
+
+            onMouseEnter={(
+              event
+            ) => {
+
+              if (
+                onExportPdf &&
+                commonExporting !==
+                "pdf"
+              ) {
+
+                event.currentTarget.style.background =
+                  "#F8FAFC";
+              }
+            }}
+
+            onMouseLeave={(
+              event
+            ) => {
+
+              event.currentTarget.style.background =
+                "transparent";
+            }}
+          >
+
+            <span
+              style={{
+                width: "20px",
+                fontSize: "14px",
+                textAlign: "center",
+              }}
+            >
+              📄
+            </span>
+
+            <span>
+              Export PDF
+            </span>
+
+          </button>
+
+        </div>,
+
+        document.body
+      )
+      : null;
+
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
+  return (
+    <>
+
+      <div
+        className="card flex flex-col w-full min-w-0"
+        style={{
+          position: "relative",
+
+          width: "100%",
+
+          /*
+             Increased enough to show all 9 aging buckets.
+          */
+          height: "320px",
+
+          minHeight: "320px",
+
+          background:
+            "#FFFFFF",
+
+          border:
+            "1px solid #E2E8F0",
+
+          borderRadius:
+            "10px",
+
+          padding:
+            "12px 12px 9px 12px",
+
+          boxSizing:
+            "border-box",
+
+          overflow:
+            "visible",
+
+          boxShadow:
+            "0 1px 3px rgba(15, 23, 42, 0.04)",
+        }}
+      >
+
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
+
+        <div
+          style={{
+            display: "flex",
+
+            alignItems:
+              "center",
+
+            justifyContent:
+              "space-between",
+
+            width: "100%",
+
+            height: "22px",
+
+            minHeight: "22px",
+
+            marginBottom:
+              "3px",
+
+            flexShrink: 0,
+
+            position: "relative",
+
+            zIndex: 10,
+          }}
+        >
+
+          {/* TITLE */}
+
+          <h3
+            style={{
+              margin: 0,
+
+              padding: 0,
+
+              fontSize:
+                "12px",
+
+              lineHeight:
+                "16px",
+
+              fontWeight:
+                800,
+
+              color:
+                "#081B46",
+
+              letterSpacing:
+                "-0.15px",
+
+              whiteSpace:
+                "nowrap",
+
+              overflow:
+                "hidden",
+
+              textOverflow:
+                "ellipsis",
+
+              flex: 1,
+
+              minWidth: 0,
+            }}
+          >
+            {title} ({currency})
+          </h3>
+
+
+          {/* RIGHT SIDE */}
+
+          <div
+            style={{
+              display: "flex",
+
+              alignItems:
+                "center",
+
+              gap: "5px",
+
+              flexShrink: 0,
+            }}
+          >
+
+            {/* DATE */}
+
+            {date && (
+              <span
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "82px 38px 68px",
-                  columnGap: "2px",
-                  width: "100%",
-                  alignItems: "center",
+                  fontSize:
+                    "8px",
+
+                  lineHeight:
+                    "11px",
+
+                  fontWeight:
+                    600,
+
+                  color:
+                    "#94A3B8",
+
+                  whiteSpace:
+                    "nowrap",
                 }}
               >
-                {/* Bucket */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    overflow: "hidden", fontWeight: 700,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      background: item.color,
-                      marginRight: 2,
-                      flexShrink: 0,
-                    }}
-                  />
+                {date}
+              </span>
+            )}
 
-                  <span
+
+            {/* =================================================
+                THREE DOT BUTTON
+            ================================================= */}
+
+            <button
+              ref={buttonRef}
+              type="button"
+
+              aria-label="More options"
+              aria-haspopup="menu"
+              aria-expanded={
+                menuOpen
+              }
+
+              onClick={(event) => {
+
+                event.stopPropagation();
+
+                if (!menuOpen) {
+                  updateMenuPosition();
+                }
+
+                setMenuOpen(
+                  (previous) =>
+                    !previous
+                );
+              }}
+
+              style={{
+                width:
+                  "24px",
+
+                height:
+                  "24px",
+
+                minWidth:
+                  "24px",
+
+                border:
+                  "none",
+
+                background:
+                  menuOpen
+                    ? "#F1F5F9"
+                    : "transparent",
+
+                borderRadius:
+                  "6px",
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                cursor:
+                  "pointer",
+
+                color:
+                  menuOpen
+                    ? "#081B46"
+                    : "#64748B",
+
+                padding: 0,
+
+                fontSize:
+                  "19px",
+
+                fontWeight:
+                  900,
+
+                lineHeight: 1,
+
+                transition:
+                  "all 150ms ease",
+              }}
+
+              onMouseEnter={(
+                event
+              ) => {
+
+                event.currentTarget.style.background =
+                  "#F1F5F9";
+
+                event.currentTarget.style.color =
+                  "#081B46";
+              }}
+
+              onMouseLeave={(
+                event
+              ) => {
+
+                event.currentTarget.style.background =
+                  menuOpen
+                    ? "#F1F5F9"
+                    : "transparent";
+
+                event.currentTarget.style.color =
+                  menuOpen
+                    ? "#081B46"
+                    : "#64748B";
+              }}
+            >
+              ⋮
+            </button>
+
+          </div>
+
+        </div>
+
+
+        {/* =====================================================
+            PORTAL ACTION MENU
+        ===================================================== */}
+
+        {actionMenu}
+
+
+        {/* =====================================================
+            EMPTY STATE
+        ===================================================== */}
+
+        {safeData.length === 0 ? (
+
+          <div
+            style={{
+              flex: 1,
+
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              justifyContent:
+                "center",
+
+              fontSize:
+                "11px",
+
+              fontWeight:
+                600,
+
+              color:
+                "#94A3B8",
+            }}
+          >
+            No Data Available
+          </div>
+
+        ) : (
+
+          /* ===================================================
+             MAIN CONTENT
+
+             LEFT  = DONUT
+             RIGHT = AGING TABLE
+          =================================================== */
+
+          <div
+            style={{
+              flex: 1,
+
+              minHeight: 0,
+
+              display:
+                "grid",
+
+              /*
+                 Slightly more room for the table.
+                 This also brings the columns closer.
+              */
+              gridTemplateColumns:
+                "43% minmax(0, 57%)",
+
+              columnGap:
+                "4px",
+
+              width:
+                "100%",
+            }}
+          >
+
+            {/* =================================================
+                LEFT SIDE
+                DONUT + DATE
+            ================================================= */}
+
+            <div
+              style={{
+                minWidth: 0,
+
+                minHeight: 0,
+
+                display:
+                  "flex",
+
+                flexDirection:
+                  "column",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                position:
+                  "relative",
+
+                overflow:
+                  "visible",
+              }}
+            >
+
+              {/* =================================================
+                  DONUT CONTAINER
+
+                  Fixed height + smaller radius keeps donut
+                  perfectly centered and prevents clipping.
+              ================================================= */}
+
+              <div
+                style={{
+                  width:
+                    "100%",
+
+                  height: "165px",
+                  minHeight: "165px",
+
+                  position:
+                    "relative",
+
+                  display:
+                    "flex",
+
+                  alignItems:
+                    "center",
+
+                  justifyContent:
+                    "center",
+                }}
+              >
+
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  minWidth={1}
+                  minHeight={1}
+                >
+
+                  <PieChart>
+
+                    <Pie
+                      data={
+                        safeData
+                      }
+
+                      dataKey="value"
+
+                      nameKey="name"
+
+                      cx="50%"
+
+                      cy="50%"
+
+                      /*
+                         FIXED:
+
+                         Previous:
+                           innerRadius = 60
+                           outerRadius = 85
+
+                         This was too large for the chart.
+
+                         New:
+                           innerRadius = 40
+                           outerRadius = 58
+
+                         This keeps the donut smaller,
+                         centered and completely visible.
+                      */
+                      innerRadius={45}
+                      outerRadius={80}
+
+                      paddingAngle={1}
+
+                      stroke="#FFFFFF"
+
+                      strokeWidth={2}
+
+                      isAnimationActive={
+                        true
+                      }
+
+                      animationDuration={
+                        650
+                      }
+
+                      animationEasing={
+                        "ease-out"
+                      }
+
+                      onMouseEnter={(
+                        _,
+                        index
+                      ) => {
+
+                        setActiveIndex(
+                          index
+                        );
+                      }}
+
+                      onMouseLeave={() => {
+
+                        setActiveIndex(
+                          null
+                        );
+                      }}
+                    >
+
+                      {safeData.map(
+                        (
+                          entry,
+                          idx
+                        ) => {
+
+                          const isActive =
+                            activeIndex ===
+                            idx;
+
+                          const hasActive =
+                            activeIndex !==
+                            null;
+
+                          return (
+                            <Cell
+                              key={
+                                `aging-cell-${idx}`
+                              }
+
+                              fill={
+                                entry.color ||
+                                "#2563EB"
+                              }
+
+                              style={{
+                                cursor:
+                                  "pointer",
+
+                                outline:
+                                  "none",
+
+                                opacity:
+                                  hasActive &&
+                                    !isActive
+                                    ? 0.20
+                                    : 1,
+
+                                transition:
+                                  "opacity 180ms ease, filter 180ms ease",
+
+                                filter:
+                                  isActive
+                                    ? "brightness(1.06)"
+                                    : "none",
+                              }}
+                            />
+                          );
+                        }
+                      )}
+
+                    </Pie>
+
+
+                    {/* TOOLTIP */}
+
+                    <Tooltip
+                      content={
+                        <AgingTooltip />
+                      }
+
+                      cursor={
+                        false
+                      }
+
+                      wrapperStyle={{
+                        outline:
+                          "none",
+
+                        zIndex:
+                          100000,
+                      }}
+                    />
+
+                  </PieChart>
+
+                </ResponsiveContainer>
+
+
+                {/* =================================================
+                    CENTER TOTAL
+
+                    Hidden when hovering.
+                ================================================= */}
+
+                {activeIndex === null && (
+                  <div
                     style={{
-                      fontSize: "9px",
-                      color: "#475569",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "100px",
+                      textAlign: "center",
+                      pointerEvents: "none",
                     }}
                   >
-                    {item.name}
-                  </span>
-                </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
 
-                {/* Percentage */}
-                <span
+                      {/* CURRENCY */}
+                      <div
+                        style={{
+                          marginTop: "2px",
+                          fontSize: "14px",
+                          lineHeight: "14px",
+                          fontWeight: 900,
+                          color: "#00000",
+                          whiteSpace: "nowrap",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {currency}
+                      </div>
+
+                      {/* VALUE */}
+                      <div
+                        style={{
+                          fontSize: "14px",
+                          lineHeight: "14px",
+                          fontWeight: 900,
+                          color: "#00000",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {formatAmount(total, false)}
+                      </div>
+
+
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+
+              {/* =================================================
+                  AS ON DATE
+              ================================================= */}
+
+              {date && (
+                <div
                   style={{
-                    textAlign: "center",
-                    fontSize: "9px",
-                    color: "#64748B", fontWeight: 800,
+                    marginTop:
+                      "-2px",
+
+                    fontSize:
+                      "8px",
+
+                    lineHeight:
+                      "11px",
+
+                    fontWeight:
+                      600,
+
+                    color:
+                      "#64748B",
+
+                    whiteSpace:
+                      "nowrap",
+
+                    textAlign:
+                      "center",
                   }}
                 >
-                  {Number(item.percentage).toFixed(2)}%
-                </span>
+                  As on {date}
+                </div>
+              )}
 
-                {/* Amount */}
+            </div>
+
+
+            {/* =================================================
+    RIGHT SIDE
+
+    AGING BUCKET / % / AMOUNT
+================================================= */}
+
+            <div
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+
+                // MOVES HEADER + ROWS DOWN
+                padding: "9px 0 2px 0",
+                boxSizing: "border-box",
+              }}
+            >
+
+              {/* =================================================
+      HEADER ROW
+  ================================================= */}
+
+              <div
+                style={{
+                  display: "grid",
+
+                  // KEEP COLUMNS ALIGNED
+                  gridTemplateColumns: "minmax(0, 1fr) 43px 72px",
+
+                  // SMALL HORIZONTAL GAP
+                  columnGap: "3px",
+
+                  alignItems: "center",
+
+                  // VERY SMALL BOTTOM SPACE
+                  padding: "0 1px 1px 1px",
+
+                  // REDUCED GAP BETWEEN HEADER & FIRST ROW
+                  marginBottom: "0px",
+
+                  borderBottom: "1px solid #E2E8F0",
+
+                  flexShrink: 0,
+                }}
+              >
+
+                {/* AGING BUCKET */}
+
                 <span
                   style={{
+                    fontSize: "11px",
+                    lineHeight: "12px",
+                    fontWeight: 900,
+                    color: "#081B46",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  Aging Bucket
+                </span>
+
+
+                {/* % */}
+
+                <span
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "12px",
+                    fontWeight: 900,
+                    color: "#081B46",
                     textAlign: "right",
-                    fontSize: "10px",
-                    fontWeight: 600,
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {formatAmount(item.value)}
+                  %
                 </span>
+
+
+                {/* AMOUNT */}
+
+                <span
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "12px",
+                    fontWeight: 900,
+                    color: "#081B46",
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Amount
+                </span>
+
               </div>
-            ))}
 
+
+              {/* =================================================
+      AGING ROWS
+  ================================================= */}
+
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  width: "100%",
+
+                  display: "flex",
+                  flexDirection: "column",
+
+                  // KEEP ROW GROUP CENTERED
+                  justifyContent: "center",
+
+                  // INCREASE GAP BETWEEN ROWS
+                  gap: "6px",
+
+                  overflow: "hidden",
+                }}
+              >
+
+                {safeLegendData.map((item, idx) => {
+
+                  const isActive =
+                    activeIndex === idx;
+
+                  const hasActive =
+                    activeIndex !== null;
+
+                  return (
+                    <div
+                      key={`aging-legend-${idx}`}
+                      style={{
+                        display: "grid",
+
+                        // SAME COLUMNS AS HEADER
+                        gridTemplateColumns:
+                          "minmax(0, 1fr) 43px 72px",
+
+                        columnGap: "3px",
+
+                        alignItems: "center",
+
+                        width: "100%",
+
+                        // ROW HEIGHT
+                        minHeight: "17px",
+
+                        padding: "0 1px",
+
+                        boxSizing: "border-box",
+
+                        opacity:
+                          hasActive && !isActive
+                            ? 0.40
+                            : 1,
+
+                        transition:
+                          "opacity 180ms ease",
+                      }}
+                    >
+
+                      {/* =================================================
+              BUCKET NAME
+          ================================================= */}
+
+                      <div
+                        style={{
+                          minWidth: 0,
+                          display: "flex",
+                          alignItems: "center",
+
+                          // SMALL GAP BETWEEN DOT & TEXT
+                          gap: "6px",
+                        }}
+                      >
+
+                        <span
+                          style={{
+                            width: "6px",
+                            height: "6px",
+                            minWidth: "6px",
+
+                            borderRadius: "50%",
+
+                            background:
+                              item.color || "#2563EB",
+
+                            display: "inline-block",
+                            flexShrink: 0,
+                          }}
+                        />
+
+                        <span
+                          style={{
+                            minWidth: 0,
+
+                            fontSize: "11px",
+                            lineHeight: "14px",
+                            fontWeight: 800,
+
+                           color: "#081B46",
+
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={item.name}
+                        >
+                          {item.name}
+                        </span>
+
+                      </div>
+
+
+                      {/* =================================================
+              PERCENTAGE
+          ================================================= */}
+
+                      <span
+                        style={{
+                          textAlign: "right",
+
+                          fontSize: "11px",
+                          lineHeight: "14px",
+                          fontWeight: 800,
+
+                          color: "#081B46",
+
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {Number(
+                          item.percentage || 0
+                        ).toFixed(2)}
+                        %
+                      </span>
+
+
+                      {/* =================================================
+              AMOUNT
+          ================================================= */}
+
+                      <span
+                        style={{
+                          textAlign: "right",
+
+                          fontSize: "11px",
+                          lineHeight: "14px",
+                          fontWeight: 800,
+
+                          color: "#081B46",
+
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                        title={formatAmount(item.value)}
+                      >
+                        {formatAmount(item.value)}
+                      </span>
+
+                    </div>
+                  );
+                })}
+
+              </div>
+            </div>
           </div>
-
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
+
 
 export function OverDueSummaryCard({ title, data, total, Centerlabel, currency = "AED", }) {
 
