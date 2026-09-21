@@ -444,26 +444,29 @@ function DetailApiModal({
     }
   }, [isOpen, filters, localFiltersConfig, dateFiltersConfig]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setLoading(true);
-    setError(null);
-    setRows([]);
-
-    const activeFilters = { ...filters };
+  const activeFilters = useMemo(() => {
+    const combined = { ...filters };
     if (localFiltersConfig) {
       localFiltersConfig.forEach(cfg => {
         if (localFiltersState[cfg.key] !== undefined) {
-          activeFilters[cfg.key] = localFiltersState[cfg.key];
+          combined[cfg.key] = localFiltersState[cfg.key];
         }
       });
     }
     if (dateFiltersConfig) {
       dateFiltersConfig.forEach(cfg => {
-        if (dateFiltersState[cfg.fromKey]) activeFilters[cfg.fromKey] = dateFiltersState[cfg.fromKey];
-        if (dateFiltersState[cfg.toKey])   activeFilters[cfg.toKey]   = dateFiltersState[cfg.toKey];
+        if (dateFiltersState[cfg.fromKey]) combined[cfg.fromKey] = dateFiltersState[cfg.fromKey];
+        if (dateFiltersState[cfg.toKey])   combined[cfg.toKey]   = dateFiltersState[cfg.toKey];
       });
     }
+    return combined;
+  }, [filters, localFiltersConfig, localFiltersState, dateFiltersConfig, dateFiltersState]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLoading(true);
+    setError(null);
+    setRows([]);
 
     fetchFn(activeFilters)
       .then(res => {
@@ -472,7 +475,7 @@ function DetailApiModal({
       })
       .catch(err => setError(err?.message || 'Failed to load data'))
       .finally(() => setLoading(false));
-  }, [isOpen, filters, fetchFn, localFiltersConfig, localFiltersState, dateFiltersConfig, dateFiltersState]);
+  }, [isOpen, activeFilters, fetchFn]);
 
   if (!isOpen) return null;
 
@@ -640,7 +643,7 @@ function DetailApiModal({
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
               </span>
             )}
-            {canExport && <ExportButtons endpoint={endpoint} filters={filters} />}
+            {canExport && <ExportButtons endpoint={endpoint} filters={activeFilters} />}
           </div>
         </div>
 
@@ -1623,6 +1626,7 @@ export default function SalesRevenueReport() {
     reportingCurrencies:     ['AED'],
     defaultReportingCurrency:'AED',
     dataAsOf: null,
+    periods: [],
   });
 
   /* ── Chart / KPI data state ───────────────────────────────────── */
@@ -1675,6 +1679,49 @@ export default function SalesRevenueReport() {
         .catch(err => console.error('Failed to get public IP:', err));
     }
   }, [errors, publicIp]);
+
+  const applyLargestRemainder = (data, key = 'percentage', decimals = 2) => {
+    if (!data || !Array.isArray(data) || data.length === 0) return data;
+    const factor = Math.pow(10, decimals);
+    let totalInt = 0;
+    
+    // First pass: extract integer parts and compute total
+    const mapped = data.map((item, idx) => {
+      const val = Number(item[key]);
+      if (isNaN(val)) return { ...item, _lr_idx: idx, _lr_int: 0, _lr_dec: 0 };
+      const scaled = val * factor;
+      const intPart = Math.floor(scaled);
+      const decPart = scaled - intPart;
+      totalInt += intPart;
+      return { ...item, _lr_idx: idx, _lr_int: intPart, _lr_dec: decPart };
+    });
+
+    const targetTotal = 100 * factor;
+    let diff = targetTotal - totalInt;
+    
+    // Safety check: if the raw values didn't sum to roughly 100 before, don't force them
+    const rawSum = data.reduce((s, row) => s + (Number(row[key]) || 0), 0);
+    if (Math.abs(rawSum - 100) > 2) return data; // Not a 100% distribution
+
+    // Distribute the remainder
+    mapped.sort((a, b) => b._lr_dec - a._lr_dec);
+    for (let i = 0; i < diff && i < mapped.length; i++) {
+      mapped[i]._lr_int += 1;
+    }
+    
+    // Restore order and apply
+    mapped.sort((a, b) => a._lr_idx - b._lr_idx);
+    return mapped.map(item => {
+      const newItem = { ...item };
+      if ('_lr_int' in item) {
+        newItem[key] = (item._lr_int / factor).toFixed(decimals);
+        delete newItem._lr_idx;
+        delete newItem._lr_int;
+        delete newItem._lr_dec;
+      }
+      return newItem;
+    });
+  };
 
   /* ── Formatters ───────────────────────────────────────────────── */
   const fmtCurrency = (v) => {
@@ -2041,8 +2088,8 @@ export default function SalesRevenueReport() {
           // 6. Sub-Division
     return guard('subDiv', fetchSubdivisionDetail(f)).then(d => {
       if (!d || !d.data) return;
-      // Store raw rows for the inline Detailed View table
-      setSubdivisionRawData(d.data);
+      // Store raw rows for the inline Detailed View table and fix rounding
+      setSubdivisionRawData(applyLargestRemainder(d.data, 'percentage', 2));
 
       const grouped = {};
       const pctMap  = {};
@@ -2230,8 +2277,10 @@ export default function SalesRevenueReport() {
       label: 'Legal Entity',
       key: 'legal_entity',
       align: 'left',
-      minWidth: '85px',
+      minWidth: '80px',
+      maxWidth: '140px',
       whiteSpace: 'normal',
+      wordBreak: 'break-word',
       fmt: (v, row) => v ?? row.entity_name ?? '-',
     },
     {
@@ -4049,8 +4098,9 @@ export default function SalesRevenueReport() {
                       <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle' }}>Legal Entity</th>
                       <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle' }}>Sub-Division</th>
                       <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle' }}>Parent Division</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'center', verticalAlign: 'middle' }}>Ledger Currency</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle' }}>Sales in Ledger Currency</th>
+                      <th colSpan={2} style={{ ...TH_S, textAlign: 'center', background: '#f8fafc', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
+                        Sales in Ledger Currency
+                      </th>
                       <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle' }}>Sales in {currentCurrency}</th>
                       <th colSpan={2} style={{ ...TH_S, textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
                         Variance
@@ -4058,6 +4108,8 @@ export default function SalesRevenueReport() {
                       <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle' }}>% Share</th>
                     </tr>
                     <tr>
+                      <th style={{ ...TH_S, textAlign: 'center', fontSize: '0.7rem', padding: '6px 10px', borderLeft: '1px solid #cbd5e1' }}>Currency</th>
+                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', borderRight: '1px solid #cbd5e1' }}>Amount</th>
                       <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', borderLeft: '1px solid #cbd5e1' }}>PTD %</th>
                       <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', borderRight: '1px solid #cbd5e1' }}>YTD %</th>
                     </tr>
@@ -4167,7 +4219,7 @@ export default function SalesRevenueReport() {
         onClose={() => setOpenModal(null)}
         title="Sales Revenue by Legal Entity — View Details"
         endpoint="legal-entity-detail"
-        fetchFn={fetchLegalEntityDetail}
+        fetchFn={(f) => fetchLegalEntityDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={legalEntityCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={legalEntityHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
@@ -4191,7 +4243,7 @@ export default function SalesRevenueReport() {
         onClose={() => setOpenModal(null)}
         title="Sales Revenue by Parent Division — View Details"
         endpoint="parent-division-detail"
-        fetchFn={fetchParentDivisionDetail}
+        fetchFn={(f) => fetchParentDivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={parentDivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={parentDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
@@ -4214,7 +4266,7 @@ export default function SalesRevenueReport() {
         onClose={() => setOpenModal(null)}
         title="Sales Revenue by Sub Division - Detailed View"
         endpoint="subdivision-detail"
-        fetchFn={fetchSubdivisionDetail}
+        fetchFn={(f) => fetchSubdivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
@@ -4238,7 +4290,8 @@ export default function SalesRevenueReport() {
         onClose={() => setOpenModal(null)}
         title="Sales Revenue Consolidated View"
         endpoint="subdivision-detail"
-        fetchFn={fetchSubdivisionDetail}
+        fetchFn={(f) => fetchSubdivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
+
         columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}

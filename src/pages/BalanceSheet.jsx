@@ -792,7 +792,7 @@ function VarBadge({ v, isPct = false }) {
 }
 
 /* ── KPI Card ──────────────────────────────────────────────────────── */
-function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, lowerIsBetter = false, compareLabel, color, iconBg, icon, loading, error }) {
+function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = false, lowerIsBetter = false, compareLabel, color, iconBg, icon, loading, error, valueColor }) {
   const [hover, setHover] = useState(false);
   const accent = color || C.primary;
   const up = isRatio ? ((changeDiff ?? 0) >= 0) : ((changePct ?? 0) >= 0);
@@ -832,7 +832,7 @@ function KPICard({ id, label, value, subValue, changePct, changeDiff, isRatio = 
           <span style={{ fontSize: '0.68rem', color: C.rose }}>Error loading</span>
         ) : (
           <>
-            <div style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.15, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>
+            <div style={{ fontSize: '0.98rem', fontWeight: 800, color: valueColor || '#0f172a', lineHeight: 1.15, letterSpacing: '-0.02em', wordBreak: 'break-word' }}>
               {value}
             </div>
             {subValue && <div style={{ fontSize: '0.62rem', color: C.slate, fontWeight: 500 }}>{subValue}</div>}
@@ -1233,7 +1233,7 @@ function StatementCards({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const STH_L = { ...STH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
+  const STH_L = { ...STH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'nowrap', minWidth: 120, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', position: 'sticky', left: 0, zIndex: 2, background: '#f8fafc' };
 
   const SSH = {
     padding: '7px 8px',
@@ -1246,7 +1246,7 @@ function StatementCards({
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
   };
-  const SSH_L = { ...SSH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
+  const SSH_L = { ...SSH, textAlign: 'left', paddingLeft: 12, whiteSpace: 'nowrap', minWidth: 120, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', position: 'sticky', left: 0, zIndex: 2, background: '#f8fafc' };
 
   const STD = {
     padding: '6px 8px',
@@ -1261,10 +1261,16 @@ function StatementCards({
     textAlign: 'left',
     color: '#1e293b',
     fontWeight: 500,
-    whiteSpace: 'normal',
-    wordBreak: 'break-word',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     paddingLeft: 12,
     minWidth: 120,
+    maxWidth: 180,
+    position: 'sticky',
+    left: 0,
+    background: '#fff',
+    zIndex: 1,
   };
 
   const STOT = {
@@ -1277,7 +1283,7 @@ function StatementCards({
     borderTop: '2px solid #bfdbfe',
     whiteSpace: 'nowrap',
   };
-  const STOT_L = { ...STOT, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
+  const STOT_L = { ...STOT, textAlign: 'left', paddingLeft: 12, whiteSpace: 'nowrap', minWidth: 120, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', position: 'sticky', left: 0, zIndex: 2, background: '#eff6ff' };
 
   const SGREEN_TOT = {
     padding: '10px 8px',
@@ -1289,7 +1295,7 @@ function StatementCards({
     borderTop: '2px solid #86efac',
     whiteSpace: 'nowrap',
   };
-  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left', paddingLeft: 12, whiteSpace: 'normal', minWidth: 120 };
+  const SGREEN_TOT_L = { ...SGREEN_TOT, textAlign: 'left', paddingLeft: 12, whiteSpace: 'nowrap', minWidth: 120, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', position: 'sticky', left: 0, zIndex: 2, background: '#f0fdf4' };
 
   const renderHeaders = (unit = 'aed') => (
     <thead>
@@ -3397,6 +3403,9 @@ export default function BalanceSheet() {
         lowerIsBetter: true,
       label: 'Debt-to-Equity Ratio',
       value: loading.summary ? '—' : (currentMetrics.debtToEquity !== null ? `${currentMetrics.debtToEquity.toFixed(2)} : 1` : '—'),
+      valueColor: (!loading.summary && currentMetrics.debtToEquity !== null)
+        ? (currentMetrics.debtToEquity <= 1.0 ? '#16a34a' : '#0f172a')
+        : undefined,
       isRatio: true,
       changeDiff: movements.debtToEquityDiff,
       compareLabel: compareLbl,
@@ -3408,6 +3417,9 @@ export default function BalanceSheet() {
         lowerIsBetter: true,
       label: 'Liability-to-Equity Ratio',
       value: loading.summary ? '—' : (currentMetrics.liabilityToEquity !== null ? `${currentMetrics.liabilityToEquity.toFixed(2)} : 1` : '—'),
+      valueColor: (!loading.summary && currentMetrics.liabilityToEquity !== null)
+        ? (currentMetrics.liabilityToEquity <= 1.0 ? '#16a34a' : '#0f172a')
+        : undefined,
       isRatio: true,
       changeDiff: movements.liabilityToEquityDiff,
       compareLabel: compareLbl,
