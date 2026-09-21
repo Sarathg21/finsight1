@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { AuditProvider } from './context/AuditContext';
 import { FilterProvider } from './context/FilterContext';
 import Layout from './components/Layout';
+import AdminLayout from './components/Layout/AdminLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -10,13 +11,16 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import CFODashboard from './pages/CFODashboard';
 import ExecDashboard from './pages/ExecDashboard';
 import PLAnalytics from './pages/PLAnalytics';
-import ARDashboard from './pages/ARDashboard';
-import WCDashboard from './pages/WCDashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import ExcelConsolidator from './pages/ExcelConsolidator';
+import AdminMainDashboard from './pages/AdminMainDashboard';
+import UsersDashboard from './pages/UsersDashboard';
+import RolesDashboard from './pages/RolesDashboard';
+import UserAccessManagement from './pages/UserAccessManagement';
+import MasterDataDashboard from './pages/MasterDataDashboard';
 import FinSightDashboard from './pages/FinSightDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
+import OperatingAnalysis from './pages/OperatingAnalysis';
+import MyProfile from './pages/MyProfile';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -46,32 +50,45 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
-            
+
             <Route element={<FilterProvider><Layout /></FilterProvider>}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/revenue" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
-              <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} />
-              <Route path="/exec-dashboard"     element={<ProtectedRoute pageKey="exec-dashboard"     element={<ExecDashboard />} />} />
-              <Route path="/finsight-dashboard" element={<FinSightDashboard />} />
-              <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} />
-              <Route path="/working-capital"    element={<ProtectedRoute pageKey="working-capital"    element={<WCDashboard />} />} />
-              <Route path="/division"           element={<ProtectedRoute pageKey="division"           element={<PlaceholderPage title="Division-wise Reporting" />} />} />
-              <Route path="/salesman"           element={<ProtectedRoute pageKey="salesman"           element={<PlaceholderPage title="Salesman-wise Reporting" />} />} />
-              <Route path="/bu-pack"            element={<ProtectedRoute pageKey="bu-pack"            element={<PlaceholderPage title="BU Financial Pack" />} />} />
-              <Route path="/pl"                 element={<ProtectedRoute pageKey="pl"                 element={<PLAnalytics />} />} />
-              <Route path="/balance-sheet"      element={<ProtectedRoute pageKey="balance-sheet"      element={<BalanceSheet />} />} />
-              <Route path="/revenue"            element={<ProtectedRoute pageKey="revenue"            element={<SalesRevenueReport />} />} />
-              <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} />
-              <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} />
-              <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} />
-              <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} />
-              <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} />
-              <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} />
-              <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} />
-              {/* Admin – segregated, board & CFO only */}
-              <Route path="/admin"              element={<ProtectedRoute pageKey="admin"              element={<AdminDashboard />} />} />
+              {/* <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} /> */}
+              <Route path="/profile" element={<MyProfile />} />
+              {/* <Route path="/exec-dashboard"     element={<ProtectedRoute pageKey="exec-dashboard"     element={<ExecDashboard />} />} /> */}
+              {/* <Route path="/finsight-dashboard" element={<FinSightDashboard />} /> */}
+              {/* <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} /> */}
+              {/* <Route path="/working-capital"    element={<ProtectedRoute pageKey="working-capital"    element={<WCDashboard />} />} /> */}
+              {/* <Route path="/division"           element={<ProtectedRoute pageKey="division"           element={<PlaceholderPage title="Division-wise Reporting" />} />} /> */}
+              {/* <Route path="/salesman"           element={<ProtectedRoute pageKey="salesman"           element={<PlaceholderPage title="Salesman-wise Reporting" />} />} /> */}
+              {/* <Route path="/bu-pack"            element={<ProtectedRoute pageKey="bu-pack"            element={<PlaceholderPage title="BU Financial Pack" />} />} /> */}
+              <Route path="/pl" element={<ProtectedRoute pageKey="pl" element={<PLAnalytics />} />} />
+              <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance-sheet" element={<BalanceSheet />} />} />
+              <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses" element={<OperatingAnalysis />} />} />
+              <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />
+              {/* Payables and Receivables excluded from this preview branch */}
+              {/* <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} /> */}
+              {/* <Route path="/payables" element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} /> */}
+              {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
+              {/* <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} /> */}
+              {/* <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} /> */}
+              {/* <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} /> */}
+              {/* <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} /> */}
+              {/* <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} /> */}
+              {/* <Route path="/excel-consolidator" element={<ProtectedRoute pageKey="excel-consolidator" element={<ExcelConsolidator />} />} /> */}
             </Route>
-            
+
+            {/* Admin Module Routes - Uses main Layout (shared sidebar) */}
+            <Route path="/admin" element={<ProtectedRoute pageKey="admin" element={<Layout />} />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<AdminMainDashboard />} />
+              <Route path="users" element={<UsersDashboard />} />
+              <Route path="roles" element={<RolesDashboard />} />
+              <Route path="useraccess" element={<UserAccessManagement />} />
+              <Route path="master-data" element={<MasterDataDashboard />} />
+            </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>

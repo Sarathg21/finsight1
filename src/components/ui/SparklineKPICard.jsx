@@ -49,7 +49,7 @@ export default function SparklineKPICard({ label, value, change, up, icon, iconB
         </div>
 
         <div style={{ width: 64, height: 28 }}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer minWidth={1} minHeight={1} width="100%" height="100%">
             <LineChart data={chartData}>
               <Line
                 type="monotone" dataKey="value"

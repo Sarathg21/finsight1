@@ -14,7 +14,7 @@ const toNonNegativeDayCount = (value) => {
 const AssignTaskPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    
+
     // State for assignees - define this early to avoid reference errors
     const [eligibleAssignees, setEligibleAssignees] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -53,14 +53,14 @@ const AssignTaskPage = () => {
     useEffect(() => {
         const fetchMetadata = async () => {
             const role = String(user?.role || '').toUpperCase();
-            const isAdminRole   = role === 'ADMIN';
-            const isCFORole     = role === 'CFO';
+            const isAdminRole = role === 'ADMIN';
+            const isCFORole = role === 'CFO';
             const isManagerRole = role === 'MANAGER';
 
             try {
                 // Admins have no task creation/edit rights — only fetch employees & departments
                 const taskEndpoint = isCFORole ? '/tasks' : '/tasks/team';
-                const taskParams   = isCFORole
+                const taskParams = isCFORole
                     ? { scope: 'org', limit: 100, all_departments: true }
                     : { limit: 100 };
 
@@ -87,8 +87,8 @@ const AssignTaskPage = () => {
                             .catch(() => ({ data: [] })),
                     myTasksPromise
                 ]);
-                
-                
+
+
                 const extract = (res) => {
                     const raw = res?.data;
                     if (Array.isArray(raw)) return raw;
@@ -121,7 +121,7 @@ const AssignTaskPage = () => {
                     };
                 }).filter(d => d?.id || d?.department_id || d?.name);
 
-                const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
+                const savedUser = JSON.parse(localStorage.getItem('finsight_user') || '{}');
                 const fallbackDeptId =
                     savedUser?.department_id || savedUser?.dept_id || savedUser?.department || savedUser?.department_name || '';
                 const fallbackDeptName =
@@ -130,7 +130,7 @@ const AssignTaskPage = () => {
                 const normalizedEmps = normalizeEmps(extract(empRes));
                 const normalizedDepts = normalizeDepts(extract(deptRes));
                 const teamTasksData = extract(tasksRes);    // tasks manager assigned out / CFO org tasks
-                const myTasksData   = extract(myTasksRes);  // tasks assigned TO the manager (CFO→Manager)
+                const myTasksData = extract(myTasksRes);  // tasks assigned TO the manager (CFO→Manager)
 
                 console.log('[AssignTask] teamTasks count:', teamTasksData.length);
                 console.log('[AssignTask] myTasks count:', myTasksData.length);
@@ -138,8 +138,8 @@ const AssignTaskPage = () => {
                 // Normalize each task so id/title are always accessible
                 const normalizeTasks = (list) => list.map(t => ({
                     ...t,
-                    id:        t.id        || t.task_id   || null,
-                    title:     t.title     || t.task_title || t.task_name || t.name || null,
+                    id: t.id || t.task_id || null,
+                    title: t.title || t.task_title || t.task_name || t.name || null,
                     task_type: (t.task_type || '').toUpperCase(),
                 }));
 
@@ -172,10 +172,10 @@ const AssignTaskPage = () => {
                     validParentSource = allNorm.filter(t => {
                         const isParent = isParentTask(t);
                         const level = t.task_level ?? t.level ?? (isParent ? 0 : null);
-                        
+
                         // Rule 1: Must be assigned by CFO
                         const byRole = String(t.assigned_by_role || t.created_by_role || '').toUpperCase();
-                        const byMe   = String(t.assigned_by_emp_id || t.created_by || t.assigned_by || '') === String(user?.emp_id || user?.id);
+                        const byMe = String(t.assigned_by_emp_id || t.created_by || t.assigned_by || '') === String(user?.emp_id || user?.id);
                         const isByCFO = byRole === 'CFO' || byMe;
 
                         // Rule 2: Assigned to Self (CFO) or a Manager
@@ -187,7 +187,7 @@ const AssignTaskPage = () => {
 
                         // Include Level-0 Standalone Parents (even if unassigned)
                         if (level === 0) return true;
-                        
+
                         // Include Level-1 tasks assigned to Managers or Self
                         if (level === 1 && isToSelfOrManager) return true;
 
@@ -307,18 +307,18 @@ const AssignTaskPage = () => {
 
         try {
             const selectedAssignee = eligibleAssignees.find(e => String(e.emp_id) === String(formData.assignee));
-            const targetedDeptListMatch = departments.find(d => 
-                String(d.name) === String(selectedAssignee?.department_id || selectedAssignee?.department) || 
+            const targetedDeptListMatch = departments.find(d =>
+                String(d.name) === String(selectedAssignee?.department_id || selectedAssignee?.department) ||
                 String(d.id || d.department_id) === String(selectedAssignee?.department_id || selectedAssignee?.department)
             );
-            const resolvedDepartmentId = targetedDeptListMatch?.id || targetedDeptListMatch?.department_id 
-                || selectedAssignee?.department_id || selectedAssignee?.department 
+            const resolvedDepartmentId = targetedDeptListMatch?.id || targetedDeptListMatch?.department_id
+                || selectedAssignee?.department_id || selectedAssignee?.department
                 || user?.department_id || user?.dept_id;
 
             if (formData.isRecurring) {
                 // Handle Recurring Task Creation
                 const WEEKDAY_MAP = { MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6, SUN: 7 };
-                const weeklyDayInt = typeof formData.weeklyDay === 'string' 
+                const weeklyDayInt = typeof formData.weeklyDay === 'string'
                     ? (WEEKDAY_MAP[formData.weeklyDay.toUpperCase()] || 1)
                     : (parseInt(formData.weeklyDay, 10) || 1);
 
@@ -373,8 +373,8 @@ const AssignTaskPage = () => {
                 }
                 // Determine role context for submission
                 const submitRole = String(user?.role || '').toUpperCase();
-                const isSubmitAdmin   = submitRole === 'ADMIN';
-                const isSubmitCFO     = submitRole === 'CFO';
+                const isSubmitAdmin = submitRole === 'ADMIN';
+                const isSubmitCFO = submitRole === 'CFO';
                 const isSubmitManager = submitRole === 'MANAGER';
 
                 // Admin cannot create or edit tasks
@@ -408,12 +408,12 @@ const AssignTaskPage = () => {
                     const parentIsLevel0 = parentLevel === 0 || (selectedParentTask?.task_type || '').toUpperCase() === 'PARENT' || (selectedParentTask?.subtask_count > 0);
 
                     const payload = {
-                        title:               formData.title,
-                        description:         formData.description,
-                        priority:            formData.priority,
-                        assigned_to_emp_id:  subtaskAssigneeId,
-                        department_id:       assigneeDeptId || resolvedDepartmentId,
-                        due_date:            formData.dueDate
+                        title: formData.title,
+                        description: formData.description,
+                        priority: formData.priority,
+                        assigned_to_emp_id: subtaskAssigneeId,
+                        department_id: assigneeDeptId || resolvedDepartmentId,
+                        due_date: formData.dueDate
                     };
 
                     let taskRes;
@@ -473,9 +473,9 @@ const AssignTaskPage = () => {
         }
     };
 
-    const isCFORole   = String(user?.role || '').toUpperCase() === 'CFO';
+    const isCFORole = String(user?.role || '').toUpperCase() === 'CFO';
     const isAdminRole = String(user?.role || '').toUpperCase() === 'ADMIN';
-    const isManager   = String(user?.role || '').toUpperCase() === 'MANAGER';
+    const isManager = String(user?.role || '').toUpperCase() === 'MANAGER';
     // Admin has read-only access — no task creation or editing allowed
     const canCreateTasks = !isAdminRole;
 
@@ -509,32 +509,32 @@ const AssignTaskPage = () => {
                     {/* Task Configuration Block */}
                     {/* Task Configuration Block */}
                     <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-4">
-                        
-                            {!isManager && (
-                                <div className="flex items-center justify-between pb-4 border-b border-indigo-100 mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
-                                            <Clock size={18} strokeWidth={2.5} />
-                                        </div>
-                                        <div className="pt-0.5">
-                                            <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Type</h4>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Normal or Recurring</p>
-                                        </div>
+
+                        {!isManager && (
+                            <div className="flex items-center justify-between pb-4 border-b border-indigo-100 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-white shadow-sm text-indigo-600">
+                                        <Clock size={18} strokeWidth={2.5} />
                                     </div>
-                                    <div className="flex bg-white p-1 rounded-xl border border-slate-200">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, isRecurring: false })}
-                                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                        >Normal</button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData({ ...formData, isRecurring: true })}
-                                            className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
-                                        >Recurring</button>
+                                    <div className="pt-0.5">
+                                        <h4 className="text-[14px] font-black text-slate-800 leading-none">Task Type</h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Normal or Recurring</p>
                                     </div>
                                 </div>
-                            )}
+                                <div className="flex bg-white p-1 rounded-xl border border-slate-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, isRecurring: false })}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${!formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >Normal</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, isRecurring: true })}
+                                        className={`px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${formData.isRecurring ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}
+                                    >Recurring</button>
+                                </div>
+                            </div>
+                        )}
                         {!formData.isRecurring && (
                             <div className="animate-fade-in space-y-5 pt-4 border-t border-indigo-100">
                                 {/* Task Structure Selector */}
@@ -545,11 +545,10 @@ const AssignTaskPage = () => {
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {/* Option 1 */}
-                                        <label className={`cursor-pointer flex items-start gap-3 p-4 rounded-xl border-2 transition-all ${
-                                            formData.taskStructure === 'SINGLE'
+                                        <label className={`cursor-pointer flex items-start gap-3 p-4 rounded-xl border-2 transition-all ${formData.taskStructure === 'SINGLE'
                                                 ? 'border-indigo-500 bg-indigo-50/50 shadow-sm'
                                                 : 'border-slate-200 bg-white hover:border-indigo-200'
-                                        }`}>
+                                            }`}>
                                             <input
                                                 type="radio"
                                                 name="taskStructure"
@@ -572,11 +571,10 @@ const AssignTaskPage = () => {
                                         </label>
 
                                         {/* Option 2 */}
-                                        <label className={`cursor-pointer flex items-start gap-3 p-4 rounded-xl border-2 transition-all ${
-                                            formData.taskStructure === 'SUBTASK'
+                                        <label className={`cursor-pointer flex items-start gap-3 p-4 rounded-xl border-2 transition-all ${formData.taskStructure === 'SUBTASK'
                                                 ? 'border-indigo-500 bg-indigo-50/50 shadow-sm'
                                                 : 'border-slate-200 bg-white hover:border-indigo-200'
-                                        }`}>
+                                            }`}>
                                             <input
                                                 type="radio"
                                                 name="taskStructure"
@@ -687,7 +685,7 @@ const AssignTaskPage = () => {
                                                             if (isCFORole) {
                                                                 const parentLevel = selectedParent?.task_level ?? selectedParent?.level;
                                                                 const parentIsLevel0 = parentLevel === 0 || isParentTask(selectedParent || {});
-                                                                const managers  = eligibleAssignees.filter(e => (e.role || '').toUpperCase() === 'MANAGER');
+                                                                const managers = eligibleAssignees.filter(e => (e.role || '').toUpperCase() === 'MANAGER');
                                                                 const employees = eligibleAssignees.filter(e => (e.role || '').toUpperCase() !== 'MANAGER' && (e.role || '').toUpperCase() !== 'CFO' && (e.role || '').toUpperCase() !== 'ADMIN');
                                                                 const list = parentIsLevel0 ? [...managers, ...employees] : employees;
                                                                 return list.map(m => ({
@@ -718,7 +716,7 @@ const AssignTaskPage = () => {
                                                 <div>
                                                     <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Department</label>
                                                     <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white/60 text-[12px] font-semibold text-slate-500 h-[38px]">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
                                                         <span className="truncate">{managerDept || <span className="text-slate-300 italic text-[11px]">Auto-filled</span>}</span>
                                                     </div>
                                                 </div>
@@ -757,9 +755,8 @@ const AssignTaskPage = () => {
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Hierarchy Preview</p>
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     {/* Node 1: Parent Task */}
-                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${
-                                                        selectedParent ? 'bg-white border-indigo-200' : 'bg-slate-50 border-slate-100'
-                                                    }`}>
+                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${selectedParent ? 'bg-white border-indigo-200' : 'bg-slate-50 border-slate-100'
+                                                        }`}>
                                                         <FolderOpen size={13} className={selectedParent ? 'text-indigo-500' : 'text-slate-300'} />
                                                         <div>
                                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none mb-0.5">Parent</p>
@@ -770,9 +767,8 @@ const AssignTaskPage = () => {
                                                     </div>
                                                     <ChevronRight size={14} className="text-slate-300" />
                                                     {/* Node 2: This Subtask (Child) */}
-                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${
-                                                        formData.title ? 'bg-violet-50 border-violet-200' : 'bg-slate-50 border-slate-100'
-                                                    }`}>
+                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${formData.title ? 'bg-violet-50 border-violet-200' : 'bg-slate-50 border-slate-100'
+                                                        }`}>
                                                         <GitBranch size={13} className={formData.title ? 'text-violet-500' : 'text-slate-300'} />
                                                         <div>
                                                             <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-0.5 ${formData.title ? 'text-violet-400' : 'text-slate-300'}`}>Child</p>
@@ -783,9 +779,8 @@ const AssignTaskPage = () => {
                                                     </div>
                                                     <ChevronRight size={14} className="text-slate-300" />
                                                     {/* Node 3: Manager (next step) */}
-                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${
-                                                        selectedManager ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'
-                                                    }`}>
+                                                    <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shadow-sm border transition-all ${selectedManager ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'
+                                                        }`}>
                                                         <Users2 size={13} className={selectedManager ? 'text-emerald-500' : 'text-slate-300'} />
                                                         <div>
                                                             <p className={`text-[8px] font-black uppercase tracking-widest leading-none mb-0.5 ${selectedManager ? 'text-emerald-500' : 'text-slate-300'}`}>Next step by Manager</p>
@@ -827,12 +822,12 @@ const AssignTaskPage = () => {
                                     {formData.recurringFrequency === 'WEEKLY' && (
                                         <div>
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Day of Week</label>
-                                            <select 
+                                            <select
                                                 className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                                 value={formData.weeklyDay}
                                                 onChange={(e) => setFormData({ ...formData, weeklyDay: parseInt(e.target.value) })}
                                             >
-                                                {[['MON',1],['TUE',2],['WED',3],['THU',4],['FRI',5],['SAT',6],['SUN',7]].map(([label, val]) => (
+                                                {[['MON', 1], ['TUE', 2], ['WED', 3], ['THU', 4], ['FRI', 5], ['SAT', 6], ['SUN', 7]].map(([label, val]) => (
                                                     <option key={val} value={val}>{label}</option>
                                                 ))}
                                             </select>
@@ -842,7 +837,7 @@ const AssignTaskPage = () => {
                                     {formData.recurringFrequency === 'MONTHLY' && (
                                         <div>
                                             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Day of Month</label>
-                                            <input 
+                                            <input
                                                 type="number" min="1" max="31"
                                                 className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                                 value={formData.recurringDay}
@@ -855,7 +850,7 @@ const AssignTaskPage = () => {
                                         <>
                                             <div>
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Month</label>
-                                                <select 
+                                                <select
                                                     className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                                     value={formData.yearlyMonth}
                                                     onChange={(e) => setFormData({ ...formData, yearlyMonth: e.target.value })}
@@ -867,7 +862,7 @@ const AssignTaskPage = () => {
                                             </div>
                                             <div>
                                                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Day</label>
-                                                <input 
+                                                <input
                                                     type="number" min="1" max="31"
                                                     className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                                     value={formData.yearlyDay}
@@ -881,7 +876,7 @@ const AssignTaskPage = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
                                     <div>
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">Start Date</label>
-                                        <input 
+                                        <input
                                             type="date"
                                             className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                             value={formData.startDate}
@@ -890,7 +885,7 @@ const AssignTaskPage = () => {
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1">End Date (Optional)</label>
-                                        <input 
+                                        <input
                                             type="date"
                                             className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                             value={formData.endDate}
@@ -899,7 +894,7 @@ const AssignTaskPage = () => {
                                     </div>
                                     <div>
                                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block ml-1" title="Number of days from task generation until it is due">Due in Days</label>
-                                        <input 
+                                        <input
                                             type="number" min="0"
                                             className="w-full px-4 py-2.5 rounded-xl border border-indigo-100 bg-white font-bold text-[12px] focus:ring-4 focus:ring-indigo-400/10 outline-none transition-all"
                                             value={formData.dueInDays}
@@ -915,7 +910,7 @@ const AssignTaskPage = () => {
                                             <h4 className="text-[14px] font-black text-slate-800 leading-none">Subtask Templates</h4>
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Predefined subtasks for each recurrence</p>
                                         </div>
-                                        <button 
+                                        <button
                                             type="button"
                                             onClick={addSubtask}
                                             className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-2"
@@ -932,7 +927,7 @@ const AssignTaskPage = () => {
                                         ) : (
                                             subtasks.map((st, idx) => (
                                                 <div key={idx} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm relative group animate-fade-in">
-                                                    <button 
+                                                    <button
                                                         type="button"
                                                         onClick={() => removeSubtask(idx)}
                                                         className="absolute top-4 right-4 text-slate-300 hover:text-rose-500 transition-colors"
@@ -942,7 +937,7 @@ const AssignTaskPage = () => {
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         <div className="md:col-span-2">
                                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Subtask Title</label>
-                                                            <input 
+                                                            <input
                                                                 type="text"
                                                                 className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[13px] font-semibold"
                                                                 placeholder="Subtask Title..."
@@ -952,7 +947,7 @@ const AssignTaskPage = () => {
                                                         </div>
                                                         <div>
                                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Department</label>
-                                                            <select 
+                                                            <select
                                                                 className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
                                                                 value={st.department_id}
                                                                 onChange={(e) => {
@@ -970,7 +965,7 @@ const AssignTaskPage = () => {
                                                         </div>
                                                         <div>
                                                             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Assignee</label>
-                                                            <select 
+                                                            <select
                                                                 className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 focus:bg-white focus:border-indigo-300 outline-none text-[12px] font-semibold"
                                                                 value={st.assigned_to_emp_id}
                                                                 onChange={(e) => handleSubtaskChange(idx, 'assigned_to_emp_id', e.target.value)}
@@ -1004,7 +999,7 @@ const AssignTaskPage = () => {
                                                     </div>
                                                 </div>
                                             )
-                                        ))}
+                                            ))}
                                     </div>
                                 </div>
                             </div>
@@ -1044,7 +1039,7 @@ const AssignTaskPage = () => {
                         <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Attachment</label>
                         <label className="flex flex-col items-center justify-center gap-2 w-full px-5 py-4 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-violet-300 transition-all cursor-pointer group">
                             <div className="flex items-center gap-2.5">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-500 shrink-0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-500 shrink-0"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
                                 <span className="text-[13px] font-bold text-violet-600 group-hover:text-violet-700">Choose file</span>
                                 <span className="text-[13px] text-slate-400 font-medium">or drag and drop here</span>
                             </div>
@@ -1114,7 +1109,7 @@ const AssignTaskPage = () => {
                         {formData.isRecurring && <p className="text-[11px] text-violet-500 font-bold mt-1 ml-1 uppercase tracking-wide">Dynamic date will be used for recurring tasks</p>}
                     </div>
 
-                    
+
 
                     <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 mt-8">
                         <button

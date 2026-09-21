@@ -2,124 +2,147 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign,
+  LayoutDashboard, Star, TrendingUp, FileText, BookOpen, DollarSign, BarChart2,
   Building2, Receipt, CreditCard, Package, LayoutGrid, Wallet,
-  FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase,
-  UserCheck, ChevronLeft, LogOut, Search, X,
+  FileSpreadsheet, Shield, Users, Globe, PieChart, Briefcase, WalletCards,
+  UserCheck, ChevronLeft, LogOut, Search, X, Layers, UserCog, CircleDollarSign,
 } from 'lucide-react';
 
-/* ── Icon map per route ─────────────────────────────────────────── */
+/* â”€â”€ Icon map per route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const ROUTE_ICON = {
-  '/finsight-dashboard':  Star,
-  '/exec-dashboard':      Briefcase,
-  '/dashboard':           LayoutDashboard,
-  '/pl':                  FileText,
-  '/balance-sheet':       BookOpen,
-  '/revenue':             DollarSign,
-  '/fixed-assets':        Building2,
-  '/ar':                  Receipt,
-  '/ap':                  CreditCard,
-  '/inventory':           Package,
-  '/working-capital':     LayoutGrid,
-  '/cash-collection':     Wallet,
-  '/excel-consolidator':  FileSpreadsheet,
-  '/admin':               Shield,
+  '/finsight-dashboard': Star,
+  '/exec-dashboard': Briefcase,
+  '/dashboard': LayoutDashboard,
+  '/pl': FileText,
+  '/balance-sheet': BookOpen,
+  '/operating-expenses': BarChart2,
+  '/revenue': DollarSign,
+  '/receivables': Receipt,
+  '/payables': FileSpreadsheet,
+  '/fixed-assets': Building2,
+  '/ar': Receipt,
+  '/ap': CreditCard,
+  '/inventory': Package,
+  '/working-capital': LayoutGrid,
+  '/cash-collection': Wallet,
+  '/excel-consolidator': FileSpreadsheet,
+  '/admin': Shield,
+  '/admin/dashboard': LayoutDashboard,
+  '/admin/users': Users,
+  '/admin/roles': Shield,
+  '/admin/useraccess': UserCog,
+  '/admin/master-data': Layers,
   '/country-performance': Globe,
-  '/division':            PieChart,
-  '/bu-pack':             Briefcase,
-  '/salesman':            UserCheck,
+  '/division': PieChart,
+  '/bu-pack': Briefcase,
+  '/salesman': UserCheck,
 };
 
-/* ── Nav item definitions per role ─────────────────────────────── */
+/* â”€â”€ Nav item definitions per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const NAV_BY_ROLE = {
   board: [
-    { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
-    { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Board View'       },
-    { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Reports'          },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Reports'          },
-    { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
-    { to: '/working-capital',    label: 'Overview',                            group: 'Reports'          },
-    { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin',              label: 'User & Access Control',               group: 'Admin'            },
+    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
+    // { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Board View'       },
+    // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
+    { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Reports' },
+
+
+    // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
+    // { to: '/working-capital',    label: 'Overview',                            group: 'Reports'          },
+    // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
+    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
+    { to: '/admin/users', label: 'Users', group: 'Admin' },
+    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
+    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
+    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
   ],
   cfo: [
-    { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
-    { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
-    { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Overview'         },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Financials'       },
-    { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Financials'       },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Financials'       },
-    { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
-    { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
-    { to: '/ap',                 label: 'Payables Aging',                      group: 'Working Capital'  },
-    { to: '/inventory',          label: 'Inventory Aging',                     group: 'Working Capital'  },
-    { to: '/working-capital',    label: 'Overview',                            group: 'Working Capital'  },
-    { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Treasury'         },
-    { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
-    { to: '/admin',              label: 'User & Access Control',               group: 'Admin'            },
+    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
+    // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
+    // { to: '/exec-dashboard',     label: 'Exec Finance Dashboard',              group: 'Overview'         },
+    { to: '/pl', label: 'P&L Report', group: 'Financials' },
+    { to: '/balance-sheet', label: 'Balance Sheet', group: 'Financials' },
+    { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Financials' },
+    { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
+    { to: '/payables', label: 'Payables Report', group: 'Reports' },
+
+    // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
+    // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
+    // { to: '/ap',                 label: 'Payables Aging',                      group: 'Working Capital'  },
+    // { to: '/inventory',          label: 'Inventory Aging',                     group: 'Working Capital'  },
+    // { to: '/working-capital',    label: 'Overview',                            group: 'Working Capital'  },
+    // { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Treasury'         },
+    // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
+    { to: '/admin/dashboard', label: 'Dashboard', group: 'Admin' },
+    { to: '/admin/users', label: 'Users', group: 'Admin' },
+    { to: '/admin/roles', label: 'Roles & Permissions', group: 'Admin' },
+    { to: '/admin/useraccess', label: 'User Access', group: 'Admin' },
+    { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
   ],
   executive: [
-    { to: '/finsight-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
-    { to: '/exec-dashboard',      label: 'Exec Finance Dashboard',             group: 'Overview'         },
-    { to: '/dashboard',           label: 'CFO Dashboard',                      group: 'Overview'         },
-    { to: '/pl',                  label: 'P&L Report',                         group: 'Reports'          },
-    { to: '/revenue',             label: 'Sales Revenue Report',               group: 'Reports'          },
-    { to: '/working-capital',     label: 'Overview',                           group: 'Reports'          },
-    { to: '/country-performance', label: 'Country Performance',                group: 'Reports'          },
-    { to: '/excel-consolidator',  label: 'Excel Consolidator',                 group: 'Utilities'        },
+    // { to: '/finsight-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
+    // { to: '/exec-dashboard',      label: 'Exec Finance Dashboard',             group: 'Overview'         },
+    // { to: '/dashboard',           label: 'CFO Dashboard',                      group: 'Overview'         },
+    { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Reports' },
+    // { to: '/working-capital',     label: 'Overview',                           group: 'Reports'          },
+    // { to: '/country-performance', label: 'Country Performance',                group: 'Reports'          },
+    // { to: '/excel-consolidator',  label: 'Excel Consolidator',                 group: 'Utilities'        },
   ],
   gm: [
-    { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
-    { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
-    { to: '/division',           label: 'Division Reports',                    group: 'Reports'          },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Reports'          },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Reports'          },
-    { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
-    { to: '/inventory',          label: 'Inventory Aging',                     group: 'Reports'          },
-    { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
+    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
+    // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
+    // { to: '/division',           label: 'Division Reports',                    group: 'Reports'          },
+    { to: '/pl', label: 'P&L Report', group: 'Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Reports' },
+    // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Reports'          },
+    // { to: '/inventory',          label: 'Inventory Aging',                     group: 'Reports'          },
+    // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   bu_manager: [
-    { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
-    { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
-    { to: '/bu-pack',            label: 'BU Financial Pack',                   group: 'BU Reports'       },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'BU Reports'       },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'BU Reports'       },
-    { to: '/ar',                 label: 'Receivables Aging',                   group: 'BU Reports'       },
-    { to: '/ap',                 label: 'Payables Aging',                      group: 'BU Reports'       },
-    { to: '/inventory',          label: 'Inventory Aging',                     group: 'BU Reports'       },
-    { to: '/salesman',           label: 'Salesman Reports',                    group: 'BU Reports'       },
-    { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
+    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
+    // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
+    // { to: '/bu-pack',            label: 'BU Financial Pack',                   group: 'BU Reports'       },
+    { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'BU Reports' },
+    // { to: '/ar',                 label: 'Receivables Aging',                   group: 'BU Reports'       },
+    // { to: '/ap',                 label: 'Payables Aging',                      group: 'BU Reports'       },
+    // { to: '/inventory',          label: 'Inventory Aging',                     group: 'BU Reports'       },
+    // { to: '/salesman',           label: 'Salesman Reports',                    group: 'BU Reports'       },
+    // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   accountant: [
-    { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
-    { to: '/pl',                 label: 'P&L Report',                          group: 'Finance'          },
-    { to: '/balance-sheet',      label: 'Balance Sheet',                       group: 'Finance'          },
-    { to: '/ar',                 label: 'Receivables Aging',                   group: 'Finance'          },
-    { to: '/ap',                 label: 'Payables Aging',                      group: 'Finance'          },
-    { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Finance'          },
-    { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Finance'          },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Finance'          },
-    { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
+    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
+    { to: '/pl', label: 'P&L Report', group: 'Finance' },
+    { to: '/balance-sheet', label: 'Balance Sheet', group: 'Finance' },
+    { to: '/operating-expenses', label: 'Operating Expenses', group: 'Finance' },
+    // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Finance'          },
+    // { to: '/ap',                 label: 'Payables Aging',                      group: 'Finance'          },
+    // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Finance'          },
+    // { to: '/cash-collection',    label: 'Cash Collection',                     group: 'Finance'          },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Finance' },
+    // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   sales: [
-    { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
-    { to: '/salesman',           label: 'Salesman Dashboard',                  group: 'Sales'            },
-    { to: '/revenue',            label: 'Sales Revenue Report',                group: 'Sales'            },
+    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
+    // { to: '/salesman',           label: 'Salesman Dashboard',                  group: 'Sales'            },
+    { to: '/revenue', label: 'Sales Revenue Report', group: 'Sales' },
   ],
 };
 
-/* ── Role theme helpers ─────────────────────────────────────────── */
+/* â”€â”€ Role theme helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function roleBg(role) {
-  const m = { board:'#eef2ff', cfo:'#eef2ff', executive:'#f5f3ff', gm:'#eff6ff', bu_manager:'#eff6ff', accountant:'#f0fdf4', sales:'#fff1f2' };
+  const m = { board: '#eef2ff', cfo: '#eef2ff', executive: '#f5f3ff', gm: '#eff6ff', bu_manager: '#eff6ff', accountant: '#f0fdf4', sales: '#fff1f2' };
   return m[role] || '#eef2ff';
 }
 function roleColor(role) {
-  const m = { board:'#6366f1', cfo:'#6366f1', executive:'#7c3aed', gm:'#2563eb', bu_manager:'#2563eb', accountant:'#16a34a', sales:'#f43f5e' };
+  const m = { board: '#6366f1', cfo: '#6366f1', executive: '#7c3aed', gm: '#2563eb', bu_manager: '#2563eb', accountant: '#16a34a', sales: '#f43f5e' };
   return m[role] || '#6366f1';
 }
 
-/* ── Tooltip wrapper for collapsed mode ────────────────────────── */
+/* â”€â”€ Tooltip wrapper for collapsed mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Tip({ label, children, show }) {
   if (!show) return children;
   return (
@@ -131,7 +154,7 @@ function Tip({ label, children, show }) {
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
   const { user, logout } = useAuth();
-  const navigate         = useNavigate();
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
 
   const navItems = NAV_BY_ROLE[user?.role] || NAV_BY_ROLE.cfo;
@@ -156,7 +179,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
   return (
     <>
-      {/* ═══════════════════ ASIDE ═══════════════════ */}
+      {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ASIDE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
       <aside
         className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}
         style={{
@@ -172,10 +195,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
           zIndex: 110,
         }}
       >
-        {/* ── Inner clip (content clipped during animation) ── */}
+        {/* â”€â”€ Inner clip (content clipped during animation) â”€â”€ */}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
-          {/* ── Logo row ── */}
+          {/* â”€â”€ Logo row â”€â”€ */}
           <div style={{
             height: 'var(--topbar-h)',
             display: 'flex', alignItems: 'center',
@@ -202,11 +225,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
               pointerEvents: isExpanded ? 'auto' : 'none',
             }}>
               <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>FJ Group</div>
-              <div style={{ fontSize: '0.6rem', fontWeight: 700,color: '#cbd5e1', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#cbd5e1', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
             </div>
           </div>
 
-          {/* ── Role badge ── */}
+          {/* â”€â”€ Role badge â”€â”€ */}
           <div style={{
             padding: isExpanded ? '10px 16px 4px' : '10px 0 4px',
             display: 'flex',
@@ -230,7 +253,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             </div>
           </div>
 
-          {/* ── Search (expanded only) ── */}
+          {/* â”€â”€ Search (expanded only) â”€â”€ */}
           {isExpanded && (
             <div style={{ padding: '6px 12px 2px', flexShrink: 0 }}>
               <div style={{
@@ -243,7 +266,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
-                  placeholder="Search menu…"
+                  placeholder="Search menu..."
                   style={{
                     border: 'none', background: 'transparent', outline: 'none',
                     fontSize: '0.78rem', color: '#334155', width: '100%',
@@ -258,14 +281,14 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             </div>
           )}
 
-          {/* ── Navigation ── */}
+          {/* â”€â”€ Navigation â”€â”€ */}
           <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 10px 12px' }}>
             {Object.entries(grouped).map(([group, items], gi) => (
               <div key={group} style={{ marginBottom: 4 }}>
                 {/* Section label */}
                 <div style={{
                   fontSize: '0.6rem', fontWeight: 700,
-                  color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '0.1em',
+                  color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.1em',
                   padding: isExpanded ? '10px 8px 4px' : '10px 0 4px',
                   textAlign: isExpanded ? 'left' : 'center',
                   whiteSpace: 'nowrap', overflow: 'hidden',
@@ -274,11 +297,11 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                   {isExpanded ? (
                     <>
                       <span>{group}</span>
-                      <span style={{ flex: 1, height: 1, background: '#f1f5f9', display: 'inline-block' }} />
+                      <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.25)', display: 'inline-block' }} />
                     </>
                   ) : (
                     <span style={{
-                      width: 20, height: 1, background: '#e2e8f0',
+                      width: 20, height: 1, background: 'rgba(255,255,255,0.25)',
                       display: 'inline-block', margin: '0 auto',
                     }} />
                   )}
@@ -329,7 +352,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                             ) : (
                               <Icon
                                 size={15}
-                              color={isActive ? '#fff' : '#e2e8f0'}
+                                color={isActive ? '#fff' : '#e2e8f0'}
                                 strokeWidth={isActive ? 2.5 : 1.8}
                               />
                             )}
@@ -339,7 +362,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                           <span style={{
                             fontSize: '0.82rem',
                             fontWeight: isActive ? 700 : 500,
-                           color: isActive ? '#fff' : '#ffffff',
+                            color: isActive ? '#fff' : '#ffffff',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
@@ -382,7 +405,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             )}
           </nav>
 
-          {/* ── User footer ── */}
+          {/* â”€â”€ User footer â”€â”€ */}
           <div style={{
             borderTop: '1px solid var(--clr-border)',
             padding: isExpanded ? '12px 14px' : '10px 0',
@@ -405,10 +428,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             {/* Name & email */}
             {isExpanded && (
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700,color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.name || 'User'}
                 </div>
-                <div style={{ fontSize: '0.62rem',color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '0.62rem', color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.email || user?.roleLabel || ''}
                 </div>
               </div>
@@ -427,7 +450,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
                   transition: 'background 0.15s, color 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#ef4444'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'none';    e.currentTarget.style.color = '#94a3b8'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#94a3b8'; }}
               >
                 <LogOut size={14} />
               </button>
@@ -436,7 +459,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
         </div>{/* /inner clip */}
 
-        {/* ── Desktop floating chevron toggle ── */}
+        {/* â”€â”€ Desktop floating chevron toggle â”€â”€ */}
         <button
           onClick={onToggle}
           aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
@@ -454,7 +477,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
             transition: 'background 0.15s, border-color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.background = 'var(--clr-primary)'; e.currentTarget.style.borderColor = 'var(--clr-primary)'; e.currentTarget.querySelector('svg').style.stroke = '#fff'; }}
-          onMouseLeave={e => {e.currentTarget.style.background = '#fff';e.currentTarget.style.borderColor = 'var(--clr-border)'; e.currentTarget.querySelector('svg').style.stroke = '#64748b'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = 'var(--clr-border)'; e.currentTarget.querySelector('svg').style.stroke = '#64748b'; }}
         >
           <ChevronLeft
             size={13}
@@ -469,7 +492,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
       </aside>
 
-      {/* ── Mobile FAB arrow pill ── */}
+      {/* â”€â”€ Mobile FAB arrow pill â”€â”€ */}
       <button
         onClick={onToggle}
         aria-label="Open navigation"
@@ -497,3 +520,4 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
     </>
   );
 }
+

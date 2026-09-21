@@ -233,7 +233,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
         <>
             <header className="navbar cfo-navbar sticky top-0 z-40 flex items-center justify-between px-3 sm:px-6 gap-2 sm:gap-4">
 
-                <div className="flex items-center gap-4 min-w-0 flex-shrink-0">
+                <div className="flex items-center gap-4 min-w-0 shrink-0">
                     {/* Mobile menu toggle */}
                     <button
                         onClick={onMobileMenuToggle}
@@ -261,7 +261,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                             })()}
                         </h1>
                         {subtitle && !(roleUpper === 'CFO' && isDashboard) && (
-                            <p className="text-[10px] font-[700] text-[#6366f1]/50 mt-0.5 leading-none tracking-[0.08em] uppercase hidden sm:block pl-1">
+                            <p className="text-[10px] font-bold text-[#6366f1]/50 mt-0.5 leading-none tracking-[0.08em] uppercase hidden sm:block pl-1">
                                 {subtitle}
                             </p>
                         )}
@@ -278,7 +278,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                             <input
                                 type="text"
                                 placeholder="Search everything..."
-                                className="w-full bg-slate-100/60 border border-slate-100 py-2.5 pl-10 pr-4 rounded-full text-[13px] font-[600] text-slate-600 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-50/50 focus:border-indigo-200 transition-all outline-none"
+                                className="w-full bg-slate-100/60 border border-slate-100 py-2.5 pl-10 pr-4 rounded-full text-[13px] font-semibold text-slate-600 placeholder:text-slate-400 focus:bg-white focus:ring-4 focus:ring-indigo-50/50 focus:border-indigo-200 transition-all outline-none"
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 onKeyDown={handleSearch}
@@ -316,7 +316,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                         >
                             <Bell size={18} strokeWidth={2} />
                             {unreadCount > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 flex items-center justify-center bg-rose-500 text-white text-[9px] font-[800] rounded-full border-2 border-white px-0.5 leading-none">
+                                <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 flex items-center justify-center bg-rose-500 text-white text-[9px] font-extrabold rounded-full border-2 border-white px-0.5 leading-none">
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}
@@ -324,7 +324,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
 
                         {showNotifications && (
                             <div
-                                className="absolute right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 z-[300] flex flex-col animate-scale-in overflow-hidden notif-panel"
+                                className="absolute right-0 mt-2 bg-white rounded-2xl shadow-xl border border-slate-100 z-300 flex flex-col animate-scale-in overflow-hidden notif-panel"
                                 style={{ width: '340px', maxHeight: '440px' }}
                             >
                                 <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
@@ -343,7 +343,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                     {safeNotifs.length === 0 ? (
                                         <div className="flex flex-col items-center justify-center py-10 gap-2">
                                             <Bell size={26} className="text-slate-200" />
-                                            <p className="text-[12px] text-slate-400 font-[600]">No new activity</p>
+                                            <p className="text-[12px] text-slate-400 font-semibold">No new activity</p>
                                         </div>
                                     ) : (
                                         safeNotifs.map((n, idx) => {
@@ -358,7 +358,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                                             : 'hover:bg-slate-50 opacity-55 hover:opacity-80'
                                                     }`}
                                                 >
-                                                    <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
+                                                    <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
                                                         n.type === 'SUCCESS' ? 'bg-emerald-100' : n.type === 'WARNING' ? 'bg-amber-100' : 'bg-indigo-100'
                                                     }`}>
                                                         {n.type === 'SUCCESS'
@@ -368,10 +368,10 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between mb-0.5">
-                                                            <span className="text-[10px] font-[700] text-slate-400">{n.title || n.subject || 'Notification'}</span>
+                                                            <span className="text-[10px] font-bold text-slate-400">{n.title || n.subject || 'Notification'}</span>
                                                             <span className="text-[9px] text-slate-400">{n.time || (n.created_at ? formatUAEDate(n.created_at) : 'Just now')}</span>
                                                         </div>
-                                                        <p className={`text-[11.5px] leading-snug ${!isRead ? 'text-slate-800 font-[650]' : 'text-slate-500 font-[500]'}`}>
+                                                        <p className={`text-[11.5px] leading-snug ${!isRead ? 'text-slate-800 font-[650]' : 'text-slate-500 font-medium'}`}>
                                                             {n.message || 'Notification received'}
                                                         </p>
                                                     </div>
@@ -384,7 +384,7 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                                 {safeNotifs.length > 0 && (
                                     <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/60 flex justify-between items-center">
                                         <span className="text-[10.5px] text-slate-400">{safeNotifs.length} total</span>
-                                        <button onClick={markAllRead} className="text-[11px] font-[700] text-indigo-600 hover:text-indigo-800 transition-colors">
+                                        <button onClick={markAllRead} className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
                                             Mark all read
                                         </button>
                                     </div>
@@ -398,10 +398,10 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
                         onClick={() => navigate('/profile')}
                         className="flex items-center gap-1.5 sm:gap-2.5 pl-1.5 pr-2 sm:pr-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:border-indigo-200 transition-all shadow-xs group active:scale-[0.98]"
                     >
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[11px] font-[800] shrink-0 shadow-sm">
+                        <div className="w-7 h-7 rounded-lg bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-[11px] font-extrabold shrink-0 shadow-sm">
                             {(user?.name || 'U').charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-[12.5px] font-[700] text-slate-700 group-hover:text-indigo-700 transition-colors leading-none hidden sm:block" style={{ letterSpacing: '-0.01em' }}>
+                        <span className="text-[12.5px] font-bold text-slate-700 group-hover:text-indigo-700 transition-colors leading-none hidden sm:block" style={{ letterSpacing: '-0.01em' }}>
                             {user?.name || 'User'}
                         </span>
                     </button>
@@ -410,13 +410,13 @@ const Navbar = ({ onMobileMenuToggle, isMobileSidebarOpen }) => {
 
             {/* ── Mobile Search Bar (slides down) ── */}
             {showMobileSearch && roleUpper !== 'CFO' && roleUpper !== 'ADMIN' && (
-                <div className="flex md:hidden px-3 py-2 bg-white border-b border-slate-100 shadow-sm z-30 sticky top-[70px]">
+                <div className="flex md:hidden px-3 py-2 bg-white border-b border-slate-100 shadow-sm z-30 sticky top-17.5">
                     <div className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus-within:bg-white focus-within:border-indigo-300 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
                         <Search size={15} className="text-slate-400 shrink-0" strokeWidth={2.2} />
                         <input
                             type="text"
                             placeholder="Search tasks or employees..."
-                            className="w-full bg-transparent border-none outline-none text-[13px] font-[500] text-slate-700 placeholder:text-slate-400"
+                            className="w-full bg-transparent border-none outline-none text-[13px] font-medium text-slate-700 placeholder:text-slate-400"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             onKeyDown={handleSearch}
