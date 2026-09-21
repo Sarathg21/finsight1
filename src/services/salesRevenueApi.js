@@ -7,8 +7,9 @@
  */
 
 // IMPORTANT: Keep ?? (not ||) here.
+import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE = getApiBaseUrl();
 
 /* ── JWT helpers ───────────────────────────────────────────────── */
 
@@ -17,7 +18,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
  * Token key: localStorage.finsight_token  (written by the real backend after login).
  */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -103,10 +104,78 @@ const MOCK_SUBDIVISION = {
 
 const MOCK_LEGAL_ENTITY_DETAIL = {
   data: [
-    { legal_entity: 'FJ HQ', total_revenue: 7850000, mtd_revenue: 7850000, ytd_revenue: 92000000, transaction_count: 142, currency: 'AED' },
-    { legal_entity: 'FJ Care UAE', total_revenue: 2450000, mtd_revenue: 2450000, ytd_revenue: 28000000, transaction_count: 85, currency: 'AED' },
-    { legal_entity: 'Flowtech Qatar', total_revenue: 1850000, mtd_revenue: 1850000, ytd_revenue: 22000000, transaction_count: 63, currency: 'AED' },
-    { legal_entity: 'FJ Engineering KSA', total_revenue: 2100000, mtd_revenue: 2100000, ytd_revenue: 26900000, transaction_count: 71, currency: 'AED' },
+    {
+      legal_entity: 'FJ HQ',
+      ledger_currency: 'AED',
+      sales_ptd_ledger_currency: 7850000,
+      sales_ytd_ledger_currency: 92000000,
+      sales_ptd_aed: 7850000,
+      sales_ytd_aed: 92000000,
+      target_sales_ptd: 8000000,
+      target_sales_ytd: 95000000,
+      variance_target_ptd_pct: -1.88,
+      variance_target_ytd_pct: -3.16,
+      percentage: 55.09,
+      total_revenue: 7850000,
+      mtd_revenue: 7850000,
+      ytd_revenue: 92000000,
+      transaction_count: 142,
+      currency: 'AED'
+    },
+    {
+      legal_entity: 'FJ Care UAE',
+      ledger_currency: 'AED',
+      sales_ptd_ledger_currency: 2450000,
+      sales_ytd_ledger_currency: 28000000,
+      sales_ptd_aed: 2450000,
+      sales_ytd_aed: 28000000,
+      target_sales_ptd: 2600000,
+      target_sales_ytd: 30000000,
+      variance_target_ptd_pct: -5.77,
+      variance_target_ytd_pct: -6.67,
+      percentage: 17.19,
+      total_revenue: 2450000,
+      mtd_revenue: 2450000,
+      ytd_revenue: 28000000,
+      transaction_count: 85,
+      currency: 'AED'
+    },
+    {
+      legal_entity: 'Flowtech Qatar',
+      ledger_currency: 'QAR',
+      sales_ptd_ledger_currency: 1832000,
+      sales_ytd_ledger_currency: 21780000,
+      sales_ptd_aed: 1850000,
+      sales_ytd_aed: 22000000,
+      target_sales_ptd: 2000000,
+      target_sales_ytd: 24000000,
+      variance_target_ptd_pct: -7.50,
+      variance_target_ytd_pct: -8.33,
+      percentage: 12.98,
+      total_revenue: 1850000,
+      mtd_revenue: 1850000,
+      ytd_revenue: 22000000,
+      transaction_count: 63,
+      currency: 'AED'
+    },
+    {
+      legal_entity: 'FJ Engineering KSA',
+      ledger_currency: 'SAR',
+      sales_ptd_ledger_currency: 2145000,
+      sales_ytd_ledger_currency: 27480000,
+      sales_ptd_aed: 2100000,
+      sales_ytd_aed: 26900000,
+      target_sales_ptd: 2200000,
+      target_sales_ytd: 28000000,
+      variance_target_ptd_pct: -4.55,
+      variance_target_ytd_pct: -3.93,
+      percentage: 14.74,
+      total_revenue: 2100000,
+      mtd_revenue: 2100000,
+      ytd_revenue: 26900000,
+      transaction_count: 71,
+      currency: 'AED'
+    },
   ],
   total: 14250000,
   count: 4
@@ -362,11 +431,11 @@ const MOCK_CUSTOMER_DETAIL = {
 
 const MOCK_SALESMAN_SUMMARY = {
   data: [
-    { sales_person: 'Hassan Al Nuaimi', sales_aed: 4550000, gross_margin: 1592500, percentage: 31.93, transaction_count: 58, currency: 'AED' },
-    { sales_person: 'John Doe', sales_aed: 3890000, gross_margin: 1361500, percentage: 27.30, transaction_count: 47, currency: 'AED' },
-    { sales_person: 'Sarah Connor', sales_aed: 3100000, gross_margin: 1085000, percentage: 21.75, transaction_count: 39, currency: 'AED' },
-    { sales_person: 'Mike Ross', sales_aed: 1850000, gross_margin: 647500, percentage: 12.98, transaction_count: 28, currency: 'AED' },
-    { sales_person: 'Rachel Zane', sales_aed: 860000, gross_margin: 301000, percentage: 6.04, transaction_count: 17, currency: 'AED' },
+    { employee_id: 'EMP-1001', sales_person: 'Hassan Al Nuaimi', legal_entity: 'FJ HQ', sales_aed: 4550000, gross_margin_aed: 1592500, gross_margin_ptd_pct: 35.0, percentage: 31.93, transaction_count: 58, currency: 'AED', parent_division: 'Corporate', subdivision: 'HQ Operations' },
+    { employee_id: 'EMP-1002', sales_person: 'John Doe', legal_entity: 'FJ Care UAE', sales_aed: 3890000, gross_margin_aed: 1361500, gross_margin_ptd_pct: 35.0, percentage: 27.30, transaction_count: 47, currency: 'AED', parent_division: 'Commercial', subdivision: 'Direct Sales' },
+    { employee_id: 'EMP-1003', sales_person: 'Sarah Connor', legal_entity: 'Flowtech Qatar', sales_aed: 3100000, gross_margin_aed: 1085000, gross_margin_ptd_pct: 35.0, percentage: 21.75, transaction_count: 39, currency: 'AED', parent_division: 'Commercial', subdivision: 'Key Accounts' },
+    { employee_id: 'EMP-1004', sales_person: 'Mike Ross', legal_entity: 'FJ Engineering KSA', sales_aed: 1850000, gross_margin_aed: 647500, gross_margin_ptd_pct: 35.0, percentage: 12.98, transaction_count: 28, currency: 'AED', parent_division: 'Retail', subdivision: 'North Branch' },
+    { employee_id: 'EMP-1005', sales_person: 'Rachel Zane', legal_entity: 'FJ HQ', sales_aed: 860000, gross_margin_aed: 301000, gross_margin_ptd_pct: 35.0, percentage: 6.04, transaction_count: 17, currency: 'AED', parent_division: 'Retail', subdivision: 'South Branch' },
   ],
   total_sales_aed: 14250000,
   count: 5
@@ -459,7 +528,7 @@ const MOCK_SUMMARY_DETAIL = {
 };
 
 function getMockDataForPath(path) {
-  if (path.includes('/filters')) return MOCK_FILTERS;
+  if (path.includes('/filter')) return MOCK_FILTERS;
   if (path.includes('/gross-margin')) return MOCK_GROSS_MARGIN;
   if (path.includes('/salesman-summary')) return MOCK_SALESMAN_SUMMARY;
   if (path.includes('/salesman-detail')) return MOCK_SALESMAN_DETAIL;
@@ -492,7 +561,7 @@ function getMockDataForPath(path) {
 const apiCache = new Map();
 
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   // If no token exists in localStorage, fall back to high-fidelity mock data.
   // This allows the page to work seamlessly when logged in via Demo Mode.
@@ -505,9 +574,19 @@ async function apiCall(path, params = {}) {
     });
   }
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+    const urlParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
+      v.forEach(item => {
+        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+      });
+    } else {
+      urlParams.append(k, v);
+    }
+  }
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}${path}${qs ? `?${qs}` : ''}`;
 
@@ -535,16 +614,16 @@ async function apiCall(path, params = {}) {
   if (!res.ok) {
     if (res.status === 401) {
       console.warn('[salesRevenueApi] 401 Unauthorized. Token expired or invalid. Clearing token and falling back to mock data.');
+      localStorage.removeItem('token');
       localStorage.removeItem('finsight_token');
       return getMockDataForPath(path);
     }
 
-    if (res.status >= 500) {
-      console.warn(`[salesRevenueApi] ${res.status} server error on ${url}. Falling back to mock data.`);
-      return getMockDataForPath(path);
-    }
+    // For authenticated requests: do NOT silently replace backend errors with mock data.
+    // 5xx errors must be surfaced to the UI so UAT can detect backend problems.
+    // (Demo mode — no token — uses getMockDataForPath via the early-return above.)
 
-    // Capture the full response body for debugging 502s/500s
+    // Capture the full response body for debugging
     const rawBody = await res.text().catch(() => '');
     let body = {};
     try { body = JSON.parse(rawBody); } catch { /* non-JSON body */ }
@@ -610,32 +689,75 @@ async function apiCall(path, params = {}) {
  * Normalise the filter state object into API-ready query params.
  * Maps frontend camelCase filter keys → exact backend snake_case param names.
  *
- * Backend field names accepted by stg_sales_revenue_detail APIs:
- *   from_date, to_date, legal_entity, division_code, subdivision_code,
- *   business_unit, sales_person, invoice_currency
+ * CFO UAT Update: Hierarchy filters now use IDs as the primary contract.
+ * Backend field names per handoff document:
+ *   from_date, to_date,
+ *   legal_entity_id, parent_division_id, subdivision_id, analysis_code_id,
+ *   sales_person, invoice_currency, reporting_currency
  *
- * NOTE: sales_person is the confirmed backend field name (not 'salesman').
- *       The selected value is passed as-is, e.g. "E002767-Sreejith Prasannan Pillai".
+ * Name-based fallbacks (legal_entity, division_code, subdivision_code) are
+ * retained for backward compatibility when IDs are not yet available.
  */
 function buildParams(filters = {}) {
-  // Helper: return value only when it exists and is not a catch-all placeholder
-  const active = (val) =>
-    val && val !== 'All' && val !== 'all' ? val : undefined;
+  const active = (val) => {
+    if (!val) return undefined;
+    const actualVal = Array.isArray(val) ? val[0] : val;
+    if (
+      actualVal === undefined ||
+      actualVal === null ||
+      actualVal === '' ||
+      actualVal === 'All' ||
+      actualVal === 'all' ||
+      actualVal === 'All Customers' ||
+      actualVal === 'All Type'
+    ) {
+      return undefined;
+    }
+    return actualVal;
+  };
+
+  // Converts a MultiSelect value array to an array of integers only.
+  // Strips 'All', 'all', empty strings, and any non-numeric string values
+  // (e.g. "Alpha Ducts LLC") that would cause FastAPI int_parsing 422 errors.
+  const activeIds = (arr) => {
+    if (!arr || !Array.isArray(arr)) return undefined;
+    const ids = arr
+      .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
+      .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
+      .filter(v => !isNaN(v));
+    return ids.length > 0 ? ids : undefined;
+  };
+
+  const activeStrings = (arr) => {
+    if (!arr || !Array.isArray(arr)) {
+      if (arr === 'All' || arr === 'All Customers' || !arr) return undefined;
+      return [arr];
+    }
+    const strs = arr.filter(v => v !== 'All' && v !== 'all' && v !== 'All Customers' && v !== '' && v != null);
+    return strs.length > 0 ? strs : undefined;
+  };
 
   return {
-    // ── Date range ──────────────────────────────────────────────
-    from_date:               filters.fromDate                  || undefined,
-    to_date:                 filters.toDate                    || undefined,
-    // ── Dimension filters (stg_sales_revenue_detail) ────────────
-    legal_entity:            active(filters.legalEntity),
-    division_code:           active(filters.parentDiv),
-    subdivision_code:        active(filters.subDiv),
-    sales_person:            active(filters.salesman),          // backend field: sales_person
-    invoice_currency:        active(filters.invoiceCurrency),
-    // ── Customer / transaction filters (details endpoint) ───────
-    customer_name:           filters.customerName              || undefined,
-    customer_account_number: filters.customerAccountNumber     || undefined,
-    project_reference:       filters.projectReference         || undefined,
+    from_date: filters.fromDate || undefined,
+    to_date: filters.toDate || undefined,
+    legal_group_id:     activeIds(filters.legalGroupId),
+    legal_entity_id:    activeIds(filters.legalEntityId),
+    parent_division_id: activeIds(filters.parentDivisionId),
+    subdivision_id:     activeIds(filters.subdivisionId),
+    analysis_code_id: active(filters.analysisCodeId),
+    reporting_currency: active(filters.reportingCurrency),
+    sales_person: activeStrings(filters.salesman),
+    customer_type: activeStrings(filters.customerType),
+    invoice_currency: active(filters.invoiceCurrency),
+    customer_name: filters.customerName || undefined,
+    customer_account_number: filters.customerAccountNumber || undefined,
+    project_reference: filters.projectReference || undefined,
+    sales_category: activeStrings(
+      filters.salesCategories ??
+      filters.salesCategory ??
+      filters.sales_category ??
+      filters.sales_categories
+    )
   };
 }
 
@@ -648,16 +770,26 @@ function buildParams(filters = {}) {
  * @param {object} filters  - current applied filters
  */
 export function exportSalesRevenue(endpoint, format, filters = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   const params = {
     ...buildParams(filters),
     format,
   };
 
-  const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null && v !== 'All')
-  ).toString();
+    const urlParams = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === 'All' || v === 'all' || v === '') continue;
+    if (Array.isArray(v)) {
+      if (v.length === 0 || (v.length === 1 && (v[0] === 'All' || v[0] === 'all'))) continue;
+      v.forEach(item => {
+        if (item !== 'All' && item !== 'all') urlParams.append(k, item);
+      });
+    } else {
+      urlParams.append(k, v);
+    }
+  }
+  const qs = urlParams.toString();
 
   const url = `${API_BASE}/api/sales-revenue/${endpoint}/export${qs ? `?${qs}` : ''}`;
 
@@ -697,7 +829,7 @@ export function exportSalesRevenue(endpoint, format, filters = {}) {
 /* ── Public API functions ──────────────────────────────────────── */
 
 /**
- * GET /api/sales-revenue/filters
+ * GET /api/sales-revenue/filter-options
  * Returns available filter options (dropdown values).
  */
 export async function fetchAccessMe() {
@@ -709,31 +841,109 @@ export async function fetchRolePermissions(roleCode) {
 }
 
 export async function fetchFilters() {
-  return apiCall('/api/sales-revenue/filters', { currency: 'AED' });
+  return apiCall('/api/sales-revenue/filter-options', { currency: 'AED' });
 }
 
 /**
  * GET /api/sales-revenue/filter-options
- * Cascading filter options
+ * Returns cascading filter options with ID+name objects for hierarchy levels.
+ *
+ * CFO UAT response shape:
+ * {
+ *   legal_groups:           [{ id, name }],
+ *   legal_entities:         [{ id, name }],
+ *   parent_divisions:       [{ id, name }],
+ *   subdivisions:           [{ id, name }],
+ *   analysis_codes:         [{ id, name }],
+ *   invoice_currencies:     [string],
+ *   reporting_currencies:   [{ currency_code, conversion_rate_to_aed }] or [string],
+ *   currencies:             [string],  // backward-compat
+ *   default_reporting_currency: string,
+ *   salesmen:               [string | { employee_id, salesman_name }],
+ * }
  */
 export async function fetchFilterOptions(params = {}) {
+  // Build cascade params using IDs when available, fall back to names
+  // Build cascade params — send only valid integer IDs, strip 'All' and string names
+  const toIntIds = (arr) => {
+    if (!arr || !Array.isArray(arr)) return undefined;
+    const ids = arr
+      .filter(v => v !== 'All' && v !== 'all' && v !== '' && v != null)
+      .map(v => (typeof v === 'number' ? v : parseInt(v, 10)))
+      .filter(v => !isNaN(v));
+    return ids.length > 0 ? ids : undefined;
+  };
   const apiParams = {};
-  if (params.legalEntity && params.legalEntity !== 'All') apiParams.legal_entity = params.legalEntity;
-  if (params.parentDiv && params.parentDiv !== 'All') apiParams.parent_division = params.parentDiv;
-  if (params.subDiv && params.subDiv !== 'All') apiParams.subdivision = params.subDiv;
-  
-  const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
+  const activeStrings = (arr) => {
+    if (!arr || !Array.isArray(arr)) {
+      if (arr === 'All' || arr === 'All Customers' || !arr) return undefined;
+      return [arr];
+    }
+    const strs = arr.filter(v => v !== 'All' && v !== 'all' && v !== 'All Customers' && v !== '' && v != null);
+    return strs.length > 0 ? strs : undefined;
+  };
+  const gIds = toIntIds(params.legalGroupId);
+  const eIds = toIntIds(params.legalEntityId);
+  const pIds = toIntIds(params.parentDivisionId);
+  const sIds = toIntIds(params.subdivisionId);
+  if (gIds) apiParams.legal_group_id     = gIds;
+  if (eIds) apiParams.legal_entity_id    = eIds;
+  if (pIds) apiParams.parent_division_id = pIds;
+  if (sIds) apiParams.subdivision_id     = sIds;
+
+    const sStrs = activeStrings(params.salesman);
+  const cStrs = activeStrings(params.customerType);
+  if (sStrs) apiParams.salesman = sStrs;
+  if (cStrs) apiParams.customer_type = cStrs;
+const raw = await apiCall('/api/sales-revenue/filter-options', apiParams);
   const unwrap = (r) => (r && typeof r === 'object' && !Array.isArray(r) && (r.legal_entities !== undefined ? r : (r.data || r.result || r))) || r;
   const res = unwrap(raw) || {};
-  let leList = res.legal_entities || [];
-  if (!Array.isArray(leList)) leList = [];
-  const valid = leList
-    .map(e => typeof e === 'object' ? (e.name || e.id || '') : e)
-    .filter(e => e && typeof e === 'string' && e.toLowerCase() !== 'all');
 
-  const set = new Set([...LEGAL_ENTITIES.map(le => le.name), ...valid]);
-  res.legal_entities = Array.from(set).sort();
-  return res;
+  // Normalize each hierarchy list to [{id, name}] objects.
+  // Backend now returns {label, value} where value is the numeric hierarchy ID.
+  // Also handles legacy {id, name} and plain string fallbacks.
+  const normalizeIdName = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list.map((e, i) => {
+      if (typeof e === 'object' && e !== null) {
+        // ── New contract: { label: "Alpha Ducts LLC", value: 4 } ──
+        if (e.value !== undefined && e.label !== undefined) {
+          const numId = typeof e.value === 'number' ? e.value : parseInt(e.value, 10);
+          return { id: isNaN(numId) ? e.value : numId, name: e.label };
+        }
+        // ── Legacy contract: { id, name } or field-specific id keys ──
+        const rawId = e.id ?? e.legal_entity_id ?? e.parent_division_id ?? e.subdivision_id ?? e.legal_group_id ?? i;
+        const numId = typeof rawId === 'number' ? rawId : parseInt(rawId, 10);
+        return { id: isNaN(numId) ? rawId : numId, name: e.name || e.label || String(rawId) };
+      }
+      // plain string — use as display name only; no numeric ID available
+      return { id: e, name: String(e) };
+    }).filter(e => e.name && String(e.name).toLowerCase() !== 'all');
+  };
+
+  return {
+    ...res,
+    // Normalized {id, name} arrays for hierarchy dropdowns
+    legal_groups:     normalizeIdName(res.legal_groups),
+    legal_entities:   normalizeIdName(res.legal_entities),
+    parent_divisions: normalizeIdName(res.parent_divisions),
+    subdivisions:     normalizeIdName(res.subdivisions),
+    analysis_codes:   normalizeIdName(res.analysis_codes),
+    // Salesmen: may be strings or objects
+    salesmen: Array.isArray(res.salesmen) ? res.salesmen : [],
+    // Invoice currencies: string list
+    invoice_currencies: Array.isArray(res.invoice_currencies || res.invoiceCurrencies)
+      ? (res.invoice_currencies || res.invoiceCurrencies) : [],
+    // Reporting currencies: may be [{currency_code, ...}] or [string]
+    reporting_currencies: Array.isArray(res.reporting_currencies || res.currencies)
+      ? (res.reporting_currencies || res.currencies) : [],
+    // Default reporting currency from backend
+    default_reporting_currency: res.default_reporting_currency || 'AED',
+    // Sales categories
+    sales_categories: (Array.isArray(res.sales_categories) && res.sales_categories.length > 0)
+      ? res.sales_categories
+      : ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],
+  };
 }
 
 /* ── View-All Detail APIs (new endpoints) ──────────────────────── */
@@ -967,20 +1177,15 @@ export async function fetchCustomerDetail(filters) {
  *   ]
  * }
  *
- * NOTE: Falls back to local mock data if the backend returns a 5xx error
- * (endpoint may not be implemented yet on the server).
+ * CFO UAT: Backend is now reconciled. All errors propagate to the UI.
+ * Response fields: legal_entity, parent_division, subdivision, ptd_from_date,
+ *   report_date, revenue_ptd, revenue_ytd, revenue_ptd_py, revenue_ytd_py,
+ *   gross_margin_ptd, gross_margin_ytd, gross_margin_pct,
+ *   target_sales_ptd, target_sales_ytd, target_gross_margin_ptd, target_gross_margin_ytd,
+ *   target_gross_margin_pct, variance_target_ptd, variance_target_ytd,
+ *   variance_target_ptd_pct, variance_target_ytd_pct, percentage, reporting_currency
  */
 export async function fetchSummaryDetail(filters) {
-  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters))
-    .catch((err) => {
-      if (err?.status >= 500 || err?.status === 0) {
-        console.warn(
-          `[salesRevenueApi] summary-detail returned ${err?.status ?? 'network error'} — ` +
-          'falling back to local mock data. Backend endpoint may not be implemented yet.'
-        );
-        return MOCK_SUMMARY_DETAIL;
-      }
-      // Re-throw auth errors and other client errors so the caller can handle them
-      throw err;
-    });
+  return apiCall('/api/sales-revenue/summary-detail', buildParams(filters));
 }
+
