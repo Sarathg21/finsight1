@@ -1,4 +1,5 @@
 
+
 // import React, { useEffect, useState, useRef, useMemo } from "react";
 // import {
 //   getPayablesFilterOptions,
@@ -250,6 +251,52 @@
 //   normalizeAgingBasis(value) === "INVOICE_DATE"
 //     ? "Invoice Date Based"
 //     : "Due Date Based";
+
+
+// /* ============================================================
+//    AGING BUCKET CODE HELPER
+//    Shared by dashboard drilldowns and PayablesViewAll.
+//    ============================================================ */
+// const toAgingBucketCode = (value) => {
+//   const text = String(value || "").trim().toUpperCase();
+
+//   const normalized = text
+//     .replace(/–/g, "-")
+//     .replace(/—/g, "-")
+//     .replace(/\\s+/g, "_");
+
+//   const map = {
+//     CURRENT: "CURRENT",
+//     "0-30_DAYS": "0_30",
+//     "0_30_DAYS": "0_30",
+//     "0-30": "0_30",
+//     "0_30": "0_30",
+//     "31-60_DAYS": "31_60",
+//     "31_60_DAYS": "31_60",
+//     "31-60": "31_60",
+//     "31_60": "31_60",
+//     "61-90_DAYS": "61_90",
+//     "61_90_DAYS": "61_90",
+//     "61-90": "61_90",
+//     "61_90": "61_90",
+//     "91-120_DAYS": "91_120",
+//     "91_120_DAYS": "91_120",
+//     "91-120": "91_120",
+//     "91_120": "91_120",
+//     "121-180_DAYS": "121_180",
+//     "121_180_DAYS": "121_180",
+//     "121-180": "121_180",
+//     "121_180": "121_180",
+//     "181-365_DAYS": "181_365",
+//     "181_365_DAYS": "181_365",
+//     "181-365": "181_365",
+//     "181_365": "181_365",
+//     "ABOVE_365_DAYS": "ABOVE_365",
+//     ABOVE_365: "ABOVE_365",
+//   };
+
+//   return map[normalized] || text;
+// };
 
 // const buildPayablesApiFilters = (filters = {}, optionMeta = {}) => {
 //   const omitAll = (values, options) => {
@@ -560,41 +607,13 @@
 //    ============================================================ */
 
 // const currencyConfig = {
-//   AED: {
-//     code: "AED",
-//     locale: "en-AE",
-//     decimals: 2,
-//   },
-
-//   INR: {
-//     code: "INR",
-//     locale: "en-IN",
-//     decimals: 2,
-//   },
-
-//   OMR: {
-//     code: "OMR",
-//     locale: "en-OM",
-//     decimals: 2,
-//   },
-
-//   QAR: {
-//     code: "QAR",
-//     locale: "en-QA",
-//     decimals: 2,
-//   },
-
-//   SAR: {
-//     code: "SAR",
-//     locale: "en-SA",
-//     decimals: 2,
-//   },
-
-//   USD: {
-//     code: "USD",
-//     locale: "en-US",
-//     decimals: 2,
-//   },
+//   AED: { code: "AED", locale: "en-AE" },
+//   INR: { code: "INR", locale: "en-IN" },
+//   OMR: { code: "OMR", locale: "en-OM" },
+//   QAR: { code: "QAR", locale: "en-QA" },
+//   SAR: { code: "SAR", locale: "en-SA" },
+//   USD: { code: "USD", locale: "en-US" },
+//   EUR: { code: "EUR", locale: "en-IE" },
 // };
 
 // /* ============================================================
@@ -5183,49 +5202,6 @@
 //     openPayablesViewAll("all", detailFilters);
 //   };
 
-//   const toAgingBucketCode = (value) => {
-//     const text = String(value || "").trim().toUpperCase();
-
-//     const normalized = text
-//       .replace(/–/g, "-")
-//       .replace(/—/g, "-")
-//       .replace(/\s+/g, "_");
-
-//     const map = {
-//       CURRENT: "CURRENT",
-//       "0-30_DAYS": "0_30",
-//       "0_30_DAYS": "0_30",
-//       "0-30": "0_30",
-//       "0_30": "0_30",
-//       "31-60_DAYS": "31_60",
-//       "31_60_DAYS": "31_60",
-//       "31-60": "31_60",
-//       "31_60": "31_60",
-//       "61-90_DAYS": "61_90",
-//       "61_90_DAYS": "61_90",
-//       "61-90": "61_90",
-//       "61_90": "61_90",
-//       "91-120_DAYS": "91_120",
-//       "91_120_DAYS": "91_120",
-//       "91-120": "91_120",
-//       "91_120": "91_120",
-//       "121-180_DAYS": "121_180",
-//       "121_180_DAYS": "121_180",
-//       "121-180": "121_180",
-//       "121_180": "121_180",
-//       "181-365_DAYS": "181_365",
-//       "181_365_DAYS": "181_365",
-//       "181-365": "181_365",
-//       "181_365": "181_365",
-//       "ABOVE_365_DAYS": "ABOVE_365",
-//       ABOVE_365: "ABOVE_365",
-//       "ABOVE_365": "ABOVE_365",
-//       "ABOVE_365_DAYS": "ABOVE_365",
-//     };
-
-//     return map[normalized] || text;
-//   };
-
 //   const handleAgingDrillDown = (row) => {
 //     const bucketCode =
 //       row?.bucket_code ??
@@ -5724,8 +5700,7 @@
 //           style={{
 //             marginTop: "20px",
 //             display: "grid",
-//             gridTemplateColumns:
-//               "repeat(5, minmax(0, 1fr))",
+//             gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
 //             gap: 9,
 //             marginBottom: 12,
 //           }}
@@ -5733,8 +5708,8 @@
 //           <KpiCard
 //             title="Total Payables"
 //             value={kpis.total_payables}
-//             variance={kpis.total_payables_variance}
-//             previousDate={kpis.previous_date}
+//             variance={kpis.total_change_percentage}
+//             previousDate={kpis.previous_as_on_date}
 //             currency={currency}
 //             icon="▤"
 //             iconBg="#F5F9FF"
@@ -5744,8 +5719,8 @@
 //           <KpiCard
 //             title="Current Payables"
 //             value={kpis.current_payables}
-//             variance={kpis.current_payables_variance}
-//             previousDate={kpis.previous_date}
+//             variance={kpis.current_change_percentage}
+//             previousDate={kpis.previous_as_on_date}
 //             currency={currency}
 //             icon="▣"
 //             iconBg="#F3FCF6"
@@ -5755,32 +5730,32 @@
 //           <KpiCard
 //             title="Overdue Payables"
 //             value={kpis.overdue_payables}
-//             variance={kpis.overdue_payables_variance}
-//             previousDate={kpis.previous_date}
+//             variance={kpis.overdue_change_percentage}
+//             previousDate={kpis.previous_as_on_date}
 //             currency={currency}
 //             icon="⌛"
 //             iconBg="#FFF9F3"
 //             iconColor="#f59e0b"
-//             onClick={handleOverdueDrillDown}
+//           // onClick={handleOverdueDrillDown}
 //           />
 
 //           <KpiCard
 //             title="Overdue > 90 Days"
-//             value={kpis.overdue_gt_90}
-//             variance={kpis.overdue_gt_90_variance}
-//             previousDate={kpis.previous_date}
+//             value={kpis.overdue_above_90}
+//             variance={kpis.overdue_above_90_change_percentage}
+//             previousDate={kpis.previous_as_on_date}
 //             currency={currency}
 //             icon="!"
 //             iconBg="#FFF7FA"
 //             iconColor="#ef476f"
-//             onClick={handleOverdueAbove90DrillDown}
+//           // onClick={handleOverdueAbove90DrillDown}
 //           />
 
 //           <KpiCard
 //             title="DPO – Days Payable Outstanding"
-//             value={kpis.dpo}
-//             variance={kpis.dpo_variance}
-//             previousDate={kpis.previous_date}
+//             value={kpis.dpo_days}
+//             variance={kpis.dpo_change_days}
+//             previousDate={kpis.previous_as_on_date}
 //             suffix="Days"
 //             currency={currency}
 //             icon="%"
@@ -6131,7 +6106,7 @@
 //                 Year
 //               </span>
 
-//               <select
+//               <input
 //                 value={monthOnMonthYear || filters.year}
 //                 onChange={(e) => {
 //                   const nextYear = Number(e.target.value);
@@ -6141,7 +6116,7 @@
 //                     ...previous,
 //                     year: nextYear,
 //                   }));
-//                 }}
+//                 }} readOnly
 //                 style={{
 //                   height: 30,
 //                   minWidth: 75,
@@ -6153,13 +6128,13 @@
 //                   fontSize: 10,
 //                   fontWeight: 600,
 //                 }}
-//               >
-//                 {filterOptions.years.map((year) => (
+//               />
+//               {/* {filterOptions.years.map((year) => (
 //                   <option key={year} value={year}>
 //                     {year}
 //                   </option>
-//                 ))}
-//               </select>
+//                 ))} */}
+
 
 //               {/* AED / AED Millions toggle stays on the same row as Year and the ⋮ menu. */}
 //               <div
@@ -7170,29 +7145,47 @@
 //      VIEW ALL FILTERS
 //   ============================================================ */
 
-//   const getInitialViewFilters = () => ({
-//     // Keep "All" visible exactly like the main dashboard filter
-//     legal_group: ["All"],
-//     legal_entities: ["All"],
-//     parent_divisions: ["All"],
-//     sub_divisions: ["All"],
+//   const getInitialViewFilters = () => {
+//     const toMultiValue = (value) => {
+//       if (Array.isArray(value)) {
+//         const values = value.filter(
+//           (item) => item !== undefined && item !== null && String(item) !== ""
+//         );
+//         return values.length ? [...values] : ["All"];
+//       }
 
-//     reporting_currency:
-//       filters?.reporting_currency ||
-//       currency ||
-//       "AED",
+//       if (value !== undefined && value !== null && String(value) !== "") {
+//         return [value];
+//       }
 
-//     as_on_date:
-//       filters?.as_on_date ||
-//       filters?.as_on_dates ||
-//       filters?.asOfDate ||
-//       "",
+//       return ["All"];
+//     };
 
-//     aging_basis:
-//       filters?.aging_basis ||
-//       filters?.agingBasis ||
-//       "Due Date Based",
-//   });
+//     return {
+//       // Carry the exact main-page selections into View All.
+//       // If the main filter is unselected, keep the existing "All" state.
+//       legal_group: toMultiValue(filters?.legal_group),
+//       legal_entities: toMultiValue(filters?.legal_entities),
+//       parent_divisions: toMultiValue(filters?.parent_divisions),
+//       sub_divisions: toMultiValue(filters?.sub_divisions),
+
+//       reporting_currency:
+//         filters?.reporting_currency ||
+//         currency ||
+//         "AED",
+
+//       as_on_date:
+//         filters?.as_on_date ||
+//         filters?.as_on_dates ||
+//         filters?.asOfDate ||
+//         "",
+
+//       aging_basis:
+//         filters?.aging_basis ||
+//         filters?.agingBasis ||
+//         "Due Date Based",
+//     };
+//   };
 
 //   const [viewFilters, setViewFilters] = useState(
 //     getInitialViewFilters
@@ -7315,6 +7308,53 @@
 //       0,
 //   });
 
+//   /*
+//    * IMPORTANT: the View All export must use the exact same drill-down
+//    * parameters that were used to open this View All.  Do not rebuild these
+//    * from the visible table rows or from the dashboard aggregates.
+//    *
+//    * Supported backend drill-down parameters:
+//    *   - aging_bucket
+//    *   - as_on_date
+//    *   - parent_division_id
+//    *   - supplier_id
+//    *   - balance_status
+//    *   - subdivision_id
+//    *   - legal_entity_id
+//    *   - parent_division_id + subdivision_id + as_on_date (MoM)
+//    */
+//   const normalizedDetailFilters = useMemo(() => {
+//     const source = detailFilters || {};
+//     const normalized = {};
+
+//     if (source.aging_bucket !== undefined && source.aging_bucket !== null && source.aging_bucket !== "") {
+//       normalized.aging_bucket = toAgingBucketCode(source.aging_bucket);
+//     }
+
+//     if (source.balance_status !== undefined && source.balance_status !== null && source.balance_status !== "") {
+//       normalized.balance_status = String(source.balance_status).trim().toUpperCase();
+//     }
+
+//     if (source.as_on_date !== undefined && source.as_on_date !== null && source.as_on_date !== "") {
+//       normalized.as_on_date = toApiDate(source.as_on_date);
+//     }
+
+//     [
+//       "supplier_id",
+//       "customer_id",
+//       "parent_division_id",
+//       "subdivision_id",
+//       "legal_entity_id",
+//     ].forEach((key) => {
+//       if (source[key] !== undefined && source[key] !== null && source[key] !== "") {
+//         normalized[key] = source[key];
+//       }
+//     });
+
+//     return normalized;
+//   }, [detailFilters]);
+
+
 //   useEffect(() => {
 //     let active = true;
 
@@ -7333,7 +7373,7 @@
 
 //         const response = await getPayablesViewAll({
 //           ...apiFilters,
-//           ...(detailFilters || {}),
+//           ...normalizedDetailFilters,
 //           page,
 //           page_size: pageSize,
 //           sort_by: sortKey === "total_payable" ? "total_payables" : sortKey,
@@ -7418,7 +7458,7 @@
 //     filters,
 //     appliedViewFilters,
 //     filterOptions,
-//     detailFilters,
+//     normalizedDetailFilters,
 //     page,
 //     pageSize,
 //     sortKey,
@@ -8515,9 +8555,11 @@
 //         filterOptions
 //       );
 
+//       // Keep the drill-down filters separate and merge them last so that
+//       // they can never be lost/overwritten by normal dashboard filters.
 //       const exportParams = {
 //         ...apiFilters,
-//         ...(detailFilters || {}),
+//         ...normalizedDetailFilters,
 //       };
 
 //       const response =
@@ -8663,6 +8705,7 @@
 //     null;
 
 //   const agingBasis =
+//     appliedViewFilters?.aging_basis ||
 //     filters?.aging_basis ||
 //     filters?.agingBasis ||
 //     "Due Date Based";
@@ -9604,12 +9647,17 @@
 //                             column.key ===
 //                             "row_currency"
 //                           ) {
+//                             // View All currency must follow the currently
+//                             // applied View All Reporting Currency filter.
+//                             // Only fall back to the row/main currency when
+//                             // no View All currency is available.
 //                             value =
-//                               row.row_currency ??
-//                               row.source_currency ??
-//                               row.reporting_currency ??
-//                               row.currency ??
-//                               currency ??
+//                               appliedViewFilters?.reporting_currency ||
+//                               row.row_currency ||
+//                               row.source_currency ||
+//                               row.reporting_currency ||
+//                               row.currency ||
+//                               currency ||
 //                               "AED";
 //                           } else {
 //                             value =
@@ -9868,6 +9916,8 @@
 // }
 
 
+
+
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   getPayablesFilterOptions,
@@ -10119,6 +10169,52 @@ const displayAgingBasis = (value) =>
   normalizeAgingBasis(value) === "INVOICE_DATE"
     ? "Invoice Date Based"
     : "Due Date Based";
+
+
+/* ============================================================
+   AGING BUCKET CODE HELPER
+   Shared by dashboard drilldowns and PayablesViewAll.
+   ============================================================ */
+const toAgingBucketCode = (value) => {
+  const text = String(value || "").trim().toUpperCase();
+
+  const normalized = text
+    .replace(/–/g, "-")
+    .replace(/—/g, "-")
+    .replace(/\\s+/g, "_");
+
+  const map = {
+    CURRENT: "CURRENT",
+    "0-30_DAYS": "0_30",
+    "0_30_DAYS": "0_30",
+    "0-30": "0_30",
+    "0_30": "0_30",
+    "31-60_DAYS": "31_60",
+    "31_60_DAYS": "31_60",
+    "31-60": "31_60",
+    "31_60": "31_60",
+    "61-90_DAYS": "61_90",
+    "61_90_DAYS": "61_90",
+    "61-90": "61_90",
+    "61_90": "61_90",
+    "91-120_DAYS": "91_120",
+    "91_120_DAYS": "91_120",
+    "91-120": "91_120",
+    "91_120": "91_120",
+    "121-180_DAYS": "121_180",
+    "121_180_DAYS": "121_180",
+    "121-180": "121_180",
+    "121_180": "121_180",
+    "181-365_DAYS": "181_365",
+    "181_365_DAYS": "181_365",
+    "181-365": "181_365",
+    "181_365": "181_365",
+    "ABOVE_365_DAYS": "ABOVE_365",
+    ABOVE_365: "ABOVE_365",
+  };
+
+  return map[normalized] || text;
+};
 
 const buildPayablesApiFilters = (filters = {}, optionMeta = {}) => {
   const omitAll = (values, options) => {
@@ -10429,41 +10525,13 @@ const normalizeDashboardResponse = (response) => {
    ============================================================ */
 
 const currencyConfig = {
-  AED: {
-    code: "AED",
-    locale: "en-AE",
-    decimals: 2,
-  },
-
-  INR: {
-    code: "INR",
-    locale: "en-IN",
-    decimals: 2,
-  },
-
-  OMR: {
-    code: "OMR",
-    locale: "en-OM",
-    decimals: 2,
-  },
-
-  QAR: {
-    code: "QAR",
-    locale: "en-QA",
-    decimals: 2,
-  },
-
-  SAR: {
-    code: "SAR",
-    locale: "en-SA",
-    decimals: 2,
-  },
-
-  USD: {
-    code: "USD",
-    locale: "en-US",
-    decimals: 2,
-  },
+  AED: { code: "AED", locale: "en-AE" },
+  INR: { code: "INR", locale: "en-IN" },
+  OMR: { code: "OMR", locale: "en-OM" },
+  QAR: { code: "QAR", locale: "en-QA" },
+  SAR: { code: "SAR", locale: "en-SA" },
+  USD: { code: "USD", locale: "en-US" },
+  EUR: { code: "EUR", locale: "en-IE" },
 };
 
 /* ============================================================
@@ -15052,49 +15120,6 @@ export default function PayablesDashboard() {
     openPayablesViewAll("all", detailFilters);
   };
 
-  const toAgingBucketCode = (value) => {
-    const text = String(value || "").trim().toUpperCase();
-
-    const normalized = text
-      .replace(/–/g, "-")
-      .replace(/—/g, "-")
-      .replace(/\s+/g, "_");
-
-    const map = {
-      CURRENT: "CURRENT",
-      "0-30_DAYS": "0_30",
-      "0_30_DAYS": "0_30",
-      "0-30": "0_30",
-      "0_30": "0_30",
-      "31-60_DAYS": "31_60",
-      "31_60_DAYS": "31_60",
-      "31-60": "31_60",
-      "31_60": "31_60",
-      "61-90_DAYS": "61_90",
-      "61_90_DAYS": "61_90",
-      "61-90": "61_90",
-      "61_90": "61_90",
-      "91-120_DAYS": "91_120",
-      "91_120_DAYS": "91_120",
-      "91-120": "91_120",
-      "91_120": "91_120",
-      "121-180_DAYS": "121_180",
-      "121_180_DAYS": "121_180",
-      "121-180": "121_180",
-      "121_180": "121_180",
-      "181-365_DAYS": "181_365",
-      "181_365_DAYS": "181_365",
-      "181-365": "181_365",
-      "181_365": "181_365",
-      "ABOVE_365_DAYS": "ABOVE_365",
-      ABOVE_365: "ABOVE_365",
-      "ABOVE_365": "ABOVE_365",
-      "ABOVE_365_DAYS": "ABOVE_365",
-    };
-
-    return map[normalized] || text;
-  };
-
   const handleAgingDrillDown = (row) => {
     const bucketCode =
       row?.bucket_code ??
@@ -15593,8 +15618,7 @@ export default function PayablesDashboard() {
           style={{
             marginTop: "20px",
             display: "grid",
-            gridTemplateColumns:
-              "repeat(5, minmax(0, 1fr))",
+            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
             gap: 9,
             marginBottom: 12,
           }}
@@ -15602,8 +15626,8 @@ export default function PayablesDashboard() {
           <KpiCard
             title="Total Payables"
             value={kpis.total_payables}
-            variance={kpis.total_payables_variance}
-            previousDate={kpis.previous_date}
+            variance={kpis.total_change_percentage}
+            previousDate={kpis.previous_as_on_date}
             currency={currency}
             icon="▤"
             iconBg="#F5F9FF"
@@ -15613,8 +15637,8 @@ export default function PayablesDashboard() {
           <KpiCard
             title="Current Payables"
             value={kpis.current_payables}
-            variance={kpis.current_payables_variance}
-            previousDate={kpis.previous_date}
+            variance={kpis.current_change_percentage}
+            previousDate={kpis.previous_as_on_date}
             currency={currency}
             icon="▣"
             iconBg="#F3FCF6"
@@ -15624,32 +15648,32 @@ export default function PayablesDashboard() {
           <KpiCard
             title="Overdue Payables"
             value={kpis.overdue_payables}
-            variance={kpis.overdue_payables_variance}
-            previousDate={kpis.previous_date}
+            variance={kpis.overdue_change_percentage}
+            previousDate={kpis.previous_as_on_date}
             currency={currency}
             icon="⌛"
             iconBg="#FFF9F3"
             iconColor="#f59e0b"
-            onClick={handleOverdueDrillDown}
+          // onClick={handleOverdueDrillDown}
           />
 
           <KpiCard
             title="Overdue > 90 Days"
-            value={kpis.overdue_gt_90}
-            variance={kpis.overdue_gt_90_variance}
-            previousDate={kpis.previous_date}
+            value={kpis.overdue_above_90}
+            variance={kpis.overdue_above_90_change_percentage}
+            previousDate={kpis.previous_as_on_date}
             currency={currency}
             icon="!"
             iconBg="#FFF7FA"
             iconColor="#ef476f"
-            onClick={handleOverdueAbove90DrillDown}
+          // onClick={handleOverdueAbove90DrillDown}
           />
 
           <KpiCard
             title="DPO – Days Payable Outstanding"
-            value={kpis.dpo}
-            variance={kpis.dpo_variance}
-            previousDate={kpis.previous_date}
+            value={kpis.dpo_days}
+            variance={kpis.dpo_change_days}
+            previousDate={kpis.previous_as_on_date}
             suffix="Days"
             currency={currency}
             icon="%"
@@ -16000,7 +16024,7 @@ export default function PayablesDashboard() {
                 Year
               </span>
 
-              <select
+              <input
                 value={monthOnMonthYear || filters.year}
                 onChange={(e) => {
                   const nextYear = Number(e.target.value);
@@ -16010,7 +16034,7 @@ export default function PayablesDashboard() {
                     ...previous,
                     year: nextYear,
                   }));
-                }}
+                }} readOnly
                 style={{
                   height: 30,
                   minWidth: 75,
@@ -16022,13 +16046,13 @@ export default function PayablesDashboard() {
                   fontSize: 10,
                   fontWeight: 600,
                 }}
-              >
-                {filterOptions.years.map((year) => (
+              />
+              {/* {filterOptions.years.map((year) => (
                   <option key={year} value={year}>
                     {year}
                   </option>
-                ))}
-              </select>
+                ))} */}
+
 
               {/* AED / AED Millions toggle stays on the same row as Year and the ⋮ menu. */}
               <div
@@ -17039,29 +17063,47 @@ function PayablesViewAll({
      VIEW ALL FILTERS
   ============================================================ */
 
-  const getInitialViewFilters = () => ({
-    // Keep "All" visible exactly like the main dashboard filter
-    legal_group: ["All"],
-    legal_entities: ["All"],
-    parent_divisions: ["All"],
-    sub_divisions: ["All"],
+  const getInitialViewFilters = () => {
+    const toMultiValue = (value) => {
+      if (Array.isArray(value)) {
+        const values = value.filter(
+          (item) => item !== undefined && item !== null && String(item) !== ""
+        );
+        return values.length ? [...values] : ["All"];
+      }
 
-    reporting_currency:
-      filters?.reporting_currency ||
-      currency ||
-      "AED",
+      if (value !== undefined && value !== null && String(value) !== "") {
+        return [value];
+      }
 
-    as_on_date:
-      filters?.as_on_date ||
-      filters?.as_on_dates ||
-      filters?.asOfDate ||
-      "",
+      return ["All"];
+    };
 
-    aging_basis:
-      filters?.aging_basis ||
-      filters?.agingBasis ||
-      "Due Date Based",
-  });
+    return {
+      // Carry the exact main-page selections into View All.
+      // If the main filter is unselected, keep the existing "All" state.
+      legal_group: toMultiValue(filters?.legal_group),
+      legal_entities: toMultiValue(filters?.legal_entities),
+      parent_divisions: toMultiValue(filters?.parent_divisions),
+      sub_divisions: toMultiValue(filters?.sub_divisions),
+
+      reporting_currency:
+        filters?.reporting_currency ||
+        currency ||
+        "AED",
+
+      as_on_date:
+        filters?.as_on_date ||
+        filters?.as_on_dates ||
+        filters?.asOfDate ||
+        "",
+
+      aging_basis:
+        filters?.aging_basis ||
+        filters?.agingBasis ||
+        "Due Date Based",
+    };
+  };
 
   const [viewFilters, setViewFilters] = useState(
     getInitialViewFilters
@@ -18581,9 +18623,17 @@ function PayablesViewAll({
     null;
 
   const agingBasis =
+    appliedViewFilters?.aging_basis ||
     filters?.aging_basis ||
     filters?.agingBasis ||
     "Due Date Based";
+
+  // View All Summary Cards must use the Reporting Currency
+  // selected inside View All and applied by the user.
+  const viewAllCurrency =
+    appliedViewFilters?.reporting_currency ||
+    currency ||
+    "AED";
 
   /* ============================================================
      KPI CARD
@@ -18656,7 +18706,7 @@ function PayablesViewAll({
         >
           {formatPayablesCompact(
             value,
-            currency
+            viewAllCurrency
           )}
         </div>
       </div>
@@ -19522,12 +19572,17 @@ function PayablesViewAll({
                             column.key ===
                             "row_currency"
                           ) {
+                            // View All currency must follow the currently
+                            // applied View All Reporting Currency filter.
+                            // Only fall back to the row/main currency when
+                            // no View All currency is available.
                             value =
-                              row.row_currency ??
-                              row.source_currency ??
-                              row.reporting_currency ??
-                              row.currency ??
-                              currency ??
+                              appliedViewFilters?.reporting_currency ||
+                              row.row_currency ||
+                              row.source_currency ||
+                              row.reporting_currency ||
+                              row.currency ||
+                              currency ||
                               "AED";
                           } else {
                             value =
@@ -19784,6 +19839,16 @@ function PayablesViewAll({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
 
 
 

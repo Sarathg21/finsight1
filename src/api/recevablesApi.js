@@ -1,331 +1,370 @@
-import api from "./axios";
+import axios from "axios";
 
-/* =========================================================
-   COMMON API HELPERS
-========================================================= */
+/* ─────────────────────────────────────────────
+   API BASE URL
+───────────────────────────────────────────── */
 
-const buildParams = (
-  filters = {},
-  includeEmpty = false
-) => {
-  const params = {};
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
-  Object.entries(filters || {}).forEach(
-    ([key, value]) => {
-      if (
-        value === undefined ||
-        value === null
-      ) {
-        return;
-      }
+/* ─────────────────────────────────────────────
+   AXIOS INSTANCE
+───────────────────────────────────────────── */
 
-      /*
-       * Skip empty values unless explicitly requested.
-       */
-      if (
-        !includeEmpty &&
-        (
-          value === "" ||
-          value === "All" ||
-          value === "all"
-        )
-      ) {
-        return;
-      }
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
+});
 
-      /*
-       * Multi-select filters.
-       *
-       * Example:
-       * legal_entity: [1, 2, 3]
-       *
-       * Axios will send:
-       * ?legal_entity=1&legal_entity=2&legal_entity=3
-       */
-      if (Array.isArray(value)) {
-        value.forEach((item) => {
-          if (
-            item === undefined ||
-            item === null ||
-            item === "" ||
-            item === "All" ||
-            item === "all"
-          ) {
-            return;
-          }
+/* ─────────────────────────────────────────────
+   AUTH TOKEN
+───────────────────────────────────────────── */
 
-          if (!params[key]) {
-            params[key] = [];
-          }
+function getAuthToken() {
+  return (
+    localStorage.getItem("finsight_token") ||
+    localStorage.getItem("token") ||
+    ""
+  );
+}
 
-          params[key].push(item);
-        });
+function getAuthHeaders() {
+  const token = getAuthToken();
 
-        return;
-      }
-
-      params[key] = value;
+  return token
+    ? {
+      Authorization: `Bearer ${token}`,
     }
+    : {};
+}
+
+/* ─────────────────────────────────────────────
+   QUERY PARAM HELPERS
+───────────────────────────────────────────── */
+
+function appendParam(params, key, value) {
+  if (value === undefined || value === null || value === "") {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => {
+      if (item !== undefined && item !== null && item !== "") {
+        params.append(key, item);
+      }
+    });
+
+    return;
+  }
+
+  params.append(key, value);
+}
+
+/* ─────────────────────────────────────────────
+   STANDARD RECEIVABLES PARAMETERS
+───────────────────────────────────────────── */
+
+function buildDashboardParams(filters = {}) {
+  const params = new URLSearchParams();
+
+  appendParam(params, "legal_group_id", filters.legal_group_id);
+  appendParam(params, "legal_entity_id", filters.legal_entity_id);
+  appendParam(params, "parent_division_id", filters.parent_division_id);
+  appendParam(params, "subdivision_id", filters.subdivision_id);
+
+  appendParam(
+    params,
+    "aging_basis",
+    filters.aging_basis || "DUE_DATE"
+  );
+
+  appendParam(params, "as_on_date", filters.as_on_date);
+
+  appendParam(
+    params,
+    "reporting_currency",
+    filters.reporting_currency || "AED"
   );
 
   return params;
-};
+}
 
+/* ─────────────────────────────────────────────
+   VIEW ALL PARAMETERS
+───────────────────────────────────────────── */
 
-/* =========================================================
-   RESPONSE HELPER
-========================================================= */
+function buildViewAllParams(filters = {}) {
+  const params = buildDashboardParams(filters);
 
-const getResponseData = (response) => {
-  return response?.data;
-};
+  appendParam(params, "page", filters.page ?? 1);
+  appendParam(params, "page_size", filters.page_size ?? 50);
 
-
-/* =========================================================
-   ERROR HELPER
-========================================================= */
-
-const getApiError = (error) => {
-
-  /*
-   * Backend validation errors
-   */
-  if (Array.isArray(error?.response?.data?.detail)) {
-    const message =
-      error.response.data.detail
-        .map(
-          (item) =>
-            item?.msg ||
-            item?.message ||
-            JSON.stringify(item)
-        )
-        .join(", ");
-
-    return new Error(message);
-  }
-
-  /*
-   * Backend normal error
-   */
-  if (error?.response?.data?.detail) {
-    const detail =
-      error.response.data.detail;
-
-    return new Error(
-      typeof detail === "string"
-        ? detail
-        : JSON.stringify(detail)
-    );
-  }
-
-  /*
-   * Backend message
-   */
-  if (error?.response?.data?.message) {
-    return new Error(
-      error.response.data.message
-    );
-  }
-
-  /*
-   * Axios error message
-   */
-  if (error?.message) {
-    return new Error(error.message);
-  }
-
-  /*
-   * Fallback
-   */
-  return new Error(
-    "Something went wrong while processing the request."
+  appendParam(
+    params,
+    "sort_by",
+    filters.sort_by || "total_receivables"
   );
-};
 
+  appendParam(
+    params,
+    "sort_dir",
+    filters.sort_dir || "desc"
+  );
 
-/* =========================================================
-   FILTERS
-   GET /api/receivables/filters
-========================================================= */
+  appendParam(params, "customer_id", filters.customer_id);
+  appendParam(params, "source_currency", filters.source_currency);
+  appendParam(params, "gl_code", filters.gl_code);
+  appendParam(params, "search", filters.search);
 
-export const getReceivableFilters = async () => {
-  try {
-    const response = await api.get(
-      "/receivables/filters"
-    );
+  appendParam(params, "aging_bucket", filters.aging_bucket);
+  appendParam(params, "balance_status", filters.balance_status);
 
-    return response.data;
-  } catch (error) {
-    console.error(
-      "Receivables Filters API Error:",
-      error
-    );
+  return params;
+}
 
-    throw getApiError(error);
-  }
-};
+/* ─────────────────────────────────────────────
+   EXPORT PARAMETERS
+───────────────────────────────────────────── */
 
+function buildExportParams(filters = {}) {
+  const params = buildDashboardParams(filters);
 
-/* =========================================================
-   SUMMARY / KPI
-   GET /api/receivables/summary
-========================================================= */
+  appendParam(params, "aging_bucket", filters.aging_bucket);
+  appendParam(params, "balance_status", filters.balance_status);
 
-export const getReceivableSummary = async (
+  appendParam(params, "customer_id", filters.customer_id);
+  appendParam(params, "source_currency", filters.source_currency);
+  appendParam(params, "gl_code", filters.gl_code);
+  appendParam(params, "search", filters.search);
+
+  appendParam(params, "section", filters.section);
+  return params;
+}
+
+/* ─────────────────────────────────────────────
+   1. FILTER OPTIONS
+───────────────────────────────────────────── */
+
+export async function getReceivablesFilterOptions() {
+  const response = await api.get(
+    "/api/receivables/filter-options",
+    {
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   2. DASHBOARD
+───────────────────────────────────────────── */
+
+export async function getReceivablesDashboard(filters = {}) {
+  const params = buildDashboardParams(filters);
+
+  const response = await api.get(
+    "/api/receivables/dashboard",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   3. KPI CARDS
+───────────────────────────────────────────── */
+
+export async function getReceivablesKPIs(filters = {}) {
+  const params = buildDashboardParams(filters);
+
+  const response = await api.get(
+    "/api/receivables/kpis",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   4. AGING SUMMARY
+───────────────────────────────────────────── */
+
+export async function getReceivablesAgingSummary(filters = {}) {
+  const params = buildDashboardParams(filters);
+
+  const response = await api.get(
+    "/api/receivables/aging-summary",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   5. MONTHLY TREND
+───────────────────────────────────────────── */
+
+export async function getReceivablesTrend(filters = {}) {
+  const params = buildDashboardParams(filters);
+
+  const response = await api.get(
+    "/api/receivables/trend",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   6. PARENT DIVISION
+───────────────────────────────────────────── */
+
+export async function getReceivablesByParentDivision(filters = {}) {
+  const params = buildDashboardParams(filters);
+
+  const response = await api.get(
+    "/api/receivables/by-parent-division",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   7. SUBDIVISION
+───────────────────────────────────────────── */
+
+export async function getReceivablesBySubdivision(filters = {}) {
+  const params = buildDashboardParams(filters);
+
+  const response = await api.get(
+    "/api/receivables/by-subdivision",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   8. TOP CUSTOMERS
+───────────────────────────────────────────── */
+
+export async function getReceivablesTopCustomers(
+  filters = {},
+  limit = 10
+) {
+  const params = buildDashboardParams(filters);
+
+  appendParam(params, "limit", limit);
+
+  const response = await api.get(
+    "/api/receivables/top-customers",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
+
+  return response;
+}
+
+/* ─────────────────────────────────────────────
+   9. MONTH-ON-MONTH
+───────────────────────────────────────────── */
+
+export async function getReceivablesMonthOnMonth(
   filters = {}
-) => {
-  try {
-    const params = buildParams(
-      filters,
-      false
-    );
+) {
+  const params = buildDashboardParams(filters);
 
-    const response = await api.get(
-      "/receivables/summary",
-      {
-        params,
-      }
-    );
+  appendParam(params, "year", filters.year);
 
-    return getResponseData(response);
-  } catch (error) {
-    console.error(
-      "Receivables Summary API Error:",
-      error
-    );
+  const response = await api.get(
+    "/api/receivables/month-on-month",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
 
-    throw getApiError(error);
-  }
-};
+  return response;
+}
 
+/* ─────────────────────────────────────────────
+   10. VIEW ALL
+───────────────────────────────────────────── */
 
-/* =========================================================
-   TOP CUSTOMERS
-   GET /api/receivables/top-customers
-========================================================= */
+export async function getReceivablesViewAll(filters = {}) {
+  const params = buildViewAllParams(filters);
 
-export const getReceivableTopCustomers = async (
-  filters = {}
-) => {
-  try {
-    const params = buildParams(
-      filters,
-      false
-    );
+  const response = await api.get(
+    "/api/receivables/view-all",
+    {
+      params,
+      headers: getAuthHeaders(),
+    }
+  );
 
-    const response = await api.get(
-      "/receivables/top-customers",
-      {
-        params,
-      }
-    );
+  return response;
+}
 
-    return getResponseData(response);
-  } catch (error) {
-    console.error(
-      "Receivables Top Customers API Error:",
-      error
-    );
+/* ─────────────────────────────────────────────
+   11. EXCEL EXPORT
+───────────────────────────────────────────── */
 
-    throw getApiError(error);
-  }
-};
+export async function exportReceivablesExcel(filters = {}) {
+  const params = buildExportParams(filters);
 
+  const response = await api.get(
+    "/api/receivables/export/excel",
+    {
+      params,
+      headers: getAuthHeaders(),
+      responseType: "blob",
+    }
+  );
 
-/* =========================================================
-   DIVISION-WISE
-   GET /api/receivables/division-wise
-========================================================= */
+  return response;
+}
 
-export const getReceivableDivisionWise = async (
-  filters = {}
-) => {
-  try {
-    const params = buildParams(
-      filters,
-      false
-    );
+/* ─────────────────────────────────────────────
+   12. PDF EXPORT
+───────────────────────────────────────────── */
 
-    const response = await api.get(
-      "/receivables/division-wise",
-      {
-        params,
-      }
-    );
+export async function exportReceivablesPDF(filters = {}) {
+  const params = buildExportParams(filters);
 
-    return getResponseData(response);
-  } catch (error) {
-    console.error(
-      "Receivables Division-wise API Error:",
-      error
-    );
+  const response = await api.get(
+    "/api/receivables/export/pdf",
+    {
+      params,
+      headers: getAuthHeaders(),
+      responseType: "blob",
+    }
+  );
 
-    throw getApiError(error);
-  }
-};
+  return response;
+}
 
-
-/* =========================================================
-   AGING BUCKETS
-   GET /api/receivables/buckets
-========================================================= */
-
-export const getReceivableBuckets = async (
-  filters = {}
-) => {
-  try {
-    const params = buildParams(
-      filters,
-      false
-    );
-
-    const response = await api.get(
-      "/receivables/buckets",
-      {
-        params,
-      }
-    );
-
-    return getResponseData(response);
-  } catch (error) {
-    console.error(
-      "Receivables Aging Buckets API Error:",
-      error
-    );
-
-    throw getApiError(error);
-  }
-};
-
-
-/* =========================================================
-   OVERDUE AGEING
-   GET /api/receivables/overdue-buckets
-========================================================= */
-
-export const getReceivableOverdueBuckets = async (
-  filters = {}
-) => {
-  try {
-    const params = buildParams(
-      filters,
-      false
-    );
-
-    const response = await api.get(
-      "/receivables/overdue-buckets",
-      {
-        params,
-      }
-    );
-
-    return getResponseData(response);
-  } catch (error) {
-    console.error(
-      "Receivables Overdue Buckets API Error:",
-      error
-    );
-
-    throw getApiError(error);
-  }
-};
+export default api;
