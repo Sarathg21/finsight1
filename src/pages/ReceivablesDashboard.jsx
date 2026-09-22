@@ -5339,12 +5339,12 @@ export default function PayablesDashboard() {
 
                 <div
                     style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-                        gap: "9px",
-                        width: "100%",
                         marginTop: "20px",
-                        marginBottom: "12px",
+                        display: "grid",
+                        gridTemplateColumns:
+                            "repeat(5, minmax(0, 1fr))",
+                        gap: 9,
+                        marginBottom: 12,
                     }}
                 >
                     <KpiCard
@@ -5402,16 +5402,7 @@ export default function PayablesDashboard() {
                         iconBg="#F3FCFF"
                         iconColor="#0ea5c9"
                     />
-                        <KpiCard
-                        title="Invoice Settlement Efficiency"
-                        value={kpis.invoice_settlement_efficiency}
-                        variance={kpis.invoice_settlement_efficiency_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="⟳"
-                        iconBg="#F1F5F9"
-                        iconColor="#6D28D9"
-                    />
+
                 </div>
 
                 {/* ==================================================
