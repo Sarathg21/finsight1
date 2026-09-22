@@ -65,8 +65,8 @@ const NAV_BY_ROLE = {
     { to: '/balance-sheet', label: 'Balance Sheet', group: 'Financials' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
     { to: '/revenue', label: 'Sales Revenue Report', group: 'Financials' },
-    // { to: '/receivables', label: 'Receivables Report', group: 'Reports' },   // excluded from this preview branch
-    // { to: '/payables', label: 'Payables Report', group: 'Reports' },         // excluded from this preview branch
+    // { to: '/receivables', label: 'Receivables Report', group: 'Reports' },   // excluded — not yet approved
+    { to: '/payables', label: 'Payables Report', group: 'Reports' },
 
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
