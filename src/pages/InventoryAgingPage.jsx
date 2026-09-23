@@ -1102,7 +1102,18 @@ const [loading, setLoading] = useState(true);
                 {mockData.slowMoving.map((item, idx) => (
                   <tr key={item.no || idx}>
                     <td>{item.no}</td>
-                    <td>{item.parentDiv}</td>
+                    <td>
+                      <div style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        whiteSpace: "normal",
+                        wordBreak: "break-word"
+                      }}>
+                        {item.parentDiv}
+                      </div>
+                    </td>
                     <td style={{textAlign: 'right'}}>{item.obsolete ? item.obsolete.toFixed(2) : "--"}</td>
                     <td style={{textAlign: 'right'}}>{item.total ? item.total.toFixed(2) : "--"}</td>
                     <td style={{textAlign: 'right'}}>{item.percentage ? `${item.percentage.toFixed(2)}%` : "--"}</td>
