@@ -125,9 +125,12 @@ const [loading, setLoading] = useState(true);
               const fData = filterRes.data || {};
               const dData = dashRes.data || {};
               
-              let kpis = [];
+                            let kpis = [];
               if (dData.kpis) {
-                    const sparkline = dData.trend && Array.isArray(dData.trend.current) ? dData.trend.current : [];
+                    const sparkline = dData.trend && Array.isArray(dData.trend) 
+                        ? dData.trend.map(t => Number(t.inventory_value || 0) / 10000000) 
+                        : [];
+
                     kpis = [
                         {
                             key: "total_inv",
@@ -135,14 +138,14 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#2563EB",
                             cardBg: "linear-gradient(180deg, #F0F6FE 0%, #FFFFFF 100%)",
                             borderColor: "#D6E4FA",
-                            value: fmtAED(dData.kpis.total_inventory) !== "—" ? fmtAED(dData.kpis.total_inventory) : "AED 472.35 Cr",
+                            value: fmtAED(dData.kpis.total_inventory),
                             icon: Coins,
                             iconBg: "#DBEAFE",
                             iconColor: "#2563EB",
-                            variance: dData.kpis.total_inventory_variance || "11.28%",
-                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            variance: dData.kpis.total_inventory_variance || null,
+                            varianceLabel: dData.kpis.variance_label || null,
                             direction: "up",
-                            line: sparkline.length > 2 ? sparkline : [25, 40, 20, 45, 30, 50, 35, 60, 42, 58, 38, 52, 40, 65, 45, 55, 35, 50]
+                            line: sparkline
                         },
                         {
                             key: "avg_inv",
@@ -150,14 +153,14 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#7C3AED",
                             cardBg: "linear-gradient(180deg, #FAF5FF 0%, #FFFFFF 100%)",
                             borderColor: "#E9D5FF",
-                            value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value) !== "—" ? fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value) : "AED 438.60 Cr",
+                            value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value),
                             icon: BarChart3,
                             iconBg: "#F3E8FF",
                             iconColor: "#7C3AED",
-                            variance: dData.kpis.average_inventory_variance || "4.32%",
-                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            variance: dData.kpis.average_inventory_variance || null,
+                            varianceLabel: dData.kpis.variance_label || null,
                             direction: "up",
-                            line: sparkline.length > 2 ? sparkline : [30, 45, 35, 55, 40, 48, 35, 58, 42, 62, 48, 55, 40, 60, 50, 58, 45, 52]
+                            line: sparkline
                         },
                         {
                             key: "turnover",
@@ -165,14 +168,16 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#EA580C",
                             cardBg: "linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 100%)",
                             borderColor: "#FED7AA",
-                            value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "5.42 Times",
+                            value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) 
+                                ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` 
+                                : "—",
                             icon: RotateCw,
                             iconBg: "#FFEDD5",
                             iconColor: "#EA580C",
-                            variance: dData.kpis.turnover_variance || "0.38",
-                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            variance: dData.kpis.turnover_variance || null,
+                            varianceLabel: dData.kpis.variance_label || null,
                             direction: "down",
-                            line: sparkline.length > 2 ? sparkline : [40, 50, 35, 60, 45, 55, 38, 48, 35, 52, 40, 45, 32, 50, 42, 48, 38, 42]
+                            line: sparkline
                         },
                         {
                             key: "dio",
@@ -180,14 +185,16 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#16A34A",
                             cardBg: "linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%)",
                             borderColor: "#BBF7D0",
-                            value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "67 Days",
+                            value: (dData.kpis.stock_holding_days || dData.kpis.dio) 
+                                ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` 
+                                : "—",
                             icon: Calendar,
                             iconBg: "#DCFCE7",
                             iconColor: "#16A34A",
-                            variance: dData.kpis.dio_variance || "4 Days",
-                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            variance: dData.kpis.dio_variance || null,
+                            varianceLabel: dData.kpis.variance_label || null,
                             direction: "down",
-                            line: sparkline.length > 2 ? sparkline : [35, 45, 30, 55, 38, 62, 45, 50, 38, 58, 42, 60, 48, 52, 40, 55, 42, 48]
+                            line: sparkline
                         },
                         {
                             key: "obsolete",
@@ -196,15 +203,15 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#DC2626",
                             cardBg: "linear-gradient(180deg, #FEF2F2 0%, #FFFFFF 100%)",
                             borderColor: "#FECACA",
-                            value: fmtAED(dData.kpis.inventory_above_365) !== "—" ? fmtAED(dData.kpis.inventory_above_365) : "AED 28.45 Cr",
+                            value: fmtAED(dData.kpis.inventory_above_365),
                             icon: AlertTriangle,
                             iconBg: "#FEE2E2",
                             iconColor: "#DC2626",
-                            variance: dData.kpis.obsolete_variance || "3.72%",
-                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            variance: dData.kpis.obsolete_variance || null,
+                            varianceLabel: dData.kpis.variance_label || null,
                             direction: "up",
                             arrowColor: "#DC2626",
-                            line: sparkline.length > 2 ? sparkline : [25, 38, 22, 45, 30, 42, 28, 50, 35, 48, 32, 55, 40, 48, 30, 45, 35, 40]
+                            line: sparkline
                         }
                     ];
               }
@@ -258,22 +265,20 @@ const [loading, setLoading] = useState(true);
                   })).sort((a,b) => b.value - a.value).slice(0, 5);
               }
 
-              let trend = {
-                  labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-                  current: [240, 280, 325, 310, 320, 345, 365, 390, 385, 418, 432, 465],
-                  previous: [155, 195, 208, 202, 242, 255, 280, 295, 305, 315, 342, 358]
-              };
-              if (dData.trend && Array.isArray(dData.trend) && dData.trend.length >= 12) {
-                  trend.labels = dData.trend.map(item => typeof item.month_start === 'object' ? item.month_start?.name : (item.month_start ? String(item.month_start).substring(0, 7) : ''));
-                  trend.current = dData.trend.map(item => Number(item.inventory_value) / 10000000);
-                  trend.previous = dData.trend.map(item => Number(item.previous_value || 0) / 10000000);
-              } else if (dData.trend && Array.isArray(dData.trend) && dData.trend.length > 0) {
-                  const liveVal = Number(dData.trend[0]?.inventory_value || 0) / 10000000;
-                  if (liveVal > 0) {
-                      const scale = Math.max(0.2, liveVal / 465);
-                      trend.current = [240, 280, 325, 310, 320, 345, 365, 390, 385, 418, 432, 465].map(v => Math.round(v * scale));
-                      trend.previous = [155, 195, 208, 202, 242, 255, 280, 295, 305, 315, 342, 358].map(v => Math.round(v * scale));
-                  }
+                            let trend = { labels: [], previous: [], current: [] };
+              if (dData.trend && Array.isArray(dData.trend)) {
+                  trend.labels = dData.trend.map(item => {
+                      if (typeof item.month_start === 'object' && item.month_start?.name) {
+                          return item.month_start.name;
+                      }
+                      if (item.month_start) {
+                          const str = String(item.month_start);
+                          return str.substring(0, 7);
+                      }
+                      return "";
+                  });
+                  trend.current = dData.trend.map(item => Number(item.inventory_value || 0) / 10000000);
+                  trend.previous = dData.trend.map(item => (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null);
               }
 
               let slowMoving = [];
@@ -376,20 +381,18 @@ const [loading, setLoading] = useState(true);
     const width = 200;
     const height = 30;
 
-    const min = points.length ? Math.min(...points) : 0;
-    const max = points.length ? Math.max(...points) : 0;
-    const hasVariation = max > min && points.length > 2;
+    const validPoints = points.filter(p => typeof p === 'number' && !isNaN(p));
+    if (validPoints.length === 0) {
+      return null;
+    }
 
-    const data = hasVariation
-      ? points
-      : [25, 38, 22, 45, 32, 52, 38, 60, 42, 56, 38, 50, 36, 62, 45, 55, 38, 48];
+    const min = Math.min(...validPoints);
+    const max = Math.max(...validPoints);
+    const hasVariation = max > min && validPoints.length > 1;
 
-    const dMin = Math.min(...data);
-    const dMax = Math.max(...data);
-
-    const pathPoints = data.map((point, index) => {
-      const x = (index / (data.length - 1)) * width;
-      const normalized = dMax === dMin ? 0.5 : (point - dMin) / (dMax - dMin);
+    const pathPoints = validPoints.map((point, index) => {
+      const x = validPoints.length > 1 ? (index / (validPoints.length - 1)) * width : width / 2;
+      const normalized = hasVariation ? (point - min) / (max - min) : 0.5;
       const y = height - 4 - normalized * (height - 8);
       return { x, y };
     });
@@ -416,7 +419,7 @@ const [loading, setLoading] = useState(true);
           </linearGradient>
         </defs>
 
-        <path d={areaPath} fill={`url(#${gradId})`} />
+        {hasVariation && <path d={areaPath} fill={`url(#${gradId})`} />}
         <path
           d={linePath}
           fill="none"
@@ -518,7 +521,7 @@ const [loading, setLoading] = useState(true);
   };
 
   // ============================================================
-  // LINE CHART (12-Month CY vs PY Trend)
+  // LINE CHART
   // ============================================================
 
   const LineChart = () => {
@@ -532,28 +535,30 @@ const [loading, setLoading] = useState(true);
     const plotWidth = width - paddingLeft - paddingRight;
     const plotHeight = height - paddingTop - paddingBottom;
 
-    const defaultLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const labels = mockData.trend.labels && mockData.trend.labels.length >= 12
-      ? mockData.trend.labels
-      : defaultLabels;
+    const labels = mockData.trend.labels || [];
+    const cyValues = mockData.trend.current || [];
+    const pyValues = (mockData.trend.previous || []).filter(v => v !== null && typeof v === 'number' && !isNaN(v));
 
-    const defaultCY = [240, 280, 325, 310, 320, 345, 365, 390, 385, 418, 432, 465];
-    const defaultPY = [155, 195, 208, 202, 242, 255, 280, 295, 305, 315, 342, 358];
+    if (labels.length === 0) {
+      return (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 165, color: "#94a3b8", fontSize: "11px" }}>
+          No trend data available
+        </div>
+      );
+    }
 
-    const cyValues = mockData.trend.current && mockData.trend.current.length >= 12
-      ? mockData.trend.current
-      : defaultCY;
-
-    const pyValues = mockData.trend.previous && mockData.trend.previous.length >= 12
-      ? mockData.trend.previous
-      : defaultPY;
-
-    const allValues = [...cyValues, ...pyValues];
-    const _rawMax = Math.max(...allValues, 500);
-    const maxValue = Math.max(600, Math.ceil(_rawMax / 100) * 100);
+    const allValues = [...cyValues, ...pyValues].filter(v => typeof v === 'number' && !isNaN(v));
+    const _rawMax = allValues.length ? Math.max(...allValues, 10) : 100;
+    const maxValue = Math.max(10, Math.ceil(_rawMax * 1.2));
     const minValue = 0;
 
-    const yTicks = [0, 100, 200, 300, 400, 500, 600];
+    const yTicks = [
+      0,
+      Math.round(maxValue * 0.25),
+      Math.round(maxValue * 0.5),
+      Math.round(maxValue * 0.75),
+      Math.round(maxValue)
+    ];
 
     const getCoord = (value, index, total) => {
       const x = total > 1 ? paddingLeft + (index / (total - 1)) * plotWidth : paddingLeft + plotWidth / 2;
@@ -615,24 +620,28 @@ const [loading, setLoading] = useState(true);
         />
 
         {/* PY Line (Green) */}
-        <polyline
-          points={makePolylinePoints(pyValues)}
-          fill="none"
-          stroke="#16a34a"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {pyValues.length > 1 && (
+          <polyline
+            points={makePolylinePoints(pyValues)}
+            fill="none"
+            stroke="#16a34a"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
 
         {/* CY Line (Blue) */}
-        <polyline
-          points={makePolylinePoints(cyValues)}
-          fill="none"
-          stroke="#2563eb"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {cyValues.length > 1 && (
+          <polyline
+            points={makePolylinePoints(cyValues)}
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
 
         {/* PY Points (Green circles) */}
         {pyValues.map((value, index) => {
