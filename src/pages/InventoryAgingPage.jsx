@@ -604,14 +604,14 @@ const [loading, setLoading] = useState(true);
   // BAR CHART
   // ============================================================
 
-  const BusinessUnitChart = () => {
+  const SubdivisionChart = () => {
     const max = Math.max(
-      ...mockData.businessUnits.map((x) => x.value)
+      ...(mockData.bySubdivision && mockData.bySubdivision.length > 0 ? mockData.bySubdivision.map((x) => x.value) : [1])
     );
 
     return (
       <div style={{ width: "100%", paddingTop: 2 }}>
-        {mockData.businessUnits.map((item) => (
+        {(mockData.bySubdivision || []).map((item) => (
           <div
             key={item.name}
             style={{
@@ -989,10 +989,10 @@ const [loading, setLoading] = useState(true);
         {/* Business Unit */}
         <div style={styles.panel}>
           <SectionHeader>
-            Inventory Value by Business Unit (₹ Cr)
+            Inventory Value by Sub-division (Cr)
           </SectionHeader>
 
-          <BusinessUnitChart />
+          <SubdivisionChart />
         </div>
       </div>
 
