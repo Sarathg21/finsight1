@@ -26,6 +26,7 @@ import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
 import OperatingAnalysis from './pages/OperatingAnalysis';
 import MyProfile from './pages/MyProfile';
+import InventoryAgingPage from './pages/InventoryAgingPage';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
