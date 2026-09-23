@@ -70,10 +70,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   --shadow-glow: 0 0 20px var(--clr-primary-glow);
 
   /* ── Spacing ── */
-  --page-padding: 16px;
-  --card-padding: 14px 16px;
-  --card-gap:     12px;
-  --section-gap:  12px;
+  --page-padding: 12px;
+  --card-padding: 12px 14px;
+  --card-gap:     10px;
+  --section-gap:  10px;
 
   /* ── Layout ── */
   --sidebar-w:         224px;
@@ -131,9 +131,91 @@ html, body {
 
 .page-content {
   flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
   padding: var(--page-padding);
   background: var(--clr-bg);
+}
+
+.inventory-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) minmax(90px, 0.8fr) minmax(100px, 0.95fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.inventory-filter-grid select {
+  min-width: 0;
+  height: 32px;
+  padding: 6px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inventory-kpi-grid,
+.inventory-chart-grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.inventory-kpi-grid {
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+}
+
+.inventory-chart-grid {
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+}
+
+.inventory-kpi-grid > *,
+.inventory-chart-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 1400px) {
+  .inventory-kpi-grid {
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+  }
+  .inventory-chart-grid {
+    grid-template-columns: repeat(3, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+  .inventory-filter-grid {
+    grid-template-columns: repeat(3, minmax(100px, 1fr)) auto;
+  }
+  .inventory-kpi-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+  .inventory-chart-grid {
+    grid-template-columns: repeat(2, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .inventory-kpi-grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+  .inventory-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .inventory-filter-grid,
+  .inventory-kpi-grid,
+  .inventory-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-filter-actions {
+    grid-column: auto;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -760,6 +842,7 @@ tbody tr:hover { background: #f8fafc; }
 .grid-cols-2  { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--card-gap); }
 .grid-cols-3  { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--card-gap); }
 .grid-cols-4  { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--card-gap); }
+.grid-cols-5  { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--card-gap); }
 .grid-cols-6  { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--card-gap); }
 .grid-cols-2-1    { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--card-gap); }
 .grid-charts      { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr); gap: var(--card-gap); }
@@ -796,7 +879,7 @@ tbody tr:hover { background: #f8fafc; }
 }
 
 @media (max-width: 1200px) {
-  .grid-cols-4  { grid-template-columns: repeat(2, 1fr); }
+  .grid-cols-5, .grid-cols-4 { grid-template-columns: repeat(2, 1fr); }
   .kpi-grid     { grid-template-columns: repeat(2, 1fr); }
   .grid-charts-3, .charts-grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
@@ -823,7 +906,7 @@ tbody tr:hover { background: #f8fafc; }
   }
   .page-content { padding: 16px; }
   .kpi-grid,
-  .grid-cols-6, .grid-cols-4, .grid-cols-3, .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-cols-6, .grid-cols-5, .grid-cols-4, .grid-cols-3, .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
   .filter-bar   { flex-direction: column; align-items: flex-start; }
   .page-header  { flex-direction: column; gap: 8px; }
   .hide-on-mobile { display: none !important; }
@@ -842,7 +925,7 @@ tbody tr:hover { background: #f8fafc; }
 
 @media (max-width: 480px) {
   .kpi-grid,
-  .grid-cols-6, .grid-cols-4, .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr; }
+  .grid-cols-6, .grid-cols-5, .grid-cols-4, .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr; }
   .grid-charts-3, .charts-grid-3 { grid-template-columns: 1fr; }
   .search-input { display: none; }
 }
@@ -1144,3 +1227,4 @@ tbody tr:hover { background: #f8fafc; }
     to { opacity: 1; }
   }
 }
+
