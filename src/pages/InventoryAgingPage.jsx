@@ -322,7 +322,7 @@ export default function InventoryAgingDashboard() {
 
     const handleExport = async (type, section = null) => {
         try {
-            setExporting(section ? ${section}- : type);
+            setExporting(section ? `${section}-${type}` : type);
             const response = await getInventoryExport(type === "excel" ? "xlsx" : "pdf", { ...filters, section });
             const blob = new Blob([response.data], { type: response.headers["content-type"] });
             const url = window.URL.createObjectURL(blob);
