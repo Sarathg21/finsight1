@@ -1270,6 +1270,49 @@ tfoot .sticky-col {
   font-weight: 700;
 }
 
+/* ── Inventory Overview: responsive grid classes ────────────── */
+.inventory-kpi-grid,
+.inventory-chart-grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.inventory-kpi-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.inventory-chart-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inventory-kpi-grid > *,
+.inventory-chart-grid > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 1200px) {
+  .inventory-chart-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1000px) {
+  .inventory-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .inventory-kpi-grid,
+  .inventory-chart-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════
    TABLES
 ══════════════════════════════════════════════════════════ */
