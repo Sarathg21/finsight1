@@ -892,6 +892,7 @@ const [loading, setLoading] = useState(true);
               value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
               onChange={(valArr) => onChange(valArr)} 
               placeholder="All"
+              label={label}
             />
           </div>
         )}
