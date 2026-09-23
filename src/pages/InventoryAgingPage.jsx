@@ -451,7 +451,7 @@ export default function InventoryAgingDashboard() {
             </div>
 
             {/* ── KPI Cards ────────────────────────────────────── */}
-            <div className="kpi-grid" style={{ marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "10px", marginBottom: "20px" }}>
                 {kpis.map(k => (
                     <InventoryKPICard key={k.id} title={k.title} value={k.value} change={k.change} up={k.up}
                         icon={k.icon} iconColor={k.iconColor} iconBg={k.iconBg} />
@@ -459,7 +459,7 @@ export default function InventoryAgingDashboard() {
             </div>
 
             {/* ── Charts Row 1 ─────────────────────────────────── */}
-            <div className="grid-charts-3" style={{ marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px", marginBottom: "16px", width: "100%" }}>
                 <InventoryValueTrend
                     data={inventoryTrendData}
                     currency={selectedCurrency}
@@ -484,7 +484,7 @@ export default function InventoryAgingDashboard() {
             </div>
 
             {/* ── Charts Row 2 ─────────────────────────────────── */}
-            <div className="grid-charts-3" style={{ marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px", marginBottom: "16px", width: "100%" }}>
                 <AgingSummaryCard
                     data={inventoryAgingData}
                     legendData={inventoryAgingData}
