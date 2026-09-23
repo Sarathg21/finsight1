@@ -1323,8 +1323,7 @@ const styles = {
     borderRadius: 7,
     padding: "10px 12px",
     display: "grid",
-    gridTemplateColumns:
-      "1.15fr 1fr 1fr 1fr 1fr 1fr auto auto",
+    gridTemplateColumns: "1.15fr 1fr 1fr 1fr 1fr 0.9fr 0.9fr auto auto",
     alignItems: "end",
     gap: 12,
     boxShadow: "0 1px 3px rgba(15,23,42,.025)",
