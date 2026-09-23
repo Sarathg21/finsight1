@@ -112,20 +112,34 @@ const [loading, setLoading] = useState(true);
               }
 
               let aging = [];
-              if (dData.aging_summary) {
-                  const agingColors = { "0_30": "#2563eb", "31_60": "#16a34a", "61_90": "#f59e0b", "91_120": "#7c3aed", "121_180": "#ec4899", "181_365": "#94a3b8", "366_730": "#64748b", "ABOVE_730": "#334155" };
-                  const labels = { "0_30": "0 - 30 Days", "31_60": "31 - 60 Days", "61_90": "61 - 90 Days", "91_120": "91 - 120 Days", "121_180": "121 - 180 Days", "181_365": "181 - 365 Days", "366_730": "366 - 730 Days", "ABOVE_730": "Above 730 Days" };
-                  let totalAging = 0;
-                  const formattedAging = [];
-                  Object.keys(dData.aging_summary).forEach(k => {
-                      const val = Number(dData.aging_summary[k]) / 10000000; // Cr
-                      if (val > 0) {
-                          formattedAging.push({ name: labels[k] || k, value: val, color: agingColors[k] || "#94A3B8", percentage: 0 });
-                          totalAging += val;
-                      }
-                  });
-                  aging = formattedAging.map(i => ({ ...i, percentage: Number(((i.value / totalAging) * 100).toFixed(2)) }));
-              }
+                if (dData.aging_summary) {
+                    const agingColors = { "0_30": "#2563eb", "31_60": "#16a34a", "61_90": "#f59e0b", "91_120": "#7c3aed", "121_180": "#ec4899", "181_365": "#94a3b8", "366_730": "#64748b", "ABOVE_730": "#334155" };
+                    const labels = { "0_30": "0 - 30 Days", "31_60": "31 - 60 Days", "61_90": "61 - 90 Days", "91_120": "91 - 120 Days", "121_180": "121 - 180 Days", "181_365": "181 - 365 Days", "366_730": "366 - 730 Days", "ABOVE_730": "Above 730 Days" };
+                    let totalAging = 0;
+                    const formattedAging = [];
+                    
+                    if (Array.isArray(dData.aging_summary)) {
+                        dData.aging_summary.forEach(item => {
+                            const k = item.bucket_code || item.bucket || item.name;
+                            const val = Number(item.amount || item.value || 0) / 10000000;
+                            const pct = Number(item.percentage_of_total || item.percentage || 0);
+                            if (val > 0) {
+                                formattedAging.push({ name: labels[k] || k, value: val, color: agingColors[k] || "#94A3B8", percentage: pct });
+                                totalAging += val;
+                            }
+                        });
+                        aging = formattedAging;
+                    } else {
+                        Object.keys(dData.aging_summary).forEach(k => {
+                            const val = Number(dData.aging_summary[k]) / 10000000;
+                            if (val > 0) {
+                                formattedAging.push({ name: labels[k] || k, value: val, color: agingColors[k] || "#94A3B8", percentage: "--" });
+                                totalAging += val;
+                            }
+                        });
+                        aging = formattedAging;
+                    }
+                }
 
               let divisions = [];
               if (dData.by_parent_division) {
