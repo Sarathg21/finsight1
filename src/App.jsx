@@ -76,7 +76,7 @@ function App() {
               <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />
               <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} />
               <Route path="/payables" element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} />
-              <Route path="/inventory" element={<ProtectedRoute pageKey="inventory" element={<InventoryAging />} />} />
+              
                <Route path="/WorkingCapital" element={<ProtectedRoute pageKey="WorkingCapital" element={<WorkingCapitalReport />} />} />
 
               {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
