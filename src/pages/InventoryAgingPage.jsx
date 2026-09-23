@@ -26,46 +26,53 @@ function fmtAED(v, currency = "AED") {
    trend badge, sparkline
 ───────────────────────────────────────────────────────────── */
 function InventoryKPICard({ title, value, change, up, icon: Icon, iconColor, iconBg }) {
-    const bgTint = iconColor ? `${iconColor}12` : '#f8fafc';
-    const borderTint = iconColor ? `${iconColor}25` : '#e2e8f0';
-    const sparkPoints = up
-        ? "0,15 10,13 20,16 30,10 40,12 50,7 60,11 70,5 80,9 90,3 100,6"
-        : "0,5 10,7 20,4 30,10 40,8 50,13 60,9 70,15 80,11 90,17 100,13";
-
+    const isPositive = up;
     return (
-        <div style={{
-            backgroundColor: bgTint, border: `1px solid ${borderTint}`,
-            borderRadius: 12, padding: '12px 12px 0 12px', display: 'flex',
-            flexDirection: 'column', gap: 0, overflow: 'hidden', position: 'relative',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minWidth: 0,
-        }}>
-            {/* Row: icon + text */}
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 6 }}>
-                <div style={{ background: iconBg, width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={16} color={iconColor} />
+        <div
+            style={{
+                background: "#F8FAFC",
+                border: "1px solid rgba(255, 255, 255, 0.8)",
+                borderRadius: "12px",
+                padding: "14px 16px",
+                minHeight: "105px",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease",
+                cursor: "default",
+            }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(15, 23, 42, 0.06)";
+                e.currentTarget.style.filter = "brightness(0.99)";
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
+                e.currentTarget.style.filter = "brightness(1)";
+            }}
+        >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div style={{
+                    width: "36px", height: "36px", borderRadius: "50%", background: iconBg || "#F1F5F9", color: iconColor,
+                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 6px rgba(15, 23, 42, 0.06)"
+                }}>
+                    <Icon size={18} color={iconColor} />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: iconColor, lineHeight: 1.3, marginBottom: 2 }}>
-                        {title}
-                    </div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0f172a', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {value ?? '–'}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: '0.65rem', fontWeight: 600, flexWrap: 'wrap' }}>
-                        {change ? (
-                            <>
-                                <span style={{ color: up ? '#16a34a' : '#e11d48' }}>{up ? '▲' : '▼'} {change}</span>
-                                <span style={{ color: '#94a3b8' }}>vs 31 Mar 2024</span>
-                            </>
-                        ) : <span style={{ color: 'transparent', fontSize: '0.65rem' }}>—</span>}
-                    </div>
-                </div>
+                <div style={{ fontSize: "12px", fontWeight: 600, color: iconColor, lineHeight: 1.2 }}>{title}</div>
             </div>
-            {/* Sparkline */}
-            <div style={{ marginTop: 'auto', height: 30, opacity: 0.8, marginLeft: -14, marginBottom: 0, width: 'calc(100% + 28px)' }}>
-                <svg viewBox="0 0 100 20" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
-                    <polyline fill="none" stroke={iconColor} strokeWidth="1.8" points={sparkPoints} />
-                </svg>
+            <div style={{ marginLeft: "46px", marginTop: "-2px", fontSize: "18px", fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>
+                {value ?? "—"}
+            </div>
+            {change ? (
+                <div style={{ marginLeft: "46px", marginTop: "1px", fontSize: "10px", color: "#64748b", fontWeight: 500, lineHeight: 1.2 }}>
+                    Previous: 31 Mar 2024
+                </div>
+            ) : null}
+            <div style={{ marginLeft: "46px", fontSize: "11px", color: isPositive ? "#0e9f75" : "#ef476f", fontWeight: 600, lineHeight: 1.2 }}>
+                {change ? `${isPositive ? '▲' : '▼'} ${change}` : "—"}
             </div>
         </div>
     );
@@ -444,7 +451,7 @@ export default function InventoryAgingDashboard() {
             </div>
 
             {/* ── KPI Cards ────────────────────────────────────── */}
-            <div className="inventory-kpi-grid" style={{ marginBottom: 16 }}>
+            <div className="kpi-grid" style={{ marginBottom: 16 }}>
                 {kpis.map(k => (
                     <InventoryKPICard key={k.id} title={k.title} value={k.value} change={k.change} up={k.up}
                         icon={k.icon} iconColor={k.iconColor} iconBg={k.iconBg} />
@@ -452,7 +459,7 @@ export default function InventoryAgingDashboard() {
             </div>
 
             {/* ── Charts Row 1 ─────────────────────────────────── */}
-            <div className="inventory-chart-grid" style={{ marginBottom: 16 }}>
+            <div className="grid-charts-3" style={{ marginBottom: 16 }}>
                 <InventoryValueTrend
                     data={inventoryTrendData}
                     currency={selectedCurrency}
@@ -477,7 +484,7 @@ export default function InventoryAgingDashboard() {
             </div>
 
             {/* ── Charts Row 2 ─────────────────────────────────── */}
-            <div className="inventory-chart-grid" style={{ marginBottom: 16 }}>
+            <div className="grid-charts-3" style={{ marginBottom: 16 }}>
                 <AgingSummaryCard
                     data={inventoryAgingData}
                     legendData={inventoryAgingData}
