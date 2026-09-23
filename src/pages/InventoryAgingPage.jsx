@@ -297,21 +297,25 @@ const [loading, setLoading] = useState(true);
               let details = [];
               if (detailsRes && detailsRes.data && detailsRes.data.items) {
                   details = detailsRes.data.items.map((item, idx) => ({
-                      id: `${item.legal_entity}-${item.item_code}-${idx}`,
-                      legal_entity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
-                      parent_division: typeof item.parent_division === 'object' ? item.parent_division?.name : item.parent_division,
-                      subdivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
-                      subinventory: item.subinventory || item.business_unit || "Others",
-                      inventory_value: item.inventory_value || 0,
-                      bucket_0_30: item.aging_0_30 || 0,
-                      bucket_31_60: item.aging_31_60 || 0,
-                      bucket_61_90: item.aging_61_90 || 0,
-                      bucket_91_120: item.aging_91_120 || 0,
-                      bucket_121_180: item.aging_121_180 || 0,
-                      bucket_181_365: item.aging_181_365 || 0,
-                      bucket_366_730: item.aging_366_730 || 0,
-                      bucket_above_730: item.aging_above_730 || item.obsolete_value || item.inventory_above_365 || 0,
-                      dio: item.dio || "-",
+                      id: `${item.legal_entity_name || item.legal_entity || 'le'}-${item.item_code || idx}-${idx}`,
+                      legal_entity: item.legal_entity_name || (typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity) || "-",
+                      parent_division: item.parent_division_name || (typeof item.parent_division === 'object' ? item.parent_division?.name : item.parent_division) || "-",
+                      subdivision: item.subdivision_name || (typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision) || "-",
+                      subinventory: item.subinventory_name || item.subinventory || item.business_unit || "-",
+                      item_code: item.item_code || "-",
+                      item_description: item.item_description || "-",
+                      quantity: item.quantity !== undefined && item.quantity !== null ? Number(item.quantity) : 0,
+                      total_stock_value: item.total_stock_value !== undefined && item.total_stock_value !== null ? Number(item.total_stock_value) : (item.inventory_value || 0),
+                      aging_0_30: item.aging_0_30 !== undefined && item.aging_0_30 !== null ? Number(item.aging_0_30) : 0,
+                      aging_31_60: item.aging_31_60 !== undefined && item.aging_31_60 !== null ? Number(item.aging_31_60) : 0,
+                      aging_61_90: item.aging_61_90 !== undefined && item.aging_61_90 !== null ? Number(item.aging_61_90) : 0,
+                      aging_91_120: item.aging_91_120 !== undefined && item.aging_91_120 !== null ? Number(item.aging_91_120) : 0,
+                      aging_121_180: item.aging_121_180 !== undefined && item.aging_121_180 !== null ? Number(item.aging_121_180) : 0,
+                      aging_181_365: item.aging_181_365 !== undefined && item.aging_181_365 !== null ? Number(item.aging_181_365) : 0,
+                      aging_366_730: item.aging_366_730 !== undefined && item.aging_366_730 !== null ? Number(item.aging_366_730) : 0,
+                      aging_above_730: item.aging_above_730 !== undefined && item.aging_above_730 !== null ? Number(item.aging_above_730) : 0,
+                      days: item.dio || item.days || "-",
+                      avg_inv_value: item.avg_inv_value || item.average_inventory_value || "-",
                   }));
               }
 
@@ -1331,48 +1335,186 @@ const [loading, setLoading] = useState(true);
       ======================================================== */}
 
       <div style={styles.detailPanel}>
-        <SectionHeader>Inventory Detailed View</SectionHeader>
+        <div style={styles.chartHeader}>
+          <div style={styles.chartTitle}>
+            Inventory Detailed View <span style={styles.infoIcon}>ⓘ</span>
+          </div>
+          <div style={styles.headerActions}>
+            <button style={styles.secondaryButton} onClick={() => console.log('View All Details')}>
+              View All
+            </button>
+            <button style={styles.secondaryButton}>
+              Export <span style={{ marginLeft: 3, fontSize: "8px" }}>▼</span>
+            </button>
+          </div>
+        </div>
 
-        <div style={styles.detailTableWrapper}>
-          <table style={styles.detailTable}>
+        <div style={styles.detailTableWrapper} className="detail-table-scroll">
+          <table style={styles.detailTable} className="detail-table">
             <thead>
               <tr>
-                <th>Legal Entity</th>
-                <th>Parent Div</th>
-                <th>Sub Div</th>
-                <th>Sub Inventory Code</th>
-                <th>Total Stock Value</th>
-                <th>0-30</th>
-                <th>31-60</th>
-                <th>61-90</th>
-                <th>91-120</th>
-                <th>121-180</th>
-                <th>181-365</th>
-                <th>Obsolete Stock (&gt; 365)</th>
-                <th>DIO</th>
+                <th style={{ textAlign: "left", width: 130 }}>Legal Entity</th>
+                <th style={{ textAlign: "left", width: 110 }}>Parent Division</th>
+                <th style={{ textAlign: "left", width: 110 }}>Sub-Division</th>
+                <th style={{ textAlign: "left", width: 65 }}>Subinventory</th>
+                <th style={{ textAlign: "left", width: 100 }}>Item Code</th>
+                <th style={{ textAlign: "left", width: 135 }}>Item Description</th>
+                <th style={{ textAlign: "right", width: 65 }}>Total Qty</th>
+                <th style={{ textAlign: "right", width: 75 }}>Value (AED)</th>
+                <th style={{ textAlign: "right", width: 50 }}>0 - 30</th>
+                <th style={{ textAlign: "right", width: 50 }}>31 - 60</th>
+                <th style={{ textAlign: "right", width: 50 }}>61 - 90</th>
+                <th style={{ textAlign: "right", width: 50 }}>91 - 120</th>
+                <th style={{ textAlign: "right", width: 55 }}>121 - 180</th>
+                <th style={{ textAlign: "right", width: 55 }}>181 - 365</th>
+                <th style={{ textAlign: "right", width: 55 }}>366 - 730</th>
+                <th style={{ textAlign: "right", width: 50 }}>&gt; 730</th>
+                <th style={{ textAlign: "right", width: 45 }}>Days</th>
+                <th style={{ textAlign: "right", width: 65 }}>Avg Value</th>
               </tr>
             </thead>
 
             <tbody>
-              {mockData.details.map((row) => {
-                const obsolete = Number(row.bucket_366_730 || 0) + Number(row.bucket_above_730 || 0);
-                return (
-                <tr key={row.id || `${row.legal_entity}-${row.subinventory}`}>
-                  <td>{row.legal_entity || "-"}</td>
-                  <td>{row.parent_division || "-"}</td>
-                  <td>{row.subdivision || "-"}</td>
-                  <td>{row.subinventory || "-"}</td>
-                  <td>{row.inventory_value ? Number(row.inventory_value).toLocaleString() : "-"}</td>
-                  <td>{row.bucket_0_30 ? Number(row.bucket_0_30).toLocaleString() : "-"}</td>
-                  <td>{row.bucket_31_60 ? Number(row.bucket_31_60).toLocaleString() : "-"}</td>
-                  <td>{row.bucket_61_90 ? Number(row.bucket_61_90).toLocaleString() : "-"}</td>
-                  <td>{row.bucket_91_120 ? Number(row.bucket_91_120).toLocaleString() : "-"}</td>
-                  <td>{row.bucket_121_180 ? Number(row.bucket_121_180).toLocaleString() : "-"}</td>
-                  <td>{row.bucket_181_365 ? Number(row.bucket_181_365).toLocaleString() : "-"}</td>
-                  <td>{obsolete > 0 ? obsolete.toLocaleString() : "--"}</td>
-                  <td>{row.dio || "-"}</td>
+              {mockData.details.map((row) => (
+                <tr key={row.id}>
+                  <td style={{ textAlign: "left" }}>
+                    <div style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.legal_entity}>
+                      {row.legal_entity}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <div style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.parent_division}>
+                      {row.parent_division}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <div style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subdivision}>
+                      {row.subdivision}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <div style={{ maxWidth: 65, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subinventory}>
+                      {row.subinventory}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <div style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.item_code}>
+                      {row.item_code}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "left" }}>
+                    <div
+                      style={{
+                        maxWidth: 135,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={row.item_description}
+                    >
+                      {row.item_description}
+                    </div>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.quantity ? Number(row.quantity).toLocaleString() : "0"}
+                  </td>
+                  <td style={{ textAlign: "right", fontWeight: 600 }}>
+                    {row.total_stock_value
+                      ? (Number(row.total_stock_value) / 10000000).toFixed(2)
+                      : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_0_30 ? (Number(row.aging_0_30) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_31_60 ? (Number(row.aging_31_60) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_61_90 ? (Number(row.aging_61_90) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_91_120 ? (Number(row.aging_91_120) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_121_180 ? (Number(row.aging_121_180) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_181_365 ? (Number(row.aging_181_365) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_366_730 ? (Number(row.aging_366_730) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {row.aging_above_730 ? (Number(row.aging_above_730) / 10000000).toFixed(2) : "0.00"}
+                  </td>
+                  <td style={{ textAlign: "right" }}>{row.days || "-"}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {typeof row.avg_inv_value === "number"
+                      ? (row.avg_inv_value / 10000000).toFixed(2)
+                      : (row.avg_inv_value || "-")}
+                  </td>
                 </tr>
-              )})}
+              ))}
+
+              {/* Total Row */}
+              {mockData.details.length > 0 && (() => {
+                const totals = mockData.details.reduce((acc, row) => {
+                  acc.qty += Number(row.quantity || 0);
+                  acc.totalVal += Number(row.total_stock_value || 0);
+                  acc.d30 += Number(row.aging_0_30 || 0);
+                  acc.d60 += Number(row.aging_31_60 || 0);
+                  acc.d90 += Number(row.aging_61_90 || 0);
+                  acc.d120 += Number(row.aging_91_120 || 0);
+                  acc.d180 += Number(row.aging_121_180 || 0);
+                  acc.d365 += Number(row.aging_181_365 || 0);
+                  acc.d730 += Number(row.aging_366_730 || 0);
+                  acc.dAbove730 += Number(row.aging_above_730 || 0);
+                  return acc;
+                }, { qty: 0, totalVal: 0, d30: 0, d60: 0, d90: 0, d120: 0, d180: 0, d365: 0, d730: 0, dAbove730: 0 });
+
+                return (
+                  <tr style={styles.detailTotalRow}>
+                    <td style={{ textAlign: "left", fontWeight: 800 }}>Total</td>
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {totals.qty.toLocaleString()}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.totalVal / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d30 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d60 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d90 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d120 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d180 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d365 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.d730 / 10000000).toFixed(2)}
+                    </td>
+                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                      {(totals.dAbove730 / 10000000).toFixed(2)}
+                    </td>
+                    <td />
+                    <td />
+                  </tr>
+                );
+              })()}
             </tbody>
           </table>
         </div>
@@ -1384,8 +1526,7 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.footer}>
         <div>
-          All values are in INR (₹ Cr) &nbsp; | &nbsp; Data as
-          on 30 Apr 2024
+          All values are in AED (Cr) &nbsp; | &nbsp; Data as on {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "30 Apr 2024"}
         </div>
 
         <div style={styles.source}>
@@ -1809,14 +1950,19 @@ const styles = {
   detailTableWrapper: {
     width: "100%",
     overflowX: "auto",
+    overflowY: "hidden",
+    paddingBottom: 6,
+    scrollbarWidth: "auto",
+    scrollbarColor: "#94a3b8 #f1f5f9",
   },
 
   detailTable: {
     width: "100%",
-    minWidth: 1100,
+    minWidth: 1280,
     borderCollapse: "collapse",
     fontSize: 8.5,
     color: "#334155",
+    tableLayout: "auto",
   },
 
   detailTotalRow: {
@@ -1874,6 +2020,40 @@ if (
 
     table tbody tr:hover {
       background: #f8fbff;
+    }
+
+    /* Enhanced, Thick Horizontal Scrollbar */
+    .detail-table-scroll::-webkit-scrollbar {
+      height: 10px !important;
+      width: 10px !important;
+    }
+
+    .detail-table-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9 !important;
+      border-radius: 6px !important;
+    }
+
+    .detail-table-scroll::-webkit-scrollbar-thumb {
+      background: #94a3b8 !important;
+      border-radius: 6px !important;
+      border: 2px solid #f1f5f9 !important;
+    }
+
+    .detail-table-scroll::-webkit-scrollbar-thumb:hover {
+      background: #475569 !important;
+    }
+
+    /* Compact Detail Table Styling */
+    table.detail-table th {
+      padding: 6px 4px !important;
+      font-size: 8.5px !important;
+      letter-spacing: -0.2px !important;
+    }
+
+    table.detail-table td {
+      padding: 5px 4px !important;
+      font-size: 8.5px !important;
+      letter-spacing: -0.2px !important;
     }
 
     select:focus {
