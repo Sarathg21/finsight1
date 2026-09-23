@@ -1,10 +1,42 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { getInventoryFilters, getInventoryDashboard, getInventoryDetails } from "../api/inventoryApi";
+import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
 
 export default function InventoryOverview() {
   // ============================================================
   // API STATE & LOGIC
   // ============================================================
+
+
+  const handleExport = async (type) => {
+    try {
+      let formattedDate = filters.asOnDate;
+      if (formattedDate && formattedDate !== "All" && formattedDate !== "") {
+          const d = new Date(formattedDate);
+          if (!isNaN(d.getTime())) {
+              formattedDate = d.toISOString().split('T')[0];
+          }
+      }
+      
+      const apiFilters = {};
+      if (filters.legalGroup && filters.legalGroup !== "All") apiFilters.legal_group_id = [filters.legalGroup];
+      if (filters.legalEntity && filters.legalEntity !== "All") apiFilters.legal_entity_id = [filters.legalEntity];
+      if (filters.parentDivision && filters.parentDivision !== "All") apiFilters.parent_division_id = [filters.parentDivision];
+      if (filters.subdivision && filters.subdivision !== "All") apiFilters.subdivision_id = [filters.subdivision];
+      if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
+
+      const response = await getInventoryExport(type, apiFilters);
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Inventory_Export_${type}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
 
   const [filters, setFilters] = useState({
     legalGroup: "All",
@@ -50,13 +82,12 @@ const [loading, setLoading] = useState(true);
                   }
               }
 
-              const apiFilters = {
-                  legal_group: filters.legalGroup === "All" ? "" : filters.legalGroup,
-                  legal_entity: filters.legalEntity === "All" ? "" : filters.legalEntity,
-                  parent_division: filters.parentDivision === "All" ? "" : filters.parentDivision,
-                  subdivision: filters.subdivision === "All" ? "" : filters.subdivision,
-                  as_on_date: formattedDate === "All" ? "" : formattedDate,
-              };
+              const apiFilters = {};
+              if (filters.legalGroup && filters.legalGroup !== "All") apiFilters.legal_group_id = [filters.legalGroup];
+              if (filters.legalEntity && filters.legalEntity !== "All") apiFilters.legal_entity_id = [filters.legalEntity];
+              if (filters.parentDivision && filters.parentDivision !== "All") apiFilters.parent_division_id = [filters.parentDivision];
+              if (filters.subdivision && filters.subdivision !== "All") apiFilters.subdivision_id = [filters.subdivision];
+              if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
               const [filterRes, dashRes, detailsRes] = await Promise.all([
                   getInventoryFilters(),
@@ -153,12 +184,12 @@ const [loading, setLoading] = useState(true);
 
               setMockData({
                   filters: {
-                      legalGroups: ["All", ...(fData.legal_groups || []).map(x => x.name || x)],
-                      legalEntities: ["All", ...(fData.legal_entities || []).map(x => x.name || x)],
-                      parentDivisions: ["All", ...(fData.parent_divisions || []).map(x => x.name || x)],
-                      subdivisions: ["All", ...(fData.subdivisions || []).map(x => x.name || x)],
-                      businessUnits: ["All"],
-                      dates: ["All", ...(fData.as_on_dates || [])],
+                      legalGroups: [{value: "All", label: "All"}, ...(fData.legal_groups || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
+                      legalEntities: [{value: "All", label: "All"}, ...(fData.legal_entities || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
+                      parentDivisions: [{value: "All", label: "All"}, ...(fData.parent_divisions || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
+                      subdivisions: [{value: "All", label: "All"}, ...(fData.subdivisions || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
+                      businessUnits: [{value: "All", label: "All"}],
+                      dates: [{value: "All", label: "All"}, ...(fData.as_on_dates || []).map(x => ({ value: x, label: x }))],
                   },
                   kpis,
                   trend,
@@ -670,6 +701,17 @@ const [loading, setLoading] = useState(true);
     onChange,
     date = false,
   }) => {
+    const uniqueOptions = [];
+    const seen = new Set();
+    options.forEach(opt => {
+      const lbl = typeof opt === 'object' ? opt.label : opt;
+      const val = typeof opt === 'object' ? opt.value : opt;
+      if (!seen.has(lbl)) {
+        seen.add(lbl);
+        uniqueOptions.push({ value: val, label: lbl });
+      }
+    });
+
     return (
       <div style={styles.filterField}>
         <label style={styles.filterLabel}>{label}</label>
@@ -680,9 +722,9 @@ const [loading, setLoading] = useState(true);
             onChange={(e) => onChange(e.target.value)}
             style={styles.select}
           >
-            {[...new Set(options)].map((option, __idx) => (
-              <option key={`${option}-${__idx}`} value={option}>
-                {option}
+            {uniqueOptions.map((opt, __idx) => (
+              <option key={`${opt.value}-${__idx}`} value={opt.value}>
+                {opt.label}
               </option>
             ))}
           </select>
@@ -730,11 +772,13 @@ const [loading, setLoading] = useState(true);
           </div>
         </div>
 
-        <div style={styles.headerActions}>
-          <button style={styles.primaryButton}>
-            Export
-            <span style={{ marginLeft: 8 }}>⌄</span>
-          </button>
+                  <div style={styles.headerActions}>
+            <button style={styles.primaryButton} onClick={() => handleExport('excel')}>
+              Export (Excel)
+            </button>
+            <button style={{ ...styles.primaryButton, marginLeft: '8px' }} onClick={() => handleExport('pdf')}>
+              Export (PDF)
+            </button>
 
           <button style={styles.secondaryButton}>
             <span style={styles.buttonIcon}>▣</span>
