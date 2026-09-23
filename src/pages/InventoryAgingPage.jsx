@@ -1171,7 +1171,7 @@ const [loading, setLoading] = useState(true);
                 <th>91-120</th>
                 <th>121-180</th>
                 <th>181-365</th>
-                <th>Obsolete Stock (> 365)</th>
+                <th>Obsolete Stock (&gt; 365)</th>
                 <th>DIO</th>
               </tr>
             </thead>
