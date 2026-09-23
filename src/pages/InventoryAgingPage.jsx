@@ -40,17 +40,18 @@ export default function InventoryOverview() {
   };
 
   const [filters, setFilters] = useState({
-    legalGroup: "All",
-    legalEntity: "All",
-    parentDivision: "All",
-    subdivision: "All",
-    businessUnit: "All",
-    asOnDate: "All",
-});
+      legalGroup: "All",
+      legalEntity: "All",
+      parentDivision: "All",
+      subdivision: "All",
+      subinventory: "All",
+      currency: "AED",
+      asOnDate: "All",
+  });
 const [loading, setLoading] = useState(true);
   const [mockData, setMockData] = useState({
     filters: {
-      legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], businessUnits: [], dates: []
+      legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
     },
     kpis: [], trend: { labels: [], previous: [], current: [] }, divisions: [],
     businessUnits: [], aging: [], slowMoving: [], locations: [], details: []
@@ -248,12 +249,13 @@ const [loading, setLoading] = useState(true);
 
   const resetFilters = () => {
     setFilters({
-      legalGroup: "FJ Group (Consolidated)",
+      legalGroup: "All",
       legalEntity: "All",
       parentDivision: "All",
       subdivision: "All",
-      businessUnit: "All",
-      asOnDate: "30 Apr 2024",
+      subinventory: "All",
+      currency: "AED",
+      asOnDate: "All",
     });
   };
 
@@ -710,7 +712,7 @@ const [loading, setLoading] = useState(true);
   const FilterField = ({
     label,
     value,
-    options,
+    options = [],
     onChange,
     date = false,
   }) => {
@@ -864,12 +866,16 @@ const [loading, setLoading] = useState(true);
         />
 
         <FilterField
-          label="Business Unit"
-          value={filters.businessUnit}
-          options={mockData.filters.businessUnits}
-          onChange={(value) =>
-            updateFilter("businessUnit", value)
-          }
+          label="Subinventory"
+          value={filters.subinventory}
+          options={mockData.filters.subinventories}
+          onChange={(value) => updateFilter("subinventory", value)}
+        />
+        <FilterField
+          label="Currency"
+          value={filters.currency}
+          options={mockData.filters.currencies}
+          onChange={(value) => updateFilter("currency", value)}
         />
 
         <FilterField
