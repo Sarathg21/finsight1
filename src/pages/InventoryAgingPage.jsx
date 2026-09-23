@@ -12,7 +12,7 @@ export default function InventoryOverview() {
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], businessUnits: [], dates: []
     },
     kpis: [], trend: { labels: [], previous: [], current: [] }, divisions: [],
-    businessUnits: [], aging: [], slowMoving: [], locations: [], details
+    businessUnits: [], aging: [], slowMoving: [], locations: [], details: []
   });
 
   
