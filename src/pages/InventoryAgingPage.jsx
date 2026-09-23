@@ -323,31 +323,25 @@ const [loading, setLoading] = useState(true);
 
             <div style={styles.kpiValue}>{item.value}</div>
 
-            <div style={styles.kpiVariance}>
-              <span
-                style={{
-                  color:
-                    item.direction === "down"
-                      ? "#dc2626"
-                      : "#16a34a",
-                  fontWeight: 700,
-                }}
-              >
-                {item.direction === "down" ? "▼" : "▲"}{" "}
-                {item.variance}
-              </span>
-
-              <span style={{ color: "#64748b" }}>
-                {" "}
-                {item.varianceLabel}
-              </span>
+                        {item.variance ? (
+              <div style={styles.kpiVariance}>
+                <span
+                  style={{
+                    color: item.direction === "down" ? "#dc2626" : "#16a34a",
+                    fontWeight: 700,
+                  }}
+                >
+                  {item.direction === "down" ? "▼" : "▲"} {item.variance}
+                </span>
+                <span style={{ color: "#64748b" }}> {item.varianceLabel}</span>
+              </div>
+            ) : <div style={styles.kpiVariance}><span style={{color: 'transparent'}}>--</span></div>}
             </div>
           </div>
-        </div>
 
-        {/* <div style={{ marginTop: 7 }}>
+        <div style={{ marginTop: 7 }}>
           <MiniLine points={item.line} color={item.iconColor} />
-        </div> */}
+        </div>
       </div>
     );
   };
@@ -1325,24 +1319,26 @@ const styles = {
   },
 
   applyButton: {
-    height: 30,
-    padding: "0 18px",
+    height: 38,
+    padding: "0 24px",
     border: "none",
-    borderRadius: 5,
-    background: "#4f24d8",
+    borderRadius: 8,
+    background: "#2563EB",
     color: "#fff",
-    fontSize: 10.5,
+    fontSize: "0.8rem",
     fontWeight: 700,
     cursor: "pointer",
   },
 
   resetButton: {
-    height: 30,
-    padding: "0 7px",
-    border: "none",
-    background: "transparent",
-    color: "#334155",
-    fontSize: 10.5,
+    height: 38,
+    padding: "0 24px",
+    border: "1px solid #CBD5E1",
+    borderRadius: 8,
+    background: "#fff",
+    color: "#475569",
+    fontSize: "0.8rem",
+    fontWeight: 600,
     cursor: "pointer",
   },
 
