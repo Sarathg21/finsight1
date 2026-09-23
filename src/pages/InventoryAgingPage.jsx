@@ -6,7 +6,15 @@ export default function InventoryOverview() {
   // API STATE & LOGIC
   // ============================================================
 
-  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    legalGroup: "FJ Group (Consolidated)",
+    legalEntity: "All",
+    parentDivision: "All",
+    subdivision: "All",
+    businessUnit: "All",
+    asOnDate: "30 Apr 2024",
+});
+const [loading, setLoading] = useState(true);
   const [mockData, setMockData] = useState({
     filters: {
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], businessUnits: [], dates: []
