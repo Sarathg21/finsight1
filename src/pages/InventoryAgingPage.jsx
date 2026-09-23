@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Package, TrendingUp, Clock, AlertTriangle, Cuboid } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
 
@@ -193,33 +194,36 @@ const [loading, setLoading] = useState(true);
               }
 
               let slowMoving = [];
-              if (dData.top_items) {
-                  slowMoving = dData.top_items.map((item, idx) => ({
+              const slowSource = dData.slow_moving_by_parent_div || dData.top_items;
+              if (slowSource && Array.isArray(slowSource)) {
+                  slowMoving = slowSource.map((item, idx) => ({
                       no: idx + 1,
-                      description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
-                      code: typeof item.item_code === 'object' ? (item.item_code?.name || item.item_code?.code) : item.item_code,
-                      qty: Number(item.quantity || 0).toLocaleString(),
-                      value: (Number(item.inventory_value || 0) / 10000000).toFixed(2), 
-                      days: item.days_in_inventory || item.aging_days || "-",
-                  }));
+                      parentDiv: typeof item.parent_division === 'object' ? item.parent_division?.name : (item.parent_division || item.item_description || "N/A"),
+                      obsolete: Number(item.obsolete_stock || item.inventory_value || 0) / 10000000,
+                      total: Number(item.total_stock || item.inventory_value || 0) / 10000000,
+                      percentage: Number(item.percentage_obsolete || item.percentage || 0)
+                  })).slice(0, 5);
               }
 
 
               let details = [];
               if (detailsRes && detailsRes.data && detailsRes.data.items) {
-                  details = detailsRes.data.items.map(item => ({
-                      legalEntity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
-                      parentDivision: typeof item.parent_division === 'object' ? item.parent_division?.name : item.parent_division,
+                  details = detailsRes.data.items.map((item, idx) => ({
+                      id: `${item.legal_entity}-${item.item_code}-${idx}`,
+                      legal_entity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
+                      parent_division: typeof item.parent_division === 'object' ? item.parent_division?.name : item.parent_division,
                       subdivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
-                      businessUnit: item.business_unit || item.subinventory || "Others",
-                      qty: Number(item.quantity || 0).toLocaleString(),
-                      total: (Number(item.inventory_value || 0) / 10000000).toFixed(2),
-                      d30: (Number(item.aging_0_30 || 0) / 10000000).toFixed(2),
-                      d60: (Number(item.aging_31_60 || 0) / 10000000).toFixed(2),
-                      d90: (Number(item.aging_61_90 || 0) / 10000000).toFixed(2),
-                      d180: (Number((item.aging_91_120 || 0) + (item.aging_121_180 || 0)) / 10000000).toFixed(2),
-                      d180plus: (Number(item.aging_above_180 || item.aging_181_365 || 0) / 10000000).toFixed(2),
-                      slow: (Number(item.obsolete_value || item.inventory_above_365 || 0) / 10000000).toFixed(2),
+                      subinventory: item.subinventory || item.business_unit || "Others",
+                      inventory_value: item.inventory_value || 0,
+                      bucket_0_30: item.aging_0_30 || 0,
+                      bucket_31_60: item.aging_31_60 || 0,
+                      bucket_61_90: item.aging_61_90 || 0,
+                      bucket_91_120: item.aging_91_120 || 0,
+                      bucket_121_180: item.aging_121_180 || 0,
+                      bucket_181_365: item.aging_181_365 || 0,
+                      bucket_366_730: item.aging_366_730 || 0,
+                      bucket_above_730: item.aging_above_730 || item.obsolete_value || item.inventory_above_365 || 0,
+                      dio: item.dio || "-",
                   }));
               }
 
