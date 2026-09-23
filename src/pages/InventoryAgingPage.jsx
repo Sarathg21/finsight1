@@ -1080,32 +1080,32 @@ const [loading, setLoading] = useState(true);
 
         {/* SLOW MOVING */}
         <div style={styles.panel}>
-          <SectionHeader>
-            Slow Moving Items (Top 5)
-          </SectionHeader>
-
+          <div style={styles.chartHeader}>
+            <div style={styles.chartTitle}>Slow Moving Stock by Parent Div <span style={styles.infoIcon}>ⓘ</span></div>
+            <div style={styles.headerActions}>
+              <button style={styles.secondaryButton} onClick={() => console.log('View All C')}>View All</button>
+            </div>
+          </div>
+          
           <div style={styles.tableWrapper}>
             <table style={styles.table}>
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Item Description</th>
-                  <th>Item Code</th>
-                  <th>Qty (Nos)</th>
-                  <th>Value (₹ Cr)</th>
-                  <th>Days</th>
+                  <th>PARENT DIV</th>
+                  <th style={{textAlign: 'right'}}>OBSOLETE STOCK</th>
+                  <th style={{textAlign: 'right'}}>TOTAL STOCK</th>
+                  <th style={{textAlign: 'right'}}>% OBSOLETE</th>
                 </tr>
               </thead>
-
               <tbody>
-                {mockData.slowMoving.map((row) => (
-                  <tr key={row.no}>
-                    <td>{row.no}</td>
-                    <td>{row.description}</td>
-                    <td>{row.code}</td>
-                    <td>{row.qty}</td>
-                    <td>{row.value}</td>
-                    <td>{row.days}</td>
+                {mockData.slowMoving.map((item, idx) => (
+                  <tr key={item.no || idx}>
+                    <td>{item.no}</td>
+                    <td>{item.parentDiv}</td>
+                    <td style={{textAlign: 'right'}}>{item.obsolete ? item.obsolete.toFixed(2) : "--"}</td>
+                    <td style={{textAlign: 'right'}}>{item.total ? item.total.toFixed(2) : "--"}</td>
+                    <td style={{textAlign: 'right'}}>{item.percentage ? `${item.percentage.toFixed(2)}%` : "--"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1161,52 +1161,41 @@ const [loading, setLoading] = useState(true);
             <thead>
               <tr>
                 <th>Legal Entity</th>
-                <th>Parent Division</th>
-                <th>Sub-Division</th>
-                <th>Business Unit</th>
-                <th>Total Qty (Nos)</th>
-                <th>Inventory Value (₹ Cr)</th>
-                <th>0 - 30 Days (₹ Cr)</th>
-                <th>31 - 60 Days (₹ Cr)</th>
-                <th>61 - 90 Days (₹ Cr)</th>
-                <th>91 - 180 Days (₹ Cr)</th>
-                <th>&gt; 180 Days (₹ Cr)</th>
-                <th>Slow Moving (₹ Cr)</th>
+                <th>Parent Div</th>
+                <th>Sub Div</th>
+                <th>Sub Inventory Code</th>
+                <th>Total Stock Value</th>
+                <th>0-30</th>
+                <th>31-60</th>
+                <th>61-90</th>
+                <th>91-120</th>
+                <th>121-180</th>
+                <th>181-365</th>
+                <th>Obsolete Stock (> 365)</th>
+                <th>DIO</th>
               </tr>
             </thead>
 
             <tbody>
-              {mockData.details.map((row) => (
-                <tr key={row.legalEntity}>
-                  <td>{row.legalEntity}</td>
-                  <td>{row.parentDivision}</td>
-                  <td>{row.subdivision}</td>
-                  <td>{row.businessUnit}</td>
-                  <td>{row.qty}</td>
-                  <td>{row.total}</td>
-                  <td>{row.d30}</td>
-                  <td>{row.d60}</td>
-                  <td>{row.d90}</td>
-                  <td>{row.d180}</td>
-                  <td>{row.d180plus}</td>
-                  <td>{row.slow}</td>
+              {mockData.details.map((row) => {
+                const obsolete = Number(row.bucket_366_730 || 0) + Number(row.bucket_above_730 || 0);
+                return (
+                <tr key={row.id || `${row.legal_entity}-${row.subinventory}`}>
+                  <td>{row.legal_entity || "-"}</td>
+                  <td>{row.parent_division || "-"}</td>
+                  <td>{row.subdivision || "-"}</td>
+                  <td>{row.subinventory || "-"}</td>
+                  <td>{row.inventory_value ? Number(row.inventory_value).toLocaleString() : "-"}</td>
+                  <td>{row.bucket_0_30 ? Number(row.bucket_0_30).toLocaleString() : "-"}</td>
+                  <td>{row.bucket_31_60 ? Number(row.bucket_31_60).toLocaleString() : "-"}</td>
+                  <td>{row.bucket_61_90 ? Number(row.bucket_61_90).toLocaleString() : "-"}</td>
+                  <td>{row.bucket_91_120 ? Number(row.bucket_91_120).toLocaleString() : "-"}</td>
+                  <td>{row.bucket_121_180 ? Number(row.bucket_121_180).toLocaleString() : "-"}</td>
+                  <td>{row.bucket_181_365 ? Number(row.bucket_181_365).toLocaleString() : "-"}</td>
+                  <td>{obsolete > 0 ? obsolete.toLocaleString() : "--"}</td>
+                  <td>{row.dio || "-"}</td>
                 </tr>
-              ))}
-
-              <tr style={styles.detailTotalRow}>
-                <td>Total</td>
-                <td />
-                <td />
-                <td />
-                <td>2,36,48,520</td>
-                <td>562.35</td>
-                <td>127.50</td>
-                <td>127.60</td>
-                <td>98.30</td>
-                <td>62.85</td>
-                <td>65.60</td>
-                <td>38.45</td>
-              </tr>
+              )})}
             </tbody>
           </table>
         </div>
