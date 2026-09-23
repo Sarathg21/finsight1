@@ -151,7 +151,7 @@ function buildExportParams(filters = {}) {
 
 export async function getReceivablesFilterOptions() {
   const response = await api.get(
-    "/api/receivables/filter-options",
+    "/receivables/filter-options",
     {
       headers: getAuthHeaders(),
     }
@@ -168,7 +168,7 @@ export async function getReceivablesDashboard(filters = {}) {
   const params = buildDashboardParams(filters);
 
   const response = await api.get(
-    "/api/receivables/dashboard",
+    "/receivables/dashboard",
     {
       params,
       headers: getAuthHeaders(),
@@ -186,7 +186,7 @@ export async function getReceivablesKPIs(filters = {}) {
   const params = buildDashboardParams(filters);
 
   const response = await api.get(
-    "/api/receivables/kpis",
+    "/receivables/kpis",
     {
       params,
       headers: getAuthHeaders(),
@@ -204,7 +204,7 @@ export async function getReceivablesAgingSummary(filters = {}) {
   const params = buildDashboardParams(filters);
 
   const response = await api.get(
-    "/api/receivables/aging-summary",
+    "/receivables/aging-summary",
     {
       params,
       headers: getAuthHeaders(),
@@ -222,7 +222,7 @@ export async function getReceivablesTrend(filters = {}) {
   const params = buildDashboardParams(filters);
 
   const response = await api.get(
-    "/api/receivables/trend",
+    "/receivables/trend",
     {
       params,
       headers: getAuthHeaders(),
@@ -240,7 +240,7 @@ export async function getReceivablesByParentDivision(filters = {}) {
   const params = buildDashboardParams(filters);
 
   const response = await api.get(
-    "/api/receivables/by-parent-division",
+    "/receivables/by-parent-division",
     {
       params,
       headers: getAuthHeaders(),
@@ -258,7 +258,7 @@ export async function getReceivablesBySubdivision(filters = {}) {
   const params = buildDashboardParams(filters);
 
   const response = await api.get(
-    "/api/receivables/by-subdivision",
+    "/receivables/by-subdivision",
     {
       params,
       headers: getAuthHeaders(),
@@ -281,7 +281,7 @@ export async function getReceivablesTopCustomers(
   appendParam(params, "limit", limit);
 
   const response = await api.get(
-    "/api/receivables/top-customers",
+    "/receivables/top-customers",
     {
       params,
       headers: getAuthHeaders(),
@@ -303,7 +303,7 @@ export async function getReceivablesMonthOnMonth(
   appendParam(params, "year", filters.year);
 
   const response = await api.get(
-    "/api/receivables/month-on-month",
+    "/receivables/month-on-month",
     {
       params,
       headers: getAuthHeaders(),
@@ -321,7 +321,7 @@ export async function getReceivablesViewAll(filters = {}) {
   const params = buildViewAllParams(filters);
 
   const response = await api.get(
-    "/api/receivables/view-all",
+    "/receivables/view-all",
     {
       params,
       headers: getAuthHeaders(),
@@ -339,7 +339,7 @@ export async function exportReceivablesExcel(filters = {}) {
   const params = buildExportParams(filters);
 
   const response = await api.get(
-    "/api/receivables/export/excel",
+    "/receivables/export/excel",
     {
       params,
       headers: getAuthHeaders(),
@@ -358,7 +358,7 @@ export async function exportReceivablesPDF(filters = {}) {
   const params = buildExportParams(filters);
 
   const response = await api.get(
-    "/api/receivables/export/pdf",
+    "/receivables/export/pdf",
     {
       params,
       headers: getAuthHeaders(),

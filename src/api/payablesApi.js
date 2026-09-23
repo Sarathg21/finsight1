@@ -220,7 +220,7 @@ function buildExportParams(filters = {}) {
  * Returns the available Payables filter options.
  */
 export async function getPayablesFilterOptions() {
-    const response = await api.get("/api/payables/filter-options", {
+    const response = await api.get("/payables/filter-options", {
         headers: getAuthHeaders(),
     });
 
@@ -246,7 +246,7 @@ export async function getPayablesFilterOptions() {
 export async function getPayablesDashboard(filters = {}) {
     const params = buildDashboardParams(filters);
 
-    const response = await api.get("/api/payables/dashboard", {
+    const response = await api.get("/payables/dashboard", {
         params,
         headers: getAuthHeaders(),
     });
@@ -272,7 +272,7 @@ export async function getPayablesDashboard(filters = {}) {
 export async function getPayablesViewAll(filters = {}) {
     const params = buildViewAllParams(filters);
 
-    const response = await api.get("/api/payables/view-all", {
+    const response = await api.get("/payables/view-all", {
         params,
         headers: getAuthHeaders(),
     });
@@ -304,7 +304,7 @@ export async function getPayablesViewAll(filters = {}) {
 export async function getPayablesBySubdivision(filters = {}) {
     const params = buildDashboardParams(filters);
 
-    const response = await api.get("/api/payables/by-subdivision", {
+    const response = await api.get("/payables/by-subdivision", {
         params,
         headers: getAuthHeaders(),
     });
@@ -341,7 +341,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
 
     appendParam(params, "year", filters.year);
 
-    const response = await api.get("/api/payables/month-on-month", {
+    const response = await api.get("/payables/month-on-month", {
         params,
         headers: getAuthHeaders(),
     });
@@ -370,7 +370,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
 export async function exportPayablesExcel(filters = {}) {
     const params = buildExportParams(filters);
 
-    const response = await api.get("/api/payables/export/excel", {
+    const response = await api.get("/payables/export/excel", {
         params,
         headers: getAuthHeaders(),
         responseType: "blob",
@@ -400,7 +400,7 @@ export async function exportPayablesExcel(filters = {}) {
 export async function exportPayablesPdf(filters = {}) {
     const params = buildExportParams(filters);
 
-    const response = await api.get("/api/payables/export/pdf", {
+    const response = await api.get("/payables/export/pdf", {
         params,
         headers: getAuthHeaders(),
         responseType: "blob",
