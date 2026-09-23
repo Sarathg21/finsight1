@@ -88,6 +88,8 @@ const [loading, setLoading] = useState(true);
               if (filters.legalEntity && filters.legalEntity !== "All") apiFilters.legal_entity_id = [filters.legalEntity];
               if (filters.parentDivision && filters.parentDivision !== "All") apiFilters.parent_division_id = [filters.parentDivision];
               if (filters.subdivision && filters.subdivision !== "All") apiFilters.subdivision_id = [filters.subdivision];
+              if (filters.subinventory && filters.subinventory !== "All") apiFilters.subinventory_id = [filters.subinventory];
+              if (filters.currency && filters.currency !== "All") apiFilters.currency = filters.currency;
               if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
               const [filterRes, dashRes, detailsRes] = await Promise.all([
@@ -152,9 +154,9 @@ const [loading, setLoading] = useState(true);
                   })).sort((a,b) => b.value - a.value).slice(0, 5);
               }
 
-              let businessUnits = [];
+              let bySubdivision = [];
               if (dData.by_subdivision) {
-                  businessUnits = dData.by_subdivision.map((item) => ({
+                  bySubdivision = dData.by_subdivision.map((item) => ({
                       name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
                       value: Number(item.inventory_value) / 10000000,
                   })).sort((a,b) => b.value - a.value).slice(0, 5);
@@ -204,13 +206,14 @@ const [loading, setLoading] = useState(true);
                       legalEntities: [{value: "All", label: "All"}, ...(fData.legal_entities || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
                       parentDivisions: [{value: "All", label: "All"}, ...(fData.parent_divisions || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
                       subdivisions: [{value: "All", label: "All"}, ...(fData.subdivisions || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
-                      businessUnits: [{value: "All", label: "All"}],
+                      subinventories: [{value: "All", label: "All"}, ...(fData.subinventories || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
+                      currencies: [{value: "AED", label: "AED"}, ...(fData.currencies || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
                       dates: [{value: "All", label: "All"}, ...(fData.as_on_dates || []).map(x => ({ value: x, label: x }))],
                   },
                   kpis,
                   trend,
                   divisions,
-                  businessUnits,
+                  bySubdivision,
                   aging,
                   slowMoving,
                   locations: [],
@@ -907,7 +910,7 @@ const [loading, setLoading] = useState(true);
         {/* Inventory Trend */}
         <div style={styles.panel}>
           <SectionHeader>
-            Inventory Value Trend (₹ Cr)
+            Inventory Value Trend (Cr)
           </SectionHeader>
 
           <div style={styles.legend}>
@@ -940,7 +943,7 @@ const [loading, setLoading] = useState(true);
         {/* Parent Division */}
         <div style={styles.panel}>
           <SectionHeader>
-            Inventory Value by Parent Division (₹ Cr)
+            Inventory Value by Parent Division (Cr)
           </SectionHeader>
 
           <div style={styles.donutRow}>
@@ -995,7 +998,7 @@ const [loading, setLoading] = useState(true);
         {/* AGING */}
         <div style={styles.panel}>
           <SectionHeader>
-            Inventory Aging Summary (₹ Cr)
+            Inventory Aging Summary (Cr)
           </SectionHeader>
 
           <div style={styles.agingContent}>
