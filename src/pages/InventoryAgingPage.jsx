@@ -220,7 +220,7 @@ const [loading, setLoading] = useState(true);
 
     const path = points
       .map((point, index) => {
-        const x = (index / (points.length - 1)) * width;
+        const x = points.length > 1 ? (index / (points.length - 1)) * width : width / 2;
 
         const normalized =
           max === min ? 0.5 : (point - min) / (max - min);
@@ -247,7 +247,7 @@ const [loading, setLoading] = useState(true);
         />
 
         {points.map((point, index) => {
-          const x = (index / (points.length - 1)) * width;
+          const x = points.length > 1 ? (index / (points.length - 1)) * width : width / 2;
 
           const normalized =
             max === min ? 0.5 : (point - min) / (max - min);
@@ -340,15 +340,14 @@ const [loading, setLoading] = useState(true);
       ...mockData.trend.current,
     ];
 
-    const maxValue = Math.ceil(Math.max(...allValues) / 100) * 100;
+    const _rawMax = Math.max(...allValues, 0);
+    const maxValue = Math.max(100, Math.ceil(_rawMax / 100) * 100);
     const minValue = 0;
 
     const makePoints = (values) => {
       return values
         .map((value, index) => {
-          const x =
-            paddingLeft +
-            (index / (values.length - 1)) * plotWidth;
+          const x = values.length > 1 ? paddingLeft + (index / (values.length - 1)) * plotWidth : paddingLeft + plotWidth / 2;
 
           const y =
             paddingTop +
@@ -413,10 +412,7 @@ const [loading, setLoading] = useState(true);
         />
 
         {mockData.trend.previous.map((value, index) => {
-          const x =
-            paddingLeft +
-            (index / (mockData.trend.previous.length - 1)) *
-              plotWidth;
+          const x = mockData.trend.previous.length > 1 ? paddingLeft + (index / (mockData.trend.previous.length - 1)) * plotWidth : paddingLeft + plotWidth / 2;
 
           const y =
             paddingTop +
@@ -435,10 +431,7 @@ const [loading, setLoading] = useState(true);
         })}
 
         {mockData.trend.current.map((value, index) => {
-          const x =
-            paddingLeft +
-            (index / (mockData.trend.current.length - 1)) *
-              plotWidth;
+          const x = mockData.trend.current.length > 1 ? paddingLeft + (index / (mockData.trend.current.length - 1)) * plotWidth : paddingLeft + plotWidth / 2;
 
           const y =
             paddingTop +
@@ -457,10 +450,7 @@ const [loading, setLoading] = useState(true);
         })}
 
         {mockData.trend.labels.map((label, index) => {
-          const x =
-            paddingLeft +
-            (index / (mockData.trend.labels.length - 1)) *
-              plotWidth;
+          const x = mockData.trend.labels.length > 1 ? paddingLeft + (index / (mockData.trend.labels.length - 1)) * plotWidth : paddingLeft + plotWidth / 2;
 
           return (
             <text
@@ -690,8 +680,8 @@ const [loading, setLoading] = useState(true);
             onChange={(e) => onChange(e.target.value)}
             style={styles.select}
           >
-            {options.map((option) => (
-              <option key={option} value={option}>
+            {[...new Set(options)].map((option, __idx) => (
+              <option key={`${option}-${__idx}`} value={option}>
                 {option}
               </option>
             ))}
@@ -1044,8 +1034,8 @@ const [loading, setLoading] = useState(true);
               </thead>
 
               <tbody>
-                {mockData.locations.map((row) => (
-                  <tr key={row.name}>
+                {mockData.locations.map((row, idx) => (
+                  <tr key={`${row.name}-${idx}`}>
                     <td>{row.name}</td>
                     <td>{row.value.toFixed(2)}</td>
                     <td>{row.percentage.toFixed(2)}%</td>
