@@ -31,7 +31,6 @@ export default function MasterDataModal({
   parentDivisions = [],
 }) {
   const isEdit = Boolean(editData);
-
   const editId =
     editData && idField
       ? editData[idField]
@@ -48,110 +47,32 @@ export default function MasterDataModal({
   ========================================================= */
 
   const getArrayValue = (data, field) => {
-    if (!data || !field) return [];
+    if (!data) return [];
 
-    const fieldName = field.name;
-
-    const normalizeIds = (items) => {
-      if (!Array.isArray(items)) return [];
-
-      return items
-        .map((item) => {
-          if (item && typeof item === "object") {
-            return (
-              item.id ??
-              item.value ??
-              item.legal_group_id ??
-              item.legal_entity_id ??
-              item.parent_division_id ??
-              item.subdivision_id ??
-              item.group_id ??
-              item[fieldName] ??
-              item.legal_group?.id ??
-              item.legal_group?.legal_group_id ??
-              item.legal_entity?.id ??
-              item.legal_entity?.legal_entity_id ??
-              item.parent_division?.id ??
-              item.parent_division?.parent_division_id ??
-              item.subdivision?.id ??
-              item.subdivision?.subdivision_id
-            );
-          }
-
-          return item;
-        })
-        .filter(
-          (id) =>
-            id !== null &&
-            id !== undefined &&
-            String(id).trim() !== "" &&
-            String(id) !== "NaN"
-        )
-        .map(String);
-    };
-
-    /* =========================================================
-       DIRECT ARRAY FIELD
-    ========================================================= */
-
-    const directValue = data[fieldName];
+    const directValue = data[field.name];
 
     if (Array.isArray(directValue)) {
-      return normalizeIds(directValue);
+      return directValue.map(String);
     }
-
-    /* =========================================================
-       DIRECT SINGLE VALUE
-    ========================================================= */
 
     if (
-      directValue !== null &&
-      directValue !== undefined &&
-      String(directValue).trim() !== ""
+      field.name === "legal_group_ids" &&
+      Array.isArray(data.legal_groups)
     ) {
-      return [String(directValue)];
+      return data.legal_groups
+        .map((item) => item?.legal_group_id)
+        .filter((id) => id != null)
+        .map(String);
     }
 
-    /* =========================================================
-       LEGAL GROUPS
-    ========================================================= */
-
-    if (fieldName === "legal_group_ids") {
-      if (Array.isArray(data.legal_groups)) {
-        return normalizeIds(data.legal_groups);
-      }
-
-      if (Array.isArray(data.legal_group)) {
-        return normalizeIds(data.legal_group);
-      }
-
-      if (
-        data.legal_group_id !== null &&
-        data.legal_group_id !== undefined
-      ) {
-        return [String(data.legal_group_id)];
-      }
-    }
-
-    /* =========================================================
-       LEGAL ENTITIES
-    ========================================================= */
-
-    if (fieldName === "legal_entity_ids") {
-      if (Array.isArray(data.legal_entities)) {
-        return normalizeIds(data.legal_entities);
-      }
-
-      if (Array.isArray(data.legal_entity)) {
-        return normalizeIds(data.legal_entity);
-      }
-
-      if (
-        data.legal_entity_id !== null &&
-        data.legal_entity_id !== undefined
-      ) {
-        return [String(data.legal_entity_id)];
-      }
+    if (
+      field.name === "legal_entity_ids" &&
+      Array.isArray(data.legal_entities)
+    ) {
+      return data.legal_entities
+        .map((item) => item?.legal_entity_id)
+        .filter((id) => id != null)
+        .map(String);
     }
 
     return [];
@@ -190,107 +111,24 @@ export default function MasterDataModal({
   useEffect(() => {
     if (!open) return;
 
-    /*
-     * IMPORTANT:
-     * Explicitly preserve false.
-     *
-     * false = Inactive
-     * true  = Active
-     */
-    const normalizedActive =
-      editData?.active === false ||
-        editData?.active === 0 ||
-        editData?.active === "false" ||
-        editData?.active === "0"
-        ? false
-        : true;
-
     const initialData = {
-      active: normalizedActive,
+      active: editData?.active ?? true,
     };
-
-    /* =======================================================
-       CODE
-    ======================================================= */
 
     if (codeField) {
       initialData[codeField] =
         editData?.[codeField] ?? "";
     }
 
-    /* =======================================================
-       NAME
-    ======================================================= */
-
     if (nameField) {
       initialData[nameField] =
         editData?.[nameField] ?? "";
     }
 
-    /* =======================================================
-       EXTRA FIELDS
-    ======================================================= */
-
     extraFields.forEach((field) => {
-      /*
-       * Do NOT allow an extraFields "active" value
-       * to overwrite our boolean status.
-       */
-      if (field.name === "active") {
-        return;
-      }
-
       initialData[field.name] =
         getFieldValue(editData, field);
     });
-
-    /* =======================================================
-       LEGAL GROUP EDIT FIX
-    ======================================================= */
-
-    if (
-      editData &&
-      Array.isArray(editData.legal_groups)
-    ) {
-      initialData.legal_group_ids =
-        getArrayValue(editData, {
-          name: "legal_group_ids",
-        });
-    }
-
-    /* =======================================================
-       LEGAL GROUP FALLBACK
-    ======================================================= */
-
-    if (
-      editData &&
-      !initialData.legal_group_ids?.length &&
-      editData.legal_group_id !== null &&
-      editData.legal_group_id !== undefined
-    ) {
-      initialData.legal_group_ids = [
-        String(editData.legal_group_id),
-      ];
-    }
-
-    /* =======================================================
-       LEGAL GROUP FALLBACK - legal_group
-    ======================================================= */
-
-    if (
-      editData &&
-      !initialData.legal_group_ids?.length &&
-      Array.isArray(editData.legal_group)
-    ) {
-      initialData.legal_group_ids =
-        getArrayValue(editData, {
-          name: "legal_group_ids",
-        });
-    }
-
-    /* =======================================================
-       SUBDIVISION / PARENT DIVISION DATA
-    ======================================================= */
 
     if (editData) {
       initialData.subdivision_id =
@@ -328,7 +166,6 @@ export default function MasterDataModal({
     editData,
     codeField,
     nameField,
-    extraFields,
   ]);
 
   /* =========================================================
@@ -372,9 +209,7 @@ export default function MasterDataModal({
       selectedOptions,
     } = e.target;
 
-    /* =======================================================
-       MULTI SELECT
-    ======================================================= */
+    /* MULTI SELECT */
 
     if (field.type === "multi-select") {
       const values = Array.from(
@@ -390,9 +225,7 @@ export default function MasterDataModal({
       return;
     }
 
-    /* =======================================================
-       SUB DIVISION
-    ======================================================= */
+    /* SUB DIVISION */
 
     if (name === "subdivision_id") {
       const selectedSubDivision =
@@ -402,10 +235,7 @@ export default function MasterDataModal({
             String(value)
         );
 
-      if (
-        !value ||
-        !selectedSubDivision
-      ) {
+      if (!value || !selectedSubDivision) {
         setFormData((prev) => ({
           ...prev,
 
@@ -473,15 +303,12 @@ export default function MasterDataModal({
       return;
     }
 
-    /* =======================================================
-       NORMAL SELECT
-    ======================================================= */
+    /* NORMAL SELECT */
 
     const selectedOption =
       field.options?.find(
         (option) =>
-          String(option.value) ===
-          String(value)
+          String(option.value) === String(value)
       );
 
     setFormData((prev) => {
@@ -510,51 +337,11 @@ export default function MasterDataModal({
   };
 
   /* =========================================================
-     FIELD VALIDATION
-  ========================================================= */
-
-  const isFieldValid = (field) => {
-    if (!field) return true;
-
-    // IMPORTANT:
-    // Active/Inactive is always a valid value.
-    // false is NOT an invalid/empty value.
-    if (field.name === "active") return true;
-
-    // Read-only fields don't block Save/Update
-    if (isEdit && field.readOnly) return true;
-
-    if (!field.required) return true;
-
-    const value = formData[field.name];
-
-    // Multi-select
-    if (field.multiple) {
-      return Array.isArray(value) && value.length > 0;
-    }
-
-    // Number fields
-    if (field.type === "number") {
-      return value !== "" && value !== null && value !== undefined;
-    }
-
-    // Normal fields
-    return (
-      value !== null &&
-      value !== undefined &&
-      String(value).trim() !== ""
-    );
-  };
-  /* =========================================================
      VALIDATION
   ========================================================= */
 
   const validate = () => {
     const errors = [];
-
-    /* =======================================================
-       CODE
-    ======================================================= */
 
     if (
       codeField &&
@@ -567,10 +354,6 @@ export default function MasterDataModal({
       );
     }
 
-    /* =======================================================
-       NAME
-    ======================================================= */
-
     if (
       nameField &&
       !String(
@@ -582,52 +365,19 @@ export default function MasterDataModal({
       );
     }
 
-    /* =======================================================
-       EXTRA FIELDS
-    ======================================================= */
-
     extraFields.forEach((field) => {
-      /*
-       * NEVER validate Active Status.
-       *
-       * false is a legitimate value.
-       */
+      if (!field.required) return;
+
+      const value =
+        formData[field.name];
+
       if (
-        field.name === "active" ||
-        field.name === "is_active"
+        field.type === "multi-select"
       ) {
-        return;
-      }
-
-      if (!field.required) {
-        return;
-      }
-
-      /*
-       * Read-only fields do not block updates.
-       */
-      if (isEdit && field.readOnly) {
-        return;
-      }
-
-      const value = formData[field.name];
-
-      /* =====================================================
-         MULTI SELECT
-      ===================================================== */
-
-      if (field.type === "multi-select") {
-        const validMultiSelect =
-          Array.isArray(value) &&
-          value.some(
-            (item) =>
-              item !== null &&
-              item !== undefined &&
-              String(item).trim() !== "" &&
-              String(item) !== "NaN"
-          );
-
-        if (!validMultiSelect) {
+        if (
+          !Array.isArray(value) ||
+          value.length === 0
+        ) {
           errors.push(
             `${field.label} is required`
           );
@@ -635,10 +385,6 @@ export default function MasterDataModal({
 
         return;
       }
-
-      /* =====================================================
-         NORMAL FIELD
-      ===================================================== */
 
       if (
         value === null ||
@@ -651,10 +397,6 @@ export default function MasterDataModal({
 
         return;
       }
-
-      /* =====================================================
-         NUMBER
-      ===================================================== */
 
       if (
         field.type === "number" &&
@@ -681,40 +423,62 @@ export default function MasterDataModal({
      FORM VALID
   ========================================================= */
 
-
   const isFormValid = () => {
-    // Code validation
     const codeValid =
       !codeField ||
-      Boolean(String(formData[codeField] ?? "").trim());
+      Boolean(
+        String(
+          formData[codeField] ?? ""
+        ).trim()
+      );
 
-    // Name validation
     const nameValid =
       !nameField ||
-      Boolean(String(formData[nameField] ?? "").trim());
+      Boolean(
+        String(
+          formData[nameField] ?? ""
+        ).trim()
+      );
 
-    // Extra fields
-    const extraValid = (extraFields || []).every((field) => {
-      // NEVER allow Active/Inactive to make form invalid
-      if (field?.name === "active") {
-        return true;
-      }
+    const extraValid =
+      extraFields
+        .filter(
+          (field) => field.required
+        )
+        .every((field) => {
+          const value =
+            formData[field.name];
 
-      return isFieldValid(field);
-    });
+          if (
+            field.type ===
+            "multi-select"
+          ) {
+            return (
+              Array.isArray(value) &&
+              value.length > 0
+            );
+          }
 
-    return codeValid && nameValid && extraValid;
+          return Boolean(
+            String(
+              value ?? ""
+            ).trim()
+          );
+        });
+
+    return (
+      codeValid &&
+      nameValid &&
+      extraValid
+    );
   };
+
   /* =========================================================
      BUILD PAYLOAD
   ========================================================= */
 
   const buildPayload = () => {
     const payload = {};
-
-    /* =======================================================
-       CODE
-    ======================================================= */
 
     if (codeField) {
       payload[codeField] =
@@ -723,10 +487,6 @@ export default function MasterDataModal({
         ).trim();
     }
 
-    /* =======================================================
-       NAME
-    ======================================================= */
-
     if (nameField) {
       payload[nameField] =
         String(
@@ -734,64 +494,16 @@ export default function MasterDataModal({
         ).trim();
     }
 
-    /* =======================================================
-       ACTIVE
-    ======================================================= */
-
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT use:
-     *
-     * Boolean(formData.active)
-     *
-     * because we want the actual boolean state.
-     *
-     * false must be sent as false.
-     */
     payload.active =
-      formData.active === false
-        ? false
-        : true;
-
-    /* =======================================================
-       EXTRA FIELDS
-    ======================================================= */
+      formData.active;
 
     extraFields.forEach((field) => {
       const value =
         formData[field.name];
 
-      /*
-       * Active is already handled above.
-       *
-       * Prevent duplicate/incorrect processing.
-       */
-      if (
-        field.name === "active"
-      ) {
-        return;
-      }
-
-      /*
-       * is_active should also not override active.
-       */
-      if (
-        field.name === "is_active"
-      ) {
-        return;
-      }
-
-      /*
-       * Read-only fields are never submitted.
-       */
       if (field.readOnly) {
         return;
       }
-
-      /* =====================================================
-         ID MULTI SELECT
-      ===================================================== */
 
       if (
         field.isId &&
@@ -812,10 +524,6 @@ export default function MasterDataModal({
         return;
       }
 
-      /* =====================================================
-         SINGLE ID
-      ===================================================== */
-
       if (field.isId) {
         payload[field.name] =
           value === "" ||
@@ -827,10 +535,6 @@ export default function MasterDataModal({
         return;
       }
 
-      /* =====================================================
-         NUMBER
-      ===================================================== */
-
       if (field.type === "number") {
         payload[field.name] =
           value === "" ||
@@ -841,10 +545,6 @@ export default function MasterDataModal({
 
         return;
       }
-
-      /* =====================================================
-         NORMAL
-      ===================================================== */
 
       payload[field.name] =
         value ?? "";
@@ -873,7 +573,6 @@ export default function MasterDataModal({
     console.log(
       "========== SAVE DEBUG =========="
     );
-
     console.log("title:", title);
     console.log("isEdit:", isEdit);
     console.log("idField:", idField);
@@ -883,69 +582,42 @@ export default function MasterDataModal({
       currentEditId
     );
     console.log(
-      "formData:",
-      formData
-    );
-
-    console.log(
-      "Active status:",
-      formData.active
-    );
-
-    console.log(
       "================================="
     );
 
-    /* =======================================================
-       ID VALIDATION
-    ======================================================= */
-
     if (
       isEdit &&
-      (
-        currentEditId === undefined ||
+      (currentEditId === undefined ||
         currentEditId === null ||
-        currentEditId === ""
-      )
+        currentEditId === "")
     ) {
       toast.error(
         `Unable to update ${title}: ID is missing`
       );
-
       return;
     }
 
     try {
       setSaving(true);
 
-      const payload =
-        buildPayload();
+      const payload = buildPayload();
 
       console.log(
-        `${isEdit
-          ? "UPDATE"
-          : "CREATE"
-        } ${title} payload:`,
+        `${isEdit ? "UPDATE" : "CREATE"} ${title} payload:`,
         payload
       );
 
       let response;
-
-      /* =====================================================
-         UPDATE
-      ===================================================== */
 
       if (isEdit) {
         if (
           typeof onCustomSave ===
           "function"
         ) {
-          response =
-            await onCustomSave({
-              ...payload,
-              [idField]:
-                currentEditId,
-            });
+          response = await onCustomSave({
+            ...payload,
+            [idField]: currentEditId,
+          });
         } else {
           if (
             typeof updateApi !==
@@ -956,43 +628,30 @@ export default function MasterDataModal({
             );
           }
 
-          response =
-            await updateApi(
-              currentEditId,
-              payload
-            );
+          response = await updateApi(
+            currentEditId,
+            payload
+          );
         }
 
         toast.success(
           `${title} updated successfully`
         );
-      }
-
-      /* =====================================================
-         CREATE
-      ===================================================== */
-
-      else {
+      } else {
         if (
-          typeof addApi !==
-          "function"
+          typeof addApi !== "function"
         ) {
           throw new Error(
             `addApi is not provided for ${title}`
           );
         }
 
-        response =
-          await addApi(payload);
+        response = await addApi(payload);
 
         toast.success(
           `${title} created successfully`
         );
       }
-
-      /* =====================================================
-         NORMALIZE RESPONSE
-      ===================================================== */
 
       const result =
         normalizeResponse(response);
@@ -1000,11 +659,11 @@ export default function MasterDataModal({
       onSuccess?.(result);
 
       onClose?.();
+
     } catch (error) {
       console.error(
         `${title} save error:`,
-        error?.response?.data ||
-        error
+        error?.response?.data || error
       );
 
       const detail =
@@ -1014,55 +673,34 @@ export default function MasterDataModal({
         error?.response?.data?.message ||
         error?.response?.data?.error;
 
-      /* =====================================================
-         ARRAY DETAIL
-      ===================================================== */
-
       if (Array.isArray(detail)) {
-        backendMessage =
-          detail
-            .map(
-              (item) =>
-                item?.msg ||
-                item?.message ||
-                String(item)
-            )
-            .join(", ");
-      }
-
-      /* =====================================================
-         STRING DETAIL
-      ===================================================== */
-
-      else if (
-        typeof detail ===
-        "string"
+        backendMessage = detail
+          .map(
+            (item) =>
+              item?.msg ||
+              item?.message ||
+              String(item)
+          )
+          .join(", ");
+      } else if (
+        typeof detail === "string"
       ) {
-        backendMessage =
-          detail;
-      }
-
-      /* =====================================================
-         OBJECT DETAIL
-      ===================================================== */
-
-      else if (
+        backendMessage = detail;
+      } else if (
         detail &&
-        typeof detail ===
-        "object"
+        typeof detail === "object"
       ) {
         backendMessage =
           detail.message ||
           detail.msg ||
-          JSON.stringify(
-            detail
-          );
+          JSON.stringify(detail);
       }
 
       toast.error(
         backendMessage ||
         `Unable to save ${title}`
       );
+
     } finally {
       setSaving(false);
     }
@@ -1085,13 +723,6 @@ export default function MasterDataModal({
   if (!open) return null;
 
   /* =========================================================
-     FORM VALID STATE
-  ========================================================= */
-
-  const formValid =
-    isFormValid();
-
-  /* =========================================================
      INLINE STYLES
   ========================================================= */
 
@@ -1103,11 +734,9 @@ export default function MasterDataModal({
     alignItems: "center",
     justifyContent: "center",
     padding: "24px",
-    backgroundColor:
-      "rgba(0, 0, 0, 0.42)",
+    backgroundColor: "rgba(0, 0, 0, 0.42)",
     backdropFilter: "blur(3px)",
-    WebkitBackdropFilter:
-      "blur(3px)",
+    WebkitBackdropFilter: "blur(3px)",
     boxSizing: "border-box",
   };
 
@@ -1116,8 +745,7 @@ export default function MasterDataModal({
     maxWidth: compactLayout
       ? "720px"
       : "640px",
-    maxHeight:
-      "calc(100vh - 48px)",
+    maxHeight: "calc(100vh - 48px)",
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
@@ -1132,13 +760,11 @@ export default function MasterDataModal({
     flexShrink: 0,
     display: "flex",
     alignItems: "center",
-    justifyContent:
-      "space-between",
+    justifyContent: "space-between",
     gap: "16px",
     padding: "18px 22px",
     backgroundColor: "#f8fafc",
-    borderBottom:
-      "1px solid #e5e7eb",
+    borderBottom: "1px solid #e5e7eb",
     boxSizing: "border-box",
   };
 
@@ -1186,8 +812,7 @@ export default function MasterDataModal({
     justifyContent: "center",
     border: "none",
     borderRadius: "8px",
-    backgroundColor:
-      "transparent",
+    backgroundColor: "transparent",
     color: "#6b7280",
     cursor: saving
       ? "not-allowed"
@@ -1326,8 +951,7 @@ export default function MasterDataModal({
     gap: "10px",
     padding: "14px 22px",
     backgroundColor: "#f8fafc",
-    borderTop:
-      "1px solid #e5e7eb",
+    borderTop: "1px solid #e5e7eb",
     boxSizing: "border-box",
   };
 
@@ -1353,14 +977,24 @@ export default function MasterDataModal({
     padding: "0 20px",
     border: "1px solid #2563eb",
     borderRadius: "8px",
-    backgroundColor: saving ? "#9ca3af" : "#2563eb",
+    backgroundColor:
+      saving || !isFormValid()
+        ? "#9ca3af"
+        : "#2563eb",
     color: "#ffffff",
     fontSize: "13px",
     fontWeight: 500,
-    cursor: saving ? "not-allowed" : "pointer",
-    opacity: saving ? 0.7 : 1,
+    cursor:
+      saving || !isFormValid()
+        ? "not-allowed"
+        : "pointer",
+    opacity:
+      saving || !isFormValid()
+        ? 0.9
+        : 1,
     boxSizing: "border-box",
   };
+
   /* =========================================================
      UI
   ========================================================= */
@@ -1394,18 +1028,12 @@ export default function MasterDataModal({
             duration: 0.25,
           }}
         >
-          {/* =================================================
-              HEADER
-          ================================================= */}
+          {/* HEADER */}
 
           <div style={headerStyle}>
             <div style={headerLeftStyle}>
-              <div
-                style={iconBoxStyle}
-              >
-                <FolderPlus
-                  size={21}
-                />
+              <div style={iconBoxStyle}>
+                <FolderPlus size={21} />
               </div>
 
               <div
@@ -1413,19 +1041,13 @@ export default function MasterDataModal({
                   minWidth: 0,
                 }}
               >
-                <h2
-                  style={titleStyle}
-                >
+                <h2 style={titleStyle}>
                   {isEdit
                     ? `Edit ${title}`
                     : `Add ${title}`}
                 </h2>
 
-                <p
-                  style={
-                    subtitleStyle
-                  }
-                >
+                <p style={subtitleStyle}>
                   {isEdit
                     ? `Update ${title.toLowerCase()} information`
                     : `Create a new ${title.toLowerCase()}`}
@@ -1437,9 +1059,7 @@ export default function MasterDataModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              style={
-                closeButtonStyle
-              }
+              style={closeButtonStyle}
               onMouseEnter={(e) => {
                 if (!saving) {
                   e.currentTarget.style.backgroundColor =
@@ -1455,36 +1075,17 @@ export default function MasterDataModal({
             </button>
           </div>
 
-          {/* =================================================
-              BODY
-          ================================================= */}
+          {/* BODY */}
 
           <div style={bodyStyle}>
-            <div
-              style={formGridStyle}
-            >
-              {/* =================================================
-                  CODE
-              ================================================= */}
+            <div style={formGridStyle}>
+              {/* CODE */}
 
               {codeField && (
-                <div
-                  style={
-                    fieldWrapperStyle
-                  }
-                >
-                  <label
-                    style={
-                      labelStyle
-                    }
-                  >
+                <div style={fieldWrapperStyle}>
+                  <label style={labelStyle}>
                     {codeLabel}
-
-                    <span
-                      style={
-                        requiredStyle
-                      }
-                    >
+                    <span style={requiredStyle}>
                       *
                     </span>
                   </label>
@@ -1493,28 +1094,21 @@ export default function MasterDataModal({
                     type="text"
                     name={codeField}
                     value={
-                      formData[
-                      codeField
-                      ] ?? ""
+                      formData[codeField] ??
+                      ""
                     }
-                    onChange={
-                      handleChange
-                    }
+                    onChange={handleChange}
                     placeholder={`Enter ${codeLabel}`}
-                    style={
-                      inputStyle
-                    }
+                    style={inputStyle}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor =
                         "#3b82f6";
-
                       e.currentTarget.style.boxShadow =
                         "0 0 0 3px rgba(59, 130, 246, 0.12)";
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.borderColor =
                         "#d1d5db";
-
                       e.currentTarget.style.boxShadow =
                         "none";
                     }}
@@ -1522,28 +1116,13 @@ export default function MasterDataModal({
                 </div>
               )}
 
-              {/* =================================================
-                  NAME
-              ================================================= */}
+              {/* NAME */}
 
               {nameField && (
-                <div
-                  style={
-                    fieldWrapperStyle
-                  }
-                >
-                  <label
-                    style={
-                      labelStyle
-                    }
-                  >
+                <div style={fieldWrapperStyle}>
+                  <label style={labelStyle}>
                     {nameLabel}
-
-                    <span
-                      style={
-                        requiredStyle
-                      }
-                    >
+                    <span style={requiredStyle}>
                       *
                     </span>
                   </label>
@@ -1552,28 +1131,21 @@ export default function MasterDataModal({
                     type="text"
                     name={nameField}
                     value={
-                      formData[
-                      nameField
-                      ] ?? ""
+                      formData[nameField] ??
+                      ""
                     }
-                    onChange={
-                      handleChange
-                    }
+                    onChange={handleChange}
                     placeholder={`Enter ${nameLabel}`}
-                    style={
-                      inputStyle
-                    }
+                    style={inputStyle}
                     onFocus={(e) => {
                       e.currentTarget.style.borderColor =
                         "#3b82f6";
-
                       e.currentTarget.style.boxShadow =
                         "0 0 0 3px rgba(59, 130, 246, 0.12)";
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.borderColor =
                         "#d1d5db";
-
                       e.currentTarget.style.boxShadow =
                         "none";
                     }}
@@ -1581,9 +1153,7 @@ export default function MasterDataModal({
                 </div>
               )}
 
-              {/* =================================================
-                  EXTRA FIELDS
-              ================================================= */}
+              {/* EXTRA FIELDS */}
 
               {extraFields.map(
                 (field) => (
@@ -1596,31 +1166,21 @@ export default function MasterDataModal({
                         : {}),
                     }}
                   >
-                    <label
-                      style={
-                        labelStyle
-                      }
-                    >
+                    <label style={labelStyle}>
                       {field.label}
 
-                      {field.required &&
-                        field.name !==
-                        "active" &&
-                        field.name !==
-                        "is_active" && (
-                          <span
-                            style={
-                              requiredStyle
-                            }
-                          >
-                            *
-                          </span>
-                        )}
+                      {field.required && (
+                        <span
+                          style={
+                            requiredStyle
+                          }
+                        >
+                          *
+                        </span>
+                      )}
                     </label>
 
-                    {/* =================================================
-                        MULTI SELECT
-                    ================================================= */}
+                    {/* MULTI SELECT */}
 
                     {field.type ===
                       "multi-select" ? (
@@ -1644,14 +1204,12 @@ export default function MasterDataModal({
                         onFocus={(e) => {
                           e.currentTarget.style.borderColor =
                             "#3b82f6";
-
                           e.currentTarget.style.boxShadow =
                             "0 0 0 3px rgba(59, 130, 246, 0.12)";
                         }}
                         onBlur={(e) => {
                           e.currentTarget.style.borderColor =
                             "#d1d5db";
-
                           e.currentTarget.style.boxShadow =
                             "none";
                         }}
@@ -1675,9 +1233,7 @@ export default function MasterDataModal({
                       </select>
                     ) : field.type ===
                       "select" ? (
-                      /* =================================================
-                          SELECT
-                      ================================================= */
+                      /* SELECT */
 
                       <select
                         name={field.name}
@@ -1698,23 +1254,19 @@ export default function MasterDataModal({
                         onFocus={(e) => {
                           e.currentTarget.style.borderColor =
                             "#3b82f6";
-
                           e.currentTarget.style.boxShadow =
                             "0 0 0 3px rgba(59, 130, 246, 0.12)";
                         }}
                         onBlur={(e) => {
                           e.currentTarget.style.borderColor =
                             "#d1d5db";
-
                           e.currentTarget.style.boxShadow =
                             "none";
                         }}
                       >
                         <option value="">
                           Select{" "}
-                          {
-                            field.label
-                          }
+                          {field.label}
                         </option>
 
                         {field.options?.map(
@@ -1735,9 +1287,7 @@ export default function MasterDataModal({
                         )}
                       </select>
                     ) : (
-                      /* =================================================
-                          INPUT
-                      ================================================= */
+                      /* INPUT */
 
                       <input
                         type={
@@ -1746,9 +1296,7 @@ export default function MasterDataModal({
                             ? "number"
                             : "text"
                         }
-                        name={
-                          field.name
-                        }
+                        name={field.name}
                         value={
                           formData[
                           field.name
@@ -1785,7 +1333,6 @@ export default function MasterDataModal({
                           ) {
                             e.currentTarget.style.borderColor =
                               "#3b82f6";
-
                             e.currentTarget.style.boxShadow =
                               "0 0 0 3px rgba(59, 130, 246, 0.12)";
                           }
@@ -1796,7 +1343,6 @@ export default function MasterDataModal({
                           ) {
                             e.currentTarget.style.borderColor =
                               "#d1d5db";
-
                             e.currentTarget.style.boxShadow =
                               "none";
                           }
@@ -1807,20 +1353,10 @@ export default function MasterDataModal({
                 )
               )}
 
-              {/* =================================================
-                  STATUS
-              ================================================= */}
+              {/* STATUS */}
 
-              <div
-                style={
-                  statusWrapperStyle
-                }
-              >
-                <label
-                  style={
-                    labelStyle
-                  }
-                >
+              <div style={statusWrapperStyle}>
+                <label style={labelStyle}>
                   Active Status
                 </label>
 
@@ -1829,8 +1365,6 @@ export default function MasterDataModal({
                     radioGroupStyle
                   }
                 >
-                  {/* ACTIVE */}
-
                   <label
                     style={
                       radioLabelStyle
@@ -1851,17 +1385,13 @@ export default function MasterDataModal({
                           })
                         )
                       }
-                      style={
-                        radioStyle
-                      }
+                      style={radioStyle}
                     />
 
                     <span>
                       Active
                     </span>
                   </label>
-
-                  {/* INACTIVE */}
 
                   <label
                     style={
@@ -1883,9 +1413,7 @@ export default function MasterDataModal({
                           })
                         )
                       }
-                      style={
-                        radioStyle
-                      }
+                      style={radioStyle}
                     />
 
                     <span>
@@ -1897,20 +1425,14 @@ export default function MasterDataModal({
             </div>
           </div>
 
-          {/* =================================================
-              FOOTER
-          ================================================= */}
+          {/* FOOTER */}
 
-          <div
-            style={footerStyle}
-          >
+          <div style={footerStyle}>
             <button
               type="button"
               onClick={onClose}
               disabled={saving}
-              style={
-                cancelButtonStyle
-              }
+              style={cancelButtonStyle}
               onMouseEnter={(e) => {
                 if (!saving) {
                   e.currentTarget.style.backgroundColor =
@@ -1928,16 +1450,37 @@ export default function MasterDataModal({
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
-              style={{
-                ...saveButtonStyle,
-                backgroundColor: saving ? "#9ca3af" : "#2563eb",
-                borderColor: saving ? "#9ca3af" : "#2563eb",
-                opacity: saving ? 0.7 : 1,
-                cursor: saving ? "not-allowed" : "pointer",
+              disabled={
+                saving ||
+                !isFormValid()
+              }
+              style={saveButtonStyle}
+              onMouseEnter={(e) => {
+                if (
+                  !saving &&
+                  isFormValid()
+                ) {
+                  e.currentTarget.style.backgroundColor =
+                    "#1d4ed8";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (
+                  !saving &&
+                  isFormValid()
+                ) {
+                  e.currentTarget.style.backgroundColor =
+                    "#2563eb";
+                }
               }}
             >
-              {saving ? "Saving..." : isEdit ? "Update" : "Save"}
+              {saving
+                ? isEdit
+                  ? "Updating..."
+                  : "Saving..."
+                : isEdit
+                  ? `Update ${title}`
+                  : `Save ${title}`}
             </button>
           </div>
         </motion.div>

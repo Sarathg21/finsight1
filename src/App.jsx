@@ -11,17 +11,21 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import CFODashboard from './pages/CFODashboard';
 import ExecDashboard from './pages/ExecDashboard';
 import PLAnalytics from './pages/PLAnalytics';
+import ARDashboard from './pages/ARDashboard';
+import WCDashboard from './pages/WCDashboard';
 import AdminMainDashboard from './pages/AdminMainDashboard';
 import UsersDashboard from './pages/UsersDashboard';
 import RolesDashboard from './pages/RolesDashboard';
 import UserAccessManagement from './pages/UserAccessManagement';
 import MasterDataDashboard from './pages/MasterDataDashboard';
+import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
+import ReceivablesDashboard from './pages/ReceivablesDashboard';
+import PayablesDashboard from './pages/PayablesDashboard';
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
 import OperatingAnalysis from './pages/OperatingAnalysis';
 import MyProfile from './pages/MyProfile';
-import PayablesDashboard from './pages/PayablesDashboard';
 
 // Placeholder for yet-to-be-built pages
 const PlaceholderPage = ({ title }) => (
@@ -68,12 +72,11 @@ function App() {
               <Route path="/balance-sheet" element={<ProtectedRoute pageKey="balance-sheet" element={<BalanceSheet />} />} />
               <Route path="/operating-expenses" element={<ProtectedRoute pageKey="operating-expenses" element={<OperatingAnalysis />} />} />
               <Route path="/revenue" element={<ProtectedRoute pageKey="revenue" element={<SalesRevenueReport />} />} />
-              {/* Receivables excluded — not yet approved */}
-              {/* <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} /> */}
+              <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} />
               <Route path="/payables" element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} />
               {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
               {/* <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} /> */}
-              {/* <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<BankFacilityUtilization />} />} /> */}
+              {/* <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} /> */}
               {/* <Route path="/ar"                 element={<ProtectedRoute pageKey="ar"                 element={<ARDashboard />} />} /> */}
               {/* <Route path="/ap"                 element={<ProtectedRoute pageKey="ap"                 element={<PlaceholderPage title="AP Aging Report" />} />} /> */}
               {/* <Route path="/inventory"          element={<ProtectedRoute pageKey="inventory"          element={<PlaceholderPage title="Inventory Aging" />} />} /> */}
