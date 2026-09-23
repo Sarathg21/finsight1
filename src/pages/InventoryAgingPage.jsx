@@ -101,12 +101,13 @@ const [loading, setLoading] = useState(true);
               
               let kpis = [];
               if (dData.kpis) {
-                  kpis = [
-                        { title: "Total Inventory Value", value: fmtAED(dData.kpis.total_inventory), icon: Package, iconBg: "#DBEAFE", iconColor: "#2563EB", direction: "up" },
-                        { title: "Average Inventory Value", value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value), icon: Cuboid, iconBg: "#F3E8FF", iconColor: "#7C3AED", direction: "up" },
-                        { title: "Inventory Turnover (TTM)", value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "--", icon: TrendingUp, iconBg: "#FFEDD5", iconColor: "#EA580C", direction: "down" },
-                        { title: "Stock Holding Days (DIO)", value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "--", icon: Clock, iconBg: "#CFFAFE", iconColor: "#0891B2", direction: "down" },
-                        { title: "Obsolete / Slow Moving", value: fmtAED(dData.kpis.inventory_above_365), icon: AlertTriangle, iconBg: "#FFE4E6", iconColor: "#E11D48", direction: "up" }
+                                      const sparkline = dData.trend && Array.isArray(dData.trend.current) ? dData.trend.current : [0,0,0];
+                    kpis = [
+                        { title: "Total Inventory Value", value: fmtAED(dData.kpis.total_inventory), icon: Package, iconBg: "#DBEAFE", iconColor: "#2563EB", direction: "up", line: sparkline },
+                        { title: "Average Inventory Value", value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value), icon: Cuboid, iconBg: "#F3E8FF", iconColor: "#7C3AED", direction: "up", line: sparkline },
+                        { title: "Inventory Turnover (TTM)", value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "--", icon: TrendingUp, iconBg: "#FFEDD5", iconColor: "#EA580C", direction: "down", line: sparkline },
+                        { title: "Stock Holding Days (DIO)", value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "--", icon: Clock, iconBg: "#CFFAFE", iconColor: "#0891B2", direction: "down", line: sparkline },
+                        { title: "Obsolete / Slow Moving", value: fmtAED(dData.kpis.inventory_above_365), icon: AlertTriangle, iconBg: "#FFE4E6", iconColor: "#E11D48", direction: "up", line: sparkline }
                     ];
               }
 
@@ -340,7 +341,7 @@ const [loading, setLoading] = useState(true);
           </div>
 
         <div style={{ marginTop: 7 }}>
-          <MiniLine points={item.line} color={item.iconColor} />
+          <MiniLine points={item.line || [0,0,0]} color={item.iconColor} />
         </div>
       </div>
     );
