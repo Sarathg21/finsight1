@@ -956,72 +956,32 @@ function FilterSelect({
 function DateFilter({
     value,
     onChange,
-    options = [],
 }) {
-    const [open, setOpen] = useState(false);
-    const [search, setSearch] = useState("");
-    const dropdownRef = useRef(null);
+    const dateInputRef = useRef(null);
 
-    /* ----------------------------------------------------------
-       CLOSE WHEN CLICKING OUTSIDE
-    ---------------------------------------------------------- */
-    useEffect(() => {
-        const handleOutsideClick = (event) => {
+    const openCalendar = () => {
+        if (dateInputRef.current) {
             if (
-                dropdownRef.current &&
-                !dropdownRef.current.contains(event.target)
+                typeof dateInputRef.current.showPicker === "function"
             ) {
-                setOpen(false);
-                setSearch("");
+                dateInputRef.current.showPicker();
+            } else {
+                dateInputRef.current.click();
             }
-        };
+        }
+    };
 
-        document.addEventListener("mousedown", handleOutsideClick);
+    const handleDateChange = (event) => {
+        const selectedDate = event.target.value;
 
-        return () => {
-            document.removeEventListener(
-                "mousedown",
-                handleOutsideClick
-            );
-        };
-    }, []);
+        if (!selectedDate) return;
 
-    /* ----------------------------------------------------------
-       NORMALIZE DATE OPTIONS
-       KEEP "All" INSIDE DROPDOWN
-    ---------------------------------------------------------- */
-    const normalizedOptions = Array.from(
-        new Set(
-            (options || [])
-                .filter(
-                    (option) =>
-                        option !== null &&
-                        option !== undefined &&
-                        String(option).trim() !== ""
-                )
-                .map((option) => String(option))
-        )
-    );
-
-    const finalOptions = [
-        "All",
-        ...normalizedOptions.filter((option) => option !== "All"),
-    ];
-
-    const filteredOptions = finalOptions.filter((option) =>
-        option.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const displayValue =
-        value !== undefined &&
-            value !== null &&
-            String(value).trim() !== ""
-            ? String(value)
-            : "All";
+        // Immediately send YYYY-MM-DD to parent
+        onChange(selectedDate);
+    };
 
     return (
         <div
-            ref={dropdownRef}
             style={{
                 flex: "1 1 0",
                 minWidth: 0,
@@ -1042,27 +1002,32 @@ function DateFilter({
                 As On Date
             </label>
 
-            {/* =====================================================
-                FIELD
-            ===================================================== */}
+            {/* Hidden native calendar */}
+            <input
+                ref={dateInputRef}
+                type="date"
+                value={value || ""}
+                onChange={handleDateChange}
+                style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    opacity: 0,
+                    pointerEvents: "none",
+                }}
+            />
+
+            {/* Visible field */}
             <button
                 type="button"
-                onClick={() => {
-                    setOpen((prev) => !prev);
-
-                    if (open) {
-                        setSearch("");
-                    }
-                }}
+                onClick={openCalendar}
                 style={{
                     width: "100%",
                     height: 34,
                     boxSizing: "border-box",
-                    border: open
-                        ? "1px solid #5b5bea"
-                        : "1px solid #dce3ee",
+                    border: "1px solid #dce3ee",
                     borderRadius: 9,
-                    padding: "0 30px 0 11px",
+                    padding: "0 38px 0 11px",
                     background: "#f4f7fb",
                     color: "#24366b",
                     fontSize: 11,
@@ -1071,193 +1036,75 @@ function DateFilter({
                     cursor: "pointer",
                     textAlign: "left",
                     position: "relative",
-                    overflow: "hidden",
-                    whiteSpace: "nowrap",
-                    textOverflow: "ellipsis",
                 }}
             >
-                {displayValue}
+                {value || "Select Date"}
 
                 <span
                     style={{
                         position: "absolute",
                         right: 10,
                         top: "50%",
-                        transform: `translateY(-50%) ${open
-                            ? "rotate(180deg)"
-                            : "rotate(0deg)"
-                            }`,
-                        fontSize: 9,
-                        color: "#52638a",
-                        transition: "transform 0.15s ease",
+                        transform: "translateY(-50%)",
+                        fontSize: 15,
                         pointerEvents: "none",
                     }}
                 >
-                    ▼
+                    📅
                 </span>
             </button>
-
-            {/* =====================================================
-                DROPDOWN
-            ===================================================== */}
-            {open && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "calc(100% + 5px)",
-                        left: 0,
-                        width: "100%",
-                        minWidth: 190,
-                        background: "#ffffff",
-                        border: "1px solid #dce3ee",
-                        borderRadius: 9,
-                        boxShadow:
-                            "0 8px 24px rgba(24, 45, 80, 0.14)",
-                        zIndex: 9999,
-                        overflow: "hidden",
-                    }}
-                >
-                    {/* =================================================
-                        SEARCH
-                    ================================================= */}
-                    <div
-                        style={{
-                            padding: "8px 8px 6px",
-                            borderBottom: "1px solid #edf1f7",
-                        }}
-                    >
-                        <div
-                            style={{
-                                position: "relative",
-                            }}
-                        >
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) =>
-                                    setSearch(e.target.value)
-                                }
-                                onClick={(e) =>
-                                    e.stopPropagation()
-                                }
-                                placeholder="Search As On Date"
-                                autoFocus
-                                style={{
-                                    width: "100%",
-                                    height: 30,
-                                    boxSizing: "border-box",
-                                    border: "1px solid #dce3ee",
-                                    borderRadius: 7,
-                                    padding: "0 9px 0 28px",
-                                    background: "#f8fafc",
-                                    color: "#24366b",
-                                    fontSize: 10.5,
-                                    outline: "none",
-                                }}
-                            />
-
-                            <span
-                                style={{
-                                    position: "absolute",
-                                    left: 9,
-                                    top: "50%",
-                                    transform:
-                                        "translateY(-50%)",
-                                    color: "#64748b",
-                                    fontSize: 12,
-                                    pointerEvents: "none",
-                                }}
-                            >
-                                🔍
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* =================================================
-                        OPTIONS
-                    ================================================= */}
-                    <div
-                        style={{
-                            maxHeight: 230,
-                            overflowY: "auto",
-                            padding: "4px 0",
-                        }}
-                    >
-                        {filteredOptions.length === 0 ? (
-                            <div
-                                style={{
-                                    padding: "14px 10px",
-                                    textAlign: "center",
-                                    color: "#94a3b8",
-                                    fontSize: 10.5,
-                                }}
-                            >
-                                No options found
-                            </div>
-                        ) : (
-                            filteredOptions.map((option) => {
-                                const selected =
-                                    option === "All"
-                                        ? !value
-                                        : String(value || "") ===
-                                        option;
-
-                                return (
-                                    <button
-                                        key={option}
-                                        type="button"
-                                        onClick={() => {
-                                            if (option === "All") {
-                                                onChange("");
-                                            } else {
-                                                onChange(option);
-                                            }
-
-                                            setOpen(false);
-                                            setSearch("");
-                                        }}
-                                        style={{
-                                            width: "100%",
-                                            minHeight: 31,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            padding: "5px 10px",
-                                            border: "none",
-                                            background: selected
-                                                ? "#eef2ff"
-                                                : "#ffffff",
-                                            color: selected
-                                                ? "#243b8f"
-                                                : "#334155",
-                                            fontSize: 10.5,
-                                            fontWeight: selected
-                                                ? 700
-                                                : 500,
-                                            cursor: "pointer",
-                                            textAlign: "left",
-                                        }}
-                                    >
-                                        <span
-                                            style={{
-                                                overflow: "hidden",
-                                                textOverflow:
-                                                    "ellipsis",
-                                                whiteSpace:
-                                                    "nowrap",
-                                            }}
-                                        >
-                                            {option}
-                                        </span>
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
+/* ============================================================
+   COMMON EMPTY STATE / KPI ANIMATION
+   ============================================================ */
+
+function NoDataAvailable({ minHeight = 180 }) {
+    return (
+        <div
+            style={{
+                width: "100%",
+                minHeight,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#94a3b8",
+                fontSize: 12,
+                fontWeight: 700,
+                textAlign: "center",
+            }}
+        >
+            No Data Available
+        </div>
+    );
+}
+
+function AnimatedNumber({ value, formatter, duration = 700 }) {
+    const numericValue = Number(value);
+    const target = Number.isFinite(numericValue) ? numericValue : 0;
+    const [displayValue, setDisplayValue] = useState(0);
+
+    useEffect(() => {
+        let frameId;
+        const start = performance.now();
+        const from = 0;
+
+        const animate = (now) => {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setDisplayValue(from + (target - from) * eased);
+            if (progress < 1) frameId = requestAnimationFrame(animate);
+        };
+
+        setDisplayValue(0);
+        frameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(frameId);
+    }, [target, duration]);
+
+    return <>{formatter(displayValue)}</>;
+}
+
 /* ============================================================
    KPI CARD
    ============================================================ */
@@ -1425,7 +1272,11 @@ function KpiCard({
                     lineHeight: 1.1,
                 }}
             >
-                {formatValue(value)}
+                {value === null || value === undefined || value === "" ? (
+                    "-"
+                ) : (
+                    <AnimatedNumber value={value} formatter={formatValue} />
+                )}
             </div>
 
             {/* =====================================================
@@ -3960,12 +3811,23 @@ export default function ReceivablesDashboard() {
                     <DateFilter
                         value={filters.as_on_date}
                         options={filterOptions?.as_on_dates || []}
-                        onChange={(value) =>
+                        onChange={(value) => {
                             setFilters((prev) => ({
                                 ...prev,
                                 as_on_date: value,
-                            }))
-                        }
+                            }));
+
+                            // Clear the previous snapshot immediately so stale values
+                            // never remain visible while the newly selected date loads.
+                            setDashboardResponse(null);
+
+                            // Date selection refreshes every dashboard component immediately.
+                            setAppliedFilters((prev) => ({
+                                ...prev,
+                                as_on_date: value,
+                                year: Number(String(value).slice(0, 4)) || prev.year,
+                            }));
+                        }}
                     />
 
                     <button
@@ -4129,13 +3991,15 @@ export default function ReceivablesDashboard() {
                                 overflow: "hidden",
                             }}
                         >
-                            <DonutChart
-                                data={data.agingSummary}
-                                total={kpis.total_payables}
-                                currency={currency}
-                                centerLabel="Total"
-                                onSegmentClick={openAgingDrilldown}
-                            />
+                            {data.agingSummary?.length ? (
+                                <DonutChart
+                                    data={data.agingSummary}
+                                    total={kpis.total_payables}
+                                    currency={currency}
+                                    centerLabel="Total"
+                                    onSegmentClick={openAgingDrilldown}
+                                />
+                            ) : <NoDataAvailable minHeight={185} />}
                         </div>
                     </section>
 
@@ -4167,11 +4031,13 @@ export default function ReceivablesDashboard() {
                                 overflow: "hidden",
                             }}
                         >
-                            <TrendChart
-                                data={data.trend}
-                                currency={currency}
-                                onPointClick={openTrendDrilldown}
-                            />
+                            {data.trend?.length ? (
+                                <TrendChart
+                                    data={data.trend}
+                                    currency={currency}
+                                    onPointClick={openTrendDrilldown}
+                                />
+                            ) : <NoDataAvailable minHeight={185} />}
                         </div>
                     </section>
 
@@ -4203,11 +4069,13 @@ export default function ReceivablesDashboard() {
                                 overflow: "hidden",
                             }}
                         >
-                            <ParentDivisionChart
-                                data={data.parentDivision}
-                                currency={currency}
-                                onItemClick={openParentDivisionDrilldown}
-                            />
+                            {data.parentDivision?.length ? (
+                                <ParentDivisionChart
+                                    data={data.parentDivision}
+                                    currency={currency}
+                                    onItemClick={openParentDivisionDrilldown}
+                                />
+                            ) : <NoDataAvailable minHeight={185} />}
                         </div>
                     </section>
                 </div>
@@ -4239,15 +4107,17 @@ export default function ReceivablesDashboard() {
                             Top 10 Customers by Receivables ({currency})
                         </SectionTitle>
 
-                        <DataTable
-                            columns={supplierColumns}
-                            rows={data.topSuppliers}
-                            fitColumns
-                            compactRows
-                            onCellClick={(row) => {
-                                openCustomerDrilldown(row);
-                            }}
-                        />
+                        {data.topSuppliers?.length ? (
+                            <DataTable
+                                columns={supplierColumns}
+                                rows={data.topSuppliers}
+                                fitColumns
+                                compactRows
+                                onCellClick={(row) => {
+                                    openCustomerDrilldown(row);
+                                }}
+                            />
+                        ) : <NoDataAvailable minHeight={185} />}
                         <div
                             style={{
                                 display: "grid",
@@ -4323,14 +4193,16 @@ export default function ReceivablesDashboard() {
 
 
 
-                        <DonutChart
-                            data={data.overdueSummary}
-                            total={kpis.overdue_payables}
-                            currency={currency}
-                            centerLabel="Overdue"
-                            legendBelow
-                            onSegmentClick={openAgingDrilldown}
-                        />
+                        {data.overdueSummary?.length ? (
+                            <DonutChart
+                                data={data.overdueSummary}
+                                total={kpis.overdue_payables}
+                                currency={currency}
+                                centerLabel="Overdue"
+                                legendBelow
+                                onSegmentClick={openAgingDrilldown}
+                            />
+                        ) : <NoDataAvailable minHeight={250} />}
                     </section>
 
                     {/* Sub Division */}
@@ -4347,26 +4219,28 @@ export default function ReceivablesDashboard() {
                             Receivables by Sub-Division ({currency})
                         </SectionTitle>
 
-                        <DataTable
-                            columns={subDivisionColumns}
-                            rows={subDivisionTableRows}
-                            pageSize={12}
-                            keepFirstRow={true}
-                            showPageNumbers={true}
-                            paginationStyle="compact"
-                            fitColumns
-                            rowGap
-                            onCellClick={(row, column) => {
-                                if (
-                                    row?.id !== "subdivision-total" &&
-                                    (column?.key === "name" ||
-                                        column?.key === "amount" ||
-                                        column?.key === "percentage")
-                                ) {
-                                    openSubdivisionDrilldown(row);
-                                }
-                            }}
-                        />
+                        {data.subDivision?.length ? (
+                            <DataTable
+                                columns={subDivisionColumns}
+                                rows={subDivisionTableRows}
+                                pageSize={12}
+                                keepFirstRow={true}
+                                showPageNumbers={true}
+                                paginationStyle="compact"
+                                fitColumns
+                                rowGap
+                                onCellClick={(row, column) => {
+                                    if (
+                                        row?.id !== "subdivision-total" &&
+                                        (column?.key === "name" ||
+                                            column?.key === "amount" ||
+                                            column?.key === "percentage")
+                                    ) {
+                                        openSubdivisionDrilldown(row);
+                                    }
+                                }}
+                            />
+                        ) : <NoDataAvailable minHeight={185} />}
                     </section>
                 </div>
 
@@ -4524,13 +4398,15 @@ export default function ReceivablesDashboard() {
                         </div>
                     </div>
 
-                    <DataTable
-                        columns={monthColumns}
-                        rows={data.monthOnMonth}
-                        pageSize={8}
-                        paginationStyle="compact"
-                        onCellClick={openMomDrilldown}
-                    />
+                    {data.monthOnMonth?.length ? (
+                        <DataTable
+                            columns={monthColumns}
+                            rows={data.monthOnMonth}
+                            pageSize={8}
+                            paginationStyle="compact"
+                            onCellClick={openMomDrilldown}
+                        />
+                    ) : <NoDataAvailable minHeight={220} />}
                 </section>
 
                 {/* ==================================================
@@ -5178,9 +5054,68 @@ function PayablesViewAll({
         );
     };
 
+    const ViewAllDateFilter = ({ filterKey = "as_on_date", label = "As On Date" }) => {
+        const dateRef = useRef(null);
+        const value = viewFilters[filterKey] || "";
+
+        const openCalendar = () => {
+            if (!dateRef.current) return;
+            if (typeof dateRef.current.showPicker === "function") dateRef.current.showPicker();
+            else dateRef.current.click();
+        };
+
+        return (
+            <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>
+                    {label}
+                </div>
+                <input
+                    ref={dateRef}
+                    type="date"
+                    value={value}
+                    onChange={(e) => setViewFilters((prev) => ({ ...prev, [filterKey]: e.target.value }))}
+                    style={{
+                        position: "absolute",
+                        width: 1,
+                        height: 1,
+                        opacity: 0,
+                        pointerEvents: "none",
+                    }}
+                />
+                <button
+                    type="button"
+                    onClick={openCalendar}
+                    style={{
+                        width: "100%",
+                        height: 34,
+                        border: "1px solid #d9e1ee",
+                        borderRadius: 5,
+                        background: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "0 9px",
+                        boxSizing: "border-box",
+                        color: value ? "#29427f" : "#64748b",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        cursor: "pointer",
+                        textAlign: "left",
+                    }}
+                >
+                    <span>{value || "Select Date"}</span>
+                    <span style={{ fontSize: 15 }}>📅</span>
+                </button>
+            </div>
+        );
+    };
+
     const SingleSelectDropdown = ({
         filterKey,
         label,
+        noSearch = false,
+        noClear = false,
     }) => {
         const options =
             singleFilterConfig[filterKey]?.options || [];
@@ -5280,6 +5215,7 @@ function PayablesViewAll({
                         }}
                     >
                         {/* SEARCH */}
+                        {!noSearch && (
                         <div
                             style={{
                                 padding: "7px 8px",
@@ -5333,8 +5269,10 @@ function PayablesViewAll({
                                 />
                             </div>
                         </div>
+                        )}
 
                         {/* CLEAR */}
+                        {!noClear && (
                         <div
                             style={{
                                 display: "flex",
@@ -5365,6 +5303,7 @@ function PayablesViewAll({
                                 Clear
                             </button>
                         </div>
+                        )}
 
                         {/* OPTIONS */}
                         <div
@@ -6095,7 +6034,7 @@ function PayablesViewAll({
                             />
 
                             {/* AS ON DATE */}
-                            <SingleSelectDropdown
+                            <ViewAllDateFilter
                                 filterKey="as_on_date"
                                 label="As On Date"
                             />
@@ -6104,6 +6043,8 @@ function PayablesViewAll({
                             <SingleSelectDropdown
                                 filterKey="aging_basis"
                                 label="Aging Basis"
+                                noSearch
+                                noClear
                             />
 
                             {/* APPLY */}
@@ -6866,6 +6807,465 @@ function PayablesViewAll({
         </div >
     );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
