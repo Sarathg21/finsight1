@@ -1,533 +1,1623 @@
-console.log('[INVENTORY MODULE] InventoryAgingDashboard.jsx loaded at', new Date().toISOString());
-import React, { useState, useEffect } from "react";
-import { Package, TrendingUp, Clock, AlertTriangle, Cuboid, Download } from "lucide-react";
-import { InventoryValueTrend, OverDueSummaryCard, ParentDivisionCard, AgingSummaryCard, InventoryTurnoverTrend } from "../components/Charts/InventoryCharts";
-import InventoryDetailedViewTable from "../components/Tables/InventoryDetailedViewTable";
-import InventoryDetailsModal from "../components/InventoryDetailsModal";
-import { getInventoryFilters, getInventoryDashboard, getInventoryExport, getInventoryDetails } from "../api/inventoryApi";
+import React, { useMemo, useState, useEffect } from "react";
+import { getInventoryFilters, getInventoryDashboard, getInventoryDetails } from "../api/inventoryApi";
 
-/* ─────────────────────────────────────────────────────────────
-   Shared helpers
-───────────────────────────────────────────────────────────── */
-function fmtAED(v, currency = "AED") {
-    if (v === null || v === undefined) return "–";
-    const n = Number(v);
-    if (isNaN(n)) return "–";
-    if (n >= 1_000_000_000) return `${currency} ${(n / 1_000_000_000).toFixed(2)}B`;
-    if (n >= 10_000_000) return `${currency} ${(n / 10_000_000).toFixed(2)} Cr`;
-    if (n >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(2)}M`;
-    if (n >= 1_000) return `${currency} ${(n / 1_000).toFixed(2)}K`;
-    return `${currency} ${n.toFixed(2)}`;
-}
+export default function InventoryOverview() {
+  // ============================================================
+  // API STATE & LOGIC
+  // ============================================================
+
+  const [loading, setLoading] = useState(true);
+  const [mockData, setMockData] = useState({
+    filters: {
+      legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], businessUnits: [], dates: []
+    },
+    kpis: [], trend: { labels: [], previous: [], current: [] }, divisions: [],
+    businessUnits: [], aging: [], slowMoving: [], locations: [], details
+  });
+
+  
+
+  const fmtAED = (v) => {
+      if (v === null || v === undefined) return "—";
+      const n = Number(v);
+      if (isNaN(n)) return "—";
+      if (n >= 1000000000) return `AED ${(n / 1000000000).toFixed(2)}B`;
+      if (n >= 10000000) return `AED ${(n / 10000000).toFixed(2)} Cr`;
+      if (n >= 1000000) return `AED ${(n / 1000000).toFixed(2)}M`;
+      if (n >= 1000) return `AED ${(n / 1000).toFixed(2)}K`;
+      return `AED ${n.toFixed(2)}`;
+  };
+
+  useEffect(() => {
+      const loadData = async () => {
+          setLoading(true);
+          try {
+              // Map UI filter keys to API filter keys
+              const apiFilters = {
+                  legal_group: filters.legalGroup === "All" ? "" : filters.legalGroup,
+                  legal_entity: filters.legalEntity === "All" ? "" : filters.legalEntity,
+                  parent_division: filters.parentDivision === "All" ? "" : filters.parentDivision,
+                  subdivision: filters.subdivision === "All" ? "" : filters.subdivision,
+                  as_on_date: filters.asOnDate === "All" ? "" : filters.asOnDate,
+              };
+
+              const [filterRes, dashRes, detailsRes] = await Promise.all([
+                  getInventoryFilters(),
+                  getInventoryDashboard(apiFilters),
+                  getInventoryDetails({ ...apiFilters, limit: 100 })
+              ]);
+              
+              const fData = filterRes.data || {};
+              const dData = dashRes.data || {};
+              
+              let kpis = [];
+              if (dData.kpis) {
+                  kpis = [
+                      { title: "Total Inventory Value", value: fmtAED(dData.kpis.total_inventory), icon: "📦", iconBg: "#edf5ff", iconColor: "#2563eb", direction: "up" },
+                      { title: "Average Inventory Value", value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value), icon: "📦", iconBg: "#f5edff", iconColor: "#7c3aed", direction: "up" },
+                      { title: "Inventory Turnover (TTM)", value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "—", icon: "📈", iconBg: "#fff7e8", iconColor: "#f59e0b", direction: "up" },
+                      { title: "Stock Holding Days (DIO)", value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "—", icon: "🕒", iconBg: "#eafcff", iconColor: "#0891b2", direction: "down" },
+                      { title: "Obsolete / Slow Moving", value: fmtAED(dData.kpis.inventory_above_365), icon: "⚠️", iconBg: "#fff0f4", iconColor: "#e11d48", direction: "up" }
+                  ];
+              }
+
+              let aging = [];
+              if (dData.aging_summary) {
+                  const agingColors = { "0_30": "#2563eb", "31_60": "#16a34a", "61_90": "#f59e0b", "91_120": "#7c3aed", "121_180": "#ec4899", "181_365": "#94a3b8", "366_730": "#64748b", "ABOVE_730": "#334155" };
+                  const labels = { "0_30": "0 - 30 Days", "31_60": "31 - 60 Days", "61_90": "61 - 90 Days", "91_120": "91 - 120 Days", "121_180": "121 - 180 Days", "181_365": "181 - 365 Days", "366_730": "366 - 730 Days", "ABOVE_730": "Above 730 Days" };
+                  let totalAging = 0;
+                  const formattedAging = [];
+                  Object.keys(dData.aging_summary).forEach(k => {
+                      const val = Number(dData.aging_summary[k]) / 10000000; // Cr
+                      if (val > 0) {
+                          formattedAging.push({ name: labels[k] || k, value: val, color: agingColors[k] || "#94A3B8", percentage: 0 });
+                          totalAging += val;
+                      }
+                  });
+                  aging = formattedAging.map(i => ({ ...i, percentage: Number(((i.value / totalAging) * 100).toFixed(2)) }));
+              }
+
+              let divisions = [];
+              if (dData.by_parent_division) {
+                  const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#ec4899"];
+                  divisions = dData.by_parent_division.map((item, idx) => ({
+                      name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : item.label,
+                      value: Number(item.inventory_value) / 10000000,
+                      percentage: Number(item.percentage_of_total),
+                      color: colors[idx % colors.length]
+                  })).sort((a,b) => b.value - a.value).slice(0, 5);
+              }
+
+              let businessUnits = [];
+              if (dData.by_subdivision) {
+                  businessUnits = dData.by_subdivision.map((item) => ({
+                      name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
+                      value: Number(item.inventory_value) / 10000000,
+                  })).sort((a,b) => b.value - a.value).slice(0, 5);
+              }
+
+              let trend = { labels: [], previous: [], current: [] };
+              if (dData.trend) {
+                  trend.labels = dData.trend.map(item => typeof item.month_start === 'object' ? item.month_start?.name : (item.month_start ? String(item.month_start).substring(0, 7) : ''));
+                  trend.current = dData.trend.map(item => Number(item.inventory_value) / 10000000); // Cr
+                  trend.previous = dData.trend.map(item => 0); 
+              }
+
+              let slowMoving = [];
+              if (dData.top_items) {
+                  slowMoving = dData.top_items.map((item, idx) => ({
+                      no: idx + 1,
+                      description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
+                      code: typeof item.item_code === 'object' ? (item.item_code?.name || item.item_code?.code) : item.item_code,
+                      qty: Number(item.quantity || 0).toLocaleString(),
+                      value: (Number(item.inventory_value || 0) / 10000000).toFixed(2), 
+                      days: item.days_in_inventory || item.aging_days || "-",
+                  }));
+              }
 
 
-/* ─────────────────────────────────────────────────────────────
-   KPI card — matches the sample pastel card with icon, value,
-   trend badge, sparkline
-───────────────────────────────────────────────────────────── */
-function InventoryKPICard({ title, value, change, up, icon: Icon, iconColor, iconBg }) {
-    const isPositive = up;
-    return (
-        <div
-            style={{
-                background: "#F8FAFC",
-                border: "1px solid rgba(255, 255, 255, 0.8)",
-                borderRadius: "12px",
-                padding: "14px 16px",
-                minHeight: "105px",
-                boxSizing: "border-box",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
-                transition: "transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease",
-                cursor: "default",
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 4px 12px rgba(15, 23, 42, 0.06)";
-                e.currentTarget.style.filter = "brightness(0.99)";
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
-                e.currentTarget.style.filter = "brightness(1)";
-            }}
-        >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <div style={{
-                    width: "36px", height: "36px", borderRadius: "50%", background: iconBg || "#F1F5F9", color: iconColor,
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 2px 6px rgba(15, 23, 42, 0.06)"
-                }}>
-                    <Icon size={18} color={iconColor} />
-                </div>
-                <div style={{ fontSize: "12px", fontWeight: 600, color: iconColor, lineHeight: 1.2 }}>{title}</div>
-            </div>
-            <div style={{ marginLeft: "46px", marginTop: "-2px", fontSize: "18px", fontWeight: 800, color: "#111827", lineHeight: 1.1 }}>
-                {value ?? "—"}
-            </div>
-            {change ? (
-                <div style={{ marginLeft: "46px", marginTop: "1px", fontSize: "10px", color: "#64748b", fontWeight: 500, lineHeight: 1.2 }}>
-                    Previous: 31 Mar 2024
-                </div>
-            ) : null}
-            <div style={{ marginLeft: "46px", fontSize: "11px", color: isPositive ? "#0e9f75" : "#ef476f", fontWeight: 600, lineHeight: 1.2 }}>
-                {change ? `${isPositive ? '▲' : '▼'} ${change}` : "—"}
-            </div>
-        </div>
-    );
-}
+              let details = [];
+              if (detailsRes && detailsRes.data && detailsRes.data.items) {
+                  details = detailsRes.data.items.map(item => ({
+                      legalEntity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
+                      parentDivision: typeof item.parent_division === 'object' ? item.parent_division?.name : item.parent_division,
+                      subdivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
+                      businessUnit: item.business_unit || item.subinventory || "Others",
+                      qty: Number(item.quantity || 0).toLocaleString(),
+                      total: (Number(item.inventory_value || 0) / 10000000).toFixed(2),
+                      d30: (Number(item.aging_0_30 || 0) / 10000000).toFixed(2),
+                      d60: (Number(item.aging_31_60 || 0) / 10000000).toFixed(2),
+                      d90: (Number(item.aging_61_90 || 0) / 10000000).toFixed(2),
+                      d180: (Number((item.aging_91_120 || 0) + (item.aging_121_180 || 0)) / 10000000).toFixed(2),
+                      d180plus: (Number(item.aging_above_180 || item.aging_181_365 || 0) / 10000000).toFixed(2),
+                      slow: (Number(item.obsolete_value || item.inventory_above_365 || 0) / 10000000).toFixed(2),
+                  }));
+              }
 
-/* ─────────────────────────────────────────────────────────────
-   Slow Moving / Top Items table — matches the sample format:
-   #, Item Description, Item Code, Qty (Nos), Value (₹ Cr), Days
-───────────────────────────────────────────────────────────── */
-function SlowMovingTable({ data = [], currency = "AED", onViewAll, onExport }) {
-    return (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E8EDF5', display: 'flex', flexDirection: 'column', height: 320, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-            {/* Header */}
-            <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px 8px', borderBottom: '1px solid #EEF2F7', flexShrink: 0,
-            }}>
-                <span style={{ fontSize: '0.79rem', fontWeight: 700, color: '#081B46' }}>Slow Moving Stock (Top 5)</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {onViewAll && <button onClick={onViewAll} style={{ fontSize: '0.69rem', fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>}
-                </div>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                    <thead>
-                        <tr style={{ background: '#F8FAFD', position: 'sticky', top: 0, zIndex: 5 }}>
-                            {['#', 'Item Description', 'Item Code', 'Qty (Nos)', 'Value (AED)', 'Days'].map((h, i) => (
-                                <th key={i} style={{ padding: '8px 8px', textAlign: i === 0 ? 'center' : i >= 3 ? 'right' : 'left', color: '#1E3A8A', fontWeight: 700, borderBottom: '1px solid #E8EDF5', whiteSpace: 'nowrap', fontSize: 11 }}>
-                                    {h}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {data.length ? data.map((item, i) => (
-                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FBFCFE', borderBottom: '1px solid #EEF2F7' }}>
-                                <td style={{ padding: '8px', textAlign: 'center', color: '#475569', fontWeight: 600 }}>{i + 1}</td>
-                                <td style={{ padding: '8px', color: '#0F172A', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {item.item_description || '–'}
-                                </td>
-                                <td style={{ padding: '8px', color: '#2563EB', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.item_code || '–'}</td>
-                                <td style={{ padding: '8px', textAlign: 'right', color: '#0F172A', fontWeight: 500 }}>{Number(item.quantity || 0).toLocaleString()}</td>
-                                <td style={{ padding: '8px', textAlign: 'right', color: '#0F172A', fontWeight: 600 }}>{fmtAED(item.inventory_value, '')}</td>
-                                <td style={{ padding: '8px', textAlign: 'right', color: '#E11D48', fontWeight: 700 }}>{item.days ?? '–'}</td>
-                            </tr>
-                        )) : (
-                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>No records found</td></tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
-}
+              setMockData({
+                  filters: {
+                      legalGroups: ["All", ...(fData.legal_groups || []).map(x => x.name || x)],
+                      legalEntities: ["All", ...(fData.legal_entities || []).map(x => x.name || x)],
+                      parentDivisions: ["All", ...(fData.parent_divisions || []).map(x => x.name || x)],
+                      subdivisions: ["All", ...(fData.subdivisions || []).map(x => x.name || x)],
+                      businessUnits: ["All"],
+                      dates: ["All", ...(fData.as_on_dates || [])],
+                  },
+                  kpis,
+                  trend,
+                  divisions,
+                  businessUnits,
+                  aging,
+                  slowMoving,
+                  locations: [],
+                  details
+              });
+          } catch (err) {
+              console.error(err);
+          } finally {
+              setLoading(false);
+          }
+      };
+      loadData();
+  }, [filters]);
 
-/* ─────────────────────────────────────────────────────────────
-   Main Dashboard Component
-───────────────────────────────────────────────────────────── */
-export default function InventoryAgingDashboard() {
-    const [inventorySummary, setInventorySummary] = useState(null);
-    const [inventoryTrendData, setInventoryTrendData] = useState([]);
-    const [inventoryData, setInventoryData] = useState([]);
-    const [inventorySubdivision, setInventorySubdivision] = useState([]);
-    const [inventoryAgingData, setInventoryAgingData] = useState([]);
-    const [slowMovingItemsData, setSlowMovingItemsData] = useState([]);
-    const [detailedViewData, setDetailedViewData] = useState([]);
-    const [inventoryAgingTotal, setInventoryAgingTotal] = useState(0);
-    const [filters, setFilters] = useState({});
-    const [filterOptions, setFilterOptions] = useState({
-        legal_groups: [], legal_entities: [], parent_divisions: [],
-        subdivisions: [], currencies: [], as_on_dates: [],
+  if (loading) {
+      return <div style={{ padding: 40, textAlign: "center", fontSize: 18, color: "#64748b" }}>Loading Inventory Data...</div>;
+  }
+
+  // ============================================================
+  // FILTER STATE (Removed duplicated state, already defined above)
+
+  // ============================================================
+
+  
+
+  const [showFilters, setShowFilters] = useState(false);
+
+  const updateFilter = (key, value) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      legalGroup: "FJ Group (Consolidated)",
+      legalEntity: "All",
+      parentDivision: "All",
+      subdivision: "All",
+      businessUnit: "All",
+      asOnDate: "30 Apr 2024",
     });
-    const [exporting, setExporting] = useState("");
-    const [showDetailsModal, setShowDetailsModal] = useState(false);
-    const [drilldownFilters, setDrilldownFilters] = useState({});
+  };
 
-    const handleViewDetails = (drilldowns = {}) => {
-        setDrilldownFilters(drilldowns || {});
-        setShowDetailsModal(true);
-    };
+  // ============================================================
+  // SVG MINI LINE
+  // ============================================================
 
-    const fetchFilters = async () => {
-        try {
-            const response = await getInventoryFilters();
-            const data = response.data;
-            setFilterOptions({
-                legal_groups: data.legal_groups || [],
-                legal_entities: data.legal_entities || [],
-                parent_divisions: data.parent_divisions || [],
-                subdivisions: data.subdivisions || [],
-                currencies: data.currencies || [],
-                as_on_dates: data.available_dates || [],
-            });
-        } catch (error) {
-            console.error("Filters Error:", error);
-        }
-    };
+  const MiniLine = ({ points, color }) => {
+    const width = 170;
+    const height = 34;
 
-    const fetchDashboard = async () => {
-        try {
-            const response = await getInventoryDashboard(filters);
-            const data = response.data;
+    const min = Math.min(...points);
+    const max = Math.max(...points);
 
-            if (data.kpis) {
-                setInventorySummary({
-                    total_inventory_value: data.kpis.total_inventory,
-                    average_inventory_value: data.kpis.average_inventory || data.kpis.average_inventory_value || null,
-                    inventory_turnover_ttm: data.kpis.inventory_turnover_ttm || data.kpis.inventory_turnover || null,
-                    stock_holding_days: data.kpis.stock_holding_days || data.kpis.dio || null,
-                    obsolete_slow_moving: data.kpis.inventory_above_365,
-                });
-            }
+    const path = points
+      .map((point, index) => {
+        const x = (index / (points.length - 1)) * width;
 
-            if (data.aging_summary) {
-                const agingColors = {
-                    "0_30": "#16A34A", "31_60": "#F59E0B", "61_90": "#EF4444",
-                    "91_120": "#8B5CF6", "121_180": "#0F766E", "181_365": "#2563EB",
-                    "366_730": "#94A3B8", "ABOVE_730": "#64748B",
-                };
-                const labels = {
-                    "0_30": "0 - 30 Days", "31_60": "31 - 60 Days", "61_90": "61 - 90 Days",
-                    "91_120": "91 - 120 Days", "121_180": "121 - 180 Days", "181_365": "181 - 365 Days",
-                    "366_730": "366 - 730 Days", "ABOVE_730": "Above 730 Days",
-                };
-                let totalAging = 0;
-                const formattedAging = data.aging_summary.map(item => {
-                    totalAging += Number(item.amount);
-                    return {
-                        name: labels[item.bucket_code] || (typeof item.bucket_name === 'object' ? (item.bucket_name?.name || item.bucket_name?.code) : item.bucket_name),
-                        value: Number(item.amount),
-                        id: item.bucket_code,
-                        percentage: Number(item.percentage_of_total),
-                        color: agingColors[item.bucket_code] || "#94A3B8"
-                    };
-                });
-                setInventoryAgingData(formattedAging);
-                setInventoryAgingTotal(totalAging);
-            }
+        const normalized =
+          max === min ? 0.5 : (point - min) / (max - min);
 
-            if (data.by_parent_division) {
-                let mappedData = data.by_parent_division.map(item => ({
-                    name: typeof item.label === 'object' ? (item.label?.name || item.label?.code || item.label?.id) : item.label,
-                    value: Number(item.inventory_value),
-                    id: item.value,
-                    percentage: Number(item.percentage_of_total),
-                }));
-                mappedData.sort((a, b) => b.value - a.value);
-                const formattedParentDiv = mappedData.slice(0, 5).map((item, index) => ({
-                    ...item,
-                    color: ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#8B5CF6"][index] || "#94A3B8"
-                }));
-                setInventoryData(formattedParentDiv);
-            }
+        const y = height - normalized * (height - 5);
 
-            if (data.by_subdivision) {
-                let mappedSubDiv = data.by_subdivision.map(item => ({
-                    name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
-                    value: Number(item.inventory_value),
-                    id: item.subdivision_id
-                }));
-                mappedSubDiv.sort((a, b) => b.value - a.value);
-                setInventorySubdivision(mappedSubDiv.slice(0, 5));
-            }
+        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+      })
+      .join(" ");
 
-            if (data.trend) {
-                const formattedTrend = data.trend.map(item => ({
-                    month: typeof item.month_start === 'object' ? item.month_start?.name : (item.month_start ? String(item.month_start).substring(0, 7) : ''),
-                    inventoryValue: Number(item.inventory_value),
-                    turnover: (item.inventory_turnover != null ? Number(item.inventory_turnover) : (item.turnover != null ? Number(item.turnover) : null)),
-                    dio: (item.dio != null ? Number(item.dio) : (item.stock_holding_days != null ? Number(item.stock_holding_days) : null))
-                }));
-                setInventoryTrendData(formattedTrend);
-                const inventoryValues = formattedTrend.map(i => i.inventoryValue).filter(v => v > 0);
-                const latestTrend = formattedTrend[formattedTrend.length - 1] || {};
-                setInventorySummary(prev => ({
-                    ...prev,
-                    average_inventory_value: prev?.average_inventory_value,
-                    inventory_turnover_ttm: prev?.inventory_turnover_ttm || latestTrend.turnover || null,
-                    stock_holding_days: prev?.stock_holding_days || latestTrend.dio || null,
-                }));
-            }
+    return (
+      <svg
+        width="100%"
+        height="38"
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        style={{ display: "block" }}
+      >
+        <path
+          d={path}
+          fill="none"
+          stroke={color}
+          strokeWidth="1.8"
+        />
 
-            if (data.top_items) {
-                const formattedTopItems = data.top_items.map(item => ({
-                    id: item.subdivision_id || item.item_code,
-                    item_code: typeof item.item_code === 'object' ? (item.item_code?.name || item.item_code?.code) : item.item_code,
-                    item_description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
-                    inventory_value: Number(item.inventory_value || 0),
-                    quantity: Number(item.quantity || 0),
-                    days: item.days_in_inventory || item.aging_days || null,
-                    category: typeof item.primary_category === 'object' ? (item.primary_category?.name || item.primary_category?.code) : item.primary_category,
-                    uom: typeof item.uom === 'object' ? (item.uom?.name || item.uom?.code) : item.uom,
-                }));
-                setSlowMovingItemsData(formattedTopItems);
-            }
-        } catch (error) {
-            console.error("Dashboard Fetch Error:", error);
-        }
+        {points.map((point, index) => {
+          const x = (index / (points.length - 1)) * width;
 
-        try {
-            const detailsResponse = await getInventoryDetails({ ...filters, limit: 10 });
-            if (detailsResponse.data?.results) {
-                const formattedDetails = detailsResponse.data.results.map(item => ({
-                    legalEntity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
-                    subDivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
-                    warehouse: typeof item.subinventory === 'object' ? item.subinventory?.name : item.subinventory,
-                    category: typeof item.primary_category === 'object' ? item.primary_category?.name : item.primary_category,
-                    itemCode: typeof item.item_code === 'object' ? item.item_code?.name : item.item_code,
-                    description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
-                    quantity: Number(item.quantity || 0),
-                    inventoryValue: Number(item.inventory_value || 0),
-                    days0to30: Number(item.bucket_0_30 || item['0_30_days'] || 0),
-                    days31to60: Number(item.bucket_31_60 || item['31_60_days'] || 0),
-                    days61to90: Number(item.bucket_61_90 || item['61_90_days'] || 0),
-                    days91to120: Number(item.bucket_91_120 || item['91_120_days'] || 0),
-                    days121to180: Number(item.bucket_121_180 || item['121_180_days'] || 0),
-                    days181to365: Number(item.bucket_181_365 || item['181_365_days'] || 0),
-                    days366to730: Number(item.bucket_366_730 || item['366_730_days'] || 0),
-                    daysAbove730: Number(item.bucket_above_730 || item['above_730_days'] || 0)
-                }));
-                setDetailedViewData(formattedDetails);
-            } else if (Array.isArray(detailsResponse.data)) {
-                 const formattedDetails = detailsResponse.data.slice(0, 10).map(item => ({
-                    legalEntity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
-                    subDivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
-                    warehouse: typeof item.subinventory === 'object' ? item.subinventory?.name : item.subinventory,
-                    category: typeof item.primary_category === 'object' ? item.primary_category?.name : item.primary_category,
-                    itemCode: typeof item.item_code === 'object' ? item.item_code?.name : item.item_code,
-                    description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
-                    quantity: Number(item.quantity || 0),
-                    inventoryValue: Number(item.inventory_value || 0),
-                    days0to30: Number(item.bucket_0_30 || item['0_30_days'] || 0),
-                    days31to60: Number(item.bucket_31_60 || item['31_60_days'] || 0),
-                    days61to90: Number(item.bucket_61_90 || item['61_90_days'] || 0),
-                    days91to120: Number(item.bucket_91_120 || item['91_120_days'] || 0),
-                    days121to180: Number(item.bucket_121_180 || item['121_180_days'] || 0),
-                    days181to365: Number(item.bucket_181_365 || item['181_365_days'] || 0),
-                    days366to730: Number(item.bucket_366_730 || item['366_730_days'] || 0),
-                    daysAbove730: Number(item.bucket_above_730 || item['above_730_days'] || 0)
-                }));
-                setDetailedViewData(formattedDetails);
-            }
-        } catch (error) {
-            console.error("Detailed View Fetch Error:", error);
-        }
-    };
+          const normalized =
+            max === min ? 0.5 : (point - min) / (max - min);
 
-    useEffect(() => { fetchFilters(); }, []);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => { fetchDashboard(); }, [filters]);
+          const y = height - normalized * (height - 5);
 
-    const selectedCurrency = filters.currency || "AED";
-    const totalInventory = inventoryData.reduce((s, i) => s + i.value, 0);
+          return (
+            <circle
+              key={index}
+              cx={x}
+              cy={y}
+              r="1.7"
+              fill={color}
+            />
+          );
+        })}
+      </svg>
+    );
+  };
 
-    const handleExport = async (type, section = null) => {
-        try {
-            setExporting(section ? `${section}-${type}` : type);
-            const response = await getInventoryExport(type === "excel" ? "xlsx" : "pdf", { ...filters, section });
-            const blob = new Blob([response.data], { type: response.headers["content-type"] });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", type === "excel" ? "Inventory_Report.xlsx" : "Inventory_Report.pdf");
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error("Export Error:", error);
-            alert("Download Failed");
-        } finally {
-            setExporting("");
-        }
-    };
+  // ============================================================
+  // KPI CARD
+  // ============================================================
 
-    /* KPI definitions */
-    const kpis = [
-        { id: 1, title: "Total Inventory Value", value: fmtAED(inventorySummary?.total_inventory_value, selectedCurrency), icon: Package, iconColor: "#2563EB", iconBg: "#DBEAFE", change: null, up: true },
-        { id: 2, title: "Average Inventory Value", value: inventorySummary?.average_inventory_value != null ? fmtAED(inventorySummary.average_inventory_value, selectedCurrency) : "–", icon: Cuboid, iconColor: "#7C3AED", iconBg: "#F3E8FF", change: null, up: true },
-        { id: 3, title: "Inventory Turnover (TTM)", value: inventorySummary?.inventory_turnover_ttm != null ? `${Number(inventorySummary.inventory_turnover_ttm).toFixed(2)} Times` : "–", icon: TrendingUp, iconColor: "#EA580C", iconBg: "#FFEDD5", change: null, up: false },
-        { id: 4, title: "Stock Holding Days (DIO)", value: inventorySummary?.stock_holding_days != null ? `${inventorySummary.stock_holding_days} Days` : "–", icon: Clock, iconColor: "#0891B2", iconBg: "#CFFAFE", change: null, up: false },
-        { id: 5, title: "Obsolete / Slow Moving Stock (> 365 Days)", value: fmtAED(inventorySummary?.obsolete_slow_moving, selectedCurrency), icon: AlertTriangle, iconColor: "#E11D48", iconBg: "#FFE4E6", change: null, up: true },
+  const KpiCard = ({ item }) => {
+    return (
+      <div style={styles.kpiCard}>
+        <div style={styles.kpiTop}>
+          <div
+            style={{
+              ...styles.kpiIcon,
+              background: item.iconBg,
+              color: item.iconColor,
+            }}
+          >
+            {item.icon}
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <div style={styles.kpiTitle}>{item.title}</div>
+
+            <div style={styles.kpiValue}>{item.value}</div>
+
+            <div style={styles.kpiVariance}>
+              <span
+                style={{
+                  color:
+                    item.direction === "down"
+                      ? "#dc2626"
+                      : "#16a34a",
+                  fontWeight: 700,
+                }}
+              >
+                {item.direction === "down" ? "▼" : "▲"}{" "}
+                {item.variance}
+              </span>
+
+              <span style={{ color: "#64748b" }}>
+                {" "}
+                {item.varianceLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* <div style={{ marginTop: 7 }}>
+          <MiniLine points={item.line} color={item.iconColor} />
+        </div> */}
+      </div>
+    );
+  };
+
+  // ============================================================
+  // LINE CHART
+  // ============================================================
+
+  const LineChart = () => {
+    const width = 530;
+    const height = 185;
+    const paddingLeft = 48;
+    const paddingRight = 12;
+    const paddingTop = 15;
+    const paddingBottom = 30;
+
+    const plotWidth = width - paddingLeft - paddingRight;
+    const plotHeight = height - paddingTop - paddingBottom;
+
+    const allValues = [
+      ...mockData.trend.previous,
+      ...mockData.trend.current,
     ];
 
-    /* Filter dropdown renderer matching new style */
-    const FilterSelect = ({ label, value, onChange, options, placeholder = "All" }) => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 120, flex: 1 }}>
-            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{label}</label>
-            <div style={{ position: 'relative' }}>
-                <select
-                    value={value || ""}
-                    onChange={onChange}
-                    style={{
-                        padding: '8px 30px 8px 12px', borderRadius: 8, border: '1px solid #E8EDF5',
-                        fontSize: '0.8rem', color: '#0F172A', background: '#F8FAFC', width: '100%',
-                        height: 38, appearance: 'none', cursor: 'pointer', fontWeight: 500
-                    }}
-                >
-                    <option value="">{placeholder}</option>
-                    {options?.map((o, idx) => {
-                        const val = typeof o === 'object' ? (o.id || o.code || o.name) : o;
-                        const lbl = typeof o === 'object' ? (o.name || o.code || o.id) : o;
-                        return <option key={`${val}-${idx}`} value={val}>{lbl}</option>;
-                    })}
-                </select>
-                <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M1 1L5 5L9 1" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                </div>
-            </div>
-        </div>
+    const maxValue = Math.ceil(Math.max(...allValues) / 100) * 100;
+    const minValue = 0;
+
+    const makePoints = (values) => {
+      return values
+        .map((value, index) => {
+          const x =
+            paddingLeft +
+            (index / (values.length - 1)) * plotWidth;
+
+          const y =
+            paddingTop +
+            plotHeight -
+            ((value - minValue) / (maxValue - minValue)) *
+              plotHeight;
+
+          return `${x},${y}`;
+        })
+        .join(" ");
+    };
+
+    return (
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        width="100%"
+        height="100%"
+        style={{ display: "block" }}
+      >
+        {[0, 100, 200, 300, 400, 500, 600].map((value) => {
+          const y =
+            paddingTop +
+            plotHeight -
+            (value / maxValue) * plotHeight;
+
+          return (
+            <g key={value}>
+              <line
+                x1={paddingLeft}
+                x2={width - paddingRight}
+                y1={y}
+                y2={y}
+                stroke="#e8edf4"
+                strokeWidth="1"
+              />
+
+              <text
+                x={paddingLeft - 10}
+                y={y + 4}
+                textAnchor="end"
+                fontSize="10"
+                fill="#64748b"
+              >
+                {value}
+              </text>
+            </g>
+          );
+        })}
+
+        <polyline
+          points={makePoints(mockData.trend.previous)}
+          fill="none"
+          stroke="#2563eb"
+          strokeWidth="2"
+        />
+
+        <polyline
+          points={makePoints(mockData.trend.current)}
+          fill="none"
+          stroke="#16a34a"
+          strokeWidth="2"
+        />
+
+        {mockData.trend.previous.map((value, index) => {
+          const x =
+            paddingLeft +
+            (index / (mockData.trend.previous.length - 1)) *
+              plotWidth;
+
+          const y =
+            paddingTop +
+            plotHeight -
+            (value / maxValue) * plotHeight;
+
+          return (
+            <circle
+              key={`p-${index}`}
+              cx={x}
+              cy={y}
+              r="3"
+              fill="#2563eb"
+            />
+          );
+        })}
+
+        {mockData.trend.current.map((value, index) => {
+          const x =
+            paddingLeft +
+            (index / (mockData.trend.current.length - 1)) *
+              plotWidth;
+
+          const y =
+            paddingTop +
+            plotHeight -
+            (value / maxValue) * plotHeight;
+
+          return (
+            <circle
+              key={`c-${index}`}
+              cx={x}
+              cy={y}
+              r="3"
+              fill="#16a34a"
+            />
+          );
+        })}
+
+        {mockData.trend.labels.map((label, index) => {
+          const x =
+            paddingLeft +
+            (index / (mockData.trend.labels.length - 1)) *
+              plotWidth;
+
+          return (
+            <text
+              key={label}
+              x={x}
+              y={height - 8}
+              textAnchor="middle"
+              fontSize="10"
+              fill="#475569"
+            >
+              {label}
+            </text>
+          );
+        })}
+      </svg>
+    );
+  };
+
+  // ============================================================
+  // DONUT CHART
+  // ============================================================
+
+  const DonutChart = ({
+    data,
+    total,
+    centerText,
+    centerSubText,
+  }) => {
+    const radius = 58;
+    const circumference = 2 * Math.PI * radius;
+
+    let offset = 0;
+
+    return (
+      <div style={styles.donutWrapper}>
+        <svg
+          width="145"
+          height="145"
+          viewBox="0 0 145 145"
+        >
+          <g transform="rotate(-90 72.5 72.5)">
+            <circle
+              cx="72.5"
+              cy="72.5"
+              r={radius}
+              fill="none"
+              stroke="#edf1f6"
+              strokeWidth="26"
+            />
+
+            {data.map((item) => {
+              const dash =
+                (item.percentage / 100) * circumference;
+
+              const currentOffset = offset;
+
+              offset += dash;
+
+              return (
+                <circle
+                  key={item.name}
+                  cx="72.5"
+                  cy="72.5"
+                  r={radius}
+                  fill="none"
+                  stroke={item.color}
+                  strokeWidth="26"
+                  strokeDasharray={`${dash} ${
+                    circumference - dash
+                  }`}
+                  strokeDashoffset={-currentOffset}
+                />
+              );
+            })}
+          </g>
+
+          <text
+            x="72.5"
+            y="68"
+            textAnchor="middle"
+            fontSize="13"
+            fontWeight="700"
+            fill="#334155"
+          >
+            {centerText}
+          </text>
+
+          {centerSubText && (
+            <text
+              x="72.5"
+              y="84"
+              textAnchor="middle"
+              fontSize="10"
+              fill="#64748b"
+            >
+              {centerSubText}
+            </text>
+          )}
+        </svg>
+      </div>
+    );
+  };
+
+  // ============================================================
+  // BAR CHART
+  // ============================================================
+
+  const BusinessUnitChart = () => {
+    const max = Math.max(
+      ...mockData.businessUnits.map((x) => x.value)
     );
 
     return (
-        <div className="page-content" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-
-            {/* ── Page Header ──────────────────────────────────── */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                <div>
-                    <h1 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#081B46', margin: 0, letterSpacing: '-0.02em' }}>Inventory Overview</h1>
-                    <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '2px 0 0' }}>Track inventory position, movement and aging across all dimensions</p>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button onClick={() => handleExport('excel')} disabled={!!exporting}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: '0.75rem', fontWeight: 700, padding: '6px 12px', cursor: exporting ? 'not-allowed' : 'pointer' }}>
-                        <Download size={13} /> {exporting === 'excel' ? '...' : 'Excel'}
-                    </button>
-                    <button onClick={() => handleExport('pdf')} disabled={!!exporting}
-                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3', borderRadius: 7, fontSize: '0.75rem', fontWeight: 700, padding: '6px 12px', cursor: exporting ? 'not-allowed' : 'pointer' }}>
-                        <Download size={13} /> {exporting === 'pdf' ? '...' : 'PDF'}
-                    </button>
-                </div>
+      <div style={{ width: "100%", paddingTop: 2 }}>
+        {mockData.businessUnits.map((item) => (
+          <div
+            key={item.name}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "85px 1fr 48px",
+              alignItems: "center",
+              gap: 7,
+              marginBottom: 8,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10,
+                color: "#475569",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {item.name}
             </div>
 
-            {/* ── Filters ──────────────────────────────────────── */}
-            <div className="card" style={{ padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'flex-end', background: '#fff' }}>
-                <FilterSelect label="Legal Group" value={filters.legal_group} onChange={e => setFilters(p => ({ ...p, legal_group: e.target.value }))} options={filterOptions.legal_groups} placeholder="All" />
-                <FilterSelect label="Legal Entity" value={filters.legal_entity} onChange={e => setFilters(p => ({ ...p, legal_entity: e.target.value }))} options={filterOptions.legal_entities} />
-                <FilterSelect label="Parent Division" value={filters.parent_division} onChange={e => setFilters(p => ({ ...p, parent_division: e.target.value }))} options={filterOptions.parent_divisions} />
-                <FilterSelect label="Sub-Division" value={filters.subdivision} onChange={e => setFilters(p => ({ ...p, subdivision: e.target.value }))} options={filterOptions.subdivisions} />
-                <FilterSelect label="Reporting Currency" value={filters.currency} onChange={e => setFilters(p => ({ ...p, currency: e.target.value }))} options={filterOptions.currencies} placeholder="AED" />
-                <FilterSelect label="Aging Basis" value={filters.subinventory} onChange={e => setFilters(p => ({ ...p, subinventory: e.target.value }))} options={[]} placeholder="Due Date Based" />
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 120, flex: 1 }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1E3A8A' }}>As On Date</label>
-                    <div style={{ position: 'relative' }}>
-                        <select value={filters.as_on_date || ""}
-                            onChange={e => setFilters(p => ({ ...p, as_on_date: e.target.value }))}
-                            style={{
-                                padding: '8px 30px 8px 12px', borderRadius: 8, border: '1px solid #E8EDF5',
-                                fontSize: '0.8rem', color: '#0F172A', background: '#F8FAFC', width: '100%',
-                                height: 38, appearance: 'none', cursor: 'pointer', fontWeight: 500
-                            }}>
-                            {filterOptions.as_on_dates?.map((d, i) => <option key={`${d}-${i}`} value={d}>{d}</option>)}
-                            {!filterOptions.as_on_dates?.length && <option value="">Select Date</option>}
-                        </select>
-                        <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-                            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M1 1L5 5L9 1" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 8, flexShrink: 0 }}>
-                    <button onClick={() => setFilters({ ...filters })}
-                        style={{ padding: '0 24px', background: '#6366F1', color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', height: 38 }}>
-                        Apply
-                    </button>
-                    <button onClick={() => setFilters({})}
-                        style={{ padding: '0 24px', background: '#fff', color: '#475569', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', height: 38 }}>
-                        Reset
-                    </button>
-                </div>
+            <div
+              style={{
+                height: 13,
+                background: "#f1f5f9",
+                borderRadius: 2,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${(item.value / max) * 100}%`,
+                  background: "#2563eb",
+                  borderRadius: 2,
+                }}
+              />
             </div>
 
-            {/* ── KPI Cards ────────────────────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "10px", marginBottom: "20px" }}>
-                {kpis.map(k => (
-                    <InventoryKPICard key={k.id} title={k.title} value={k.value} change={k.change} up={k.up}
-                        icon={k.icon} iconColor={k.iconColor} iconBg={k.iconBg} />
-                ))}
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: "#475569",
+              }}
+            >
+              {item.value.toFixed(2)}
             </div>
+          </div>
+        ))}
 
-            {/* ── Charts Row 1 ─────────────────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px", marginBottom: "16px", width: "100%" }}>
-                <InventoryValueTrend
-                    data={inventoryTrendData}
-                    currency={selectedCurrency}
-                    onViewAll={() => handleViewDetails({ section: 'trend' })}
-                    onExport={() => handleExport('excel', 'trend')}
-                />
-                <OverDueSummaryCard
-                    data={inventoryData}
-                    total={totalInventory}
-                    Centerlabel="Total Inventory"
-                    currency={selectedCurrency}
-                    onViewAll={() => handleViewDetails({})}
-                    onExport={() => handleExport('excel')}
-                />
-                <ParentDivisionCard
-                    data={inventorySubdivision}
-                    currency={selectedCurrency}
-                    onSliceClick={(item) => handleViewDetails({ drilldown_subdivision_id: item.id })}
-                    onViewAll={() => handleViewDetails({ section: 'parent-divisions' })}
-                    onExport={() => handleExport('excel', 'parent-divisions')}
-                />
-            </div>
-
-            {/* ── Charts Row 2 ─────────────────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px", marginBottom: "16px", width: "100%" }}>
-                <AgingSummaryCard
-                    data={inventoryAgingData}
-                    legendData={inventoryAgingData}
-                    total={inventoryAgingTotal}
-                    currency={selectedCurrency}
-                    onSliceClick={(item) => handleViewDetails({ aging_bucket: item.id })}
-                    onViewAll={() => handleViewDetails({})}
-                    onExport={() => handleExport('excel')}
-                />
-                <SlowMovingTable
-                    data={slowMovingItemsData}
-                    currency={selectedCurrency}
-                    onViewAll={() => handleViewDetails({ section: 'slow-moving' })}
-                    onExport={() => handleExport('excel', 'slow-moving')}
-                />
-                <InventoryTurnoverTrend
-                    data={inventoryTrendData}
-                    onViewAll={() => handleViewDetails({ section: 'trend' })}
-                    onExport={() => handleExport('excel', 'trend')}
-                />
-            </div>
-
-            {/* ── Inventory Detailed View ───────────────────────── */}
-            <InventoryDetailedViewTable
-                title="Inventory Detailed View"
-                data={detailedViewData}
-                currency={selectedCurrency}
-                onViewAll={handleViewDetails}
-            />
-
-            {/* ── Footer ───────────────────────────────────────── */}
-            <div style={{ padding: '10px 4px', display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94A3B8', borderTop: '1px solid #EEF2F7', marginTop: 20 }}>
-                <span>All values are in {selectedCurrency} &nbsp;|&nbsp; Data as on {filterOptions.as_on_dates?.[0] || '–'}</span>
-                <span>🌐 Source: Oracle Fusion Cloud</span>
-            </div>
-
-            {/* ── View All Modal ────────────────────────────────── */}
-            <InventoryDetailsModal
-                open={showDetailsModal}
-                onClose={() => setShowDetailsModal(false)}
-                filters={filters}
-                drilldownFilters={drilldownFilters}
-            />
+        <div
+          style={{
+            marginTop: 2,
+            marginLeft: 93,
+            borderTop: "1px solid #e5eaf1",
+            paddingTop: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: 9,
+            color: "#64748b",
+          }}
+        >
+          <span>0</span>
+          <span>40</span>
+          <span>80</span>
+          <span>120</span>
+          <span>160</span>
+          <span>200</span>
         </div>
+
+        <div
+          style={{
+            textAlign: "center",
+            fontSize: 9,
+            color: "#64748b",
+            marginTop: 2,
+          }}
+        >
+          ₹ Cr
+        </div>
+      </div>
     );
+  };
+
+  // ============================================================
+  // SECTION HEADER
+  // ============================================================
+
+  const SectionHeader = ({ children }) => (
+    <div style={styles.sectionHeader}>{children}</div>
+  );
+
+  // ============================================================
+  // FILTER FIELD
+  // ============================================================
+
+  const FilterField = ({
+    label,
+    value,
+    options,
+    onChange,
+    date = false,
+  }) => {
+    return (
+      <div style={styles.filterField}>
+        <label style={styles.filterLabel}>{label}</label>
+
+        <div style={styles.selectWrapper}>
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            style={styles.select}
+          >
+            {options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+
+          {!date && (
+            <span style={styles.selectArrow}>⌄</span>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================
+  // DERIVED TOTAL
+  // ============================================================
+
+  const locationTotal = useMemo(() => {
+    return mockData.locations.reduce(
+      (sum, item) => sum + item.value,
+      0
+    );
+  }, []);
+
+  // ============================================================
+  // RENDER
+  // ============================================================
+
+  return (
+    <div style={styles.page}>
+      {/* ========================================================
+          HEADER
+      ======================================================== */}
+
+      <div style={styles.header}>
+        <div>
+          <h1 style={styles.pageTitle}>Inventory Overview</h1>
+
+          <div style={styles.subtitle}>
+            Track inventory position, movement and aging across
+            all dimensions
+          </div>
+        </div>
+
+        <div style={styles.headerActions}>
+          <button style={styles.primaryButton}>
+            Export
+            <span style={{ marginLeft: 8 }}>⌄</span>
+          </button>
+
+          <button style={styles.secondaryButton}>
+            <span style={styles.buttonIcon}>▣</span>
+            Schedule
+          </button>
+
+          <button
+            style={styles.secondaryButton}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <span style={styles.buttonIcon}>⚱</span>
+            More Filters
+            <span style={{ marginLeft: 8 }}>⌄</span>
+          </button>
+
+          <button
+            style={styles.refreshButton}
+            onClick={() => window.location.reload()}
+            title="Refresh"
+          >
+            ↻
+          </button>
+        </div>
+      </div>
+
+      {/* ========================================================
+          FILTERS
+      ======================================================== */}
+
+      <div
+        style={{
+          ...styles.filterPanel,
+          ...(showFilters ? styles.filterPanelExpanded : {}),
+        }}
+      >
+        <FilterField
+          label="Legal Group"
+          value={filters.legalGroup}
+          options={mockData.filters.legalGroups}
+          onChange={(value) =>
+            updateFilter("legalGroup", value)
+          }
+        />
+
+        <FilterField
+          label="Legal Entity"
+          value={filters.legalEntity}
+          options={mockData.filters.legalEntities}
+          onChange={(value) =>
+            updateFilter("legalEntity", value)
+          }
+        />
+
+        <FilterField
+          label="Parent Division"
+          value={filters.parentDivision}
+          options={mockData.filters.parentDivisions}
+          onChange={(value) =>
+            updateFilter("parentDivision", value)
+          }
+        />
+
+        <FilterField
+          label="Sub-Division"
+          value={filters.subdivision}
+          options={mockData.filters.subdivisions}
+          onChange={(value) =>
+            updateFilter("subdivision", value)
+          }
+        />
+
+        <FilterField
+          label="Business Unit"
+          value={filters.businessUnit}
+          options={mockData.filters.businessUnits}
+          onChange={(value) =>
+            updateFilter("businessUnit", value)
+          }
+        />
+
+        <FilterField
+          label="As On Date"
+          value={filters.asOnDate}
+          options={mockData.filters.dates}
+          onChange={(value) =>
+            updateFilter("asOnDate", value)
+          }
+          date
+        />
+
+        <button style={styles.applyButton}>Apply</button>
+
+        <button
+          style={styles.resetButton}
+          onClick={resetFilters}
+        >
+          Reset
+        </button>
+      </div>
+
+      {/* ========================================================
+          KPI CARDS
+      ======================================================== */}
+
+      <div style={styles.kpiGrid}>
+        {mockData.kpis.map((item) => (
+          <KpiCard key={item.title} item={item} />
+        ))}
+      </div>
+
+      {/* ========================================================
+          FIRST CHART ROW
+      ======================================================== */}
+
+      <div style={styles.chartGrid}>
+        {/* Inventory Trend */}
+        <div style={styles.panel}>
+          <SectionHeader>
+            Inventory Value Trend (₹ Cr)
+          </SectionHeader>
+
+          <div style={styles.legend}>
+            <div style={styles.legendItem}>
+              <span
+                style={{
+                  ...styles.legendDot,
+                  background: "#2563eb",
+                }}
+              />
+              FY 23-24
+            </div>
+
+            <div style={styles.legendItem}>
+              <span
+                style={{
+                  ...styles.legendDot,
+                  background: "#16a34a",
+                }}
+              />
+              FY 24-25
+            </div>
+          </div>
+
+          <div style={styles.lineChartContainer}>
+            <LineChart />
+          </div>
+        </div>
+
+        {/* Parent Division */}
+        <div style={styles.panel}>
+          <SectionHeader>
+            Inventory Value by Parent Division (₹ Cr)
+          </SectionHeader>
+
+          <div style={styles.donutRow}>
+            <DonutChart
+              data={mockData.divisions}
+              total="472.35"
+              centerText="₹ 472.35"
+              centerSubText="Cr"
+            />
+
+            <div style={styles.legendList}>
+              {mockData.divisions.map((item) => (
+                <div
+                  key={item.name}
+                  style={styles.legendListRow}
+                >
+                  <div style={styles.legendName}>
+                    <span
+                      style={{
+                        ...styles.legendCircle,
+                        background: item.color,
+                      }}
+                    />
+                    {item.name}
+                  </div>
+
+                  <div style={styles.legendValue}>
+                    {item.value.toFixed(2)} (
+                    {item.percentage.toFixed(2)}%)
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Business Unit */}
+        <div style={styles.panel}>
+          <SectionHeader>
+            Inventory Value by Business Unit (₹ Cr)
+          </SectionHeader>
+
+          <BusinessUnitChart />
+        </div>
+      </div>
+
+      {/* ========================================================
+          SECOND ROW
+      ======================================================== */}
+
+      <div style={styles.bottomGrid}>
+        {/* AGING */}
+        <div style={styles.panel}>
+          <SectionHeader>
+            Inventory Aging Summary (₹ Cr)
+          </SectionHeader>
+
+          <div style={styles.agingContent}>
+            <DonutChart
+              data={mockData.aging}
+              total="472.35"
+              centerText="₹ 472.35 Cr"
+            />
+
+            <div style={styles.agingTable}>
+              <div style={styles.agingHeader}>
+                <span />
+                <span>Amount (₹ Cr)</span>
+                <span>% of Total</span>
+              </div>
+
+              {mockData.aging.map((item) => (
+                <div
+                  key={item.name}
+                  style={styles.agingRow}
+                >
+                  <div style={styles.agingName}>
+                    <span
+                      style={{
+                        ...styles.legendCircle,
+                        background: item.color,
+                      }}
+                    />
+                    {item.name}
+                  </div>
+
+                  <div>{item.value.toFixed(2)}</div>
+
+                  <div>{item.percentage.toFixed(2)}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* SLOW MOVING */}
+        <div style={styles.panel}>
+          <SectionHeader>
+            Slow Moving Items (Top 5)
+          </SectionHeader>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Item Description</th>
+                  <th>Item Code</th>
+                  <th>Qty (Nos)</th>
+                  <th>Value (₹ Cr)</th>
+                  <th>Days</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {mockData.slowMoving.map((row) => (
+                  <tr key={row.no}>
+                    <td>{row.no}</td>
+                    <td>{row.description}</td>
+                    <td>{row.code}</td>
+                    <td>{row.qty}</td>
+                    <td>{row.value}</td>
+                    <td>{row.days}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* LOCATION */}
+        <div style={styles.panel}>
+          <SectionHeader>
+            Inventory by Location (Top 5) (₹ Cr)
+          </SectionHeader>
+
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Value (₹ Cr)</th>
+                  <th>% of Total</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {mockData.locations.map((row) => (
+                  <tr key={row.name}>
+                    <td>{row.name}</td>
+                    <td>{row.value.toFixed(2)}</td>
+                    <td>{row.percentage.toFixed(2)}%</td>
+                  </tr>
+                ))}
+
+                <tr style={styles.totalRow}>
+                  <td>Total</td>
+                  <td>{locationTotal.toFixed(2)}</td>
+                  <td>78.75%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================
+          DETAILED VIEW
+      ======================================================== */}
+
+      <div style={styles.detailPanel}>
+        <SectionHeader>Inventory Detailed View</SectionHeader>
+
+        <div style={styles.detailTableWrapper}>
+          <table style={styles.detailTable}>
+            <thead>
+              <tr>
+                <th>Legal Entity</th>
+                <th>Parent Division</th>
+                <th>Sub-Division</th>
+                <th>Business Unit</th>
+                <th>Total Qty (Nos)</th>
+                <th>Inventory Value (₹ Cr)</th>
+                <th>0 - 30 Days (₹ Cr)</th>
+                <th>31 - 60 Days (₹ Cr)</th>
+                <th>61 - 90 Days (₹ Cr)</th>
+                <th>91 - 180 Days (₹ Cr)</th>
+                <th>&gt; 180 Days (₹ Cr)</th>
+                <th>Slow Moving (₹ Cr)</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {mockData.details.map((row) => (
+                <tr key={row.legalEntity}>
+                  <td>{row.legalEntity}</td>
+                  <td>{row.parentDivision}</td>
+                  <td>{row.subdivision}</td>
+                  <td>{row.businessUnit}</td>
+                  <td>{row.qty}</td>
+                  <td>{row.total}</td>
+                  <td>{row.d30}</td>
+                  <td>{row.d60}</td>
+                  <td>{row.d90}</td>
+                  <td>{row.d180}</td>
+                  <td>{row.d180plus}</td>
+                  <td>{row.slow}</td>
+                </tr>
+              ))}
+
+              <tr style={styles.detailTotalRow}>
+                <td>Total</td>
+                <td />
+                <td />
+                <td />
+                <td>2,36,48,520</td>
+                <td>562.35</td>
+                <td>127.50</td>
+                <td>127.60</td>
+                <td>98.30</td>
+                <td>62.85</td>
+                <td>65.60</td>
+                <td>38.45</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ========================================================
+          FOOTER
+      ======================================================== */}
+
+      <div style={styles.footer}>
+        <div>
+          All values are in INR (₹ Cr) &nbsp; | &nbsp; Data as
+          on 30 Apr 2024
+        </div>
+
+        <div style={styles.source}>
+          <span style={{ fontSize: 16 }}>☁</span>
+          Source: Oracle Fusion Cloud
+        </div>
+      </div>
+    </div>
+  );
 }
+
+// ================================================================
+// INLINE CSS
+// ================================================================
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    padding: "14px 18px 18px",
+    boxSizing: "border-box",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    color: "#172033",
+    fontSize: 12,
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 20,
+    marginBottom: 12,
+  },
+
+  pageTitle: {
+    margin: 0,
+    fontSize: 22,
+    lineHeight: 1.15,
+    fontWeight: 800,
+    color: "#14245c",
+    letterSpacing: "-0.5px",
+  },
+
+  subtitle: {
+    marginTop: 4,
+    color: "#64748b",
+    fontSize: 11,
+  },
+
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+  },
+
+  primaryButton: {
+    height: 32,
+    border: "none",
+    borderRadius: 5,
+    padding: "0 14px",
+    background: "#4f24d8",
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: "pointer",
+    boxShadow: "0 2px 5px rgba(79,36,216,.15)",
+  },
+
+  secondaryButton: {
+    height: 32,
+    border: "1px solid #d7dce5",
+    borderRadius: 5,
+    padding: "0 12px",
+    background: "#fff",
+    color: "#334155",
+    fontSize: 11,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+
+  buttonIcon: {
+    marginRight: 7,
+    color: "#4f24d8",
+  },
+
+  refreshButton: {
+    width: 34,
+    height: 32,
+    border: "1px solid #d7dce5",
+    borderRadius: 5,
+    background: "#fff",
+    color: "#334155",
+    fontSize: 18,
+    cursor: "pointer",
+  },
+
+  filterPanel: {
+    background: "#fff",
+    border: "1px solid #e3e8ef",
+    borderRadius: 7,
+    padding: "10px 12px",
+    display: "grid",
+    gridTemplateColumns:
+      "1.15fr 1fr 1fr 1fr 1fr 1fr auto auto",
+    alignItems: "end",
+    gap: 12,
+    boxShadow: "0 1px 3px rgba(15,23,42,.025)",
+    marginBottom: 10,
+  },
+
+  filterPanelExpanded: {
+    boxShadow: "0 3px 12px rgba(15,23,42,.07)",
+  },
+
+  filterField: {
+    minWidth: 0,
+  },
+
+  filterLabel: {
+    display: "block",
+    fontSize: 9,
+    color: "#475569",
+    marginBottom: 4,
+    fontWeight: 600,
+  },
+
+  selectWrapper: {
+    position: "relative",
+  },
+
+  select: {
+    width: "100%",
+    height: 30,
+    border: "1px solid #dfe4ec",
+    borderRadius: 5,
+    padding: "0 26px 0 9px",
+    fontSize: 10.5,
+    color: "#334155",
+    background: "#fff",
+    outline: "none",
+    appearance: "none",
+    cursor: "pointer",
+  },
+
+  selectArrow: {
+    position: "absolute",
+    right: 9,
+    top: "50%",
+    transform: "translateY(-55%)",
+    color: "#475569",
+    pointerEvents: "none",
+    fontSize: 13,
+  },
+
+  applyButton: {
+    height: 30,
+    padding: "0 18px",
+    border: "none",
+    borderRadius: 5,
+    background: "#4f24d8",
+    color: "#fff",
+    fontSize: 10.5,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+
+  resetButton: {
+    height: 30,
+    padding: "0 7px",
+    border: "none",
+    background: "transparent",
+    color: "#334155",
+    fontSize: 10.5,
+    cursor: "pointer",
+  },
+
+  kpiGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+    gap: 10,
+    marginBottom: 10,
+  },
+
+  kpiCard: {
+    minWidth: 0,
+    minHeight: 105,
+    background: "#fff",
+    border: "1px solid #e4e9f0",
+    borderRadius: 8,
+    padding: "10px 11px 7px",
+    boxSizing: "border-box",
+    boxShadow: "0 1px 3px rgba(15,23,42,.025)",
+  },
+
+  kpiTop: {
+    display: "flex",
+    gap: 9,
+    alignItems: "flex-start",
+  },
+
+  kpiIcon: {
+    flex: "0 0 31px",
+    width: 31,
+    height: 31,
+    borderRadius: 8,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 17,
+    fontWeight: 800,
+  },
+
+  kpiTitle: {
+    color: "#64748b",
+    fontSize: 9,
+    lineHeight: 1.2,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  kpiValue: {
+    color: "#172033",
+    fontSize: 14,
+    lineHeight: 1.45,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  kpiVariance: {
+    fontSize: 8.5,
+    lineHeight: 1.2,
+    whiteSpace: "nowrap",
+  },
+
+  chartGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr 1fr",
+    gap: 10,
+    marginBottom: 10,
+  },
+
+  panel: {
+    background: "#fff",
+    border: "1px solid #e3e8ef",
+    borderRadius: 7,
+    padding: "9px 11px",
+    minWidth: 0,
+    boxSizing: "border-box",
+    boxShadow: "0 1px 3px rgba(15,23,42,.02)",
+  },
+
+  sectionHeader: {
+    color: "#12275e",
+    fontSize: 11,
+    fontWeight: 800,
+    marginBottom: 7,
+  },
+
+  legend: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 18,
+    marginBottom: 1,
+    fontSize: 9,
+    color: "#475569",
+  },
+
+  legendItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  legendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: "50%",
+  },
+
+  lineChartContainer: {
+    width: "100%",
+    height: 165,
+  },
+
+  donutRow: {
+    minHeight: 176,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-around",
+    gap: 5,
+  },
+
+  donutWrapper: {
+    width: 145,
+    height: 145,
+    flex: "0 0 145px",
+  },
+
+  legendList: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  legendListRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 7,
+    marginBottom: 12,
+    fontSize: 10,
+  },
+
+  legendName: {
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    color: "#334155",
+    whiteSpace: "nowrap",
+  },
+
+  legendCircle: {
+    width: 9,
+    height: 9,
+    minWidth: 9,
+    borderRadius: "50%",
+    display: "inline-block",
+  },
+
+  legendValue: {
+    color: "#475569",
+    fontWeight: 500,
+    whiteSpace: "nowrap",
+  },
+
+  bottomGrid: {
+    display: "grid",
+    gridTemplateColumns: "1.02fr 1.18fr 1.12fr",
+    gap: 10,
+    marginBottom: 10,
+  },
+
+  agingContent: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    minHeight: 157,
+  },
+
+  agingTable: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 9.5,
+  },
+
+  agingHeader: {
+    display: "grid",
+    gridTemplateColumns: "1fr 75px 62px",
+    gap: 5,
+    color: "#64748b",
+    fontWeight: 700,
+    fontSize: 8,
+    paddingBottom: 5,
+    borderBottom: "1px solid #e5eaf1",
+  },
+
+  agingRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 75px 62px",
+    gap: 5,
+    alignItems: "center",
+    minHeight: 21,
+    borderBottom: "1px solid #f0f3f7",
+    color: "#475569",
+  },
+
+  agingName: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    whiteSpace: "nowrap",
+  },
+
+  tableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+  },
+
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: 8.5,
+    color: "#334155",
+  },
+
+  tableHeader: {},
+
+  tableCell: {},
+
+  totalRow: {
+    fontWeight: 800,
+    background: "#f4f7fc",
+  },
+
+  detailPanel: {
+    background: "#fff",
+    border: "1px solid #e3e8ef",
+    borderRadius: 7,
+    padding: "9px 11px 10px",
+    boxShadow: "0 1px 3px rgba(15,23,42,.02)",
+    overflow: "hidden",
+  },
+
+  detailTableWrapper: {
+    width: "100%",
+    overflowX: "auto",
+  },
+
+  detailTable: {
+    width: "100%",
+    minWidth: 1100,
+    borderCollapse: "collapse",
+    fontSize: 8.5,
+    color: "#334155",
+  },
+
+  detailTotalRow: {
+    background: "#eef4ff",
+    color: "#12275e",
+    fontWeight: 800,
+  },
+
+  footer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "10px 2px 0",
+    color: "#475569",
+    fontSize: 9,
+  },
+
+  source: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    color: "#64748b",
+  },
+};
+
+// ================================================================
+// TABLE CSS USING A SMALL GLOBAL STYLE INJECTION
+// This keeps everything in this single component file.
+// ================================================================
+
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById("inventory-overview-table-css")
+) {
+  const style = document.createElement("style");
+
+  style.id = "inventory-overview-table-css";
+
+  style.innerHTML = `
+    table th {
+      background: #f3f6fb;
+      color: #1e3a70;
+      font-weight: 700;
+      white-space: nowrap;
+      text-align: left;
+      padding: 6px 6px;
+      border-bottom: 1px solid #e0e6ef;
+    }
+
+    table td {
+      padding: 5px 6px;
+      border-bottom: 1px solid #edf1f5;
+      white-space: nowrap;
+    }
+
+    table tbody tr:hover {
+      background: #f8fbff;
+    }
+
+    select:focus {
+      border-color: #8064e9 !important;
+      box-shadow: 0 0 0 2px rgba(79, 36, 216, .08);
+    }
+
+    button {
+      font-family: inherit;
+    }
+
+    @media (max-width: 1200px) {
+      .inventory-page {
+        overflow-x: auto;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
