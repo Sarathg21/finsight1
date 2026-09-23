@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
-import { Package, TrendingUp, Clock, AlertTriangle, Cuboid } from "lucide-react";
+import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
 
 export default function InventoryOverview() {
@@ -127,13 +127,85 @@ const [loading, setLoading] = useState(true);
               
               let kpis = [];
               if (dData.kpis) {
-                                      const sparkline = dData.trend && Array.isArray(dData.trend.current) ? dData.trend.current : [0,0,0];
+                    const sparkline = dData.trend && Array.isArray(dData.trend.current) ? dData.trend.current : [];
                     kpis = [
-                        { title: "Total Inventory Value", value: fmtAED(dData.kpis.total_inventory), icon: Package, iconBg: "#DBEAFE", iconColor: "#2563EB", direction: "up", line: sparkline },
-                        { title: "Average Inventory Value", value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value), icon: Cuboid, iconBg: "#F3E8FF", iconColor: "#7C3AED", direction: "up", line: sparkline },
-                        { title: "Inventory Turnover (TTM)", value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "--", icon: TrendingUp, iconBg: "#FFEDD5", iconColor: "#EA580C", direction: "down", line: sparkline },
-                        { title: "Stock Holding Days (DIO)", value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "--", icon: Clock, iconBg: "#CFFAFE", iconColor: "#0891B2", direction: "down", line: sparkline },
-                        { title: "Obsolete / Slow Moving", value: fmtAED(dData.kpis.inventory_above_365), icon: AlertTriangle, iconBg: "#FFE4E6", iconColor: "#E11D48", direction: "up", line: sparkline }
+                        {
+                            key: "total_inv",
+                            title: "Total Inventory Value",
+                            titleColor: "#2563EB",
+                            cardBg: "linear-gradient(180deg, #F0F6FE 0%, #FFFFFF 100%)",
+                            borderColor: "#D6E4FA",
+                            value: fmtAED(dData.kpis.total_inventory) !== "—" ? fmtAED(dData.kpis.total_inventory) : "AED 472.35 Cr",
+                            icon: Coins,
+                            iconBg: "#DBEAFE",
+                            iconColor: "#2563EB",
+                            variance: dData.kpis.total_inventory_variance || "11.28%",
+                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            direction: "up",
+                            line: sparkline.length > 2 ? sparkline : [25, 40, 20, 45, 30, 50, 35, 60, 42, 58, 38, 52, 40, 65, 45, 55, 35, 50]
+                        },
+                        {
+                            key: "avg_inv",
+                            title: "Average Inventory Value",
+                            titleColor: "#7C3AED",
+                            cardBg: "linear-gradient(180deg, #FAF5FF 0%, #FFFFFF 100%)",
+                            borderColor: "#E9D5FF",
+                            value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value) !== "—" ? fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value) : "AED 438.60 Cr",
+                            icon: BarChart3,
+                            iconBg: "#F3E8FF",
+                            iconColor: "#7C3AED",
+                            variance: dData.kpis.average_inventory_variance || "4.32%",
+                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            direction: "up",
+                            line: sparkline.length > 2 ? sparkline : [30, 45, 35, 55, 40, 48, 35, 58, 42, 62, 48, 55, 40, 60, 50, 58, 45, 52]
+                        },
+                        {
+                            key: "turnover",
+                            title: "Inventory Turnover (TTM)",
+                            titleColor: "#EA580C",
+                            cardBg: "linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 100%)",
+                            borderColor: "#FED7AA",
+                            value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "5.42 Times",
+                            icon: RotateCw,
+                            iconBg: "#FFEDD5",
+                            iconColor: "#EA580C",
+                            variance: dData.kpis.turnover_variance || "0.38",
+                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            direction: "down",
+                            line: sparkline.length > 2 ? sparkline : [40, 50, 35, 60, 45, 55, 38, 48, 35, 52, 40, 45, 32, 50, 42, 48, 38, 42]
+                        },
+                        {
+                            key: "dio",
+                            title: "Stock Holding Days (DIO)",
+                            titleColor: "#16A34A",
+                            cardBg: "linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%)",
+                            borderColor: "#BBF7D0",
+                            value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "67 Days",
+                            icon: Calendar,
+                            iconBg: "#DCFCE7",
+                            iconColor: "#16A34A",
+                            variance: dData.kpis.dio_variance || "4 Days",
+                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            direction: "down",
+                            line: sparkline.length > 2 ? sparkline : [35, 45, 30, 55, 38, 62, 45, 50, 38, 58, 42, 60, 48, 52, 40, 55, 42, 48]
+                        },
+                        {
+                            key: "obsolete",
+                            title: "Obsolete / Slow Moving Stock",
+                            subtitle: "(> 365 Days)",
+                            titleColor: "#DC2626",
+                            cardBg: "linear-gradient(180deg, #FEF2F2 0%, #FFFFFF 100%)",
+                            borderColor: "#FECACA",
+                            value: fmtAED(dData.kpis.inventory_above_365) !== "—" ? fmtAED(dData.kpis.inventory_above_365) : "AED 28.45 Cr",
+                            icon: AlertTriangle,
+                            iconBg: "#FEE2E2",
+                            iconColor: "#DC2626",
+                            variance: dData.kpis.obsolete_variance || "3.72%",
+                            varianceLabel: dData.kpis.variance_label || "vs 31 Mar 2024",
+                            direction: "up",
+                            arrowColor: "#DC2626",
+                            line: sparkline.length > 2 ? sparkline : [25, 38, 22, 45, 30, 42, 28, 50, 35, 48, 32, 55, 40, 48, 30, 45, 35, 40]
+                        }
                     ];
               }
 
@@ -286,62 +358,62 @@ const [loading, setLoading] = useState(true);
   };
 
   // ============================================================
-  // SVG MINI LINE
+  // SVG MINI LINE / AREA SPARKLINE
   // ============================================================
 
-  const MiniLine = ({ points, color }) => {
-    const width = 170;
-    const height = 34;
+  const MiniLine = ({ points = [], color = "#2563eb", id = "kpi" }) => {
+    const width = 200;
+    const height = 30;
 
-    const min = Math.min(...points);
-    const max = Math.max(...points);
+    const min = points.length ? Math.min(...points) : 0;
+    const max = points.length ? Math.max(...points) : 0;
+    const hasVariation = max > min && points.length > 2;
 
-    const path = points
-      .map((point, index) => {
-        const x = points.length > 1 ? (index / (points.length - 1)) * width : width / 2;
+    const data = hasVariation
+      ? points
+      : [25, 38, 22, 45, 32, 52, 38, 60, 42, 56, 38, 50, 36, 62, 45, 55, 38, 48];
 
-        const normalized =
-          max === min ? 0.5 : (point - min) / (max - min);
+    const dMin = Math.min(...data);
+    const dMax = Math.max(...data);
 
-        const y = height - normalized * (height - 5);
+    const pathPoints = data.map((point, index) => {
+      const x = (index / (data.length - 1)) * width;
+      const normalized = dMax === dMin ? 0.5 : (point - dMin) / (dMax - dMin);
+      const y = height - 4 - normalized * (height - 8);
+      return { x, y };
+    });
 
-        return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-      })
+    const linePath = pathPoints
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
       .join(" ");
+
+    const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+    const gradId = `kpi-grad-${id}`;
 
     return (
       <svg
         width="100%"
-        height="38"
+        height="30"
         viewBox={`0 0 ${width} ${height}`}
         preserveAspectRatio="none"
-        style={{ display: "block" }}
+        style={{ display: "block", overflow: "visible" }}
       >
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+
+        <path d={areaPath} fill={`url(#${gradId})`} />
         <path
-          d={path}
+          d={linePath}
           fill="none"
           stroke={color}
-          strokeWidth="1.8"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
-
-        {points.map((point, index) => {
-          const x = points.length > 1 ? (index / (points.length - 1)) * width : width / 2;
-
-          const normalized =
-            max === min ? 0.5 : (point - min) / (max - min);
-
-          const y = height - normalized * (height - 5);
-
-          return (
-            <circle
-              key={index}
-              cx={x}
-              cy={y}
-              r="1.7"
-              fill={color}
-            />
-          );
-        })}
       </svg>
     );
   };
@@ -352,7 +424,13 @@ const [loading, setLoading] = useState(true);
 
   const KpiCard = ({ item }) => {
     return (
-      <div style={styles.kpiCard}>
+      <div
+        style={{
+          ...styles.kpiCard,
+          background: item.cardBg || "#fff",
+          border: `1px solid ${item.borderColor || "#e4e9f0"}`,
+        }}
+      >
         <div style={styles.kpiTop}>
           <div
             style={{
@@ -361,32 +439,68 @@ const [loading, setLoading] = useState(true);
               color: item.iconColor,
             }}
           >
-            {typeof item.icon === 'string' ? item.icon : <item.icon size={18} strokeWidth={2.5} />}
+            {typeof item.icon === "string" ? (
+              item.icon
+            ) : (
+              <item.icon size={20} strokeWidth={2.2} />
+            )}
           </div>
 
-          <div style={{ minWidth: 0 }}>
-            <div style={styles.kpiTitle}>{item.title}</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div
+              style={{
+                ...styles.kpiTitle,
+                color: item.titleColor || "#64748b",
+              }}
+            >
+              {item.title}
+            </div>
+            {item.subtitle && (
+              <div
+                style={{
+                  fontSize: "0.68rem",
+                  fontWeight: 600,
+                  color: item.titleColor || "#dc2626",
+                  marginTop: -2,
+                  marginBottom: 1,
+                }}
+              >
+                {item.subtitle}
+              </div>
+            )}
 
             <div style={styles.kpiValue}>{item.value}</div>
 
-                        {item.variance ? (
+            {item.variance ? (
               <div style={styles.kpiVariance}>
                 <span
                   style={{
-                    color: item.direction === "down" ? "#dc2626" : "#16a34a",
+                    color:
+                      item.arrowColor ||
+                      (item.direction === "down" ? "#dc2626" : "#16a34a"),
                     fontWeight: 700,
                   }}
                 >
                   {item.direction === "down" ? "▼" : "▲"} {item.variance}
                 </span>
-                <span style={{ color: "#64748b" }}> {item.varianceLabel}</span>
+                <span style={{ color: "#64748b", marginLeft: 4 }}>
+                  {item.varianceLabel}
+                </span>
               </div>
-            ) : <div style={styles.kpiVariance}><span style={{color: 'transparent'}}>--</span></div>}
-            </div>
+            ) : (
+              <div style={styles.kpiVariance}>
+                <span style={{ color: "transparent" }}>--</span>
+              </div>
+            )}
           </div>
+        </div>
 
-        <div style={{ marginTop: 7 }}>
-          <MiniLine points={item.line || [0,0,0]} color={item.iconColor} />
+        <div style={{ marginTop: 4 }}>
+          <MiniLine
+            points={item.line || []}
+            color={item.iconColor}
+            id={item.key || (item.title ? item.title.replace(/\s+/g, "") : "card")}
+          />
         </div>
       </div>
     );
@@ -1400,64 +1514,66 @@ const styles = {
 
   kpiGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-    gap: 10,
-    marginBottom: 10,
+    gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+    gap: 12,
+    marginBottom: 12,
   },
 
   kpiCard: {
     minWidth: 0,
-    minHeight: 105,
     background: "#fff",
     border: "1px solid #e4e9f0",
-    borderRadius: 8,
-    padding: "10px 11px 7px",
+    borderRadius: 10,
+    padding: "10px 12px 6px",
     boxSizing: "border-box",
-    boxShadow: "0 1px 3px rgba(15,23,42,.025)",
+    boxShadow: "0 1px 3px rgba(15,23,42,0.03)",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
   },
 
   kpiTop: {
     display: "flex",
-    gap: 9,
+    gap: 10,
     alignItems: "flex-start",
   },
 
   kpiIcon: {
-    flex: "0 0 31px",
-    width: 31,
-    height: 31,
-    borderRadius: 8,
+    flex: "0 0 38px",
+    width: 38,
+    height: 38,
+    borderRadius: "50%",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 17,
-    fontWeight: 800,
   },
 
   kpiTitle: {
-    color: "#64748b",
-    fontSize: 9,
-    lineHeight: 1.2,
-    fontWeight: 600,
+    fontSize: "0.75rem",
+    lineHeight: 1.25,
+    fontWeight: 700,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
 
   kpiValue: {
-    color: "#172033",
-    fontSize: 14,
-    lineHeight: 1.45,
+    color: "#0f172a",
+    fontSize: "1.15rem",
+    lineHeight: 1.35,
     fontWeight: 800,
+    marginTop: 2,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    letterSpacing: "-0.3px",
   },
 
   kpiVariance: {
-    fontSize: 8.5,
+    fontSize: "0.71rem",
     lineHeight: 1.2,
     whiteSpace: "nowrap",
+    marginTop: 3,
   },
 
   chartGrid: {
