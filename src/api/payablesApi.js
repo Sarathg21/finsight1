@@ -187,6 +187,27 @@ function buildViewAllParams(filters = {}) {
     return params;
 }
 
+
+/**
+ * Build Export query parameters.
+ *
+ * Includes View All / drill-down filters so that
+ * Excel/PDF exports contain only the currently filtered records.
+ */
+function buildExportParams(filters = {}) {
+    const params = buildDashboardParams(filters);
+
+    appendParam(params, "aging_bucket", filters.aging_bucket);
+    appendParam(params, "balance_status", filters.balance_status);
+
+    appendParam(params, "supplier_id", filters.supplier_id);
+    appendParam(params, "source_currency", filters.source_currency);
+    appendParam(params, "gl_code", filters.gl_code);
+    appendParam(params, "search", filters.search);
+
+    return params;
+}
+
 /* ─────────────────────────────────────────────
    FILTER OPTIONS
    ───────────────────────────────────────────── */
@@ -345,7 +366,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
  * const blob = response.data;
  */
 export async function exportPayablesExcel(filters = {}) {
-    const params = buildDashboardParams(filters);
+    const params = buildExportParams(filters);
 
     const response = await api.get("/api/payables/export/excel", {
         params,
@@ -375,7 +396,7 @@ export async function exportPayablesExcel(filters = {}) {
  * const blob = response.data;
  */
 export async function exportPayablesPdf(filters = {}) {
-    const params = buildDashboardParams(filters);
+    const params = buildExportParams(filters);
 
     const response = await api.get("/api/payables/export/pdf", {
         params,
