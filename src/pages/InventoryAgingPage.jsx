@@ -178,9 +178,7 @@ const [loading, setLoading] = useState(true);
       loadData();
   }, [filters]);
 
-  if (loading) {
-      return <div style={{ padding: 40, textAlign: "center", fontSize: 18, color: "#64748b" }}>Loading Inventory Data...</div>;
-  }
+
 
   // ============================================================
   // FILTER STATE (Removed duplicated state, already defined above)
@@ -717,6 +715,10 @@ const [loading, setLoading] = useState(true);
       0
     );
   }, []);
+
+  if (loading) {
+      return <div style={{ padding: 40, textAlign: "center", fontSize: 18, color: "#64748b" }}>Loading Inventory Data...</div>;
+  }
 
   // ============================================================
   // RENDER
