@@ -19,11 +19,23 @@ export default function InventoryOverview() {
       }
       
       const apiFilters = {};
-      if (filters.legalGroup && filters.legalGroup !== "All") apiFilters.legal_group_id = [filters.legalGroup];
-      if (filters.legalEntity && filters.legalEntity !== "All") apiFilters.legal_entity_id = [filters.legalEntity];
-      if (filters.parentDivision && filters.parentDivision !== "All") apiFilters.parent_division_id = [filters.parentDivision];
-      if (filters.subdivision && filters.subdivision !== "All") apiFilters.subdivision_id = [filters.subdivision];
-      if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
+      const getApiVal = (val) => {
+                  if (!val || val === "All") return null;
+                  if (Array.isArray(val)) {
+                      const c = val.filter(v => v !== "All");
+                      return c.length > 0 ? c : null;
+                  }
+                  return [val];
+              };
+              
+              if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
+              if (getApiVal(filters.legalEntity)) apiFilters.legal_entity_id = getApiVal(filters.legalEntity);
+              if (getApiVal(filters.parentDivision)) apiFilters.parent_division_id = getApiVal(filters.parentDivision);
+              if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
+              if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
+              
+              if (filters.currency && filters.currency !== "All" && filters.currency !== "AED") apiFilters.currency = filters.currency; // Modify if AED shouldn't be ignored
+              if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
       const response = await getInventoryExport(type, apiFilters);
       const blob = new Blob([response.data]);
@@ -40,11 +52,11 @@ export default function InventoryOverview() {
   };
 
   const [filters, setFilters] = useState({
-      legalGroup: "All",
-      legalEntity: "All",
-      parentDivision: "All",
-      subdivision: "All",
-      subinventory: "All",
+      legalGroup: [],
+      legalEntity: [],
+      parentDivision: [],
+      subdivision: [],
+      subinventory: [],
       currency: "AED",
       asOnDate: "All",
   });
@@ -85,12 +97,22 @@ const [loading, setLoading] = useState(true);
               }
 
               const apiFilters = {};
-              if (filters.legalGroup && filters.legalGroup !== "All") apiFilters.legal_group_id = [filters.legalGroup];
-              if (filters.legalEntity && filters.legalEntity !== "All") apiFilters.legal_entity_id = [filters.legalEntity];
-              if (filters.parentDivision && filters.parentDivision !== "All") apiFilters.parent_division_id = [filters.parentDivision];
-              if (filters.subdivision && filters.subdivision !== "All") apiFilters.subdivision_id = [filters.subdivision];
-              if (filters.subinventory && filters.subinventory !== "All") apiFilters.subinventory_id = [filters.subinventory];
-              if (filters.currency && filters.currency !== "All") apiFilters.currency = filters.currency;
+              const getApiVal = (val) => {
+                  if (!val || val === "All") return null;
+                  if (Array.isArray(val)) {
+                      const c = val.filter(v => v !== "All");
+                      return c.length > 0 ? c : null;
+                  }
+                  return [val];
+              };
+              
+              if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
+              if (getApiVal(filters.legalEntity)) apiFilters.legal_entity_id = getApiVal(filters.legalEntity);
+              if (getApiVal(filters.parentDivision)) apiFilters.parent_division_id = getApiVal(filters.parentDivision);
+              if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
+              if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
+              
+              if (filters.currency && filters.currency !== "All" && filters.currency !== "AED") apiFilters.currency = filters.currency; // Modify if AED shouldn't be ignored
               if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
               const [filterRes, dashRes, detailsRes] = await Promise.all([
@@ -249,11 +271,11 @@ const [loading, setLoading] = useState(true);
 
   const resetFilters = () => {
     setFilters({
-      legalGroup: "All",
-      legalEntity: "All",
-      parentDivision: "All",
-      subdivision: "All",
-      subinventory: "All",
+      legalGroup: [],
+      legalEntity: [],
+      parentDivision: [],
+      subdivision: [],
+      subinventory: [],
       currency: "AED",
       asOnDate: "All",
     });
@@ -731,23 +753,30 @@ const [loading, setLoading] = useState(true);
       <div style={styles.filterField}>
         <label style={styles.filterLabel}>{label}</label>
 
-        <div style={styles.selectWrapper}>
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            style={styles.select}
-          >
-            {uniqueOptions.map((opt, __idx) => (
-              <option key={`${opt.value}-${__idx}`} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          {!date && (
-            <span style={styles.selectArrow}>⌄</span>
-          )}
-        </div>
+        {date || label === "Currency" ? (
+          <div style={styles.selectWrapper}>
+            <select
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              style={styles.select}
+            >
+              {uniqueOptions.map((opt, __idx) => (
+                <option key={`${opt.value}-${__idx}`} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div style={{...styles.selectWrapper, border: 'none', background: 'transparent', padding: 0}}>
+            <MultiSelectDropdown 
+              options={uniqueOptions.filter(o => o.value !== "All")} 
+              value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
+              onChange={(valArr) => onChange(valArr)} 
+              placeholder="All"
+            />
+          </div>
+        )}
       </div>
     );
   };
