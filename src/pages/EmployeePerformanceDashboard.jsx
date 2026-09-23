@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import CustomSelect from '../components/UI/CustomSelect';
+import CustomSelect from '../components/ui/CustomSelect';
 import EmployeePersonalReport from '../components/Dashboard/EmployeePersonalReport';
 import ManagerDashboard from '../components/Dashboard/ManagerDashboard';
 import {

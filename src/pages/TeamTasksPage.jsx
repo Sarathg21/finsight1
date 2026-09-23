@@ -23,8 +23,8 @@ import ReassignTaskModal from '../components/Modals/ReassignTaskModal';
 import ReworkCommentModal from '../components/Modals/ReworkCommentModal';
 import TaskReviewModal from '../components/Modals/TaskReviewModal';
 import TaskDetailModal from '../components/Modals/TaskDetailModal';
-import CustomSelect from '../components/UI/CustomSelect';
-import StatsCard from '../components/UI/StatsCard';
+import CustomSelect from '../components/ui/CustomSelect';
+import StatsCard from '../components/ui/StatsCard';
 
 // --- Components defined outside for performance and clarity ---
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import Card from '../components/UI/DashboardCard';
+import Card from '../components/ui/DashboardCard';
 import KPICard from '../components/ui/KPICard';
 import SparklineKPICard from '../components/ui/SparklineKPICard';
 import ChartLegend from '../components/ui/ChartLegend';
