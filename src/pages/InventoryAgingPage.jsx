@@ -7,12 +7,12 @@ export default function InventoryOverview() {
   // ============================================================
 
   const [filters, setFilters] = useState({
-    legalGroup: "FJ Group (Consolidated)",
+    legalGroup: "All",
     legalEntity: "All",
     parentDivision: "All",
     subdivision: "All",
     businessUnit: "All",
-    asOnDate: "30 Apr 2024",
+    asOnDate: "All",
 });
 const [loading, setLoading] = useState(true);
   const [mockData, setMockData] = useState({
@@ -41,12 +41,21 @@ const [loading, setLoading] = useState(true);
           setLoading(true);
           try {
               // Map UI filter keys to API filter keys
+              
+              let formattedDate = filters.asOnDate;
+              if (formattedDate && formattedDate !== "All" && formattedDate !== "") {
+                  const d = new Date(formattedDate);
+                  if (!isNaN(d.getTime())) {
+                      formattedDate = d.toISOString().split('T')[0];
+                  }
+              }
+
               const apiFilters = {
                   legal_group: filters.legalGroup === "All" ? "" : filters.legalGroup,
                   legal_entity: filters.legalEntity === "All" ? "" : filters.legalEntity,
                   parent_division: filters.parentDivision === "All" ? "" : filters.parentDivision,
                   subdivision: filters.subdivision === "All" ? "" : filters.subdivision,
-                  as_on_date: filters.asOnDate === "All" ? "" : filters.asOnDate,
+                  as_on_date: formattedDate === "All" ? "" : formattedDate,
               };
 
               const [filterRes, dashRes, detailsRes] = await Promise.all([
