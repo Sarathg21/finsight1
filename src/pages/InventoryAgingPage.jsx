@@ -1,61 +1,155 @@
-import React from "react";
-import { useState, useEffect } from "react";
-import ExportButtons from "../components/Common/ExportButtons";
-import PageHeader from "../components/Common/PageHeader";
-import FooterNote from "../components/FooterNote";
-import Filters from "../components/Filters/Filters";
-import KPICards from "../components/Cards/KPICards";
-import { LuPackage, LuBoxes, LuChartLine, } from "react-icons/lu";
-import { IoCubeOutline, IoTimerOutline, IoWarningOutline, } from "react-icons/io5";
-import { InventoryValueTrend, OverDueSummaryCard, ParentDivisionCard, AgingSummaryCard } from "../components/Charts/Charts";
-import { InventoryTable, InventoryLocationTable } from "../components/Tables/Tables";
-import InventoryDetailedViewTable from "../components/Tables/InventoryDetailedViewTable"
+console.log('[INVENTORY MODULE] InventoryAgingDashboard.jsx loaded at', new Date().toISOString());
+import React, { useState, useEffect } from "react";
+import { Package, TrendingUp, Clock, AlertTriangle, Cuboid, Download } from "lucide-react";
+import { InventoryValueTrend, OverDueSummaryCard, ParentDivisionCard, AgingSummaryCard, InventoryTurnoverTrend } from "../components/Charts/InventoryCharts";
+import InventoryDetailedViewTable from "../components/Tables/InventoryDetailedViewTable";
 import InventoryDetailsModal from "../components/InventoryDetailsModal";
-import ChartMenu from "../components/ChartMenu";
-import {
-    getInventoryFilters, getInventorySummary, getInventoryAgingSummary, getInventoryCategoryWise, getInventoryWarehouseWise, getInventoryTrend,
-    getInventoryTopItems, getInventoryDetails, getInventorySubDivisionWise,
-    getInventorySlowMovingItems, getInventoryExport, getInventoryDivisionWise
-} from "../api/inventoryApi"
+import { getInventoryFilters, getInventoryDashboard, getInventoryExport, getInventoryDetails } from "../api/inventoryApi";
 
-export default function InventoryAgingPage() {
+/* ─────────────────────────────────────────────────────────────
+   Shared helpers
+───────────────────────────────────────────────────────────── */
+function fmtAED(v, currency = "AED") {
+    if (v === null || v === undefined) return "–";
+    const n = Number(v);
+    if (isNaN(n)) return "–";
+    if (n >= 1_000_000_000) return `${currency} ${(n / 1_000_000_000).toFixed(2)}B`;
+    if (n >= 10_000_000) return `${currency} ${(n / 10_000_000).toFixed(2)} Cr`;
+    if (n >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(2)}M`;
+    if (n >= 1_000) return `${currency} ${(n / 1_000).toFixed(2)}K`;
+    return `${currency} ${n.toFixed(2)}`;
+}
 
+
+/* ─────────────────────────────────────────────────────────────
+   KPI card — matches the sample pastel card with icon, value,
+   trend badge, sparkline
+───────────────────────────────────────────────────────────── */
+function InventoryKPICard({ title, value, change, up, icon: Icon, iconColor, iconBg }) {
+    const bgTint = iconColor ? `${iconColor}12` : '#f8fafc';
+    const borderTint = iconColor ? `${iconColor}25` : '#e2e8f0';
+    const sparkPoints = up
+        ? "0,15 10,13 20,16 30,10 40,12 50,7 60,11 70,5 80,9 90,3 100,6"
+        : "0,5 10,7 20,4 30,10 40,8 50,13 60,9 70,15 80,11 90,17 100,13";
+
+    return (
+        <div style={{
+            backgroundColor: bgTint, border: `1px solid ${borderTint}`,
+            borderRadius: 12, padding: '12px 12px 0 12px', display: 'flex',
+            flexDirection: 'column', gap: 0, overflow: 'hidden', position: 'relative',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)', minWidth: 0,
+        }}>
+            {/* Row: icon + text */}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 6 }}>
+                <div style={{ background: iconBg, width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Icon size={16} color={iconColor} />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: iconColor, lineHeight: 1.3, marginBottom: 2 }}>
+                        {title}
+                    </div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0f172a', lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {value ?? '–'}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: '0.65rem', fontWeight: 600, flexWrap: 'wrap' }}>
+                        {change ? (
+                            <>
+                                <span style={{ color: up ? '#16a34a' : '#e11d48' }}>{up ? '▲' : '▼'} {change}</span>
+                                <span style={{ color: '#94a3b8' }}>vs 31 Mar 2024</span>
+                            </>
+                        ) : <span style={{ color: 'transparent', fontSize: '0.65rem' }}>—</span>}
+                    </div>
+                </div>
+            </div>
+            {/* Sparkline */}
+            <div style={{ marginTop: 'auto', height: 30, opacity: 0.8, marginLeft: -14, marginBottom: 0, width: 'calc(100% + 28px)' }}>
+                <svg viewBox="0 0 100 20" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+                    <polyline fill="none" stroke={iconColor} strokeWidth="1.8" points={sparkPoints} />
+                </svg>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Slow Moving / Top Items table — matches the sample format:
+   #, Item Description, Item Code, Qty (Nos), Value (₹ Cr), Days
+───────────────────────────────────────────────────────────── */
+function SlowMovingTable({ data = [], currency = "AED", onViewAll, onExport }) {
+    return (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E8EDF5', display: 'flex', flexDirection: 'column', height: 320, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            {/* Header */}
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px 8px', borderBottom: '1px solid #EEF2F7', flexShrink: 0,
+            }}>
+                <span style={{ fontSize: '0.79rem', fontWeight: 700, color: '#081B46' }}>Slow Moving Stock (Top 5)</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {onViewAll && <button onClick={onViewAll} style={{ fontSize: '0.69rem', fontWeight: 600, color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}>View All</button>}
+                </div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                    <thead>
+                        <tr style={{ background: '#F8FAFD', position: 'sticky', top: 0, zIndex: 5 }}>
+                            {['#', 'Item Description', 'Item Code', 'Qty (Nos)', 'Value (AED)', 'Days'].map((h, i) => (
+                                <th key={i} style={{ padding: '8px 8px', textAlign: i === 0 ? 'center' : i >= 3 ? 'right' : 'left', color: '#1E3A8A', fontWeight: 700, borderBottom: '1px solid #E8EDF5', whiteSpace: 'nowrap', fontSize: 11 }}>
+                                    {h}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.length ? data.map((item, i) => (
+                            <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#FBFCFE', borderBottom: '1px solid #EEF2F7' }}>
+                                <td style={{ padding: '8px', textAlign: 'center', color: '#475569', fontWeight: 600 }}>{i + 1}</td>
+                                <td style={{ padding: '8px', color: '#0F172A', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {item.item_description || '–'}
+                                </td>
+                                <td style={{ padding: '8px', color: '#2563EB', fontWeight: 600, whiteSpace: 'nowrap' }}>{item.item_code || '–'}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', color: '#0F172A', fontWeight: 500 }}>{Number(item.quantity || 0).toLocaleString()}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', color: '#0F172A', fontWeight: 600 }}>{fmtAED(item.inventory_value, '')}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', color: '#E11D48', fontWeight: 700 }}>{item.days ?? '–'}</td>
+                            </tr>
+                        )) : (
+                            <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: '#94A3B8' }}>No records found</td></tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Main Dashboard Component
+───────────────────────────────────────────────────────────── */
+export default function InventoryAgingDashboard() {
     const [inventorySummary, setInventorySummary] = useState(null);
     const [inventoryTrendData, setInventoryTrendData] = useState([]);
     const [inventoryData, setInventoryData] = useState([]);
-    const [inventorySubdivision, setinventorySubdivision] = useState([]);
+    const [inventorySubdivision, setInventorySubdivision] = useState([]);
     const [inventoryAgingData, setInventoryAgingData] = useState([]);
     const [slowMovingItemsData, setSlowMovingItemsData] = useState([]);
-    const [inventoryLocationData, setInventoryLocationData] = useState([]);
-    const [inventoryDetailsData, setInventoryDetailsData] = useState([]);
+    const [detailedViewData, setDetailedViewData] = useState([]);
     const [inventoryAgingTotal, setInventoryAgingTotal] = useState(0);
-
     const [filters, setFilters] = useState({});
-
     const [filterOptions, setFilterOptions] = useState({
-        legal_groups: [],
-        legal_entities: [],
-        parent_divisions: [],
-        subdivisions: [],
-        currencies: [],
-        as_on_dates: [],
+        legal_groups: [], legal_entities: [], parent_divisions: [],
+        subdivisions: [], currencies: [], as_on_dates: [],
     });
     const [exporting, setExporting] = useState("");
-    const [loading, setLoading] = useState(true);
     const [showDetailsModal, setShowDetailsModal] = useState(false);
+    const [drilldownFilters, setDrilldownFilters] = useState({});
 
-
-    const handleViewDetails = () => {
+    const handleViewDetails = (drilldowns = {}) => {
+        setDrilldownFilters(drilldowns || {});
         setShowDetailsModal(true);
     };
 
-    // Fetch Filters
     const fetchFilters = async () => {
         try {
             const response = await getInventoryFilters();
-
-            console.log("Raw Filter API:", response.data);
-
             const data = response.data;
             setFilterOptions({
                 legal_groups: data.legal_groups || [],
@@ -65,557 +159,368 @@ export default function InventoryAgingPage() {
                 currencies: data.currencies || [],
                 as_on_dates: data.available_dates || [],
             });
-
         } catch (error) {
             console.error("Filters Error:", error);
         }
     };
-    // Fetch KPI Summary
-    const fetchSummary = async () => {
-        try {
-            const response = await getInventorySummary(filters);
-            console.log("Summary:", response.data);
-            setInventorySummary(response.data);
 
+    const fetchDashboard = async () => {
+        try {
+            const response = await getInventoryDashboard(filters);
+            const data = response.data;
+
+            if (data.kpis) {
+                setInventorySummary({
+                    total_inventory_value: data.kpis.total_inventory,
+                    average_inventory_value: data.kpis.average_inventory || data.kpis.average_inventory_value || null,
+                    inventory_turnover_ttm: data.kpis.inventory_turnover_ttm || data.kpis.inventory_turnover || null,
+                    stock_holding_days: data.kpis.stock_holding_days || data.kpis.dio || null,
+                    obsolete_slow_moving: data.kpis.inventory_above_365,
+                });
+            }
+
+            if (data.aging_summary) {
+                const agingColors = {
+                    "0_30": "#16A34A", "31_60": "#F59E0B", "61_90": "#EF4444",
+                    "91_120": "#8B5CF6", "121_180": "#0F766E", "181_365": "#2563EB",
+                    "366_730": "#94A3B8", "ABOVE_730": "#64748B",
+                };
+                const labels = {
+                    "0_30": "0 - 30 Days", "31_60": "31 - 60 Days", "61_90": "61 - 90 Days",
+                    "91_120": "91 - 120 Days", "121_180": "121 - 180 Days", "181_365": "181 - 365 Days",
+                    "366_730": "366 - 730 Days", "ABOVE_730": "Above 730 Days",
+                };
+                let totalAging = 0;
+                const formattedAging = data.aging_summary.map(item => {
+                    totalAging += Number(item.amount);
+                    return {
+                        name: labels[item.bucket_code] || (typeof item.bucket_name === 'object' ? (item.bucket_name?.name || item.bucket_name?.code) : item.bucket_name),
+                        value: Number(item.amount),
+                        id: item.bucket_code,
+                        percentage: Number(item.percentage_of_total),
+                        color: agingColors[item.bucket_code] || "#94A3B8"
+                    };
+                });
+                setInventoryAgingData(formattedAging);
+                setInventoryAgingTotal(totalAging);
+            }
+
+            if (data.by_parent_division) {
+                let mappedData = data.by_parent_division.map(item => ({
+                    name: typeof item.label === 'object' ? (item.label?.name || item.label?.code || item.label?.id) : item.label,
+                    value: Number(item.inventory_value),
+                    id: item.value,
+                    percentage: Number(item.percentage_of_total),
+                }));
+                mappedData.sort((a, b) => b.value - a.value);
+                const formattedParentDiv = mappedData.slice(0, 5).map((item, index) => ({
+                    ...item,
+                    color: ["#2563EB", "#16A34A", "#F59E0B", "#EF4444", "#8B5CF6"][index] || "#94A3B8"
+                }));
+                setInventoryData(formattedParentDiv);
+            }
+
+            if (data.by_subdivision) {
+                let mappedSubDiv = data.by_subdivision.map(item => ({
+                    name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
+                    value: Number(item.inventory_value),
+                    id: item.subdivision_id
+                }));
+                mappedSubDiv.sort((a, b) => b.value - a.value);
+                setInventorySubdivision(mappedSubDiv.slice(0, 5));
+            }
+
+            if (data.trend) {
+                const formattedTrend = data.trend.map(item => ({
+                    month: typeof item.month_start === 'object' ? item.month_start?.name : (item.month_start ? String(item.month_start).substring(0, 7) : ''),
+                    inventoryValue: Number(item.inventory_value),
+                    turnover: (item.inventory_turnover != null ? Number(item.inventory_turnover) : (item.turnover != null ? Number(item.turnover) : null)),
+                    dio: (item.dio != null ? Number(item.dio) : (item.stock_holding_days != null ? Number(item.stock_holding_days) : null))
+                }));
+                setInventoryTrendData(formattedTrend);
+                const inventoryValues = formattedTrend.map(i => i.inventoryValue).filter(v => v > 0);
+                const latestTrend = formattedTrend[formattedTrend.length - 1] || {};
+                setInventorySummary(prev => ({
+                    ...prev,
+                    average_inventory_value: prev?.average_inventory_value,
+                    inventory_turnover_ttm: prev?.inventory_turnover_ttm || latestTrend.turnover || null,
+                    stock_holding_days: prev?.stock_holding_days || latestTrend.dio || null,
+                }));
+            }
+
+            if (data.top_items) {
+                const formattedTopItems = data.top_items.map(item => ({
+                    id: item.subdivision_id || item.item_code,
+                    item_code: typeof item.item_code === 'object' ? (item.item_code?.name || item.item_code?.code) : item.item_code,
+                    item_description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
+                    inventory_value: Number(item.inventory_value || 0),
+                    quantity: Number(item.quantity || 0),
+                    days: item.days_in_inventory || item.aging_days || null,
+                    category: typeof item.primary_category === 'object' ? (item.primary_category?.name || item.primary_category?.code) : item.primary_category,
+                    uom: typeof item.uom === 'object' ? (item.uom?.name || item.uom?.code) : item.uom,
+                }));
+                setSlowMovingItemsData(formattedTopItems);
+            }
         } catch (error) {
-            console.error("Summary Error:", error);
+            console.error("Dashboard Fetch Error:", error);
         }
-    };
 
-    const agingColors = {
-        "0-30 Days": "#16A34A",
-        "31-60 Days": "#F59E0B",
-        "61-90 Days": "#EF4444",
-        "91-120 Days": "#8B5CF6",
-        "121-180 Days": "#0F766E",
-        "181-365 Days": "#2563EB",
-        "366-730 Days": "#94A3B8",
-        "Above 730 Days": "#64748B",
-    };
-
-    const fetchAgingSummary = async () => {
         try {
-            const response = await getInventoryAgingSummary(filters);
-
-            const rawData = response.data; const apiData = Array.isArray(rawData) ? rawData : (rawData?.data || []);
-
-            const total = apiData.reduce(
-                (sum, item) => sum + Number(item.value),
-                0
-            );
-
-            const formattedData = apiData.map((item) => ({
-                name: item.bucket,
-                value: Number(item.value),
-                percentage: (
-                    (Number(item.value) / total) *
-                    100
-                ).toFixed(2), // <-- only 2 decimals
-                color: agingColors[item.bucket] || "#94A3B8",
-            }));
-
-            setInventoryAgingData(formattedData);
-            setInventoryAgingTotal(total);
+            const detailsResponse = await getInventoryDetails({ ...filters, limit: 10 });
+            if (detailsResponse.data?.results) {
+                const formattedDetails = detailsResponse.data.results.map(item => ({
+                    legalEntity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
+                    subDivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
+                    warehouse: typeof item.subinventory === 'object' ? item.subinventory?.name : item.subinventory,
+                    category: typeof item.primary_category === 'object' ? item.primary_category?.name : item.primary_category,
+                    itemCode: typeof item.item_code === 'object' ? item.item_code?.name : item.item_code,
+                    description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
+                    quantity: Number(item.quantity || 0),
+                    inventoryValue: Number(item.inventory_value || 0),
+                    days0to30: Number(item.bucket_0_30 || item['0_30_days'] || 0),
+                    days31to60: Number(item.bucket_31_60 || item['31_60_days'] || 0),
+                    days61to90: Number(item.bucket_61_90 || item['61_90_days'] || 0),
+                    days91to120: Number(item.bucket_91_120 || item['91_120_days'] || 0),
+                    days121to180: Number(item.bucket_121_180 || item['121_180_days'] || 0),
+                    days181to365: Number(item.bucket_181_365 || item['181_365_days'] || 0),
+                    days366to730: Number(item.bucket_366_730 || item['366_730_days'] || 0),
+                    daysAbove730: Number(item.bucket_above_730 || item['above_730_days'] || 0)
+                }));
+                setDetailedViewData(formattedDetails);
+            } else if (Array.isArray(detailsResponse.data)) {
+                 const formattedDetails = detailsResponse.data.slice(0, 10).map(item => ({
+                    legalEntity: typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity,
+                    subDivision: typeof item.subdivision === 'object' ? item.subdivision?.name : item.subdivision,
+                    warehouse: typeof item.subinventory === 'object' ? item.subinventory?.name : item.subinventory,
+                    category: typeof item.primary_category === 'object' ? item.primary_category?.name : item.primary_category,
+                    itemCode: typeof item.item_code === 'object' ? item.item_code?.name : item.item_code,
+                    description: typeof item.item_description === 'object' ? item.item_description?.name : item.item_description,
+                    quantity: Number(item.quantity || 0),
+                    inventoryValue: Number(item.inventory_value || 0),
+                    days0to30: Number(item.bucket_0_30 || item['0_30_days'] || 0),
+                    days31to60: Number(item.bucket_31_60 || item['31_60_days'] || 0),
+                    days61to90: Number(item.bucket_61_90 || item['61_90_days'] || 0),
+                    days91to120: Number(item.bucket_91_120 || item['91_120_days'] || 0),
+                    days121to180: Number(item.bucket_121_180 || item['121_180_days'] || 0),
+                    days181to365: Number(item.bucket_181_365 || item['181_365_days'] || 0),
+                    days366to730: Number(item.bucket_366_730 || item['366_730_days'] || 0),
+                    daysAbove730: Number(item.bucket_above_730 || item['above_730_days'] || 0)
+                }));
+                setDetailedViewData(formattedDetails);
+            }
         } catch (error) {
-            console.error(error);
+            console.error("Detailed View Fetch Error:", error);
         }
     };
 
-    // Fetch Warehouse location Wise
-    const fetchWarehouseWise = async () => {
+    useEffect(() => { fetchFilters(); }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { fetchDashboard(); }, [filters]);
+
+    const selectedCurrency = filters.currency || "AED";
+    const totalInventory = inventoryData.reduce((s, i) => s + i.value, 0);
+
+    const handleExport = async (type, section = null) => {
         try {
-            const response = await getInventoryWarehouseWise(filters);
-
-            console.log("Warehouse Wise:", response.data);
-
-            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
-            const formattedData = arr.map((item) => ({
-                location: item.location_name || item.warehouse,
-                value: Number(item.total_value || 0),
-                quantity: Number(item.total_quantity || 0),
-                percentage: Number(item.share_percent || 0),
-            }));
-
-            setInventoryLocationData(formattedData);
-
-        } catch (error) {
-            console.error("Warehouse Wise Error:", error);
-        }
-    };
-
-    // Fetch Parent Division Wise
-    const fetchDivisionWise = async () => {
-        try {
-
-            const response = await getInventoryDivisionWise(filters);
-            console.log("Division Wise:", response.data);
-
-            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
-            const formattedData = arr.map((item, index) => ({
-                name: item.parent_division,
-                value: Number(item.total_value),
-                percentage: Number(item.share_percent),
-                color: [
-                    "#2563EB",
-                    "#16A34A",
-                    "#F59E0B",
-                    "#EF4444",
-                    "#8B5CF6"
-                ][index % 5]
-            }));
-
-            setInventoryData(formattedData);
-
-
-        } catch (error) {
-            console.error(
-                "Division Wise Error:",
-                error
-            );
-        }
-    };
-
-    // Fetch Trend
-    const fetchTrend = async () => {
-        try {
-            const response = await getInventoryTrend(filters);
-            console.log("Trend API:", response.data);
-
-            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
-            const formattedData = arr.map((item) => ({
-                month: item.month,
-                inventoryValue: Number(item.inventory_value)
-            }));
-            setInventoryTrendData(formattedData);
-        } catch (error) {
-            console.error("Trend Error:", error);
-        }
-    };
-
-    const fetchSubdivisionWise = async () => {
-        try {
-            const response = await getInventorySubDivisionWise(filters);
-
-            console.log("Subdivision API:", response.data);
-
-            const rawData = response.data; const apiData = Array.isArray(rawData) ? rawData : (rawData?.data || []);
-
-            const formattedData = apiData.map((item, index) => ({
-                name: item.subdivision,
-                value: Number(item.total_value || item.amount || 0),
-                percentage: Number(item.share_percent || 0),
-                color: [
-                    "#2563EB",
-                    "#16A34A",
-                    "#F59E0B",
-                    "#EF4444",
-                    "#8B5CF6"
-                ][index % 5]
-            }));
-
-            console.log("Formatted Subdivision:", formattedData);
-
-            setinventorySubdivision(formattedData);
-
-        } catch (error) {
-            console.error("Subdivision Error:", error);
-        }
-    };
-
-    const fetchslowmovingItems = async () => {
-        try {
-            const response = await getInventorySlowMovingItems(filters);
-
-            const arr = Array.isArray(response.data) ? response.data : (response?.data?.data || []);
-            const formattedData = arr.map((item) => ({
-                item: item.item_description,
-                code: item.item_code,
-                qty: item.total_quantity,
-                value: item.total_value,
-                category: item.primary_category,
-            }));
-
-            setSlowMovingItemsData(formattedData);
-
-        } catch (error) {
-            console.error("SlowMoving Items Error:", error);
-        }
-    };
-
-    // Fetch Details
-    const fetchDetails = async () => {
-        try {
-            const response = await getInventoryDetails(filters);
-            const rawData = response?.data; const apiData = Array.isArray(rawData) ? rawData : (rawData?.data || []);
-            const formattedData = apiData.map((item) => ({
-                legalEntity: item.legal_entity,
-                subDivision: item.subdivision ?? "-",
-                warehouse: item.warehouse,
-                category: item.primary_category,
-                itemCode: item.item_code,
-                description: item.item_description,
-                quantity: Number(item.quantity),
-                inventoryValue: Number(item.total_cost_value),
-
-                days0to30: Number(item.val_0_30),
-                days31to60: Number(item.val_31_60),
-                days61to90: Number(item.val_61_90),
-                days91to120: Number(item.val_91_120),
-                days121to180: Number(item.val_121_180),
-                days181to365: Number(item.val_181_365),
-                days366to730: Number(item.val_366_730),
-                daysAbove730: Number(item.val_above_730),
-            }));
-
-            setInventoryDetailsData(formattedData);
-        } catch (error) {
-            console.error(error);
-        }
-    };
-    useEffect(() => {
-        fetchFilters();
-    }, []);
-
-
-    useEffect(() => {
-        fetchSummary();
-        fetchAgingSummary();
-        fetchslowmovingItems();
-        fetchWarehouseWise();
-        fetchDivisionWise();
-        fetchTrend();
-        fetchSubdivisionWise();
-        fetchDetails();
-    }, [filters]);
-
-    const formatAED = (value) => {
-        if (value === null || value === undefined) return "-";
-
-        if (value >= 1000000) {
-            return `AED ${(value / 1000000).toFixed(2)}M`;
-        }
-        if (value >= 1000) {
-            return `AED ${(value / 1000).toFixed(2)}K`;
-        }
-        return `AED ${value.toFixed(2)}`;
-    };
-
-    const formatNumber = (value) => {
-        if (value === null || value === undefined) return "-";
-
-        return new Intl.NumberFormat("en-IN").format(value);
-    };
-
-    const selectedCurrency =
-        filters.currency || inventorySummary?.currency || "AED";
-    console.log("Selected Currency:", selectedCurrency);
-
-    {/*------------Inventory kpi crads mockdata------------------*/ }
-    const InventoryKpiData = [
-        {
-            id: 1,
-            title: "Total Inventory Value",
-            value: inventorySummary?.total_inventory_value,
-            formatType: "currency",
-            currency: selectedCurrency,
-            icon: LuPackage,
-            titleColor: "#2563EB",
-            iconColor: "#2563EB",
-            iconBackground: "#DBEAFE",
-            cardBackground: "#EAF4FF",
-            trend: "up",
-            trendValue: "11.28%",
-            comparisonText: "vs 31 Mar 2024",
-            trendColor: "#16A34A",
-            sparklineColor: "#2563EB",
-            sparklineData: [
-                8, 9, 11, 10, 12,
-                9, 10, 11, 13, 12,
-                14, 13, 12, 14, 13,
-                15, 14, 13, 15, 14,
-                16, 15
-            ]
-        },
-
-        {
-            id: 2,
-            title: "Inventory Value >365Days",
-            value: inventorySummary?.total_stock_quantity,
-            formatType: "number",
-            icon: LuBoxes,
-            titleColor: "#16A34A",
-            iconColor: "#16A34A",
-            iconBackground: "#DCFCE7",
-            cardBackground: "#EDFDF2",
-            trend: "up",
-            trendValue: "6.85%",
-            comparisonText: "vs 31 Mar 2024",
-            trendColor: "#16A34A",
-            sparklineColor: "#16A34A",
-            sparklineData: [
-                7, 8, 9, 8, 10,
-                9, 8, 10, 12, 9,
-                10, 11, 9, 10, 11,
-                10, 9, 11, 10, 12,
-                11, 10
-            ]
-        },
-
-        {
-            id: 3,
-            title: "Avg. Inventory Value",
-            value: inventorySummary?.average_inventory_value,
-            formatType: "currency",
-            currency: selectedCurrency,
-            icon: IoCubeOutline,
-            titleColor: "#7C3AED",
-            iconColor: "#7C3AED",
-            iconBackground: "#F3E8FF",
-            cardBackground: "#F3ECFF",
-            trend: "up",
-            trendValue: "4.32%",
-            comparisonText: "vs 31 Mar 2024",
-            trendColor: "#16A34A",
-            sparklineColor: "#7C3AED",
-            sparklineData: [
-                9, 10, 12, 11, 13,
-                10, 12, 11, 9, 10,
-                12, 11, 13, 10, 11,
-                9, 12, 10, 13, 11,
-                14, 13
-            ]
-        },
-
-        {
-            id: 4,
-            title: "Inventory Turnover (TTM)",
-            value: inventorySummary?.inventory_turnover_ttm,
-            formatType: "ratio",
-            icon: LuChartLine,
-            titleColor: "#EA580C",
-            iconColor: "#EA580C",
-            iconBackground: "#FFEDD5",
-            cardBackground: "#FFF2E8",
-            trend: "up",
-            trendValue: "0.38",
-            comparisonText: "vs 31 Mar 2024",
-            trendColor: "#16A34A",
-            sparklineColor: "#EA580C",
-            sparklineData: [
-                8, 9, 9, 10, 9,
-                11, 10, 12, 11, 10,
-                12, 11, 10, 11, 12,
-                11, 12, 13, 12, 13,
-                14, 14
-            ]
-        },
-
-        {
-            id: 5,
-            title: "Stock Holding Days",
-            value: inventorySummary?.stock_holding_days,
-            formatType: "days",
-            icon: IoTimerOutline,
-            titleColor: "#0891B2",
-            iconColor: "#0891B2",
-            iconBackground: "#CFFAFE",
-            cardBackground: "#ECF9FF",
-            trend: "down",
-            trendValue: "4 Days",
-            comparisonText: "vs 31 Mar 2024",
-            trendColor: "#DC2626",
-            sparklineColor: "#0891B2",
-            sparklineData: [
-                13, 12, 14, 13, 12,
-                14, 13, 15, 12, 14,
-                13, 15, 13, 14, 12,
-                14, 13, 15, 14, 13,
-                14, 13
-            ]
-        },
-
-        {
-            id: 6,
-            title: "Obsolete / Slow Moving",
-            value: inventorySummary?.obsolete_slow_moving,
-            formatType: "currency",
-            currency: selectedCurrency,
-            icon: IoWarningOutline,
-            titleColor: "#E11D48",
-            iconColor: "#E11D48",
-            iconBackground: "#FFE4E6",
-            cardBackground: "#FFEFF3",
-            trend: "up",
-            trendValue: "3.72%",
-            comparisonText: "vs 31 Mar 2024",
-            trendColor: "#DC2626",
-            sparklineColor: "#E11D48",
-            sparklineData: [
-                11, 12, 14, 13, 15,
-                12, 13, 14, 16, 13,
-                15, 14, 16, 14, 13,
-                15, 16, 13, 15, 14,
-                16, 15
-            ]
-        }
-    ];
-
-
-    {/*------------Total calculation Inventory parent division mockdata------------------*/ }
-    const totalInventory = inventoryData.reduce(
-        (sum, item) => sum + item.value,
-        0
-    );
-
-
-    const handleFilterApply = (selectedFilters) => {
-        console.log("Applied Filters:", selectedFilters);
-        setFilters(selectedFilters);
-    };
-
-    const handleFilterReset = () => {
-        const resetFilters = {};
-        setFilters(resetFilters);
-    };
-
-    const handleExport = async (type) => {
-        try {
-            setExporting(type);
-
-            const response = await getInventoryExport(
-                type === "excel" ? "xlsx" : "pdf",
-                filters
-            );
-
-            const blob = new Blob([response.data], {
-                type: response.headers["content-type"],
-            });
-
+            setExporting(section ? ${section}- : type);
+            const response = await getInventoryExport(type === "excel" ? "xlsx" : "pdf", { ...filters, section });
+            const blob = new Blob([response.data], { type: response.headers["content-type"] });
             const url = window.URL.createObjectURL(blob);
-
             const link = document.createElement("a");
             link.href = url;
-
-            const fileName =
-                type === "excel"
-                    ? "Inventory_Detailed_Report.xlsx"
-                    : "Inventory_Detailed_Report.pdf";
-
-            link.setAttribute("download", fileName);
-
+            link.setAttribute("download", type === "excel" ? "Inventory_Report.xlsx" : "Inventory_Report.pdf");
             document.body.appendChild(link);
-
             link.click();
-
             link.remove();
-
             window.URL.revokeObjectURL(url);
-
         } catch (error) {
-            console.error("Inventory Export Error:", error);
+            console.error("Export Error:", error);
             alert("Download Failed");
         } finally {
             setExporting("");
         }
     };
 
+    /* KPI definitions */
+    const kpis = [
+        { id: 1, title: "Total Inventory Value", value: fmtAED(inventorySummary?.total_inventory_value, selectedCurrency), icon: Package, iconColor: "#2563EB", iconBg: "#DBEAFE", change: null, up: true },
+        { id: 2, title: "Average Inventory Value", value: inventorySummary?.average_inventory_value != null ? fmtAED(inventorySummary.average_inventory_value, selectedCurrency) : "–", icon: Cuboid, iconColor: "#7C3AED", iconBg: "#F3E8FF", change: null, up: true },
+        { id: 3, title: "Inventory Turnover (TTM)", value: inventorySummary?.inventory_turnover_ttm != null ? `${Number(inventorySummary.inventory_turnover_ttm).toFixed(2)} Times` : "–", icon: TrendingUp, iconColor: "#EA580C", iconBg: "#FFEDD5", change: null, up: false },
+        { id: 4, title: "Stock Holding Days (DIO)", value: inventorySummary?.stock_holding_days != null ? `${inventorySummary.stock_holding_days} Days` : "–", icon: Clock, iconColor: "#0891B2", iconBg: "#CFFAFE", change: null, up: false },
+        { id: 5, title: "Obsolete / Slow Moving Stock (> 365 Days)", value: fmtAED(inventorySummary?.obsolete_slow_moving, selectedCurrency), icon: AlertTriangle, iconColor: "#E11D48", iconBg: "#FFE4E6", change: null, up: true },
+    ];
+
+    /* Filter dropdown renderer matching new style */
+    const FilterSelect = ({ label, value, onChange, options, placeholder = "All" }) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 120, flex: 1 }}>
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1E3A8A', whiteSpace: 'nowrap' }}>{label}</label>
+            <div style={{ position: 'relative' }}>
+                <select
+                    value={value || ""}
+                    onChange={onChange}
+                    style={{
+                        padding: '8px 30px 8px 12px', borderRadius: 8, border: '1px solid #E8EDF5',
+                        fontSize: '0.8rem', color: '#0F172A', background: '#F8FAFC', width: '100%',
+                        height: 38, appearance: 'none', cursor: 'pointer', fontWeight: 500
+                    }}
+                >
+                    <option value="">{placeholder}</option>
+                    {options?.map((o, idx) => {
+                        const val = typeof o === 'object' ? (o.id || o.code || o.name) : o;
+                        const lbl = typeof o === 'object' ? (o.name || o.code || o.id) : o;
+                        return <option key={`${val}-${idx}`} value={val}>{lbl}</option>;
+                    })}
+                </select>
+                <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M1 1L5 5L9 1" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    );
+
     return (
-        <div className="page-content relative">
-            <PageHeader
-                title="Inventory Overview"
-                subtitle="Track inventory position,movement and aging across all dimensions.">
-                <ExportButtons
-                    endpoint="inventory"
-                    exporting={exporting}
-                    handleExport={handleExport}
-                />
-            </PageHeader>
+        <div className="page-content" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
 
-            {/* Main Content */}
-
-            <div className="flex flex-col gap-2">
-                {/* ----Filters---- */}
-                <Filters
-                    filterOptions={filterOptions}
-                    onApply={handleFilterApply}
-                    onReset={handleFilterReset}
-                />
-                {/* -----KPI Cards----- */}
-                <div style={{ marginTop: "-18px" }}>
-                    <KPICards data={InventoryKpiData} />
+            {/* ── Page Header ──────────────────────────────────── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                <div>
+                    <h1 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#081B46', margin: 0, letterSpacing: '-0.02em' }}>Inventory Overview</h1>
+                    <p style={{ fontSize: '0.76rem', color: '#64748b', margin: '2px 0 0' }}>Track inventory position, movement and aging across all dimensions</p>
                 </div>
-                <div className="receivables-grid gap-3">
-                    <InventoryValueTrend
-                        title="Inventory Value Trend"
-                        data={inventoryTrendData}
-                        currency={selectedCurrency}
-                    />
-
-                    <OverDueSummaryCard
-                        title="Inventory Value by Parent Division"
-                        data={inventoryData}
-                        total={totalInventory}
-                        Centerlabel="Total Inventory"
-                        currency={selectedCurrency}
-                    />
-                    <ParentDivisionCard
-                        title="Inventory Value by Subdivision"
-                        data={inventorySubdivision || []}
-                        currency={selectedCurrency}
-                    />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button onClick={() => handleExport('excel')} disabled={!!exporting}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0', borderRadius: 7, fontSize: '0.75rem', fontWeight: 700, padding: '6px 12px', cursor: exporting ? 'not-allowed' : 'pointer' }}>
+                        <Download size={13} /> {exporting === 'excel' ? '...' : 'Excel'}
+                    </button>
+                    <button onClick={() => handleExport('pdf')} disabled={!!exporting}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, background: '#fff1f2', color: '#be123c', border: '1px solid #fecdd3', borderRadius: 7, fontSize: '0.75rem', fontWeight: 700, padding: '6px 12px', cursor: exporting ? 'not-allowed' : 'pointer' }}>
+                        <Download size={13} /> {exporting === 'pdf' ? '...' : 'PDF'}
+                    </button>
                 </div>
+            </div>
 
-                <div className="inventory-grid">
-                    <AgingSummaryCard
-                        title="Inventory Aging Summary"
-                        data={inventoryAgingData}
-                        legendData={inventoryAgingData}
-                        total={inventoryAgingTotal}
-                        date="31 Mar 2025"
-                        showSummaryHeader
-                        wideLegend
-                        currency={selectedCurrency}
-                    />
-                    <InventoryTable
-                        title="Top 5 High Value Inventory Items"
-                        data={slowMovingItemsData}
-                        currency={selectedCurrency}
-                    />
-
-                    <InventoryLocationTable
-                        title="Inventory by Location (Top 5)"
-                        data={inventoryLocationData}
-                        currency={selectedCurrency}
-                    />
+            {/* ── Filters ──────────────────────────────────────── */}
+            <div className="card" style={{ padding: '16px 20px', marginBottom: 20, display: 'flex', gap: 12, overflowX: 'auto', alignItems: 'flex-end', background: '#fff' }}>
+                <FilterSelect label="Legal Group" value={filters.legal_group} onChange={e => setFilters(p => ({ ...p, legal_group: e.target.value }))} options={filterOptions.legal_groups} placeholder="All" />
+                <FilterSelect label="Legal Entity" value={filters.legal_entity} onChange={e => setFilters(p => ({ ...p, legal_entity: e.target.value }))} options={filterOptions.legal_entities} />
+                <FilterSelect label="Parent Division" value={filters.parent_division} onChange={e => setFilters(p => ({ ...p, parent_division: e.target.value }))} options={filterOptions.parent_divisions} />
+                <FilterSelect label="Sub-Division" value={filters.subdivision} onChange={e => setFilters(p => ({ ...p, subdivision: e.target.value }))} options={filterOptions.subdivisions} />
+                <FilterSelect label="Reporting Currency" value={filters.currency} onChange={e => setFilters(p => ({ ...p, currency: e.target.value }))} options={filterOptions.currencies} placeholder="AED" />
+                <FilterSelect label="Aging Basis" value={filters.subinventory} onChange={e => setFilters(p => ({ ...p, subinventory: e.target.value }))} options={[]} placeholder="Due Date Based" />
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 120, flex: 1 }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: '#1E3A8A' }}>As On Date</label>
+                    <div style={{ position: 'relative' }}>
+                        <select value={filters.as_on_date || ""}
+                            onChange={e => setFilters(p => ({ ...p, as_on_date: e.target.value }))}
+                            style={{
+                                padding: '8px 30px 8px 12px', borderRadius: 8, border: '1px solid #E8EDF5',
+                                fontSize: '0.8rem', color: '#0F172A', background: '#F8FAFC', width: '100%',
+                                height: 38, appearance: 'none', cursor: 'pointer', fontWeight: 500
+                            }}>
+                            {filterOptions.as_on_dates?.map((d, i) => <option key={`${d}-${i}`} value={d}>{d}</option>)}
+                            {!filterOptions.as_on_dates?.length && <option value="">Select Date</option>}
+                        </select>
+                        <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+                            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M1 1L5 5L9 1" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
+                
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 8, flexShrink: 0 }}>
+                    <button onClick={() => setFilters({ ...filters })}
+                        style={{ padding: '0 24px', background: '#6366F1', color: '#fff', border: 'none', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer', height: 38 }}>
+                        Apply
+                    </button>
+                    <button onClick={() => setFilters({})}
+                        style={{ padding: '0 24px', background: '#fff', color: '#475569', border: '1px solid #CBD5E1', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', height: 38 }}>
+                        Reset
+                    </button>
+                </div>
+            </div>
 
-                <InventoryDetailedViewTable
-                    title="Inventory Detailed View"
-                    data={inventoryDetailsData}
+            {/* ── KPI Cards ────────────────────────────────────── */}
+            <div className="inventory-kpi-grid" style={{ marginBottom: 16 }}>
+                {kpis.map(k => (
+                    <InventoryKPICard key={k.id} title={k.title} value={k.value} change={k.change} up={k.up}
+                        icon={k.icon} iconColor={k.iconColor} iconBg={k.iconBg} />
+                ))}
+            </div>
+
+            {/* ── Charts Row 1 ─────────────────────────────────── */}
+            <div className="inventory-chart-grid" style={{ marginBottom: 16 }}>
+                <InventoryValueTrend
+                    data={inventoryTrendData}
                     currency={selectedCurrency}
-                    onViewAll={handleViewDetails}
-                    onExportExcel={() => handleExport("excel")}
-                    onExportPdf={() => handleExport("pdf")}
+                    onViewAll={() => handleViewDetails({ section: 'trend' })}
+                    onExport={() => handleExport('excel', 'trend')}
+                />
+                <OverDueSummaryCard
+                    data={inventoryData}
+                    total={totalInventory}
+                    Centerlabel="Total Inventory"
+                    currency={selectedCurrency}
+                    onViewAll={() => handleViewDetails({})}
+                    onExport={() => handleExport('excel')}
+                />
+                <ParentDivisionCard
+                    data={inventorySubdivision}
+                    currency={selectedCurrency}
+                    onSliceClick={(item) => handleViewDetails({ drilldown_subdivision_id: item.id })}
+                    onViewAll={() => handleViewDetails({ section: 'parent-divisions' })}
+                    onExport={() => handleExport('excel', 'parent-divisions')}
                 />
             </div>
 
-            {/* Footer */}
-            <div className="fixed bottom-0 left-58 right-2 z-50 bg-white border-t border-gray-200 p-2">
-                <FooterNote
-                    title="Note:"
-                    message={`All values are in ${selectedCurrency} | ☁️ Source: Oracle Fusion Cloud`}
-                    showRefresh={false}
+            {/* ── Charts Row 2 ─────────────────────────────────── */}
+            <div className="inventory-chart-grid" style={{ marginBottom: 16 }}>
+                <AgingSummaryCard
+                    data={inventoryAgingData}
+                    legendData={inventoryAgingData}
+                    total={inventoryAgingTotal}
+                    currency={selectedCurrency}
+                    onSliceClick={(item) => handleViewDetails({ aging_bucket: item.id })}
+                    onViewAll={() => handleViewDetails({})}
+                    onExport={() => handleExport('excel')}
+                />
+                <SlowMovingTable
+                    data={slowMovingItemsData}
+                    currency={selectedCurrency}
+                    onViewAll={() => handleViewDetails({ section: 'slow-moving' })}
+                    onExport={() => handleExport('excel', 'slow-moving')}
+                />
+                <InventoryTurnoverTrend
+                    data={inventoryTrendData}
+                    onViewAll={() => handleViewDetails({ section: 'trend' })}
+                    onExport={() => handleExport('excel', 'trend')}
                 />
             </div>
 
+            {/* ── Inventory Detailed View ───────────────────────── */}
+            <InventoryDetailedViewTable
+                title="Inventory Detailed View"
+                data={detailedViewData}
+                currency={selectedCurrency}
+                onViewAll={handleViewDetails}
+            />
+
+            {/* ── Footer ───────────────────────────────────────── */}
+            <div style={{ padding: '10px 4px', display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94A3B8', borderTop: '1px solid #EEF2F7', marginTop: 20 }}>
+                <span>All values are in {selectedCurrency} &nbsp;|&nbsp; Data as on {filterOptions.as_on_dates?.[0] || '–'}</span>
+                <span>🌐 Source: Oracle Fusion Cloud</span>
+            </div>
+
+            {/* ── View All Modal ────────────────────────────────── */}
             <InventoryDetailsModal
                 open={showDetailsModal}
                 onClose={() => setShowDetailsModal(false)}
-                data={inventoryDetailsData}
-                onExportExcel={() => handleExport("excel")}
-                onExportPdf={() => handleExport("pdf")}
+                filters={filters}
+                drilldownFilters={drilldownFilters}
             />
         </div>
-
     );
 }

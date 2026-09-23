@@ -1,79 +1,73 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
 import { Search, X } from "lucide-react";
 
 import InventoryDetailedViewTable from "./Tables/InventoryDetailedViewTable";
-import ExportButtons from "./Common/ExportButtons";
 
-export default function InventoryDetailsModal({
-    open,
-    onClose,
-    data = [], onExportExcel,
-    onExportPdf,
-}) {
+export default function InventoryDetailsModal({ open, onClose, filters = {}, drilldownFilters = {} }) {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
-    const [sort, setSort] = useState({
-        sort_by: "",
-        sort_dir: "asc",
-    });
+    const [sort, setSort] = useState({ sort_by: "", sort_dir: "asc" });
     const [exporting, setExporting] = useState("");
+    
+    const [data, setData] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
+    const [isFetching, setIsFetching] = useState(false);
+    
+    const pageSize = 50; // Requested by spec
 
-    const pageSize = 20;
-
+    // Reset page to 1 when filters or modal visibility changes
+    useEffect(() => {
+        setPage(1);
+    }, [open, filters, drilldownFilters]);
+    
     useEffect(() => {
         if (!open) {
             setSearch("");
-            setPage(1);
+            return;
         }
-    }, [open]);
-
-    const filteredData = useMemo(() => {
-        let rows = [...data];
-
-        /* Search */
-        if (search.trim()) {
-            const value = search.toLowerCase();
-
-            rows = rows.filter((row) =>
-                Object.values(row).some((item) =>
-                    String(item).toLowerCase().includes(value)
-                )
-            );
-        }
-
-        /* Sorting */
-        if (sort.sort_by) {
-            rows.sort((a, b) => {
-                const aVal = a[sort.sort_by];
-                const bVal = b[sort.sort_by];
-
-                if (typeof aVal === "number") {
-                    return sort.sort_dir === "asc"
-                        ? aVal - bVal
-                        : bVal - aVal;
-                }
-
-                return sort.sort_dir === "asc"
-                    ? String(aVal).localeCompare(String(bVal))
-                    : String(bVal).localeCompare(String(aVal));
-            });
-        }
-
-        return rows;
-    }, [data, search, sort]);
-
-    const totalCount = filteredData.length;
-
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * pageSize;
-
-        return filteredData.slice(
-            start,
-            start + pageSize
-        );
-    }, [filteredData, page]);
-
+        const fetchServerData = async () => {
+            setIsFetching(true);
+            try {
+                const response = await getInventoryDetails({
+                    ...filters,
+                    ...drilldownFilters,
+                    page: page,
+                    limit: pageSize,
+                    search: search || undefined,
+                    sort_by: sort.sort_by || undefined,
+                    sort_dir: sort.sort_dir || undefined
+                });
+                
+                const rawRows = response.data.rows || response.data.items || [];
+                const mappedRows = rawRows.map(row => ({
+                    legalEntity: row.legal_entity_name,
+                    subDivision: row.subdivision_name,
+                    warehouse: row.inv_org_code,
+                    category: row.primary_category,
+                    itemCode: row.item_code,
+                    description: row.item_description,
+                    quantity: Number(row.quantity),
+                    inventoryValue: Number(row.inventory_value),
+                    days0to30: 0, days31to60: 0, days61to90: 0, days91to120: 0,
+                    days121to180: 0, days181to365: 0, days366to730: 0, daysAbove730: 0
+                }));
+                
+                setData(mappedRows);
+                setTotalCount(response.data.total || response.data.count || 0);
+            } catch (err) {
+                console.error("View All Fetch Error", err);
+            } finally {
+                setIsFetching(false);
+            }
+        };
+        fetchServerData();
+    }, [open, page, search, sort, filters, drilldownFilters]);
+    
+    const paginatedData = data;
     const totalPages = Math.ceil(totalCount / pageSize);
+    
+    
 
     const handleSort = (field) => {
         let direction = "asc";
@@ -94,17 +88,24 @@ export default function InventoryDetailsModal({
     const handleExport = async (type) => {
         try {
             setExporting(type);
-
-            if (type === "excel") {
-                await onExportExcel();
-            }
-
-            if (type === "pdf") {
-                await onExportPdf();
-            }
-
+            const response = await getInventoryExport(
+                type === "excel" ? "xlsx" : "pdf",
+                { ...filters, ...drilldownFilters }
+            );
+            const blob = new Blob([response.data], {
+                type: response.headers["content-type"],
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", type === "excel" ? "Inventory_ViewAll.xlsx" : "Inventory_ViewAll.pdf");
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error("Export Error:", error);
+            alert("Export failed. Please try again.");
         } finally {
             setExporting("");
         }
@@ -262,11 +263,34 @@ export default function InventoryDetailsModal({
                             {totalCount} Records
                         </span>
 
-                        <ExportButtons
-                            endpoint="inventory"
-                            exporting={exporting}
-                            handleExport={handleExport}
-                        />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                                onClick={() => handleExport('excel')}
+                                disabled={!!exporting}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 5,
+                                    background: exporting === 'excel' ? '#d1fae5' : '#f0fdf4',
+                                    color: '#15803d', border: '1px solid #bbf7d0',
+                                    borderRadius: 6, fontSize: '0.72rem', fontWeight: 700, padding: '5px 10px',
+                                    cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1,
+                                }}
+                            >
+                                {exporting === 'excel' ? '...' : 'Excel'}
+                            </button>
+                            <button
+                                onClick={() => handleExport('pdf')}
+                                disabled={!!exporting}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 5,
+                                    background: exporting === 'pdf' ? '#fee2e2' : '#fff1f2',
+                                    color: '#be123c', border: '1px solid #fecdd3',
+                                    borderRadius: 6, fontSize: '0.72rem', fontWeight: 700, padding: '5px 10px',
+                                    cursor: exporting ? 'not-allowed' : 'pointer', opacity: exporting ? 0.7 : 1,
+                                }}
+                            >
+                                {exporting === 'pdf' ? '...' : 'PDF'}
+                            </button>
+                        </div>
 
                     </div>
 
@@ -304,12 +328,17 @@ export default function InventoryDetailsModal({
                                 overflow-auto
                             "
                         >
-
-                            <InventoryDetailedViewTable
-                                data={paginatedData}
-                                onSort={handleSort}
-                                showHeader={false}
-                            />
+                            {isFetching ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#64748b', fontSize: '0.85rem' }}>
+                                    Loading…
+                                </div>
+                            ) : (
+                                <InventoryDetailedViewTable
+                                    data={paginatedData}
+                                    onSort={handleSort}
+                                    showHeader={false}
+                                />
+                            )}
 
                         </div>
 

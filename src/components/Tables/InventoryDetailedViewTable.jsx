@@ -1,5 +1,24 @@
-import React from "react";
-import ChartMenu from "../ChartMenu";
+import React, { useState } from "react";
+import { MoreVertical } from "lucide-react";
+
+
+function ChartMenu({ onViewAll, onExportExcel, onExportPdf }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+        <MoreVertical size={16} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', right: 0, top: '100%', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', zIndex: 10, width: 120 }}>
+          {onViewAll && <button onClick={() => { setOpen(false); onViewAll(); }} style={{ display: 'block', width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.75rem' }}>View All</button>}
+          {onExportExcel && <button onClick={() => { setOpen(false); onExportExcel(); }} style={{ display: 'block', width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: '0.75rem' }}>Export Excel</button>}
+          {onExportPdf && <button onClick={() => { setOpen(false); onExportPdf(); }} style={{ display: 'block', width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem' }}>Export PDF</button>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const baseColumns = [
   { label: "Legal Entity", field: "legalEntity", width: 220, sticky: true },
