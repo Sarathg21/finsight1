@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { Package, TrendingUp, Clock, AlertTriangle, Cuboid } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
 
 export default function InventoryOverview() {
@@ -101,12 +102,12 @@ const [loading, setLoading] = useState(true);
               let kpis = [];
               if (dData.kpis) {
                   kpis = [
-                      { title: "Total Inventory Value", value: fmtAED(dData.kpis.total_inventory), icon: "📦", iconBg: "#edf5ff", iconColor: "#2563eb", direction: "up" },
-                      { title: "Average Inventory Value", value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value), icon: "📦", iconBg: "#f5edff", iconColor: "#7c3aed", direction: "up" },
-                      { title: "Inventory Turnover (TTM)", value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "—", icon: "📈", iconBg: "#fff7e8", iconColor: "#f59e0b", direction: "up" },
-                      { title: "Stock Holding Days (DIO)", value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "—", icon: "🕒", iconBg: "#eafcff", iconColor: "#0891b2", direction: "down" },
-                      { title: "Obsolete / Slow Moving", value: fmtAED(dData.kpis.inventory_above_365), icon: "⚠️", iconBg: "#fff0f4", iconColor: "#e11d48", direction: "up" }
-                  ];
+                        { title: "Total Inventory Value", value: fmtAED(dData.kpis.total_inventory), icon: Package, iconBg: "#DBEAFE", iconColor: "#2563EB", direction: "up" },
+                        { title: "Average Inventory Value", value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value), icon: Cuboid, iconBg: "#F3E8FF", iconColor: "#7C3AED", direction: "up" },
+                        { title: "Inventory Turnover (TTM)", value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` : "--", icon: TrendingUp, iconBg: "#FFEDD5", iconColor: "#EA580C", direction: "down" },
+                        { title: "Stock Holding Days (DIO)", value: (dData.kpis.stock_holding_days || dData.kpis.dio) ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` : "--", icon: Clock, iconBg: "#CFFAFE", iconColor: "#0891B2", direction: "down" },
+                        { title: "Obsolete / Slow Moving", value: fmtAED(dData.kpis.inventory_above_365), icon: AlertTriangle, iconBg: "#FFE4E6", iconColor: "#E11D48", direction: "up" }
+                    ];
               }
 
               let aging = [];
@@ -314,7 +315,7 @@ const [loading, setLoading] = useState(true);
               color: item.iconColor,
             }}
           >
-            {item.icon}
+            {typeof item.icon === 'string' ? item.icon : <item.icon size={18} strokeWidth={2.5} />}
           </div>
 
           <div style={{ minWidth: 0 }}>
@@ -1289,10 +1290,10 @@ const styles = {
 
   filterLabel: {
     display: "block",
-    fontSize: 9,
-    color: "#475569",
-    marginBottom: 4,
-    fontWeight: 600,
+    fontSize: "0.75rem",
+    color: "#1E3A8A",
+    marginBottom: 6,
+    fontWeight: 700,
   },
 
   selectWrapper: {
