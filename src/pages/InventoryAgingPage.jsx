@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
@@ -66,14 +66,25 @@ const [loading, setLoading] = useState(true);
   const [detailPage, setDetailPage] = useState(0);
   const [detailPageSize, setDetailPageSize] = useState(15);
   const [parentDivViewMode, setParentDivViewMode] = useState("month"); // "month" | "mom"
-  const [viewAllModal, setViewAllModal] = useState(null); // "parentDivision" | "subdivision" | null
+  const [viewAllModal, setViewAllModal] = useState(null); // "trend" | "parentDivision" | "subdivision" | "aging" | "slowMoving" | "location" | "details" | null
   const [viewAllSearch, setViewAllSearch] = useState("");
   const [mockData, setMockData] = useState({
     filters: {
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
     },
-    kpis: [], trend: { labels: [], previous: [], current: [] }, divisions: [], allDivisions: [],
-    businessUnits: [], bySubdivision: [], allSubdivisions: [], aging: [], slowMoving: [], locations: [], details: []
+    kpis: [],
+    trend: { labels: [], previous: [], current: [], list: [] },
+    divisions: [],
+    allDivisions: [],
+    businessUnits: [],
+    bySubdivision: [],
+    allSubdivisions: [],
+    aging: [],
+    slowMoving: [],
+    allSlowMoving: [],
+    locations: [],
+    allLocations: [],
+    details: []
   });
 
   
@@ -343,7 +354,7 @@ const [loading, setLoading] = useState(true);
                   bySubdivision = allSubdivisions.slice(0, 5);
               }
 
-                            let trend = { labels: [], previous: [], current: [] };
+              let trend = { labels: [], previous: [], current: [], list: [] };
               if (dData.trend && Array.isArray(dData.trend)) {
                   trend.labels = dData.trend.map(item => {
                       if (typeof item.month_start === 'object' && item.month_start?.name) {
@@ -357,20 +368,31 @@ const [loading, setLoading] = useState(true);
                   });
                   trend.current = dData.trend.map(item => Number(item.inventory_value || 0) / 10000000);
                   trend.previous = dData.trend.map(item => (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null);
+                  trend.list = dData.trend.map((item, idx) => {
+                      const month = trend.labels[idx] || `M${idx + 1}`;
+                      const curr = Number(item.inventory_value || 0) / 10000000;
+                      const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null;
+                      const variance = prev !== null ? curr - prev : null;
+                      const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
+                      return { month, current: curr, previous: prev, variance, growth };
+                  });
               }
 
+              let allSlowMoving = [];
               let slowMoving = [];
               const slowSource = dData.slow_moving_by_parent_div || dData.top_items;
               if (slowSource && Array.isArray(slowSource)) {
-                  slowMoving = slowSource.map((item, idx) => ({
+                  allSlowMoving = slowSource.map((item, idx) => ({
                       no: idx + 1,
                       parentDiv: typeof item.parent_division === 'object' ? item.parent_division?.name : (item.parent_division || item.item_description || "N/A"),
                       obsolete: Number(item.obsolete_stock || item.inventory_value || 0) / 10000000,
                       total: Number(item.total_stock || item.inventory_value || 0) / 10000000,
                       percentage: Number(item.percentage_obsolete || item.percentage || 0)
-                  })).slice(0, 5);
+                  }));
+                  slowMoving = allSlowMoving.slice(0, 5);
               }
 
+              let allLocations = [];
               let locations = [];
               const locSource = dData.locations || dData.by_location || dData.by_category || dData.top_items;
               if (locSource && Array.isArray(locSource)) {
@@ -381,13 +403,14 @@ const [loading, setLoading] = useState(true);
                       const pct = Number(item.percentage_of_total || item.percentage || 0);
                       locSum += val;
                       return { name, value: val, percentage: pct };
-                  }).slice(0, 5);
+                  });
                   if (locSum > 0) {
                       formatted.forEach(item => {
                           if (!item.percentage) item.percentage = (item.value / locSum) * 100;
                       });
                   }
-                  locations = formatted;
+                  allLocations = formatted;
+                  locations = formatted.slice(0, 5);
               }
 
 
@@ -434,7 +457,9 @@ const [loading, setLoading] = useState(true);
                   allSubdivisions,
                   aging,
                   slowMoving,
+                  allSlowMoving,
                   locations,
+                  allLocations,
                   details
               });
           } catch (err) {
@@ -1011,6 +1036,18 @@ const [loading, setLoading] = useState(true);
     extra,
   }) => {
     const [exportOpen, setExportOpen] = useState(false);
+    const exportRef = useRef(null);
+
+    useEffect(() => {
+      if (!exportOpen) return;
+      const handleClickOutside = (e) => {
+        if (exportRef.current && !exportRef.current.contains(e.target)) {
+          setExportOpen(false);
+        }
+      };
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [exportOpen]);
 
     return (
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
@@ -1071,7 +1108,7 @@ const [loading, setLoading] = useState(true);
               )}
 
               {onExport && (
-                <div style={{ position: "relative" }}>
+                <div ref={exportRef} style={{ position: "relative" }}>
                   <button
                     style={{
                       height: 26,
@@ -1090,13 +1127,7 @@ const [loading, setLoading] = useState(true);
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
-                    onClick={() => {
-                      if (typeof onExport === "function" && onExport.length === 0) {
-                        onExport();
-                      } else {
-                        setExportOpen(prev => !prev);
-                      }
-                    }}
+                    onClick={() => setExportOpen(prev => !prev)}
                   >
                     Export ▾
                   </button>
@@ -1440,8 +1471,8 @@ const [loading, setLoading] = useState(true);
             title={`Inventory Value Trend (${filters.currency || "AED"} Cr)`}
             subtitle="Current Year vs Previous Year month-by-month trajectory"
             info="Comparison of inventory value trend"
-            onViewAll={() => console.log('View All Trend')}
-            onExport={() => handleExport('excel')}
+            onViewAll={() => setViewAllModal("trend")}
+            onExport={(type) => handleExport(type || "excel", "trend")}
           />
 
           <div style={styles.legend}>
@@ -1584,6 +1615,8 @@ const [loading, setLoading] = useState(true);
             title="Inventory Aging Summary"
             subtitle={`Aging distribution across 8 duration buckets (${filters.currency || "AED"} Cr)`}
             info="Summary of inventory value by aging bucket"
+            onViewAll={() => setViewAllModal("aging")}
+            onExport={(type) => handleExport(type || "excel")}
           />
 
           <div style={styles.agingContent}>
@@ -1647,7 +1680,8 @@ const [loading, setLoading] = useState(true);
             title="Slow Moving Stock by Parent Div"
             subtitle={`Obsolete inventory vs total stock (${filters.currency || "AED"} Cr)`}
             info="Parent divisions with highest obsolete inventory holdings"
-            onViewAll={() => console.log('View All Slow Moving')}
+            onViewAll={() => setViewAllModal("slowMoving")}
+            onExport={(type) => handleExport(type || "excel", "slow-moving")}
           />
           
           <div style={{ ...styles.tableWrapper, flex: 1 }}>
@@ -1695,6 +1729,8 @@ const [loading, setLoading] = useState(true);
             title="Inventory by Location (Top 5)"
             subtitle={`Top holding locations by value (${filters.currency || "AED"} Cr)`}
             info="Top locations with highest inventory values"
+            onViewAll={() => setViewAllModal("location")}
+            onExport={(type) => handleExport(type || "excel")}
           />
 
           <div style={{ ...styles.tableWrapper, flex: 1 }}>
@@ -1744,8 +1780,8 @@ const [loading, setLoading] = useState(true);
           title="Inventory Detailed View"
           subtitle={`Line-item inventory breakdown and aging status (${filters.currency || "AED"})`}
           info="Detailed item-level inventory valuation and aging buckets"
-          onViewAll={() => console.log('View All Details')}
-          onExport={() => handleExport('excel')}
+          onViewAll={() => setViewAllModal("details")}
+          onExport={(type) => handleExport(type || "excel")}
         />
 
         <div style={styles.detailTableWrapper} className="detail-table-scroll">
@@ -2049,266 +2085,630 @@ const [loading, setLoading] = useState(true);
       </div>
 
       {/* ========================================================
-          VIEW ALL MODAL (Parent Division / Sub-division)
+      {/* ========================================================
+          VIEW ALL MODAL (All Cards)
       ======================================================== */}
-      {viewAllModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15, 23, 42, 0.5)",
-            backdropFilter: "blur(2px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
-            padding: 20,
-          }}
-          onClick={() => {
-            setViewAllModal(null);
-            setViewAllSearch("");
-          }}
-        >
+      {viewAllModal && (() => {
+        const modalConfig = (() => {
+          switch (viewAllModal) {
+            case "trend":
+              return {
+                title: `Inventory Value Trend — View Details`,
+                subtitle: `Current Year vs Previous Year month-by-month trajectory (${filters.currency || "AED"} Cr)`,
+                searchPlaceholder: "Search months...",
+                section: "trend",
+                maxWidth: 840,
+              };
+            case "parentDivision":
+              return {
+                title: `Inventory Value by Parent Division — View Details`,
+                subtitle: `Breakdown across all parent divisions (${filters.currency || "AED"} Cr)`,
+                searchPlaceholder: "Search parent divisions...",
+                section: "parent-divisions",
+                maxWidth: 750,
+              };
+            case "subdivision":
+              return {
+                title: `Inventory Value by Sub-division — View Details`,
+                subtitle: `Breakdown across all sub-divisions (${filters.currency || "AED"} Cr)`,
+                searchPlaceholder: "Search sub-divisions...",
+                section: null,
+                maxWidth: 750,
+              };
+            case "aging":
+              return {
+                title: `Inventory Aging Summary — View Details`,
+                subtitle: `Aging distribution across 8 duration buckets (${filters.currency || "AED"} Cr)`,
+                searchPlaceholder: "Search aging buckets...",
+                section: null,
+                maxWidth: 750,
+              };
+            case "slowMoving":
+              return {
+                title: `Slow Moving Stock by Parent Div — View Details`,
+                subtitle: `Obsolete inventory vs total stock (${filters.currency || "AED"} Cr)`,
+                searchPlaceholder: "Search parent divisions...",
+                section: "slow-moving",
+                maxWidth: 860,
+              };
+            case "location":
+              return {
+                title: `Inventory by Location — View Details`,
+                subtitle: `Holding locations ranked by value (${filters.currency || "AED"} Cr)`,
+                searchPlaceholder: "Search locations...",
+                section: null,
+                maxWidth: 750,
+              };
+            case "details":
+              return {
+                title: `Inventory Detailed View — View Details`,
+                subtitle: `Line-item inventory breakdown and aging status (${filters.currency || "AED"})`,
+                searchPlaceholder: "Search item code, description, legal entity...",
+                section: null,
+                maxWidth: "96vw",
+              };
+            default:
+              return {
+                title: "View Details",
+                subtitle: "",
+                searchPlaceholder: "Search...",
+                section: null,
+                maxWidth: 750,
+              };
+          }
+        })();
+
+        return (
           <div
             style={{
-              background: "#fff",
-              borderRadius: 12,
-              width: "100%",
-              maxWidth: 680,
-              maxHeight: "85vh",
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.5)",
+              backdropFilter: "blur(2px)",
               display: "flex",
-              flexDirection: "column",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
-              border: "1px solid #e2e8f0",
-              overflow: "hidden",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: 20,
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => {
+              setViewAllModal(null);
+              setViewAllSearch("");
+            }}
           >
-            {/* Modal Header */}
             <div
               style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid #e2e8f0",
+                background: "#fff",
+                borderRadius: 12,
+                width: "100%",
+                maxWidth: modalConfig.maxWidth,
+                maxHeight: "85vh",
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                background: "linear-gradient(90deg, #f8fafc, #fff)",
+                flexDirection: "column",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
+                border: "1px solid #e2e8f0",
+                overflow: "hidden",
               }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <div>
-                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "#0f172a" }}>
-                  {viewAllModal === "parentDivision"
-                    ? `Inventory Value by Parent Division — View Details`
-                    : `Inventory Value by Sub-division — View Details`}
-                </h3>
-                <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                  {viewAllModal === "parentDivision"
-                    ? `Breakdown across all parent divisions (${filters.currency || "AED"} Cr)`
-                    : `Breakdown across all sub-divisions (${filters.currency || "AED"} Cr)`}
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setViewAllModal(null);
-                  setViewAllSearch("");
-                }}
+              {/* Modal Header */}
+              <div
                 style={{
-                  background: "#f1f5f9",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: 28,
-                  height: 28,
+                  padding: "14px 20px",
+                  borderBottom: "1px solid #e2e8f0",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#64748b",
-                  fontSize: "0.85rem",
-                  fontWeight: 700,
-                  outline: "none",
+                  justifyContent: "space-between",
+                  background: "linear-gradient(90deg, #f8fafc, #fff)",
                 }}
               >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Search & Export Bar */}
-            <div
-              style={{
-                padding: "10px 20px",
-                borderBottom: "1px solid #f1f5f9",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-                background: "#fafbfc",
-                flexWrap: "wrap",
-              }}
-            >
-              <input
-                type="text"
-                placeholder={viewAllModal === "parentDivision" ? "Search parent divisions..." : "Search sub-divisions..."}
-                value={viewAllSearch}
-                onChange={(e) => setViewAllSearch(e.target.value)}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  border: "1px solid #cbd5e1",
-                  fontSize: "0.76rem",
-                  width: 220,
-                  outline: "none",
-                }}
-              />
-
-              <div style={{ display: "flex", gap: 6 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "#0f172a" }}>
+                    {modalConfig.title}
+                  </h3>
+                  <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                    {modalConfig.subtitle}
+                  </div>
+                </div>
                 <button
-                  onClick={() => handleExport("excel", viewAllModal === "parentDivision" ? "parent-divisions" : null)}
+                  onClick={() => {
+                    setViewAllModal(null);
+                    setViewAllSearch("");
+                  }}
                   style={{
-                    padding: "5px 12px",
-                    borderRadius: 6,
-                    border: "1px solid #cbd5e1",
-                    background: "#fff",
-                    color: "#166534",
-                    fontSize: "0.72rem",
-                    fontWeight: 600,
+                    background: "#f1f5f9",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: 28,
+                    height: 28,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     cursor: "pointer",
+                    color: "#64748b",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    outline: "none",
                   }}
                 >
-                  Export Excel
+                  ✕
                 </button>
-                <button
-                  onClick={() => handleExport("pdf", viewAllModal === "parentDivision" ? "parent-divisions" : null)}
+              </div>
+
+              {/* Modal Search & Export Bar */}
+              <div
+                style={{
+                  padding: "10px 20px",
+                  borderBottom: "1px solid #f1f5f9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  background: "#fafbfc",
+                  flexWrap: "wrap",
+                }}
+              >
+                <input
+                  type="text"
+                  placeholder={modalConfig.searchPlaceholder}
+                  value={viewAllSearch}
+                  onChange={(e) => setViewAllSearch(e.target.value)}
                   style={{
-                    padding: "5px 12px",
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    fontSize: "0.76rem",
+                    width: viewAllModal === "details" ? 320 : 240,
+                    outline: "none",
+                  }}
+                />
+
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    onClick={() => handleExport("excel", modalConfig.section)}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      background: "#fff",
+                      color: "#166534",
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    Export Excel (.xlsx)
+                  </button>
+                  <button
+                    onClick={() => handleExport("pdf", modalConfig.section)}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      background: "#fff",
+                      color: "#991b1b",
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    Export PDF (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Table Content */}
+              <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
+                {(() => {
+                  if (viewAllModal === "trend") {
+                    const rawList = mockData.trend?.list?.length ? mockData.trend.list : (
+                      (mockData.trend?.labels || []).map((lbl, idx) => {
+                        const curr = mockData.trend?.current?.[idx] || 0;
+                        const prev = mockData.trend?.previous?.[idx];
+                        const variance = prev !== null && prev !== undefined ? curr - prev : null;
+                        const growth = prev ? ((curr - prev) / prev) * 100 : null;
+                        return { month: lbl, current: curr, previous: prev, variance, growth };
+                      })
+                    );
+                    const filtered = (rawList || []).filter(item =>
+                      !viewAllSearch || item.month?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                    );
+                    const totalCurr = filtered.reduce((s, r) => s + (Number(r.current) || 0), 0);
+                    const prevItems = filtered.filter(r => r.previous !== null && r.previous !== undefined);
+                    const totalPrev = prevItems.reduce((s, r) => s + (Number(r.previous) || 0), 0);
+                    const totalVar = prevItems.length > 0 ? totalCurr - totalPrev : null;
+                    const avgGrowth = totalPrev > 0 ? ((totalCurr - totalPrev) / totalPrev) * 100 : null;
+
+                    return (
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Month</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Current Year ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Previous Year ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Variance ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Growth %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend data found</td></tr>
+                          ) : (
+                            filtered.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.month}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Number(item.current || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 500, color: "#16a34a" }}>
+                                  {item.previous !== null && item.previous !== undefined ? Number(item.previous).toFixed(2) : "—"}
+                                </td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: item.variance === null ? "#64748b" : item.variance >= 0 ? "#16a34a" : "#dc2626" }}>
+                                  {item.variance !== null ? `${item.variance >= 0 ? "+" : ""}${Number(item.variance).toFixed(2)}` : "—"}
+                                </td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: item.growth === null ? "#64748b" : item.growth >= 0 ? "#16a34a" : "#dc2626" }}>
+                                  {item.growth !== null ? `${item.growth >= 0 ? "+" : ""}${Number(item.growth).toFixed(2)}%` : "—"}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        {filtered.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                              <td style={{ padding: "10px 10px" }} />
+                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{totalCurr.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a" }}>{prevItems.length > 0 ? totalPrev.toFixed(2) : "—"}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: totalVar === null ? "#1e293b" : totalVar >= 0 ? "#16a34a" : "#dc2626" }}>
+                                {totalVar !== null ? `${totalVar >= 0 ? "+" : ""}${totalVar.toFixed(2)}` : "—"}
+                              </td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: avgGrowth === null ? "#1e293b" : avgGrowth >= 0 ? "#16a34a" : "#dc2626" }}>
+                                {avgGrowth !== null ? `${avgGrowth >= 0 ? "+" : ""}${avgGrowth.toFixed(2)}%` : "—"}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    );
+                  }
+
+                  if (viewAllModal === "parentDivision" || viewAllModal === "subdivision") {
+                    const rawList = viewAllModal === "parentDivision"
+                      ? (mockData.allDivisions?.length ? mockData.allDivisions : mockData.divisions)
+                      : (mockData.allSubdivisions?.length ? mockData.allSubdivisions : mockData.bySubdivision);
+                    
+                    const filtered = (rawList || []).filter(item =>
+                      !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                    );
+
+                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
+                    const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
+
+                    return (
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>
+                              {viewAllModal === "parentDivision" ? "Parent Division" : "Sub-Division"}
+                            </th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 150 }}>
+                              Value ({filters.currency || "AED"} Cr)
+                            </th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110 }}>
+                              % of Total
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No divisions found</td></tr>
+                          ) : (
+                            filtered.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        {filtered.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                              <td style={{ padding: "10px 10px" }} />
+                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalPct.toFixed(2)}%</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    );
+                  }
+
+                  if (viewAllModal === "aging") {
+                    const rawList = mockData.aging || [];
+                    const filtered = (rawList || []).filter(item =>
+                      !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                    );
+                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
+                    const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
+
+                    return (
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Aging Bucket</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Amount ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120 }}>% of Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No aging data found</td></tr>
+                          ) : (
+                            filtered.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || "#64748b", display: "inline-block", flexShrink: 0 }} />
+                                  {item.name}
+                                </td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        {filtered.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                              <td style={{ padding: "10px 10px" }} />
+                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalPct.toFixed(2)}%</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    );
+                  }
+
+                  if (viewAllModal === "slowMoving") {
+                    const rawList = mockData.allSlowMoving?.length ? mockData.allSlowMoving : (mockData.slowMoving || []);
+                    const filtered = (rawList || []).filter(item =>
+                      !viewAllSearch || item.parentDiv?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                    );
+                    const totalObs = filtered.reduce((s, r) => s + (Number(r.obsolete) || 0), 0);
+                    const totalStock = filtered.reduce((s, r) => s + (Number(r.total) || 0), 0);
+                    const totalPct = totalStock > 0 ? (totalObs / totalStock) * 100 : 0;
+
+                    return (
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Parent Division</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Obsolete ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Total ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110 }}>% Obsolete</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                          ) : (
+                            filtered.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.parentDiv}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{item.obsolete ? Number(item.obsolete).toFixed(2) : "0.00"}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{item.total ? Number(item.total).toFixed(2) : "0.00"}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: item.percentage > 50 ? "#dc2626" : "#e11d48" }}>
+                                  {item.percentage ? `${Number(item.percentage).toFixed(2)}%` : "0.00%"}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        {filtered.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                              <td style={{ padding: "10px 10px" }} />
+                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{totalObs.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalStock.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{totalPct.toFixed(2)}%</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    );
+                  }
+
+                  if (viewAllModal === "location") {
+                    const rawList = mockData.allLocations?.length ? mockData.allLocations : (mockData.locations || []);
+                    const filtered = (rawList || []).filter(item =>
+                      !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                    );
+                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
+                    const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
+
+                    return (
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Location</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Value ({filters.currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120 }}>% of Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.length === 0 ? (
+                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No location data found</td></tr>
+                          ) : (
+                            filtered.map((item, idx) => (
+                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                        {filtered.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                              <td style={{ padding: "10px 10px" }} />
+                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalPct.toFixed(2)}%</td>
+                            </tr>
+                          </tfoot>
+                        )}
+                      </table>
+                    );
+                  }
+
+                  if (viewAllModal === "details") {
+                    const rawList = mockData.details || [];
+                    const filtered = rawList.filter(row => {
+                      if (!viewAllSearch) return true;
+                      const q = viewAllSearch.toLowerCase();
+                      return (
+                        (row.legal_entity || "").toLowerCase().includes(q) ||
+                        (row.parent_division || "").toLowerCase().includes(q) ||
+                        (row.subdivision || "").toLowerCase().includes(q) ||
+                        (row.subinventory || "").toLowerCase().includes(q) ||
+                        (row.item_code || "").toLowerCase().includes(q) ||
+                        (row.item_description || "").toLowerCase().includes(q)
+                      );
+                    });
+
+                    const totalQty = filtered.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
+                    const totalVal = filtered.reduce((s, r) => s + (Number(r.total_stock_value) || 0), 0);
+
+                    return (
+                      <div style={{ overflowX: "auto", width: "100%", maxHeight: "60vh" }} className="detail-table-scroll">
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
+                          <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
+                            <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 120 }}>Legal Entity</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 100 }}>Parent Division</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 100 }}>Sub-Division</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Subinventory</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Item Code</th>
+                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 140 }}>Item Description</th>
+                              <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Qty</th>
+                              <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Value ({filters.currency || "AED"})</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>0-30</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>31-60</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>61-90</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>91-120</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>121-180</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>181-365</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>366-730</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>&gt;730</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 45 }}>Days</th>
+                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Avg Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.length === 0 ? (
+                              <tr><td colSpan={18} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No inventory records found</td></tr>
+                            ) : (
+                              filtered.map((row, idx) => (
+                                <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                  <td style={{ padding: "6px 10px", fontWeight: 600, color: "#1e293b" }}>{row.legal_entity}</td>
+                                  <td style={{ padding: "6px 10px", color: "#334155" }}>{row.parent_division}</td>
+                                  <td style={{ padding: "6px 10px", color: "#334155" }}>{row.subdivision}</td>
+                                  <td style={{ padding: "6px 10px", color: "#475569" }}>{row.subinventory}</td>
+                                  <td style={{ padding: "6px 10px", fontFamily: "monospace", color: "#1e3a8a", fontWeight: 600 }}>{row.item_code}</td>
+                                  <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 200, whiteSpace: "normal", wordBreak: "break-word" }}>{row.item_description}</td>
+                                  <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600 }}>{Number(row.quantity || 0).toLocaleString()}</td>
+                                  <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>{Number(row.total_stock_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_0_30 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_31_60 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_61_90 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_91_120 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_121_180 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_181_365 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_366_730 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_above_730 || 0).toFixed(0)}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 600 }}>{row.days}</td>
+                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{row.avg_inv_value !== "-" ? Number(row.avg_inv_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                          {filtered.length > 0 && (
+                            <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc", borderTop: "2px solid #e2e8f0" }}>
+                              <tr style={{ fontWeight: 800 }}>
+                                <td colSpan={6} style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total ({filtered.length} items)</td>
+                                <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalQty.toLocaleString()}</td>
+                                <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td colSpan={10} style={{ padding: "10px 10px" }} />
+                              </tr>
+                            </tfoot>
+                          )}
+                        </table>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+              </div>
+
+              {/* Modal Footer */}
+              <div
+                style={{
+                  padding: "10px 20px",
+                  borderTop: "1px solid #e2e8f0",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#f8fafc",
+                }}
+              >
+                <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
+                  Live inventory snapshot data
+                </span>
+                <button
+                  onClick={() => {
+                    setViewAllModal(null);
+                    setViewAllSearch("");
+                  }}
+                  style={{
+                    padding: "5px 14px",
                     borderRadius: 6,
                     border: "1px solid #cbd5e1",
                     background: "#fff",
-                    color: "#991b1b",
-                    fontSize: "0.72rem",
+                    color: "#334155",
+                    fontSize: "0.74rem",
                     fontWeight: 600,
                     cursor: "pointer",
                   }}
                 >
-                  Export PDF
+                  Close
                 </button>
               </div>
             </div>
-
-            {/* Modal Table Content */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
-              {(() => {
-                const rawList = viewAllModal === "parentDivision"
-                  ? (mockData.allDivisions?.length ? mockData.allDivisions : mockData.divisions)
-                  : (mockData.allSubdivisions?.length ? mockData.allSubdivisions : mockData.bySubdivision);
-                
-                const filtered = (rawList || []).filter(item =>
-                  !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                );
-
-                const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
-                const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
-
-                return (
-                  <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                    <thead>
-                      <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                        <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
-                        <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>
-                          {viewAllModal === "parentDivision" ? "Parent Division" : "Sub-Division"}
-                        </th>
-                        <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 150 }}>
-                          Value ({filters.currency || "AED"} Cr)
-                        </th>
-                        <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110 }}>
-                          % of Total
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>
-                            No divisions found
-                          </td>
-                        </tr>
-                      ) : (
-                        filtered.map((item, idx) => (
-                          <tr
-                            key={idx}
-                            style={{
-                              borderBottom: "1px solid #f1f5f9",
-                              background: idx % 2 === 0 ? "#fff" : "#fafbfc",
-                            }}
-                          >
-                            <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                            <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>
-                              {item.name}
-                            </td>
-                            <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
-                              {Number(item.value || 0).toFixed(2)}
-                            </td>
-                            <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>
-                              {Number(item.percentage || 0).toFixed(2)}%
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                    {filtered.length > 0 && (
-                      <tfoot>
-                        <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                          <td style={{ padding: "10px 10px" }} />
-                          <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                          <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>
-                            {totalVal.toFixed(2)}
-                          </td>
-                          <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>
-                            {totalPct.toFixed(2)}%
-                          </td>
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                );
-              })()}
-            </div>
-
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: "10px 20px",
-                borderTop: "1px solid #e2e8f0",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "#f8fafc",
-              }}
-            >
-              <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
-                Live inventory snapshot data
-              </span>
-              <button
-                onClick={() => {
-                  setViewAllModal(null);
-                  setViewAllSearch("");
-                }}
-                style={{
-                  padding: "5px 14px",
-                  borderRadius: 6,
-                  border: "1px solid #cbd5e1",
-                  background: "#fff",
-                  color: "#334155",
-                  fontSize: "0.74rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Close
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
