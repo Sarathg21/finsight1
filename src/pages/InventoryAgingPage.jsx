@@ -1566,102 +1566,131 @@ const [loading, setLoading] = useState(true);
           <table style={styles.detailTable} className="detail-table">
             <thead>
               <tr>
-                <th style={{ textAlign: "left", width: 145, minWidth: 145 }}>Legal Entity</th>
-                <th style={{ textAlign: "left", width: 125, minWidth: 125 }}>Parent Division</th>
-                <th style={{ textAlign: "left", width: 125, minWidth: 125 }}>Sub-Division</th>
-                <th style={{ textAlign: "left", width: 85, minWidth: 85 }}>Subinventory</th>
-                <th style={{ textAlign: "left", width: 105, minWidth: 105 }}>Item Code</th>
-                <th style={{ textAlign: "left", width: 160, minWidth: 160 }}>Item Description</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 75 }}>Total Qty</th>
-                <th style={{ textAlign: "right", width: 85, minWidth: 85 }}>Value ({filters.currency || "AED"})</th>
-                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>0 - 30</th>
-                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>31 - 60</th>
-                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>61 - 90</th>
-                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>91 - 120</th>
-                <th style={{ textAlign: "right", width: 62, minWidth: 62 }}>121 - 180</th>
-                <th style={{ textAlign: "right", width: 62, minWidth: 62 }}>181 - 365</th>
-                <th style={{ textAlign: "right", width: 62, minWidth: 62 }}>366 - 730</th>
-                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>&gt; 730</th>
-                <th style={{ textAlign: "right", width: 50, minWidth: 50 }}>Days</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 75 }}>Avg Value</th>
+                <th style={{ textAlign: "left", width: 125, minWidth: 115 }}>Legal Entity</th>
+                <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Parent Division</th>
+                <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Sub-Division</th>
+                <th style={{ textAlign: "left", width: 70, minWidth: 65 }}>Subinventory</th>
+                <th style={{ textAlign: "left", width: 95, minWidth: 85 }}>Item Code</th>
+                <th style={{ textAlign: "left", width: 145, minWidth: 135 }}>Item Description</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 70 }}>Total Qty</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 70 }}>Value ({filters.currency || "AED"})</th>
+                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>0 - 30</th>
+                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>31 - 60</th>
+                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>61 - 90</th>
+                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>91 - 120</th>
+                <th style={{ textAlign: "right", width: 54, minWidth: 50 }}>121 - 180</th>
+                <th style={{ textAlign: "right", width: 54, minWidth: 50 }}>181 - 365</th>
+                <th style={{ textAlign: "right", width: 54, minWidth: 50 }}>366 - 730</th>
+                <th style={{ textAlign: "right", width: 48, minWidth: 45 }}>&gt; 730</th>
+                <th style={{ textAlign: "right", width: 45, minWidth: 40 }}>Days</th>
+                <th style={{ textAlign: "right", width: 68, minWidth: 62 }}>Avg Value</th>
               </tr>
             </thead>
 
             <tbody>
               {paginatedDetails.map((row) => (
                 <tr key={row.id}>
-                  <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 145, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }} title={row.legal_entity}>
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
+                    <div style={{
+                      whiteSpace: "normal",
+                      wordBreak: "normal",
+                      overflowWrap: "break-word",
+                      lineHeight: 1.35,
+                      fontWeight: 600,
+                      color: "#1e293b",
+                    }} title={row.legal_entity}>
                       {row.legal_entity}
                     </div>
                   </td>
-                  <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 125, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.parent_division}>
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
+                    <div style={{
+                      whiteSpace: "normal",
+                      wordBreak: "normal",
+                      overflowWrap: "break-word",
+                      lineHeight: 1.35,
+                      color: "#334155",
+                    }} title={row.parent_division}>
                       {row.parent_division}
                     </div>
                   </td>
-                  <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 125, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subdivision}>
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
+                    <div style={{
+                      whiteSpace: "normal",
+                      wordBreak: "normal",
+                      overflowWrap: "break-word",
+                      lineHeight: 1.35,
+                      color: "#334155",
+                    }} title={row.subdivision}>
                       {row.subdivision}
                     </div>
                   </td>
-                  <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subinventory}>
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
+                    <div style={{
+                      whiteSpace: "nowrap",
+                      color: "#475569",
+                    }} title={row.subinventory}>
                       {row.subinventory}
                     </div>
                   </td>
-                  <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 105, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600, color: "#1e3a8a" }} title={row.item_code}>
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
+                    <div style={{
+                      whiteSpace: "normal",
+                      wordBreak: "break-word",
+                      lineHeight: 1.35,
+                      fontWeight: 600,
+                      color: "#1e3a8a",
+                    }} title={row.item_code}>
                       {row.item_code}
                     </div>
                   </td>
-                  <td style={{ textAlign: "left" }}>
+                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
                     <div
                       style={{
-                        maxWidth: 160,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        whiteSpace: "normal",
+                        wordBreak: "normal",
+                        overflowWrap: "break-word",
+                        lineHeight: 1.35,
+                        color: "#334155",
                       }}
                       title={row.item_description}
                     >
                       {row.item_description}
                     </div>
                   </td>
-                  <td style={{ textAlign: "right", fontWeight: 500 }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
                     {row.quantity ? Number(row.quantity).toLocaleString() : "0"}
                   </td>
-                  <td style={{ textAlign: "right", fontWeight: 700, color: "#1e293b" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "#1e293b" }}>
                     {row.total_stock_value
                       ? (Number(row.total_stock_value) / 10000000).toFixed(2)
                       : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_0_30 ? (Number(row.aging_0_30) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_31_60 ? (Number(row.aging_31_60) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_61_90 ? (Number(row.aging_61_90) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_91_120 ? (Number(row.aging_91_120) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_121_180 ? (Number(row.aging_121_180) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_181_365 ? (Number(row.aging_181_365) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_366_730 ? (Number(row.aging_366_730) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {row.aging_above_730 ? (Number(row.aging_above_730) / 10000000).toFixed(2) : "0.00"}
                   </td>
-                  <td style={{ textAlign: "right" }}>{row.days || "-"}</td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{row.days || "-"}</td>
+                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {typeof row.avg_inv_value === "number"
                       ? (row.avg_inv_value / 10000000).toFixed(2)
                       : (row.avg_inv_value || "-")}
@@ -1687,40 +1716,40 @@ const [loading, setLoading] = useState(true);
 
                 return (
                   <tr style={styles.detailTotalRow}>
-                    <td style={{ textAlign: "left", fontWeight: 800 }}>Total</td>
+                    <td style={{ textAlign: "left", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap" }}>Total</td>
                     <td />
                     <td />
                     <td />
                     <td />
                     <td />
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {totals.qty.toLocaleString()}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.totalVal / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d30 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d60 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d90 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d120 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d180 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d365 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d730 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", fontWeight: 800 }}>
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.dAbove730 / 10000000).toFixed(2)}
                     </td>
                     <td />
@@ -2238,9 +2267,9 @@ const styles = {
 
   detailTable: {
     width: "100%",
-    minWidth: 1400,
+    minWidth: 1200,
     borderCollapse: "collapse",
-    fontSize: "0.80rem",
+    fontSize: "0.82rem",
     color: "#334155",
     tableLayout: "auto",
   },
@@ -2329,19 +2358,22 @@ if (
 
     /* Enhanced Detail Table Styling for high legibility */
     table.detail-table th {
-      padding: 9px 8px !important;
-      font-size: 0.78rem !important;
+      padding: 9px 7px !important;
+      font-size: 0.81rem !important;
       letter-spacing: -0.01em !important;
       color: #1e3a8a !important;
       font-weight: 700 !important;
+      vertical-align: middle !important;
     }
 
     table.detail-table td {
-      padding: 8px 8px !important;
-      font-size: 0.80rem !important;
+      padding: 9px 7px !important;
+      font-size: 0.82rem !important;
       letter-spacing: -0.01em !important;
       color: #1e293b !important;
-      line-height: 1.4 !important;
+      line-height: 1.35 !important;
+      vertical-align: middle !important;
+      white-space: normal !important;
     }
 
     select:focus {
