@@ -218,12 +218,15 @@ export default function MultiSelectDropdown({
               style={{
                 background: "none",
                 border: "none",
-                color: "#64748b",
-                fontWeight: 600,
+                color: "#dc2626",
+                fontWeight: 700,
                 fontSize: "0.82rem",
                 cursor: "pointer",
                 padding: 0,
+                transition: "color 0.15s",
               }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#b91c1c")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#dc2626")}
             >
               Clear
             </button>

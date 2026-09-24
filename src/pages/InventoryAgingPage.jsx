@@ -62,6 +62,8 @@ export default function InventoryOverview() {
       asOnDate: "All",
   });
 const [loading, setLoading] = useState(true);
+  const [detailPage, setDetailPage] = useState(0);
+  const [detailPageSize, setDetailPageSize] = useState(15);
   const [mockData, setMockData] = useState({
     filters: {
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
@@ -432,6 +434,7 @@ const [loading, setLoading] = useState(true);
   };
 
   const resetFilters = () => {
+    setDetailPage(0);
     setFilters({
       legalGroup: [],
       legalEntity: [],
@@ -1130,6 +1133,12 @@ const [loading, setLoading] = useState(true);
     );
   }, [mockData.locations]);
 
+  const detailTotalRows = mockData.details.length;
+  const detailTotalPages = Math.max(1, Math.ceil(detailTotalRows / detailPageSize));
+  const paginatedDetails = useMemo(() => {
+    return mockData.details.slice(detailPage * detailPageSize, (detailPage + 1) * detailPageSize);
+  }, [mockData.details, detailPage, detailPageSize]);
+
   if (loading) {
       return (
         <div style={{ padding: 60, textAlign: "center", fontSize: "0.95rem", color: "#64748b", fontWeight: 600 }}>
@@ -1557,59 +1566,59 @@ const [loading, setLoading] = useState(true);
           <table style={styles.detailTable} className="detail-table">
             <thead>
               <tr>
-                <th style={{ textAlign: "left", width: 130 }}>Legal Entity</th>
-                <th style={{ textAlign: "left", width: 110 }}>Parent Division</th>
-                <th style={{ textAlign: "left", width: 110 }}>Sub-Division</th>
-                <th style={{ textAlign: "left", width: 75 }}>Subinventory</th>
-                <th style={{ textAlign: "left", width: 95 }}>Item Code</th>
-                <th style={{ textAlign: "left", width: 140 }}>Item Description</th>
-                <th style={{ textAlign: "right", width: 65 }}>Total Qty</th>
-                <th style={{ textAlign: "right", width: 75 }}>Value ({filters.currency || "AED"})</th>
-                <th style={{ textAlign: "right", width: 50 }}>0 - 30</th>
-                <th style={{ textAlign: "right", width: 50 }}>31 - 60</th>
-                <th style={{ textAlign: "right", width: 50 }}>61 - 90</th>
-                <th style={{ textAlign: "right", width: 50 }}>91 - 120</th>
-                <th style={{ textAlign: "right", width: 55 }}>121 - 180</th>
-                <th style={{ textAlign: "right", width: 55 }}>181 - 365</th>
-                <th style={{ textAlign: "right", width: 55 }}>366 - 730</th>
-                <th style={{ textAlign: "right", width: 50 }}>&gt; 730</th>
-                <th style={{ textAlign: "right", width: 45 }}>Days</th>
-                <th style={{ textAlign: "right", width: 65 }}>Avg Value</th>
+                <th style={{ textAlign: "left", width: 145, minWidth: 145 }}>Legal Entity</th>
+                <th style={{ textAlign: "left", width: 125, minWidth: 125 }}>Parent Division</th>
+                <th style={{ textAlign: "left", width: 125, minWidth: 125 }}>Sub-Division</th>
+                <th style={{ textAlign: "left", width: 85, minWidth: 85 }}>Subinventory</th>
+                <th style={{ textAlign: "left", width: 105, minWidth: 105 }}>Item Code</th>
+                <th style={{ textAlign: "left", width: 160, minWidth: 160 }}>Item Description</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 75 }}>Total Qty</th>
+                <th style={{ textAlign: "right", width: 85, minWidth: 85 }}>Value ({filters.currency || "AED"})</th>
+                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>0 - 30</th>
+                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>31 - 60</th>
+                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>61 - 90</th>
+                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>91 - 120</th>
+                <th style={{ textAlign: "right", width: 62, minWidth: 62 }}>121 - 180</th>
+                <th style={{ textAlign: "right", width: 62, minWidth: 62 }}>181 - 365</th>
+                <th style={{ textAlign: "right", width: 62, minWidth: 62 }}>366 - 730</th>
+                <th style={{ textAlign: "right", width: 58, minWidth: 58 }}>&gt; 730</th>
+                <th style={{ textAlign: "right", width: 50, minWidth: 50 }}>Days</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 75 }}>Avg Value</th>
               </tr>
             </thead>
 
             <tbody>
-              {mockData.details.map((row) => (
+              {paginatedDetails.map((row) => (
                 <tr key={row.id}>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.legal_entity}>
+                    <div style={{ maxWidth: 145, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }} title={row.legal_entity}>
                       {row.legal_entity}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.parent_division}>
+                    <div style={{ maxWidth: 125, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.parent_division}>
                       {row.parent_division}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subdivision}>
+                    <div style={{ maxWidth: 125, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subdivision}>
                       {row.subdivision}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 75, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subinventory}>
+                    <div style={{ maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subinventory}>
                       {row.subinventory}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 95, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.item_code}>
+                    <div style={{ maxWidth: 105, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600, color: "#1e3a8a" }} title={row.item_code}>
                       {row.item_code}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
                     <div
                       style={{
-                        maxWidth: 140,
+                        maxWidth: 160,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -1619,10 +1628,10 @@ const [loading, setLoading] = useState(true);
                       {row.item_description}
                     </div>
                   </td>
-                  <td style={{ textAlign: "right" }}>
+                  <td style={{ textAlign: "right", fontWeight: 500 }}>
                     {row.quantity ? Number(row.quantity).toLocaleString() : "0"}
                   </td>
-                  <td style={{ textAlign: "right", fontWeight: 600 }}>
+                  <td style={{ textAlign: "right", fontWeight: 700, color: "#1e293b" }}>
                     {row.total_stock_value
                       ? (Number(row.total_stock_value) / 10000000).toFixed(2)
                       : "0.00"}
@@ -1721,6 +1730,91 @@ const [loading, setLoading] = useState(true);
               })()}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Bar - Matching Sales Revenue by Parent Division — View Details */}
+        <div style={{
+          padding: "10px 18px",
+          borderTop: "1px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "#f8fafc",
+          flexWrap: "wrap",
+          gap: 8,
+          borderRadius: "0 0 10px 10px",
+        }}>
+          <div style={{ fontSize: "0.76rem", color: "#64748b", fontWeight: 500 }}>
+            {detailTotalRows > 0
+              ? `Showing ${detailPage * detailPageSize + 1}–${Math.min((detailPage + 1) * detailPageSize, detailTotalRows)} of ${detailTotalRows} records`
+              : "No records"}
+          </div>
+
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5, marginRight: 6 }}>
+              <span style={{ fontSize: "0.74rem", color: "#64748b" }}>Rows per page:</span>
+              <select
+                value={detailPageSize}
+                onChange={(e) => {
+                  setDetailPageSize(Number(e.target.value));
+                  setDetailPage(0);
+                }}
+                style={{
+                  padding: "3px 6px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  fontSize: "0.74rem",
+                  color: "#334155",
+                  cursor: "pointer",
+                  outline: "none",
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+
+            <button
+              onClick={() => setDetailPage(p => Math.max(0, p - 1))}
+              disabled={detailPage === 0}
+              style={{
+                padding: "5px 12px",
+                borderRadius: 7,
+                border: "1px solid #cbd5e1",
+                background: detailPage === 0 ? "#f1f5f9" : "#fff",
+                color: detailPage === 0 ? "#94a3b8" : "#1e293b",
+                fontSize: "0.74rem",
+                fontWeight: 600,
+                cursor: detailPage === 0 ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              ← Prev
+            </button>
+            <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "#1e293b", minWidth: 40, textAlign: "center" }}>
+              {detailTotalRows > 0 ? detailPage + 1 : 0} / {detailTotalPages}
+            </span>
+            <button
+              onClick={() => setDetailPage(p => Math.min(detailTotalPages - 1, p + 1))}
+              disabled={detailPage >= detailTotalPages - 1}
+              style={{
+                padding: "5px 12px",
+                borderRadius: 7,
+                border: "1px solid #cbd5e1",
+                background: detailPage >= detailTotalPages - 1 ? "#f1f5f9" : "#fff",
+                color: detailPage >= detailTotalPages - 1 ? "#94a3b8" : "#1e293b",
+                fontSize: "0.74rem",
+                fontWeight: 600,
+                cursor: detailPage >= detailTotalPages - 1 ? "not-allowed" : "pointer",
+                transition: "all 0.15s",
+              }}
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2144,9 +2238,9 @@ const styles = {
 
   detailTable: {
     width: "100%",
-    minWidth: 1280,
+    minWidth: 1400,
     borderCollapse: "collapse",
-    fontSize: "0.73rem",
+    fontSize: "0.80rem",
     color: "#334155",
     tableLayout: "auto",
   },
@@ -2233,17 +2327,21 @@ if (
       background: #64748b !important;
     }
 
-    /* Compact Detail Table Styling */
+    /* Enhanced Detail Table Styling for high legibility */
     table.detail-table th {
-      padding: 7px 5px !important;
-      font-size: 0.72rem !important;
+      padding: 9px 8px !important;
+      font-size: 0.78rem !important;
       letter-spacing: -0.01em !important;
+      color: #1e3a8a !important;
+      font-weight: 700 !important;
     }
 
     table.detail-table td {
-      padding: 6px 5px !important;
-      font-size: 0.73rem !important;
+      padding: 8px 8px !important;
+      font-size: 0.80rem !important;
       letter-spacing: -0.01em !important;
+      color: #1e293b !important;
+      line-height: 1.4 !important;
     }
 
     select:focus {
