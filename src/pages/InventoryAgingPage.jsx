@@ -9,7 +9,7 @@ export default function InventoryOverview() {
   // ============================================================
 
 
-  const handleExport = async (type) => {
+  const handleExport = async (type, section = null) => {
     try {
       let formattedDate = filters.asOnDate;
       if (formattedDate && formattedDate !== "All" && formattedDate !== "") {
@@ -38,12 +38,13 @@ export default function InventoryOverview() {
               if (filters.currency && filters.currency !== "All" && filters.currency !== "AED") apiFilters.currency = filters.currency; // Modify if AED shouldn't be ignored
               if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
-      const response = await getInventoryExport(type, apiFilters);
+      const exportFilters = section ? { ...apiFilters, section } : apiFilters;
+      const response = await getInventoryExport(type, exportFilters);
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Inventory_Export_${type}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
+      a.download = `Inventory_${section || 'Export'}_${type}.${type === 'pdf' ? 'pdf' : 'xlsx'}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -64,12 +65,15 @@ export default function InventoryOverview() {
 const [loading, setLoading] = useState(true);
   const [detailPage, setDetailPage] = useState(0);
   const [detailPageSize, setDetailPageSize] = useState(15);
+  const [parentDivViewMode, setParentDivViewMode] = useState("month"); // "month" | "mom"
+  const [viewAllModal, setViewAllModal] = useState(null); // "parentDivision" | "subdivision" | null
+  const [viewAllSearch, setViewAllSearch] = useState("");
   const [mockData, setMockData] = useState({
     filters: {
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
     },
-    kpis: [], trend: { labels: [], previous: [], current: [] }, divisions: [],
-    businessUnits: [], aging: [], slowMoving: [], locations: [], details: []
+    kpis: [], trend: { labels: [], previous: [], current: [] }, divisions: [], allDivisions: [],
+    businessUnits: [], bySubdivision: [], allSubdivisions: [], aging: [], slowMoving: [], locations: [], details: []
   });
 
   
@@ -295,23 +299,48 @@ const [loading, setLoading] = useState(true);
                   }
               }
 
+              let allDivisions = [];
               let divisions = [];
               if (dData.by_parent_division) {
-                  const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#ec4899"];
-                  divisions = dData.by_parent_division.map((item, idx) => ({
+                  const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#ec4899", "#0891b2"];
+                  allDivisions = dData.by_parent_division.map((item, idx) => ({
                       name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : item.label,
                       value: Number(item.inventory_value) / 10000000,
                       percentage: Number(item.percentage_of_total),
                       color: colors[idx % colors.length]
-                  })).sort((a,b) => b.value - a.value).slice(0, 5);
+                  })).sort((a,b) => b.value - a.value);
+
+                  if (allDivisions.length > 5) {
+                      const top4 = allDivisions.slice(0, 4);
+                      const others = allDivisions.slice(4);
+                      const otherVal = others.reduce((s, r) => s + r.value, 0);
+                      const otherPct = others.reduce((s, r) => s + r.percentage, 0);
+                      divisions = [
+                          ...top4,
+                          { name: "Others", value: otherVal, percentage: otherPct, color: "#64748b" }
+                      ];
+                  } else {
+                      divisions = allDivisions;
+                  }
               }
 
+              let allSubdivisions = [];
               let bySubdivision = [];
               if (dData.by_subdivision) {
-                  bySubdivision = dData.by_subdivision.map((item) => ({
+                  allSubdivisions = dData.by_subdivision.map((item) => ({
                       name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
                       value: Number(item.inventory_value) / 10000000,
-                  })).sort((a,b) => b.value - a.value).slice(0, 5);
+                      percentage: Number(item.percentage_of_total || 0),
+                  })).sort((a,b) => b.value - a.value);
+
+                  const subTotal = allSubdivisions.reduce((s, r) => s + r.value, 0);
+                  if (subTotal > 0) {
+                      allSubdivisions.forEach(r => {
+                          if (!r.percentage) r.percentage = (r.value / subTotal) * 100;
+                      });
+                  }
+
+                  bySubdivision = allSubdivisions.slice(0, 5);
               }
 
                             let trend = { labels: [], previous: [], current: [] };
@@ -400,7 +429,9 @@ const [loading, setLoading] = useState(true);
                   kpis,
                   trend,
                   divisions,
+                  allDivisions,
                   bySubdivision,
+                  allSubdivisions,
                   aging,
                   slowMoving,
                   locations,
@@ -977,76 +1008,170 @@ const [loading, setLoading] = useState(true);
     info,
     onViewAll,
     onExport,
-  }) => (
-    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 4 }}>
-      <div>
-        <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 6 }}>
-          {title}
-          {info && (
-            <span
-              style={{
-                fontSize: "0.72rem",
-                color: "#94a3b8",
-                cursor: "help",
-                fontWeight: 600,
-              }}
-              title={info}
-            >
-              ⓘ
-            </span>
-          )}
-        </div>
-        {subtitle && (
-          <div style={{ fontSize: "0.70rem", color: "#64748b", marginTop: 2 }}>
-            {subtitle}
-          </div>
-        )}
-      </div>
+    extra,
+  }) => {
+    const [exportOpen, setExportOpen] = useState(false);
 
-      {(onViewAll || onExport) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {onViewAll && (
-            <button
-              style={{
-                height: 26,
-                padding: "0 9px",
-                border: "1px solid #e2e8f0",
-                borderRadius: 6,
-                background: "#f8fafc",
-                color: "#475569",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-              onClick={onViewAll}
-            >
-              View All
-            </button>
-          )}
-          {onExport && (
-            <button
-              style={{
-                height: 26,
-                padding: "0 9px",
-                border: "1px solid #e2e8f0",
-                borderRadius: 6,
-                background: "#f8fafc",
-                color: "#475569",
-                fontSize: "0.72rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-              onClick={onExport}
-            >
-              Export ▾
-            </button>
+    return (
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+        <div>
+          <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 6 }}>
+            {title}
+            {info && (
+              <span
+                style={{
+                  fontSize: "0.72rem",
+                  color: "#94a3b8",
+                  cursor: "help",
+                  fontWeight: 600,
+                }}
+                title={info}
+              >
+                ⓘ
+              </span>
+            )}
+          </div>
+          {subtitle && (
+            <div style={{ fontSize: "0.70rem", color: "#64748b", marginTop: 2 }}>
+              {subtitle}
+            </div>
           )}
         </div>
-      )}
-    </div>
-  );
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          {extra && (
+            <div>{extra}</div>
+          )}
+
+          {(onViewAll || onExport) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+              {onViewAll && (
+                <button
+                  style={{
+                    height: 26,
+                    padding: "0 10px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    background: "#fff",
+                    color: "#334155",
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
+                  onClick={onViewAll}
+                >
+                  View All
+                </button>
+              )}
+
+              {onExport && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    style={{
+                      height: 26,
+                      padding: "0 10px",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: 6,
+                      background: "#fff",
+                      color: "#334155",
+                      fontSize: "0.72rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
+                    onClick={() => {
+                      if (typeof onExport === "function" && onExport.length === 0) {
+                        onExport();
+                      } else {
+                        setExportOpen(prev => !prev);
+                      }
+                    }}
+                  >
+                    Export ▾
+                  </button>
+
+                  {exportOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        right: 0,
+                        top: "100%",
+                        marginTop: 4,
+                        background: "#fff",
+                        border: "1px solid #cbd5e1",
+                        borderRadius: 8,
+                        boxShadow: "0 10px 25px rgba(0,0,0,0.12)",
+                        zIndex: 100,
+                        minWidth: 150,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setExportOpen(false);
+                          if (typeof onExport === "function") onExport("excel");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "8px 12px",
+                          textAlign: "left",
+                          background: "none",
+                          border: "none",
+                          borderBottom: "1px solid #f1f5f9",
+                          fontSize: "0.74rem",
+                          fontWeight: 500,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                      >
+                        Export Excel (.xlsx)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setExportOpen(false);
+                          if (typeof onExport === "function") onExport("pdf");
+                        }}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          padding: "8px 12px",
+                          textAlign: "left",
+                          background: "none",
+                          border: "none",
+                          fontSize: "0.74rem",
+                          fontWeight: 500,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#f8fafc"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                      >
+                        Export PDF (.pdf)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const SectionHeader = ({ children }) => (
     <div style={styles.sectionHeader}>{children}</div>
@@ -1339,17 +1464,76 @@ const [loading, setLoading] = useState(true);
         {/* Parent Division */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
           <CardHeader
-            title="Inventory Value by Parent Division"
-            subtitle={`Distribution across parent divisions (${filters.currency || "AED"} Cr)`}
+            title={`Inventory Value by Parent Division (${filters.currency || "AED"} Cr)`}
+            subtitle={parentDivViewMode === "mom" ? `Month on Month distribution across parent divisions (${filters.currency || "AED"} Cr)` : `Distribution across parent divisions (${filters.currency || "AED"} Cr)`}
             info="Breakdown across key parent divisions"
+            extra={
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setParentDivViewMode("month")}
+                  style={{
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    color: parentDivViewMode === "month" ? "#fff" : "#475569",
+                    background: parentDivViewMode === "month" ? "#2563eb" : "#f1f5f9",
+                    border: parentDivViewMode === "month" ? "1px solid #2563eb" : "1px solid #cbd5e1",
+                    borderRadius: 5,
+                    padding: "3px 10px",
+                    cursor: "pointer",
+                    boxShadow: parentDivViewMode === "month" ? "0 1px 2px rgba(37,99,235,0.25)" : "none",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  Month
+                </button>
+
+                <div
+                  onClick={() => setParentDivViewMode(prev => prev === "mom" ? "month" : "mom")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
+                  title="Toggle Month on Month comparison"
+                >
+                  <div
+                    style={{
+                      width: 32,
+                      height: 18,
+                      borderRadius: 10,
+                      background: parentDivViewMode === "mom" ? "#2563eb" : "#cbd5e1",
+                      padding: 2,
+                      position: "relative",
+                      transition: "background 0.2s",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 14,
+                        height: 14,
+                        borderRadius: "50%",
+                        background: "#fff",
+                        position: "absolute",
+                        top: 2,
+                        left: parentDivViewMode === "mom" ? 16 : 2,
+                        transition: "left 0.2s",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+                      }}
+                    />
+                  </div>
+                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: parentDivViewMode === "mom" ? "#1e3a8a" : "#475569" }}>
+                    Month on Month
+                  </span>
+                </div>
+              </div>
+            }
+            onViewAll={() => setViewAllModal("parentDivision")}
+            onExport={(type) => handleExport(type || "excel", "parent-divisions")}
           />
 
           <div style={styles.donutRow}>
             <DonutChart
               data={mockData.divisions}
               total={parentDivTotal.toFixed(2)}
-              centerText={`${parentDivTotal.toFixed(2)}`}
-              centerSubText={`${filters.currency || "AED"} Cr`}
+              centerText={`${parentDivTotal.toFixed(2)} Cr`}
+              centerSubText="Total"
               size={120}
               strokeWidth={18}
             />
@@ -1376,9 +1560,11 @@ const [loading, setLoading] = useState(true);
         {/* Sub-division */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
           <CardHeader
-            title="Inventory Value by Sub-division"
+            title={`Inventory Value by Sub-division (${filters.currency || "AED"} Cr)`}
             subtitle={`Sub-division inventory comparison (${filters.currency || "AED"} Cr)`}
             info="Sub-division holdings ranked by value"
+            onViewAll={() => setViewAllModal("subdivision")}
+            onExport={(type) => handleExport(type || "excel")}
           />
 
           <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
@@ -1861,6 +2047,268 @@ const [loading, setLoading] = useState(true);
           Source: Oracle Fusion Cloud
         </div>
       </div>
+
+      {/* ========================================================
+          VIEW ALL MODAL (Parent Division / Sub-division)
+      ======================================================== */}
+      {viewAllModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.5)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 20,
+          }}
+          onClick={() => {
+            setViewAllModal(null);
+            setViewAllSearch("");
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 680,
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
+              border: "1px solid #e2e8f0",
+              overflow: "hidden",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "14px 20px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: "linear-gradient(90deg, #f8fafc, #fff)",
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "#0f172a" }}>
+                  {viewAllModal === "parentDivision"
+                    ? `Inventory Value by Parent Division — View Details`
+                    : `Inventory Value by Sub-division — View Details`}
+                </h3>
+                <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
+                  {viewAllModal === "parentDivision"
+                    ? `Breakdown across all parent divisions (${filters.currency || "AED"} Cr)`
+                    : `Breakdown across all sub-divisions (${filters.currency || "AED"} Cr)`}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setViewAllModal(null);
+                  setViewAllSearch("");
+                }}
+                style={{
+                  background: "#f1f5f9",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 28,
+                  height: 28,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#64748b",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  outline: "none",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Search & Export Bar */}
+            <div
+              style={{
+                padding: "10px 20px",
+                borderBottom: "1px solid #f1f5f9",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                background: "#fafbfc",
+                flexWrap: "wrap",
+              }}
+            >
+              <input
+                type="text"
+                placeholder={viewAllModal === "parentDivision" ? "Search parent divisions..." : "Search sub-divisions..."}
+                value={viewAllSearch}
+                onChange={(e) => setViewAllSearch(e.target.value)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  fontSize: "0.76rem",
+                  width: 220,
+                  outline: "none",
+                }}
+              />
+
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => handleExport("excel", viewAllModal === "parentDivision" ? "parent-divisions" : null)}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    background: "#fff",
+                    color: "#166534",
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Export Excel
+                </button>
+                <button
+                  onClick={() => handleExport("pdf", viewAllModal === "parentDivision" ? "parent-divisions" : null)}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    background: "#fff",
+                    color: "#991b1b",
+                    fontSize: "0.72rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Export PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Table Content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
+              {(() => {
+                const rawList = viewAllModal === "parentDivision"
+                  ? (mockData.allDivisions?.length ? mockData.allDivisions : mockData.divisions)
+                  : (mockData.allSubdivisions?.length ? mockData.allSubdivisions : mockData.bySubdivision);
+                
+                const filtered = (rawList || []).filter(item =>
+                  !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                );
+
+                const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
+                const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
+
+                return (
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                    <thead>
+                      <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                        <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                        <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>
+                          {viewAllModal === "parentDivision" ? "Parent Division" : "Sub-Division"}
+                        </th>
+                        <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 150 }}>
+                          Value ({filters.currency || "AED"} Cr)
+                        </th>
+                        <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110 }}>
+                          % of Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>
+                            No divisions found
+                          </td>
+                        </tr>
+                      ) : (
+                        filtered.map((item, idx) => (
+                          <tr
+                            key={idx}
+                            style={{
+                              borderBottom: "1px solid #f1f5f9",
+                              background: idx % 2 === 0 ? "#fff" : "#fafbfc",
+                            }}
+                          >
+                            <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                            <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>
+                              {item.name}
+                            </td>
+                            <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
+                              {Number(item.value || 0).toFixed(2)}
+                            </td>
+                            <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>
+                              {Number(item.percentage || 0).toFixed(2)}%
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                    {filtered.length > 0 && (
+                      <tfoot>
+                        <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                          <td style={{ padding: "10px 10px" }} />
+                          <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                          <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>
+                            {totalVal.toFixed(2)}
+                          </td>
+                          <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>
+                            {totalPct.toFixed(2)}%
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "10px 20px",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#f8fafc",
+              }}
+            >
+              <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
+                Live inventory snapshot data
+              </span>
+              <button
+                onClick={() => {
+                  setViewAllModal(null);
+                  setViewAllSearch("");
+                }}
+                style={{
+                  padding: "5px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#334155",
+                  fontSize: "0.74rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
