@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
+import { toast } from "react-hot-toast";
 
 export default function InventoryOverview() {
   // ============================================================
@@ -10,6 +11,7 @@ export default function InventoryOverview() {
 
 
   const handleExport = async (type, section = null) => {
+    const toastId = toast.loading(`Exporting ${section || 'data'}...`);
     try {
       let formattedDate = filters.asOnDate;
       if (formattedDate && formattedDate !== "All" && formattedDate !== "") {
@@ -48,8 +50,10 @@ export default function InventoryOverview() {
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success("Export successful", { id: toastId });
     } catch (err) {
       console.error("Export failed", err);
+      toast.error("Export failed: " + (err.response?.data?.detail || err.message || "Unknown error"), { id: toastId });
     }
   };
 
@@ -68,6 +72,8 @@ const [loading, setLoading] = useState(true);
   const [parentDivViewMode, setParentDivViewMode] = useState("month"); // "month" | "mom"
   const [viewAllModal, setViewAllModal] = useState(null); // "trend" | "parentDivision" | "subdivision" | "aging" | "slowMoving" | "location" | "details" | null
   const [viewAllSearch, setViewAllSearch] = useState("");
+  const [modalDetailPage, setModalDetailPage] = useState(0);
+  const [modalDetailPageSize, setModalDetailPageSize] = useState(15);
   const [mockData, setMockData] = useState({
     filters: {
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
@@ -566,86 +572,116 @@ const [loading, setLoading] = useState(true);
   // ============================================================
 
   const KpiCard = ({ item }) => {
+    const isPositive = item.direction === "up";
+    const hasVariance = item.variance !== null && item.variance !== undefined;
+
     return (
-      <div
-        style={{
-          ...styles.kpiCard,
-          background: item.cardBg || "#fff",
-          border: `1px solid ${item.borderColor || "#e4e9f0"}`,
-        }}
-      >
-        <div style={styles.kpiTop}>
-          <div
+        <div
             style={{
-              ...styles.kpiIcon,
-              background: item.iconBg,
-              color: item.iconColor,
+                background: item.iconBg || "#F8FAFC",
+                border: "1px solid rgba(255, 255, 255, 0.8)",
+                borderRadius: "12px",
+                padding: "14px 16px",
+                minHeight: "105px",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
+                transition: "transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease",
+                cursor: "default",
             }}
-          >
-            {typeof item.icon === "string" ? (
-              item.icon
-            ) : (
-              <item.icon size={20} strokeWidth={2.2} />
-            )}
-          </div>
-
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div
-              style={{
-                ...styles.kpiTitle,
-                color: item.titleColor || "#64748b",
-              }}
-            >
-              {item.title}
-            </div>
-            {item.subtitle && (
-              <div
-                style={{
-                  fontSize: "0.68rem",
-                  fontWeight: 600,
-                  color: item.titleColor || "#dc2626",
-                  marginTop: -2,
-                  marginBottom: 1,
-                }}
-              >
-                {item.subtitle}
-              </div>
-            )}
-
-            <div style={styles.kpiValue}>{item.value}</div>
-
-            {item.variance ? (
-              <div style={styles.kpiVariance}>
-                <span
-                  style={{
-                    color:
-                      item.arrowColor ||
-                      (item.direction === "down" ? "#dc2626" : "#16a34a"),
-                    fontWeight: 700,
-                  }}
+            onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(15, 23, 42, 0.06)";
+                e.currentTarget.style.filter = "brightness(0.99)";
+            }}
+            onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "0 2px 8px rgba(15, 23, 42, 0.04)";
+                e.currentTarget.style.filter = "brightness(1)";
+            }}
+        >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div
+                    style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "50%",
+                        background: "#F1F5F9",
+                        color: item.iconColor,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        boxShadow: "0 2px 6px rgba(15, 23, 42, 0.06)",
+                    }}
                 >
-                  {item.direction === "down" ? "▼" : "▲"} {item.variance}
-                </span>
-                <span style={{ color: "#64748b", marginLeft: 4 }}>
-                  {item.varianceLabel}
-                </span>
-              </div>
-            ) : (
-              <div style={styles.kpiVariance}>
-                <span style={{ color: "transparent" }}>--</span>
-              </div>
-            )}
-          </div>
-        </div>
+                    {typeof item.icon === "string" ? (
+                        item.icon
+                    ) : (
+                        <item.icon size={20} strokeWidth={2.2} />
+                    )}
+                </div>
 
-        <div style={{ marginTop: 4 }}>
-          <MiniLine
-            points={item.line || []}
-            color={item.iconColor}
-            id={item.key || (item.title ? item.title.replace(/\s+/g, "") : "card")}
-          />
+                <div
+                    style={{
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: item.iconColor,
+                        lineHeight: 1.2,
+                    }}
+                >
+                    {item.title}
+                </div>
+            </div>
+
+            <div
+                style={{
+                    marginLeft: "46px",
+                    marginTop: "-2px",
+                    fontSize: "18px",
+                    fontWeight: 800,
+                    color: "#111827",
+                    lineHeight: 1.1,
+                }}
+            >
+                {item.value || "—"}
+            </div>
+
+            {item.subtitle ? (
+                <div
+                    style={{
+                        marginLeft: "46px",
+                        marginTop: "1px",
+                        fontSize: "10px",
+                        color: "#64748b",
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                    }}
+                >
+                    {item.subtitle}
+                </div>
+            ) : null}
+
+            <div
+                style={{
+                    marginLeft: "46px",
+                    fontSize: "11px",
+                    color: isPositive ? "#0e9f75" : "#ef476f",
+                    fontWeight: 600,
+                    lineHeight: 1.2,
+                }}
+            >
+                {hasVariance ? (
+                    <>{isPositive ? "▲" : "▼"} {item.variance} {item.varianceLabel || ""}</>
+                ) : (
+                    "—"
+                )}
+            </div>
         </div>
-      </div>
     );
   };
 
@@ -884,28 +920,15 @@ const [loading, setLoading] = useState(true);
 
           <text
             x={half}
-            y={centerSubText ? half - 3 : half + 4}
+            y={half + 4}
             textAnchor="middle"
-            fontSize="10.5"
+            fontSize="11"
             fontWeight="800"
             fill="#1e293b"
             letterSpacing="-0.3px"
           >
-            {centerText}
+            {centerSubText ? `${centerSubText === "Total" ? "" : centerSubText} ${centerText}`.trim() : centerText}
           </text>
-
-          {centerSubText && (
-            <text
-              x={half}
-              y={half + 10}
-              textAnchor="middle"
-              fontSize="8.5"
-              fontWeight="600"
-              fill="#64748b"
-            >
-              {centerSubText}
-            </text>
-          )}
         </svg>
       </div>
     );
@@ -1050,7 +1073,7 @@ const [loading, setLoading] = useState(true);
     }, [exportOpen]);
 
     return (
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
         <div>
           <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 6 }}>
             {title}
@@ -1075,17 +1098,17 @@ const [loading, setLoading] = useState(true);
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {extra && (
-            <div>{extra}</div>
+            <div style={{ display: "flex", alignItems: "center" }}>{extra}</div>
           )}
 
           {(onViewAll || onExport) && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, position: "relative", whiteSpace: "nowrap", flexShrink: 0 }}>
               {onViewAll && (
-                <button
-                  style={{
-                    height: 26,
+                <button type="button"
+                    style={{
+                      height: 26,
                     padding: "0 10px",
                     border: "1px solid #cbd5e1",
                     borderRadius: 6,
@@ -1109,7 +1132,7 @@ const [loading, setLoading] = useState(true);
 
               {onExport && (
                 <div ref={exportRef} style={{ position: "relative" }}>
-                  <button
+                  <button type="button"
                     style={{
                       height: 26,
                       padding: "0 10px",
@@ -1148,7 +1171,7 @@ const [loading, setLoading] = useState(true);
                         overflow: "hidden",
                       }}
                     >
-                      <button
+                      <button type="button"
                         onClick={() => {
                           setExportOpen(false);
                           if (typeof onExport === "function") onExport("excel");
@@ -1171,7 +1194,7 @@ const [loading, setLoading] = useState(true);
                       >
                         Export Excel (.xlsx)
                       </button>
-                      <button
+                      <button type="button"
                         onClick={() => {
                           setExportOpen(false);
                           if (typeof onExport === "function") onExport("pdf");
@@ -1331,7 +1354,7 @@ const [loading, setLoading] = useState(true);
         </div>
 
         <div style={styles.headerActions}>
-          <button
+          <button type="button"
             id="btn-export-excel-inventory"
             onClick={() => handleExport('excel')}
             title="Export to Excel"
@@ -1346,7 +1369,7 @@ const [loading, setLoading] = useState(true);
           >
             📊 Excel
           </button>
-          <button
+          <button type="button"
             id="btn-export-pdf-inventory"
             onClick={() => handleExport('pdf')}
             title="Export to PDF"
@@ -1361,7 +1384,7 @@ const [loading, setLoading] = useState(true);
           >
             📄 PDF
           </button>
-          <button
+          <button type="button"
             onClick={() => window.location.reload()}
             title="Refresh"
             style={{
@@ -1440,12 +1463,12 @@ const [loading, setLoading] = useState(true);
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end', flexShrink: 0, paddingBottom: 1 }}>
-          <button style={styles.applyButton} onClick={() => loadData()}>
+          <button type="button" style={styles.applyButton} onClick={() => loadData()}>
             Apply
           </button>
 
-          <button style={styles.resetButton} onClick={resetFilters}>
-            Reset
+          <button type="button" style={styles.resetButton} onClick={resetFilters}>
+            Clear
           </button>
         </div>
       </div>
@@ -1500,8 +1523,7 @@ const [loading, setLoading] = useState(true);
             info="Breakdown across key parent divisions"
             extra={
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => setParentDivViewMode("month")}
                   style={{
                     fontSize: "0.72rem",
@@ -1733,13 +1755,13 @@ const [loading, setLoading] = useState(true);
             onExport={(type) => handleExport(type || "excel")}
           />
 
-          <div style={{ ...styles.tableWrapper, flex: 1 }}>
+          <div style={{ ...styles.tableWrapper, flex: 1, display: "flex", flexDirection: "column" }}>
             {mockData.locations.length === 0 ? (
               <div style={{ padding: "30px 0", textAlign: "center", color: "#94a3b8", fontSize: "0.74rem" }}>
                 No location data available
               </div>
             ) : (
-              <table style={styles.table}>
+              <table style={{ ...styles.table, flex: 1 }}>
                 <thead>
                   <tr>
                     <th>Location</th>
@@ -1757,6 +1779,7 @@ const [loading, setLoading] = useState(true);
                     </tr>
                   ))}
 
+                  <tr style={{ height: "100%" }}><td colSpan={3}></td></tr>
                   <tr style={styles.totalRow}>
                     <td style={{ fontWeight: 800, color: "#1e3a8a" }}>Total</td>
                     <td style={{ textAlign: 'right', fontWeight: 800, color: "#1e293b" }}>{locationTotal.toFixed(2)}</td>
@@ -2028,7 +2051,7 @@ const [loading, setLoading] = useState(true);
               </select>
             </div>
 
-            <button
+            <button type="button"
               onClick={() => setDetailPage(p => Math.max(0, p - 1))}
               disabled={detailPage === 0}
               style={{
@@ -2048,7 +2071,7 @@ const [loading, setLoading] = useState(true);
             <span style={{ fontSize: "0.74rem", fontWeight: 600, color: "#1e293b", minWidth: 40, textAlign: "center" }}>
               {detailTotalRows > 0 ? detailPage + 1 : 0} / {detailTotalPages}
             </span>
-            <button
+            <button type="button"
               onClick={() => setDetailPage(p => Math.min(detailTotalPages - 1, p + 1))}
               disabled={detailPage >= detailTotalPages - 1}
               style={{
@@ -2210,7 +2233,7 @@ const [loading, setLoading] = useState(true);
                     {modalConfig.subtitle}
                   </div>
                 </div>
-                <button
+                <button type="button"
                   onClick={() => {
                     setViewAllModal(null);
                     setViewAllSearch("");
@@ -2264,7 +2287,7 @@ const [loading, setLoading] = useState(true);
                 />
 
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button
+                  <button type="button"
                     onClick={() => handleExport("excel", modalConfig.section)}
                     style={{
                       padding: "5px 12px",
@@ -2282,7 +2305,7 @@ const [loading, setLoading] = useState(true);
                   >
                     Export Excel (.xlsx)
                   </button>
-                  <button
+                  <button type="button"
                     onClick={() => handleExport("pdf", modalConfig.section)}
                     style={{
                       padding: "5px 12px",
@@ -2597,73 +2620,111 @@ const [loading, setLoading] = useState(true);
                       );
                     });
 
+                    const totalItems = filtered.length;
+                    const totalPages = Math.max(1, Math.ceil(totalItems / modalDetailPageSize));
+                    
+                    // Reset page if out of bounds due to search
+                    const currentPage = Math.min(modalDetailPage, totalPages - 1);
+                    if (currentPage !== modalDetailPage) setModalDetailPage(currentPage);
+
+                    const startIndex = currentPage * modalDetailPageSize;
+                    const paginated = filtered.slice(startIndex, startIndex + modalDetailPageSize);
+
                     const totalQty = filtered.reduce((s, r) => s + (Number(r.quantity) || 0), 0);
                     const totalVal = filtered.reduce((s, r) => s + (Number(r.total_stock_value) || 0), 0);
 
                     return (
-                      <div style={{ overflowX: "auto", width: "100%", maxHeight: "60vh" }} className="detail-table-scroll">
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.76rem" }}>
-                          <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
-                            <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
-                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 120 }}>Legal Entity</th>
-                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 100 }}>Parent Division</th>
-                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 100 }}>Sub-Division</th>
-                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Subinventory</th>
-                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Item Code</th>
-                              <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 140 }}>Item Description</th>
-                              <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Qty</th>
-                              <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Value ({filters.currency || "AED"})</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>0-30</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>31-60</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>61-90</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>91-120</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>121-180</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>181-365</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>366-730</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>&gt;730</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 45 }}>Days</th>
-                              <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Avg Value</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filtered.length === 0 ? (
-                              <tr><td colSpan={18} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No inventory records found</td></tr>
-                            ) : (
-                              filtered.map((row, idx) => (
-                                <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                  <td style={{ padding: "6px 10px", fontWeight: 600, color: "#1e293b" }}>{row.legal_entity}</td>
-                                  <td style={{ padding: "6px 10px", color: "#334155" }}>{row.parent_division}</td>
-                                  <td style={{ padding: "6px 10px", color: "#334155" }}>{row.subdivision}</td>
-                                  <td style={{ padding: "6px 10px", color: "#475569" }}>{row.subinventory}</td>
-                                  <td style={{ padding: "6px 10px", fontFamily: "monospace", color: "#1e3a8a", fontWeight: 600 }}>{row.item_code}</td>
-                                  <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 200, whiteSpace: "normal", wordBreak: "break-word" }}>{row.item_description}</td>
-                                  <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600 }}>{Number(row.quantity || 0).toLocaleString()}</td>
-                                  <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>{Number(row.total_stock_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_0_30 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_31_60 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_61_90 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_91_120 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_121_180 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_181_365 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_366_730 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_above_730 || 0).toFixed(0)}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 600 }}>{row.days}</td>
-                                  <td style={{ padding: "6px 6px", textAlign: "right" }}>{row.avg_inv_value !== "-" ? Number(row.avg_inv_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                          {filtered.length > 0 && (
-                            <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc", borderTop: "2px solid #e2e8f0" }}>
-                              <tr style={{ fontWeight: 800 }}>
-                                <td colSpan={6} style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total ({filtered.length} items)</td>
-                                <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalQty.toLocaleString()}</td>
-                                <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                <td colSpan={10} style={{ padding: "10px 10px" }} />
+                      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                        <div style={{ overflowX: "auto", width: "100%", maxHeight: "60vh" }} className="detail-table-scroll">
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.80rem" }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
+                              <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 110 }}>Legal Entity</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 100 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 100 }}>Sub-Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Subinventory</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Item Code</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 160, minWidth: 160 }}>Item Description</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Qty</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Value ({filters.currency || "AED"})</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>0-30</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>31-60</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>61-90</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>91-120</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>121-180</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>181-365</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>366-730</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>&gt;730</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 45 }}>Days</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Avg Value</th>
                               </tr>
-                            </tfoot>
-                          )}
-                        </table>
+                            </thead>
+                            <tbody>
+                              {paginated.length === 0 ? (
+                                <tr><td colSpan={18} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No inventory records found</td></tr>
+                              ) : (
+                                paginated.map((row, idx) => (
+                                  <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                    <td style={{ padding: "6px 10px", fontWeight: 600, color: "#1e293b", maxWidth: 110, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.legal_entity}</td>
+                                    <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 100, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.parent_division}</td>
+                                    <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 100, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.subdivision}</td>
+                                    <td style={{ padding: "6px 10px", color: "#475569" }}>{row.subinventory}</td>
+                                    <td style={{ padding: "6px 10px", fontFamily: "monospace", color: "#1e3a8a", fontWeight: 600 }}>{row.item_code}</td>
+                                    <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 160, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.item_description}</td>
+                                    <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600 }}>{Number(row.quantity || 0).toLocaleString()}</td>
+                                    <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>{Number(row.total_stock_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_0_30 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_31_60 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_61_90 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_91_120 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_121_180 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_181_365 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_366_730 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_above_730 || 0).toFixed(0)}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 600 }}>{row.days}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{row.avg_inv_value !== "-" ? Number(row.avg_inv_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                            {filtered.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc", borderTop: "2px solid #e2e8f0" }}>
+                                <tr style={{ fontWeight: 800 }}>
+                                  <td colSpan={6} style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total ({filtered.length} items)</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalQty.toLocaleString()}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                  <td colSpan={10} style={{ padding: "10px 10px" }} />
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        </div>
+                        {totalPages > 1 && (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderTop: "1px solid #e2e8f0", background: "#fff", fontSize: "0.76rem" }}>
+                            <div style={{ color: "#64748b" }}>
+                              Showing {startIndex + 1} to {Math.min(startIndex + modalDetailPageSize, totalItems)} of {totalItems} entries
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <button type="button"
+                                onClick={() => setModalDetailPage(p => Math.max(0, p - 1))}
+                                disabled={currentPage === 0}
+                                style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #cbd5e1", background: currentPage === 0 ? "#f1f5f9" : "#fff", color: currentPage === 0 ? "#94a3b8" : "#334155", cursor: currentPage === 0 ? "not-allowed" : "pointer" }}
+                              >
+                                Prev
+                              </button>
+                              <span style={{ fontWeight: 600, color: "#1e293b", padding: "0 4px" }}>
+                                Page {currentPage + 1} of {totalPages}
+                              </span>
+                              <button type="button"
+                                onClick={() => setModalDetailPage(p => Math.min(totalPages - 1, p + 1))}
+                                disabled={currentPage === totalPages - 1}
+                                style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid #cbd5e1", background: currentPage === totalPages - 1 ? "#f1f5f9" : "#fff", color: currentPage === totalPages - 1 ? "#94a3b8" : "#334155", cursor: currentPage === totalPages - 1 ? "not-allowed" : "pointer" }}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   }
@@ -2686,7 +2747,7 @@ const [loading, setLoading] = useState(true);
                 <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
                   Live inventory snapshot data
                 </span>
-                <button
+                <button type="button"
                   onClick={() => {
                     setViewAllModal(null);
                     setViewAllSearch("");
@@ -2836,7 +2897,7 @@ const styles = {
     padding: "0 8px",
     border: "none",
     background: "transparent",
-    color: "#64748b",
+    color: "#dc2626",
     fontSize: "0.78rem",
     fontWeight: 600,
     cursor: "pointer",
