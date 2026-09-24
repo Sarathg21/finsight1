@@ -67,6 +67,7 @@ export default function InventoryOverview() {
       asOnDate: "All",
   });
 const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [detailPage, setDetailPage] = useState(0);
   const [detailPageSize, setDetailPageSize] = useState(15);
   const [parentDivViewMode, setParentDivViewMode] = useState("month"); // "month" | "mom"
@@ -1051,6 +1052,7 @@ const [loading, setLoading] = useState(true);
   // ============================================================
 
   const CardHeader = ({
+      isExporting,
     title,
     subtitle,
     info,
@@ -1133,7 +1135,10 @@ const [loading, setLoading] = useState(true);
               {onExport && (
                 <div ref={exportRef} style={{ position: "relative" }}>
                   <button type="button"
+                    disabled={isExporting}
                     style={{
+                      opacity: isExporting ? 0.6 : 1,
+                      cursor: isExporting ? "not-allowed" : "pointer",
                       height: 26,
                       padding: "0 10px",
                       border: "1px solid #cbd5e1",
@@ -1356,7 +1361,8 @@ const [loading, setLoading] = useState(true);
         <div style={styles.headerActions}>
           <button type="button"
             id="btn-export-excel-inventory"
-            onClick={() => handleExport('excel')}
+              disabled={isExporting}
+              onClick={() => handleExport('excel')}
             title="Export to Excel"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1371,7 +1377,8 @@ const [loading, setLoading] = useState(true);
           </button>
           <button type="button"
             id="btn-export-pdf-inventory"
-            onClick={() => handleExport('pdf')}
+              disabled={isExporting}
+              onClick={() => handleExport('pdf')}
             title="Export to PDF"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1490,7 +1497,7 @@ const [loading, setLoading] = useState(true);
       <div style={styles.chartGrid}>
         {/* Inventory Trend */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader
+          <CardHeader isExporting={isExporting}
             title={`Inventory Value Trend (${filters.currency || "AED"} Cr)`}
             subtitle="Current Year vs Previous Year month-by-month trajectory"
             info="Comparison of inventory value trend"
@@ -1517,7 +1524,7 @@ const [loading, setLoading] = useState(true);
 
         {/* Parent Division */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader
+          <CardHeader isExporting={isExporting}
             title={`Inventory Value by Parent Division (${filters.currency || "AED"} Cr)`}
             subtitle={parentDivViewMode === "mom" ? `Month on Month distribution across parent divisions (${filters.currency || "AED"} Cr)` : `Distribution across parent divisions (${filters.currency || "AED"} Cr)`}
             info="Breakdown across key parent divisions"
@@ -1612,7 +1619,7 @@ const [loading, setLoading] = useState(true);
 
         {/* Sub-division */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader
+          <CardHeader isExporting={isExporting}
             title={`Inventory Value by Sub-division (${filters.currency || "AED"} Cr)`}
             subtitle={`Sub-division inventory comparison (${filters.currency || "AED"} Cr)`}
             info="Sub-division holdings ranked by value"
@@ -1633,7 +1640,7 @@ const [loading, setLoading] = useState(true);
       <div style={styles.bottomGrid}>
         {/* AGING */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader
+          <CardHeader isExporting={isExporting}
             title="Inventory Aging Summary"
             subtitle={`Aging distribution across 8 duration buckets (${filters.currency || "AED"} Cr)`}
             info="Summary of inventory value by aging bucket"
@@ -1698,7 +1705,7 @@ const [loading, setLoading] = useState(true);
 
         {/* SLOW MOVING */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader
+          <CardHeader isExporting={isExporting}
             title="Slow Moving Stock by Parent Div"
             subtitle={`Obsolete inventory vs total stock (${filters.currency || "AED"} Cr)`}
             info="Parent divisions with highest obsolete inventory holdings"
@@ -1747,7 +1754,7 @@ const [loading, setLoading] = useState(true);
 
         {/* LOCATION */}
         <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader
+          <CardHeader isExporting={isExporting}
             title="Inventory by Location (Top 5)"
             subtitle={`Top holding locations by value (${filters.currency || "AED"} Cr)`}
             info="Top locations with highest inventory values"
@@ -1799,7 +1806,7 @@ const [loading, setLoading] = useState(true);
       ======================================================== */}
 
       <div style={styles.detailPanel}>
-        <CardHeader
+        <CardHeader isExporting={isExporting}
           title="Inventory Detailed View"
           subtitle={`Line-item inventory breakdown and aging status (${filters.currency || "AED"})`}
           info="Detailed item-level inventory valuation and aging buckets"
@@ -2288,8 +2295,9 @@ const [loading, setLoading] = useState(true);
 
                 <div style={{ display: "flex", gap: 6 }}>
                   <button type="button"
-                    onClick={() => handleExport("excel", modalConfig.section)}
-                    style={{
+                      disabled={isExporting}
+                      onClick={() => handleExport("excel", modalConfig.section)}
+                      style={{ opacity: isExporting ? 0.6 : 1, cursor: isExporting ? "not-allowed" : "pointer", 
                       padding: "5px 12px",
                       borderRadius: 6,
                       border: "1px solid #cbd5e1",
@@ -2306,8 +2314,9 @@ const [loading, setLoading] = useState(true);
                     Export Excel (.xlsx)
                   </button>
                   <button type="button"
-                    onClick={() => handleExport("pdf", modalConfig.section)}
-                    style={{
+                      disabled={isExporting}
+                      onClick={() => handleExport("pdf", modalConfig.section)}
+                      style={{ opacity: isExporting ? 0.6 : 1, cursor: isExporting ? "not-allowed" : "pointer", 
                       padding: "5px 12px",
                       borderRadius: 6,
                       border: "1px solid #cbd5e1",
