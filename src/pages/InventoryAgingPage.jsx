@@ -76,11 +76,12 @@ const [loading, setLoading] = useState(true);
       if (v === null || v === undefined) return "—";
       const n = Number(v);
       if (isNaN(n)) return "—";
-      if (n >= 1000000000) return `AED ${(n / 1000000000).toFixed(2)}B`;
-      if (n >= 10000000) return `AED ${(n / 10000000).toFixed(2)} Cr`;
-      if (n >= 1000000) return `AED ${(n / 1000000).toFixed(2)}M`;
-      if (n >= 1000) return `AED ${(n / 1000).toFixed(2)}K`;
-      return `AED ${n.toFixed(2)}`;
+      const cur = filters.currency || "AED";
+      if (n >= 1000000000) return `${cur} ${(n / 1000000000).toFixed(2)}B`;
+      if (n >= 10000000) return `${cur} ${(n / 10000000).toFixed(2)} Cr`;
+      if (n >= 1000000) return `${cur} ${(n / 1000000).toFixed(2)}M`;
+      if (n >= 1000) return `${cur} ${(n / 1000).toFixed(2)}K`;
+      return `${cur} ${n.toFixed(2)}`;
   };
 
   useEffect(() => {
@@ -217,34 +218,80 @@ const [loading, setLoading] = useState(true);
               }
 
               let aging = [];
-                if (dData.aging_summary) {
-                    const agingColors = { "0_30": "#2563eb", "31_60": "#16a34a", "61_90": "#f59e0b", "91_120": "#7c3aed", "121_180": "#ec4899", "181_365": "#94a3b8", "366_730": "#64748b", "ABOVE_730": "#334155" };
-                    const labels = { "0_30": "0 - 30 Days", "31_60": "31 - 60 Days", "61_90": "61 - 90 Days", "91_120": "91 - 120 Days", "121_180": "121 - 180 Days", "181_365": "181 - 365 Days", "366_730": "366 - 730 Days", "ABOVE_730": "Above 730 Days" };
-                    let totalAging = 0;
-                    const formattedAging = [];
-                    
-                    if (Array.isArray(dData.aging_summary)) {
-                        dData.aging_summary.forEach(item => {
-                            const k = item.bucket_code || item.bucket || item.name;
-                            const val = Number(item.amount || item.value || 0) / 10000000;
-                            const pct = Number(item.percentage_of_total || item.percentage || 0);
-                            if (val > 0) {
-                                formattedAging.push({ name: labels[k] || k, value: val, color: agingColors[k] || "#94A3B8", percentage: pct });
-                                totalAging += val;
-                            }
-                        });
-                        aging = formattedAging;
-                    } else {
-                        Object.keys(dData.aging_summary).forEach(k => {
-                            const val = Number(dData.aging_summary[k]) / 10000000;
-                            if (val > 0) {
-                                formattedAging.push({ name: labels[k] || k, value: val, color: agingColors[k] || "#94A3B8", percentage: "--" });
-                                totalAging += val;
-                            }
-                        });
-                        aging = formattedAging;
-                    }
-                }
+              if (dData.aging_summary) {
+                  const agingColors = {
+                      "0_30": "#2563eb",
+                      "31_60": "#16a34a",
+                      "61_90": "#f59e0b",
+                      "91_120": "#7c3aed",
+                      "121_180": "#ec4899",
+                      "181_365": "#94a3b8",
+                      "366_730": "#64748b",
+                      "above_730": "#475569",
+                      "ABOVE_730": "#475569"
+                  };
+                  const labels = {
+                      "0_30": "0 - 30 Days",
+                      "31_60": "31 - 60 Days",
+                      "61_90": "61 - 90 Days",
+                      "91_120": "91 - 120 Days",
+                      "121_180": "121 - 180 Days",
+                      "181_365": "181 - 365 Days",
+                      "366_730": "366 - 730 Days",
+                      "above_730": "Above 730 Days",
+                      "ABOVE_730": "Above 730 Days"
+                  };
+
+                  const formatBucket = (raw) => {
+                      if (!raw) return "";
+                      const s = String(raw).trim();
+                      if (labels[s]) return labels[s];
+                      const lower = s.toLowerCase();
+                      if (labels[lower]) return labels[lower];
+                      if (lower.includes("above") || lower.includes("730")) return "Above 730 Days";
+                      return s;
+                  };
+
+                  let totalAging = 0;
+                  const formattedAging = [];
+                  
+                  if (Array.isArray(dData.aging_summary)) {
+                      dData.aging_summary.forEach(item => {
+                          const k = item.bucket_code || item.bucket || item.name;
+                          const val = Number(item.amount || item.value || 0) / 10000000;
+                          const pct = Number(item.percentage_of_total || item.percentage || 0);
+                          if (val > 0) {
+                              formattedAging.push({
+                                  name: formatBucket(k),
+                                  value: val,
+                                  color: agingColors[k] || agingColors[String(k).toLowerCase()] || "#64748b",
+                                  percentage: pct
+                              });
+                              totalAging += val;
+                          }
+                      });
+                      aging = formattedAging;
+                  } else {
+                      Object.keys(dData.aging_summary).forEach(k => {
+                          const val = Number(dData.aging_summary[k]) / 10000000;
+                          if (val > 0) {
+                              formattedAging.push({
+                                  name: formatBucket(k),
+                                  value: val,
+                                  color: agingColors[k] || agingColors[String(k).toLowerCase()] || "#64748b",
+                                  percentage: 0
+                              });
+                              totalAging += val;
+                          }
+                      });
+                      if (totalAging > 0) {
+                          formattedAging.forEach(item => {
+                              item.percentage = (item.value / totalAging) * 100;
+                          });
+                      }
+                      aging = formattedAging;
+                  }
+              }
 
               let divisions = [];
               if (dData.by_parent_division) {
@@ -293,6 +340,25 @@ const [loading, setLoading] = useState(true);
                   })).slice(0, 5);
               }
 
+              let locations = [];
+              const locSource = dData.locations || dData.by_location || dData.by_category || dData.top_items;
+              if (locSource && Array.isArray(locSource)) {
+                  let locSum = 0;
+                  const formatted = locSource.map((item, idx) => {
+                      const name = item.location || item.name || item.category || item.item_description || item.item_code || `Location ${idx + 1}`;
+                      const val = Number(item.inventory_value || item.total_stock_value || item.value || 0) / 10000000;
+                      const pct = Number(item.percentage_of_total || item.percentage || 0);
+                      locSum += val;
+                      return { name, value: val, percentage: pct };
+                  }).slice(0, 5);
+                  if (locSum > 0) {
+                      formatted.forEach(item => {
+                          if (!item.percentage) item.percentage = (item.value / locSum) * 100;
+                      });
+                  }
+                  locations = formatted;
+              }
+
 
               let details = [];
               if (detailsRes && detailsRes.data && detailsRes.data.items) {
@@ -335,7 +401,7 @@ const [loading, setLoading] = useState(true);
                   bySubdivision,
                   aging,
                   slowMoving,
-                  locations: [],
+                  locations,
                   details
               });
           } catch (err) {
@@ -709,49 +775,48 @@ const [loading, setLoading] = useState(true);
     total,
     centerText,
     centerSubText,
+    size = 120,
+    strokeWidth = 18,
   }) => {
-    const radius = 58;
+    const half = size / 2;
+    const radius = half - strokeWidth / 2 - 2;
     const circumference = 2 * Math.PI * radius;
 
     let offset = 0;
 
     return (
-      <div style={styles.donutWrapper}>
+      <div style={{ width: size, height: size, flex: `0 0 ${size}px`, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <svg
-          width="145"
-          height="145"
-          viewBox="0 0 145 145"
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          style={{ overflow: "visible" }}
         >
-          <g transform="rotate(-90 72.5 72.5)">
+          <g transform={`rotate(-90 ${half} ${half})`}>
             <circle
-              cx="72.5"
-              cy="72.5"
+              cx={half}
+              cy={half}
               r={radius}
               fill="none"
-              stroke="#edf1f6"
-              strokeWidth="26"
+              stroke="#f1f5f9"
+              strokeWidth={strokeWidth}
             />
 
             {data.map((item) => {
-              const dash =
-                (item.percentage / 100) * circumference;
-
+              const dash = (item.percentage / 100) * circumference;
               const currentOffset = offset;
-
               offset += dash;
 
               return (
                 <circle
                   key={item.name}
-                  cx="72.5"
-                  cy="72.5"
+                  cx={half}
+                  cy={half}
                   r={radius}
                   fill="none"
                   stroke={item.color}
-                  strokeWidth="26"
-                  strokeDasharray={`${dash} ${
-                    circumference - dash
-                  }`}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={`${dash} ${circumference - dash}`}
                   strokeDashoffset={-currentOffset}
                 />
               );
@@ -759,22 +824,24 @@ const [loading, setLoading] = useState(true);
           </g>
 
           <text
-            x="72.5"
-            y="68"
+            x={half}
+            y={centerSubText ? half - 3 : half + 4}
             textAnchor="middle"
-            fontSize="13"
-            fontWeight="700"
-            fill="#334155"
+            fontSize="10.5"
+            fontWeight="800"
+            fill="#1e293b"
+            letterSpacing="-0.3px"
           >
             {centerText}
           </text>
 
           {centerSubText && (
             <text
-              x="72.5"
-              y="84"
+              x={half}
+              y={half + 10}
               textAnchor="middle"
-              fontSize="10"
+              fontSize="8.5"
+              fontWeight="600"
               fill="#64748b"
             >
               {centerSubText}
@@ -793,54 +860,67 @@ const [loading, setLoading] = useState(true);
     const max = Math.max(
       ...(mockData.bySubdivision && mockData.bySubdivision.length > 0 ? mockData.bySubdivision.map((x) => x.value) : [1])
     );
+    const roundMax = max <= 10 ? 10 : Math.ceil(max / 10) * 10;
+    const ticks = [
+      0,
+      Math.round(roundMax * 0.25),
+      Math.round(roundMax * 0.5),
+      Math.round(roundMax * 0.75),
+      roundMax,
+    ];
 
     return (
-      <div style={{ width: "100%", paddingTop: 2 }}>
+      <div style={{ width: "100%", paddingTop: 4 }}>
         {(mockData.bySubdivision || []).map((item) => (
           <div
             key={item.name}
             style={{
               display: "grid",
-              gridTemplateColumns: "85px 1fr 48px",
+              gridTemplateColumns: "90px 1fr 48px",
               alignItems: "center",
-              gap: 7,
+              gap: 8,
               marginBottom: 8,
             }}
           >
             <div
               style={{
-                fontSize: 10,
+                fontSize: "0.72rem",
                 color: "#475569",
                 textAlign: "right",
                 whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                fontWeight: 500,
               }}
+              title={item.name}
             >
               {item.name}
             </div>
 
             <div
               style={{
-                height: 13,
+                height: 12,
                 background: "#f1f5f9",
-                borderRadius: 2,
+                borderRadius: 3,
                 overflow: "hidden",
               }}
             >
               <div
                 style={{
                   height: "100%",
-                  width: `${(item.value / max) * 100}%`,
+                  width: `${roundMax > 0 ? (item.value / roundMax) * 100 : 0}%`,
                   background: "#2563eb",
-                  borderRadius: 2,
+                  borderRadius: 3,
                 }}
               />
             </div>
 
             <div
               style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: "#475569",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: "#1e293b",
+                textAlign: "right",
               }}
             >
               {item.value.toFixed(2)}
@@ -850,33 +930,31 @@ const [loading, setLoading] = useState(true);
 
         <div
           style={{
-            marginTop: 2,
-            marginLeft: 93,
-            borderTop: "1px solid #e5eaf1",
-            paddingTop: 3,
+            marginTop: 4,
+            marginLeft: 98,
+            borderTop: "1px solid #e2e8f0",
+            paddingTop: 4,
             display: "flex",
             justifyContent: "space-between",
-            fontSize: 9,
+            fontSize: "0.68rem",
             color: "#64748b",
           }}
         >
-          <span>0</span>
-          <span>40</span>
-          <span>80</span>
-          <span>120</span>
-          <span>160</span>
-          <span>200</span>
+          {ticks.map((t, idx) => (
+            <span key={idx}>{t}</span>
+          ))}
         </div>
 
         <div
           style={{
             textAlign: "center",
-            fontSize: 9,
+            fontSize: "0.68rem",
             color: "#64748b",
-            marginTop: 2,
+            marginTop: 3,
+            fontWeight: 600,
           }}
         >
-          ₹ Cr
+          {filters.currency || "AED"} Cr
         </div>
       </div>
     );
@@ -885,6 +963,87 @@ const [loading, setLoading] = useState(true);
   // ============================================================
   // SECTION HEADER
   // ============================================================
+
+  // ============================================================
+  // CARD HEADER COMPONENT
+  // ============================================================
+
+  const CardHeader = ({
+    title,
+    subtitle,
+    info,
+    onViewAll,
+    onExport,
+  }) => (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 4 }}>
+      <div>
+        <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 6 }}>
+          {title}
+          {info && (
+            <span
+              style={{
+                fontSize: "0.72rem",
+                color: "#94a3b8",
+                cursor: "help",
+                fontWeight: 600,
+              }}
+              title={info}
+            >
+              ⓘ
+            </span>
+          )}
+        </div>
+        {subtitle && (
+          <div style={{ fontSize: "0.70rem", color: "#64748b", marginTop: 2 }}>
+            {subtitle}
+          </div>
+        )}
+      </div>
+
+      {(onViewAll || onExport) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {onViewAll && (
+            <button
+              style={{
+                height: 26,
+                padding: "0 9px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                background: "#f8fafc",
+                color: "#475569",
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+              onClick={onViewAll}
+            >
+              View All
+            </button>
+          )}
+          {onExport && (
+            <button
+              style={{
+                height: 26,
+                padding: "0 9px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                background: "#f8fafc",
+                color: "#475569",
+                fontSize: "0.72rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+              onClick={onExport}
+            >
+              Export ▾
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   const SectionHeader = ({ children }) => (
     <div style={styles.sectionHeader}>{children}</div>
@@ -900,6 +1059,7 @@ const [loading, setLoading] = useState(true);
     options = [],
     onChange,
     date = false,
+    minWidth = 110,
   }) => {
     const uniqueOptions = [];
     const seen = new Set();
@@ -913,10 +1073,10 @@ const [loading, setLoading] = useState(true);
     });
 
     return (
-      <div style={styles.filterField}>
+      <div style={{ ...styles.filterField, minWidth }}>
         <label style={styles.filterLabel}>{label}</label>
 
-        {date || label === "Currency" ? (
+        {date || label === "Reporting Currency" || label === "Currency" ? (
           <div style={styles.selectWrapper}>
             <select
               value={value}
@@ -931,7 +1091,7 @@ const [loading, setLoading] = useState(true);
             </select>
           </div>
         ) : (
-          <div style={{...styles.selectWrapper, border: 'none', background: 'transparent', padding: 0}}>
+          <div style={{ ...styles.selectWrapper, border: "none", background: "transparent", padding: 0 }}>
             <MultiSelectDropdown 
               options={uniqueOptions.filter(o => o.value !== "All")} 
               value={Array.isArray(value) ? value : (value === "All" ? [] : [value])} 
@@ -946,18 +1106,36 @@ const [loading, setLoading] = useState(true);
   };
 
   // ============================================================
-  // DERIVED TOTAL
+  // DERIVED TOTALS
   // ============================================================
 
-  const locationTotal = useMemo(() => {
-    return mockData.locations.reduce(
-      (sum, item) => sum + item.value,
+  const agingTotal = useMemo(() => {
+    return mockData.aging.reduce(
+      (sum, item) => sum + (Number(item.value) || 0),
       0
     );
-  }, []);
+  }, [mockData.aging]);
+
+  const parentDivTotal = useMemo(() => {
+    return (mockData.divisions || []).reduce(
+      (sum, item) => sum + (Number(item.value) || 0),
+      0
+    );
+  }, [mockData.divisions]);
+
+  const locationTotal = useMemo(() => {
+    return (mockData.locations || []).reduce(
+      (sum, item) => sum + (Number(item.value) || 0),
+      0
+    );
+  }, [mockData.locations]);
 
   if (loading) {
-      return <div style={{ padding: 40, textAlign: "center", fontSize: 18, color: "#64748b" }}>Loading Inventory Data...</div>;
+      return (
+        <div style={{ padding: 60, textAlign: "center", fontSize: "0.95rem", color: "#64748b", fontWeight: 600 }}>
+          Loading Inventory Data...
+        </div>
+      );
   }
 
   // ============================================================
@@ -975,37 +1153,59 @@ const [loading, setLoading] = useState(true);
           <h1 style={styles.pageTitle}>Inventory Overview</h1>
 
           <div style={styles.subtitle}>
-            Track inventory position, movement and aging across
-            all dimensions
+            Track inventory position, movement and aging across all dimensions
+            <br />
+            <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600, color: '#334155' }}>
+              As On Date: {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "Latest Snapshot"}
+            </span>
+            &nbsp;|&nbsp;
+            <span style={{ color: '#16a34a', fontWeight: 700 }}>
+              Currency: {filters.currency || "AED"}
+            </span>
           </div>
         </div>
 
-                  <div style={styles.headerActions}>
-            <button style={styles.primaryButton} onClick={() => handleExport('excel')}>
-              Export (Excel)
-            </button>
-            <button style={{ ...styles.primaryButton, marginLeft: '8px' }} onClick={() => handleExport('pdf')}>
-              Export (PDF)
-            </button>
-
-          <button style={styles.secondaryButton}>
-            <span style={styles.buttonIcon}>▣</span>
-            Schedule
-          </button>
-
+        <div style={styles.headerActions}>
           <button
-            style={styles.secondaryButton}
-            onClick={() => setShowFilters(!showFilters)}
+            id="btn-export-excel-inventory"
+            onClick={() => handleExport('excel')}
+            title="Export to Excel"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 32, padding: '0 12px',
+              background: '#f0fdf4', color: '#15803d',
+              border: '1px solid #bbf7d0', borderRadius: 7,
+              fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
           >
-            <span style={styles.buttonIcon}>⚱</span>
-            More Filters
-            <span style={{ marginLeft: 8 }}>⌄</span>
+            📊 Excel
           </button>
-
           <button
-            style={styles.refreshButton}
+            id="btn-export-pdf-inventory"
+            onClick={() => handleExport('pdf')}
+            title="Export to PDF"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              height: 32, padding: '0 12px',
+              background: '#fff1f2', color: '#be123c',
+              border: '1px solid #fecdd3', borderRadius: 7,
+              fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
+          >
+            📄 PDF
+          </button>
+          <button
             onClick={() => window.location.reload()}
             title="Refresh"
+            style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32,
+              background: '#fff', color: '#64748b',
+              border: '1px solid #cbd5e1', borderRadius: 7,
+              fontSize: '0.9rem', cursor: 'pointer',
+            }}
           >
             ↻
           </button>
@@ -1016,46 +1216,37 @@ const [loading, setLoading] = useState(true);
           FILTERS
       ======================================================== */}
 
-      <div
-        style={{
-          ...styles.filterPanel,
-          ...(showFilters ? styles.filterPanelExpanded : {}),
-        }}
-      >
+      <div style={styles.filterPanel}>
         <FilterField
           label="Legal Group"
           value={filters.legalGroup}
           options={mockData.filters.legalGroups}
-          onChange={(value) =>
-            updateFilter("legalGroup", value)
-          }
+          onChange={(value) => updateFilter("legalGroup", value)}
+          minWidth={115}
         />
 
         <FilterField
           label="Legal Entity"
           value={filters.legalEntity}
           options={mockData.filters.legalEntities}
-          onChange={(value) =>
-            updateFilter("legalEntity", value)
-          }
+          onChange={(value) => updateFilter("legalEntity", value)}
+          minWidth={115}
         />
 
         <FilterField
           label="Parent Division"
           value={filters.parentDivision}
           options={mockData.filters.parentDivisions}
-          onChange={(value) =>
-            updateFilter("parentDivision", value)
-          }
+          onChange={(value) => updateFilter("parentDivision", value)}
+          minWidth={115}
         />
 
         <FilterField
           label="Sub-Division"
           value={filters.subdivision}
           options={mockData.filters.subdivisions}
-          onChange={(value) =>
-            updateFilter("subdivision", value)
-          }
+          onChange={(value) => updateFilter("subdivision", value)}
+          minWidth={115}
         />
 
         <FilterField
@@ -1063,32 +1254,35 @@ const [loading, setLoading] = useState(true);
           value={filters.subinventory}
           options={mockData.filters.subinventories}
           onChange={(value) => updateFilter("subinventory", value)}
+          minWidth={105}
         />
+
         <FilterField
-          label="Currency"
+          label="Reporting Currency"
           value={filters.currency}
           options={mockData.filters.currencies}
           onChange={(value) => updateFilter("currency", value)}
+          minWidth={85}
         />
 
         <FilterField
           label="As On Date"
           value={filters.asOnDate}
           options={mockData.filters.dates}
-          onChange={(value) =>
-            updateFilter("asOnDate", value)
-          }
+          onChange={(value) => updateFilter("asOnDate", value)}
           date
+          minWidth={115}
         />
 
-        <button style={styles.applyButton}>Apply</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end', flexShrink: 0, paddingBottom: 1 }}>
+          <button style={styles.applyButton} onClick={() => loadData()}>
+            Apply
+          </button>
 
-        <button
-          style={styles.resetButton}
-          onClick={resetFilters}
-        >
-          Reset
-        </button>
+          <button style={styles.resetButton} onClick={resetFilters}>
+            Reset
+          </button>
+        </div>
       </div>
 
       {/* ========================================================
@@ -1107,81 +1301,62 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.chartGrid}>
         {/* Inventory Trend */}
-        <div style={styles.panel}>
-          <div style={styles.chartHeader}>
-            <div style={styles.chartTitle}>
-              Inventory Value Trend (Cr) <span style={styles.infoIcon}>ⓘ</span>
-            </div>
-            <div style={styles.headerActions}>
-              <button style={styles.secondaryButton} onClick={() => console.log('View All A')}>
-                View All
-              </button>
-              <button style={styles.secondaryButton}>
-                Export <span style={{ marginLeft: 3, fontSize: "8px" }}>▼</span>
-              </button>
-            </div>
-          </div>
+        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+          <CardHeader
+            title={`Inventory Value Trend (${filters.currency || "AED"} Cr)`}
+            subtitle="Current Year vs Previous Year month-by-month trajectory"
+            info="Comparison of inventory value trend"
+            onViewAll={() => console.log('View All Trend')}
+            onExport={() => handleExport('excel')}
+          />
 
           <div style={styles.legend}>
             <div style={styles.legendItem}>
-              <span
-                style={{
-                  ...styles.legendDot,
-                  background: "#2563eb",
-                }}
-              />
+              <span style={{ ...styles.legendDot, background: "#2563eb" }} />
               CY 2024
             </div>
 
             <div style={styles.legendItem}>
-              <span
-                style={{
-                  ...styles.legendDot,
-                  background: "#16a34a",
-                }}
-              />
+              <span style={{ ...styles.legendDot, background: "#16a34a" }} />
               PY 2023
             </div>
           </div>
 
-          <div style={styles.lineChartContainer}>
+          <div style={{ ...styles.lineChartContainer, flex: 1 }}>
             <LineChart />
           </div>
         </div>
 
         {/* Parent Division */}
-        <div style={styles.panel}>
-          <SectionHeader>
-            Inventory Value by Parent Division (Cr)
-          </SectionHeader>
+        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+          <CardHeader
+            title="Inventory Value by Parent Division"
+            subtitle={`Distribution across parent divisions (${filters.currency || "AED"} Cr)`}
+            info="Breakdown across key parent divisions"
+          />
 
           <div style={styles.donutRow}>
             <DonutChart
               data={mockData.divisions}
-              total="472.35"
-              centerText="₹ 472.35"
-              centerSubText="Cr"
+              total={parentDivTotal.toFixed(2)}
+              centerText={`${parentDivTotal.toFixed(2)}`}
+              centerSubText={`${filters.currency || "AED"} Cr`}
+              size={120}
+              strokeWidth={18}
             />
 
             <div style={styles.legendList}>
               {mockData.divisions.map((item) => (
-                <div
-                  key={item.name}
-                  style={styles.legendListRow}
-                >
-                  <div style={styles.legendName}>
-                    <span
-                      style={{
-                        ...styles.legendCircle,
-                        background: item.color,
-                      }}
-                    />
-                    {item.name}
+                <div key={item.name} style={styles.legendListRow}>
+                  <div style={styles.legendName} title={item.name}>
+                    <span style={{ ...styles.legendCircle, background: item.color, flexShrink: 0 }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {item.name}
+                    </span>
                   </div>
 
                   <div style={styles.legendValue}>
-                    {item.value.toFixed(2)} (
-                    {item.percentage.toFixed(2)}%)
+                    {item.value.toFixed(2)} ({item.percentage.toFixed(2)}%)
                   </div>
                 </div>
               ))}
@@ -1189,13 +1364,17 @@ const [loading, setLoading] = useState(true);
           </div>
         </div>
 
-        {/* Business Unit */}
-        <div style={styles.panel}>
-          <SectionHeader>
-            Inventory Value by Sub-division (Cr)
-          </SectionHeader>
+        {/* Sub-division */}
+        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+          <CardHeader
+            title="Inventory Value by Sub-division"
+            subtitle={`Sub-division inventory comparison (${filters.currency || "AED"} Cr)`}
+            info="Sub-division holdings ranked by value"
+          />
 
-          <SubdivisionChart />
+          <div style={{ flex: 1, display: "flex", alignItems: "center" }}>
+            <SubdivisionChart />
+          </div>
         </div>
       </div>
 
@@ -1205,73 +1384,92 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.bottomGrid}>
         {/* AGING */}
-        <div style={styles.panel}>
-          <SectionHeader>
-            Inventory Aging Summary (Cr)
-          </SectionHeader>
+        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+          <CardHeader
+            title="Inventory Aging Summary"
+            subtitle={`Aging distribution across 8 duration buckets (${filters.currency || "AED"} Cr)`}
+            info="Summary of inventory value by aging bucket"
+          />
 
           <div style={styles.agingContent}>
             <DonutChart
               data={mockData.aging}
-              total="472.35"
-              centerText="₹ 472.35 Cr"
+              total={agingTotal.toFixed(2)}
+              centerText={`${agingTotal.toFixed(2)} Cr`}
+              centerSubText={filters.currency || "AED"}
+              size={120}
+              strokeWidth={18}
             />
 
             <div style={styles.agingTable}>
               <div style={styles.agingHeader}>
-                <span />
-                <span>Amount (₹ Cr)</span>
-                <span>% of Total</span>
+                <span>Bucket</span>
+                <span style={{ textAlign: "right" }}>Amount (Cr)</span>
+                <span style={{ textAlign: "right" }}>% Total</span>
               </div>
 
               {mockData.aging.map((item) => (
-                <div
-                  key={item.name}
-                  style={styles.agingRow}
-                >
-                  <div style={styles.agingName}>
+                <div key={item.name} style={styles.agingRow}>
+                  <div style={styles.agingName} title={item.name}>
                     <span
                       style={{
                         ...styles.legendCircle,
                         background: item.color,
+                        flexShrink: 0,
                       }}
                     />
-                    {item.name}
+                    <span style={{ whiteSpace: "nowrap" }}>{item.name}</span>
                   </div>
 
-                  <div>{item.value.toFixed(2)}</div>
+                  <div style={{ textAlign: "right", fontWeight: 600, color: "#1e293b" }}>
+                    {item.value.toFixed(2)}
+                  </div>
 
-                  <div>{item.percentage.toFixed(2)}%</div>
+                  <div style={{ textAlign: "right", color: "#64748b", fontWeight: 500 }}>
+                    {typeof item.percentage === "number" ? `${item.percentage.toFixed(2)}%` : item.percentage}
+                  </div>
                 </div>
               ))}
+
+              <div style={styles.agingTotalRow}>
+                <div style={{ fontWeight: 800, color: "#1e3a8a", display: "flex", alignItems: "center", gap: 6 }}>
+                  Total
+                </div>
+                <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
+                  {agingTotal.toFixed(2)}
+                </div>
+                <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
+                  100.0%
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* SLOW MOVING */}
-        <div style={styles.panel}>
-          <div style={styles.chartHeader}>
-            <div style={styles.chartTitle}>Slow Moving Stock by Parent Div <span style={styles.infoIcon}>ⓘ</span></div>
-            <div style={styles.headerActions}>
-              <button style={styles.secondaryButton} onClick={() => console.log('View All C')}>View All</button>
-            </div>
-          </div>
+        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+          <CardHeader
+            title="Slow Moving Stock by Parent Div"
+            subtitle={`Obsolete inventory vs total stock (${filters.currency || "AED"} Cr)`}
+            info="Parent divisions with highest obsolete inventory holdings"
+            onViewAll={() => console.log('View All Slow Moving')}
+          />
           
-          <div style={styles.tableWrapper}>
+          <div style={{ ...styles.tableWrapper, flex: 1 }}>
             <table style={styles.table}>
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th style={{ width: 28 }}>#</th>
                   <th>PARENT DIV</th>
-                  <th style={{textAlign: 'right'}}>OBSOLETE STOCK</th>
-                  <th style={{textAlign: 'right'}}>TOTAL STOCK</th>
-                  <th style={{textAlign: 'right'}}>% OBSOLETE</th>
+                  <th style={{ textAlign: 'right' }}>OBSOLETE ({filters.currency || "AED"} Cr)</th>
+                  <th style={{ textAlign: 'right' }}>TOTAL ({filters.currency || "AED"} Cr)</th>
+                  <th style={{ textAlign: 'right' }}>% OBSOLETE</th>
                 </tr>
               </thead>
               <tbody>
                 {mockData.slowMoving.map((item, idx) => (
                   <tr key={item.no || idx}>
-                    <td>{item.no}</td>
+                    <td style={{ color: "#64748b", fontWeight: 600 }}>{item.no}</td>
                     <td>
                       <div style={{
                         display: "-webkit-box",
@@ -1279,14 +1477,16 @@ const [loading, setLoading] = useState(true);
                         WebkitBoxOrient: "vertical",
                         overflow: "hidden",
                         whiteSpace: "normal",
-                        wordBreak: "break-word"
+                        wordBreak: "break-word",
+                        fontWeight: 600,
+                        color: "#1e293b",
                       }}>
                         {item.parentDiv}
                       </div>
                     </td>
-                    <td style={{textAlign: 'right'}}>{item.obsolete ? item.obsolete.toFixed(2) : "--"}</td>
-                    <td style={{textAlign: 'right'}}>{item.total ? item.total.toFixed(2) : "--"}</td>
-                    <td style={{textAlign: 'right'}}>{item.percentage ? `${item.percentage.toFixed(2)}%` : "--"}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, color: "#e11d48" }}>{item.obsolete ? item.obsolete.toFixed(2) : "--"}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600 }}>{item.total ? item.total.toFixed(2) : "--"}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: item.percentage > 50 ? "#dc2626" : "#e11d48" }}>{item.percentage ? `${item.percentage.toFixed(2)}%` : "--"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1295,37 +1495,47 @@ const [loading, setLoading] = useState(true);
         </div>
 
         {/* LOCATION */}
-        <div style={styles.panel}>
-          <SectionHeader>
-            Inventory by Location (Top 5) (₹ Cr)
-          </SectionHeader>
+        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+          <CardHeader
+            title="Inventory by Location (Top 5)"
+            subtitle={`Top holding locations by value (${filters.currency || "AED"} Cr)`}
+            info="Top locations with highest inventory values"
+          />
 
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th>Location</th>
-                  <th>Value (₹ Cr)</th>
-                  <th>% of Total</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {mockData.locations.map((row, idx) => (
-                  <tr key={`${row.name}-${idx}`}>
-                    <td>{row.name}</td>
-                    <td>{row.value.toFixed(2)}</td>
-                    <td>{row.percentage.toFixed(2)}%</td>
+          <div style={{ ...styles.tableWrapper, flex: 1 }}>
+            {mockData.locations.length === 0 ? (
+              <div style={{ padding: "30px 0", textAlign: "center", color: "#94a3b8", fontSize: "0.74rem" }}>
+                No location data available
+              </div>
+            ) : (
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Location</th>
+                    <th style={{ textAlign: 'right' }}>Value ({filters.currency || "AED"} Cr)</th>
+                    <th style={{ textAlign: 'right' }}>% of Total</th>
                   </tr>
-                ))}
+                </thead>
 
-                <tr style={styles.totalRow}>
-                  <td>Total</td>
-                  <td>{locationTotal.toFixed(2)}</td>
-                  <td>78.75%</td>
-                </tr>
-              </tbody>
-            </table>
+                <tbody>
+                  {mockData.locations.map((row, idx) => (
+                    <tr key={`${row.name}-${idx}`}>
+                      <td style={{ fontWeight: 600, color: "#1e293b" }}>{row.name}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{row.value.toFixed(2)}</td>
+                      <td style={{ textAlign: 'right', color: "#64748b" }}>{row.percentage ? `${row.percentage.toFixed(2)}%` : "—"}</td>
+                    </tr>
+                  ))}
+
+                  <tr style={styles.totalRow}>
+                    <td style={{ fontWeight: 800, color: "#1e3a8a" }}>Total</td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: "#1e293b" }}>{locationTotal.toFixed(2)}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 800, color: "#1e293b" }}>
+                      {mockData.locations.reduce((s, r) => s + (r.percentage || 0), 0).toFixed(2)}%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -1335,19 +1545,13 @@ const [loading, setLoading] = useState(true);
       ======================================================== */}
 
       <div style={styles.detailPanel}>
-        <div style={styles.chartHeader}>
-          <div style={styles.chartTitle}>
-            Inventory Detailed View <span style={styles.infoIcon}>ⓘ</span>
-          </div>
-          <div style={styles.headerActions}>
-            <button style={styles.secondaryButton} onClick={() => console.log('View All Details')}>
-              View All
-            </button>
-            <button style={styles.secondaryButton}>
-              Export <span style={{ marginLeft: 3, fontSize: "8px" }}>▼</span>
-            </button>
-          </div>
-        </div>
+        <CardHeader
+          title="Inventory Detailed View"
+          subtitle={`Line-item inventory breakdown and aging status (${filters.currency || "AED"})`}
+          info="Detailed item-level inventory valuation and aging buckets"
+          onViewAll={() => console.log('View All Details')}
+          onExport={() => handleExport('excel')}
+        />
 
         <div style={styles.detailTableWrapper} className="detail-table-scroll">
           <table style={styles.detailTable} className="detail-table">
@@ -1356,11 +1560,11 @@ const [loading, setLoading] = useState(true);
                 <th style={{ textAlign: "left", width: 130 }}>Legal Entity</th>
                 <th style={{ textAlign: "left", width: 110 }}>Parent Division</th>
                 <th style={{ textAlign: "left", width: 110 }}>Sub-Division</th>
-                <th style={{ textAlign: "left", width: 65 }}>Subinventory</th>
-                <th style={{ textAlign: "left", width: 100 }}>Item Code</th>
-                <th style={{ textAlign: "left", width: 135 }}>Item Description</th>
+                <th style={{ textAlign: "left", width: 75 }}>Subinventory</th>
+                <th style={{ textAlign: "left", width: 95 }}>Item Code</th>
+                <th style={{ textAlign: "left", width: 140 }}>Item Description</th>
                 <th style={{ textAlign: "right", width: 65 }}>Total Qty</th>
-                <th style={{ textAlign: "right", width: 75 }}>Value (AED)</th>
+                <th style={{ textAlign: "right", width: 75 }}>Value ({filters.currency || "AED"})</th>
                 <th style={{ textAlign: "right", width: 50 }}>0 - 30</th>
                 <th style={{ textAlign: "right", width: 50 }}>31 - 60</th>
                 <th style={{ textAlign: "right", width: 50 }}>61 - 90</th>
@@ -1393,19 +1597,19 @@ const [loading, setLoading] = useState(true);
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 65, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subinventory}>
+                    <div style={{ maxWidth: 75, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.subinventory}>
                       {row.subinventory}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
-                    <div style={{ maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.item_code}>
+                    <div style={{ maxWidth: 95, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.item_code}>
                       {row.item_code}
                     </div>
                   </td>
                   <td style={{ textAlign: "left" }}>
                     <div
                       style={{
-                        maxWidth: 135,
+                        maxWidth: 140,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -1526,7 +1730,7 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.footer}>
         <div>
-          All values are in AED (Cr) &nbsp; | &nbsp; Data as on {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "30 Apr 2024"}
+          All values are in {filters.currency || "AED"} (Cr) &nbsp; | &nbsp; Data as on {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "Latest Available"}
         </div>
 
         <div style={styles.source}>
@@ -1539,187 +1743,152 @@ const [loading, setLoading] = useState(true);
 }
 
 // ================================================================
-// INLINE CSS
+// INLINE CSS - Standardized to BalanceSheet & SalesRevenueReport
 // ================================================================
 
 const styles = {
   page: {
     minHeight: "100vh",
     background: "#f8fafc",
-    padding: "14px 18px 18px",
+    padding: "20px 24px 32px",
     boxSizing: "border-box",
     fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#172033",
-    fontSize: 12,
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    color: "#1e293b",
+    fontSize: "0.78rem",
   },
 
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 20,
-    marginBottom: 12,
+    gap: 16,
+    marginBottom: 16,
+    flexWrap: "wrap",
   },
 
   pageTitle: {
     margin: 0,
-    fontSize: 22,
-    lineHeight: 1.15,
+    fontSize: "1.45rem",
+    lineHeight: 1.2,
     fontWeight: 800,
-    color: "#14245c",
-    letterSpacing: "-0.5px",
+    color: "#1e293b",
+    letterSpacing: "-0.02em",
   },
 
   subtitle: {
     marginTop: 4,
     color: "#64748b",
-    fontSize: 11,
+    fontSize: "0.78rem",
+    lineHeight: 1.5,
   },
 
   headerActions: {
     display: "flex",
     alignItems: "center",
-    gap: 9,
-  },
-
-  primaryButton: {
-    height: 32,
-    border: "none",
-    borderRadius: 5,
-    padding: "0 14px",
-    background: "#4f24d8",
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: 600,
-    cursor: "pointer",
-    boxShadow: "0 2px 5px rgba(79,36,216,.15)",
-  },
-
-  secondaryButton: {
-    height: 32,
-    border: "1px solid #d7dce5",
-    borderRadius: 5,
-    padding: "0 12px",
-    background: "#fff",
-    color: "#334155",
-    fontSize: 11,
-    fontWeight: 500,
-    cursor: "pointer",
-  },
-
-  buttonIcon: {
-    marginRight: 7,
-    color: "#4f24d8",
-  },
-
-  refreshButton: {
-    width: 34,
-    height: 32,
-    border: "1px solid #d7dce5",
-    borderRadius: 5,
-    background: "#fff",
-    color: "#334155",
-    fontSize: 18,
-    cursor: "pointer",
+    gap: 8,
   },
 
   filterPanel: {
     background: "#fff",
-    border: "1px solid #e3e8ef",
-    borderRadius: 7,
-    padding: "10px 12px",
-    display: "grid",
-    gridTemplateColumns: "1.15fr 1fr 1fr 1fr 1fr 0.9fr 0.9fr auto auto",
-    alignItems: "end",
-    gap: 12,
-    boxShadow: "0 1px 3px rgba(15,23,42,.025)",
-    marginBottom: 10,
-  },
-
-  filterPanelExpanded: {
-    boxShadow: "0 3px 12px rgba(15,23,42,.07)",
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
+    padding: "10px 14px",
+    display: "flex",
+    alignItems: "flex-end",
+    gap: 8,
+    flexWrap: "wrap",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+    marginBottom: 16,
   },
 
   filterField: {
-    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    minWidth: 105,
+    flex: "1 1 105px",
   },
 
   filterLabel: {
     display: "block",
-    fontSize: "0.75rem",
-    color: "#1E3A8A",
-    marginBottom: 6,
+    fontSize: "0.66rem",
+    color: "#1e3a8a",
+    marginBottom: 3,
     fontWeight: 700,
+    letterSpacing: "-0.02em",
+    whiteSpace: "nowrap",
   },
 
   selectWrapper: {
     position: "relative",
+    width: "100%",
   },
 
   select: {
     width: "100%",
-    height: 30,
-    border: "1px solid #dfe4ec",
-    borderRadius: 5,
-    padding: "0 26px 0 9px",
-    fontSize: 10.5,
+    height: 32,
+    border: "1px solid #cbd5e1",
+    borderRadius: 7,
+    padding: "0 28px 0 9px",
+    fontSize: "0.76rem",
+    fontWeight: 500,
     color: "#334155",
     background: "#fff",
     outline: "none",
     appearance: "none",
     cursor: "pointer",
-  },
-
-  selectArrow: {
-    position: "absolute",
-    right: 9,
-    top: "50%",
-    transform: "translateY(-55%)",
-    color: "#475569",
-    pointerEvents: "none",
-    fontSize: 13,
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 8px center",
+    boxSizing: "border-box",
   },
 
   applyButton: {
-    height: 38,
-    padding: "0 24px",
+    height: 32,
+    padding: "0 16px",
     border: "none",
-    borderRadius: 8,
-    background: "#2563EB",
+    borderRadius: 7,
+    background: "#2563eb",
     color: "#fff",
-    fontSize: "0.8rem",
+    fontSize: "0.78rem",
     fontWeight: 700,
     cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    transition: "all 0.15s",
   },
 
   resetButton: {
-    height: 38,
-    padding: "0 24px",
-    border: "1px solid #CBD5E1",
-    borderRadius: 8,
-    background: "#fff",
-    color: "#475569",
-    fontSize: "0.8rem",
+    height: 32,
+    padding: "0 8px",
+    border: "none",
+    background: "transparent",
+    color: "#64748b",
+    fontSize: "0.78rem",
     fontWeight: 600,
     cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   kpiGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 16,
   },
 
   kpiCard: {
     minWidth: 0,
     background: "#fff",
-    border: "1px solid #e4e9f0",
+    border: "1px solid #e2e8f0",
     borderRadius: 10,
-    padding: "10px 12px 6px",
+    padding: "12px 14px 8px",
     boxSizing: "border-box",
-    boxShadow: "0 1px 3px rgba(15,23,42,0.03)",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
@@ -1751,19 +1920,19 @@ const styles = {
   },
 
   kpiValue: {
-    color: "#0f172a",
-    fontSize: "1.15rem",
-    lineHeight: 1.35,
+    color: "#1e293b",
+    fontSize: "1.25rem",
+    lineHeight: 1.3,
     fontWeight: 800,
     marginTop: 2,
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
-    letterSpacing: "-0.3px",
+    letterSpacing: "-0.02em",
   },
 
   kpiVariance: {
-    fontSize: "0.71rem",
+    fontSize: "0.70rem",
     lineHeight: 1.2,
     whiteSpace: "nowrap",
     marginTop: 3,
@@ -1771,66 +1940,68 @@ const styles = {
 
   chartGrid: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 10,
-    marginBottom: 10,
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 12,
+    marginBottom: 16,
+  },
+
+  bottomGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 12,
+    marginBottom: 16,
   },
 
   panel: {
     background: "#fff",
-    border: "1px solid #e3e8ef",
-    borderRadius: 7,
-    padding: "9px 11px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
+    padding: "12px 14px",
     minWidth: 0,
     boxSizing: "border-box",
-    boxShadow: "0 1px 3px rgba(15,23,42,.02)",
-  },
-
-  sectionHeader: {
-    color: "#12275e",
-    fontSize: 11,
-    fontWeight: 800,
-    marginBottom: 7,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
   },
 
   legend: {
     display: "flex",
     justifyContent: "center",
     gap: 18,
-    marginBottom: 1,
-    fontSize: 9,
-    color: "#475569",
+    marginBottom: 6,
+    fontSize: "0.72rem",
+    color: "#64748b",
   },
 
   legendItem: {
     display: "flex",
     alignItems: "center",
-    gap: 5,
+    gap: 6,
+    fontWeight: 500,
   },
 
   legendDot: {
-    width: 7,
-    height: 7,
+    width: 8,
+    height: 8,
     borderRadius: "50%",
   },
 
   lineChartContainer: {
     width: "100%",
-    height: 165,
+    height: 180,
   },
 
   donutRow: {
-    minHeight: 176,
+    minHeight: 180,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-around",
-    gap: 5,
+    gap: 10,
+    flex: 1,
   },
 
   donutWrapper: {
-    width: 145,
-    height: 145,
-    flex: "0 0 145px",
+    width: 120,
+    height: 120,
+    flex: "0 0 120px",
   },
 
   legendList: {
@@ -1842,72 +2013,76 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 7,
-    marginBottom: 12,
-    fontSize: 10,
+    gap: 8,
+    padding: "4px 0",
+    borderBottom: "1px solid #f8fafc",
+    fontSize: "0.72rem",
   },
 
   legendName: {
     display: "flex",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
     color: "#334155",
     whiteSpace: "nowrap",
+    fontWeight: 500,
   },
 
   legendCircle: {
-    width: 9,
-    height: 9,
-    minWidth: 9,
+    width: 8,
+    height: 8,
+    minWidth: 8,
     borderRadius: "50%",
     display: "inline-block",
   },
 
   legendValue: {
-    color: "#475569",
-    fontWeight: 500,
+    color: "#1e293b",
+    fontWeight: 600,
     whiteSpace: "nowrap",
-  },
-
-  bottomGrid: {
-    display: "grid",
-    gridTemplateColumns: "1.02fr 1.18fr 1.12fr",
-    gap: 10,
-    marginBottom: 10,
   },
 
   agingContent: {
     display: "flex",
-    alignItems: "center",
-    gap: 4,
-    minHeight: 157,
+    alignItems: "stretch",
+    gap: 12,
+    flex: 1,
+    height: "100%",
+    padding: "2px 0",
   },
 
   agingTable: {
     flex: 1,
     minWidth: 0,
-    fontSize: 9.5,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    height: "100%",
+    fontSize: "0.72rem",
   },
 
   agingHeader: {
     display: "grid",
-    gridTemplateColumns: "1fr 75px 62px",
-    gap: 5,
-    color: "#64748b",
+    gridTemplateColumns: "minmax(110px, 1fr) 56px 44px",
+    gap: 6,
+    color: "#1e3a8a",
     fontWeight: 700,
-    fontSize: 8,
-    paddingBottom: 5,
-    borderBottom: "1px solid #e5eaf1",
+    fontSize: "0.70rem",
+    padding: "4px 6px 5px",
+    borderBottom: "2px solid #e2e8f0",
+    background: "#f8fafc",
+    borderRadius: "4px 4px 0 0",
   },
 
   agingRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 75px 62px",
-    gap: 5,
+    gridTemplateColumns: "minmax(110px, 1fr) 56px 44px",
+    gap: 6,
     alignItems: "center",
-    minHeight: 21,
-    borderBottom: "1px solid #f0f3f7",
-    color: "#475569",
+    padding: "3.5px 6px",
+    borderBottom: "1px solid #f1f5f9",
+    color: "#334155",
+    fontSize: "0.72rem",
   },
 
   agingName: {
@@ -1915,6 +2090,19 @@ const styles = {
     alignItems: "center",
     gap: 6,
     whiteSpace: "nowrap",
+    fontWeight: 500,
+  },
+
+  agingTotalRow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(110px, 1fr) 56px 44px",
+    gap: 6,
+    alignItems: "center",
+    padding: "4px 6px",
+    borderTop: "2px solid #e2e8f0",
+    background: "#f8fafc",
+    fontSize: "0.72rem",
+    borderRadius: "0 0 4px 4px",
   },
 
   tableWrapper: {
@@ -1925,25 +2113,23 @@ const styles = {
   table: {
     width: "100%",
     borderCollapse: "collapse",
-    fontSize: 8.5,
+    fontSize: "0.74rem",
     color: "#334155",
   },
 
-  tableHeader: {},
-
-  tableCell: {},
-
   totalRow: {
     fontWeight: 800,
-    background: "#f4f7fc",
+    background: "#f8fafc",
+    borderTop: "2px solid #e2e8f0",
+    color: "#1e3a8a",
   },
 
   detailPanel: {
     background: "#fff",
-    border: "1px solid #e3e8ef",
-    borderRadius: 7,
-    padding: "9px 11px 10px",
-    boxShadow: "0 1px 3px rgba(15,23,42,.02)",
+    border: "1px solid #e2e8f0",
+    borderRadius: 10,
+    padding: "12px 14px 14px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
     overflow: "hidden",
   },
 
@@ -1953,31 +2139,32 @@ const styles = {
     overflowY: "hidden",
     paddingBottom: 6,
     scrollbarWidth: "auto",
-    scrollbarColor: "#94a3b8 #f1f5f9",
+    scrollbarColor: "#cbd5e1 #f1f5f9",
   },
 
   detailTable: {
     width: "100%",
     minWidth: 1280,
     borderCollapse: "collapse",
-    fontSize: 8.5,
+    fontSize: "0.73rem",
     color: "#334155",
     tableLayout: "auto",
   },
 
   detailTotalRow: {
-    background: "#eef4ff",
-    color: "#12275e",
+    background: "#f8fafc",
+    color: "#1e3a8a",
     fontWeight: 800,
+    borderTop: "2px solid #e2e8f0",
   },
 
   footer: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "10px 2px 0",
-    color: "#475569",
-    fontSize: 9,
+    padding: "12px 4px 0",
+    color: "#64748b",
+    fontSize: "0.72rem",
   },
 
   source: {
@@ -1990,7 +2177,7 @@ const styles = {
 
 // ================================================================
 // TABLE CSS USING A SMALL GLOBAL STYLE INJECTION
-// This keeps everything in this single component file.
+// Standardized to BalanceSheet & SalesRevenueReport tokens
 // ================================================================
 
 if (
@@ -2003,26 +2190,29 @@ if (
 
   style.innerHTML = `
     table th {
-      background: #f3f6fb;
-      color: #1e3a70;
+      background: #f8fafc;
+      color: #1e3a8a;
       font-weight: 700;
       white-space: nowrap;
       text-align: left;
-      padding: 6px 6px;
-      border-bottom: 1px solid #e0e6ef;
+      padding: 8px 10px;
+      border-bottom: 2px solid #e2e8f0;
+      font-size: 0.72rem;
     }
 
     table td {
-      padding: 5px 6px;
-      border-bottom: 1px solid #edf1f5;
+      padding: 6px 10px;
+      border-bottom: 1px solid #f1f5f9;
       white-space: nowrap;
+      font-size: 0.74rem;
+      color: #334155;
     }
 
     table tbody tr:hover {
-      background: #f8fbff;
+      background: #f8fafc;
     }
 
-    /* Enhanced, Thick Horizontal Scrollbar */
+    /* Enhanced, Thick Horizontal Scrollbar matching BalanceSheet and SalesRevenue */
     .detail-table-scroll::-webkit-scrollbar {
       height: 10px !important;
       width: 10px !important;
@@ -2034,31 +2224,31 @@ if (
     }
 
     .detail-table-scroll::-webkit-scrollbar-thumb {
-      background: #94a3b8 !important;
+      background: #cbd5e1 !important;
       border-radius: 6px !important;
       border: 2px solid #f1f5f9 !important;
     }
 
     .detail-table-scroll::-webkit-scrollbar-thumb:hover {
-      background: #475569 !important;
+      background: #64748b !important;
     }
 
     /* Compact Detail Table Styling */
     table.detail-table th {
-      padding: 6px 4px !important;
-      font-size: 8.5px !important;
-      letter-spacing: -0.2px !important;
+      padding: 7px 5px !important;
+      font-size: 0.72rem !important;
+      letter-spacing: -0.01em !important;
     }
 
     table.detail-table td {
-      padding: 5px 4px !important;
-      font-size: 8.5px !important;
-      letter-spacing: -0.2px !important;
+      padding: 6px 5px !important;
+      font-size: 0.73rem !important;
+      letter-spacing: -0.01em !important;
     }
 
     select:focus {
-      border-color: #8064e9 !important;
-      box-shadow: 0 0 0 2px rgba(79, 36, 216, .08);
+      border-color: #2563eb !important;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, .12);
     }
 
     button {
@@ -2074,4 +2264,3 @@ if (
 
   document.head.appendChild(style);
 }
-
