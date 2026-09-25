@@ -514,7 +514,7 @@ const [loading, setLoading] = useState(true);
                       parentDivisions: [{value: "All", label: "All"}, ...(fData.parent_divisions || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
                       subdivisions: [{value: "All", label: "All"}, ...(fData.subdivisions || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
                       subinventories: [{value: "All", label: "All"}, ...(fData.subinventories || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
-                      currencies: [{value: "AED", label: "AED"}, ...(fData.currencies || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x }))],
+                      currencies: (fData.currencies || []).map(x => ({ value: x.id || x.value || x, label: x.name || x.label || x })),
                       dates: [{value: "All", label: "All"}, ...(fData.as_on_dates || []).map(x => ({ value: x, label: x }))],
                   },
                   kpis,
