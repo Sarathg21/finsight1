@@ -44,6 +44,10 @@ export const getInventoryTrend = (params = {}) =>
 export const getInventoryTopItems = (params = {}) =>
   api.get("/inventory/top-items", { params, paramsSerializer: serializeParams });
 
+export const getInventoryMonthOnMonth = (params = {}) =>
+  api.get("/inventory/parent-division/month-on-month", { params, paramsSerializer: serializeParams });
+
+
 export const getInventoryDetails = (params = {}) => {
   const { limit, page_size, section, ...rest } = params;
   let route = "/inventory/view-all";

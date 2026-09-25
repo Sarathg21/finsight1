@@ -246,9 +246,17 @@ export async function fetchBSFilters(params = {}) {
   let leList = res.legal_entities || [];
   if (!Array.isArray(leList)) leList = [];
   
-  // Filter out any string/object whose value/name is 'All'
+  // Normalize to {id, name} — the backend returns {value, label} objects;
+  // the static LEGAL_ENTITIES list uses {id, name}. Handle both formats here
+  // so that cascade-returned entities are never silently dropped.
   const valid = leList
-    .map(e => typeof e === 'string' ? { name: e } : e)
+    .map(e => {
+      if (typeof e === 'string') return { name: e };
+      return {
+        id:   e.id   !== undefined ? e.id   : e.value,
+        name: e.name !== undefined ? e.name : e.label,
+      };
+    })
     .filter(e => e && e.name && e.name.toLowerCase() !== 'all' && e.id !== '' && e.id !== 'All');
 
   const map = new Map();
@@ -264,13 +272,17 @@ export async function fetchBSFilters(params = {}) {
   });
 
   // Second, add master entities that are NOT yet in the database, offset by +100 so their IDs never collide with database IDs (e.g. ID 1)
-  LEGAL_ENTITIES.forEach(le => {
-    if (!map.has(le.name.toLowerCase())) {
-      const uniqueId = dbIds.has(le.id) ? (100 + Number(le.id)) : Number(le.id);
-      map.set(le.name.toLowerCase(), { id: uniqueId, name: le.name });
-      dbIds.add(uniqueId);
-    }
-  });
+  // On cascade calls (isCascade=true) the backend already restricts to the selected hierarchy,
+  // so skip the static merge to avoid reintroducing entities from other Legal Groups.
+  if (!params.isCascade) {
+    LEGAL_ENTITIES.forEach(le => {
+      if (!map.has(le.name.toLowerCase())) {
+        const uniqueId = dbIds.has(le.id) ? (100 + Number(le.id)) : Number(le.id);
+        map.set(le.name.toLowerCase(), { id: uniqueId, name: le.name });
+        dbIds.add(uniqueId);
+      }
+    });
+  }
 
   res.legal_entities = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 

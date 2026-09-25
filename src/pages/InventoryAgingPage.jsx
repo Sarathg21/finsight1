@@ -1,8 +1,60 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle } from "lucide-react";
-import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport } from "../api/inventoryApi";
+import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
+
+
+/* ================================================================
+   DATE FILTER
+   ================================================================ */
+function DateFilter({ value, onChange, minWidth = 110 }) {
+    const dateInputRef = React.useRef(null);
+    const openCalendar = () => {
+        if (dateInputRef.current) {
+            if (typeof dateInputRef.current.showPicker === "function") {
+                dateInputRef.current.showPicker();
+            } else {
+                dateInputRef.current.click();
+            }
+        }
+    };
+    const handleDateChange = (event) => {
+        const selectedDate = event.target.value;
+        if (!selectedDate) return;
+        onChange(selectedDate);
+    };
+    return (
+        <div style={{ flex: "1 1 0", minWidth: minWidth, position: "relative" }}>
+            <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5, lineHeight: "12px", whiteSpace: "nowrap" }}>
+                As On Date
+            </label>
+            <input
+                ref={dateInputRef}
+                type="date"
+                value={value || ""}
+                onChange={handleDateChange}
+                style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+            />
+            <button
+                type="button"
+                onClick={openCalendar}
+                style={{
+                    width: "100%", height: 34, boxSizing: "border-box", border: "1px solid #dce3ee",
+                    borderRadius: 9, padding: "0 30px 0 11px", background: "#f4f7fb", color: "#24366b",
+                    fontSize: 11, fontWeight: 600, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                }}
+                title={value && value !== "All" ? value : "Latest Available"}
+            >
+                {value && value !== "All" ? value : "Latest Available"}
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%", background: "#f4f7fb", paddingLeft: 4 }}>
+                    <Calendar size={14} />
+                </span>
+            </button>
+        </div>
+    );
+}
 
 export default function InventoryOverview() {
   // ============================================================
@@ -37,7 +89,7 @@ export default function InventoryOverview() {
               if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
               if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
               
-              if (filters.currency && filters.currency !== "All" && filters.currency !== "AED") apiFilters.currency = filters.currency; // Modify if AED shouldn't be ignored
+              if (filters.currency && filters.currency !== "All") apiFilters.reporting_currency = filters.currency;
               if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
       const exportFilters = section ? { ...apiFilters, section } : apiFilters;
@@ -54,6 +106,8 @@ export default function InventoryOverview() {
     } catch (err) {
       console.error("Export failed", err);
       toast.error("Export failed: " + (err.response?.data?.detail || err.message || "Unknown error"), { id: toastId });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -73,6 +127,12 @@ const [loading, setLoading] = useState(true);
   const [parentDivViewMode, setParentDivViewMode] = useState("month"); // "month" | "mom"
   const [viewAllModal, setViewAllModal] = useState(null); // "trend" | "parentDivision" | "subdivision" | "aging" | "slowMoving" | "location" | "details" | null
   const [viewAllSearch, setViewAllSearch] = useState("");
+  const [viewAllData, setViewAllData] = useState([]);
+  const [viewAllLoading, setViewAllLoading] = useState(false);
+  const [momData, setMomData] = useState([]);
+  const [momLoading, setMomLoading] = useState(false);
+
+
   const [modalDetailPage, setModalDetailPage] = useState(0);
   const [modalDetailPageSize, setModalDetailPageSize] = useState(15);
   const [mockData, setMockData] = useState({
@@ -91,7 +151,8 @@ const [loading, setLoading] = useState(true);
     allSlowMoving: [],
     locations: [],
     allLocations: [],
-    details: []
+    details: [],
+    reporting_currency: "AED"
   });
 
   
@@ -100,7 +161,7 @@ const [loading, setLoading] = useState(true);
       if (v === null || v === undefined) return "—";
       const n = Number(v);
       if (isNaN(n)) return "—";
-      const cur = filters.currency || "AED";
+      const cur = mockData.reporting_currency || "AED";
       if (n >= 1000000000) return `${cur} ${(n / 1000000000).toFixed(2)}B`;
       if (n >= 10000000) return `${cur} ${(n / 10000000).toFixed(2)} Cr`;
       if (n >= 1000000) return `${cur} ${(n / 1000000).toFixed(2)}M`;
@@ -138,14 +199,16 @@ const [loading, setLoading] = useState(true);
               if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
               if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
               
-              if (filters.currency && filters.currency !== "All" && filters.currency !== "AED") apiFilters.currency = filters.currency; // Modify if AED shouldn't be ignored
+              if (filters.currency && filters.currency !== "All") apiFilters.reporting_currency = filters.currency;
               if (formattedDate && formattedDate !== "All" && formattedDate !== "") apiFilters.as_on_date = formattedDate;
 
-              const [filterRes, dashRes, detailsRes] = await Promise.all([
-                  getInventoryFilters(),
+              const [filterRes, dashRes, detailsRes, momRes] = await Promise.all([
+                  getInventoryFilters(apiFilters),
                   getInventoryDashboard(apiFilters),
-                  getInventoryDetails({ ...apiFilters, limit: 100 })
+                  getInventoryDetails({ ...apiFilters, limit: 100 }),
+                  getInventoryMonthOnMonth(apiFilters).catch(() => ({ data: { items: [] } }))
               ]);
+              setMomData(momRes.data?.items || []);
               
               const fData = filterRes.data || {};
               const dData = dashRes.data || {};
@@ -179,6 +242,7 @@ const [loading, setLoading] = useState(true);
                             cardBg: "linear-gradient(180deg, #FAF5FF 0%, #FFFFFF 100%)",
                             borderColor: "#E9D5FF",
                             value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value),
+                            subtitle: dData.kpis.average_inventory_months_used ? `${dData.kpis.average_inventory_months_used} Months used` : null,
                             icon: BarChart3,
                             iconBg: "#F3E8FF",
                             iconColor: "#7C3AED",
@@ -189,13 +253,11 @@ const [loading, setLoading] = useState(true);
                         },
                         {
                             key: "turnover",
-                            title: "Inventory Turnover (TTM)",
+                            title: dData.kpis.turnover_basis ? `Inventory Turnover (${dData.kpis.turnover_basis})` : "Inventory Turnover",
                             titleColor: "#EA580C",
                             cardBg: "linear-gradient(180deg, #FFF7ED 0%, #FFFFFF 100%)",
                             borderColor: "#FED7AA",
-                            value: (dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover) 
-                                ? `${Number(dData.kpis.inventory_turnover_ttm || dData.kpis.inventory_turnover).toFixed(2)} Times` 
-                                : "—",
+                            value: (dData.kpis.inventory_turnover !== null && dData.kpis.inventory_turnover !== undefined) ? `${Number(dData.kpis.inventory_turnover).toFixed(2)} Times` : "N/A",
                             icon: RotateCw,
                             iconBg: "#FFEDD5",
                             iconColor: "#EA580C",
@@ -210,13 +272,11 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#16A34A",
                             cardBg: "linear-gradient(180deg, #F0FDF4 0%, #FFFFFF 100%)",
                             borderColor: "#BBF7D0",
-                            value: (dData.kpis.stock_holding_days || dData.kpis.dio) 
-                                ? `${dData.kpis.stock_holding_days || dData.kpis.dio} Days` 
-                                : "—",
+                            value: (dData.kpis.dio_days !== null && dData.kpis.dio_days !== undefined) ? `${Number(dData.kpis.dio_days).toFixed(0)} Days` : "N/A",
                             icon: Calendar,
                             iconBg: "#DCFCE7",
                             iconColor: "#16A34A",
-                            variance: dData.kpis.dio_variance || null,
+                            variance: dData.kpis.dio_days_variance || null,
                             varianceLabel: dData.kpis.variance_label || null,
                             direction: "down",
                             line: sparkline
@@ -322,6 +382,7 @@ const [loading, setLoading] = useState(true);
               if (dData.by_parent_division) {
                   const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#ec4899", "#0891b2"];
                   allDivisions = dData.by_parent_division.map((item, idx) => ({
+                      ...item,
                       name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : item.label,
                       value: Number(item.inventory_value) / 10000000,
                       percentage: Number(item.percentage_of_total),
@@ -467,7 +528,8 @@ const [loading, setLoading] = useState(true);
                   allSlowMoving,
                   locations,
                   allLocations,
-                  details
+                  details,
+                  reporting_currency: dData.reporting_currency || dData.currency || filters.currency || "AED"
               });
           } catch (err) {
               console.error(err);
@@ -936,6 +998,118 @@ const [loading, setLoading] = useState(true);
   };
 
   // ============================================================
+
+  // MOM BAR CHART
+  // ============================================================
+
+  const MomBarChart = () => {
+    const data = momData.slice(0, 5); // top 5
+    if (!data || data.length === 0) {
+        return <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>No month-on-month data available</div>;
+    }
+
+    const max = Math.max(
+      ...data.map((x) => Math.max(Number(x.current_value || 0), Number(x.previous_value || 0)))
+    );
+    const roundMax = max === 0 ? 1 : (max <= 10 ? 10 : Math.ceil(max / 10) * 10);
+    const ticks = [
+      0,
+      Math.round(roundMax * 0.25),
+      Math.round(roundMax * 0.5),
+      Math.round(roundMax * 0.75),
+      roundMax,
+    ];
+
+    return (
+      <div style={{ width: "100%", paddingTop: 10, paddingRight: 20 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 15, marginBottom: 15, fontSize: "0.7rem", fontWeight: 600, color: "#64748b" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: "#2563eb", borderRadius: 2 }}/> Current Month</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: "#94a3b8", borderRadius: 2 }}/> Previous Month</div>
+        </div>
+        {data.map((item) => (
+          <div
+            key={item.parent_division_name}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "110px 1fr 60px",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 12,
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "#475569",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                textAlign: "right"
+              }}
+              title={item.parent_division_name}
+            >
+              {item.parent_division_name}
+            </div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ height: 12, width: "100%", background: "#f1f5f9", borderRadius: 2, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${(Number(item.current_value || 0) / roundMax) * 100}%`,
+                      background: "#2563eb",
+                      borderRadius: 2,
+                      transition: "width 0.5s",
+                    }}
+                  />
+                </div>
+                <div style={{ height: 12, width: "100%", background: "#f1f5f9", borderRadius: 2, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      width: `${(Number(item.previous_value || 0) / roundMax) * 100}%`,
+                      background: "#94a3b8",
+                      borderRadius: 2,
+                      transition: "width 0.5s",
+                    }}
+                  />
+                </div>
+            </div>
+
+            <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#334155", textAlign: "right" }}>
+                <div style={{ color: "#1e3a8a" }}>{Number(item.current_value || 0).toFixed(2)}</div>
+                <div style={{ color: "#64748b" }}>{Number(item.previous_value || 0).toFixed(2)}</div>
+            </div>
+          </div>
+        ))}
+        
+        {/* X-Axis Ticks */}
+        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 60px", gap: 8, marginTop: 8 }}>
+          <div />
+          <div style={{ position: "relative", height: 15 }}>
+            {ticks.map((t, i) => (
+              <span
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: `${(t / roundMax) * 100}%`,
+                  transform: "translateX(-50%)",
+                  fontSize: "0.6rem",
+                  color: "#94a3b8",
+                  fontWeight: 600,
+                }}
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+          <div />
+        </div>
+      </div>
+    );
+  };
+
   // BAR CHART
   // ============================================================
 
@@ -1037,7 +1211,7 @@ const [loading, setLoading] = useState(true);
             fontWeight: 600,
           }}
         >
-          {filters.currency || "AED"} Cr
+          {mockData.reporting_currency || "AED"} Cr
         </div>
       </div>
     );
@@ -1118,7 +1292,6 @@ const [loading, setLoading] = useState(true);
                     color: "#334155",
                     fontSize: "0.72rem",
                     fontWeight: 600,
-                    cursor: "pointer",
                     transition: "all 0.15s",
                     display: "flex",
                     alignItems: "center",
@@ -1147,7 +1320,6 @@ const [loading, setLoading] = useState(true);
                       color: "#334155",
                       fontSize: "0.72rem",
                       fontWeight: 600,
-                      cursor: "pointer",
                       transition: "all 0.15s",
                       display: "flex",
                       alignItems: "center",
@@ -1341,19 +1513,15 @@ const [loading, setLoading] = useState(true);
           HEADER
       ======================================================== */}
 
-      <div style={styles.header}>
+      <div className="page-header">
         <div>
-          <h1 style={styles.pageTitle}>Inventory Overview</h1>
-
-          <div style={styles.subtitle}>
-            Track inventory position, movement and aging across all dimensions
-            <br />
-            <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 4, fontWeight: 600, color: '#334155' }}>
+          <div className="page-header-subtitle" style={{ marginTop: 0 }}>
+            <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, display: 'inline-block', marginTop: 0, fontWeight: 600, color: '#334155' }}>
               As On Date: {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "Latest Snapshot"}
             </span>
             &nbsp;|&nbsp;
             <span style={{ color: '#16a34a', fontWeight: 700 }}>
-              Currency: {filters.currency || "AED"}
+              Currency: {mockData.reporting_currency || "AED"}
             </span>
           </div>
         </div>
@@ -1411,7 +1579,7 @@ const [loading, setLoading] = useState(true);
           FILTERS
       ======================================================== */}
 
-      <div style={styles.filterPanel}>
+      <div className="filter-bar">
         <FilterField
           label="Legal Group"
           value={filters.legalGroup}
@@ -1460,12 +1628,9 @@ const [loading, setLoading] = useState(true);
           minWidth={85}
         />
 
-        <FilterField
-          label="As On Date"
+        <DateFilter
           value={filters.asOnDate}
-          options={mockData.filters.dates}
           onChange={(value) => updateFilter("asOnDate", value)}
-          date
           minWidth={115}
         />
 
@@ -1484,7 +1649,7 @@ const [loading, setLoading] = useState(true);
           KPI CARDS
       ======================================================== */}
 
-      <div style={styles.kpiGrid}>
+      <div className="grid-cols-6">
         {mockData.kpis.map((item) => (
           <KpiCard key={item.title} item={item} />
         ))}
@@ -1496,9 +1661,9 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.chartGrid}>
         {/* Inventory Trend */}
-        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
           <CardHeader isExporting={isExporting}
-            title={`Inventory Value Trend (${filters.currency || "AED"} Cr)`}
+            title={`Inventory Value Trend (${mockData.reporting_currency || "AED"} Cr)`}
             subtitle="Current Year vs Previous Year month-by-month trajectory"
             info="Comparison of inventory value trend"
             onViewAll={() => setViewAllModal("trend")}
@@ -1523,10 +1688,10 @@ const [loading, setLoading] = useState(true);
         </div>
 
         {/* Parent Division */}
-        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
           <CardHeader isExporting={isExporting}
-            title={`Inventory Value by Parent Division (${filters.currency || "AED"} Cr)`}
-            subtitle={parentDivViewMode === "mom" ? `Month on Month distribution across parent divisions (${filters.currency || "AED"} Cr)` : `Distribution across parent divisions (${filters.currency || "AED"} Cr)`}
+            title={`Inventory Value by Parent Division (${mockData.reporting_currency || "AED"} Cr)`}
+            subtitle={parentDivViewMode === "mom" ? `Month on Month distribution across parent divisions (${mockData.reporting_currency || "AED"} Cr)` : `Distribution across parent divisions (${mockData.reporting_currency || "AED"} Cr)`}
             info="Breakdown across key parent divisions"
             extra={
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1618,10 +1783,10 @@ const [loading, setLoading] = useState(true);
         </div>
 
         {/* Sub-division */}
-        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
           <CardHeader isExporting={isExporting}
-            title={`Inventory Value by Sub-division (${filters.currency || "AED"} Cr)`}
-            subtitle={`Sub-division inventory comparison (${filters.currency || "AED"} Cr)`}
+            title={`Inventory Value by Sub-division (${mockData.reporting_currency || "AED"} Cr)`}
+            subtitle={`Sub-division inventory comparison (${mockData.reporting_currency || "AED"} Cr)`}
             info="Sub-division holdings ranked by value"
             onViewAll={() => setViewAllModal("subdivision")}
             onExport={(type) => handleExport(type || "excel")}
@@ -1639,12 +1804,12 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.bottomGrid}>
         {/* AGING */}
-        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
           <CardHeader isExporting={isExporting}
             title="Inventory Aging Summary"
-            subtitle={`Aging distribution across 8 duration buckets (${filters.currency || "AED"} Cr)`}
+            subtitle={`Aging distribution across 8 duration buckets (${mockData.reporting_currency || "AED"} Cr)`}
             info="Summary of inventory value by aging bucket"
-            onViewAll={() => setViewAllModal("aging")}
+            onViewAll={() => setViewAllModal("details")}
             onExport={(type) => handleExport(type || "excel")}
           />
 
@@ -1653,7 +1818,7 @@ const [loading, setLoading] = useState(true);
               data={mockData.aging}
               total={agingTotal.toFixed(2)}
               centerText={`${agingTotal.toFixed(2)} Cr`}
-              centerSubText={filters.currency || "AED"}
+              centerSubText={mockData.reporting_currency || "AED"}
               size={120}
               strokeWidth={18}
             />
@@ -1704,10 +1869,10 @@ const [loading, setLoading] = useState(true);
         </div>
 
         {/* SLOW MOVING */}
-        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0 }}>
           <CardHeader isExporting={isExporting}
             title="Slow Moving Stock by Parent Div"
-            subtitle={`Obsolete inventory vs total stock (${filters.currency || "AED"} Cr)`}
+            subtitle={`Obsolete inventory vs total stock (${mockData.reporting_currency || "AED"} Cr)`}
             info="Parent divisions with highest obsolete inventory holdings"
             onViewAll={() => setViewAllModal("slowMoving")}
             onExport={(type) => handleExport(type || "excel", "slow-moving")}
@@ -1719,8 +1884,8 @@ const [loading, setLoading] = useState(true);
                 <tr>
                   <th style={{ width: 28 }}>#</th>
                   <th>PARENT DIV</th>
-                  <th style={{ textAlign: 'right' }}>OBSOLETE ({filters.currency || "AED"} Cr)</th>
-                  <th style={{ textAlign: 'right' }}>TOTAL ({filters.currency || "AED"} Cr)</th>
+                  <th style={{ textAlign: 'right' }}>OBSOLETE ({mockData.reporting_currency || "AED"} Cr)</th>
+                  <th style={{ textAlign: 'right' }}>TOTAL ({mockData.reporting_currency || "AED"} Cr)</th>
                   <th style={{ textAlign: 'right' }}>% OBSOLETE</th>
                 </tr>
               </thead>
@@ -1752,90 +1917,37 @@ const [loading, setLoading] = useState(true);
           </div>
         </div>
 
-        {/* LOCATION */}
-        <div style={{ ...styles.panel, display: "flex", flexDirection: "column" }}>
-          <CardHeader isExporting={isExporting}
-            title="Inventory by Location (Top 5)"
-            subtitle={`Top holding locations by value (${filters.currency || "AED"} Cr)`}
-            info="Top locations with highest inventory values"
-            onViewAll={() => setViewAllModal("location")}
-            onExport={(type) => handleExport(type || "excel")}
-          />
-
-          <div style={{ ...styles.tableWrapper, flex: 1, display: "flex", flexDirection: "column" }}>
-            {mockData.locations.length === 0 ? (
-              <div style={{ padding: "30px 0", textAlign: "center", color: "#94a3b8", fontSize: "0.74rem" }}>
-                No location data available
-              </div>
-            ) : (
-              <table style={{ ...styles.table, flex: 1 }}>
-                <thead>
-                  <tr>
-                    <th>Location</th>
-                    <th style={{ textAlign: 'right' }}>Value ({filters.currency || "AED"} Cr)</th>
-                    <th style={{ textAlign: 'right' }}>% of Total</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {mockData.locations.map((row, idx) => (
-                    <tr key={`${row.name}-${idx}`}>
-                      <td style={{ fontWeight: 600, color: "#1e293b" }}>{row.name}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{row.value.toFixed(2)}</td>
-                      <td style={{ textAlign: 'right', color: "#64748b" }}>{row.percentage ? `${row.percentage.toFixed(2)}%` : "—"}</td>
-                    </tr>
-                  ))}
-
-                  <tr style={{ height: "100%" }}><td colSpan={3}></td></tr>
-                  <tr style={styles.totalRow}>
-                    <td style={{ fontWeight: 800, color: "#1e3a8a" }}>Total</td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: "#1e293b" }}>{locationTotal.toFixed(2)}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 800, color: "#1e293b" }}>
-                      {mockData.locations.reduce((s, r) => s + (r.percentage || 0), 0).toFixed(2)}%
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* ========================================================
           DETAILED VIEW
       ======================================================== */}
 
-      <div style={styles.detailPanel}>
+      <div className="card" style={{ padding: 0 }}>
         <CardHeader isExporting={isExporting}
           title="Inventory Detailed View"
-          subtitle={`Line-item inventory breakdown and aging status (${filters.currency || "AED"})`}
+          subtitle={`Line-item inventory breakdown and aging status (${mockData.reporting_currency || "AED"})`}
           info="Detailed item-level inventory valuation and aging buckets"
           onViewAll={() => setViewAllModal("details")}
           onExport={(type) => handleExport(type || "excel")}
         />
 
         <div style={styles.detailTableWrapper} className="detail-table-scroll">
-          <table style={styles.detailTable} className="detail-table">
+          <table style={styles.detailTable} className="compact-table">
             <thead>
               <tr>
                 <th style={{ textAlign: "left", width: 125, minWidth: 115 }}>Legal Entity</th>
                 <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Parent Division</th>
                 <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Sub-Division</th>
-                <th style={{ textAlign: "left", width: 70, minWidth: 65 }}>Subinventory</th>
-                <th style={{ textAlign: "left", width: 95, minWidth: 85 }}>Item Code</th>
-                <th style={{ textAlign: "left", width: 145, minWidth: 135 }}>Item Description</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 70 }}>Total Qty</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 70 }}>Value ({filters.currency || "AED"})</th>
-                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>0 - 30</th>
-                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>31 - 60</th>
-                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>61 - 90</th>
-                <th style={{ textAlign: "right", width: 50, minWidth: 46 }}>91 - 120</th>
-                <th style={{ textAlign: "right", width: 54, minWidth: 50 }}>121 - 180</th>
-                <th style={{ textAlign: "right", width: 54, minWidth: 50 }}>181 - 365</th>
-                <th style={{ textAlign: "right", width: 54, minWidth: 50 }}>366 - 730</th>
-                <th style={{ textAlign: "right", width: 48, minWidth: 45 }}>&gt; 730</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 40 }}>Days</th>
-                <th style={{ textAlign: "right", width: 68, minWidth: 62 }}>Avg Value</th>
+                <th style={{ textAlign: "left", width: 90, minWidth: 80 }}>Subinventory Code</th>
+                <th style={{ textAlign: "right", width: 95, minWidth: 85 }}>Total Stock Value ({mockData.reporting_currency || "AED"})</th>
+                <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>0-30</th>
+                <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>31-60</th>
+                <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>61-90</th>
+                <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>91-120</th>
+                <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>121-180</th>
+                <th style={{ textAlign: "right", width: 60, minWidth: 55 }}>181-365</th>
+                <th style={{ textAlign: "right", width: 90, minWidth: 80 }}>Obsolete Stock (Above 365 Days)</th>
               </tr>
             </thead>
 
@@ -1972,11 +2084,6 @@ const [loading, setLoading] = useState(true);
                     <td />
                     <td />
                     <td />
-                    <td />
-                    <td />
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {totals.qty.toLocaleString()}
-                    </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.totalVal / 10000000).toFixed(2)}
                     </td>
@@ -1998,14 +2105,9 @@ const [loading, setLoading] = useState(true);
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                       {(totals.d365 / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d730 / 10000000).toFixed(2)}
+                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: "#e11d48" }}>
+                      {((totals.d730 + totals.dAbove730) / 10000000).toFixed(2)}
                     </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.dAbove730 / 10000000).toFixed(2)}
-                    </td>
-                    <td />
-                    <td />
                   </tr>
                 );
               })()}
@@ -2105,7 +2207,7 @@ const [loading, setLoading] = useState(true);
 
       <div style={styles.footer}>
         <div>
-          All values are in {filters.currency || "AED"} (Cr) &nbsp; | &nbsp; Data as on {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "Latest Available"}
+          All values are in {mockData.reporting_currency || "AED"} (Cr) &nbsp; | &nbsp; Data as on {filters.asOnDate && filters.asOnDate !== "All" ? filters.asOnDate : "Latest Available"}
         </div>
 
         <div style={styles.source}>
@@ -2124,7 +2226,7 @@ const [loading, setLoading] = useState(true);
             case "trend":
               return {
                 title: `Inventory Value Trend — View Details`,
-                subtitle: `Current Year vs Previous Year month-by-month trajectory (${filters.currency || "AED"} Cr)`,
+                subtitle: `Current Year vs Previous Year month-by-month trajectory (${mockData.reporting_currency || "AED"} Cr)`,
                 searchPlaceholder: "Search months...",
                 section: "trend",
                 maxWidth: 840,
@@ -2132,7 +2234,7 @@ const [loading, setLoading] = useState(true);
             case "parentDivision":
               return {
                 title: `Inventory Value by Parent Division — View Details`,
-                subtitle: `Breakdown across all parent divisions (${filters.currency || "AED"} Cr)`,
+                subtitle: `Breakdown across all parent divisions (${mockData.reporting_currency || "AED"} Cr)`,
                 searchPlaceholder: "Search parent divisions...",
                 section: "parent-divisions",
                 maxWidth: 750,
@@ -2140,39 +2242,23 @@ const [loading, setLoading] = useState(true);
             case "subdivision":
               return {
                 title: `Inventory Value by Sub-division — View Details`,
-                subtitle: `Breakdown across all sub-divisions (${filters.currency || "AED"} Cr)`,
+                subtitle: `Breakdown across all sub-divisions (${mockData.reporting_currency || "AED"} Cr)`,
                 searchPlaceholder: "Search sub-divisions...",
-                section: null,
-                maxWidth: 750,
-              };
-            case "aging":
-              return {
-                title: `Inventory Aging Summary — View Details`,
-                subtitle: `Aging distribution across 8 duration buckets (${filters.currency || "AED"} Cr)`,
-                searchPlaceholder: "Search aging buckets...",
                 section: null,
                 maxWidth: 750,
               };
             case "slowMoving":
               return {
                 title: `Slow Moving Stock by Parent Div — View Details`,
-                subtitle: `Obsolete inventory vs total stock (${filters.currency || "AED"} Cr)`,
+                subtitle: `Obsolete inventory vs total stock (${mockData.reporting_currency || "AED"} Cr)`,
                 searchPlaceholder: "Search parent divisions...",
                 section: "slow-moving",
                 maxWidth: 860,
               };
-            case "location":
-              return {
-                title: `Inventory by Location — View Details`,
-                subtitle: `Holding locations ranked by value (${filters.currency || "AED"} Cr)`,
-                searchPlaceholder: "Search locations...",
-                section: null,
-                maxWidth: 750,
-              };
             case "details":
               return {
                 title: `Inventory Detailed View — View Details`,
-                subtitle: `Line-item inventory breakdown and aging status (${filters.currency || "AED"})`,
+                subtitle: `Line-item inventory breakdown and aging status (${mockData.reporting_currency || "AED"})`,
                 searchPlaceholder: "Search item code, description, legal entity...",
                 section: null,
                 maxWidth: "96vw",
@@ -2278,6 +2364,43 @@ const [loading, setLoading] = useState(true);
                   flexWrap: "wrap",
                 }}
               >
+
+                {viewAllModal === "parentDivision" && (
+                  <div
+                    onClick={() => setParentDivViewMode(prev => prev === "mom" ? "month" : "mom")}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none", marginRight: "auto", marginLeft: 16 }}
+                    title="Toggle Month on Month comparison"
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 18,
+                        background: parentDivViewMode === "mom" ? "#3b82f6" : "#cbd5e1",
+                        borderRadius: 12,
+                        position: "relative",
+                        transition: "background 0.2s",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 2,
+                          left: parentDivViewMode === "mom" ? 16 : 2,
+                          width: 14,
+                          height: 14,
+                          background: "#fff",
+                          borderRadius: "50%",
+                          transition: "left 0.2s",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
+                        }}
+                      />
+                    </div>
+                    <span style={{ fontSize: "0.76rem", fontWeight: 600, color: parentDivViewMode === "mom" ? "#1e3a8a" : "#475569" }}>
+                      Month on Month
+                    </span>
+                  </div>
+                )}
+
                 <input
                   type="text"
                   placeholder={modalConfig.searchPlaceholder}
@@ -2295,9 +2418,10 @@ const [loading, setLoading] = useState(true);
 
                 <div style={{ display: "flex", gap: 6 }}>
                   <button type="button"
-                      disabled={isExporting}
+                      disabled={isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")}
                       onClick={() => handleExport("excel", modalConfig.section)}
-                      style={{ opacity: isExporting ? 0.6 : 1, cursor: isExporting ? "not-allowed" : "pointer", 
+                      title={viewAllModal === "parentDivision" && parentDivViewMode === "mom" ? "Export not available for Month-on-Month view" : "Export to Excel"}
+                      style={{ opacity: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? 0.6 : 1, cursor: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? "not-allowed" : "pointer", 
                       padding: "5px 12px",
                       borderRadius: 6,
                       border: "1px solid #cbd5e1",
@@ -2305,7 +2429,6 @@ const [loading, setLoading] = useState(true);
                       color: "#166534",
                       fontSize: "0.72rem",
                       fontWeight: 600,
-                      cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       gap: 4,
@@ -2314,9 +2437,10 @@ const [loading, setLoading] = useState(true);
                     Export Excel (.xlsx)
                   </button>
                   <button type="button"
-                      disabled={isExporting}
+                      disabled={isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")}
                       onClick={() => handleExport("pdf", modalConfig.section)}
-                      style={{ opacity: isExporting ? 0.6 : 1, cursor: isExporting ? "not-allowed" : "pointer", 
+                      title={viewAllModal === "parentDivision" && parentDivViewMode === "mom" ? "Export not available for Month-on-Month view" : "Export to PDF"}
+                      style={{ opacity: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? 0.6 : 1, cursor: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? "not-allowed" : "pointer", 
                       padding: "5px 12px",
                       borderRadius: 6,
                       border: "1px solid #cbd5e1",
@@ -2324,7 +2448,6 @@ const [loading, setLoading] = useState(true);
                       color: "#991b1b",
                       fontSize: "0.72rem",
                       fontWeight: 600,
-                      cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       gap: 4,
@@ -2339,23 +2462,15 @@ const [loading, setLoading] = useState(true);
               <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
                 {(() => {
                   if (viewAllModal === "trend") {
-                    const rawList = mockData.trend?.list?.length ? mockData.trend.list : (
-                      (mockData.trend?.labels || []).map((lbl, idx) => {
-                        const curr = mockData.trend?.current?.[idx] || 0;
-                        const prev = mockData.trend?.previous?.[idx];
-                        const variance = prev !== null && prev !== undefined ? curr - prev : null;
-                        const growth = prev ? ((curr - prev) / prev) * 100 : null;
-                        return { month: lbl, current: curr, previous: prev, variance, growth };
-                      })
+                    const rawList = viewAllData || [];
+                    const filtered = rawList.filter(item =>
+                      !viewAllSearch || (item.month_start && item.month_start.toLowerCase().includes(viewAllSearch.toLowerCase())) ||
+                      (item.as_on_date && item.as_on_date.toLowerCase().includes(viewAllSearch.toLowerCase()))
                     );
-                    const filtered = (rawList || []).filter(item =>
-                      !viewAllSearch || item.month?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                    );
-                    const totalCurr = filtered.reduce((s, r) => s + (Number(r.current) || 0), 0);
-                    const prevItems = filtered.filter(r => r.previous !== null && r.previous !== undefined);
-                    const totalPrev = prevItems.reduce((s, r) => s + (Number(r.previous) || 0), 0);
-                    const totalVar = prevItems.length > 0 ? totalCurr - totalPrev : null;
-                    const avgGrowth = totalPrev > 0 ? ((totalCurr - totalPrev) / totalPrev) * 100 : null;
+                    
+                    if (viewAllLoading) {
+                        return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+                    }
 
                     return (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
@@ -2363,140 +2478,136 @@ const [loading, setLoading] = useState(true);
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Month</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Current Year ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Previous Year ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Variance ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Growth %</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Total Stock Value ({mockData.reporting_currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Total Obsolete Stock ({mockData.reporting_currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Annual Inventory Turnover Ratio</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filtered.length === 0 ? (
-                            <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend data found</td></tr>
+                            <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend data found</td></tr>
                           ) : (
                             filtered.map((item, idx) => (
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.month}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Number(item.current || 0).toFixed(2)}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 500, color: "#16a34a" }}>
-                                  {item.previous !== null && item.previous !== undefined ? Number(item.previous).toFixed(2) : "—"}
-                                </td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: item.variance === null ? "#64748b" : item.variance >= 0 ? "#16a34a" : "#dc2626" }}>
-                                  {item.variance !== null ? `${item.variance >= 0 ? "+" : ""}${Number(item.variance).toFixed(2)}` : "—"}
-                                </td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: item.growth === null ? "#64748b" : item.growth >= 0 ? "#16a34a" : "#dc2626" }}>
-                                  {item.growth !== null ? `${item.growth >= 0 ? "+" : ""}${Number(item.growth).toFixed(2)}%` : "—"}
-                                </td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.month_start || item.as_on_date}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Number(item.total_stock_value || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 500, color: "#dc2626" }}>{Number(item.obsolete_stock || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>{item.inventory_turnover ? Number(item.inventory_turnover).toFixed(2) : "-"}</td>
                               </tr>
                             ))
                           )}
                         </tbody>
-                        {filtered.length > 0 && (
-                          <tfoot>
-                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                              <td style={{ padding: "10px 10px" }} />
-                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{totalCurr.toFixed(2)}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a" }}>{prevItems.length > 0 ? totalPrev.toFixed(2) : "—"}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: totalVar === null ? "#1e293b" : totalVar >= 0 ? "#16a34a" : "#dc2626" }}>
-                                {totalVar !== null ? `${totalVar >= 0 ? "+" : ""}${totalVar.toFixed(2)}` : "—"}
-                              </td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: avgGrowth === null ? "#1e293b" : avgGrowth >= 0 ? "#16a34a" : "#dc2626" }}>
-                                {avgGrowth !== null ? `${avgGrowth >= 0 ? "+" : ""}${avgGrowth.toFixed(2)}%` : "—"}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        )}
                       </table>
                     );
                   }
+                  
+                  if (viewAllModal === "parentDivision") {
+                    if (parentDivViewMode === "mom") {
+                        const rawList = momData || [];
+                        const filtered = rawList.filter(item =>
+                          !viewAllSearch || item.parent_division_name?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                        );
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Current Value ({mockData.reporting_currency || "AED"} Cr)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Previous Value ({mockData.reporting_currency || "AED"} Cr)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Variance ({mockData.reporting_currency || "AED"} Cr)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Variance %</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filtered.length === 0 ? (
+                                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No data found</td></tr>
+                              ) : (
+                                filtered.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.parent_division_name}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.current_value || 0).toFixed(2)}</td>
+                                    {item.previous_as_on_date ? (
+                                      <>
+                                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{Number(item.previous_value || 0).toFixed(2)}</td>
+                                        <td style={{ padding: "8px 10px", textAlign: "right", color: item.variance < 0 ? "#16a34a" : "#dc2626" }}>{Number(item.variance || 0).toFixed(2)}</td>
+                                        <td style={{ padding: "8px 10px", textAlign: "right", color: item.variance_percentage < 0 ? "#16a34a" : "#dc2626" }}>{Number(item.variance_percentage || 0).toFixed(2)}%</td>
+                                      </>
+                                    ) : (
+                                      <td colSpan={3} style={{ padding: "8px 10px", textAlign: "center", color: "#94a3b8" }}>Previous period comparison unavailable</td>
+                                    )}
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        );
+                    } else {
+                        const rawList = mockData.allDivisions?.length ? mockData.allDivisions : mockData.divisions;
+                        const filtered = (rawList || []).filter(item =>
+                          !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase()) || item.parent_division_name?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                        );
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Total Cost Value ({mockData.reporting_currency || "AED"} Cr)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Cost of Material ({mockData.reporting_currency || "AED"} Cr)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Average Inventory ({mockData.reporting_currency || "AED"} Cr)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>DIO Days</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filtered.length === 0 ? (
+                                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No divisions found</td></tr>
+                              ) : (
+                                filtered.map((item, idx) => (
+                                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name || item.parent_division_name}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || item.total_cost_value || item.inventory_value || 0).toFixed(2)}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{item.cost_of_material_ytd !== null && item.cost_of_material_ytd !== undefined ? Number(item.cost_of_material_ytd).toFixed(2) : "N/A"}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{item.average_inventory !== null && item.average_inventory !== undefined ? Number(item.average_inventory).toFixed(2) : "N/A"}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{item.dio_days !== null && item.dio_days !== undefined ? Number(item.dio_days).toFixed(0) : "N/A"}</td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        );
+                    }
+                  }
 
-                  if (viewAllModal === "parentDivision" || viewAllModal === "subdivision") {
-                    const rawList = viewAllModal === "parentDivision"
-                      ? (mockData.allDivisions?.length ? mockData.allDivisions : mockData.divisions)
-                      : (mockData.allSubdivisions?.length ? mockData.allSubdivisions : mockData.bySubdivision);
-                    
+                  if (viewAllModal === "subdivision") {
+                    const rawList = mockData.allSubdivisions?.length ? mockData.allSubdivisions : mockData.bySubdivision;
                     const filtered = (rawList || []).filter(item =>
                       !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
                     );
-
-                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
+                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value || r.inventory_value) || 0), 0);
                     const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
-
                     return (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                         <thead>
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>
-                              {viewAllModal === "parentDivision" ? "Parent Division" : "Sub-Division"}
-                            </th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 150 }}>
-                              Value ({filters.currency || "AED"} Cr)
-                            </th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110 }}>
-                              % of Total
-                            </th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Sub-Division</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>Value ({mockData.reporting_currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700 }}>% of Total</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filtered.length === 0 ? (
-                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No divisions found</td></tr>
+                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No subdivisions found</td></tr>
                           ) : (
                             filtered.map((item, idx) => (
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || 0).toFixed(2)}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                        {filtered.length > 0 && (
-                          <tfoot>
-                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                              <td style={{ padding: "10px 10px" }} />
-                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toFixed(2)}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalPct.toFixed(2)}%</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    );
-                  }
-
-                  if (viewAllModal === "aging") {
-                    const rawList = mockData.aging || [];
-                    const filtered = (rawList || []).filter(item =>
-                      !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                    );
-                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
-                    const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
-
-                    return (
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Aging Bucket</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Amount ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120 }}>% of Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No aging data found</td></tr>
-                          ) : (
-                            filtered.map((item, idx) => (
-                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", display: "flex", alignItems: "center", gap: 8 }}>
-                                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.color || "#64748b", display: "inline-block", flexShrink: 0 }} />
-                                  {item.name}
-                                </td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || 0).toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name || item.subdivision_name}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || item.inventory_value || 0).toFixed(2)}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
                               </tr>
                             ))
@@ -2517,13 +2628,18 @@ const [loading, setLoading] = useState(true);
                   }
 
                   if (viewAllModal === "slowMoving") {
-                    const rawList = mockData.allSlowMoving?.length ? mockData.allSlowMoving : (mockData.slowMoving || []);
-                    const filtered = (rawList || []).filter(item =>
-                      !viewAllSearch || item.parentDiv?.toLowerCase().includes(viewAllSearch.toLowerCase())
+                    const rawList = viewAllData || [];
+                    const filtered = rawList.filter(item =>
+                      !viewAllSearch || (item.parentDiv && item.parentDiv.toLowerCase().includes(viewAllSearch.toLowerCase())) || 
+                      (item.parent_division_name && item.parent_division_name.toLowerCase().includes(viewAllSearch.toLowerCase()))
                     );
-                    const totalObs = filtered.reduce((s, r) => s + (Number(r.obsolete) || 0), 0);
-                    const totalStock = filtered.reduce((s, r) => s + (Number(r.total) || 0), 0);
+                    const totalObs = filtered.reduce((s, r) => s + (Number(r.obsolete || r.obsolete_stock) || 0), 0);
+                    const totalStock = filtered.reduce((s, r) => s + (Number(r.total || r.total_stock_value) || 0), 0);
                     const totalPct = totalStock > 0 ? (totalObs / totalStock) * 100 : 0;
+                    
+                    if (viewAllLoading) {
+                        return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+                    }
 
                     return (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
@@ -2531,26 +2647,26 @@ const [loading, setLoading] = useState(true);
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Parent Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Obsolete ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Total ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110 }}>% Obsolete</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Obsolete Stock ({mockData.reporting_currency || "AED"} Cr)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>% Obsolete on Total Stock</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filtered.length === 0 ? (
-                            <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                           ) : (
-                            filtered.map((item, idx) => (
+                            filtered.map((item, idx) => {
+                              const obs = Number(item.obsolete || item.obsolete_stock || 0);
+                              const tot = Number(item.total || item.total_stock_value || 0);
+                              const pct = tot > 0 ? (obs / tot) * 100 : 0;
+                              return (
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.parentDiv}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{item.obsolete ? Number(item.obsolete).toFixed(2) : "0.00"}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{item.total ? Number(item.total).toFixed(2) : "0.00"}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: item.percentage > 50 ? "#dc2626" : "#e11d48" }}>
-                                  {item.percentage ? `${Number(item.percentage).toFixed(2)}%` : "0.00%"}
-                                </td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.parentDiv || item.parent_division_name}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{obs.toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{pct.toFixed(2)}%</td>
                               </tr>
-                            ))
+                            )})
                           )}
                         </tbody>
                         {filtered.length > 0 && (
@@ -2559,7 +2675,6 @@ const [loading, setLoading] = useState(true);
                               <td style={{ padding: "10px 10px" }} />
                               <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                               <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{totalObs.toFixed(2)}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalStock.toFixed(2)}</td>
                               <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{totalPct.toFixed(2)}%</td>
                             </tr>
                           </tfoot>
@@ -2567,53 +2682,7 @@ const [loading, setLoading] = useState(true);
                       </table>
                     );
                   }
-
-                  if (viewAllModal === "location") {
-                    const rawList = mockData.allLocations?.length ? mockData.allLocations : (mockData.locations || []);
-                    const filtered = (rawList || []).filter(item =>
-                      !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                    );
-                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value) || 0), 0);
-                    const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
-
-                    return (
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40 }}>#</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700 }}>Location</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160 }}>Value ({filters.currency || "AED"} Cr)</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120 }}>% of Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No location data found</td></tr>
-                          ) : (
-                            filtered.map((item, idx) => (
-                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || 0).toFixed(2)}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                        {filtered.length > 0 && (
-                          <tfoot>
-                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                              <td style={{ padding: "10px 10px" }} />
-                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toFixed(2)}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalPct.toFixed(2)}%</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    );
-                  }
-
+                  
                   if (viewAllModal === "details") {
                     const rawList = mockData.details || [];
                     const filtered = rawList.filter(row => {
@@ -2651,21 +2720,15 @@ const [loading, setLoading] = useState(true);
                                 <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 110 }}>Legal Entity</th>
                                 <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 100 }}>Parent Division</th>
                                 <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 100 }}>Sub-Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Subinventory</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Item Code</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 160, minWidth: 160 }}>Item Description</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Qty</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Value ({filters.currency || "AED"})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 80 }}>Subinventory Code</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 90 }}>Total Stock Value ({mockData.reporting_currency || "AED"})</th>
                                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>0-30</th>
                                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>31-60</th>
                                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>61-90</th>
                                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>91-120</th>
                                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>121-180</th>
                                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>181-365</th>
-                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 55 }}>366-730</th>
-                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 50 }}>&gt;730</th>
-                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 45 }}>Days</th>
-                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Avg Value</th>
+                                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, minWidth: 70 }}>Obsolete Stock (Above 365 Days)</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -2678,9 +2741,6 @@ const [loading, setLoading] = useState(true);
                                     <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 100, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.parent_division}</td>
                                     <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 100, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.subdivision}</td>
                                     <td style={{ padding: "6px 10px", color: "#475569" }}>{row.subinventory}</td>
-                                    <td style={{ padding: "6px 10px", fontFamily: "monospace", color: "#1e3a8a", fontWeight: 600 }}>{row.item_code}</td>
-                                    <td style={{ padding: "6px 10px", color: "#334155", maxWidth: 160, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.item_description}</td>
-                                    <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 600 }}>{Number(row.quantity || 0).toLocaleString()}</td>
                                     <td style={{ padding: "6px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a" }}>{Number(row.total_stock_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                     <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_0_30 || 0).toFixed(0)}</td>
                                     <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_31_60 || 0).toFixed(0)}</td>
@@ -2688,10 +2748,7 @@ const [loading, setLoading] = useState(true);
                                     <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_91_120 || 0).toFixed(0)}</td>
                                     <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_121_180 || 0).toFixed(0)}</td>
                                     <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_181_365 || 0).toFixed(0)}</td>
-                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_366_730 || 0).toFixed(0)}</td>
-                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{Number(row.aging_above_730 || 0).toFixed(0)}</td>
-                                    <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 600 }}>{row.days}</td>
-                                    <td style={{ padding: "6px 6px", textAlign: "right" }}>{row.avg_inv_value !== "-" ? Number(row.avg_inv_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"}</td>
+                                    <td style={{ padding: "6px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600 }}>{(Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0)).toFixed(0)}</td>
                                   </tr>
                                 ))
                               )}
@@ -2699,10 +2756,9 @@ const [loading, setLoading] = useState(true);
                             {filtered.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc", borderTop: "2px solid #e2e8f0" }}>
                                 <tr style={{ fontWeight: 800 }}>
-                                  <td colSpan={6} style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total ({filtered.length} items)</td>
-                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalQty.toLocaleString()}</td>
+                                  <td colSpan={4} style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total ({filtered.length} items)</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                  <td colSpan={10} style={{ padding: "10px 10px" }} />
+                                  <td colSpan={7} style={{ padding: "10px 10px" }} />
                                 </tr>
                               </tfoot>
                             )}
@@ -2769,7 +2825,6 @@ const [loading, setLoading] = useState(true);
                     color: "#334155",
                     fontSize: "0.74rem",
                     fontWeight: 600,
-                    cursor: "pointer",
                   }}
                 >
                   Close
@@ -2909,7 +2964,6 @@ const styles = {
     color: "#dc2626",
     fontSize: "0.78rem",
     fontWeight: 600,
-    cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
