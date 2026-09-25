@@ -1,5 +1,6 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
     getReceivablesFilterOptions,
     getReceivablesDashboard,
@@ -53,9 +54,9 @@ const triggerReceivablesBlobDownload = (response, fallbackName) => {
 };
 
 /* ============================================================
-   PAYABLES DASHBOARD
+   RECEIVABLES DASHBOARD
    ------------------------------------------------------------
-   Payables-specific filters:
+   Receivables-specific filters:
    - Legal Group
    - Legal Entity
    - Parent Division
@@ -108,11 +109,74 @@ const uiAgingBasis = (value) =>
     apiAgingBasis(value) === "INVOICE_DATE" ? "Invoice Date" : "Due Date";
 
 const normalizeOptions = (items = []) =>
-    (Array.isArray(items) ? items : []).map((item) =>
-        typeof item === "object"
-            ? { value: item.value, label: item.label ?? String(item.value ?? "") }
-            : { value: item, label: String(item) }
-    );
+    (Array.isArray(items) ? items : []).map((item) => {
+        if (item === null || item === undefined) return null;
+        if (typeof item !== "object") {
+            return { value: String(item), label: String(item), meta: item };
+        }
+        const value = item.value ?? item.id ?? item.code ?? item.key ?? item.name;
+        const label = item.label ?? item.name ?? item.title ?? item.description ?? value;
+        return { value: String(value ?? ""), label: String(label ?? ""), meta: item };
+    }).filter(Boolean);
+
+const selectedFilterValues = (value) => {
+    const values = Array.isArray(value) ? value : [value];
+    return values
+        .filter((v) => v !== undefined && v !== null && String(v) !== "")
+        .map((v) => String(v))
+        .filter((v) => v !== "All");
+};
+
+const getMetaValue = (option, keys = []) => {
+    const meta = option?.meta || option || {};
+    for (const key of keys) {
+        const value = meta?.[key];
+        if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return null;
+};
+
+const cascadeFilterOptions = (options = [], parentValue, relationKeys = []) => {
+    const parents = selectedFilterValues(parentValue);
+    if (!parents.length || !Array.isArray(options) || !options.length) return options || [];
+    let relationshipFieldFound = false;
+    const filtered = options.filter((option) => {
+        const relation = getMetaValue(option, relationKeys);
+        if (relation === null) return true;
+        relationshipFieldFound = true;
+        const relations = Array.isArray(relation) ? relation.map(String) : [String(relation)];
+        return parents.some((parent) => relations.includes(String(parent)));
+    });
+    return relationshipFieldFound ? filtered : options;
+};
+
+const cascadeLegalEntities = (options, legalGroup) =>
+    cascadeFilterOptions(options, legalGroup, [
+        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
+    ]);
+
+const cascadeParentDivisions = (options, legalEntities, legalGroup) => {
+    let result = cascadeFilterOptions(options, legalGroup, [
+        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
+    ]);
+    result = cascadeFilterOptions(result, legalEntities, [
+        "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId"
+    ]);
+    return result;
+};
+
+const cascadeSubDivisions = (options, parentDivisions, legalEntities, legalGroup) => {
+    let result = cascadeFilterOptions(options, legalGroup, [
+        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
+    ]);
+    result = cascadeFilterOptions(result, legalEntities, [
+        "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId"
+    ]);
+    result = cascadeFilterOptions(result, parentDivisions, [
+        "parent_division_id", "parentDivisionId", "parent_division", "parentDivision", "division_id", "divisionId"
+    ]);
+    return result;
+};
 
 const normalizeDashboard = (raw = {}, filters = {}) => {
     const payload = raw?.data && !Array.isArray(raw.data) ? raw.data : raw || {};
@@ -133,16 +197,16 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
 
     return {
         kpis: {
-            total_payables: k.total_receivables,
-            current_payables: k.current_receivables,
-            overdue_payables: k.overdue_receivables,
+            total_receivables: k.total_receivables,
+            current_receivables: k.current_receivables,
+            overdue_receivables: k.overdue_receivables,
             overdue_gt_90: k.overdue_above_90,
-            dpo: k.dso_days,
-            total_payables_variance: k.total_change_percentage,
-            current_payables_variance: k.current_change_percentage,
-            overdue_payables_variance: k.overdue_change_percentage,
+            dso: k.dso_days,
+            total_receivables_variance: k.total_change_percentage,
+            current_receivables_variance: k.current_change_percentage,
+            overdue_receivables_variance: k.overdue_change_percentage,
             overdue_gt_90_variance: k.overdue_above_90_change_percentage,
-            dpo_variance: k.dso_change_days,
+            dso_variance: k.dso_change_days,
             previous_date: k.previous_date ?? k.previous_as_on_date ?? null,
         },
 
@@ -155,8 +219,8 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
             return {
                 ...row,
                 month,
-                total_payables: row.total_receivables,
-                dpo: row.dso_days,
+                total_receivables: row.total_receivables,
+                dso: row.dso_days,
             };
         }),
         parentDivision: parent.map((row) => ({
@@ -170,7 +234,7 @@ const normalizeDashboard = (raw = {}, filters = {}) => {
             supplier_name: row.customer_name,
             supplier_code: row.customer_code,
             customer_id: row.customer_id,
-            payable_amount: row.total_receivables,
+            receivable_amount: row.total_receivables,
             percentage: row.percentage_of_total,
             country: row.customer_country,
         })),
@@ -218,7 +282,7 @@ const normalizeViewAllRows = (rows = []) =>
         sub_division: row.subdivision_name,
         country: row.customer_country,
         row_currency: row.reporting_currency || row.source_currency,
-        total_payable: row.total_receivables,
+        total_receivable: row.total_receivables,
         current: row.current_receivables,
         "0_30": row.amount_0_30,
         "31_60": row.amount_31_60,
@@ -235,7 +299,7 @@ const normalizeViewAllRows = (rows = []) =>
         gl_code: row.gl_code,
     }));
 
-const formatPayablesCompact = (value, currency = "AED") => {
+const formatReceivablesCompact = (value, currency = "AED") => {
     if (value === null || value === undefined) return "—";
     const config = currencyConfig[currency] || currencyConfig.AED;
     const number = Number(value);
@@ -261,6 +325,16 @@ const formatMoMValue = (value, displayUnit = "AED") => {
 const formatPercentage = (value) => value === null || value === undefined ? "—" : `${Number(value).toFixed(1)}%`;
 const formatVariance = (value) => value === null || value === undefined ? "—" : `${Number(value) >= 0 ? "▲" : "▼"} ${Math.abs(Number(value)).toFixed(1)}%`;
 const formatAxisMillions = (value) => value === null || value === undefined ? "—" : `${(Number(value) / 1000000).toFixed(0)}M`;
+
+// Capitalize dashboard table labels consistently without changing underlying API values.
+const capitalizeTableText = (value) => {
+    if (value === null || value === undefined) return value;
+    const text = String(value).trim();
+    if (!text) return text;
+    return text
+        .toLowerCase()
+        .replace(/\b([a-z])([a-z0-9]*)/g, (_, first, rest) => first.toUpperCase() + rest);
+};
 
 const BLUE = "#132a78";
 const BLUE_2 = "#1d4ed8";
@@ -304,20 +378,52 @@ function InfoIcon({ title }) {
     );
 }
 
-function SectionTitle({ children, info }) {
+function SectionTitle({ children, info, subtitle }) {
+    const titleText = String(children ?? "");
+
+    const defaultSubtitles = {
+        "Receivables Aging Summary": "Outstanding receivables grouped by aging bucket",
+        "Receivables Trend": "Historical movement of total receivables and DSO",
+        "Receivables by Parent Division": "Receivable exposure across parent divisions",
+        "Top 10 Customers by Receivables": "Customers contributing the highest receivable balances",
+        "Overdue Summary": "Distribution of overdue receivable exposure",
+        "Receivables by Sub-Division": "Receivable exposure across sub-divisions",
+        "Month-on-Month Receivables": "Monthly receivable balance movement",
+    };
+
+    const matchedSubtitle = Object.entries(defaultSubtitles).find(([key]) =>
+        titleText.startsWith(key)
+    )?.[1];
+
     return (
-        <div
-            style={{
-                display: "flex",
-                alignItems: "center",
-                fontSize: 14,
-                fontWeight: 700,
-                color: "#00000",
-                marginBottom: 12,
-            }}
-        >
-            {children}
-            {info && <InfoIcon title={info} />}
+        <div style={{ marginBottom: 10, minWidth: 0 }}>
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    fontSize: "0.88rem",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    lineHeight: 1.2,
+                }}
+            >
+                {children}
+                {info && <InfoIcon title={info} />}
+            </div>
+            {(subtitle || matchedSubtitle) && (
+                <div
+                    style={{
+                        marginTop: 3,
+                        fontSize: "0.68rem",
+                        fontWeight: 500,
+                        color: "#64748b",
+                        lineHeight: 1.35,
+                    }}
+                >
+                    {subtitle || matchedSubtitle}
+                </div>
+            )}
         </div>
     );
 }
@@ -1114,17 +1220,18 @@ function KpiCard({
     value,
     variance,
     previousDate,
-    onClick,
     icon,
     iconBg,
     iconColor,
+    cardBg,
     currency,
     suffix,
+    onClick,
 }) {
     const formatValue = (value) => {
         if (value === null || value === undefined) return "—";
 
-        // DSO / Days
+        // DSO
         if (suffix === "Days") {
             return `${Number(value).toFixed(0)} Days`;
         }
@@ -1141,186 +1248,121 @@ function KpiCard({
         return `${currency} ${Number(value).toFixed(2)}`;
     };
 
+    const numericValue = Number(value);
+    const isNegativeValue =
+        Number.isFinite(numericValue) && numericValue < 0;
     const isPositive = Number(variance) >= 0;
-
-    /* ----------------------------------------------------------
-       FORMAT PREVIOUS DATE
-       API: 2026-09-20
-       DISPLAY: 20 Sep 2026
-    ---------------------------------------------------------- */
-    const formatPreviousDate = (date) => {
-        if (!date) return "";
-
-        const parsedDate = new Date(date);
-
-        if (Number.isNaN(parsedDate.getTime())) {
-            return String(date);
-        }
-
-        return parsedDate.toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        });
-    };
-
-    const effectivePreviousDate =
-        previousDate || "";
-
-    const formattedPreviousDate =
-        formatPreviousDate(effectivePreviousDate);
 
     return (
         <div
-            style={{
-                background: iconBg || "#F8FAFC",
-                border: "1px solid rgba(255, 255, 255, 0.8)",
-                borderRadius: "12px",
-                padding: "14px 16px",
-                minHeight: "105px",
-                boxSizing: "border-box",
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-
-                // Card shadow
-                boxShadow:
-                    "0 2px 8px rgba(15, 23, 42, 0.04)",
-
-                // Smooth hover effect
-                transition:
-                    "transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease",
-
-                cursor: "default",
-            }}
+            className="sales-style-kpi"
             onClick={typeof onClick === "function" ? onClick : undefined}
+            style={{
+                background: cardBg || "#ffffff",
+                borderRadius: 12,
+                padding: "10px 10px",
+                boxShadow: "none",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                cursor: typeof onClick === "function" ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                overflow: "visible",
+                position: "relative",
+                minHeight: 74,
+            }}
             onMouseEnter={(e) => {
-                e.currentTarget.style.transform =
-                    "translateY(-2px)";
-
-                e.currentTarget.style.boxShadow =
-                    "0 4px 12px rgba(15, 23, 42, 0.06)";
-
-                e.currentTarget.style.filter =
-                    "brightness(0.99)";
+                e.currentTarget.style.transform = "translateY(-2px)";
+                e.currentTarget.style.boxShadow = `0 8px 24px ${iconColor || "#2563eb"}20`;
             }}
             onMouseLeave={(e) => {
-                e.currentTarget.style.transform =
-                    "translateY(0)";
-
-                e.currentTarget.style.boxShadow =
-                    "0 2px 8px rgba(15, 23, 42, 0.04)";
-
-                e.currentTarget.style.filter =
-                    "brightness(1)";
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
             }}
         >
-            {/* =====================================================
-                TOP ROW
-            ===================================================== */}
+            <div
+                style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: iconBg || "#f1f5f9",
+                    color: iconColor || "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                }}
+            >
+                {icon}
+            </div>
+
             <div
                 style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
+                    flexDirection: "column",
+                    gap: 2,
+                    minWidth: 0,
+                    flex: 1,
+                    justifyContent: "center",
                 }}
             >
-                {/* ICON */}
-                <div
+                <span
                     style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "50%",
-                        background: "#F1F5F9",
-                        color: iconColor,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "18px",
+                        fontSize: "0.68rem",
                         fontWeight: 700,
-                        flexShrink: 0,
-                        boxShadow:
-                            "0 2px 6px rgba(15, 23, 42, 0.06)",
-                    }}
-                >
-                    {icon}
-                </div>
-
-                {/* TITLE */}
-                <div
-                    style={{
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: iconColor,
+                        color: iconColor || "#2563eb",
                         lineHeight: 1.2,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        wordBreak: "break-word",
                     }}
                 >
                     {title}
-                </div>
-            </div>
+                </span>
 
-            {/* =====================================================
-                VALUE
-            ===================================================== */}
-            <div
-                style={{
-                    marginLeft: "46px",
-                    marginTop: "-2px",
-                    fontSize: "18px",
-                    fontWeight: 800,
-                    color: "#111827",
-                    lineHeight: 1.1,
-                }}
-            >
-                {value === null || value === undefined || value === "" ? (
-                    "-"
-                ) : (
-                    <AnimatedNumber value={value} formatter={formatValue} />
-                )}
-            </div>
-
-            {/* =====================================================
-                PREVIOUS DATE - SECOND ROW
-            ===================================================== */}
-            {formattedPreviousDate && (
                 <div
                     style={{
-                        marginLeft: "46px",
-                        marginTop: "1px",
-                        fontSize: "10px",
-                        color: "#64748b",
-                        fontWeight: 500,
-                        lineHeight: 1.2,
+                        fontSize: "1.02rem",
+                        fontWeight: 800,
+                        color: "#0f172a",
+                        lineHeight: 1.1,
+                        letterSpacing: "-0.02em",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        wordBreak: "break-word",
                     }}
                 >
-                    Previous: {formattedPreviousDate}
+                    {value === null || value === undefined || value === "" ? "—" : <AnimatedNumber value={value} formatter={formatValue} />}
                 </div>
-            )}
 
-            {/* =====================================================
-                VARIANCE
-            ===================================================== */}
-            <div
-                style={{
-                    marginLeft: "46px",
-                    fontSize: "11px",
-                    color: isPositive
-                        ? "#0e9f75"
-                        : "#ef476f",
-                    fontWeight: 600,
-                    lineHeight: 1.2,
-                }}
-            >
-                {variance !== null &&
-                    variance !== undefined
-                    ? `${isPositive ? "▲" : "▼"} ${Math.abs(
-                        Number(variance)
-                    ).toFixed(1)}%`
-                    : "—"}
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        flexWrap: "wrap",
+                        fontSize: "0.62rem",
+                        fontWeight: 600,
+                        color: "#64748b",
+                        lineHeight: 1.1,
+                    }}
+                >
+                    {variance !== null && variance !== undefined ? (
+                        <span style={{ color: isPositive ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                            {isPositive ? "▲" : "▼"} {Math.abs(Number(variance)).toFixed(1)}%
+                        </span>
+                    ) : null}
+                    {previousDate && <span>vs {previousDate}</span>}
+                </div>
             </div>
         </div>
-    );
+    )
 }
+
 
 /* ============================================================
    DONUT CHART
@@ -1333,6 +1375,12 @@ function DonutChart({
     centerLabel,
     legendBelow = false,
     onSegmentClick,
+
+    // ============================================================
+    // NEW:
+    // Enable only for Overdue Summary
+    // ============================================================
+    largeOverdueChart = false,
 }) {
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [hoveredIndex, setHoveredIndex] = useState(null);
@@ -1348,49 +1396,63 @@ function DonutChart({
         "#be185d",
     ];
 
-    const radius = 65;
+    // ============================================================
+    // DONUT SIZE
+    // Normal charts remain unchanged.
+    // Overdue Summary can use larger size.
+    // ============================================================
+
+    const donutSize = largeOverdueChart ? 205 : 175;
+    const donutCenter = donutSize / 2;
+
+    const radius = largeOverdueChart ? 76 : 65;
+    const strokeWidth = largeOverdueChart ? 28 : 25;
+
     const circumference = 2 * Math.PI * radius;
 
+    const hasData =
+        Array.isArray(data) && data.length > 0;
+
+    if (!hasData) {
+        return (
+            <div
+                style={{
+                    minHeight: legendBelow ? 250 : 185,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    color: MUTED,
+                    fontSize: 11,
+                    fontWeight: 700,
+                }}
+            >
+                No data available
+            </div>
+        );
+    }
+
     /*
-     * ==========================================================
-     * NORMALIZE API DATA
-     * ==========================================================
+     * The Receivables aging API can return negative percentages.
+     * Use absolute values only for donut geometry so every
+     * bucket remains visible.
      */
-    const normalizedData = Array.isArray(data)
-        ? data.map((item) => {
-            const amount = Number(item?.amount || 0);
+    const normalizedData = Array.isArray(data) ? data : [];
 
-            let percentage;
+    const segmentWeights = normalizedData.map((item) =>
+        Math.abs(
+            Number(
+                item.percentage ??
+                item.percentage_of_total ??
+                0
+            )
+        )
+    );
 
-            if (
-                String(centerLabel || "").toLowerCase() ===
-                "overdue"
-            ) {
-                const overdueTotal = Number(total || 0);
-
-                percentage =
-                    overdueTotal !== 0
-                        ? (amount / overdueTotal) * 100
-                        : 0;
-            } else {
-                percentage = Number(
-                    item?.percentage ??
-                    item?.percentage_of_total ??
-                    0
-                );
-            }
-
-            return {
-                ...item,
-                bucket:
-                    item?.bucket ??
-                    item?.bucket_name ??
-                    "",
-                amount,
-                percentage,
-            };
-        })
-        : [];
+    const totalSegmentWeight = segmentWeights.reduce(
+        (sum, value) => sum + value,
+        0
+    );
 
     let accumulated = 0;
 
@@ -1403,12 +1465,16 @@ function DonutChart({
         );
 
         if (typeof onSegmentClick === "function") {
-            onSegmentClick(normalizedData[index], index);
+            onSegmentClick(
+                normalizedData[index],
+                index
+            );
         }
     };
 
     /* ==========================================================
        GET SEGMENT POSITION
+       Existing CLICK behavior preserved.
     ========================================================== */
     const getSegmentTransform = (
         startLength,
@@ -1416,7 +1482,7 @@ function DonutChart({
         active
     ) => {
         if (!active) {
-            return "rotate(-90 87.5 87.5)";
+            return `rotate(-90 ${donutCenter} ${donutCenter})`;
         }
 
         const startAngle =
@@ -1441,7 +1507,7 @@ function DonutChart({
 
         return `
             translate(${translateX} ${translateY})
-            rotate(-90 87.5 87.5)
+            rotate(-90 ${donutCenter} ${donutCenter})
         `;
     };
 
@@ -1451,22 +1517,45 @@ function DonutChart({
                 display: "flex",
 
                 /*
-                 * Only Overdue Summary uses column layout.
-                 * Other donut charts remain unchanged.
+                 * Keep existing row/column behavior.
                  */
                 flexDirection: legendBelow
                     ? "column"
                     : "row",
 
-                alignItems: "center",
+                /*
+                 * For the larger Overdue chart,
+                 * create more separation between
+                 * donut and legend.
+                 */
+                gap: legendBelow
+                    ? largeOverdueChart
+                        ? 32
+                        : 24
+                    : largeOverdueChart
+                        ? 34
+                        : 20,
+
+                minHeight: legendBelow
+                    ? largeOverdueChart
+                        ? 285
+                        : 250
+                    : largeOverdueChart
+                        ? 225
+                        : 185,
+
+                position: "relative",
 
                 /*
-                 * Increased only for legendBelow / Overdue Summary.
+                 * Give the larger chart a little more
+                 * horizontal breathing room.
                  */
-                gap: legendBelow ? 30 : 20,
+                padding:
+                    largeOverdueChart && !legendBelow
+                        ? "4px 4px 4px 8px"
+                        : 0,
 
-                minHeight: legendBelow ? 250 : 185,
-                position: "relative",
+                boxSizing: "border-box",
             }}
         >
             {/* =====================================================
@@ -1474,16 +1563,25 @@ function DonutChart({
             ===================================================== */}
             <div
                 style={{
-                    width: 175,
-                    minWidth: 175,
-                    height: 175,
+                    width: donutSize,
+                    minWidth: donutSize,
+                    height: donutSize,
                     position: "relative",
+
+                    /*
+                     * Extra spacing below/around the
+                     * Overdue Summary donut.
+                     */
+                    marginBottom:
+                        largeOverdueChart && legendBelow
+                            ? 8
+                            : 0,
                 }}
             >
                 <svg
-                    width="175"
-                    height="175"
-                    viewBox="0 0 175 175"
+                    width={donutSize}
+                    height={donutSize}
+                    viewBox={`0 0 ${donutSize} ${donutSize}`}
                     style={{
                         overflow: "visible",
                     }}
@@ -1492,12 +1590,12 @@ function DonutChart({
                         BACKGROUND RING
                     ================================================= */}
                     <circle
-                        cx="87.5"
-                        cy="87.5"
+                        cx={donutCenter}
+                        cy={donutCenter}
                         r={radius}
                         fill="none"
                         stroke="#eef2f7"
-                        strokeWidth="25"
+                        strokeWidth={strokeWidth}
                     />
 
                     {/* =================================================
@@ -1505,10 +1603,15 @@ function DonutChart({
                     ================================================= */}
                     {normalizedData.map(
                         (item, index) => {
+                            const weight =
+                                segmentWeights[index] ||
+                                0;
+
                             const percent =
-                                Number(
-                                    item.percentage || 0
-                                ) / 100;
+                                totalSegmentWeight > 0
+                                    ? weight /
+                                    totalSegmentWeight
+                                    : 0;
 
                             const length =
                                 circumference *
@@ -1530,19 +1633,36 @@ function DonutChart({
                                 hoveredIndex ===
                                 index;
 
+                            /*
+                             * When hovering one segment:
+                             *
+                             * Hovered segment = enabled
+                             * Other segments = disabled
+                             */
+                            const hasHover =
+                                hoveredIndex !==
+                                null;
+
+                            const isHoverTarget =
+                                hoveredIndex ===
+                                index;
+
+                            const isDisabledByHover =
+                                hasHover &&
+                                !isHoverTarget;
+
+                            /*
+                             * Click selection continues
+                             * to work exactly as before.
+                             */
                             const isActive =
-                                isSelected ||
-                                isHovered;
+                                isSelected;
 
                             return (
                                 <circle
-                                    key={
-                                        item.bucket ||
-                                        item.bucket_code ||
-                                        index
-                                    }
-                                    cx="87.5"
-                                    cy="87.5"
+                                    key={`donut-segment-${index}-${item.bucket_code ?? item.bucket_name ?? item.bucket ?? "segment"}`}
+                                    cx={donutCenter}
+                                    cy={donutCenter}
                                     r={radius}
                                     fill="none"
                                     stroke={
@@ -1552,7 +1672,12 @@ function DonutChart({
                                         ]
                                     }
                                     strokeWidth={
-                                        isActive ? 29 : 25
+                                        isActive ||
+                                            isHoverTarget
+                                            ? largeOverdueChart
+                                                ? 32
+                                                : 29
+                                            : strokeWidth
                                     }
                                     strokeDasharray={`${length} ${circumference -
                                         length
@@ -1569,19 +1694,35 @@ function DonutChart({
                                     style={{
                                         cursor: "pointer",
 
+                                        /*
+                                         * Hover behavior
+                                         */
                                         opacity:
-                                            selectedIndex !==
-                                                null &&
-                                                !isSelected
-                                                ? 0.55
-                                                : 1,
+                                            isDisabledByHover
+                                                ? 0.16
+                                                : selectedIndex !==
+                                                    null &&
+                                                    !isSelected
+                                                    ? isHovered
+                                                        ? 0.82
+                                                        : 0.55
+                                                    : 1,
 
-                                        filter: isActive
-                                            ? "drop-shadow(0 4px 7px rgba(0,0,0,0.20))"
-                                            : "none",
+                                        /*
+                                         * Hovered segment glow.
+                                         */
+                                        filter: isHoverTarget
+                                            ? `drop-shadow(0 0 7px ${colors[
+                                            index %
+                                            colors.length
+                                            ]
+                                            }88)`
+                                            : isSelected
+                                                ? "drop-shadow(0 4px 7px rgba(0,0,0,0.20))"
+                                                : "none",
 
                                         transition:
-                                            "transform 0.25s ease, stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease",
+                                            "opacity 0.25s ease, filter 0.25s ease, stroke-width 0.2s ease",
                                     }}
                                     onMouseEnter={() =>
                                         setHoveredIndex(
@@ -1606,29 +1747,38 @@ function DonutChart({
 
                 {/* ===================================================
                     CENTER VALUE
+                    Hidden ONLY when a segment is selected
                 =================================================== */}
                 {selectedIndex === null && (
                     <div
                         style={{
-                            position: "absolute",
+                            position:
+                                "absolute",
                             inset: 0,
                             display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            flexDirection:
+                                "column",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
                             color: "#000000",
-                            pointerEvents: "none",
+                            pointerEvents:
+                                "none",
                             transition:
                                 "opacity 0.2s ease",
                         }}
                     >
                         <div
                             style={{
-                                fontSize: 16,
+                                fontSize:
+                                    largeOverdueChart
+                                        ? 18
+                                        : 16,
                                 fontWeight: 800,
                             }}
                         >
-                            {formatPayablesCompact(
+                            {formatReceivablesCompact(
                                 total,
                                 currency
                             )}
@@ -1636,7 +1786,10 @@ function DonutChart({
 
                         <div
                             style={{
-                                fontSize: 11,
+                                fontSize:
+                                    largeOverdueChart
+                                        ? 12
+                                        : 11,
                                 fontWeight: 700,
                             }}
                         >
@@ -1649,31 +1802,40 @@ function DonutChart({
                     TOOLTIP
                 =================================================== */}
                 {hoveredIndex !== null &&
-                    normalizedData[hoveredIndex] && (
+                    normalizedData[
+                    hoveredIndex
+                    ] && (
                         <div
                             style={{
-                                position: "absolute",
+                                position:
+                                    "absolute",
                                 left: "50%",
                                 top: "50%",
                                 transform:
                                     "translate(-50%, -50%)",
+
                                 minWidth: 180,
-                                background: "#ffffff",
+                                background:
+                                    "#ffffff",
                                 border:
                                     "1px solid #e5eaf2",
                                 borderRadius: 16,
-                                padding: "14px 16px",
+                                padding:
+                                    "14px 16px",
                                 boxShadow:
                                     "0 12px 30px rgba(24,45,80,0.16)",
                                 zIndex: 50,
-                                pointerEvents: "none",
-                                whiteSpace: "nowrap",
+                                pointerEvents:
+                                    "none",
+                                whiteSpace:
+                                    "nowrap",
                             }}
                         >
-                            {/* Tooltip Title */}
+                            {/* TOOLTIP TITLE */}
                             <div
                                 style={{
-                                    display: "flex",
+                                    display:
+                                        "flex",
                                     alignItems:
                                         "center",
                                     gap: 8,
@@ -1687,7 +1849,7 @@ function DonutChart({
                                     style={{
                                         width: 10,
                                         height: 10,
-                                        borderRadius: 3,
+                                        borderRadius: 2,
                                         background:
                                             colors[
                                             hoveredIndex %
@@ -1695,20 +1857,27 @@ function DonutChart({
                                             ],
                                         display:
                                             "inline-block",
+                                        flexShrink: 0,
                                     }}
                                 />
 
-                                {
+                                {normalizedData[
+                                    hoveredIndex
+                                ]
+                                    .bucket_name ??
                                     normalizedData[
                                         hoveredIndex
-                                    ].bucket
-                                }
+                                    ].bucket ??
+                                    normalizedData[
+                                        hoveredIndex
+                                    ].bucket_code}
                             </div>
 
-                            {/* Amount */}
+                            {/* AMOUNT */}
                             <div
                                 style={{
-                                    display: "flex",
+                                    display:
+                                        "flex",
                                     alignItems:
                                         "center",
                                     justifyContent:
@@ -1728,11 +1897,15 @@ function DonutChart({
 
                                 <strong
                                     style={{
-                                        color: "#17213c",
+                                        color:
+                                            colors[
+                                            hoveredIndex %
+                                            colors.length
+                                            ],
                                         fontSize: 13,
                                     }}
                                 >
-                                    {formatPayablesCompact(
+                                    {formatReceivablesCompact(
                                         normalizedData[
                                             hoveredIndex
                                         ].amount,
@@ -1741,10 +1914,11 @@ function DonutChart({
                                 </strong>
                             </div>
 
-                            {/* Share */}
+                            {/* SHARE / PERCENTAGE */}
                             <div
                                 style={{
-                                    display: "flex",
+                                    display:
+                                        "flex",
                                     alignItems:
                                         "center",
                                     justifyContent:
@@ -1774,7 +1948,12 @@ function DonutChart({
                                     {formatPercentage(
                                         normalizedData[
                                             hoveredIndex
-                                        ].percentage
+                                        ]
+                                            .percentage ??
+                                        normalizedData[
+                                            hoveredIndex
+                                        ]
+                                            .percentage_of_total
                                     )}
                                 </strong>
                             </div>
@@ -1798,21 +1977,37 @@ function DonutChart({
                     minWidth: 0,
 
                     /*
-                     * Extra spacing between donut and legend
-                     * for Overdue Summary only.
+                     * IMPORTANT:
+                     * More gap between donut and legend
+                     * only for the larger Overdue chart.
                      */
-                    marginTop: legendBelow
-                        ? 4
-                        : 0,
+                    marginLeft:
+                        !legendBelow &&
+                            largeOverdueChart
+                            ? 10
+                            : 0,
+
+                    /*
+                     * If legend is below the donut,
+                     * keep clear separation.
+                     */
+                    marginTop:
+                        legendBelow
+                            ? largeOverdueChart
+                                ? 8
+                                : 0
+                            : 0,
                 }}
             >
                 {normalizedData.map(
                     (item, index) => {
                         const isSelected =
-                            selectedIndex === index;
+                            selectedIndex ===
+                            index;
 
                         const isHovered =
-                            hoveredIndex === index;
+                            hoveredIndex ===
+                            index;
 
                         const isActive =
                             isSelected ||
@@ -1820,11 +2015,7 @@ function DonutChart({
 
                         return (
                             <div
-                                key={
-                                    item.bucket ||
-                                    item.bucket_code ||
-                                    index
-                                }
+                                key={`donut-legend-${index}-${item.bucket_code ?? item.bucket_name ?? item.bucket ?? "bucket"}`}
                                 onClick={() =>
                                     handleSegmentClick(
                                         index
@@ -1841,27 +2032,31 @@ function DonutChart({
                                     )
                                 }
                                 style={{
-                                    display: "flex",
+                                    display:
+                                        "flex",
+
                                     alignItems:
-                                        "center",
-                                    gap: 7,
+                                        "flex-start",
+
+                                    gap: 8,
 
                                     /*
-                                     * Increased gap between
-                                     * legend items only when
-                                     * legend is below donut.
+                                     * Increased legend
+                                     * vertical spacing.
                                      */
                                     marginBottom:
-                                        legendBelow
-                                            ? 30
-                                            : 7,
+                                        largeOverdueChart
+                                            ? 8
+                                            : 16,
 
                                     fontSize: 12,
                                     color: "#334155",
                                     cursor: "pointer",
+
                                     padding:
-                                        "3px 5px",
-                                    borderRadius: 6,
+                                        "5px 7px",
+
+                                    borderRadius: 7,
 
                                     background:
                                         isSelected
@@ -1870,17 +2065,45 @@ function DonutChart({
                                                 ? "#f8fafc"
                                                 : "transparent",
 
+                                    borderLeft:
+                                        isActive
+                                            ? `3px solid ${colors[
+                                            index %
+                                            colors.length
+                                            ]
+                                            }`
+                                            : "3px solid transparent",
+
+                                    transform:
+                                        isHovered
+                                            ? "translateX(3px)"
+                                            : "translateX(0)",
+
                                     transition:
-                                        "background 0.2s ease",
+                                        "background 0.2s ease, transform 0.2s ease, border-left 0.2s ease",
+
+                                    /*
+                                     * IMPORTANT:
+                                     * Allow long bucket names
+                                     * to use maximum 2 rows.
+                                     */
+                                    minHeight:
+                                        largeOverdueChart
+                                            ? 34
+                                            : "auto",
+
+                                    boxSizing:
+                                        "border-box",
                                 }}
                             >
-                                {/* Color Dot */}
+                                {/* =================================================
+                                    SQUARE COLOR INDICATOR
+                                ================================================= */}
                                 <span
                                     style={{
-                                        width: 9,
-                                        height: 9,
-                                        borderRadius:
-                                            "50%",
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: 2,
                                         background:
                                             colors[
                                             index %
@@ -1901,61 +2124,128 @@ function DonutChart({
 
                                         transition:
                                             "box-shadow 0.2s ease",
+
+                                        marginTop: 3,
                                     }}
                                 />
 
-                                {/* Bucket */}
+                                {/* =================================================
+                                    BUCKET NAME
+                                    Maximum 2 rows
+                                ================================================= */}
                                 <span
                                     style={{
                                         flex: 1,
+
+                                        /*
+                                         * Allow wrapping.
+                                         */
+                                        whiteSpace:
+                                            "normal",
+
                                         overflow:
                                             "hidden",
-                                        textOverflow:
-                                            "ellipsis",
-                                        whiteSpace:
-                                            "nowrap",
+
+                                        display:
+                                            "-webkit-box",
+
+                                        WebkitBoxOrient:
+                                            "vertical",
+
+                                        WebkitLineClamp:
+                                            2,
+
+                                        lineHeight:
+                                            "16px",
+
+                                        minWidth: 0,
+
+                                        wordBreak:
+                                            "break-word",
+
                                         fontWeight:
                                             isActive
                                                 ? 800
                                                 : 700,
                                     }}
                                 >
-                                    {item.bucket}
+                                    {item.bucket_name ??
+                                        item.bucket ??
+                                        item.bucket_code}
                                 </span>
 
-                                {/* Amount */}
+                                {/* =================================================
+                                    AMOUNT
+                                    Same color as donut segment
+                                ================================================= */}
                                 <strong
                                     style={{
-                                        color: "#344b8a",
+                                        color:
+                                            colors[
+                                            index %
+                                            colors.length
+                                            ],
+
                                         whiteSpace:
                                             "nowrap",
+
+                                        flexShrink: 0,
+
+                                        fontWeight:
+                                            isActive
+                                                ? 800
+                                                : 700,
+
+                                        lineHeight:
+                                            "16px",
                                     }}
                                 >
                                     {(
                                         Number(
                                             item.amount ||
                                             0
-                                        ) / 1000000
+                                        ) /
+                                        1000000
                                     ).toFixed(2)}
                                     M
                                 </strong>
 
-                                {/* Percentage */}
+                                {/* =================================================
+                                    PERCENTAGE
+                                ================================================= */}
                                 <span
                                     style={{
-                                        color: "#64748b",
+                                        color:
+                                            isActive
+                                                ? colors[
+                                                index %
+                                                colors.length
+                                                ]
+                                                : "#64748b",
+
                                         minWidth: 36,
+
                                         whiteSpace:
                                             "nowrap",
+
+                                        flexShrink: 0,
+
                                         fontWeight:
                                             isActive
                                                 ? 700
                                                 : 500,
+
+                                        lineHeight:
+                                            "16px",
+
+                                        transition:
+                                            "color 0.2s ease",
                                     }}
                                 >
                                     (
                                     {formatPercentage(
-                                        item.percentage
+                                        item.percentage ??
+                                        item.percentage_of_total
                                     )}
                                     )
                                 </span>
@@ -1967,19 +2257,63 @@ function DonutChart({
         </div>
     );
 }
+
 /* ============================================================
    TREND CHART
    ============================================================ */
 
+
 function TrendChart({ data, currency, onPointClick }) {
     const [hoveredIndex, setHoveredIndex] = useState(null);
 
+    // Load animation state
+    const [chartLoaded, setChartLoaded] = useState(false);
+
+    useEffect(() => {
+        // Start the chart animation after the first render
+        const frame = requestAnimationFrame(() => {
+            setChartLoaded(true);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, []);
+
     const maxValue = Math.max(
-        ...data.map((item) => Number(item.total_payables || 0))
+        0,
+        ...data.map((item) =>
+            Number(item.total_receivables || 0)
+        )
     );
 
+    const hasData =
+        Array.isArray(data) && data.length > 0;
+
+    if (!hasData) {
+        return (
+            <div
+                style={{
+                    minHeight: 190,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    color: MUTED,
+                    fontSize: 11,
+                    fontWeight: 700,
+                }}
+            >
+                No data available
+            </div>
+        );
+    }
+
     return (
-        <div style={{ width: "100%", overflowX: "hidden" }}>
+        <div
+            style={{
+                width: "100%",
+                overflowX: "hidden",
+            }}
+        >
             <div
                 style={{
                     width: "100%",
@@ -1989,6 +2323,9 @@ function TrendChart({ data, currency, onPointClick }) {
                     boxSizing: "border-box",
                 }}
             >
+                {/* =====================================================
+                    GRID LINES
+                ===================================================== */}
                 {[0, 1, 2, 3, 4].map((line) => (
                     <div
                         key={line}
@@ -1997,50 +2334,62 @@ function TrendChart({ data, currency, onPointClick }) {
                             left: 45,
                             right: 10,
                             top: 15 + line * 36,
-                            borderTop: "1px dashed #e2e8f0",
+                            borderTop:
+                                "1px dashed #e2e8f0",
                         }}
                     />
                 ))}
 
+                {/* =====================================================
+                    Y AXIS LABEL - CURRENCY
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
                         left: 3,
                         top: 5,
-                        fontSize: 10,
+                        fontSize: 10, fontWeight: 700,
                         color: MUTED,
                     }}
                 >
                     {currency} (M)
                 </div>
 
+                {/* =====================================================
+                    Y AXIS MID VALUE
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
                         left: 3,
                         top: 78,
-                        fontSize: 9,
+                        fontSize: 10, fontWeight: 700,
                         color: MUTED,
                     }}
                 >
-                    {formatAxisMillions(maxValue / 2)}
+                    {formatAxisMillions(
+                        maxValue / 2
+                    )}
                 </div>
 
+                {/* =====================================================
+                    Y AXIS ZERO
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
                         left: 18,
                         bottom: 42,
-                        fontSize: 9,
-                        color: MUTED,
+                        fontSize: 10, fontWeight: 700,
+                        color: "MUTED",
                     }}
                 >
                     0
                 </div>
 
                 {/* =====================================================
-            BARS
-        ===================================================== */}
+                    BARS
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
@@ -2050,17 +2399,23 @@ function TrendChart({ data, currency, onPointClick }) {
                         height: 150,
                         display: "flex",
                         alignItems: "flex-end",
-                        justifyContent: "space-between",
+                        justifyContent:
+                            "space-between",
                         gap: 2,
                     }}
                 >
                     {data.map((item, index) => {
                         const height =
                             maxValue > 0
-                                ? (Number(item.total_payables) / maxValue) * 125
+                                ? (Number(
+                                    item.total_receivables
+                                ) /
+                                    maxValue) *
+                                125
                                 : 0;
 
-                        const isHovered = hoveredIndex === index;
+                        const isHovered =
+                            hoveredIndex === index;
 
                         return (
                             <div
@@ -2070,51 +2425,90 @@ function TrendChart({ data, currency, onPointClick }) {
                                     height: 150,
                                     position: "relative",
                                     display: "flex",
-                                    flexDirection: "column",
-                                    justifyContent: "flex-end",
-                                    alignItems: "center",
-                                    cursor: typeof onPointClick === "function" ? "pointer" : "default",
+                                    flexDirection:
+                                        "column",
+                                    justifyContent:
+                                        "flex-end",
+                                    alignItems:
+                                        "center",
+                                    cursor:
+                                        typeof onPointClick ===
+                                            "function"
+                                            ? "pointer"
+                                            : "default",
+
+                                    /*
+                                     * Small lift when hovering.
+                                     * Does not affect layout.
+                                     */
+                                    transform:
+                                        isHovered
+                                            ? "translateY(-3px)"
+                                            : "translateY(0)",
+
+                                    transition:
+                                        "transform 0.2s ease",
                                 }}
-                                onMouseEnter={() => setHoveredIndex(index)}
-                                onMouseLeave={() => setHoveredIndex(null)}
+                                onMouseEnter={() =>
+                                    setHoveredIndex(
+                                        index
+                                    )
+                                }
+                                onMouseLeave={() =>
+                                    setHoveredIndex(
+                                        null
+                                    )
+                                }
                                 onClick={() => {
-                                    if (typeof onPointClick === "function") {
-                                        onPointClick(item);
+                                    if (
+                                        typeof onPointClick ===
+                                        "function"
+                                    ) {
+                                        onPointClick(
+                                            item,
+                                            index
+                                        );
                                     }
                                 }}
                             >
                                 {/* =================================================
-                    TOOLTIP
-                ================================================= */}
-
+                                    TOOLTIP
+                                ================================================= */}
                                 {isHovered && (
                                     <div
                                         style={{
-                                            position: "absolute",
+                                            position:
+                                                "absolute",
 
-                                            // Keep tooltip inside the chart
                                             top: 5,
 
                                             left: "50%",
-                                            transform: "translateX(-50%)",
+                                            transform:
+                                                "translateX(-50%)",
 
                                             minWidth: 160,
                                             maxWidth: 190,
 
-                                            background: "#ffffff",
-                                            border: "1px solid #dce3ee",
+                                            background:
+                                                "#ffffff",
+                                            border:
+                                                "1px solid #dce3ee",
                                             borderRadius: 8,
 
-                                            padding: "9px 11px",
+                                            padding:
+                                                "9px 11px",
 
                                             boxShadow:
                                                 "0 8px 22px rgba(24, 45, 80, 0.16)",
 
                                             zIndex: 1000,
-                                            pointerEvents: "none",
+                                            pointerEvents:
+                                                "none",
 
-                                            whiteSpace: "normal",
-                                            boxSizing: "border-box",
+                                            whiteSpace:
+                                                "normal",
+                                            boxSizing:
+                                                "border-box",
                                         }}
                                     >
                                         {/* Month */}
@@ -2129,13 +2523,16 @@ function TrendChart({ data, currency, onPointClick }) {
                                             {item.month}
                                         </div>
 
-                                        {/* Total Payables */}
+                                        {/* Total Receivables */}
                                         <div
                                             style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
+                                                display:
+                                                    "flex",
+                                                justifyContent:
+                                                    "space-between",
                                                 gap: 15,
-                                                fontSize: 11, fontWeight: 800,
+                                                fontSize: 11,
+                                                fontWeight: 800,
                                                 marginBottom: 5,
                                             }}
                                         >
@@ -2144,7 +2541,8 @@ function TrendChart({ data, currency, onPointClick }) {
                                                     color: "#64748b",
                                                 }}
                                             >
-                                                Total Payables
+                                                Total
+                                                Receivables
                                             </span>
 
                                             <strong
@@ -2152,20 +2550,23 @@ function TrendChart({ data, currency, onPointClick }) {
                                                     color: BLUE,
                                                 }}
                                             >
-                                                {formatPayablesCompact(
-                                                    item.total_payables,
+                                                {formatReceivablesCompact(
+                                                    item.total_receivables,
                                                     currency
                                                 )}
                                             </strong>
                                         </div>
 
-                                        {/* DPO */}
+                                        {/* DSO */}
                                         <div
                                             style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
+                                                display:
+                                                    "flex",
+                                                justifyContent:
+                                                    "space-between",
                                                 gap: 15,
-                                                fontSize: 11, fontWeight: 800,
+                                                fontSize: 11,
+                                                fontWeight: 800,
                                             }}
                                         >
                                             <span
@@ -2181,54 +2582,153 @@ function TrendChart({ data, currency, onPointClick }) {
                                                     color: "#0e9f75",
                                                 }}
                                             >
-                                                {Number(item.dpo || 0).toFixed(1)} Days
+                                                {Number(
+                                                    item.dso ||
+                                                    0
+                                                ).toFixed(
+                                                    1
+                                                )}{" "}
+                                                Days
                                             </strong>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Value above bar */}
+                                {/* =================================================
+                                    VALUE ABOVE BAR
+                                    Increased size + hover emphasis
+                                ================================================= */}
                                 <div
                                     style={{
-                                        fontSize: 10,
+                                        fontSize:
+                                            isHovered
+                                                ? 13
+                                                : 12,
+
                                         color: BLUE,
-                                        fontWeight: 800,
-                                        marginBottom: 3,
-                                        opacity: isHovered ? 0 : 1,
-                                        transition: "opacity 0.15s ease",
+
+                                        fontWeight: 900,
+
+                                        marginBottom: 5,
+
+                                        letterSpacing:
+                                            "-0.15px",
+
+                                        transform:
+                                            isHovered
+                                                ? "translateY(-2px) scale(1.04)"
+                                                : "translateY(0) scale(1)",
+
+                                        opacity: 1,
+
+                                        transition:
+                                            "font-size 0.15s ease, transform 0.2s ease, opacity 0.15s ease",
+
+                                        whiteSpace:
+                                            "nowrap",
                                     }}
                                 >
-                                    {(Number(item.total_payables) / 1000000).toFixed(2)}
+                                    {(
+                                        Number(
+                                            item.total_receivables
+                                        ) / 1000000
+                                    ).toFixed(2)}
                                 </div>
 
-                                {/* Bar */}
+                                {/* =================================================
+                                    BAR
+                                    Stylish animated bar
+                                ================================================= */}
                                 <div
                                     style={{
-                                        width: isHovered ? "78%" : "70%",
-                                        maxWidth: 38,
-                                        height,
-                                        minHeight: 3,
-                                        background: BLUE_2,
-                                        borderRadius: "2px 2px 0 0",
+                                        width: isHovered
+                                            ? "82%"
+                                            : "72%",
+
+                                        maxWidth: 42,
+
+                                        height: chartLoaded
+                                            ? height
+                                            : 0,
+
+                                        minHeight:
+                                            chartLoaded
+                                                ? 4
+                                                : 0,
+
+                                        /*
+                                         * Stylish gradient
+                                         */
+                                        background:
+                                            "linear-gradient(180deg, #5b5bea 0%, #3f46c6 55%, #3038a8 100%)",
+
+                                        /*
+                                         * More rounded top
+                                         */
+                                        borderRadius:
+                                            "7px 7px 2px 2px",
+
                                         cursor: "pointer",
-                                        opacity: isHovered ? 0.85 : 1,
-                                        boxShadow: isHovered
-                                            ? "0 3px 10px rgba(91, 91, 234, 0.25)"
-                                            : "none",
+
+                                        /*
+                                         * Hover becomes brighter
+                                         */
+                                        opacity:
+                                            isHovered
+                                                ? 1
+                                                : 0.94,
+
+                                        /*
+                                         * Stylish shadow
+                                         */
+                                        boxShadow:
+                                            isHovered
+                                                ? "0 6px 16px rgba(91, 91, 234, 0.38)"
+                                                : "0 3px 8px rgba(91, 91, 234, 0.16)",
+
+                                        /*
+                                         * Subtle border
+                                         */
+                                        border:
+                                            "1px solid rgba(255,255,255,0.25)",
+
+                                        boxSizing:
+                                            "border-box",
+
+                                        /*
+                                         * Existing load animation
+                                         * + hover animation
+                                         */
                                         transition:
-                                            "width 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease",
+                                            "height 0.65s cubic-bezier(0.22, 1, 0.36, 1), " +
+                                            "width 0.18s ease, " +
+                                            "opacity 0.18s ease, " +
+                                            "box-shadow 0.2s ease, " +
+                                            "border-radius 0.2s ease",
+
+                                        /*
+                                         * Keep staggered load animation
+                                         */
+                                        transitionDelay:
+                                            chartLoaded
+                                                ? `${index * 45}ms`
+                                                : "0ms",
                                     }}
                                 />
 
-                                {/* Month */}
+                                {/* =================================================
+                                    MONTH
+                                ================================================= */}
                                 <div
                                     style={{
-                                        position: "absolute",
+                                        position:
+                                            "absolute",
                                         bottom: -25,
                                         fontSize: 10,
                                         fontWeight: 800,
                                         color: "#475569",
-                                        whiteSpace: "nowrap",
+                                        whiteSpace:
+                                            "nowrap",
                                     }}
                                 >
                                     {item.month}
@@ -2239,8 +2739,9 @@ function TrendChart({ data, currency, onPointClick }) {
                 </div>
 
                 {/* =====================================================
-            DPO LINE
-        ===================================================== */}
+                    DSO LINE
+                    Existing behavior preserved
+                ===================================================== */}
                 <svg
                     style={{
                         position: "absolute",
@@ -2251,6 +2752,17 @@ function TrendChart({ data, currency, onPointClick }) {
                         height: 125,
                         pointerEvents: "none",
                         overflow: "visible",
+
+                        opacity: chartLoaded
+                            ? 1
+                            : 0,
+
+                        transform: chartLoaded
+                            ? "translateY(0)"
+                            : "translateY(8px)",
+
+                        transition:
+                            "opacity 0.7s ease 0.25s, transform 0.7s ease 0.25s",
                     }}
                     viewBox="0 0 600 125"
                     preserveAspectRatio="none"
@@ -2261,21 +2773,46 @@ function TrendChart({ data, currency, onPointClick }) {
                                 const x =
                                     data.length === 1
                                         ? 300
-                                        : (index / (data.length - 1)) * 600;
+                                        : (index /
+                                            (data.length -
+                                                1)) *
+                                        600;
 
-                                const minDpo = Math.min(
-                                    ...data.map((d) => Number(d.dpo))
-                                );
+                                const minDso =
+                                    Math.min(
+                                        ...data.map(
+                                            (d) =>
+                                                Number(
+                                                    d.dso
+                                                )
+                                        )
+                                    );
 
-                                const maxDpo = Math.max(
-                                    ...data.map((d) => Number(d.dpo))
-                                );
+                                const maxDso =
+                                    Math.max(
+                                        ...data.map(
+                                            (d) =>
+                                                Number(
+                                                    d.dso
+                                                )
+                                        )
+                                    );
 
-                                const range = Math.max(maxDpo - minDpo, 1);
+                                const range =
+                                    Math.max(
+                                        maxDso -
+                                        minDso,
+                                        1
+                                    );
 
                                 const y =
                                     105 -
-                                    ((Number(item.dpo) - minDpo) / range) * 80;
+                                    ((Number(
+                                        item.dso
+                                    ) -
+                                        minDso) /
+                                        range) *
+                                    80;
 
                                 return `${x},${y}`;
                             })
@@ -2286,37 +2823,66 @@ function TrendChart({ data, currency, onPointClick }) {
                         vectorEffect="non-scaling-stroke"
                     />
 
+                    {/* =================================================
+                        DSO POINTS
+                    ================================================= */}
                     {data.map((item, index) => {
                         const x =
                             data.length === 1
                                 ? 300
-                                : (index / (data.length - 1)) * 600;
+                                : (index /
+                                    (data.length -
+                                        1)) *
+                                600;
 
-                        const minDpo = Math.min(
-                            ...data.map((d) => Number(d.dpo))
+                        const minDso =
+                            Math.min(
+                                ...data.map((d) =>
+                                    Number(d.dso)
+                                )
+                            );
+
+                        const maxDso =
+                            Math.max(
+                                ...data.map((d) =>
+                                    Number(d.dso)
+                                )
+                            );
+
+                        const range = Math.max(
+                            maxDso - minDso,
+                            1
                         );
-
-                        const maxDpo = Math.max(
-                            ...data.map((d) => Number(d.dpo))
-                        );
-
-                        const range = Math.max(maxDpo - minDpo, 1);
 
                         const y =
                             105 -
-                            ((Number(item.dpo) - minDpo) / range) * 80;
+                            ((Number(item.dso) -
+                                minDso) /
+                                range) *
+                            80;
 
                         return (
                             <circle
                                 key={item.month}
                                 cx={x}
                                 cy={y}
-                                r={hoveredIndex === index ? 5 : 3}
+                                r={
+                                    hoveredIndex ===
+                                        index
+                                        ? 5
+                                        : 3
+                                }
                                 fill="#fff"
                                 stroke="#0e9f75"
-                                strokeWidth={hoveredIndex === index ? 3 : 2}
+                                strokeWidth={
+                                    hoveredIndex ===
+                                        index
+                                        ? 3
+                                        : 2
+                                }
                                 style={{
-                                    transition: "r 0.15s ease",
+                                    transition:
+                                        "r 0.15s ease",
                                 }}
                             />
                         );
@@ -2325,14 +2891,15 @@ function TrendChart({ data, currency, onPointClick }) {
             </div>
 
             {/* =====================================================
-          LEGEND
-      ===================================================== */}
+                LEGEND
+            ===================================================== */}
             <div
                 style={{
                     display: "flex",
-                    justifyContent: "center",
+                    justifyContent:
+                        "center",
                     gap: 20,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 800,
                     color: "#475569",
                     marginTop: -5,
@@ -2341,25 +2908,28 @@ function TrendChart({ data, currency, onPointClick }) {
                 <span>
                     <span
                         style={{
-                            display: "inline-block",
+                            display:
+                                "inline-block",
                             width: 10,
                             height: 8,
                             background: BLUE_2,
                             marginRight: 5,
                         }}
                     />
-                    Total Payables
+                    Total Receivables
                 </span>
 
                 <span>
                     <span
                         style={{
-                            display: "inline-block",
+                            display:
+                                "inline-block",
                             width: 18,
-                            borderTop: "2px dashed #0e9f75",
+                            borderTop:
+                                "2px dashed #0e9f75",
                             marginRight: 5,
-                            verticalAlign: "middle",
-
+                            verticalAlign:
+                                "middle",
                         }}
                     />
                     DSO (Days)
@@ -2368,297 +2938,791 @@ function TrendChart({ data, currency, onPointClick }) {
         </div>
     );
 }
-
 /* ============================================================
    HORIZONTAL BAR CHART
    ============================================================ */
 
 function ParentDivisionChart({ data, currency, onItemClick }) {
     const [hoveredIndex, setHoveredIndex] = useState(null);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [page, setPage] = useState(1);
+    const [chartLoaded, setChartLoaded] = useState(false);
 
-    const ITEMS_PER_PAGE = 6;
+    // ADDED: tooltip mouse position only
+    const [tooltipPosition, setTooltipPosition] = useState({
+        x: 0,
+        y: 0,
+    });
 
-    const max = Math.max(...data.map((item) => Number(item.amount || 0)));
+    const PAGE_SIZE = 5;
+
+    useEffect(() => {
+        setPage(1);
+        setHoveredIndex(null);
+        setChartLoaded(false);
+
+        const frame = requestAnimationFrame(() => {
+            setChartLoaded(true);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [data]);
+
+    // Normalize backend data
+    const chartData = Array.isArray(data)
+        ? data.map((item, index) => ({
+            name:
+                item?.name ??
+                item?.label ??
+                `Division ${index + 1}`,
+
+            amount: Number(
+                item?.amount ??
+                item?.total_receivables ??
+                0
+            ),
+
+            percentage: Number(
+                item?.percentage ??
+                item?.percentage_of_total ??
+                0
+            ),
+        }))
+        : [];
 
     // Pagination
-    const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
-
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const paginatedData = data.slice(
-        startIndex,
-        startIndex + ITEMS_PER_PAGE
+    const totalPages = Math.max(
+        1,
+        Math.ceil(chartData.length / PAGE_SIZE)
     );
 
-    // Reset page if data changes and current page becomes invalid
-    useEffect(() => {
-        if (currentPage > totalPages && totalPages > 0) {
-            setCurrentPage(totalPages);
-        }
-    }, [currentPage, totalPages]);
+    const safePage = Math.min(
+        Math.max(page, 1),
+        totalPages
+    );
+
+    const startIndex = (safePage - 1) * PAGE_SIZE;
+
+    const paginatedChartData = chartData.slice(
+        startIndex,
+        startIndex + PAGE_SIZE
+    );
+
+    // Maximum amount used for bar width
+    const max = Math.max(
+        ...chartData.map((item) =>
+            Math.abs(item.amount)
+        ),
+        1
+    );
+
+    // Empty state
+    if (!chartData.length) {
+        return (
+            <div
+                style={{
+                    minHeight: 260,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#94a3b8",
+                    fontSize: 13,
+                    fontWeight: 600,
+                }}
+            >
+                No data available
+            </div>
+        );
+    }
+
+    const formatAmount = (amount) => {
+        const formatted = formatReceivablesCompact(
+            amount,
+            ""
+        );
+
+        return formatted.replace(
+            /^[A-Z]{3}\s*/,
+            ""
+        );
+    };
 
     return (
-        <div style={{ paddingTop: 5 }}>
-            {paginatedData.map((item, index) => {
-                const actualIndex = startIndex + index;
+        <div
+            style={{
+                width: "100%",
+                overflow: "visible",
+            }}
+        >
+            {/* Chart Rows */}
+            <div
+                style={{
+                    width: "100%",
+                    overflow: "visible",
+                }}
+            >
+                {paginatedChartData.map((item, index) => {
+                    const actualIndex =
+                        startIndex + index;
 
-                const width =
-                    max > 0
-                        ? (Number(item.amount || 0) / max) * 100
-                        : 0;
+                    const isHovered =
+                        hoveredIndex === actualIndex;
 
-                const isHovered = hoveredIndex === actualIndex;
+                    const width =
+                        (Math.abs(item.amount) / max) * 100;
 
-                return (
-                    <div
-                        key={item.name}
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "70px 1fr 100px",
-                            alignItems: "center",
-                            gap: 8,
-                            cursor: typeof onItemClick === "function" ? "pointer" : "default",
+                    const isNegative =
+                        item.amount < 0;
 
-                            // Gap between each horizontal bar
-                            marginBottom:
-                                index === paginatedData.length - 1 ? 0 : 25,
+                    return (
+                        <div
+                            key={`${item.name}-${actualIndex}`}
 
-                            position: "relative",
-                        }}
-                        onMouseEnter={() => setHoveredIndex(actualIndex)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                        onClick={() => {
-                            if (typeof onItemClick === "function") {
-                                onItemClick(item);
+                            // CHANGED: track mouse position
+                            onMouseEnter={(e) => {
+                                setHoveredIndex(actualIndex);
+
+                                setTooltipPosition({
+                                    x: e.clientX,
+                                    y: e.clientY,
+                                });
+                            }}
+
+                            // ADDED: keep tooltip position updated
+                            onMouseMove={(e) => {
+                                if (
+                                    hoveredIndex ===
+                                    actualIndex
+                                ) {
+                                    setTooltipPosition({
+                                        x: e.clientX,
+                                        y: e.clientY,
+                                    });
+                                }
+                            }}
+
+                            onMouseLeave={() =>
+                                setHoveredIndex(null)
                             }
-                        }}
-                    >
-                        {/* Division Name */}
-                        <div
-                            style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                color: "#334155",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                            }}
-                        >
-                            {item.name}
-                        </div>
 
-                        {/* Bar */}
-                        <div
+                            onClick={() =>
+                                onItemClick?.(item)
+                            }
+
                             style={{
-                                height: 17,
-                                background: "#eef3fb",
-                                borderRadius: 2,
-                                overflow: "hidden",
-                                cursor: "pointer",
+                                display: "grid",
+
+                                gridTemplateColumns:
+                                    "130px minmax(0, 1fr) 95px",
+
+                                alignItems: "center",
+                                columnGap: 9,
+
+                                marginBottom: 10,
+                                padding: "7px 8px",
+
+                                borderRadius: 9,
+
+                                background: isHovered
+                                    ? "#f8fbff"
+                                    : "transparent",
+
+                                border: isHovered
+                                    ? "1px solid #e5edf7"
+                                    : "1px solid transparent",
+
+                                boxShadow: isHovered
+                                    ? "0 3px 10px rgba(15, 23, 42, 0.05)"
+                                    : "none",
+
+                                cursor: onItemClick
+                                    ? "pointer"
+                                    : "default",
+
+                                transition:
+                                    "background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease",
+
+                                position: "relative",
+
+                                zIndex: isHovered
+                                    ? 100
+                                    : 1,
+
+                                overflow: "visible",
                             }}
                         >
+                            {/* Division Name */}
                             <div
                                 style={{
-                                    height: "100%",
-                                    width: `${width}%`,
-                                    background: "#1464e8",
-                                    opacity:
-                                        hoveredIndex !== null &&
-                                            !isHovered
-                                            ? 0.65
-                                            : 1,
+                                    minWidth: 0,
+
+                                    whiteSpace: "normal",
+                                    overflowWrap: "anywhere",
+                                    wordBreak: "break-word",
+
+                                    fontSize: 13,
+                                    lineHeight: 1.3,
+                                    fontWeight: 700,
+
+                                    color: isHovered
+                                        ? "#0f172a"
+                                        : "#334155",
+
                                     transition:
-                                        "opacity 0.15s ease, width 0.2s ease",
+                                        "color 0.2s ease",
                                 }}
-                            />
-                        </div>
-
-                        {/* Value */}
-                        <div
-                            style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: "#27438b",
-                                textAlign: "right",
-                            }}
-                        >
-                            {formatPayablesCompact(item.amount, "").replace(
-                                /^[A-Z]{3}\s*/,
-                                ""
-                            )}{" "}
-                            <span
-                                style={{
-                                    color: "#64748b",
-                                    fontWeight: 500,
-                                }}
+                                title={item.name}
                             >
-                                ({formatPercentage(item.percentage)})
-                            </span>
-                        </div>
+                                {item.name}
+                            </div>
 
-                        {/* Hover Tooltip */}
-                        {isHovered && (
+                            {/* Bar Area */}
                             <div
                                 style={{
-                                    position: "absolute",
-                                    left: "50%",
-                                    top:
-                                        index === paginatedData.length - 1
-                                            ? "auto"
-                                            : "100%",
-                                    bottom:
-                                        index === paginatedData.length - 1
-                                            ? "100%"
-                                            : "auto",
-                                    transform: "translateX(-50%)",
-                                    marginTop:
-                                        index === paginatedData.length - 1
-                                            ? 0
-                                            : 6,
-                                    marginBottom:
-                                        index === paginatedData.length - 1
-                                            ? 6
-                                            : 0,
-                                    zIndex: 9999,
-                                    background: "#ffffff",
-                                    border: "1px solid #dbe3ef",
-                                    borderRadius: 7,
-                                    boxShadow:
-                                        "0 5px 18px rgba(15, 23, 42, 0.16)",
-                                    padding: "8px 11px",
-                                    minWidth: 165,
-                                    whiteSpace: "nowrap",
-                                    pointerEvents: "none",
+                                    position: "relative",
+                                    width: "100%",
+                                    minWidth: 0,
+                                    height: 18,
+
+                                    background: "#edf2f8",
+
+                                    borderRadius: 999,
+
+                                    overflow: "visible",
+
+                                    transition:
+                                        "background 0.2s ease",
+
+                                    zIndex: isHovered
+                                        ? 2
+                                        : 1,
                                 }}
                             >
+                                {/* Bar */}
+                                <div
+                                    onMouseEnter={(e) => {
+                                        setHoveredIndex(
+                                            actualIndex
+                                        );
+
+                                        setTooltipPosition({
+                                            x: e.clientX,
+                                            y: e.clientY,
+                                        });
+                                    }}
+                                    style={{
+                                        position: "absolute",
+                                        left: 0,
+                                        top: 0,
+
+                                        height: "100%",
+
+                                        width: chartLoaded
+                                            ? `${Math.max(
+                                                width,
+                                                2
+                                            )}%`
+                                            : "0%",
+
+                                        borderRadius: 999,
+
+                                        background: isNegative
+                                            ? "linear-gradient(90deg, #ef4444, #dc2626)"
+                                            : "linear-gradient(90deg, #1464e8, #3b82f6)",
+
+                                        transform: isHovered
+                                            ? "scaleY(1.18)"
+                                            : "scaleY(1)",
+
+                                        transformOrigin:
+                                            "center",
+
+                                        boxShadow: isHovered
+                                            ? isNegative
+                                                ? "0 4px 12px rgba(220, 38, 38, 0.30)"
+                                                : "0 4px 12px rgba(20, 100, 232, 0.30)"
+                                            : "0 1px 3px rgba(15, 23, 42, 0.08)",
+
+                                        filter: isHovered
+                                            ? "brightness(1.06)"
+                                            : "brightness(1)",
+
+                                        opacity:
+                                            chartLoaded
+                                                ? 1
+                                                : 0,
+
+                                        transition:
+                                            "width 0.7s ease, transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.35s ease",
+
+                                        zIndex: isHovered
+                                            ? 3
+                                            : 1,
+                                    }}
+                                />
+                            </div>
+
+                            {/* Value + Percentage */}
+                            <div
+                                style={{
+                                    minWidth: 0,
+
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "flex-end",
+
+                                    lineHeight: 1.2,
+                                }}
+                            >
+                                {/* Chart Value */}
                                 <div
                                     style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+
+                                        color: isHovered
+                                            ? "#0f172a"
+                                            : "#334155",
+
+                                        whiteSpace: "nowrap",
+
+                                        transition:
+                                            "color 0.2s ease",
+                                    }}
+                                >
+                                    {formatAmount(
+                                        item.amount
+                                    )}
+                                </div>
+
+                                {/* Chart Percentage */}
+                                <div
+                                    style={{
+                                        marginTop: 2,
+
                                         fontSize: 10,
-                                        fontWeight: 900,
-                                        color: "#173b8f",
-                                        marginBottom: 5,
+
+                                        fontWeight: 650,
+
+                                        color: isHovered
+                                            ? "#475569"
+                                            : "#64748b",
+
+                                        whiteSpace: "nowrap",
+
+                                        transition:
+                                            "color 0.2s ease",
                                     }}
                                 >
-                                    {item.name}
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        gap: 18,
-                                        fontSize: 11,
-                                        fontWeight: 900,
-                                        marginBottom: 3,
-                                    }}
-                                >
-                                    <span style={{ color: "#64748b" }}>
-                                        Receivables
-                                    </span>
-
-                                    <span
-                                        style={{
-                                            color: "#27438b",
-                                            fontWeight: 800,
-                                        }}
-                                    >
-                                        {formatPayablesCompact(
-                                            item.amount,
-                                            currency
-                                        )}
-                                    </span>
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        gap: 18,
-                                        fontSize: 11,
-                                        fontWeight: 900,
-                                    }}
-                                >
-                                    <span style={{ color: "#64748b" }}>
-                                        Percentage
-                                    </span>
-
-                                    <span
-                                        style={{
-                                            color: "#27438b",
-                                            fontWeight: 800,
-                                        }}
-                                    >
-                                        {formatPercentage(item.percentage)}
-                                    </span>
+                                    {item.percentage.toFixed(
+                                        2
+                                    )}
+                                    %
                                 </div>
                             </div>
-                        )}
-                    </div>
-                );
-            })}
+                        </div>
+                    );
+                })}
+            </div>
 
-            {/* Compact pagination - same UI as the dashboard tables */}
+            {/* Pagination */}
             {totalPages > 1 && (
                 <div
                     style={{
                         display: "flex",
+                        justifyContent: "center",
                         alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 8,
-                        marginTop: 16,
-                        paddingTop: 8,
-                        borderTop: "1px solid #edf1f6",
+                        gap: 5,
+
+                        marginTop: 8,
                     }}
                 >
-                    <span
+                    {/* First */}
+                    <button
+                        type="button"
+                        onClick={() => setPage(1)}
+                        disabled={safePage === 1}
                         style={{
-                            fontSize: 9.5,
-                            color: "#64748b",
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === 1
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === 1
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === 1
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
                         }}
                     >
-                        Showing {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, data.length)} of {data.length}
-                    </span>
+                        «
+                    </button>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        {[
-                            { label: "‹‹", action: () => setCurrentPage(1), disabled: currentPage === 1 },
-                            { label: "‹", action: () => setCurrentPage((p) => Math.max(1, p - 1)), disabled: currentPage === 1 },
-                            { label: String(currentPage), active: true, action: () => { }, disabled: false },
-                            { label: "›", action: () => setCurrentPage((p) => Math.min(totalPages, p + 1)), disabled: currentPage === totalPages },
-                            { label: "››", action: () => setCurrentPage(totalPages), disabled: currentPage === totalPages },
-                        ].map((item) => (
-                            <button
-                                key={item.label}
-                                type="button"
-                                onClick={item.action}
-                                disabled={item.disabled}
-                                style={{
-                                    width: 28,
-                                    height: 25,
-                                    padding: 0,
-                                    border: "1px solid #dbe3ef",
-                                    borderRadius: 5,
-                                    background: item.active ? "#172f80" : item.disabled ? "#f8fafc" : "#ffffff",
-                                    color: item.active ? "#ffffff" : item.disabled ? "#cbd5e1" : "#27438b",
-                                    fontSize: item.label.length > 1 ? 12 : 14,
-                                    fontWeight: 800,
-                                    cursor: item.disabled ? "not-allowed" : "pointer",
-                                }}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
+                    {/* Previous */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPage((p) =>
+                                Math.max(1, p - 1)
+                            )
+                        }
+                        disabled={safePage === 1}
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === 1
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === 1
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === 1
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        ‹
+                    </button>
+
+                    {/* Current Page */}
+                    <div
+                        style={{
+                            minWidth: 32,
+                            height: 28,
+
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+
+                            padding: "0 7px",
+
+                            borderRadius: 7,
+
+                            background: "#1464e8",
+                            color: "#fff",
+
+                            fontSize: 11,
+                            fontWeight: 700,
+
+                            boxShadow:
+                                "0 2px 6px rgba(20, 100, 232, 0.20)",
+                        }}
+                    >
+                        {safePage}
                     </div>
+
+                    {/* Next */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPage((p) =>
+                                Math.min(
+                                    totalPages,
+                                    p + 1
+                                )
+                            )
+                        }
+                        disabled={
+                            safePage === totalPages
+                        }
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === totalPages
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === totalPages
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        ›
+                    </button>
+
+                    {/* Last */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPage(totalPages)
+                        }
+                        disabled={
+                            safePage === totalPages
+                        }
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === totalPages
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === totalPages
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        »
+                    </button>
                 </div>
             )}
+
+            {/* =====================================================
+                FIXED TOOLTIP
+                This is outside all chart rows.
+               ===================================================== */}
+            {hoveredIndex !== null &&
+                chartData[hoveredIndex] &&
+                createPortal(
+                    <>
+                        <div
+                            style={{
+                                position: "fixed",
+
+                                /*
+                                 * Position beside the mouse so it
+                                 * cannot be clipped by chart rows.
+                                 */
+                                left: Math.max(8, Math.min(
+                                    tooltipPosition.x + 14,
+                                    window.innerWidth - 278
+                                )),
+
+                                top: tooltipPosition.y < 92
+                                    ? Math.min(window.innerHeight - 8, tooltipPosition.y + 16)
+                                    : Math.max(8, Math.min(
+                                        tooltipPosition.y - 10,
+                                        window.innerHeight - 8
+                                    )),
+
+                                /*
+                                 * Above the pointer when there is room; below it near
+                                 * the top edge. The position is always viewport-clamped.
+                                 */
+                                transform:
+                                    tooltipPosition.y < 92
+                                        ? "translateY(0)"
+                                        : "translateY(-100%)",
+
+                                minWidth: 175,
+                                maxWidth: "min(260px, calc(100vw - 16px))",
+
+                                padding: "9px 11px",
+
+                                borderRadius: 8,
+
+                                background:
+                                    "rgba(15, 23, 42, 0.96)",
+
+                                color: "#fff",
+
+                                boxShadow:
+                                    "0 8px 20px rgba(15, 23, 42, 0.18)",
+
+                                pointerEvents:
+                                    "none",
+
+                                /*
+                                 * Very high so other chart rows
+                                 * cannot cover it.
+                                 */
+                                zIndex: 999999,
+
+                                animation:
+                                    "parentDivisionTooltipIn 0.16s ease-out",
+
+                                whiteSpace: "normal",
+
+                                overflowWrap:
+                                    "anywhere",
+
+                                wordBreak:
+                                    "break-word",
+
+                                width: "max-content",
+                            }}
+                        >
+                            {/* Tooltip Division Name */}
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    lineHeight: 1.35,
+
+                                    color: "#e2e8f0",
+
+                                    marginBottom: 6,
+                                }}
+                            >
+                                {
+                                    chartData[
+                                        hoveredIndex
+                                    ].name
+                                }
+                            </div>
+
+                            {/* Tooltip Receivables */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent:
+                                        "space-between",
+                                    alignItems: "center",
+
+                                    gap: 12,
+
+                                    fontSize: 11.5,
+                                    lineHeight: 1.35,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        color: "#aebccc",
+                                        fontWeight: 600,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Receivables
+                                </span>
+
+                                <span
+                                    style={{
+                                        color: "#fff",
+                                        fontWeight: 800,
+                                        whiteSpace:
+                                            "nowrap",
+                                    }}
+                                >
+                                    {formatAmount(
+                                        chartData[
+                                            hoveredIndex
+                                        ].amount
+                                    )}
+                                </span>
+                            </div>
+
+                            {/* Tooltip Percentage */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent:
+                                        "space-between",
+                                    alignItems: "center",
+
+                                    gap: 12,
+
+                                    marginTop: 4,
+
+                                    fontSize: 11.5,
+                                    lineHeight: 1.35,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        color: "#aebccc",
+                                        fontWeight: 600,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Percentage
+                                </span>
+
+                                <span
+                                    style={{
+                                        color: "#fff",
+                                        fontWeight: 800,
+                                        whiteSpace:
+                                            "nowrap",
+                                    }}
+                                >
+                                    {chartData[
+                                        hoveredIndex
+                                    ].percentage.toFixed(2)}
+                                    %
+                                </span>
+                            </div>
+                        </div>
+                    </>,
+                    document.body
+                )}
+
+            {/* Tooltip Animation */}
+            <style>
+                {`
+                    @keyframes parentDivisionTooltipIn {
+                        from {
+                            opacity: 0;
+                        }
+
+                        to {
+                            opacity: 1;
+                        }
+                    }
+                `}
+            </style>
         </div>
     );
 }
+
 /* ============================================================
-   TABLE
-   ============================================================ */
+   DATA TABLE
+============================================================ */
+
 function DataTable({
     columns,
     rows,
@@ -2844,24 +3908,38 @@ function DataTable({
                                 textAlign:
                                     column.align || "left",
 
-                                whiteSpace: fitColumns
-                                    ? "normal"
-                                    : "nowrap",
+                                width: column.width || undefined,
 
-                                overflow: fitColumns
-                                    ? "hidden"
-                                    : "visible",
+                                whiteSpace:
+                                    column.key === "rank"
+                                        ? "nowrap"
+                                        : fitColumns
+                                            ? "normal"
+                                            : "nowrap",
 
-                                textOverflow: fitColumns
-                                    ? "ellipsis"
-                                    : "clip",
+                                overflow:
+                                    column.key === "rank"
+                                        ? "visible"
+                                        : fitColumns
+                                            ? "hidden"
+                                            : "visible",
+
+                                textOverflow:
+                                    column.key === "rank"
+                                        ? "clip"
+                                        : fitColumns
+                                            ? "ellipsis"
+                                            : "clip",
 
                                 // Slight emphasis for fixed Total row
                                 ...(isFixedRow
                                     ? {
-                                        fontWeight: 800,
-                                        background:
-                                            "#f8fafc",
+                                        fontWeight: 900,
+                                        background: "#f8fafc",
+                                        color:
+                                            column.key === "name"
+                                                ? "#172554"
+                                                : "#1E293B",
                                     }
                                     : {}),
                             }}
@@ -2935,6 +4013,7 @@ function DataTable({
                                     textAlign:
                                         column.align ||
                                         "left",
+                                    width: column.width || undefined,
                                     whiteSpace: fitColumns
                                         ? "normal"
                                         : "nowrap",
@@ -3243,6 +4322,47 @@ function DataTable({
     );
 }
 /* ============================================================
+   RECEIVABLES-STYLE PAGE SKELETON FOR RECEIVABLES
+   ============================================================ */
+function ReceivablesPageSkeleton() {
+    return (
+        <div className="receivables-page-skeleton" aria-hidden="true">
+            <div className="receivables-skeleton-kpis">
+                {Array.from({ length: 5 }).map((_, index) => (
+                    <div className="receivables-skeleton-card" key={index}>
+                        <div className="receivables-skeleton-icon" />
+                        <div className="receivables-skeleton-copy">
+                            <div className="receivables-skeleton-line short" />
+                            <div className="receivables-skeleton-line value" />
+                            <div className="receivables-skeleton-line tiny" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <div className="receivables-skeleton-grid three">
+                {Array.from({ length: 3 }).map((_, index) => (
+                    <div className="receivables-skeleton-panel" key={index}>
+                        <div className="receivables-skeleton-line title" />
+                        <div className="receivables-skeleton-chart" />
+                    </div>
+                ))}
+            </div>
+            <div className="receivables-skeleton-grid three">
+                {Array.from({ length: 3 }).map((_, index) => (
+                    <div className="receivables-skeleton-panel compact" key={index}>
+                        <div className="receivables-skeleton-line title" />
+                        <div className="receivables-skeleton-table-line" />
+                        <div className="receivables-skeleton-table-line" />
+                        <div className="receivables-skeleton-table-line" />
+                        <div className="receivables-skeleton-table-line" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/* ============================================================
    MAIN PAGE
    ============================================================ */
 
@@ -3281,6 +4401,19 @@ export default function ReceivablesDashboard() {
     const currency = appliedFilters.reporting_currency || "AED";
     const [momDisplayUnit, setMomDisplayUnit] = useState("AED");
     const baseApiFilters = useMemo(() => buildApiFilters(), [appliedFilters, filterOptions]);
+
+    const mainLegalEntities = cascadeLegalEntities(filterOptions.legal_entities, filters.legal_group);
+    const mainParentDivisions = cascadeParentDivisions(
+        filterOptions.parent_divisions,
+        filters.legal_entities,
+        filters.legal_group
+    );
+    const mainSubDivisions = cascadeSubDivisions(
+        filterOptions.sub_divisions,
+        filters.parent_divisions,
+        filters.legal_entities,
+        filters.legal_group
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -3338,8 +4471,8 @@ export default function ReceivablesDashboard() {
 
                 if (cancelled) return;
 
-                // Dashboard endpoint provides the main sections.
-                // Month-on-Month is a separate endpoint, so merge it into
+                // Dashboard endsoint provides the main sections.
+                // Month-on-Month is a separate endsoint, so merge it into
                 // the same normalized shape expected by the existing UI.
                 const dashboardPayload =
                     dashboardResponseValue?.data &&
@@ -3409,7 +4542,7 @@ export default function ReceivablesDashboard() {
         }
     };
 
-    const openPayablesViewAll = (extra = {}) => {
+    const openReceivablesViewAll = (extra = {}) => {
         setViewAllContext(extra || {});
         setShowViewAll(true);
     };
@@ -3421,40 +4554,40 @@ export default function ReceivablesDashboard() {
      * view-all. Chart/table/KPI interactions add only the backend
      * drill-down parameter required for that specific record.
      *
-     * All current page filters are still supplied by PayablesViewAll
+     * All current page filters are still supplied by ReceivablesViewAll
      * through baseFilters/appliedViewFilters.
      */
     const openAgingDrilldown = (item) => {
         const bucket = item?.bucket_code;
-        if (bucket) openPayablesViewAll({ aging_bucket: bucket, component: "Aging Summary" });
+        if (bucket) openReceivablesViewAll({ aging_bucket: bucket, component: "Aging Summary" });
     };
 
     const openTrendDrilldown = (point) => {
         if (point?.as_on_date) {
-            openPayablesViewAll({ as_on_date: point.as_on_date, component: "Monthly Trend" });
+            openReceivablesViewAll({ as_on_date: point.as_on_date, component: "Monthly Trend" });
         }
     };
 
     const openParentDivisionDrilldown = (item) => {
         const value = item?.value;
         if (value !== undefined && value !== null && value !== "") {
-            openPayablesViewAll({ parent_division_id: value, component: "Parent Division" });
+            openReceivablesViewAll({ parent_division_id: value, component: "Parent Division" });
         }
     };
 
     const openCustomerDrilldown = (row) => {
         const customerId = row?.customer_id;
         if (customerId !== undefined && customerId !== null && customerId !== "") {
-            openPayablesViewAll({ customer_id: customerId, component: "Top 10 Customers" });
+            openReceivablesViewAll({ customer_id: customerId, component: "Top 10 Customers" });
         }
     };
 
     const openOverdueDrilldown = () => {
-        openPayablesViewAll({ balance_status: "OVERDUE" });
+        openReceivablesViewAll({ balance_status: "OVERDUE" });
     };
 
     const openOverdueAbove90Drilldown = () => {
-        openPayablesViewAll({ balance_status: "OVERDUE_ABOVE_90", component: "Overdue > 90 Days" });
+        openReceivablesViewAll({ balance_status: "OVERDUE_ABOVE_90", component: "Overdue > 90 Days" });
     };
 
     const openSubdivisionDrilldown = (row) => {
@@ -3464,7 +4597,7 @@ export default function ReceivablesDashboard() {
             subdivisionId !== null &&
             subdivisionId !== ""
         ) {
-            openPayablesViewAll({ subdivision_id: subdivisionId, component: "Sub-Division" });
+            openReceivablesViewAll({ subdivision_id: subdivisionId, component: "Sub-Division" });
         }
     };
 
@@ -3477,7 +4610,7 @@ export default function ReceivablesDashboard() {
 
         if (!snapshotDate) return;
 
-        openPayablesViewAll({
+        openReceivablesViewAll({
             legal_entity_id: row?.legal_entity_id,
             parent_division_id: row?.parent_division_id,
             subdivision_id: row?.subdivision_id,
@@ -3508,23 +4641,28 @@ export default function ReceivablesDashboard() {
         {
             key: "rank",
             label: "#",
-            align: "left",
+            align: "center",
+            width: "8%",
         },
         {
             key: "supplier_name",
             label: "Customer Name",
+            width: "47%",
+            render: (row) => capitalizeTableText(row.supplier_name),
         },
         {
-            key: "payable_amount",
+            key: "receivable_amount",
             label: `Receivables (${currency})`,
             align: "right",
+            width: "24%",
             render: (row) =>
-                formatPayablesCompact(row.payable_amount, currency),
+                formatReceivablesCompact(row.receivable_amount, currency),
         },
         {
             key: "percentage",
             label: "% of Total",
             align: "right",
+            width: "21%",
             render: (row) => formatPercentage(row.percentage),
         },
     ];
@@ -3533,18 +4671,22 @@ export default function ReceivablesDashboard() {
         {
             key: "name",
             label: "Sub-Division",
+            width: "50%",
+            render: (row) => row.id === "subdivision-total" ? "Total:" : capitalizeTableText(row.name),
         },
         {
             key: "amount",
             label: `Receivables (${currency})`,
             align: "right",
+            width: "28%",
             render: (row) =>
-                formatPayablesCompact(row.amount, currency),
+                formatReceivablesCompact(row.amount, currency),
         },
         {
             key: "percentage",
             label: "% of Total",
             align: "right",
+            width: "22%",
             render: (row) => formatPercentage(row.percentage),
         },
     ];
@@ -3578,6 +4720,7 @@ export default function ReceivablesDashboard() {
 
     return (
         <div
+            className="receivables-sales-ui"
             style={{
                 minHeight: "100vh",
                 background: BG,
@@ -3586,15 +4729,298 @@ export default function ReceivablesDashboard() {
                 color: TEXT,
             }}
         >
+            <style>{`
+        .receivables-sales-ui {
+          --sales-navy: #0f172a;
+          --sales-slate: #64748b;
+          --sales-blue: #4f46e5;
+          --sales-border: rgba(0,0,0,0.04);
+          --sales-bg: #f8fafc;
+          --sales-surface: #ffffff;
+          --sales-border-strong: #e2e8f0;
+        }
+        .receivables-sales-ui, .receivables-sales-ui * { box-sizing: border-box; }
+        .receivables-sales-ui {
+          background: var(--sales-bg) !important;
+          color: var(--sales-navy);
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .receivables-sales-ui main {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+          color: var(--sales-navy);
+          animation: fadeInUp 0.35s ease forwards;
+        }
+        .receivables-sales-ui h1 {
+          color: var(--sales-navy) !important;
+          font-size: 1.45rem !important;
+          font-weight: 800 !important;
+          line-height: 1.15 !important;
+          letter-spacing: -0.02em !important;
+        }
+        .receivables-sales-ui .sales-style-subtitle {
+          color: var(--sales-slate) !important;
+          font-size: 0.78rem !important;
+          line-height: 1.45 !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar {
+          padding: 10px 14px !important;
+          margin-top: 0 !important;
+          margin-bottom: 16px !important;
+          gap: 6px !important;
+          border: 1px solid var(--sales-border) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03) !important;
+          background: #fff !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar {
+          display: grid !important;
+          grid-template-columns: repeat(7, minmax(0, 1fr)) auto auto !important;
+          align-items: end !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > div {
+          min-width: 0 !important;
+          width: 100% !important;
+          max-width: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > button {
+          width: auto !important;
+          min-width: 72px !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar label {
+          color: #1e3a8a !important;
+          font-size: 0.66rem !important;
+          font-weight: 700 !important;
+          line-height: 1.2 !important;
+          margin-bottom: 4px !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input,
+        .receivables-sales-ui .sales-style-filter-bar select,
+        .receivables-sales-ui .sales-style-filter-bar > div > button {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > div > button {
+          height: 32px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 7px !important;
+          background: #fff !important;
+          color: #334155 !important;
+          font-size: 0.72rem !important;
+          font-weight: 600 !important;
+          box-shadow: none !important;
+          transition: all 0.15s !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > div > button:hover {
+          border-color: #c7d2fe !important;
+          background: #f8fafc !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input,
+        .receivables-sales-ui .sales-style-filter-bar select {
+          min-height: 32px !important;
+          height: 32px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 7px !important;
+          background: #fff !important;
+          color: #334155 !important;
+          font-size: 0.72rem !important;
+          font-weight: 600 !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input[type="date"] {
+          width: 100% !important;
+          min-width: 0 !important;
+          padding-left: 26px !important;
+          padding-right: 6px !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input:focus,
+        .receivables-sales-ui .sales-style-filter-bar select:focus,
+        .receivables-sales-ui .sales-style-filter-bar > div > button:focus-visible {
+          border-color: #818cf8 !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important;
+          outline: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button {
+          transition: all 0.15s ease !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-apply-filter {
+          background: #4f46e5 !important;
+          color: #fff !important;
+          border: 1px solid #4f46e5 !important;
+          border-radius: 7px !important;
+          font-size: 0.70rem !important;
+          font-weight: 700 !important;
+          box-shadow: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-apply-filter:hover {
+          background: #4338ca !important;
+          border-color: #4338ca !important;
+          transform: translateY(-1px);
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-reset-filter {
+          background: #fff !important;
+          color: #64748b !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 7px !important;
+          font-size: 0.70rem !important;
+          font-weight: 600 !important;
+          box-shadow: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-reset-filter:hover {
+          background: #f8fafc !important;
+          color: #334155 !important;
+          border-color: #cbd5e1 !important;
+        }
+        .receivables-sales-ui .receivables-row-2 {
+         align-items: stretch !important;
+          grid-auto-rows: auto !important;
+        }
+        .receivables-sales-ui .receivables-row-2 > section {
+          height: 100% !important;
+          min-height: 0 !important;
+          align-self: stretch !important;
+        }
+        .receivables-sales-ui .receivables-row-2 > section > :last-child {
+          min-height: 0 !important;
+        }
+        .receivables-sales-ui .receivables-kpi-grid {
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+          gap: 10px !important;
+          margin-top: 0 !important;
+          margin-bottom: 16px !important;
+        }
+        .receivables-sales-ui .sales-style-kpi {
+          border: none !important;
+          border-radius: 12px !important;
+          padding: 10px !important;
+          min-height: 74px !important;
+          box-shadow: none !important;
+          transition: all 0.25s cubic-bezier(0.4,0,0.2,1) !important;
+        }
+        .receivables-sales-ui .sales-style-kpi:hover {
+          box-shadow: 0 8px 24px rgba(37,99,235,0.10) !important;
+          transform: translateY(-2px) !important;
+        }
+        .receivables-sales-ui section {
+          background: #fff !important;
+          border: 1px solid rgba(0,0,0,0.04) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03) !important;
+          transition: box-shadow 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+        }
+        .receivables-sales-ui section:hover {
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        }
+        .receivables-sales-ui table th {
+          padding: 10px 16px !important;
+          font-size: 0.74rem !important;
+          font-weight: 700 !important;
+          color: #1e3a8a !important;
+          background: #f8fafc !important;
+          border-bottom: 2px solid #e2e8f0 !important;
+          white-space: nowrap;
+        }
+        .receivables-sales-ui table td {
+          padding: 8px 16px !important;
+          font-size: 0.74rem !important;
+          color: #334155 !important;
+          border-bottom-color: #f1f5f9 !important;
+        }
+        .receivables-sales-ui table tbody tr { transition: background 0.12s ease !important; }
+        .receivables-sales-ui table tbody tr:hover td { background: #f8fafc !important; }
+        .receivables-sales-ui .receivables-page-skeleton { display: block; width: 100%; margin-top: 4px; }
+        .receivables-sales-ui .receivables-skeleton-kpis,
+        .receivables-sales-ui .receivables-skeleton-grid { display: grid; gap: 10px; width: 100%; margin-bottom: 10px; }
+        .receivables-sales-ui .receivables-skeleton-kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+        .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .receivables-sales-ui .receivables-skeleton-card,
+        .receivables-sales-ui .receivables-skeleton-panel {
+          background: #fff; border: 1px solid rgba(0,0,0,0.04); border-radius: 16px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .receivables-sales-ui .receivables-skeleton-card { min-height: 74px; padding: 10px; display: flex; align-items: center; gap: 8px; }
+        .receivables-sales-ui .receivables-skeleton-panel { min-height: 280px; padding: 14px 16px; }
+        .receivables-sales-ui .receivables-skeleton-panel.compact { min-height: 250px; }
+        .receivables-sales-ui .receivables-skeleton-icon { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        .receivables-sales-ui .receivables-skeleton-copy { flex: 1; min-width: 0; }
+        .receivables-sales-ui .receivables-skeleton-line,
+        .receivables-sales-ui .receivables-skeleton-chart,
+        .receivables-sales-ui .receivables-skeleton-table-line { background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        .receivables-sales-ui .receivables-skeleton-line { height: 9px; border-radius: 5px; }
+        .receivables-sales-ui .receivables-skeleton-line.short { width: 55%; margin-bottom: 8px; }
+        .receivables-sales-ui .receivables-skeleton-line.value { width: 78%; height: 15px; margin-bottom: 7px; }
+        .receivables-sales-ui .receivables-skeleton-line.tiny { width: 42%; height: 7px; }
+        .receivables-sales-ui .receivables-skeleton-line.title { width: 42%; margin-bottom: 18px; }
+        .receivables-sales-ui .receivables-skeleton-chart { width: 100%; height: 205px; border-radius: 9px; }
+        .receivables-sales-ui .receivables-skeleton-table-line { width: 100%; height: 10px; border-radius: 5px; margin: 14px 0; }
+        .receivables-sales-ui .receivables-action-menu button { border-radius: 6px; }
+        .receivables-sales-ui .receivables-action-menu > button:hover { background: #f1f5f9 !important; }
+        .receivables-sales-ui .receivables-action-menu > div {
+          animation: scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal {
+          position: fixed !important;
+          top: 0 !important;
+          left: 50% !important;
+          right: auto !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          width: 96vw !important;
+          max-width: 1540px !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          transform: translateX(-50%) !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 16px !important;
+          box-shadow: 0 0 0 100vmax rgba(15,23,42,0.35), 0 20px 60px rgba(0,0,0,0.18) !important;
+          background: #fff !important;
+          animation: receivablesViewAllModalIn 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards !important;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal input,
+        .receivables-sales-ui .sales-style-view-all-modal select {
+          border-radius: 8px !important; font-size: 0.74rem !important;
+          border-color: #e2e8f0 !important; color: #334155 !important;
+          background: #fff !important;
+        }
+        .receivables-sales-ui button { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        @keyframes receivablesViewAllModalIn {
+          from { transform: translateX(-50%) scale(0.97); opacity: 0; }
+          to { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        @keyframes scaleUp {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .receivables-sales-ui .receivables-sales-main { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .receivables-sales-ui .sales-style-filter-bar { min-height: 58px; }
+        .receivables-sales-ui .sales-style-filter-bar > div { min-width: 88px; }
+        .receivables-sales-ui .sales-style-view-all-modal { overflow-y: auto !important; overflow-x: hidden !important; }
+        .receivables-sales-ui .sales-style-view-all-modal > div:not([aria-hidden]) { box-sizing: border-box; }
+        .receivables-sales-ui .sales-style-view-all-modal table th { position: sticky; top: 0; z-index: 3; }
+        .receivables-sales-ui .sales-style-view-all-modal button:hover { transform: translateY(-1px); }
+        .receivables-sales-ui .sales-style-view-all-modal input:focus,
+        .receivables-sales-ui .sales-style-view-all-modal select:focus { border-color: #818cf8 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important; outline: none; }
+
+        @media (max-width: 1200px) { .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 800px) {
+          .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: 1fr; }
+          .receivables-sales-ui .sales-style-filter-bar { align-items: stretch !important; }
+          .receivables-sales-ui .sales-style-filter-bar > div { flex: 1 1 120px !important; }
+        }
+      `}</style>
             {/* ======================================================
           PAGE CONTENT
           ====================================================== */}
 
             <main
+                className="receivables-sales-main animate-in"
                 style={{
                     width: "100%",
                     boxSizing: "border-box",
-                    padding: "16px 18px 22px",
+                    padding: "20px 0 32px",
+                    background: "#f8fafc",
+                    minHeight: "100%",
                 }}
             >
                 {/* HEADER */}
@@ -3612,24 +5038,34 @@ export default function ReceivablesDashboard() {
                         <h1
                             style={{
                                 margin: 0,
-                                color: "#00000",
-                                fontSize: 26,
+                                color: "#0f172a",
+                                fontSize: "1.45rem",
                                 lineHeight: 1.1,
                                 fontWeight: 800,
+                                letterSpacing: "-0.02em",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
                             }}
                         >
-                            Receivables Dashboard
+                            <span style={{ fontSize: "1.3rem" }}>💰</span> Receivables Dashboard
                         </h1>
 
                         <div
+                            className="sales-style-subtitle"
                             style={{
                                 marginTop: 3,
-                                color: "#66789e",
-                                fontSize: 12,
+                                color: "#64748b",
+                                fontSize: "0.78rem",
                             }}
                         >
-                            Track receivables, aging, overdue exposure and payment
-                            performance
+                            Track receivables, aging, overdue exposure and payment performance
+                            <br />
+                            <span style={{ background: "#f1f5f9", padding: "2px 8px", borderRadius: 4, display: "inline-block", marginTop: 4, fontWeight: 600 }}>
+                                Viewing: {filters.as_on_date || appliedFilters.as_on_date || "—"}
+                            </span>
+                            &nbsp;|&nbsp;
+                            <span style={{ color: "#16a34a", fontWeight: 700 }}>Currency: {currency}</span>
                         </div>
                     </div>
 
@@ -3718,6 +5154,7 @@ export default function ReceivablesDashboard() {
             ================================================== */}
 
                 <div
+                    className="sales-style-filter-bar"
                     style={{
                         width: "100%",
                         boxSizing: "border-box",
@@ -3741,6 +5178,9 @@ export default function ReceivablesDashboard() {
                             setFilters((prev) => ({
                                 ...prev,
                                 legal_group: value,
+                                legal_entities: [],
+                                parent_divisions: [],
+                                sub_divisions: [],
                             }))
                         }
                     />
@@ -3748,12 +5188,14 @@ export default function ReceivablesDashboard() {
                     <FilterSelect
                         label="Legal Entity"
                         value={filters.legal_entities}
-                        options={filterOptions.legal_entities.map((x) => x.label)}
+                        options={mainLegalEntities.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
                                 legal_entities: value,
+                                parent_divisions: [],
+                                sub_divisions: [],
                             }))
                         }
                     />
@@ -3761,12 +5203,13 @@ export default function ReceivablesDashboard() {
                     <FilterSelect
                         label="Parent Division"
                         value={filters.parent_divisions}
-                        options={filterOptions.parent_divisions.map((x) => x.label)}
+                        options={mainParentDivisions.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
                                 parent_divisions: value,
+                                sub_divisions: [],
                             }))
                         }
                     />
@@ -3774,7 +5217,7 @@ export default function ReceivablesDashboard() {
                     <FilterSelect
                         label="Sub-Division"
                         value={filters.sub_divisions}
-                        options={filterOptions.sub_divisions.map((x) => x.label)}
+                        options={mainSubDivisions.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
@@ -3873,580 +5316,617 @@ export default function ReceivablesDashboard() {
                 </div>
 
 
-                {/* ==================================================
+                {loading ? (
+                    <ReceivablesPageSkeleton />
+                ) : (
+                    <>
+
+                        {/* ==================================================
             KPI CARDS
             ================================================== */}
 
-                <div
-                    style={{
-                        marginTop: "20px",
-                        display: "grid",
-                        gridTemplateColumns:
-                            "repeat(5, minmax(0, 1fr))",
-                        gap: 9,
-                        marginBottom: 12,
-                    }}
-                >
+                        <div
+                            style={{
+                                marginTop: "20px",
+                                display: "grid",
+                                gridTemplateColumns:
+                                    "repeat(5, minmax(0, 1fr))",
+                                gap: 9,
+                                marginBottom: 12,
+                            }}
+                        >
 
 
-                    <KpiCard
-                        title="Total Receivables"
-                        value={kpis.total_payables}
-                        variance={kpis.total_payables_variance}
-                        previousDate={kpis?.previous_date}
-                        currency={currency}
-                        icon="▤"
-                        iconBg="#F5F9FF"
-                        iconColor="#2563eb"
+                            <KpiCard
+                                title="Total Receivables"
+                                value={kpis.total_receivables}
+                                variance={kpis.total_receivables_variance}
+                                previousDate={kpis?.previous_date}
+                                currency={currency}
+                                icon="▤"
+                                iconBg="#dbeafe"
+                                iconColor="#2563eb"
+                                cardBg="#f0f5ff"
 
-                    />
+                            />
 
-                    <KpiCard
-                        title="Current Receivables"
-                        value={kpis.current_payables}
-                        variance={kpis.current_payables_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="▣"
-                        iconBg="#F3FCF6"
-                        iconColor="#0e9f75"
-                    />
+                            <KpiCard
+                                title="Current Receivables"
+                                value={kpis.current_receivables}
+                                variance={kpis.current_receivables_variance}
+                                previousDate={kpis.previous_date}
+                                currency={currency}
+                                icon="▣"
+                                iconBg="#dcfce7"
+                                iconColor="#16a34a"
+                                cardBg="#f0fdf4"
+                            />
 
-                    <KpiCard
-                        title="Overdue Receivables"
-                        value={kpis.overdue_payables}
-                        variance={kpis.overdue_payables_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="⌛"
-                        iconBg="#FFF9F3"
-                        iconColor="#f59e0b"
-                    />
+                            <KpiCard
+                                title="Overdue Receivables"
+                                value={kpis.overdue_receivables}
+                                variance={kpis.overdue_receivables_variance}
+                                previousDate={kpis.previous_date}
+                                currency={currency}
+                                icon="⌛"
+                                iconBg="#ffedd5"
+                                iconColor="#ea580c"
+                                cardBg="#fff7ed"
+                            />
 
-                    <KpiCard
-                        title="Overdue > 90 Days"
-                        value={kpis.overdue_gt_90}
-                        onClick={openOverdueAbove90Drilldown}
-                        variance={kpis.overdue_gt_90_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="!"
-                        iconBg="#FFF7FA"
-                        iconColor="#ef476f"
-                    />
+                            <KpiCard
+                                title="Overdue > 90 Days"
+                                value={kpis.overdue_gt_90}
+                                onClick={openOverdueAbove90Drilldown}
+                                variance={kpis.overdue_gt_90_variance}
+                                previousDate={kpis.previous_date}
+                                currency={currency}
+                                icon="!"
+                                iconBg="#fce7f3"
+                                iconColor="#db2777"
+                                cardBg="#fdf2f8"
+                            />
 
-                    <KpiCard
-                        title="DSO – Days Sales Outstanding"
-                        value={kpis.dpo}
-                        variance={kpis.dpo_variance}
-                        previousDate={kpis.previous_date}
-                        suffix="Days"
-                        currency={currency}
-                        icon="%"
-                        iconBg="#F3FCFF"
-                        iconColor="#0ea5c9"
-                    />
+                            <KpiCard
+                                title="DSO – Days Sales Outstanding"
+                                value={kpis.dso}
+                                variance={kpis.dso_variance}
+                                previousDate={kpis.previous_date}
+                                suffix="Days"
+                                currency={currency}
+                                icon="%"
+                                iconBg="#cffafe"
+                                iconColor="#0891b2"
+                                cardBg="#ecfeff"
+                            />
 
-                </div>
+                        </div>
 
-                {/* ==================================================
+                        {/* ==================================================
             ROW 1
             ================================================== */}
 
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: 9,
-                        marginBottom: 9,
-                        width: "100%",
-                        alignItems: "stretch",
-                    }}
-                >
-                    {/* Aging Summary */}
-                    <section
-                        style={{
-                            ...cardStyle,
-                            padding: 12,
-                            minWidth: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                            position: "relative",
-                        }}
-                    >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll({ component: "Aging Summary" })}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle info="Receivables grouped by aging bucket">
-                            Receivables Aging Summary ({currency})
-                        </SectionTitle>
-
-                        <div
-                            style={{
-                                width: "100%",
-                                minWidth: 0,
-                                overflow: "hidden",
-                            }}
-                        >
-                            {data.agingSummary?.length ? (
-                                <DonutChart
-                                    data={data.agingSummary}
-                                    total={kpis.total_payables}
-                                    currency={currency}
-                                    centerLabel="Total"
-                                    onSegmentClick={openAgingDrilldown}
-                                />
-                            ) : <NoDataAvailable minHeight={185} />}
-                        </div>
-                    </section>
-
-                    {/* Trend */}
-                    <section
-                        style={{
-                            ...cardStyle,
-                            padding: 12,
-                            minWidth: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                            position: "relative",
-                        }}
-                    >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll({ component: "Monthly Trend" })}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle info="Historical total receivables and DSO">
-                            Receivables Trend ({currency})
-                        </SectionTitle>
-
-                        <div
-                            style={{
-                                width: "100%",
-                                minWidth: 0,
-                                overflow: "hidden",
-                            }}
-                        >
-                            {data.trend?.length ? (
-                                <TrendChart
-                                    data={data.trend}
-                                    currency={currency}
-                                    onPointClick={openTrendDrilldown}
-                                />
-                            ) : <NoDataAvailable minHeight={185} />}
-                        </div>
-                    </section>
-
-                    {/* Parent Division */}
-                    <section
-                        style={{
-                            ...cardStyle,
-                            padding: 12,
-                            minWidth: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                            position: "relative",
-                        }}
-                    >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll({ component: "Parent Division" })}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Receivables by Parent Division ({currency})
-                        </SectionTitle>
-
-                        <div
-                            style={{
-                                width: "100%",
-                                minWidth: 0,
-                                overflow: "hidden",
-                            }}
-                        >
-                            {data.parentDivision?.length ? (
-                                <ParentDivisionChart
-                                    data={data.parentDivision}
-                                    currency={currency}
-                                    onItemClick={openParentDivisionDrilldown}
-                                />
-                            ) : <NoDataAvailable minHeight={185} />}
-                        </div>
-                    </section>
-                </div>
-
-                {/* ==================================================
-            ROW 2
-            ================================================== */}
-
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: 9,
-                        marginBottom: 9,
-                        width: "100%",
-                    }}
-                >
-                    {/* Top 10 Customers */}
-
-                    <section
-                        style={{ ...cardStyle, padding: 12, position: "relative" }}
-                    >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll({ component: "Top 10 Customers" })}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Top 10 Customers by Receivables ({currency})
-                        </SectionTitle>
-
-                        {data.topSuppliers?.length ? (
-                            <DataTable
-                                columns={supplierColumns}
-                                rows={data.topSuppliers}
-                                fitColumns
-                                compactRows
-                                onCellClick={(row) => {
-                                    openCustomerDrilldown(row);
-                                }}
-                            />
-                        ) : <NoDataAvailable minHeight={185} />}
                         <div
                             style={{
                                 display: "grid",
-                                gridTemplateColumns: "1fr 100px 55px",
-                                alignItems: "center",
-                                marginTop: 7,
-                                padding: "0 4px",
-                                color: BLUE,
-                                fontSize: 12,
-                                fontWeight: 900,
+                                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                                gap: 9,
+                                marginBottom: 9,
+                                width: "100%",
+                                alignItems: "stretch",
                             }}
                         >
-                            {/* Total */}
-                            <span
+                            {/* Aging Summary */}
+                            <section
                                 style={{
-                                    textAlign: "center",
+                                    ...cardStyle,
+                                    padding: 12,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    overflow: "hidden",
+                                    position: "relative",
                                 }}
                             >
-                                Total
-                            </span>
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Aging Summary" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle info="Receivables grouped by aging bucket">
+                                    Receivables Aging Summary ({currency})
+                                </SectionTitle>
 
-                            {/* Amount */}
-                            <span
-                                style={{
-                                    textAlign: "left",
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                {formatPayablesCompact(
-                                    supplierRows.reduce(
-                                        (sum, item) =>
-                                            sum + Number(item.payable_amount || 0),
-                                        0
-                                    ),
-                                    currency
-                                ).replace(
-                                    /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
-                                    ""
-                                )}
-                            </span>
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {data.agingSummary?.length ? (
+                                        <DonutChart
+                                            data={data.agingSummary}
+                                            total={kpis.total_receivables}
+                                            currency={currency}
+                                            centerLabel="Total"
+                                            onSegmentClick={openAgingDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={185} />}
+                                </div>
+                            </section>
 
-                            {/* Percentage */}
-                            <span
+                            {/* Trend */}
+                            <section
                                 style={{
-                                    textAlign: "right",
-                                    whiteSpace: "nowrap",
+                                    ...cardStyle,
+                                    padding: 12,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    overflow: "hidden",
+                                    position: "relative",
                                 }}
                             >
-                                {formatPercentage(
-                                    supplierRows.reduce(
-                                        (sum, item) =>
-                                            sum + Number(item.percentage || 0),
-                                        0
-                                    )
-                                )}
-                            </span>
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Monthly Trend" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle info="Historical total receivables and DSO">
+                                    Receivables Trend ({currency})
+                                </SectionTitle>
+
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {data.trend?.length ? (
+                                        <TrendChart
+                                            data={data.trend}
+                                            currency={currency}
+                                            onPointClick={openTrendDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={185} />}
+                                </div>
+                            </section>
+
+                            {/* Parent Division */}
+                            <section
+                                style={{
+                                    ...cardStyle,
+                                    padding: 12,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    overflow: "hidden",
+                                    position: "relative",
+                                }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Parent Division" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Receivables by Parent Division ({currency})
+                                </SectionTitle>
+
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {data.parentDivision?.length ? (
+                                        <ParentDivisionChart
+                                            data={data.parentDivision}
+                                            currency={currency}
+                                            onItemClick={openParentDivisionDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={185} />}
+                                </div>
+                            </section>
                         </div>
-                    </section>
 
-                    {/* Overdue Summary */}
+                        {/* ==================================================
+            ROW 2
+            ================================================== */}
 
-                    <section
-                        style={{ ...cardStyle, padding: 12, position: "relative" }}
-                    >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll({ balance_status: "OVERDUE", component: "Overdue Summary" })}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Overdue Summary ({currency})
-                        </SectionTitle>
+                        <div
+                            className="receivables-row-2"
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                                gap: 9,
+                                marginBottom: 9,
+                                width: "100%",
+                                alignItems: "stretch",
+                                gridAutoRows: "minmax(330px, auto)",
+                            }}
+                        >
+                            {/* Top 10 Customers */}
+
+                            <section
+                                style={{ ...cardStyle, padding: 12, position: "relative" }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Top 10 Customers" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Top 10 Customers by Receivables ({currency})
+                                </SectionTitle>
+
+                                {data.topSuppliers?.length ? (
+                                    <DataTable
+                                        columns={supplierColumns}
+                                        rows={data.topSuppliers}
+                                        fitColumns
+                                        compactRows
+                                        onCellClick={(row) => {
+                                            openCustomerDrilldown(row);
+                                        }}
+                                    />
+                                ) : <NoDataAvailable minHeight={185} />}
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "8% 47% 24% 21%",
+                                        alignItems: "center",
+                                        marginTop: 7,
+                                        padding: "0 4px",
+                                        fontSize: 12,
+                                        fontWeight: 900,
+                                    }}
+                                >
+                                    {/* Rank spacer */}
+                                    <span aria-hidden="true" />
+
+                                    {/* Total */}
+                                    <span
+                                        style={{
+                                            textAlign: "left",
+                                            color: "#172554",
+                                            fontWeight: 900,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        Total:
+                                    </span>
+
+                                    {/* Amount */}
+                                    <span
+                                        style={{
+                                            textAlign: "right",
+                                            color: "#1E293B",
+                                            fontWeight: 900,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {formatReceivablesCompact(
+                                            supplierRows.reduce(
+                                                (sum, item) =>
+                                                    sum + Number(item.receivable_amount || 0),
+                                                0
+                                            ),
+                                            currency
+                                        ).replace(
+                                            /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
+                                            ""
+                                        )}
+                                    </span>
+
+                                    {/* Percentage */}
+                                    <span
+                                        style={{
+                                            textAlign: "right",
+                                            color: "#1E293B",
+                                            fontWeight: 900,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {formatPercentage(
+                                            supplierRows.reduce(
+                                                (sum, item) =>
+                                                    sum + Number(item.percentage || 0),
+                                                0
+                                            )
+                                        )}
+                                    </span>
+                                </div>
+                            </section>
+
+                            {/* Overdue Summary */}
+
+                            <section
+                                style={{ ...cardStyle, padding: 12, position: "relative" }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ balance_status: "OVERDUE", component: "Overdue Summary" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Overdue Summary ({currency})
+                                </SectionTitle>
 
 
 
-                        {data.overdueSummary?.length ? (
-                            <DonutChart
-                                data={data.overdueSummary}
-                                total={kpis.overdue_payables}
-                                currency={currency}
-                                centerLabel="Overdue"
-                                legendBelow
-                                onSegmentClick={openAgingDrilldown}
-                            />
-                        ) : <NoDataAvailable minHeight={250} />}
-                    </section>
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        boxSizing: "border-box",
+                                        minHeight: 0,
+                                    }}
+                                >
+                                    {data.overdueSummary?.length ? (
+                                        <DonutChart
+                                            data={data.overdueSummary}
+                                            total={kpis.overdue_receivables}
+                                            currency={currency}
+                                            centerLabel="Overdue"
+                                            legendBelow
+                                            largeOverdueChart
+                                            onSegmentClick={openAgingDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={250} />}
+                                </div>
+                            </section>
 
-                    {/* Sub Division */}
+                            {/* Sub Division */}
 
-                    <section
-                        style={{ ...cardStyle, padding: 12, position: "relative" }}
-                    >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll({ component: "Sub-Division" })}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Receivables by Sub-Division ({currency})
-                        </SectionTitle>
+                            <section
+                                style={{ ...cardStyle, padding: 12, position: "relative" }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Sub-Division" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Receivables by Sub-Division ({currency})
+                                </SectionTitle>
 
-                        {data.subDivision?.length ? (
-                            <DataTable
-                                columns={subDivisionColumns}
-                                rows={subDivisionTableRows}
-                                pageSize={12}
-                                keepFirstRow={true}
-                                showPageNumbers={true}
-                                paginationStyle="compact"
-                                fitColumns
-                                rowGap
-                                onCellClick={(row, column) => {
-                                    if (
-                                        row?.id !== "subdivision-total" &&
-                                        (column?.key === "name" ||
-                                            column?.key === "amount" ||
-                                            column?.key === "percentage")
-                                    ) {
-                                        openSubdivisionDrilldown(row);
-                                    }
-                                }}
-                            />
-                        ) : <NoDataAvailable minHeight={185} />}
-                    </section>
-                </div>
+                                {data.subDivision?.length ? (
+                                    <DataTable
+                                        columns={subDivisionColumns}
+                                        rows={subDivisionTableRows}
+                                        pageSize={10}
+                                        keepFirstRow={true}
+                                        showPageNumbers={true}
+                                        paginationStyle="compact"
+                                        fitColumns
+                                        rowGap
+                                        onCellClick={(row, column) => {
+                                            if (
+                                                row?.id !== "subdivision-total" &&
+                                                (column?.key === "name" ||
+                                                    column?.key === "amount" ||
+                                                    column?.key === "percentage")
+                                            ) {
+                                                openSubdivisionDrilldown(row);
+                                            }
+                                        }}
+                                    />
+                                ) : <NoDataAvailable minHeight={185} />}
+                            </section>
+                        </div>
 
-                {/* ==================================================
+                        {/* ==================================================
             MONTH-ON-MONTH
             ================================================== */}
 
-                <section
-                    style={{
-                        ...cardStyle,
-                        padding: 12,
-                        marginBottom: 10,
-                        position: "relative",
-                    }}
-                >
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 20,
-                            marginBottom: 10,
-                            paddingRight: 42,
-                            boxSizing: "border-box",
-                            minWidth: 0,
-                        }}
-                    >
-                        {/* LEFT */}
-                        <SectionTitle info="Monthly payable balance by legal entity">
-                            Month-on-Month Receivables ({currency})
-                        </SectionTitle>
-
-                        {/* RIGHT */}
-                        <div
+                        <section
                             style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 14,
-                                flexShrink: 0,
+                                ...cardStyle,
+                                padding: 12,
+                                marginBottom: 10,
+                                position: "relative",
                             }}
                         >
-                            {/* YEAR */}
                             <div
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 7,
+                                    justifyContent: "space-between",
+                                    gap: 20,
+                                    marginBottom: 10,
+                                    paddingRight: 42,
+                                    boxSizing: "border-box",
+                                    minWidth: 0,
                                 }}
                             >
-                                <span
-                                    style={{
-                                        fontSize: 10,
-                                        color: MUTED,
-                                    }}
-                                >
-                                    Year
-                                </span>
+                                {/* LEFT */}
+                                <SectionTitle info="Monthly receivable balance by legal entity">
+                                    Month-on-Month Receivables ({currency})
+                                </SectionTitle>
 
-                                <select
-                                    value={filters.year}
-                                    onChange={(e) =>
-                                        setFilter(
-                                            "year",
-                                            Number(e.target.value)
-                                        )
-                                    }
+                                {/* RIGHT */}
+                                <div
                                     style={{
-                                        height: 30,
-                                        minWidth: 75,
-                                        border: "1px solid #d5ddeb",
-                                        borderRadius: 5,
-                                        background: "#fff",
-                                        color: BLUE,
-                                        padding: "0 8px",
-                                        fontSize: 10,
-                                        fontWeight: 600,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 14,
+                                        flexShrink: 0,
                                     }}
                                 >
-                                    {filterOptions.years.map((year) => (
-                                        <option key={year} value={year}>
-                                            {year}
-                                        </option>
-                                    ))}
-                                </select>
+                                    {/* YEAR */}
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 7,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: 10,
+                                                color: MUTED,
+                                            }}
+                                        >
+                                            Year
+                                        </span>
+
+                                        <select
+                                            value={filters.year}
+                                            onChange={(e) =>
+                                                setFilter(
+                                                    "year",
+                                                    Number(e.target.value)
+                                                )
+                                            }
+                                            style={{
+                                                height: 30,
+                                                minWidth: 75,
+                                                border: "1px solid #d5ddeb",
+                                                borderRadius: 5,
+                                                background: "#fff",
+                                                color: BLUE,
+                                                padding: "0 8px",
+                                                fontSize: 10,
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            {filterOptions.years.map((year) => (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* AED / AED MILLIONS */}
+                                    <div
+                                        style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            height: 30,
+                                            border: "1px solid #d6deeb",
+                                            borderRadius: 6,
+                                            background: "#f8fafc",
+                                            overflow: "hidden",
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => setMomDisplayUnit("AED")}
+                                            style={{
+                                                height: "100%",
+                                                minWidth: 42,
+                                                padding: "0 9px",
+                                                border: "none",
+                                                borderRight: "1px solid #d6deeb",
+                                                background:
+                                                    momDisplayUnit === "AED"
+                                                        ? "#172f80"
+                                                        : "transparent",
+                                                color:
+                                                    momDisplayUnit === "AED"
+                                                        ? "#ffffff"
+                                                        : "#64748b",
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            AED
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setMomDisplayUnit("Millions")}
+                                            style={{
+                                                height: "100%",
+                                                minWidth: 86,
+                                                padding: "0 9px",
+                                                border: "none",
+                                                background:
+                                                    momDisplayUnit === "Millions"
+                                                        ? "#172f80"
+                                                        : "transparent",
+                                                color:
+                                                    momDisplayUnit === "Millions"
+                                                        ? "#ffffff"
+                                                        : "#64748b",
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            AED Millions
+                                        </button>
+                                    </div>
+
+                                    {/* 3 DOTS */}
+                                    <SectionActions
+                                        onViewAll={() => openReceivablesViewAll({ component: "Month-on-Month Receivables" })}
+                                        onExportExcel={() => handleExport("excel")}
+                                        onExportPdf={() => handleExport("pdf")}
+                                    />
+                                </div>
                             </div>
 
-                            {/* AED / AED MILLIONS */}
-                            <div
-                                style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    height: 30,
-                                    border: "1px solid #d6deeb",
-                                    borderRadius: 6,
-                                    background: "#f8fafc",
-                                    overflow: "hidden",
-                                }}
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => setMomDisplayUnit("AED")}
-                                    style={{
-                                        height: "100%",
-                                        minWidth: 42,
-                                        padding: "0 9px",
-                                        border: "none",
-                                        borderRight: "1px solid #d6deeb",
-                                        background:
-                                            momDisplayUnit === "AED"
-                                                ? "#172f80"
-                                                : "transparent",
-                                        color:
-                                            momDisplayUnit === "AED"
-                                                ? "#ffffff"
-                                                : "#64748b",
-                                        fontSize: 10,
-                                        fontWeight: 800,
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    AED
-                                </button>
+                            {data.monthOnMonth?.length ? (
+                                <DataTable
+                                    columns={monthColumns}
+                                    rows={data.monthOnMonth}
+                                    pageSize={8}
+                                    paginationStyle="compact"
+                                    onCellClick={openMomDrilldown}
+                                />
+                            ) : <NoDataAvailable minHeight={220} />}
+                        </section>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setMomDisplayUnit("Millions")}
-                                    style={{
-                                        height: "100%",
-                                        minWidth: 86,
-                                        padding: "0 9px",
-                                        border: "none",
-                                        background:
-                                            momDisplayUnit === "Millions"
-                                                ? "#172f80"
-                                                : "transparent",
-                                        color:
-                                            momDisplayUnit === "Millions"
-                                                ? "#ffffff"
-                                                : "#64748b",
-                                        fontSize: 10,
-                                        fontWeight: 800,
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    AED Millions
-                                </button>
-                            </div>
-
-                            {/* 3 DOTS */}
-                            <SectionActions
-                                onViewAll={() => openPayablesViewAll({ component: "Month-on-Month Receivables" })}
-                                onExportExcel={() => handleExport("excel")}
-                                onExportPdf={() => handleExport("pdf")}
-                            />
-                        </div>
-                    </div>
-
-                    {data.monthOnMonth?.length ? (
-                        <DataTable
-                            columns={monthColumns}
-                            rows={data.monthOnMonth}
-                            pageSize={8}
-                            paginationStyle="compact"
-                            onCellClick={openMomDrilldown}
-                        />
-                    ) : <NoDataAvailable minHeight={220} />}
-                </section>
-
-                {/* ==================================================
+                        {/* ==================================================
             FOOTER
             ================================================== */}
 
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 10,
-                        fontSize: 10, fontWeight: 700,
-                        color: "#64748b",
-                        padding: "3px 8px",
-                    }}
-                >
-                    <span>
-                        Values shown in {currency}
-                    </span>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: 10,
+                                fontSize: 10, fontWeight: 700,
+                                color: "#64748b",
+                                padding: "3px 8px",
+                            }}
+                        >
+                            <span>
+                                Values shown in {currency}
+                            </span>
 
-                    <span>
-                        Aging Basis:{" "}
-                        <strong style={{ color: BLUE }}>
-                            {appliedFilters.aging_basis}
-                        </strong>
-                    </span>
+                            <span>
+                                Aging Basis:{" "}
+                                <strong style={{ color: BLUE }}>
+                                    {appliedFilters.aging_basis}
+                                </strong>
+                            </span>
 
-                    <span>
-                        Last Updated  on: {appliedFilters.as_on_date}
-                    </span>
-                </div>
+                            <span>
+                                Last Updated  on: {appliedFilters.as_on_date}
+                            </span>
+                        </div>
+                    </>
+                )}
             </main>
 
             {/* ======================================================
           VIEW ALL MODAL
           ====================================================== */}
 
+
             {showViewAll && (
-                <PayablesViewAll
+                <ReceivablesViewAll
                     filters={appliedFilters}
                     data={data.viewAll}
                     currency={currency}
@@ -4464,7 +5944,7 @@ export default function ReceivablesDashboard() {
    VIEW ALL
    ============================================================ */
 
-function PayablesViewAll({
+function ReceivablesViewAll({
     filters,
     data,
     currency,
@@ -4474,7 +5954,7 @@ function PayablesViewAll({
     onClose,
 }) {
     const [search, setSearch] = useState("");
-    const [sortKey, setSortKey] = useState("total_payable");
+    const [sortKey, setSortKey] = useState("total_receivable");
     const [sortDirection, setSortDirection] = useState("desc");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -5216,93 +6696,93 @@ function PayablesViewAll({
                     >
                         {/* SEARCH */}
                         {!noSearch && (
-                        <div
-                            style={{
-                                padding: "7px 8px",
-                                borderBottom:
-                                    "1px solid #edf1f6",
-                            }}
-                        >
                             <div
                                 style={{
-                                    position: "relative",
+                                    padding: "7px 8px",
+                                    borderBottom:
+                                        "1px solid #edf1f6",
                                 }}
                             >
-                                <span
+                                <div
                                     style={{
-                                        position: "absolute",
-                                        left: 9,
-                                        top: "50%",
-                                        transform:
-                                            "translateY(-50%)",
-                                        color: "#94a3b8",
-                                        fontSize: 13,
+                                        position: "relative",
                                     }}
                                 >
-                                    ⌕
-                                </span>
+                                    <span
+                                        style={{
+                                            position: "absolute",
+                                            left: 9,
+                                            top: "50%",
+                                            transform:
+                                                "translateY(-50%)",
+                                            color: "#94a3b8",
+                                            fontSize: 13,
+                                        }}
+                                    >
+                                        ⌕
+                                    </span>
 
-                                <input
-                                    type="text"
-                                    value={filterSearch[filterKey] || ""}
-                                    onChange={(e) =>
-                                        handleFilterSearch(
-                                            filterKey,
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Search..."
-                                    autoFocus
-                                    style={{
-                                        width: "100%",
-                                        height: 30,
-                                        border:
-                                            "1px solid #d9e1ee",
-                                        borderRadius: 5,
-                                        padding:
-                                            "0 8px 0 27px",
-                                        outline: "none",
-                                        fontSize: 10,
-                                        color: "#334155",
-                                        boxSizing: "border-box",
-                                    }}
-                                />
+                                    <input
+                                        type="text"
+                                        value={filterSearch[filterKey] || ""}
+                                        onChange={(e) =>
+                                            handleFilterSearch(
+                                                filterKey,
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="Search..."
+                                        autoFocus
+                                        style={{
+                                            width: "100%",
+                                            height: 30,
+                                            border:
+                                                "1px solid #d9e1ee",
+                                            borderRadius: 5,
+                                            padding:
+                                                "0 8px 0 27px",
+                                            outline: "none",
+                                            fontSize: 10,
+                                            color: "#334155",
+                                            boxSizing: "border-box",
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
                         )}
 
                         {/* CLEAR */}
                         {!noClear && (
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent:
-                                    "flex-end",
-                                padding: "7px 9px",
-                                borderBottom:
-                                    "1px solid #edf1f6",
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    clearFilterValues(
-                                        filterKey
-                                    )
-                                }
+                            <div
                                 style={{
-                                    border: "none",
-                                    background: "transparent",
-                                    padding: 0,
-                                    color: "#64748b",
-                                    cursor: "pointer",
-                                    fontSize: 10,
-                                    fontWeight: 600,
+                                    display: "flex",
+                                    justifyContent:
+                                        "flex-end",
+                                    padding: "7px 9px",
+                                    borderBottom:
+                                        "1px solid #edf1f6",
                                 }}
                             >
-                                Clear
-                            </button>
-                        </div>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        clearFilterValues(
+                                            filterKey
+                                        )
+                                    }
+                                    style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        padding: 0,
+                                        color: "#64748b",
+                                        cursor: "pointer",
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         )}
 
                         {/* OPTIONS */}
@@ -5450,8 +6930,8 @@ function PayablesViewAll({
                 sortKey === "legal_entity" ? "legal_entity_name" :
                     sortKey === "parent_division" ? "parent_division_name" :
                         sortKey === "sub_division" ? "subdivision_name" :
-                            sortKey === "total_payable" ? "total_receivables" :
-                                sortKey === "overdue_payable" ? "overdue_receivables" : sortKey,
+                            sortKey === "total_receivable" ? "total_receivables" :
+                                sortKey === "overdue_receivable" ? "overdue_receivables" : sortKey,
             sort_dir: sortDirection,
         });
     };
@@ -5593,7 +7073,7 @@ function PayablesViewAll({
             text: true,
         },
         {
-            key: "total_payable",
+            key: "total_receivable",
             label: "Total Receivables",
             sortable: true,
         },
@@ -5640,7 +7120,7 @@ function PayablesViewAll({
     ];
 
     const amountColumns = [
-        "total_payable",
+        "total_receivable",
         "current",
         "0_30",
         "31_60",
@@ -5655,19 +7135,19 @@ function PayablesViewAll({
        SUMMARY VALUES
     ============================================================ */
 
-    const totalPayables = safeData.reduce(
+    const totalReceivables = safeData.reduce(
         (sum, row) =>
-            sum + Number(row.total_payable || 0),
+            sum + Number(row.total_receivable || 0),
         0
     );
 
-    const currentPayables = safeData.reduce(
+    const currentReceivables = safeData.reduce(
         (sum, row) =>
             sum + Number(row.current || 0),
         0
     );
 
-    const overduePayables = safeData.reduce(
+    const overdueReceivables = safeData.reduce(
         (sum, row) =>
             sum +
             Number(row["0_30"] || 0) +
@@ -5722,12 +7202,13 @@ function PayablesViewAll({
         iconBackground,
         iconColor,
         titleColor,
+        cardBackground,
     }) => (
         <div
             style={{
-                background: "#ffffff",
-                border: "1px solid #e5eaf2",
-                borderRadius: 8,
+                background: cardBackground || "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
                 minHeight: 78,
                 padding: "12px 14px",
                 display: "flex",
@@ -5780,7 +7261,7 @@ function PayablesViewAll({
                         whiteSpace: "nowrap",
                     }}
                 >
-                    {formatPayablesCompact(
+                    {formatReceivablesCompact(
                         value,
                         viewAllCurrency
                     )}
@@ -5813,6 +7294,7 @@ function PayablesViewAll({
             }}
         >
             <div
+                className="sales-style-view-all-modal"
                 style={{
                     width: "min(1450px, 100%)",
                     maxHeight: "92vh",
@@ -6107,9 +7589,9 @@ function PayablesViewAll({
                     >
                         <div
                             style={{
-                                background: "#ffffff",
-                                border: "1px solid #e5eaf2",
-                                borderRadius: 8,
+                                background: "#f0f5ff",
+                                border: "1px solid #dbeafe",
+                                borderRadius: 12,
                                 minHeight: 78,
                                 padding: "12px 14px",
                                 display: "flex",
@@ -6159,28 +7641,31 @@ function PayablesViewAll({
                         <SummaryCard
                             icon="▣"
                             title="Total Receivables"
-                            value={totalPayables}
+                            value={totalReceivables}
                             iconBackground="#e5faf2"
                             iconColor="#149b6f"
                             titleColor="#149b6f"
+                            cardBackground="#f0fdf4"
                         />
 
                         <SummaryCard
                             icon="▤"
                             title="Current"
-                            value={currentPayables}
+                            value={currentReceivables}
                             iconBackground="#e5faf2"
                             iconColor="#149b6f"
                             titleColor="#149b6f"
+                            cardBackground="#f0fdf4"
                         />
 
                         <SummaryCard
                             icon="⌛"
                             title="Overdue"
-                            value={overduePayables}
+                            value={overdueReceivables}
                             iconBackground="#fff2df"
                             iconColor="#ed8a17"
-                            titleColor="#ed8a17"
+                            titleColor="#c2410c"
+                            cardBackground="#fff7ed"
                         />
 
                         <SummaryCard
@@ -6189,12 +7674,13 @@ function PayablesViewAll({
                             value={overdue90}
                             iconBackground="#ffeaf0"
                             iconColor="#ed3c69"
-                            titleColor="#ed3c69"
+                            titleColor="#be185d"
+                            cardBackground="#fdf2f8"
                         />
                     </div>
 
                     {/* ======================================================
-              ALL PAYABLES CARD
+              ALL RECEIVABLES CARD
           ====================================================== */}
 
                     <div
@@ -6602,7 +8088,7 @@ function PayablesViewAll({
                                                             left: isSticky ? stickyLeft : undefined,
                                                             zIndex: isSticky ? 4 : 1,
                                                             width:
-                                                                column.key === "total_payable"
+                                                                column.key === "total_receivable"
                                                                     ? 180 :
                                                                     columnIndex === 0
                                                                         ? 210
@@ -6807,759 +8293,4 @@ function PayablesViewAll({
         </div >
     );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
