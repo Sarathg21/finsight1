@@ -23,8 +23,10 @@ import MasterDataDashboard from './pages/MasterDataDashboard';
 
 import ExcelConsolidator from './pages/ExcelConsolidator';
 import FinSightDashboard from './pages/FinSightDashboard';
+import WorkingCapitalReport from './pages/WorkingCapitalReport'
 import ReceivablesDashboard from './pages/ReceivablesDashboard'
 import PayablesDashboard from './pages/PayablesDashboard'
+import InventoryAging from './pages/InventoryAgingPage'
 import SalesRevenueReport from './pages/SalesRevenueReport';
 import BalanceSheet from './pages/BalanceSheet';
 import OperatingAnalysis from './pages/OperatingAnalysis';
@@ -78,6 +80,9 @@ function App() {
 
               <Route path="/receivables" element={<ProtectedRoute pageKey="receivables" element={<ReceivablesDashboard />} />} />
               <Route path="/payables" element={<ProtectedRoute pageKey="payables" element={<PayablesDashboard />} />} />
+              <Route path="/inventory" element={<ProtectedRoute pageKey="inventory" element={<InventoryAging />} />} />
+               <Route path="/WorkingCapital" element={<ProtectedRoute pageKey="WorkingCapital" element={<WorkingCapitalReport />} />} />
+
               {/* <Route path="/cash-collection"    element={<ProtectedRoute pageKey="cash-collection"   element={<PlaceholderPage title="Cash Collection Report" />} />} /> */}
               {/* <Route path="/fixed-assets"       element={<ProtectedRoute pageKey="fixed-assets"      element={<PlaceholderPage title="Fixed Asset Report" />} />} /> */}
               {/* <Route path="/bank-facility"      element={<ProtectedRoute pageKey="bank-facility"     element={<PlaceholderPage title="Bank Facility Utilization" />} />} /> */}

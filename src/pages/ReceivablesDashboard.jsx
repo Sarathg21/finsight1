@@ -1,1108 +1,62 @@
-// import React from "react";
-// import { LuBuilding2 } from "react-icons/lu";
-// import { IoWalletOutline, IoHourglassOutline, IoAlertCircleOutline, } from "react-icons/io5";
-// import {
-//     FiPercent, FiRefreshCw,
-// } from "react-icons/fi";
-// import { useState, useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
-// import ChartMenu from "../components/ChartMenu";
-// import Filters from "../components/Filters/Filters";
-// import { Download, CalendarClock } from "lucide-react";
-// import { AgingSummaryCard, OverDueSummaryCard, PayablesTrendCard, ParentDivisionCard, } from "../components/Charts/Charts";
-// import { TopVendorsTable, SubDivisionTable, SalesmanTable, } from "../components/Tables/Tables";
-// import DetailedViewTable from "../components/Tables/DetailedViewTable";
-// import KPICards from "../components/Cards/KPICards";
-// import { agingData, trendData, divisionData, topVendors, overdueData, businessUnitData, detailedViewData, } from '../data/dashboardData';
-// import {
-//     getReceivableFilters,
-//     getReceivableSummary,
-//     getReceivableBuckets,
-//     getReceivableOverdueBuckets,
-//     getReceivableDivisionWise,
-//     getReceivableTopCustomers,
-// } from "../api/recevablesApi";
-// import ExportButtons from "../components/Common/ExportButtons";
-// import PageHeader from "../components/Common/PageHeader";
-// import FooterNote from "../components/FooterNote";
-// import ReceivablesDetailsModal from "../components/ReceivablesDetailsModal"
-// import ReceivablesSummary from "../components/Cards/ReceivablesSummary";
-
-
-// export default function ReceivablesDashboard() {
-
-//     const [filterOptions, setFilterOptions] = useState({
-//         as_on_dates: [],
-//         currencies: [],
-//         legal_groups: [],
-//         legal_entities: [],
-//         parent_divisions: [],
-//         subdivisions: [],
-//         business_units: [],
-//         salesmen: [],
-//     });
-//     const navigate = useNavigate();
-//     const [filters, setFilters] = useState({});
-//     const [summary, setSummary] = useState(null);
-//     const [agingSummary, setAgingSummary] = useState([]);
-//     const [agingTotal, setAgingTotal] = useState(0);
-//     const [divisionData, setDivisionData] = useState([]);
-//     const [topCustomers, setTopCustomers] = useState([]);
-//     const [trendData, setTrendData] = useState([]);
-//     const [overdueData, setOverdueData] = useState([]);
-//     const [overdueTotal, setOverdueTotal] = useState(0);
-//     const [subDivisionData, setSubDivisionData] = useState([]);
-//     const [exporting, setExporting] = useState("");
-//     const [loading, setLoading] = useState(true);
-
-//     {/*------------Details table--------------------*/ }
-//     const [detailsData, setDetailsData] = useState([]);
-//     const [detailsPage, setDetailsPage] = useState(1);
-//     const [detailsPageSize] = useState(50);
-//     const [detailsTotalCount, setDetailsTotalCount] = useState(0);
-//     const [detailsSort, setDetailsSort] = useState({
-//         sort_by: "outstanding_amount",
-//         sort_dir: "desc"
-//     });
-//     const [showDetailsModal, setShowDetailsModal] = useState(false);
-//     const [salesmanData, setSalesmanData] = useState([]);
-
-
-//     // Selected reporting currency from Filters
-//     const selectedCurrency =
-//         filters?.currency ||
-//         filters?.currency_code ||
-//         (Array.isArray(filters?.currencies) ? filters.currencies[0] : filters?.currencies) ||
-//         "AED";
-
-
-//     {/*-----------Currency Format--------------------*/ }
-
-//     const formatCurrency = (value) => {
-//         if (value == null) return "-";
-
-//         const amount = Number(value);
-
-//         if (amount >= 1_000_000) {
-//             return `${selectedCurrency} ${(amount / 1_000_000).toFixed(2)}M`;
-//         }
-
-//         if (amount >= 1_000) {
-//             return `${selectedCurrency} ${(amount / 1_000).toFixed(2)}K`;
-//         }
-
-//         return `${selectedCurrency} ${amount.toLocaleString("en-US", {
-//             minimumFractionDigits: 2,
-//             maximumFractionDigits: 2,
-//         })}`;
-//     };
-//     {/*-------------Array For Summary--------------------*/ }
-
-//     const receivableKpiData = summary ? [
-//         {
-//             // 1. Total Receivables
-//             id: 1, title: "Total Receivables", value: formatCurrency(
-//                 summary.total_ar
-//             ),
-//             icon: LuBuilding2, titleColor: "#2563EB", titleBackground: "#EFF6FF", iconColor: "#2563EB",
-//             iconBackground: "#EAF2FF",
-//             cardBackground: "#F3F8FF", borderColor: "#E8EDF5",
-//             trend: "up", trendValue: "9.42%", comparisonText: "vs 31 Mar 2024", trendColor: "#16A34A",
-//         },
-//         {
-
-//             // 2. Current Receivables
-//             id: 2, title: "Current Receivables", value: formatCurrency(
-//                 summary.current_not_due
-//             ),
-//             icon: IoWalletOutline, titleColor: "#16A34A", iconColor: "#16A34A",
-//             iconBackground: "#ECFDF5", cardBackground: "#F0FDF4", borderColor: "#E8EDF5", trend: "up", trendValue: "7.31%",
-//             comparisonText: "vs 31 Mar 2024",
-//             trendColor: "#16A34A",
-
-//         },
-
-//         {
-//             // 3. Overdue Receivables
-//             id: 3, title: "Overdue Receivables", value: formatCurrency(
-//                 summary.overdue_ar
-//             ),
-//             icon: IoHourglassOutline, titleColor: "#F59E0B", iconColor: "#F59E0B",
-//             iconBackground: "#FFF7ED", cardBackground: "#FFF7ED", borderColor: "#E8EDF5",
-//             trend: "down", trendValue: "14.85%",
-//             comparisonText: "vs 31 Mar 2024", trendColor: "#DC2626", sparklineColor: "#F59E0B",
-
-//         },
-
-//         {
-
-//             // 4. Overdue > 90 Days
-//             id: 4, title: "Overdue > 90 Days",
-//             value: formatCurrency(
-//                 summary.above_90_ar
-//             ),
-//             icon: IoAlertCircleOutline,
-//             titleColor: "#EC4899",
-//             iconColor: "#EC4899",
-//             iconBackground: "#FDF2F8",
-//             cardBackground: "#FEF2F2",
-//             borderColor: "#E8EDF5",
-//             trend: "down",
-//             trendValue: "21.10%",
-//             comparisonText: "vs 31 Mar 2024",
-//             trendColor: "#DC2626",
-
-//         },
-
-//         {
-//             id: 5,
-//             title: "DSO (Days)",
-//             value: `${Number(
-//                 summary.dso_days || 0
-//             )} days`,
-//             icon: FiPercent,
-//             titleColor: "#06B6D4",
-//             iconColor: "#06B6D4",
-//             iconBackground: "#ECFEFF",
-//             cardBackground: "#EFF6FF",
-//             borderColor: "#E8EDF5",
-//             trend: "up",
-//             trendValue: "3 Days",
-//             comparisonText: "vs 31 Mar 2024",
-//             trendColor: "#16A34A",
-
-//         },
-
-//         {
-//             id: 6,
-//             title: "Invoice Settlement Efficiency",
-//             value: `${Number(
-//                 summary.invoice_settlement_efficiency || 0
-//             ).toFixed(2)}%`,
-//             icon: FiRefreshCw,
-//             titleColor: "#8B5CF6",
-//             iconColor: "#8B5CF6",
-//             iconBackground: "#F5F3FF",
-//             cardBackground: "#FAF5FF",
-//             borderColor: "#E8EDF5",
-//             trend: "up",
-//             trendValue: "4.12%",
-//             comparisonText: "vs 31 Mar 2024",
-//             trendColor: "#16A34A",
-
-//         },
-//     ] : [];
-
-//     const handleViewDetails = () => {
-//         setShowDetailsModal(true);
-//     };
-//     const handleExportExcel = () => {
-//         console.log("Export Excel");
-//     };
-
-//     const handleExportPdf = () => {
-//         console.log("Export PDF");
-//     };
-
-//     const loadDashboardData = async () => {
-//         try {
-//             setLoading(true);
-
-//             await Promise.all([
-//                 fetchFilters(),
-//                 fetchSummary(),
-
-//                 // Aging Summary
-//                 fetchAgingSummary(),
-
-//                 // Parent + Sub Division
-//                 fetchDivisionWise(),
-
-//                 // Top Customers
-//                 fetchTopCustomers(),
-
-//                 // Overdue Summary
-//                 fetchOverdueBuckets(),
-//             ]);
-
-//         } catch (error) {
-//             console.error(
-//                 "Receivables Dashboard Error:",
-//                 error
-//             );
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-
-//     {/*-------------Load Filter Data--------------------*/ }
-//     const fetchFilters = async () => {
-//         try {
-//             const response = await getReceivableFilters();
-
-//             console.log("Receivables Filters:", response);
-
-//             setFilterOptions({
-//                 as_on_dates: response?.as_on_dates || [],
-//                 currencies: response?.currencies || [],
-//                 legal_groups: response?.legal_groups || [],
-//                 legal_entities: response?.legal_entities || [],
-//                 parent_divisions: response?.parent_divisions || [],
-//                 subdivisions: response?.subdivisions || [],
-//                 divisions: response?.divisions || [],
-//                 business_units: response?.business_units || [],
-//                 customer_types: response?.customer_types || [],
-//                 countries: response?.countries || [],
-//                 salesmen: response?.salesmen || [],
-//             });
-//         } catch (error) {
-//             console.error(
-//                 "Failed to fetch receivables filters:",
-//                 error
-//             );
-//         }
-//     };
-
-//     {/*-------------Load SummaryCards--------------------*/ }
-
-
-//     const fetchSummary = async (currentFilters = {}) => {
-//         try {
-//             const response =
-//                 await getReceivableSummary(currentFilters);
-
-//             console.log(
-//                 "Receivables Summary Response:",
-//                 response
-//             );
-
-//             const data =
-//                 response?.data?.data ??
-//                 response?.data ??
-//                 response ??
-//                 {};
-
-//             console.log(
-//                 "Receivables Summary Data:",
-//                 data
-//             );
-
-//             setSummary(data);
-
-//         } catch (error) {
-//             console.error(
-//                 "Receivables Summary Error:",
-//                 error.response?.data || error
-//             );
-
-//             setSummary({});
-//         }
-//     };
-
-
-//     {/*-------------Load AgingSummary--------------------*/ }
-//     const fetchAgingSummary = async (
-//         currentFilters = {}
-//     ) => {
-//         try {
-//             const response =
-//                 await getReceivableBuckets(
-//                     currentFilters
-//                 );
-
-//             console.log(
-//                 "AGING BUCKETS:",
-//                 response
-//             );
-
-//             const data =
-//                 response?.data?.data ??
-//                 response?.data ??
-//                 response ??
-//                 {};
-
-//             console.log(
-//                 "AGING BUCKET DATA:",
-//                 data
-//             );
-
-//             const bucketDefinitions = [
-//                 {
-//                     bucket_code: "CURRENT",
-//                     bucket_name: "Current",
-//                     key: "current_not_due",
-//                 },
-//                 {
-//                     bucket_code: "1_30",
-//                     bucket_name: "1-30 Days",
-//                     key: "days_0_30",
-//                 },
-//                 {
-//                     bucket_code: "31_60",
-//                     bucket_name: "31-60 Days",
-//                     key: "days_31_60",
-//                 },
-//                 {
-//                     bucket_code: "61_90",
-//                     bucket_name: "61-90 Days",
-//                     key: "days_61_90",
-//                 },
-//                 {
-//                     bucket_code: "91_120",
-//                     bucket_name: "91-120 Days",
-//                     key: "days_91_120",
-//                 },
-//                 {
-//                     bucket_code: "121_180",
-//                     bucket_name: "121-180 Days",
-//                     key: "days_121_180",
-//                 },
-//                 {
-//                     bucket_code: "181_365",
-//                     bucket_name: "181-365 Days",
-//                     key: "days_181_365",
-//                 },
-//                 {
-//                     bucket_code: "366_730",
-//                     bucket_name: "366-730 Days",
-//                     key: "days_366_730",
-//                 },
-//                 {
-//                     bucket_code: "OVER_730",
-//                     bucket_name: ">730 Days",
-//                     key: "above_730",
-//                 },
-//             ];
-
-//             const total = bucketDefinitions.reduce(
-//                 (sum, bucket) =>
-//                     sum + Number(data?.[bucket.key] || 0),
-//                 0
-//             );
-
-//             const buckets = bucketDefinitions.map(
-//                 (bucket) => {
-//                     const amount = Number(
-//                         data?.[bucket.key] || 0
-//                     );
-
-//                     return {
-//                         bucket_code: bucket.bucket_code,
-//                         bucket_name: bucket.bucket_name,
-//                         amount,
-//                         value: amount,
-//                         percentage:
-//                             total > 0
-//                                 ? (
-//                                     (amount / total) *
-//                                     100
-//                                 ).toFixed(2)
-//                                 : "0.00",
-//                     };
-//                 }
-//             );
-
-//             console.log(
-//                 "AGING MAPPED DATA:",
-//                 buckets
-//             );
-
-//             setAgingSummary(buckets);
-//             setAgingTotal(total);
-
-//         } catch (error) {
-//             console.error(
-//                 "Aging Summary Error:",
-//                 error.response?.data || error
-//             );
-
-//             setAgingSummary([]);
-//             setAgingTotal(0);
-//         }
-//     };
-//     {/*-------------Load parent division--------------------*/ }
-//     const fetchDivisionWise = async (
-//         currentFilters = {}
-//     ) => {
-//         try {
-//             const response =
-//                 await getReceivableDivisionWise(
-//                     currentFilters
-//                 );
-
-//             const data =
-//                 response?.data?.data ??
-//                 response?.data ??
-//                 response ??
-//                 [];
-
-//             const rows = Array.isArray(data)
-//                 ? data
-//                 : [];
-
-//             console.log(
-//                 "Division Wise Data:",
-//                 rows
-//             );
-
-//             setDivisionData(rows);
-
-//             const subdivisions =
-//                 rows.flatMap((parent) =>
-//                     Array.isArray(
-//                         parent.sub_divisions
-//                     )
-//                         ? parent.sub_divisions.map(
-//                             (sub) => ({
-//                                 subdivision:
-//                                     sub.sub_division || "-",
-
-//                                 amount:
-//                                     Number(
-//                                         sub.receivables || 0
-//                                     ),
-
-//                                 percentage:
-//                                     Number(
-//                                         sub.share_percentage || 0
-//                                     ),
-//                             })
-//                         )
-//                         : []
-//                 );
-
-//             setSubDivisionData(
-//                 subdivisions
-//             );
-
-//         } catch (error) {
-//             console.error(
-//                 "Division Wise Error:",
-//                 error.response?.data || error
-//             );
-
-//             setDivisionData([]);
-//             setSubDivisionData([]);
-//         }
-//     };
-
-
-//     {/*----------Parent division------------------*/ }
-//     const divisionTotalOutstanding =
-//         divisionData.reduce(
-//             (sum, item) =>
-//                 sum + Number(item.total_ar || 0),
-//             0
-//         );
-
-//     const divisionChartData =
-//         divisionData.map((item) => ({
-//             name:
-//                 item.parent_division || "-",
-
-//             value:
-//                 Number(item.total_ar || 0),
-
-//             percentage:
-//                 divisionTotalOutstanding > 0
-//                     ? (
-//                         (
-//                             Number(item.total_ar || 0) /
-//                             divisionTotalOutstanding
-//                         ) * 100
-//                     ).toFixed(1) + "%"
-//                     : "0%",
-//         }));
-
-
-//     {/*-------------Top Customers--------------------*/ }
-//     const fetchTopCustomers = async (
-//         currentFilters = {}
-//     ) => {
-//         try {
-//             const response =
-//                 await getReceivableTopCustomers(
-//                     currentFilters
-//                 );
-
-//             const data =
-//                 response?.data?.data ??
-//                 response?.data ??
-//                 response ??
-//                 [];
-
-//             setTopCustomers(
-//                 Array.isArray(data)
-//                     ? data
-//                     : []
-//             );
-
-//         } catch (error) {
-//             console.error(
-//                 "Top Customers Error:",
-//                 error.response?.data || error
-//             );
-
-//             setTopCustomers([]);
-//         }
-//     };
-
-//     {/*------------details fetch --------------------*/ }
-//     const fetchDetails = async (
-//         filters = {},
-//         page = detailsPage,
-//         sort = detailsSort,
-//         pageSize = 10
-//     ) => {
-//         try {
-//             const params = {
-//                 ...filters,
-//                 page,
-//                 page_size: pageSize,
-//                 sort_by: sort.sort_by,
-//                 sort_dir: sort.sort_dir,
-//             };
-
-//             const response = await getReceivableDetails(params);
-
-//             setDetailsData(response?.data?.data?.rows || []);
-//             setDetailsTotalCount(response?.data?.data?.total_count || 0);
-//         } catch (err) {
-//             console.error(err);
-//         }
-//     };
-//     {/*------------trend  --------------------*/ }
-//     const fetchTrend = async (filters = {}) => {
-//         try {
-//             const response = await getReceivableTrend(filters);
-//             setTrendData(response?.data?.data || []);
-//         } catch (error) {
-//             console.error(error);
-//         }
-//     };
-
-//     {/*------------Overdue Summary  --------------------*/ }
-//     const fetchOverdueBuckets = async (currentFilters = {}) => {
-//         try {
-//             const response =
-//                 await getReceivableOverdueBuckets(currentFilters);
-//             console.log(
-//                 "Receivables Overdue Buckets:",
-//                 response
-//             );
-
-//             const data =
-//                 response?.data?.data ??
-//                 response?.data ??
-//                 response ??
-//                 {};
-
-//             // Handle array response
-//             if (Array.isArray(data)) {
-//                 const total = data.reduce(
-//                     (sum, item) =>
-//                         sum + Number(
-//                             item?.amount ??
-//                             item?.receivables ??
-//                             item?.value ??
-//                             0
-//                         ),
-//                     0
-//                 );
-
-//                 setOverdueData(data);
-//                 setOverdueTotal(total);
-//                 return;
-//             }
-
-//             // Handle object response
-//             const buckets = [
-//                 {
-//                     bucket_code: "1_30",
-//                     bucket_name: "1-30 Days",
-//                     key: "days_0_30",
-//                 },
-//                 {
-//                     bucket_code: "31_60",
-//                     bucket_name: "31-60 Days",
-//                     key: "days_31_60",
-//                 },
-//                 {
-//                     bucket_code: "61_90",
-//                     bucket_name: "61-90 Days",
-//                     key: "days_61_90",
-//                 },
-//                 {
-//                     bucket_code: "91_120",
-//                     bucket_name: "91-120 Days",
-//                     key: "days_91_120",
-//                 },
-//                 {
-//                     bucket_code: "121_180",
-//                     bucket_name: "121-180 Days",
-//                     key: "days_121_180",
-//                 },
-//                 {
-//                     bucket_code: "181_365",
-//                     bucket_name: "181-365 Days",
-//                     key: "days_181_365",
-//                 },
-//                 {
-//                     bucket_code: "366_730",
-//                     bucket_name: "366-730 Days",
-//                     key: "days_366_730",
-//                 },
-//                 {
-//                     bucket_code: "OVER_730",
-//                     bucket_name: ">730 Days",
-//                     key: "above_730",
-//                 },
-//             ];
-
-//             const total = buckets.reduce(
-//                 (sum, bucket) =>
-//                     sum + Number(data?.[bucket.key] || 0),
-//                 0
-//             );
-
-//             const formattedBuckets = buckets.map(
-//                 (bucket) => {
-//                     const amount = Number(
-//                         data?.[bucket.key] || 0
-//                     );
-
-//                     return {
-//                         bucket_code: bucket.bucket_code,
-//                         bucket_name: bucket.bucket_name,
-//                         amount,
-//                         value: amount,
-//                         percentage:
-//                             total > 0
-//                                 ? ((amount / total) * 100).toFixed(2)
-//                                 : "0.00",
-//                     };
-//                 }
-//             );
-
-//             setOverdueData(formattedBuckets);
-//             setOverdueTotal(total);
-//         } catch (error) {
-//             console.error(
-//                 "Failed to fetch overdue buckets:",
-//                 error
-//             );
-
-//             setOverdueData([]);
-//             setOverdueTotal(0);
-//         }
-//     };
-//     {/*------------Fetch Subdivisions --------------------*/ }
-//     const fetchSubDivisions = async (filters = {}) => {
-
-//         try {
-//             const response = await getReceivableSubDivision(filters);
-//             const rawData = response?.data?.data; const apiData = Array.isArray(rawData) ? rawData : [];
-//             const totalAmount = apiData.reduce(
-//                 (sum, item) => sum + Number(item.amount || 0),
-//                 0
-//             );
-//             const tableData = apiData.map((item) => ({
-//                 subdivision: item.subdivision,
-//                 amount: Number(item.amount || 0),
-//                 percentage:
-//                     totalAmount > 0
-//                         ? ((item.amount / totalAmount) * 100).toFixed(1)
-//                         : "0.0",
-//             }));
-//             setSubDivisionData(tableData);
-
-//         } catch (error) {
-//             console.error(error);
-//         }
-//     };
-
-//     {/*------------Fetch SalesMan --------------------*/ }
-//     const loadSalesman = async (filters = {}) => {
-//         try {
-//             const res = await getSalesmanPerformance(filters);
-//             setSalesmanData(res.data.data || res.data);
-//         } catch (err) {
-//             console.log(err);
-//         }
-//     };
-//     const handleApply = async (
-//         selectedFilters
-//     ) => {
-//         setFilters(selectedFilters);
-//         setLoading(true);
-
-//         console.log(
-//             "Selected Receivables Filters:",
-//             selectedFilters
-//         );
-
-//         try {
-//             await Promise.all([
-//                 fetchSummary(selectedFilters),
-
-//                 fetchAgingSummary(
-//                     selectedFilters
-//                 ),
-
-//                 fetchOverdueBuckets(
-//                     selectedFilters
-//                 ),
-
-//                 fetchDivisionWise(
-//                     selectedFilters
-//                 ),
-
-//                 fetchTopCustomers(
-//                     selectedFilters
-//                 ),
-//             ]);
-
-//         } catch (error) {
-//             console.error(
-//                 "Receivables Filter Error:",
-//                 error
-//             );
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-
-//     const handleDetailsPageChange = (page) => {
-//         setDetailsPage(page);
-//         fetchDetails(
-//             filters,
-//             page,
-//             detailsSort
-//         );
-//     };
-
-//     const handleDetailsSort = (field) => {
-//         let direction = "desc";
-//         if (
-//             detailsSort.sort_by === field &&
-//             detailsSort.sort_dir === "desc"
-//         ) {
-//             direction = "asc";
-//         }
-//         const newSort = {
-//             sort_by: field,
-//             sort_dir: direction
-//         };
-//         setDetailsSort(newSort);
-//         fetchDetails(
-//             filters,
-//             1,
-//             newSort
-//         );
-//         setDetailsPage(1);
-//     };
-
-//     const handleReset = async () => {
-//         setFilters({});
-//         setLoading(true);
-
-//         try {
-//             await Promise.all([
-//                 fetchSummary({}),
-
-//                 fetchAgingSummary({}),
-
-//                 fetchOverdueBuckets({}),
-
-//                 fetchDivisionWise({}),
-
-//                 fetchTopCustomers({}),
-//             ]);
-
-//         } catch (error) {
-//             console.error(
-//                 "Receivables Reset Error:",
-//                 error
-//             );
-//         } finally {
-//             setLoading(false);
-//         }
-//     };
-//     const bucketColors = {
-//         CURRENT: "#22C55E",
-//         "1_30": "#3B82F6",
-//         "31_60": "#FACC15",
-//         "61_90": "#FB923C",
-//         "91_120": "#EF4444",
-//         "121_180": "#A855F7",
-//         "181_365": "#6366F1",
-//         "366_730": "#7C2D12",
-//         OVER_730: "#991B1B",
-//     };
-
-//     {/*-------------Create a new array for aging summary--------------------*/ }
-//     // For the PIE chart (only non-zero slices)
-//     const pieData = agingSummary
-//         .filter(item => Number(item.amount) > 0)
-//         .map(item => ({
-//             name: item.bucket_name,
-//             value: Number(item.amount),
-//             percentage: Number(item.percentage),
-//             color: bucketColors[item.bucket_code] || "#9CA3AF",
-//         }));
-
-//     // For the LEGEND (all buckets)
-//     const legendData = agingSummary.map(item => ({
-//         name: item.bucket_name,
-//         value: Number(item.amount),
-//         percentage: Number(item.percentage),
-//         color: bucketColors[item.bucket_code] || "#9CA3AF",
-//     }));
-
-
-
-//     {/*-----------Convert the api data for top customers------------------*/ }
-//     const topCustomerTableData =
-//         topCustomers.map(
-//             (customer, index) => ({
-//                 id: index + 1,
-
-//                 name:
-//                     customer.customer_name || "-",
-
-//                 amount:
-//                     Number(
-//                         customer.receivables || 0
-//                     ),
-
-//                 pct:
-//                     Number(
-//                         customer.share_percentage || 0
-//                     ),
-//             })
-//         );
-//     // const detailedTableData = detailsData.map((item, index) => ({
-//     //     id: index + 1,
-//     //     customerName: item.customer_name,
-//     //     customerType: item.customer_type,
-//     //     currency: item.currency,
-//     //     country: item.country,
-//     //     invoiceNumber: item.invoice_number,
-//     //     invoiceDate: item.invoice_date,
-//     //     dueDate: item.due_date,
-//     //     outstandingAmount: item.outstanding_amount,
-//     //     agingBucket: item.aging_bucket,
-//     //     salesman: item.salesman,
-//     //     division: item.division,
-//     //     legalEntity: item.legal_entity,
-//     // }));
-
-//     const receivableTrendChart = trendData.map(item => ({
-//         month: new Date(item.as_on_date).toLocaleString("default", {
-//             month: "short",
-//         }),
-
-//         // Bar expects payables
-//         payables: Number(item.total_receivables || 0),
-
-//         // Line expects dpo
-//         dpo: 0,
-
-//         current: Number(item.current || 0),
-//         overdue: Number(item.amount_1_30 || 0),
-//     }));
-
-//     useEffect(() => {
-//         loadDashboardData();
-//     }, []);
-
-
-//     const handleExport = async (type) => {
-//         try {
-//             setExporting(type);
-//             const response = await getReceivableExport(type, filters);
-//             const blob = new Blob([response.data], {
-//                 type:
-//                     type === "excel"
-//                         ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-//                         : "application/pdf",
-//             });
-
-//             const url = window.URL.createObjectURL(blob);
-//             const link = document.createElement("a");
-//             link.href = url;
-//             link.download =
-//                 type === "excel"
-//                     ? "Receivables_Report.xlsx"
-//                     : "Receivables_Report.pdf";
-
-//             document.body.appendChild(link);
-//             link.click();
-//             link.remove();
-//             window.URL.revokeObjectURL(url);
-//         } catch (err) {
-//             console.error(err);
-//             if (type === "excel") {
-//                 alert("Export Failed");
-//             }
-//             else {
-//                 alert("PDF Download Failed");
-//             }
-//         } finally {
-//             setExporting("");
-//         }
-//     };
-
-//     return (
-//         <div className="page-content relative">
-
-//             {loading && (
-//                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/70 backdrop-blur-sm">
-//                     <div className="flex flex-col items-center gap-3">
-
-//                         <div className="w-10 h-10 border-4 border-[#081B46] border-t-transparent rounded-full animate-spin"></div>
-
-//                         <p className="text-sm font-semibold text-[#081B46]">
-//                             Loading Receivables Dashboard...
-//                         </p>
-
-//                     </div>
-//                 </div>
-//             )}
-
-//             <PageHeader
-//                 title="Receivables Dashboard"
-//                 subtitle="Tracking receivables, aging, overdue and collection performance.">
-
-//                 <ExportButtons
-//                     endpoint="receivables"
-//                     exporting={exporting}
-//                     handleExport={handleExport}
-//                 />
-//             </PageHeader>
-
-//             {/* Main Content */}
-
-//             <div className="flex flex-col gap-2">
-//                 {/* ----Filters---- */}
-//                 <Filters
-//                     filterOptions={filterOptions}
-//                     onApply={handleApply}
-//                     onReset={handleReset}
-//                     isReceivables={true}
-//                 />
-//                 {/* -----KPI Cards----- */}
-//                 <div style={{ marginTop: "-18px" }}>
-//                     <ReceivablesSummary
-//                         data={summary ?? {}}
-//                         reportingCurrency={selectedCurrency}
-//                     />
-//                 </div>
-
-
-//                 {/* Charts Row 1 */}
-//                 <div className="receivables-grid gap-3">
-//                     <AgingSummaryCard
-//                         title="Receivables Aging Summary"
-//                         data={pieData}
-//                         date={filters.as_on_date}
-//                         legendData={legendData}
-//                         total={agingTotal}
-//                         currency={selectedCurrency}
-//                     />
-//                     <PayablesTrendCard
-//                         title="Receivables Trend"
-//                         daysname="DSO (Days)"
-//                         charttitle="Total Receivables"
-//                         data={receivableTrendChart}
-//                         currency="AED"
-//                         datakey="receivables"
-//                     />
-
-//                     <ParentDivisionCard
-//                         title="Receivables by Parent Division"
-//                         data={divisionChartData}
-//                     />
-
-//                 </div>
-
-
-//                 {/* Charts Row 2 */}
-
-//                 <div className="receivables-grid gap-3">
-//                     <TopVendorsTable
-//                         title="Top 10 Customers by Receivables"
-//                         tabletitle1="Customer Name"
-//                         tabletitle2="Receivable"
-//                         data={topCustomerTableData}
-//                     />
-//                     <OverDueSummaryCard
-//                         title="Overdue Summary"
-//                         data={overdueData}
-//                         total={Number(overdueTotal).toFixed(2)}
-//                         Centerlabel="Total Overdue"
-//                     />
-//                     <SubDivisionTable
-//                         title="Receivables by Sub Division"
-//                         tabletitle="Receivable"
-//                         data={subDivisionData}
-//                     />
-//                 </div>
-
-//                 <div className="card mt-20" style={{ padding: 0, overflow: "hidden" }}>
-//                     {/* Header */}
-//                     {/* <div
-//                         className="flex items-center justify-between px-5 py-4 border-b bg-white" >
-//                         <div className="flex items-center gap-3">
-//                             <span className="text-[15px] font-extrabold text-[#081B46]">
-//                                 Receivables Detailed View
-//                             </span>
-//                             <span className="text-[11px] px-2 py-1 rounded-full bg-slate-100 text-slate-600">
-//                                 Amounts in AED
-//                             </span>
-//                         </div>
-//                         <ChartMenu
-//                             onViewAll={handleViewDetails}
-//                             onExportExcel={() => handleExport("excel")}
-//                             onExportPdf={() => handleExport("pdf")}
-//                         />
-//                     </div> */}
-
-//                     <DetailedViewTable
-
-//                     />
-//                     {/* <ReceivablesDetailsModal
-//                         open={showDetailsModal}
-//                         onClose={() => setShowDetailsModal(false)}
-//                         filters={filters}
-//                     /> */}
-
-
-//                 </div>
-//             </div>
-
-//             {/* Footer */}
-//             <div className="fixed bottom-0 left-58 right-2 z-50 bg-white border-t border-gray-200 p-2">
-//                 <FooterNote
-//                     title="Note:"
-//                     message="All values are in ${selectedCurrency} | ☁️ Source: Oracle Fusion Cloud"
-//                     lastUpdated={filters.as_on_date || filterOptions.as_on_dates?.[0]}
-//                     showRefresh={false}
-//                 />
-//             </div>
-//         </div>
-//     );
-// }
-
-
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import { createPortal } from "react-dom";
+import {
+    getReceivablesFilterOptions,
+    getReceivablesDashboard,
+    getReceivablesMonthOnMonth,
+    getReceivablesViewAll,
+    exportReceivablesExcel,
+    exportReceivablesPDF,
+} from "../api/recevablesApi";
+
+// Compatibility helpers for the existing dashboard code.
+const getReceivableFilters = getReceivablesFilterOptions;
+const getReceivableDashboard = getReceivablesDashboard;
+const getReceivableMonthOnMonth = getReceivablesMonthOnMonth;
+const getReceivableDetails = getReceivablesViewAll;
+const getReceivableExport = async (filters = {}, format = "xlsx") => {
+    if (String(format).toLowerCase() === "pdf") {
+        return exportReceivablesPDF(filters);
+    }
+    return exportReceivablesExcel(filters);
+};
+
+/* ------------------------------------------------------------
+   EXPORT DOWNLOAD HELPER
+   Supports Axios responses, Blob responses and fetch-style data.
+   ------------------------------------------------------------ */
+const triggerReceivablesBlobDownload = (response, fallbackName) => {
+    const source = response?.data ?? response;
+    const blob =
+        source instanceof Blob
+            ? source
+            : new Blob([source], {
+                type: response?.headers?.["content-type"] || "application/octet-stream",
+            });
+
+    const disposition =
+        response?.headers?.["content-disposition"] ||
+        response?.headers?.["Content-Disposition"] ||
+        "";
+
+    const match = disposition.match(/filename\*?=(?:UTF-8''|\")?([^;\"]+)/i);
+    const filename = match?.[1]?.trim() || fallbackName;
+
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+};
 
 /* ============================================================
-   PAYABLES DASHBOARD
+   RECEIVABLES DASHBOARD
    ------------------------------------------------------------
-   Payables-specific filters:
+   Receivables-specific filters:
    - Legal Group
    - Legal Entity
    - Parent Division
@@ -1115,7 +69,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
    ============================================================ */
 
 
-const PAYABLE_AGING_BUCKETS = [
+const RECEIVABLE_AGING_BUCKETS = [
     "Current",
     "0–30 Days",
     "31–60 Days",
@@ -1126,1700 +80,261 @@ const PAYABLE_AGING_BUCKETS = [
     "Above 365 Days",
 ];
 
-const MONTHS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/* ============================================================
-   FILTER OPTIONS
-   ============================================================ */
-
-const payablesFilterOptions = {
-    legal_groups: [
-        "FJ Group ",
-        "FJ Group India",
-        "FJ Group Middle East",
-        "FJ Group Africa",
-    ],
-
-    legal_entities: [
-        "All",
-        "Alpha Coils LLC",
-        "DC Serve Equipment LLC",
-        "Filter Fan UAE",
-        "Alpine Gears LLC",
-        "Emirates Trading LLC",
-        "Global Industrial Co.",
-        "Metro Equipment FZE",
-        "Precision Materials LLC",
-        "Rapid Parts LLC",
-    ],
-
-    parent_divisions: [
-        "All",
-        "Alpine",
-        "DC Serve",
-        "Filter Fan",
-        "Alpine Gears",
-        "Others",
-    ],
-
-    sub_divisions: [
-        "All",
-        "Coils BU",
-        "Service BU",
-        "Fans BU",
-        "Gears BU",
-        "Valves BU",
-        "Electrical BU",
-        "Fasteners BU",
-        "Others",
-    ],
-
-    reporting_currencies: [
-        "AED",
-        "INR",
-        "OMR",
-        "QAR",
-        "SAR",
-        "USD",
-    ],
-
-    as_on_dates: [
-        "30 Apr 2024",
-        "31 May 2024",
-        "30 Jun 2024",
-        "31 Jul 2024",
-        "31 Aug 2024",
-        "30 Sep 2024",
-        "31 Oct 2024",
-        "30 Nov 2024",
-        "31 Dec 2024",
-    ],
-
-    aging_basis: [
-        "Invoice Date",
-        "Due Date",
-    ],
-
-    years: [
-        2024,
-        2025,
-        2026,
-    ],
-};
-
-/* ============================================================
-   DEFAULT FILTERS
-   ============================================================ */
-
-const defaultPayablesFilters = {
-    legal_group: ["All"],
-    legal_entities: ["All"],
-    parent_divisions: ["All"],
-    sub_divisions: ["All"],
+const defaultReceivableFilters = {
+    legal_group: [],
+    legal_entities: [],
+    parent_divisions: [],
+    sub_divisions: [],
     reporting_currency: "AED",
-    as_on_date: "30 Apr 2024",
-
-    // VERY IMPORTANT:
-    // This value must always be sent to backend APIs later.
+    as_on_date: "",
     aging_basis: "Due Date",
-
-    year: 2024,
+    year: new Date().getFullYear(),
 };
-
-/* ============================================================
-   KPI MOCK DATA
-   ============================================================ */
-
-const payablesKpis = {
-    "Due Date": {
-        total_payables: 192290000,
-        current_payables: 119260000,
-        overdue_payables: 73030000,
-        overdue_gt_90: 24130000,
-
-        dpo: 46,
-
-        total_payables_variance: 8.4,
-        current_payables_variance: 6.1,
-        overdue_payables_variance: 12.8,
-        overdue_gt_90_variance: 15.6,
-        dpo_variance: 4.2,
-
-        previous_date: "31 Mar 2024",
-    },
-
-    "Invoice Date": {
-        total_payables: 192290000,
-        current_payables: 108740000,
-        overdue_payables: 83550000,
-        overdue_gt_90: 31860000,
-
-        dpo: 49,
-
-        total_payables_variance: 7.2,
-        current_payables_variance: 4.8,
-        overdue_payables_variance: 14.1,
-        overdue_gt_90_variance: 17.3,
-        dpo_variance: 5.1,
-
-        previous_date: "31 Mar 2024",
-    },
-};
-
-/* ============================================================
-   AGING SUMMARY
-   ============================================================ */
-
-const payablesAgingSummary = {
-    "Due Date": [
-        {
-            bucket: "Current",
-            amount: 119260000,
-            percentage: 62.0,
-        },
-        {
-            bucket: "0–30 Days",
-            amount: 24380000,
-            percentage: 12.7,
-        },
-        {
-            bucket: "31–60 Days",
-            amount: 18440000,
-            percentage: 9.6,
-        },
-        {
-            bucket: "61–90 Days",
-            amount: 11320000,
-            percentage: 5.9,
-        },
-        {
-            bucket: "91–120 Days",
-            amount: 8150000,
-            percentage: 4.2,
-        },
-        {
-            bucket: "121–180 Days",
-            amount: 5620000,
-            percentage: 2.9,
-        },
-        {
-            bucket: "181–365 Days",
-            amount: 3410000,
-            percentage: 1.8,
-        },
-        {
-            bucket: "Above 365 Days",
-            amount: 1710000,
-            percentage: 0.9,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            bucket: "Current",
-            amount: 108740000,
-            percentage: 56.5,
-        },
-        {
-            bucket: "0–30 Days",
-            amount: 28600000,
-            percentage: 14.9,
-        },
-        {
-            bucket: "31–60 Days",
-            amount: 20300000,
-            percentage: 10.6,
-        },
-        {
-            bucket: "61–90 Days",
-            amount: 13250000,
-            percentage: 6.9,
-        },
-        {
-            bucket: "91–120 Days",
-            amount: 8420000,
-            percentage: 4.4,
-        },
-        {
-            bucket: "121–180 Days",
-            amount: 5980000,
-            percentage: 3.1,
-        },
-        {
-            bucket: "181–365 Days",
-            amount: 4290000,
-            percentage: 2.2,
-        },
-        {
-            bucket: "Above 365 Days",
-            amount: 2710000,
-            percentage: 1.4,
-        },
-    ],
-};
-
-/* ============================================================
-   PAYABLE TREND + DPO
-   ============================================================ */
-
-const payablesTrend = {
-    "Due Date": [
-        {
-            month: "Nov 2023",
-            total_payables: 164200000,
-            dpo: 68,
-        },
-        {
-            month: "Dec 2023",
-            total_payables: 172340000,
-            dpo: 72,
-        },
-        {
-            month: "Jan 2024",
-            total_payables: 168900000,
-            dpo: 75,
-        },
-        {
-            month: "Feb 2024",
-            total_payables: 178450000,
-            dpo: 71,
-        },
-        {
-            month: "Mar 2024",
-            total_payables: 177120000,
-            dpo: 69,
-        },
-        {
-            month: "Apr 2024",
-            total_payables: 192290000,
-            dpo: 74,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            month: "Nov 2023",
-            total_payables: 159400000,
-            dpo: 66,
-        },
-        {
-            month: "Dec 2023",
-            total_payables: 169820000,
-            dpo: 70,
-        },
-        {
-            month: "Jan 2024",
-            total_payables: 173450000,
-            dpo: 73,
-        },
-        {
-            month: "Feb 2024",
-            total_payables: 181230000,
-            dpo: 76,
-        },
-        {
-            month: "Mar 2024",
-            total_payables: 184570000,
-            dpo: 78,
-        },
-        {
-            month: "Apr 2024",
-            total_payables: 192290000,
-            dpo: 79,
-        },
-    ],
-};
-
-/* ============================================================
-   PAYABLES BY PARENT DIVISION
-   ============================================================ */
-
-const payablesByParentDivision = {
-    "Due Date": [
-        {
-            name: "Alpine",
-            amount: 68230000,
-            percentage: 35.6,
-        },
-        {
-            name: "DC Serve",
-            amount: 42170000,
-            percentage: 21.9,
-        },
-        {
-            name: "Filter Fan",
-            amount: 28340000,
-            percentage: 14.7,
-        },
-        {
-            name: "Alpine Gears",
-            amount: 22060000,
-            percentage: 11.5,
-        },
-        {
-            name: "Others",
-            amount: 31290000,
-            percentage: 16.3,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            name: "Alpine",
-            amount: 64150000,
-            percentage: 33.4,
-        },
-        {
-            name: "DC Serve",
-            amount: 45260000,
-            percentage: 23.5,
-        },
-        {
-            name: "Filter Fan",
-            amount: 30650000,
-            percentage: 15.9,
-        },
-        {
-            name: "Alpine Gears",
-            amount: 24780000,
-            percentage: 12.9,
-        },
-        {
-            name: "Others",
-            amount: 26850000,
-            percentage: 14.0,
-        },
-    ],
-};
-
-/* ============================================================
-   TOP 10 SUPPLIERS
-   ============================================================ */
-
-const top10Suppliers = {
-    "Due Date": [
-        {
-            rank: 1,
-            supplier_name: "Alpha Supplies LLC",
-            payable_amount: 18240000,
-            percentage: 9.5,
-        },
-        {
-            rank: 2,
-            supplier_name: "Global Industrial Co.",
-            payable_amount: 12670000,
-            percentage: 6.6,
-        },
-        {
-            rank: 3,
-            supplier_name: "TechParts Trading",
-            payable_amount: 9480000,
-            percentage: 4.9,
-        },
-        {
-            rank: 4,
-            supplier_name: "Metro Equipment FZE",
-            payable_amount: 8310000,
-            percentage: 4.3,
-        },
-        {
-            rank: 5,
-            supplier_name: "Emirates Industrial",
-            payable_amount: 7950000,
-            percentage: 4.1,
-        },
-        {
-            rank: 6,
-            supplier_name: "Precision Materials",
-            payable_amount: 6720000,
-            percentage: 3.5,
-        },
-        {
-            rank: 7,
-            supplier_name: "Union Hardware LLC",
-            payable_amount: 5980000,
-            percentage: 3.1,
-        },
-        {
-            rank: 8,
-            supplier_name: "Star Components",
-            payable_amount: 5140000,
-            percentage: 2.7,
-        },
-        {
-            rank: 9,
-            supplier_name: "Al Noor Trading",
-            payable_amount: 4760000,
-            percentage: 2.5,
-        },
-        {
-            rank: 10,
-            supplier_name: "Rapid Parts LLC",
-            payable_amount: 4610000,
-            percentage: 2.4,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            rank: 1,
-            supplier_name: "Alpha Supplies LLC",
-            payable_amount: 17650000,
-            percentage: 9.2,
-        },
-        {
-            rank: 2,
-            supplier_name: "Global Industrial Co.",
-            payable_amount: 13820000,
-            percentage: 7.2,
-        },
-        {
-            rank: 3,
-            supplier_name: "TechParts Trading",
-            payable_amount: 10150000,
-            percentage: 5.3,
-        },
-        {
-            rank: 4,
-            supplier_name: "Metro Equipment FZE",
-            payable_amount: 8650000,
-            percentage: 4.5,
-        },
-        {
-            rank: 5,
-            supplier_name: "Emirates Industrial",
-            payable_amount: 8210000,
-            percentage: 4.3,
-        },
-        {
-            rank: 6,
-            supplier_name: "Precision Materials",
-            payable_amount: 7050000,
-            percentage: 3.7,
-        },
-        {
-            rank: 7,
-            supplier_name: "Union Hardware LLC",
-            payable_amount: 6340000,
-            percentage: 3.3,
-        },
-        {
-            rank: 8,
-            supplier_name: "Star Components",
-            payable_amount: 5480000,
-            percentage: 2.9,
-        },
-        {
-            rank: 9,
-            supplier_name: "Al Noor Trading",
-            payable_amount: 4930000,
-            percentage: 2.6,
-        },
-        {
-            rank: 10,
-            supplier_name: "Rapid Parts LLC",
-            payable_amount: 4780000,
-            percentage: 2.5,
-        },
-    ],
-};
-
-/* ============================================================
-   OVERDUE SUMMARY
-   ------------------------------------------------------------
-   Does NOT include Current because this chart is overdue only.
-   ============================================================ */
-
-const overdueSummary = {
-    "Due Date": [
-        {
-            bucket: "0–30 Days",
-            amount: 24380000,
-            percentage: 33.4,
-        },
-        {
-            bucket: "31–60 Days",
-            amount: 18440000,
-            percentage: 25.3,
-        },
-        {
-            bucket: "61–90 Days",
-            amount: 11320000,
-            percentage: 15.5,
-        },
-        {
-            bucket: "91–120 Days",
-            amount: 8150000,
-            percentage: 11.2,
-        },
-        {
-            bucket: "121–180 Days",
-            amount: 5620000,
-            percentage: 7.7,
-        },
-        {
-            bucket: "181–365 Days",
-            amount: 3410000,
-            percentage: 4.7,
-        },
-        {
-            bucket: "Above 365 Days",
-            amount: 1710000,
-            percentage: 2.3,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            bucket: "0–30 Days",
-            amount: 28600000,
-            percentage: 34.2,
-        },
-        {
-            bucket: "31–60 Days",
-            amount: 20300000,
-            percentage: 24.3,
-        },
-        {
-            bucket: "61–90 Days",
-            amount: 13250000,
-            percentage: 15.9,
-        },
-        {
-            bucket: "91–120 Days",
-            amount: 8420000,
-            percentage: 10.1,
-        },
-        {
-            bucket: "121–180 Days",
-            amount: 5980000,
-            percentage: 7.2,
-        },
-        {
-            bucket: "181–365 Days",
-            amount: 4290000,
-            percentage: 5.1,
-        },
-        {
-            bucket: "Above 365 Days",
-            amount: 2710000,
-            percentage: 3.2,
-        },
-    ],
-};
-
-/* ============================================================
-   PAYABLES BY SUB-DIVISION
-   ============================================================ */
-
-const payablesBySubDivision = {
-    "Due Date": [
-        {
-            name: "Coils BU",
-            amount: 48710000,
-            percentage: 25.3,
-        },
-        {
-            name: "Service BU",
-            amount: 36220000,
-            percentage: 18.8,
-        },
-        {
-            name: "Fans BU",
-            amount: 28060000,
-            percentage: 14.6,
-        },
-        {
-            name: "Gears BU",
-            amount: 22110000,
-            percentage: 11.5,
-        },
-        {
-            name: "Valves BU",
-            amount: 18760000,
-            percentage: 9.7,
-        },
-        {
-            name: "Electrical BU",
-            amount: 14380000,
-            percentage: 7.5,
-        },
-        {
-            name: "Fasteners BU",
-            amount: 12040000,
-            percentage: 6.3,
-        },
-        {
-            name: "Others",
-            amount: 11990000,
-            percentage: 6.2,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            name: "Coils BU",
-            amount: 45230000,
-            percentage: 23.5,
-        },
-        {
-            name: "Service BU",
-            amount: 38650000,
-            percentage: 20.1,
-        },
-        {
-            name: "Fans BU",
-            amount: 29450000,
-            percentage: 15.3,
-        },
-        {
-            name: "Gears BU",
-            amount: 23850000,
-            percentage: 12.4,
-        },
-        {
-            name: "Valves BU",
-            amount: 19320000,
-            percentage: 10.0,
-        },
-        {
-            name: "Electrical BU",
-            amount: 13850000,
-            percentage: 7.2,
-        },
-        {
-            name: "Fasteners BU",
-            amount: 11350000,
-            percentage: 5.9,
-        },
-        {
-            name: "Others",
-            amount: 10900000,
-            percentage: 5.7,
-        },
-    ],
-};
-
-/* ============================================================
-   MONTH-ON-MONTH PAYABLES
-   ------------------------------------------------------------
-   IMPORTANT:
-   Missing months are represented as null.
-   UI should display "—" for null.
-   NEVER convert null to 0.
-   ============================================================ */
-
-const monthOnMonthPayables = {
-    "Due Date": [
-        {
-            legal_entity: "Alpha Coils",
-            parent_division: "Alpine",
-            sub_division: "Coils BU",
-
-            Jan: 12.40,
-            Feb: 13.10,
-            Mar: 14.20,
-            Apr: 15.60,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 15.60,
-        },
-
-        {
-            legal_entity: "DC Serve Equip.",
-            parent_division: "DC Serve",
-            sub_division: "Service BU",
-
-            Jan: 8.20,
-            Feb: 8.90,
-            Mar: 9.10,
-            Apr: 9.40,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 9.40,
-        },
-
-        {
-            legal_entity: "Filter Fan - UAE",
-            parent_division: "Filter Fan",
-            sub_division: "Fans BU",
-
-            Jan: 6.10,
-            Feb: 6.45,
-            Mar: 7.20,
-            Apr: 7.90,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 7.90,
-        },
-
-        {
-            legal_entity: "Alpine Gears",
-            parent_division: "Alpine Gears",
-            sub_division: "Gears BU",
-
-            Jan: 5.80,
-            Feb: 6.10,
-            Mar: 6.85,
-            Apr: 7.31,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 7.31,
-        },
-
-        {
-            legal_entity: "Emirates Trading",
-            parent_division: "Others",
-            sub_division: "Others",
-
-            Jan: 4.05,
-            Feb: 4.65,
-            Mar: 5.10,
-            Apr: 5.42,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 5.42,
-        },
-
-        {
-            legal_entity: "Global Industrial",
-            parent_division: "Others",
-            sub_division: "Electrical BU",
-
-            Jan: 3.82,
-            Feb: 4.15,
-            Mar: 4.76,
-            Apr: 5.11,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 5.11,
-        },
-
-        {
-            legal_entity: "Metro Equipment",
-            parent_division: "DC Serve",
-            sub_division: "Valves BU",
-
-            Jan: 3.10,
-            Feb: 3.46,
-            Mar: 3.92,
-            Apr: 4.28,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 4.28,
-        },
-
-        {
-            legal_entity: "Precision Materials",
-            parent_division: "Alpine",
-            sub_division: "Fasteners BU",
-
-            Jan: 2.85,
-            Feb: 3.05,
-            Mar: 3.62,
-            Apr: 3.94,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 3.94,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            legal_entity: "Alpha Coils",
-            parent_division: "Alpine",
-            sub_division: "Coils BU",
-
-            Jan: 11.90,
-            Feb: 12.80,
-            Mar: 14.05,
-            Apr: 15.20,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 15.20,
-        },
-
-        {
-            legal_entity: "DC Serve Equip.",
-            parent_division: "DC Serve",
-            sub_division: "Service BU",
-
-            Jan: 8.45,
-            Feb: 9.10,
-            Mar: 9.35,
-            Apr: 9.82,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 9.82,
-        },
-
-        {
-            legal_entity: "Filter Fan - UAE",
-            parent_division: "Filter Fan",
-            sub_division: "Fans BU",
-
-            Jan: 6.35,
-            Feb: 6.72,
-            Mar: 7.41,
-            Apr: 8.02,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 8.02,
-        },
-
-        {
-            legal_entity: "Alpine Gears",
-            parent_division: "Alpine Gears",
-            sub_division: "Gears BU",
-
-            Jan: 5.95,
-            Feb: 6.32,
-            Mar: 6.91,
-            Apr: 7.58,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 7.58,
-        },
-
-        {
-            legal_entity: "Emirates Trading",
-            parent_division: "Others",
-            sub_division: "Others",
-
-            Jan: 4.18,
-            Feb: 4.72,
-            Mar: 5.26,
-            Apr: 5.63,
-
-            May: null,
-            Jun: null,
-            Jul: null,
-            Aug: null,
-            Sep: null,
-            Oct: null,
-            Nov: null,
-            Dec: null,
-
-            latest: 5.63,
-        },
-    ],
-};
-
-/* ============================================================
-   VIEW ALL - SUPPLIER LEVEL DATA
-   ============================================================ */
-
-const payablesViewAll = {
-    "Due Date": [
-        {
-            id: 1,
-            supplier_name: "Alpha Supplies LLC",
-            legal_entity: "Alpha Coils",
-            parent_division: "Alpine",
-            sub_division: "Coils BU",
-
-            current: 12400000,
-            "0_30": 2850000,
-            "31_60": 1420000,
-            "61_90": 780000,
-            "91_120": 510000,
-            "121_180": 320000,
-            "181_365": 180000,
-            above_365: 90000,
-
-            total_payable: 18550000,
-        },
-
-        {
-            id: 2,
-            supplier_name: "Global Industrial Co.",
-            legal_entity: "Global Industrial",
-            parent_division: "Others",
-            sub_division: "Electrical BU",
-
-            current: 8200000,
-            "0_30": 1760000,
-            "31_60": 1120000,
-            "61_90": 640000,
-            "91_120": 420000,
-            "121_180": 260000,
-            "181_365": 170000,
-            above_365: 100000,
-
-            total_payable: 12670000,
-        },
-
-        {
-            id: 3,
-            supplier_name: "TechParts Trading",
-            legal_entity: "Metro Equipment",
-            parent_division: "DC Serve",
-            sub_division: "Service BU",
-
-            current: 6120000,
-            "0_30": 1240000,
-            "31_60": 860000,
-            "61_90": 490000,
-            "91_120": 310000,
-            "121_180": 210000,
-            "181_365": 150000,
-            above_365: 100000,
-
-            total_payable: 9480000,
-        },
-
-        {
-            id: 4,
-            supplier_name: "Metro Equipment FZE",
-            legal_entity: "Metro Equipment",
-            parent_division: "DC Serve",
-            sub_division: "Valves BU",
-
-            current: 5320000,
-            "0_30": 1080000,
-            "31_60": 620000,
-            "61_90": 420000,
-            "91_120": 280000,
-            "121_180": 180000,
-            "181_365": 120000,
-            above_365: 90000,
-
-            total_payable: 8110000,
-        },
-
-        {
-            id: 5,
-            supplier_name: "Emirates Industrial",
-            legal_entity: "Emirates Trading",
-            parent_division: "Others",
-            sub_division: "Others",
-
-            current: 4980000,
-            "0_30": 920000,
-            "31_60": 570000,
-            "61_90": 410000,
-            "91_120": 270000,
-            "121_180": 170000,
-            "181_365": 110000,
-            above_365: 80000,
-
-            total_payable: 7510000,
-        },
-
-        {
-            id: 6,
-            supplier_name: "Precision Materials",
-            legal_entity: "Precision Materials",
-            parent_division: "Alpine",
-            sub_division: "Fasteners BU",
-
-            current: 4230000,
-            "0_30": 780000,
-            "31_60": 530000,
-            "61_90": 360000,
-            "91_120": 250000,
-            "121_180": 180000,
-            "181_365": 110000,
-            above_365: 80000,
-
-            total_payable: 6520000,
-        },
-
-        {
-            id: 7,
-            supplier_name: "Union Hardware LLC",
-            legal_entity: "Alpha Coils",
-            parent_division: "Alpine",
-            sub_division: "Coils BU",
-
-            current: 3810000,
-            "0_30": 690000,
-            "31_60": 490000,
-            "61_90": 320000,
-            "91_120": 220000,
-            "121_180": 150000,
-            "181_365": 100000,
-            above_365: 70000,
-
-            total_payable: 5850000,
-        },
-
-        {
-            id: 8,
-            supplier_name: "Star Components",
-            legal_entity: "Global Industrial",
-            parent_division: "Others",
-            sub_division: "Electrical BU",
-
-            current: 3260000,
-            "0_30": 610000,
-            "31_60": 420000,
-            "61_90": 290000,
-            "91_120": 190000,
-            "121_180": 130000,
-            "181_365": 90000,
-            above_365: 60000,
-
-            total_payable: 5050000,
-        },
-
-        {
-            id: 9,
-            supplier_name: "Al Noor Trading",
-            legal_entity: "Filter Fan - UAE",
-            parent_division: "Filter Fan",
-            sub_division: "Fans BU",
-
-            current: 2980000,
-            "0_30": 570000,
-            "31_60": 390000,
-            "61_90": 260000,
-            "91_120": 180000,
-            "121_180": 120000,
-            "181_365": 80000,
-            above_365: 50000,
-
-            total_payable: 4630000,
-        },
-
-        {
-            id: 10,
-            supplier_name: "Rapid Parts LLC",
-            legal_entity: "DC Serve Equipment",
-            parent_division: "DC Serve",
-            sub_division: "Service BU",
-
-            current: 2860000,
-            "0_30": 520000,
-            "31_60": 360000,
-            "61_90": 240000,
-            "91_120": 160000,
-            "121_180": 110000,
-            "181_365": 70000,
-            above_365: 50000,
-
-            total_payable: 4370000,
-        },
-
-        {
-            id: 11,
-            supplier_name: "Gulf Industrial Supplies",
-            legal_entity: "Alpine Gears",
-            parent_division: "Alpine Gears",
-            sub_division: "Gears BU",
-
-            current: 2740000,
-            "0_30": 490000,
-            "31_60": 340000,
-            "61_90": 220000,
-            "91_120": 150000,
-            "121_180": 100000,
-            "181_365": 70000,
-            above_365: 40000,
-
-            total_payable: 4150000,
-        },
-
-        {
-            id: 12,
-            supplier_name: "Prime Mechanical LLC",
-            legal_entity: "Alpine Gears",
-            parent_division: "Alpine Gears",
-            sub_division: "Gears BU",
-
-            current: 2520000,
-            "0_30": 450000,
-            "31_60": 320000,
-            "61_90": 210000,
-            "91_120": 140000,
-            "121_180": 95000,
-            "181_365": 65000,
-            above_365: 40000,
-
-            total_payable: 3840000,
-        },
-
-        {
-            id: 13,
-            supplier_name: "United Technical LLC",
-            legal_entity: "Filter Fan - UAE",
-            parent_division: "Filter Fan",
-            sub_division: "Fans BU",
-
-            current: 2380000,
-            "0_30": 430000,
-            "31_60": 300000,
-            "61_90": 200000,
-            "91_120": 130000,
-            "121_180": 90000,
-            "181_365": 60000,
-            above_365: 40000,
-
-            total_payable: 3630000,
-        },
-
-        {
-            id: 14,
-            supplier_name: "Eastern Electricals",
-            legal_entity: "Global Industrial",
-            parent_division: "Others",
-            sub_division: "Electrical BU",
-
-            current: 2190000,
-            "0_30": 390000,
-            "31_60": 280000,
-            "61_90": 180000,
-            "91_120": 120000,
-            "121_180": 80000,
-            "181_365": 50000,
-            above_365: 30000,
-
-            total_payable: 3320000,
-        },
-
-        {
-            id: 15,
-            supplier_name: "National Hardware",
-            legal_entity: "Alpha Coils",
-            parent_division: "Alpine",
-            sub_division: "Valves BU",
-
-            current: 1980000,
-            "0_30": 350000,
-            "31_60": 250000,
-            "61_90": 160000,
-            "91_120": 110000,
-            "121_180": 70000,
-            "181_365": 50000,
-            above_365: 30000,
-
-            total_payable: 3000000,
-        },
-    ],
-
-    "Invoice Date": [
-        {
-            id: 1,
-            supplier_name: "Alpha Supplies LLC",
-            legal_entity: "Alpha Coils",
-            parent_division: "Alpine",
-            sub_division: "Coils BU",
-
-            current: 11200000,
-            "0_30": 3200000,
-            "31_60": 1620000,
-            "61_90": 840000,
-            "91_120": 580000,
-            "121_180": 360000,
-            "181_365": 210000,
-            above_365: 120000,
-
-            total_payable: 18130000,
-        },
-
-        {
-            id: 2,
-            supplier_name: "Global Industrial Co.",
-            legal_entity: "Global Industrial",
-            parent_division: "Others",
-            sub_division: "Electrical BU",
-
-            current: 7900000,
-            "0_30": 1960000,
-            "31_60": 1280000,
-            "61_90": 710000,
-            "91_120": 460000,
-            "121_180": 290000,
-            "181_365": 190000,
-            above_365: 110000,
-
-            total_payable: 12900000,
-        },
-
-        {
-            id: 3,
-            supplier_name: "TechParts Trading",
-            legal_entity: "Metro Equipment",
-            parent_division: "DC Serve",
-            sub_division: "Service BU",
-
-            current: 5800000,
-            "0_30": 1430000,
-            "31_60": 940000,
-            "61_90": 550000,
-            "91_120": 350000,
-            "121_180": 230000,
-            "181_365": 170000,
-            above_365: 110000,
-
-            total_payable: 9580000,
-        },
-
-        {
-            id: 4,
-            supplier_name: "Metro Equipment FZE",
-            legal_entity: "Metro Equipment",
-            parent_division: "DC Serve",
-            sub_division: "Valves BU",
-
-            current: 5080000,
-            "0_30": 1190000,
-            "31_60": 710000,
-            "61_90": 480000,
-            "91_120": 310000,
-            "121_180": 210000,
-            "181_365": 140000,
-            above_365: 100000,
-
-            total_payable: 8220000,
-        },
-
-        {
-            id: 5,
-            supplier_name: "Emirates Industrial",
-            legal_entity: "Emirates Trading",
-            parent_division: "Others",
-            sub_division: "Others",
-
-            current: 4760000,
-            "0_30": 1010000,
-            "31_60": 650000,
-            "61_90": 460000,
-            "91_120": 300000,
-            "121_180": 200000,
-            "181_365": 130000,
-            above_365: 90000,
-
-            total_payable: 7600000,
-        },
-    ],
-};
-
-/* ============================================================
-   MOCK VIEW ALL SUMMARY
-   ============================================================ */
-
-const payablesViewAllSummary = {
-    "Due Date": {
-        total_payables: 192290000,
-        current_payables: 119260000,
-        overdue_payables: 73030000,
-        overdue_gt_90: 24130000,
-        total_records: 1258,
-    },
-
-    "Invoice Date": {
-        total_payables: 192290000,
-        current_payables: 108740000,
-        overdue_payables: 83550000,
-        overdue_gt_90: 31860000,
-        total_records: 1258,
-    },
-};
-
-/* ============================================================
-   CURRENCY CONFIG
-   ------------------------------------------------------------
-   No dashboard value should hard-code a currency.
-   ============================================================ */
 
 const currencyConfig = {
-    AED: {
-        code: "AED",
-        locale: "en-AE",
-        decimals: 2,
-    },
+    AED: { code: "AED", locale: "en-AE" },
+    INR: { code: "INR", locale: "en-IN" },
+    OMR: { code: "OMR", locale: "en-OM" },
+    QAR: { code: "QAR", locale: "en-QA" },
+    SAR: { code: "SAR", locale: "en-SA" },
+    USD: { code: "USD", locale: "en-US" },
+    EUR: { code: "EUR", locale: "en-IE" },
+};
+const apiAgingBasis = (value) =>
+    String(value || "").toUpperCase().includes("INVOICE") ? "INVOICE_DATE" : "DUE_DATE";
 
-    INR: {
-        code: "INR",
-        locale: "en-IN",
-        decimals: 2,
-    },
+const uiAgingBasis = (value) =>
+    apiAgingBasis(value) === "INVOICE_DATE" ? "Invoice Date" : "Due Date";
 
-    OMR: {
-        code: "OMR",
-        locale: "en-OM",
-        decimals: 2,
-    },
+const normalizeOptions = (items = []) =>
+    (Array.isArray(items) ? items : []).map((item) => {
+        if (item === null || item === undefined) return null;
+        if (typeof item !== "object") {
+            return { value: String(item), label: String(item), meta: item };
+        }
+        const value = item.value ?? item.id ?? item.code ?? item.key ?? item.name;
+        const label = item.label ?? item.name ?? item.title ?? item.description ?? value;
+        return { value: String(value ?? ""), label: String(label ?? ""), meta: item };
+    }).filter(Boolean);
 
-    QAR: {
-        code: "QAR",
-        locale: "en-QA",
-        decimals: 2,
-    },
-
-    SAR: {
-        code: "SAR",
-        locale: "en-SA",
-        decimals: 2,
-    },
-
-    USD: {
-        code: "USD",
-        locale: "en-US",
-        decimals: 2,
-    },
+const selectedFilterValues = (value) => {
+    const values = Array.isArray(value) ? value : [value];
+    return values
+        .filter((v) => v !== undefined && v !== null && String(v) !== "")
+        .map((v) => String(v))
+        .filter((v) => v !== "All");
 };
 
-/* ============================================================
-   HELPERS
-   ============================================================ */
+const getMetaValue = (option, keys = []) => {
+    const meta = option?.meta || option || {};
+    for (const key of keys) {
+        const value = meta?.[key];
+        if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return null;
+};
 
-/**
- * Get data for selected aging basis.
- *
- * This ensures Invoice Date and Due Date are NEVER combined.
- */
-const getPayablesDataByBasis = (agingBasis = "Due Date") => {
-    const basis =
-        agingBasis === "Invoice Date"
-            ? "Invoice Date"
-            : "Due Date";
+const cascadeFilterOptions = (options = [], parentValue, relationKeys = []) => {
+    const parents = selectedFilterValues(parentValue);
+    if (!parents.length || !Array.isArray(options) || !options.length) return options || [];
+    let relationshipFieldFound = false;
+    const filtered = options.filter((option) => {
+        const relation = getMetaValue(option, relationKeys);
+        if (relation === null) return true;
+        relationshipFieldFound = true;
+        const relations = Array.isArray(relation) ? relation.map(String) : [String(relation)];
+        return parents.some((parent) => relations.includes(String(parent)));
+    });
+    return relationshipFieldFound ? filtered : options;
+};
+
+const cascadeLegalEntities = (options, legalGroup) =>
+    cascadeFilterOptions(options, legalGroup, [
+        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
+    ]);
+
+const cascadeParentDivisions = (options, legalEntities, legalGroup) => {
+    let result = cascadeFilterOptions(options, legalGroup, [
+        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
+    ]);
+    result = cascadeFilterOptions(result, legalEntities, [
+        "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId"
+    ]);
+    return result;
+};
+
+const cascadeSubDivisions = (options, parentDivisions, legalEntities, legalGroup) => {
+    let result = cascadeFilterOptions(options, legalGroup, [
+        "legal_group_id", "legalGroupId", "legal_group", "legalGroup", "group_id", "groupId"
+    ]);
+    result = cascadeFilterOptions(result, legalEntities, [
+        "legal_entity_id", "legalEntityId", "legal_entity", "legalEntity", "entity_id", "entityId"
+    ]);
+    result = cascadeFilterOptions(result, parentDivisions, [
+        "parent_division_id", "parentDivisionId", "parent_division", "parentDivision", "division_id", "divisionId"
+    ]);
+    return result;
+};
+
+const normalizeDashboard = (raw = {}, filters = {}) => {
+    const payload = raw?.data && !Array.isArray(raw.data) ? raw.data : raw || {};
+    const k = payload.kpis || {};
+    const aging = Array.isArray(payload.aging_summary) ? payload.aging_summary : [];
+    const trend = Array.isArray(payload.trend) ? payload.trend : [];
+    const parent = Array.isArray(payload.by_parent_division) ? payload.by_parent_division : [];
+    const customers = Array.isArray(payload.top_customers) ? payload.top_customers : [];
+    const subdivision = Array.isArray(payload.by_subdivision) ? payload.by_subdivision : [];
+    const mom = payload.month_on_month || payload.monthOnMonth || {};
+
+    const mapAmount = (row) => ({
+        bucket: row.bucket_name ?? row.bucket ?? "",
+        amount: Number(row.amount ?? 0),
+        percentage: Number(row.percentage_of_total ?? row.percentage ?? 0),
+        bucket_code: row.bucket_code,
+    });
 
     return {
-        agingSummary: payablesAgingSummary[basis],
-        trend: payablesTrend[basis],
-        parentDivision: payablesByParentDivision[basis],
-        topSuppliers: top10Suppliers[basis],
-        overdueSummary: overdueSummary[basis],
-        subDivision: payablesBySubDivision[basis],
-        monthOnMonth: monthOnMonthPayables[basis],
-        viewAll: payablesViewAll[basis],
-        kpis: payablesKpis[basis],
-        viewAllSummary: payablesViewAllSummary[basis],
+        kpis: {
+            total_receivables: k.total_receivables,
+            current_receivables: k.current_receivables,
+            overdue_receivables: k.overdue_receivables,
+            overdue_gt_90: k.overdue_above_90,
+            dso: k.dso_days,
+            total_receivables_variance: k.total_change_percentage,
+            current_receivables_variance: k.current_change_percentage,
+            overdue_receivables_variance: k.overdue_change_percentage,
+            overdue_gt_90_variance: k.overdue_above_90_change_percentage,
+            dso_variance: k.dso_change_days,
+            previous_date: k.previous_date ?? k.previous_as_on_date ?? null,
+        },
 
-        // This is the value that will eventually be sent
-        // to every backend API.
-        aging_basis: basis,
+        agingSummary: aging.map(mapAmount),
+        trend: trend.map((row) => {
+            const d = row.as_on_date ? new Date(`${row.as_on_date}T00:00:00`) : null;
+            const month = d && !Number.isNaN(d.getTime())
+                ? d.toLocaleString("en-US", { month: "short", year: "numeric" })
+                : row.as_on_date;
+            return {
+                ...row,
+                month,
+                total_receivables: row.total_receivables,
+                dso: row.dso_days,
+            };
+        }),
+        parentDivision: parent.map((row) => ({
+            name: row.label,
+            value: row.value,
+            amount: row.total_receivables,
+            percentage: row.percentage_of_total,
+        })),
+        topSuppliers: customers.map((row, index) => ({
+            rank: index + 1,
+            supplier_name: row.customer_name,
+            supplier_code: row.customer_code,
+            customer_id: row.customer_id,
+            receivable_amount: row.total_receivables,
+            percentage: row.percentage_of_total,
+            country: row.customer_country,
+        })),
+        overdueSummary: aging
+            .filter((row) => row.bucket_code !== "CURRENT")
+            .map(mapAmount),
+        subDivision: subdivision.map((row) => ({
+            name: row.label,
+            value: row.value,
+            amount: row.total_receivables,
+            percentage: row.percentage_of_total,
+        })),
+        monthOnMonth: (mom.rows || []).map((row) => {
+            const values = row.monthly_values || {};
+            const mapped = {};
+            MONTHS.forEach((month) => {
+                mapped[month] = values[month.toUpperCase()] ?? null;
+            });
+            return {
+                legal_entity: row.legal_entity_name,
+                legal_entity_id: row.legal_entity_id,
+                parent_division: row.parent_division_name,
+                parent_division_id: row.parent_division_id,
+                sub_division: row.subdivision_name,
+                subdivision_id: row.subdivision_id,
+                ...mapped,
+                latest: row.latest,
+                _snapshot_dates: mom.snapshot_dates || {},
+            };
+        }),
+        snapshotDates: mom.snapshot_dates || {},
+        viewAll: [],
+        filterOptions: raw?.filterOptions || {},
     };
 };
 
-/**
- * Format currency using selected reporting currency.
- *
- * The currency is passed into the function instead of
- * being hard-coded.
- */
-const formatPayablesCurrency = (
-    value,
-    currency = "AED"
-) => {
-    if (value === null || value === undefined) {
-        return "—";
-    }
+const normalizeViewAllRows = (rows = []) =>
+    (Array.isArray(rows) ? rows : []).map((row) => ({
+        id: row.receivables_fact_id,
+        receivables_fact_id: row.receivables_fact_id,
+        supplier_name: row.customer_name,
+        supplier_code: row.customer_code,
+        legal_entity: row.legal_entity_name,
+        parent_division: row.parent_division_name,
+        sub_division: row.subdivision_name,
+        country: row.customer_country,
+        row_currency: row.reporting_currency || row.source_currency,
+        total_receivable: row.total_receivables,
+        current: row.current_receivables,
+        "0_30": row.amount_0_30,
+        "31_60": row.amount_31_60,
+        "61_90": row.amount_61_90,
+        "91_120": row.amount_91_120,
+        "121_180": row.amount_121_180,
+        "181_365": row.amount_181_365,
+        above_365: row.amount_above_365,
+        overdue_receivables: row.overdue_receivables,
+        customer_id: row.customer_id,
+        legal_entity_id: row.legal_entity_id,
+        parent_division_id: row.parent_division_id,
+        subdivision_id: row.subdivision_id,
+        gl_code: row.gl_code,
+    }));
 
-    const config =
-        currencyConfig[currency] || currencyConfig.AED;
-
-    return new Intl.NumberFormat(config.locale, {
-        style: "currency",
-        currency: config.code,
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(Number(value));
-};
-
-/**
- * Dashboard-friendly M/K formatting.
- *
- * Example:
- * 192290000 -> AED 192.29M
- *
- * Currency is still dynamically selected.
- */
-const formatPayablesCompact = (
-    value,
-    currency = "AED"
-) => {
-    if (value === null || value === undefined) {
-        return "—";
-    }
-
-    const config =
-        currencyConfig[currency] || currencyConfig.AED;
-
+const formatReceivablesCompact = (value, currency = "AED") => {
+    if (value === null || value === undefined) return "—";
+    const config = currencyConfig[currency] || currencyConfig.AED;
     const number = Number(value);
-
-    if (Math.abs(number) >= 1000000) {
-        return `${config.code} ${(number / 1000000).toFixed(2)}M`;
-    }
-
-    if (Math.abs(number) >= 1000) {
-        return `${config.code} ${(number / 1000).toFixed(2)}K`;
-    }
-
+    if (Math.abs(number) >= 1000000) return `${config.code} ${(number / 1000000).toFixed(2)}M`;
+    if (Math.abs(number) >= 1000) return `${config.code} ${(number / 1000).toFixed(2)}K`;
     return `${config.code} ${number.toFixed(2)}`;
 };
 
-/**
- * Month-on-month formatter.
- *
- * IMPORTANT:
- * null -> —
- * NOT zero.
- */
-const formatMoMValue = (value) => {
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
-        return "—";
-    }
-
-    return Number(value).toFixed(2);
-};
-
-/**
- * Percentage formatter.
- */
-const formatPercentage = (value) => {
-    if (value === null || value === undefined) {
-        return "—";
-    }
-
-    return `${Number(value).toFixed(1)}%`;
-};
-
-/**
- * Variance formatter.
- */
-const formatVariance = (value) => {
-    if (value === null || value === undefined) {
-        return "—";
-    }
-
+const formatMoMValue = (value, displayUnit = "AED") => {
+    if (value === null || value === undefined || value === "") return "—";
     const number = Number(value);
+    if (!Number.isFinite(number)) return "—";
 
-    return `${number >= 0 ? "▲" : "▼"} ${Math.abs(number).toFixed(
-        1
-    )}%`;
+    if (displayUnit === "Millions") {
+        return `${(number / 1000000).toFixed(2)}M`;
+    }
+
+    return new Intl.NumberFormat("en-AE", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(number);
 };
+const formatPercentage = (value) => value === null || value === undefined ? "—" : `${Number(value).toFixed(1)}%`;
+const formatVariance = (value) => value === null || value === undefined ? "—" : `${Number(value) >= 0 ? "▲" : "▼"} ${Math.abs(Number(value)).toFixed(1)}%`;
+const formatAxisMillions = (value) => value === null || value === undefined ? "—" : `${(Number(value) / 1000000).toFixed(0)}M`;
 
-/* ============================================================
-   EXPORT MOCK
-   ============================================================ */
-
-const mockExportResult = {
-    success: true,
-    file_name: "Payables_Report_Due_Date_2024-04-30.xlsx",
-    format: "xlsx",
-    aging_basis: "Due Date",
-    reporting_currency: "AED",
+// Capitalize dashboard table labels consistently without changing underlying API values.
+const capitalizeTableText = (value) => {
+    if (value === null || value === undefined) return value;
+    const text = String(value).trim();
+    if (!text) return text;
+    return text
+        .toLowerCase()
+        .replace(/\b([a-z])([a-z0-9]*)/g, (_, first, rest) => first.toUpperCase() + rest);
 };
-
-/* ============================================================
-   MOCK API-LIKE FUNCTIONS
-   ------------------------------------------------------------
-   These allow your JSX to be written almost exactly like
-   the future API integration.
-   ============================================================ */
-
-const getPayablesFiltersMock = async () => {
-    return {
-        success: true,
-        data: payablesFilterOptions,
-    };
-};
-
-const getPayablesDashboardMock = async (
-    filters = defaultPayablesFilters
-) => {
-    const data = getPayablesDataByBasis(
-        filters.aging_basis
-    );
-
-    return {
-        success: true,
-
-        filters: {
-            ...filters,
-
-            // Always explicitly returned.
-            aging_basis: filters.aging_basis,
-        },
-
-        data: {
-            kpis: data.kpis,
-
-            aging_summary: data.agingSummary,
-
-            trend: data.trend,
-
-            parent_division: data.parentDivision,
-
-            top_suppliers: data.topSuppliers,
-
-            overdue_summary: data.overdueSummary,
-
-            sub_division: data.subDivision,
-
-            month_on_month: data.monthOnMonth,
-        },
-    };
-};
-
-const getPayablesViewAllMock = async (
-    filters = defaultPayablesFilters
-) => {
-    const data = getPayablesDataByBasis(
-        filters.aging_basis
-    );
-
-    return {
-        success: true,
-
-        filters: {
-            ...filters,
-
-            aging_basis: filters.aging_basis,
-        },
-
-        summary: data.viewAllSummary,
-
-        total_records: data.viewAll.length,
-
-        records: data.viewAll,
-    };
-};
-
-/* ============================================================
-   MOCK EXPORT FUNCTION
-   ============================================================ */
-
-const exportPayablesMock = async ({
-    filters = defaultPayablesFilters,
-    format = "xlsx",
-}) => {
-    return {
-        success: true,
-
-        file_name:
-            format === "pdf"
-                ? "Payables_Report.pdf"
-                : "Payables_Report.xlsx",
-
-        format,
-
-        // Important for the future API.
-        aging_basis: filters.aging_basis,
-
-        reporting_currency:
-            filters.reporting_currency,
-
-        filters,
-    };
-};
-
 
 const BLUE = "#132a78";
 const BLUE_2 = "#1d4ed8";
@@ -2835,10 +350,6 @@ const cardStyle = {
     boxShadow: "0 1px 3px rgba(15, 23, 42, 0.04)",
 };
 
-function formatAxisMillions(value) {
-    if (value === null || value === undefined) return "—";
-    return `${(Number(value) / 1000000).toFixed(0)}M`;
-}
 
 /* ============================================================
    SMALL UI COMPONENTS
@@ -2867,20 +378,52 @@ function InfoIcon({ title }) {
     );
 }
 
-function SectionTitle({ children, info }) {
+function SectionTitle({ children, info, subtitle }) {
+    const titleText = String(children ?? "");
+
+    const defaultSubtitles = {
+        "Receivables Aging Summary": "Outstanding receivables grouped by aging bucket",
+        "Receivables Trend": "Historical movement of total receivables and DSO",
+        "Receivables by Parent Division": "Receivable exposure across parent divisions",
+        "Top 10 Customers by Receivables": "Customers contributing the highest receivable balances",
+        "Overdue Summary": "Distribution of overdue receivable exposure",
+        "Receivables by Sub-Division": "Receivable exposure across sub-divisions",
+        "Month-on-Month Receivables": "Monthly receivable balance movement",
+    };
+
+    const matchedSubtitle = Object.entries(defaultSubtitles).find(([key]) =>
+        titleText.startsWith(key)
+    )?.[1];
+
     return (
-        <div
-            style={{
-                display: "flex",
-                alignItems: "center",
-                fontSize: 14,
-                fontWeight: 700,
-                color: "#00000",
-                marginBottom: 12,
-            }}
-        >
-            {children}
-            {info && <InfoIcon title={info} />}
+        <div style={{ marginBottom: 10, minWidth: 0 }}>
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 2,
+                    fontSize: "0.88rem",
+                    fontWeight: 800,
+                    color: "#0f172a",
+                    lineHeight: 1.2,
+                }}
+            >
+                {children}
+                {info && <InfoIcon title={info} />}
+            </div>
+            {(subtitle || matchedSubtitle) && (
+                <div
+                    style={{
+                        marginTop: 3,
+                        fontSize: "0.68rem",
+                        fontWeight: 500,
+                        color: "#64748b",
+                        lineHeight: 1.35,
+                    }}
+                >
+                    {subtitle || matchedSubtitle}
+                </div>
+            )}
         </div>
     );
 }
@@ -2891,6 +434,7 @@ function SectionActions({
     onViewAll,
     onExportExcel,
     onExportPdf,
+    rightContent = null,
 }) {
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
@@ -2936,8 +480,13 @@ function SectionActions({
                 top: 9,
                 right: 9,
                 zIndex: 50,
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
             }}
         >
+            {rightContent}
+
             <button
                 type="button"
                 onClick={() => setOpen((value) => !value)}
@@ -3059,7 +608,7 @@ function FilterSelect({
 
     /* ----------------------------------------------------------
        NORMALIZE OPTIONS
-       ALWAYS KEEP "All" AS FIRST OPTION
+       KEEP "All" INSIDE DROPDOWN
     ---------------------------------------------------------- */
     const normalizedOptions = Array.from(
         new Set(
@@ -3074,7 +623,10 @@ function FilterSelect({
         )
     );
 
-    // Always keep All in the dropdown
+    /*
+       Always keep "All" as the first dropdown option.
+       If backend options already contain All, remove duplicate.
+    */
     const finalOptions = normalizedOptions.filter(
         (option) => option !== "All"
     );
@@ -3092,7 +644,9 @@ function FilterSelect({
     const handleSelectAll = () => {
         if (!multiple) return;
 
-        onChange([...finalOptions]);
+        onChange(
+            finalOptions.filter((option) => option !== "All")
+        );
     };
 
     /* ----------------------------------------------------------
@@ -3112,13 +666,23 @@ function FilterSelect({
     const handleOptionClick = (option) => {
         /* SINGLE SELECT */
         if (!multiple) {
-            onChange(option);
+            if (option === "All") {
+                onChange("");
+            } else {
+                onChange(option);
+            }
+
             setOpen(false);
             setSearch("");
             return;
         }
 
         /* MULTI SELECT */
+        if (option === "All") {
+            onChange([]);
+            return;
+        }
+
         let nextValues = selectedValues.filter(
             (item) => String(item) !== "All"
         );
@@ -3136,6 +700,7 @@ function FilterSelect({
 
     /* ----------------------------------------------------------
        DISPLAY VALUE
+       DEFAULT = ALL
     ---------------------------------------------------------- */
     const getDisplayValue = () => {
         if (!multiple) {
@@ -3143,11 +708,11 @@ function FilterSelect({
                 value !== null &&
                 String(value) !== ""
                 ? String(value)
-                : "";
+                : "All";
         }
 
         if (selectedValues.length === 0) {
-            return "Select";
+            return "All";
         }
 
         if (selectedValues.length === 1) {
@@ -3156,13 +721,18 @@ function FilterSelect({
 
         return `${selectedValues.length} selected`;
     };
+
     /* ----------------------------------------------------------
        ALL SELECTED
     ---------------------------------------------------------- */
+    const selectableOptions = finalOptions.filter(
+        (option) => option !== "All"
+    );
+
     const allSelected =
         multiple &&
-        finalOptions.length > 0 &&
-        finalOptions.every((item) =>
+        selectableOptions.length > 0 &&
+        selectableOptions.every((item) =>
             selectedValues.includes(item)
         );
 
@@ -3176,8 +746,8 @@ function FilterSelect({
             }}
         >
             {/* =====================================================
-          LABEL
-      ===================================================== */}
+                LABEL
+            ===================================================== */}
             <label
                 style={{
                     display: "block",
@@ -3193,8 +763,8 @@ function FilterSelect({
             </label>
 
             {/* =====================================================
-          FIELD
-      ===================================================== */}
+                FIELD
+            ===================================================== */}
             <button
                 type="button"
                 onClick={() => {
@@ -3233,7 +803,9 @@ function FilterSelect({
                         position: "absolute",
                         right: 10,
                         top: "50%",
-                        transform: `translateY(-50%) ${open ? "rotate(180deg)" : "rotate(0deg)"
+                        transform: `translateY(-50%) ${open
+                            ? "rotate(180deg)"
+                            : "rotate(0deg)"
                             }`,
                         fontSize: 9,
                         color: "#52638a",
@@ -3246,8 +818,8 @@ function FilterSelect({
             </button>
 
             {/* =====================================================
-          DROPDOWN
-      ===================================================== */}
+                DROPDOWN
+            ===================================================== */}
             {open && (
                 <div
                     style={{
@@ -3266,8 +838,8 @@ function FilterSelect({
                     }}
                 >
                     {/* =================================================
-              SEARCH
-          ================================================= */}
+                        SEARCH
+                    ================================================= */}
                     <div
                         style={{
                             padding: "8px 8px 6px",
@@ -3309,7 +881,8 @@ function FilterSelect({
                                     position: "absolute",
                                     left: 9,
                                     top: "50%",
-                                    transform: "translateY(-50%)",
+                                    transform:
+                                        "translateY(-50%)",
                                     color: "#64748b",
                                     fontSize: 12,
                                     pointerEvents: "none",
@@ -3321,8 +894,8 @@ function FilterSelect({
                     </div>
 
                     {/* =================================================
-              SELECT ALL / CLEAR
-          ================================================= */}
+                        SELECT ALL / CLEAR
+                    ================================================= */}
                     {multiple && (
                         <div
                             style={{
@@ -3330,7 +903,8 @@ function FilterSelect({
                                 alignItems: "center",
                                 justifyContent: "space-between",
                                 padding: "7px 9px",
-                                borderBottom: "1px solid #edf1f7",
+                                borderBottom:
+                                    "1px solid #edf1f7",
                                 background: "#fafbfe",
                             }}
                         >
@@ -3371,8 +945,8 @@ function FilterSelect({
                     )}
 
                     {/* =================================================
-              OPTIONS
-          ================================================= */}
+                        OPTIONS
+                    ================================================= */}
                     <div
                         style={{
                             maxHeight: 230,
@@ -3394,12 +968,12 @@ function FilterSelect({
                         ) : (
                             filteredOptions.map((option) => {
                                 const selected = multiple
-                                    ? selectedValues.includes(option) ||
-                                    (
-                                        option === "All" &&
-                                        selectedValues.includes("All")
-                                    )
-                                    : String(value || "All") === option;
+                                    ? option === "All"
+                                        ? selectedValues.length === 0
+                                        : selectedValues.includes(option)
+                                    : option === "All"
+                                        ? !value
+                                        : String(value || "") === option;
 
                                 return (
                                     <button
@@ -3423,12 +997,13 @@ function FilterSelect({
                                                 ? "#243b8f"
                                                 : "#334155",
                                             fontSize: 10.5,
-                                            fontWeight: selected ? 700 : 500,
+                                            fontWeight: selected
+                                                ? 700
+                                                : 500,
                                             cursor: "pointer",
                                             textAlign: "left",
                                         }}
                                     >
-                                        {/* CHECKBOX */}
                                         {multiple && (
                                             <span
                                                 style={{
@@ -3444,11 +1019,13 @@ function FilterSelect({
                                                         : "#ffffff",
                                                     display: "flex",
                                                     alignItems: "center",
-                                                    justifyContent: "center",
+                                                    justifyContent:
+                                                        "center",
                                                     color: "#ffffff",
                                                     fontSize: 9,
                                                     fontWeight: 800,
-                                                    boxSizing: "border-box",
+                                                    boxSizing:
+                                                        "border-box",
                                                 }}
                                             >
                                                 {selected ? "✓" : ""}
@@ -3458,7 +1035,8 @@ function FilterSelect({
                                         <span
                                             style={{
                                                 overflow: "hidden",
-                                                textOverflow: "ellipsis",
+                                                textOverflow:
+                                                    "ellipsis",
                                                 whiteSpace: "nowrap",
                                             }}
                                         >
@@ -3475,12 +1053,45 @@ function FilterSelect({
     );
 }
 
-function DateFilter({ value, onChange }) {
+
+/* ================================================================
+   DATE FILTER
+   Initial display = All
+   All remains available inside dropdown
+   ================================================================ */
+function DateFilter({
+    value,
+    onChange,
+}) {
+    const dateInputRef = useRef(null);
+
+    const openCalendar = () => {
+        if (dateInputRef.current) {
+            if (
+                typeof dateInputRef.current.showPicker === "function"
+            ) {
+                dateInputRef.current.showPicker();
+            } else {
+                dateInputRef.current.click();
+            }
+        }
+    };
+
+    const handleDateChange = (event) => {
+        const selectedDate = event.target.value;
+
+        if (!selectedDate) return;
+
+        // Immediately send YYYY-MM-DD to parent
+        onChange(selectedDate);
+    };
+
     return (
         <div
             style={{
                 flex: "1 1 0",
                 minWidth: 0,
+                position: "relative",
             }}
         >
             <label
@@ -3497,31 +1108,43 @@ function DateFilter({ value, onChange }) {
                 As On Date
             </label>
 
-            <div
+            {/* Hidden native calendar */}
+            <input
+                ref={dateInputRef}
+                type="date"
+                value={value || ""}
+                onChange={handleDateChange}
                 style={{
-                    position: "relative",
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    opacity: 0,
+                    pointerEvents: "none",
+                }}
+            />
+
+            {/* Visible field */}
+            <button
+                type="button"
+                onClick={openCalendar}
+                style={{
                     width: "100%",
+                    height: 34,
+                    boxSizing: "border-box",
+                    border: "1px solid #dce3ee",
+                    borderRadius: 9,
+                    padding: "0 38px 0 11px",
+                    background: "#f4f7fb",
+                    color: "#24366b",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    outline: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    position: "relative",
                 }}
             >
-                <input
-                    type="text"
-                    value={value || ""}
-                    onChange={(e) => onChange(e.target.value)}
-                    placeholder="Select Date"
-                    style={{
-                        width: "100%",
-                        height: 34,
-                        boxSizing: "border-box",
-                        border: "1px solid #dce3ee",
-                        borderRadius: 9,
-                        padding: "0 34px 0 11px",
-                        background: "#f4f7fb",
-                        color: "#24366b",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        outline: "none",
-                    }}
-                />
+                {value || "Select Date"}
 
                 <span
                     style={{
@@ -3529,17 +1152,65 @@ function DateFilter({ value, onChange }) {
                         right: 10,
                         top: "50%",
                         transform: "translateY(-50%)",
-                        fontSize: 13,
-                        color: "#64748b",
+                        fontSize: 15,
                         pointerEvents: "none",
                     }}
                 >
-                    ▣
+                    📅
                 </span>
-            </div>
+            </button>
         </div>
     );
 }
+/* ============================================================
+   COMMON EMPTY STATE / KPI ANIMATION
+   ============================================================ */
+
+function NoDataAvailable({ minHeight = 180 }) {
+    return (
+        <div
+            style={{
+                width: "100%",
+                minHeight,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#94a3b8",
+                fontSize: 12,
+                fontWeight: 700,
+                textAlign: "center",
+            }}
+        >
+            No Data Available
+        </div>
+    );
+}
+
+function AnimatedNumber({ value, formatter, duration = 700 }) {
+    const numericValue = Number(value);
+    const target = Number.isFinite(numericValue) ? numericValue : 0;
+    const [displayValue, setDisplayValue] = useState(0);
+
+    useEffect(() => {
+        let frameId;
+        const start = performance.now();
+        const from = 0;
+
+        const animate = (now) => {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setDisplayValue(from + (target - from) * eased);
+            if (progress < 1) frameId = requestAnimationFrame(animate);
+        };
+
+        setDisplayValue(0);
+        frameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(frameId);
+    }, [target, duration]);
+
+    return <>{formatter(displayValue)}</>;
+}
+
 /* ============================================================
    KPI CARD
    ============================================================ */
@@ -3552,13 +1223,15 @@ function KpiCard({
     icon,
     iconBg,
     iconColor,
+    cardBg,
     currency,
     suffix,
+    onClick,
 }) {
     const formatValue = (value) => {
         if (value === null || value === undefined) return "—";
 
-        // DPO
+        // DSO
         if (suffix === "Days") {
             return `${Number(value).toFixed(0)} Days`;
         }
@@ -3575,128 +1248,119 @@ function KpiCard({
         return `${currency} ${Number(value).toFixed(2)}`;
     };
 
+    const numericValue = Number(value);
+    const isNegativeValue =
+        Number.isFinite(numericValue) && numericValue < 0;
     const isPositive = Number(variance) >= 0;
 
     return (
         <div
+            className="sales-style-kpi"
+            onClick={typeof onClick === "function" ? onClick : undefined}
             style={{
-                background: iconBg || "#F8FAFC",
-                border: "1px solid rgba(255, 255, 255, 0.8)",
-                borderRadius: "12px",
-                padding: "14px 16px",
-                minHeight: "105px",
-                boxSizing: "border-box",
+                background: cardBg || "#ffffff",
+                borderRadius: 12,
+                padding: "10px 10px",
+                boxShadow: "none",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                cursor: typeof onClick === "function" ? "pointer" : "default",
                 display: "flex",
-                flexDirection: "column",
-                justifyContent: "space-between",
-
-                // Card shadow
-                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
-
-                // Smooth hover effect
-                transition:
-                    "transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease",
-                cursor: "default",
+                alignItems: "center",
+                gap: 8,
+                overflow: "visible",
+                position: "relative",
+                minHeight: 74,
             }}
             onMouseEnter={(e) => {
                 e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow =
-                    "0 4px 12px rgba(15, 23, 42, 0.06)";
-                e.currentTarget.style.filter = "brightness(0.99)";
+                e.currentTarget.style.boxShadow = `0 8px 24px ${iconColor || "#2563eb"}20`;
             }}
-
             onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                    "0 2px 8px rgba(15, 23, 42, 0.04)";
-                e.currentTarget.style.filter = "brightness(1)";
+                e.currentTarget.style.boxShadow = "none";
             }}
         >
-            {/* TOP */}
+            <div
+                style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    background: iconBg || "#f1f5f9",
+                    color: iconColor || "#2563eb",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                }}
+            >
+                {icon}
+            </div>
+
             <div
                 style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: "10px",
+                    flexDirection: "column",
+                    gap: 2,
+                    minWidth: 0,
+                    flex: 1,
+                    justifyContent: "center",
                 }}
             >
-                {/* ICON */}
-                <div
+                <span
                     style={{
-                        width: "36px",
-                        height: "36px",
-                        borderRadius: "50%",
-                        background: "#F1F5F9",
-                        color: iconColor,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "18px",
+                        fontSize: "0.68rem",
                         fontWeight: 700,
-                        flexShrink: 0,
-                        boxShadow: "0 2px 6px rgba(15, 23, 42, 0.06)",
-                    }}
-                >
-                    {icon}
-                </div>
-
-                {/* TITLE */}
-                <div
-                    style={{
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: iconColor,
+                        color: iconColor || "#2563eb",
                         lineHeight: 1.2,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        wordBreak: "break-word",
                     }}
                 >
                     {title}
+                </span>
+
+                <div
+                    style={{
+                        fontSize: "1.02rem",
+                        fontWeight: 800,
+                        color: "#0f172a",
+                        lineHeight: 1.1,
+                        letterSpacing: "-0.02em",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        wordBreak: "break-word",
+                    }}
+                >
+                    {value === null || value === undefined || value === "" ? "—" : <AnimatedNumber value={value} formatter={formatValue} />}
+                </div>
+
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        flexWrap: "wrap",
+                        fontSize: "0.62rem",
+                        fontWeight: 600,
+                        color: "#64748b",
+                        lineHeight: 1.1,
+                    }}
+                >
+                    {variance !== null && variance !== undefined ? (
+                        <span style={{ color: isPositive ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                            {isPositive ? "▲" : "▼"} {Math.abs(Number(variance)).toFixed(1)}%
+                        </span>
+                    ) : null}
+                    {previousDate && <span>vs {previousDate}</span>}
                 </div>
             </div>
-
-            {/* VALUE */}
-            <div
-                style={{
-                    marginLeft: "46px",
-                    marginTop: "-2px",
-                    fontSize: "18px",
-                    fontWeight: 800,
-                    color: "#111827",
-                    lineHeight: 1.1,
-                }}
-            >
-                {formatValue(value)}
-            </div>
-
-            {/* VARIANCE */}
-            <div
-                style={{
-                    marginLeft: "46px",
-                    fontSize: "11px",
-                    color: isPositive ? "#0e9f75" : "#ef476f",
-                    fontWeight: 600,
-                    lineHeight: 1.2,
-                }}
-            >
-                {variance !== null && variance !== undefined
-                    ? `${isPositive ? "▲" : "▼"} ${Math.abs(
-                        Number(variance)
-                    ).toFixed(1)}%`
-                    : "—"}
-
-                {previousDate && (
-                    <span
-                        style={{
-                            color: "#64748b",
-                            fontWeight: 500,
-                            marginLeft: "4px",
-                        }}
-                    >
-                        vs {previousDate}
-                    </span>
-                )}
-            </div>
         </div>
-    );
+    )
 }
 
 
@@ -3704,7 +1368,20 @@ function KpiCard({
    DONUT CHART
    ============================================================ */
 
-function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }) {
+function DonutChart({
+    data,
+    total,
+    currency,
+    centerLabel,
+    legendBelow = false,
+    onSegmentClick,
+
+    // ============================================================
+    // NEW:
+    // Enable only for Overdue Summary
+    // ============================================================
+    largeOverdueChart = false,
+}) {
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [hoveredIndex, setHoveredIndex] = useState(null);
 
@@ -3719,8 +1396,63 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
         "#be185d",
     ];
 
-    const radius = 65;
+    // ============================================================
+    // DONUT SIZE
+    // Normal charts remain unchanged.
+    // Overdue Summary can use larger size.
+    // ============================================================
+
+    const donutSize = largeOverdueChart ? 205 : 175;
+    const donutCenter = donutSize / 2;
+
+    const radius = largeOverdueChart ? 76 : 65;
+    const strokeWidth = largeOverdueChart ? 28 : 25;
+
     const circumference = 2 * Math.PI * radius;
+
+    const hasData =
+        Array.isArray(data) && data.length > 0;
+
+    if (!hasData) {
+        return (
+            <div
+                style={{
+                    minHeight: legendBelow ? 250 : 185,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    color: MUTED,
+                    fontSize: 11,
+                    fontWeight: 700,
+                }}
+            >
+                No data available
+            </div>
+        );
+    }
+
+    /*
+     * The Receivables aging API can return negative percentages.
+     * Use absolute values only for donut geometry so every
+     * bucket remains visible.
+     */
+    const normalizedData = Array.isArray(data) ? data : [];
+
+    const segmentWeights = normalizedData.map((item) =>
+        Math.abs(
+            Number(
+                item.percentage ??
+                item.percentage_of_total ??
+                0
+            )
+        )
+    );
+
+    const totalSegmentWeight = segmentWeights.reduce(
+        (sum, value) => sum + value,
+        0
+    );
 
     let accumulated = 0;
 
@@ -3731,11 +1463,18 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
         setSelectedIndex((prev) =>
             prev === index ? null : index
         );
+
+        if (typeof onSegmentClick === "function") {
+            onSegmentClick(
+                normalizedData[index],
+                index
+            );
+        }
     };
 
     /* ==========================================================
        GET SEGMENT POSITION
-       Used to create the "explode / pop-out" effect
+       Existing CLICK behavior preserved.
     ========================================================== */
     const getSegmentTransform = (
         startLength,
@@ -3743,7 +1482,7 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
         active
     ) => {
         if (!active) {
-            return "rotate(-90 87.5 87.5)";
+            return `rotate(-90 ${donutCenter} ${donutCenter})`;
         }
 
         const startAngle =
@@ -3758,7 +1497,6 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
         const angleInRadians =
             (middleAngle * Math.PI) / 180;
 
-        /* Distance that the selected slice moves outward */
         const offset = 8;
 
         const translateX =
@@ -3768,164 +1506,279 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
             Math.sin(angleInRadians) * offset;
 
         return `
-      translate(${translateX} ${translateY})
-      rotate(-90 87.5 87.5)
-    `;
+            translate(${translateX} ${translateY})
+            rotate(-90 ${donutCenter} ${donutCenter})
+        `;
     };
 
     return (
         <div
             style={{
                 display: "flex",
-                flexDirection: legendBelow ? "column" : "row",
-                alignItems: legendBelow ? "center" : "center",
-                gap: legendBelow ? 10 : 20,
-                minHeight: legendBelow ? 250 : 185,
+
+                /*
+                 * Keep existing row/column behavior.
+                 */
+                flexDirection: legendBelow
+                    ? "column"
+                    : "row",
+
+                /*
+                 * For the larger Overdue chart,
+                 * create more separation between
+                 * donut and legend.
+                 */
+                gap: legendBelow
+                    ? largeOverdueChart
+                        ? 32
+                        : 24
+                    : largeOverdueChart
+                        ? 34
+                        : 20,
+
+                minHeight: legendBelow
+                    ? largeOverdueChart
+                        ? 285
+                        : 250
+                    : largeOverdueChart
+                        ? 225
+                        : 185,
+
                 position: "relative",
+
+                /*
+                 * Give the larger chart a little more
+                 * horizontal breathing room.
+                 */
+                padding:
+                    largeOverdueChart && !legendBelow
+                        ? "4px 4px 4px 8px"
+                        : 0,
+
+                boxSizing: "border-box",
             }}
         >
             {/* =====================================================
-          DONUT
-      ===================================================== */}
+                DONUT
+            ===================================================== */}
             <div
                 style={{
-                    width: 175,
-                    minWidth: 175,
-                    height: 175,
+                    width: donutSize,
+                    minWidth: donutSize,
+                    height: donutSize,
                     position: "relative",
+
+                    /*
+                     * Extra spacing below/around the
+                     * Overdue Summary donut.
+                     */
+                    marginBottom:
+                        largeOverdueChart && legendBelow
+                            ? 8
+                            : 0,
                 }}
             >
                 <svg
-                    width="175"
-                    height="175"
-                    viewBox="0 0 175 175"
+                    width={donutSize}
+                    height={donutSize}
+                    viewBox={`0 0 ${donutSize} ${donutSize}`}
                     style={{
                         overflow: "visible",
                     }}
                 >
                     {/* =================================================
-              BACKGROUND RING
-          ================================================= */}
+                        BACKGROUND RING
+                    ================================================= */}
                     <circle
-                        cx="87.5"
-                        cy="87.5"
+                        cx={donutCenter}
+                        cy={donutCenter}
                         r={radius}
                         fill="none"
                         stroke="#eef2f7"
-                        strokeWidth="25"
+                        strokeWidth={strokeWidth}
                     />
 
                     {/* =================================================
-              DONUT SEGMENTS
-          ================================================= */}
-                    {data.map((item, index) => {
-                        const percent =
-                            Number(item.percentage || 0) / 100;
+                        DONUT SEGMENTS
+                    ================================================= */}
+                    {normalizedData.map(
+                        (item, index) => {
+                            const weight =
+                                segmentWeights[index] ||
+                                0;
 
-                        const length =
-                            circumference * percent;
+                            const percent =
+                                totalSegmentWeight > 0
+                                    ? weight /
+                                    totalSegmentWeight
+                                    : 0;
 
-                        const offset = -accumulated;
+                            const length =
+                                circumference *
+                                percent;
 
-                        const segmentStart = accumulated;
+                            const offset =
+                                -accumulated;
 
-                        accumulated += length;
+                            const segmentStart =
+                                accumulated;
 
-                        const isSelected =
-                            selectedIndex === index;
+                            accumulated += length;
 
-                        const isHovered =
-                            hoveredIndex === index;
+                            const isSelected =
+                                selectedIndex ===
+                                index;
 
-                        /*
-                          Selected takes priority.
-                          Hover also gives the pop-out effect.
-                        */
-                        const isActive =
-                            isSelected || isHovered;
+                            const isHovered =
+                                hoveredIndex ===
+                                index;
 
-                        return (
-                            <circle
-                                key={item.bucket}
-                                cx="87.5"
-                                cy="87.5"
-                                r={radius}
-                                fill="none"
-                                stroke={
-                                    colors[index % colors.length]
-                                }
-                                strokeWidth={
-                                    isActive ? 29 : 25
-                                }
-                                strokeDasharray={`${length} ${circumference - length
-                                    }`}
-                                strokeDashoffset={offset}
-                                transform={getSegmentTransform(
-                                    segmentStart,
-                                    length,
-                                    isActive
-                                )}
-                                strokeLinecap="butt"
-                                style={{
-                                    cursor: "pointer",
+                            /*
+                             * When hovering one segment:
+                             *
+                             * Hovered segment = enabled
+                             * Other segments = disabled
+                             */
+                            const hasHover =
+                                hoveredIndex !==
+                                null;
 
-                                    /*
-                                      Selected segment becomes slightly
-                                      more prominent, but other segments
-                                      remain visible.
-                                    */
-                                    opacity:
-                                        selectedIndex !== null &&
-                                            !isSelected
-                                            ? 0.55
-                                            : 1,
+                            const isHoverTarget =
+                                hoveredIndex ===
+                                index;
 
-                                    filter: isActive
-                                        ? "drop-shadow(0 4px 7px rgba(0,0,0,0.20))"
-                                        : "none",
+                            const isDisabledByHover =
+                                hasHover &&
+                                !isHoverTarget;
 
-                                    transition:
-                                        "transform 0.25s ease, stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease",
-                                }}
-                                onMouseEnter={() =>
-                                    setHoveredIndex(index)
-                                }
-                                onMouseLeave={() =>
-                                    setHoveredIndex(null)
-                                }
-                                onClick={() =>
-                                    handleSegmentClick(index)
-                                }
-                            />
-                        );
-                    })}
+                            /*
+                             * Click selection continues
+                             * to work exactly as before.
+                             */
+                            const isActive =
+                                isSelected;
+
+                            return (
+                                <circle
+                                    key={`donut-segment-${index}-${item.bucket_code ?? item.bucket_name ?? item.bucket ?? "segment"}`}
+                                    cx={donutCenter}
+                                    cy={donutCenter}
+                                    r={radius}
+                                    fill="none"
+                                    stroke={
+                                        colors[
+                                        index %
+                                        colors.length
+                                        ]
+                                    }
+                                    strokeWidth={
+                                        isActive ||
+                                            isHoverTarget
+                                            ? largeOverdueChart
+                                                ? 32
+                                                : 29
+                                            : strokeWidth
+                                    }
+                                    strokeDasharray={`${length} ${circumference -
+                                        length
+                                        }`}
+                                    strokeDashoffset={
+                                        offset
+                                    }
+                                    transform={getSegmentTransform(
+                                        segmentStart,
+                                        length,
+                                        isActive
+                                    )}
+                                    strokeLinecap="butt"
+                                    style={{
+                                        cursor: "pointer",
+
+                                        /*
+                                         * Hover behavior
+                                         */
+                                        opacity:
+                                            isDisabledByHover
+                                                ? 0.16
+                                                : selectedIndex !==
+                                                    null &&
+                                                    !isSelected
+                                                    ? isHovered
+                                                        ? 0.82
+                                                        : 0.55
+                                                    : 1,
+
+                                        /*
+                                         * Hovered segment glow.
+                                         */
+                                        filter: isHoverTarget
+                                            ? `drop-shadow(0 0 7px ${colors[
+                                            index %
+                                            colors.length
+                                            ]
+                                            }88)`
+                                            : isSelected
+                                                ? "drop-shadow(0 4px 7px rgba(0,0,0,0.20))"
+                                                : "none",
+
+                                        transition:
+                                            "opacity 0.25s ease, filter 0.25s ease, stroke-width 0.2s ease",
+                                    }}
+                                    onMouseEnter={() =>
+                                        setHoveredIndex(
+                                            index
+                                        )
+                                    }
+                                    onMouseLeave={() =>
+                                        setHoveredIndex(
+                                            null
+                                        )
+                                    }
+                                    onClick={() =>
+                                        handleSegmentClick(
+                                            index
+                                        )
+                                    }
+                                />
+                            );
+                        }
+                    )}
                 </svg>
 
                 {/* ===================================================
-            CENTER VALUE
-            Hidden ONLY when a segment is clicked/selected
-        =================================================== */}
+                    CENTER VALUE
+                    Hidden ONLY when a segment is selected
+                =================================================== */}
                 {selectedIndex === null && (
                     <div
                         style={{
-                            position: "absolute",
+                            position:
+                                "absolute",
                             inset: 0,
                             display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#00000",
-                            pointerEvents: "none",
-                            transition: "opacity 0.2s ease",
+                            flexDirection:
+                                "column",
+                            alignItems:
+                                "center",
+                            justifyContent:
+                                "center",
+                            color: "#000000",
+                            pointerEvents:
+                                "none",
+                            transition:
+                                "opacity 0.2s ease",
                         }}
                     >
                         <div
                             style={{
-                                fontSize: 16,
+                                fontSize:
+                                    largeOverdueChart
+                                        ? 18
+                                        : 16,
                                 fontWeight: 800,
                             }}
                         >
-                            {formatPayablesCompact(
+                            {formatReceivablesCompact(
                                 total,
                                 currency
                             )}
@@ -3933,7 +1786,10 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
 
                         <div
                             style={{
-                                fontSize: 11,
+                                fontSize:
+                                    largeOverdueChart
+                                        ? 12
+                                        : 11,
                                 fontWeight: 700,
                             }}
                         >
@@ -3943,43 +1799,45 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
                 )}
 
                 {/* ===================================================
-            TOOLTIP
-        =================================================== */}
+                    TOOLTIP
+                =================================================== */}
                 {hoveredIndex !== null &&
-                    data[hoveredIndex] && (
+                    normalizedData[
+                    hoveredIndex
+                    ] && (
                         <div
                             style={{
-                                position: "absolute",
-
-                                /*
-                                  Positioned similarly to the P&L
-                                  Expense Breakdown tooltip.
-                                */
+                                position:
+                                    "absolute",
                                 left: "50%",
                                 top: "50%",
-
                                 transform:
                                     "translate(-50%, -50%)",
 
                                 minWidth: 180,
-                                background: "#ffffff",
-                                border: "1px solid #e5eaf2",
+                                background:
+                                    "#ffffff",
+                                border:
+                                    "1px solid #e5eaf2",
                                 borderRadius: 16,
-                                padding: "14px 16px",
+                                padding:
+                                    "14px 16px",
                                 boxShadow:
                                     "0 12px 30px rgba(24,45,80,0.16)",
                                 zIndex: 50,
-                                pointerEvents: "none",
-                                whiteSpace: "nowrap",
+                                pointerEvents:
+                                    "none",
+                                whiteSpace:
+                                    "nowrap",
                             }}
                         >
-                            {/* =================================================
-                  TOOLTIP TITLE
-              ================================================= */}
+                            {/* TOOLTIP TITLE */}
                             <div
                                 style={{
-                                    display: "flex",
-                                    alignItems: "center",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
                                     gap: 8,
                                     fontSize: 13,
                                     fontWeight: 800,
@@ -3991,27 +1849,39 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
                                     style={{
                                         width: 10,
                                         height: 10,
-                                        borderRadius: 3,
+                                        borderRadius: 2,
                                         background:
                                             colors[
                                             hoveredIndex %
                                             colors.length
                                             ],
-                                        display: "inline-block",
+                                        display:
+                                            "inline-block",
+                                        flexShrink: 0,
                                     }}
                                 />
 
-                                {data[hoveredIndex].bucket}
+                                {normalizedData[
+                                    hoveredIndex
+                                ]
+                                    .bucket_name ??
+                                    normalizedData[
+                                        hoveredIndex
+                                    ].bucket ??
+                                    normalizedData[
+                                        hoveredIndex
+                                    ].bucket_code}
                             </div>
 
-                            {/* =================================================
-                  AMOUNT
-              ================================================= */}
+                            {/* AMOUNT */}
                             <div
                                 style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    justifyContent:
+                                        "space-between",
                                     gap: 24,
                                     marginBottom: 9,
                                     fontSize: 11,
@@ -4027,25 +1897,32 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
 
                                 <strong
                                     style={{
-                                        color: "#17213c",
+                                        color:
+                                            colors[
+                                            hoveredIndex %
+                                            colors.length
+                                            ],
                                         fontSize: 13,
                                     }}
                                 >
-                                    {formatPayablesCompact(
-                                        data[hoveredIndex].amount,
+                                    {formatReceivablesCompact(
+                                        normalizedData[
+                                            hoveredIndex
+                                        ].amount,
                                         currency
                                     )}
                                 </strong>
                             </div>
 
-                            {/* =================================================
-                  SHARE / PERCENTAGE
-              ================================================= */}
+                            {/* SHARE / PERCENTAGE */}
                             <div
                                 style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    justifyContent:
+                                        "space-between",
                                     gap: 24,
                                     fontSize: 11,
                                 }}
@@ -4069,7 +1946,14 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
                                     }}
                                 >
                                     {formatPercentage(
-                                        data[hoveredIndex].percentage
+                                        normalizedData[
+                                            hoveredIndex
+                                        ]
+                                            .percentage ??
+                                        normalizedData[
+                                            hoveredIndex
+                                        ]
+                                            .percentage_of_total
                                     )}
                                 </strong>
                             </div>
@@ -4078,129 +1962,297 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
             </div>
 
             {/* =====================================================
-          LEGEND
-      ===================================================== */}
+                LEGEND
+            ===================================================== */}
             <div
                 style={{
-                    flex: legendBelow ? "none" : 1,
-                    width: legendBelow ? "100%" : "auto",
+                    flex: legendBelow
+                        ? "none"
+                        : 1,
+
+                    width: legendBelow
+                        ? "100%"
+                        : "auto",
+
                     minWidth: 0,
+
+                    /*
+                     * IMPORTANT:
+                     * More gap between donut and legend
+                     * only for the larger Overdue chart.
+                     */
+                    marginLeft:
+                        !legendBelow &&
+                            largeOverdueChart
+                            ? 10
+                            : 0,
+
+                    /*
+                     * If legend is below the donut,
+                     * keep clear separation.
+                     */
+                    marginTop:
+                        legendBelow
+                            ? largeOverdueChart
+                                ? 8
+                                : 0
+                            : 0,
                 }}
             >
-                {data.map((item, index) => {
-                    const isSelected =
-                        selectedIndex === index;
+                {normalizedData.map(
+                    (item, index) => {
+                        const isSelected =
+                            selectedIndex ===
+                            index;
 
-                    const isHovered =
-                        hoveredIndex === index;
+                        const isHovered =
+                            hoveredIndex ===
+                            index;
 
-                    const isActive =
-                        isSelected || isHovered;
+                        const isActive =
+                            isSelected ||
+                            isHovered;
 
-                    return (
-                        <div
-                            key={item.bucket}
-                            onClick={() =>
-                                handleSegmentClick(index)
-                            }
-                            onMouseEnter={() =>
-                                setHoveredIndex(index)
-                            }
-                            onMouseLeave={() =>
-                                setHoveredIndex(null)
-                            }
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 7,
-                                marginBottom: 7,
-                                fontSize: 12,
-                                color: "#334155",
-                                cursor: "pointer",
-                                padding: "3px 5px",
-                                borderRadius: 6,
-
-                                background: isSelected
-                                    ? "#f1f5ff"
-                                    : isHovered
-                                        ? "#f8fafc"
-                                        : "transparent",
-
-                                transition:
-                                    "background 0.2s ease",
-                            }}
-                        >
-                            {/* Color Dot */}
-                            <span
+                        return (
+                            <div
+                                key={`donut-legend-${index}-${item.bucket_code ?? item.bucket_name ?? item.bucket ?? "bucket"}`}
+                                onClick={() =>
+                                    handleSegmentClick(
+                                        index
+                                    )
+                                }
+                                onMouseEnter={() =>
+                                    setHoveredIndex(
+                                        index
+                                    )
+                                }
+                                onMouseLeave={() =>
+                                    setHoveredIndex(
+                                        null
+                                    )
+                                }
                                 style={{
-                                    width: 9,
-                                    height: 9,
-                                    borderRadius: "50%",
-                                    background:
-                                        colors[
-                                        index % colors.length
-                                        ],
-                                    display: "inline-block",
-                                    flexShrink: 0,
+                                    display:
+                                        "flex",
 
-                                    boxShadow: isActive
-                                        ? `0 0 0 3px ${colors[
-                                        index %
-                                        colors.length
-                                        ]
-                                        }22`
-                                        : "none",
+                                    alignItems:
+                                        "flex-start",
+
+                                    gap: 8,
+
+                                    /*
+                                     * Increased legend
+                                     * vertical spacing.
+                                     */
+                                    marginBottom:
+                                        largeOverdueChart
+                                            ? 8
+                                            : 16,
+
+                                    fontSize: 12,
+                                    color: "#334155",
+                                    cursor: "pointer",
+
+                                    padding:
+                                        "5px 7px",
+
+                                    borderRadius: 7,
+
+                                    background:
+                                        isSelected
+                                            ? "#f1f5ff"
+                                            : isHovered
+                                                ? "#f8fafc"
+                                                : "transparent",
+
+                                    borderLeft:
+                                        isActive
+                                            ? `3px solid ${colors[
+                                            index %
+                                            colors.length
+                                            ]
+                                            }`
+                                            : "3px solid transparent",
+
+                                    transform:
+                                        isHovered
+                                            ? "translateX(3px)"
+                                            : "translateX(0)",
 
                                     transition:
-                                        "box-shadow 0.2s ease",
-                                }}
-                            />
+                                        "background 0.2s ease, transform 0.2s ease, border-left 0.2s ease",
 
-                            {/* Bucket */}
-                            <span
-                                style={{
-                                    flex: 1,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                    fontWeight: isActive
-                                        ? 800
-                                        : 700,
+                                    /*
+                                     * IMPORTANT:
+                                     * Allow long bucket names
+                                     * to use maximum 2 rows.
+                                     */
+                                    minHeight:
+                                        largeOverdueChart
+                                            ? 34
+                                            : "auto",
+
+                                    boxSizing:
+                                        "border-box",
                                 }}
                             >
-                                {item.bucket}
-                            </span>
+                                {/* =================================================
+                                    SQUARE COLOR INDICATOR
+                                ================================================= */}
+                                <span
+                                    style={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: 2,
+                                        background:
+                                            colors[
+                                            index %
+                                            colors.length
+                                            ],
+                                        display:
+                                            "inline-block",
+                                        flexShrink: 0,
 
-                            {/* Amount */}
-                            <strong
-                                style={{
-                                    color: "#344b8a",
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                {(Number(item.amount || 0) / 1000000).toFixed(2)}M
-                            </strong>
+                                        boxShadow:
+                                            isActive
+                                                ? `0 0 0 3px ${colors[
+                                                index %
+                                                colors.length
+                                                ]
+                                                }22`
+                                                : "none",
 
-                            {/* Percentage */}
-                            <span
-                                style={{
-                                    color: "#64748b",
-                                    minWidth: 36,
-                                    whiteSpace: "nowrap",
-                                    fontWeight: isActive
-                                        ? 700
-                                        : 500,
-                                }}
-                            >
-                                (
-                                {formatPercentage(
-                                    item.percentage
-                                )}
-                                )
-                            </span>
-                        </div>
-                    );
-                })}
+                                        transition:
+                                            "box-shadow 0.2s ease",
+
+                                        marginTop: 3,
+                                    }}
+                                />
+
+                                {/* =================================================
+                                    BUCKET NAME
+                                    Maximum 2 rows
+                                ================================================= */}
+                                <span
+                                    style={{
+                                        flex: 1,
+
+                                        /*
+                                         * Allow wrapping.
+                                         */
+                                        whiteSpace:
+                                            "normal",
+
+                                        overflow:
+                                            "hidden",
+
+                                        display:
+                                            "-webkit-box",
+
+                                        WebkitBoxOrient:
+                                            "vertical",
+
+                                        WebkitLineClamp:
+                                            2,
+
+                                        lineHeight:
+                                            "16px",
+
+                                        minWidth: 0,
+
+                                        wordBreak:
+                                            "break-word",
+
+                                        fontWeight:
+                                            isActive
+                                                ? 800
+                                                : 700,
+                                    }}
+                                >
+                                    {item.bucket_name ??
+                                        item.bucket ??
+                                        item.bucket_code}
+                                </span>
+
+                                {/* =================================================
+                                    AMOUNT
+                                    Same color as donut segment
+                                ================================================= */}
+                                <strong
+                                    style={{
+                                        color:
+                                            colors[
+                                            index %
+                                            colors.length
+                                            ],
+
+                                        whiteSpace:
+                                            "nowrap",
+
+                                        flexShrink: 0,
+
+                                        fontWeight:
+                                            isActive
+                                                ? 800
+                                                : 700,
+
+                                        lineHeight:
+                                            "16px",
+                                    }}
+                                >
+                                    {(
+                                        Number(
+                                            item.amount ||
+                                            0
+                                        ) /
+                                        1000000
+                                    ).toFixed(2)}
+                                    M
+                                </strong>
+
+                                {/* =================================================
+                                    PERCENTAGE
+                                ================================================= */}
+                                <span
+                                    style={{
+                                        color:
+                                            isActive
+                                                ? colors[
+                                                index %
+                                                colors.length
+                                                ]
+                                                : "#64748b",
+
+                                        minWidth: 36,
+
+                                        whiteSpace:
+                                            "nowrap",
+
+                                        flexShrink: 0,
+
+                                        fontWeight:
+                                            isActive
+                                                ? 700
+                                                : 500,
+
+                                        lineHeight:
+                                            "16px",
+
+                                        transition:
+                                            "color 0.2s ease",
+                                    }}
+                                >
+                                    (
+                                    {formatPercentage(
+                                        item.percentage ??
+                                        item.percentage_of_total
+                                    )}
+                                    )
+                                </span>
+                            </div>
+                        );
+                    }
+                )}
             </div>
         </div>
     );
@@ -4210,15 +2262,58 @@ function DonutChart({ data, total, currency, centerLabel, legendBelow = false, }
    TREND CHART
    ============================================================ */
 
-function TrendChart({ data, currency }) {
+
+function TrendChart({ data, currency, onPointClick }) {
     const [hoveredIndex, setHoveredIndex] = useState(null);
 
+    // Load animation state
+    const [chartLoaded, setChartLoaded] = useState(false);
+
+    useEffect(() => {
+        // Start the chart animation after the first render
+        const frame = requestAnimationFrame(() => {
+            setChartLoaded(true);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, []);
+
     const maxValue = Math.max(
-        ...data.map((item) => Number(item.total_payables || 0))
+        0,
+        ...data.map((item) =>
+            Number(item.total_receivables || 0)
+        )
     );
 
+    const hasData =
+        Array.isArray(data) && data.length > 0;
+
+    if (!hasData) {
+        return (
+            <div
+                style={{
+                    minHeight: 190,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    color: MUTED,
+                    fontSize: 11,
+                    fontWeight: 700,
+                }}
+            >
+                No data available
+            </div>
+        );
+    }
+
     return (
-        <div style={{ width: "100%", overflowX: "hidden" }}>
+        <div
+            style={{
+                width: "100%",
+                overflowX: "hidden",
+            }}
+        >
             <div
                 style={{
                     width: "100%",
@@ -4228,6 +2323,9 @@ function TrendChart({ data, currency }) {
                     boxSizing: "border-box",
                 }}
             >
+                {/* =====================================================
+                    GRID LINES
+                ===================================================== */}
                 {[0, 1, 2, 3, 4].map((line) => (
                     <div
                         key={line}
@@ -4236,50 +2334,62 @@ function TrendChart({ data, currency }) {
                             left: 45,
                             right: 10,
                             top: 15 + line * 36,
-                            borderTop: "1px dashed #e2e8f0",
+                            borderTop:
+                                "1px dashed #e2e8f0",
                         }}
                     />
                 ))}
 
+                {/* =====================================================
+                    Y AXIS LABEL - CURRENCY
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
                         left: 3,
                         top: 5,
-                        fontSize: 10,
+                        fontSize: 10, fontWeight: 700,
                         color: MUTED,
                     }}
                 >
                     {currency} (M)
                 </div>
 
+                {/* =====================================================
+                    Y AXIS MID VALUE
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
                         left: 3,
                         top: 78,
-                        fontSize: 9,
+                        fontSize: 10, fontWeight: 700,
                         color: MUTED,
                     }}
                 >
-                    {formatAxisMillions(maxValue / 2)}
+                    {formatAxisMillions(
+                        maxValue / 2
+                    )}
                 </div>
 
+                {/* =====================================================
+                    Y AXIS ZERO
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
                         left: 18,
                         bottom: 42,
-                        fontSize: 9,
-                        color: MUTED,
+                        fontSize: 10, fontWeight: 700,
+                        color: "MUTED",
                     }}
                 >
                     0
                 </div>
 
                 {/* =====================================================
-            BARS
-        ===================================================== */}
+                    BARS
+                ===================================================== */}
                 <div
                     style={{
                         position: "absolute",
@@ -4289,17 +2399,23 @@ function TrendChart({ data, currency }) {
                         height: 150,
                         display: "flex",
                         alignItems: "flex-end",
-                        justifyContent: "space-between",
+                        justifyContent:
+                            "space-between",
                         gap: 2,
                     }}
                 >
                     {data.map((item, index) => {
                         const height =
                             maxValue > 0
-                                ? (Number(item.total_payables) / maxValue) * 125
+                                ? (Number(
+                                    item.total_receivables
+                                ) /
+                                    maxValue) *
+                                125
                                 : 0;
 
-                        const isHovered = hoveredIndex === index;
+                        const isHovered =
+                            hoveredIndex === index;
 
                         return (
                             <div
@@ -4309,45 +2425,90 @@ function TrendChart({ data, currency }) {
                                     height: 150,
                                     position: "relative",
                                     display: "flex",
-                                    flexDirection: "column",
-                                    justifyContent: "flex-end",
-                                    alignItems: "center",
+                                    flexDirection:
+                                        "column",
+                                    justifyContent:
+                                        "flex-end",
+                                    alignItems:
+                                        "center",
+                                    cursor:
+                                        typeof onPointClick ===
+                                            "function"
+                                            ? "pointer"
+                                            : "default",
+
+                                    /*
+                                     * Small lift when hovering.
+                                     * Does not affect layout.
+                                     */
+                                    transform:
+                                        isHovered
+                                            ? "translateY(-3px)"
+                                            : "translateY(0)",
+
+                                    transition:
+                                        "transform 0.2s ease",
                                 }}
-                                onMouseEnter={() => setHoveredIndex(index)}
-                                onMouseLeave={() => setHoveredIndex(null)}
+                                onMouseEnter={() =>
+                                    setHoveredIndex(
+                                        index
+                                    )
+                                }
+                                onMouseLeave={() =>
+                                    setHoveredIndex(
+                                        null
+                                    )
+                                }
+                                onClick={() => {
+                                    if (
+                                        typeof onPointClick ===
+                                        "function"
+                                    ) {
+                                        onPointClick(
+                                            item,
+                                            index
+                                        );
+                                    }
+                                }}
                             >
                                 {/* =================================================
-                    TOOLTIP
-                ================================================= */}
-
+                                    TOOLTIP
+                                ================================================= */}
                                 {isHovered && (
                                     <div
                                         style={{
-                                            position: "absolute",
+                                            position:
+                                                "absolute",
 
-                                            // Keep tooltip inside the chart
                                             top: 5,
 
                                             left: "50%",
-                                            transform: "translateX(-50%)",
+                                            transform:
+                                                "translateX(-50%)",
 
                                             minWidth: 160,
                                             maxWidth: 190,
 
-                                            background: "#ffffff",
-                                            border: "1px solid #dce3ee",
+                                            background:
+                                                "#ffffff",
+                                            border:
+                                                "1px solid #dce3ee",
                                             borderRadius: 8,
 
-                                            padding: "9px 11px",
+                                            padding:
+                                                "9px 11px",
 
                                             boxShadow:
                                                 "0 8px 22px rgba(24, 45, 80, 0.16)",
 
                                             zIndex: 1000,
-                                            pointerEvents: "none",
+                                            pointerEvents:
+                                                "none",
 
-                                            whiteSpace: "normal",
-                                            boxSizing: "border-box",
+                                            whiteSpace:
+                                                "normal",
+                                            boxSizing:
+                                                "border-box",
                                         }}
                                     >
                                         {/* Month */}
@@ -4362,13 +2523,16 @@ function TrendChart({ data, currency }) {
                                             {item.month}
                                         </div>
 
-                                        {/* Total Payables */}
+                                        {/* Total Receivables */}
                                         <div
                                             style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
+                                                display:
+                                                    "flex",
+                                                justifyContent:
+                                                    "space-between",
                                                 gap: 15,
-                                                fontSize: 11, fontWeight: 800,
+                                                fontSize: 11,
+                                                fontWeight: 800,
                                                 marginBottom: 5,
                                             }}
                                         >
@@ -4377,7 +2541,8 @@ function TrendChart({ data, currency }) {
                                                     color: "#64748b",
                                                 }}
                                             >
-                                                Total Payables
+                                                Total
+                                                Receivables
                                             </span>
 
                                             <strong
@@ -4385,20 +2550,23 @@ function TrendChart({ data, currency }) {
                                                     color: BLUE,
                                                 }}
                                             >
-                                                {formatPayablesCompact(
-                                                    item.total_payables,
+                                                {formatReceivablesCompact(
+                                                    item.total_receivables,
                                                     currency
                                                 )}
                                             </strong>
                                         </div>
 
-                                        {/* DPO */}
+                                        {/* DSO */}
                                         <div
                                             style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
+                                                display:
+                                                    "flex",
+                                                justifyContent:
+                                                    "space-between",
                                                 gap: 15,
-                                                fontSize: 11, fontWeight: 800,
+                                                fontSize: 11,
+                                                fontWeight: 800,
                                             }}
                                         >
                                             <span
@@ -4414,54 +2582,153 @@ function TrendChart({ data, currency }) {
                                                     color: "#0e9f75",
                                                 }}
                                             >
-                                                {Number(item.dpo || 0).toFixed(1)} Days
+                                                {Number(
+                                                    item.dso ||
+                                                    0
+                                                ).toFixed(
+                                                    1
+                                                )}{" "}
+                                                Days
                                             </strong>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Value above bar */}
+                                {/* =================================================
+                                    VALUE ABOVE BAR
+                                    Increased size + hover emphasis
+                                ================================================= */}
                                 <div
                                     style={{
-                                        fontSize: 10,
+                                        fontSize:
+                                            isHovered
+                                                ? 13
+                                                : 12,
+
                                         color: BLUE,
-                                        fontWeight: 800,
-                                        marginBottom: 3,
-                                        opacity: isHovered ? 0 : 1,
-                                        transition: "opacity 0.15s ease",
+
+                                        fontWeight: 900,
+
+                                        marginBottom: 5,
+
+                                        letterSpacing:
+                                            "-0.15px",
+
+                                        transform:
+                                            isHovered
+                                                ? "translateY(-2px) scale(1.04)"
+                                                : "translateY(0) scale(1)",
+
+                                        opacity: 1,
+
+                                        transition:
+                                            "font-size 0.15s ease, transform 0.2s ease, opacity 0.15s ease",
+
+                                        whiteSpace:
+                                            "nowrap",
                                     }}
                                 >
-                                    {(Number(item.total_payables) / 1000000).toFixed(2)}
+                                    {(
+                                        Number(
+                                            item.total_receivables
+                                        ) / 1000000
+                                    ).toFixed(2)}
                                 </div>
 
-                                {/* Bar */}
+                                {/* =================================================
+                                    BAR
+                                    Stylish animated bar
+                                ================================================= */}
                                 <div
                                     style={{
-                                        width: isHovered ? "78%" : "70%",
-                                        maxWidth: 38,
-                                        height,
-                                        minHeight: 3,
-                                        background: BLUE_2,
-                                        borderRadius: "2px 2px 0 0",
+                                        width: isHovered
+                                            ? "82%"
+                                            : "72%",
+
+                                        maxWidth: 42,
+
+                                        height: chartLoaded
+                                            ? height
+                                            : 0,
+
+                                        minHeight:
+                                            chartLoaded
+                                                ? 4
+                                                : 0,
+
+                                        /*
+                                         * Stylish gradient
+                                         */
+                                        background:
+                                            "linear-gradient(180deg, #5b5bea 0%, #3f46c6 55%, #3038a8 100%)",
+
+                                        /*
+                                         * More rounded top
+                                         */
+                                        borderRadius:
+                                            "7px 7px 2px 2px",
+
                                         cursor: "pointer",
-                                        opacity: isHovered ? 0.85 : 1,
-                                        boxShadow: isHovered
-                                            ? "0 3px 10px rgba(91, 91, 234, 0.25)"
-                                            : "none",
+
+                                        /*
+                                         * Hover becomes brighter
+                                         */
+                                        opacity:
+                                            isHovered
+                                                ? 1
+                                                : 0.94,
+
+                                        /*
+                                         * Stylish shadow
+                                         */
+                                        boxShadow:
+                                            isHovered
+                                                ? "0 6px 16px rgba(91, 91, 234, 0.38)"
+                                                : "0 3px 8px rgba(91, 91, 234, 0.16)",
+
+                                        /*
+                                         * Subtle border
+                                         */
+                                        border:
+                                            "1px solid rgba(255,255,255,0.25)",
+
+                                        boxSizing:
+                                            "border-box",
+
+                                        /*
+                                         * Existing load animation
+                                         * + hover animation
+                                         */
                                         transition:
-                                            "width 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease",
+                                            "height 0.65s cubic-bezier(0.22, 1, 0.36, 1), " +
+                                            "width 0.18s ease, " +
+                                            "opacity 0.18s ease, " +
+                                            "box-shadow 0.2s ease, " +
+                                            "border-radius 0.2s ease",
+
+                                        /*
+                                         * Keep staggered load animation
+                                         */
+                                        transitionDelay:
+                                            chartLoaded
+                                                ? `${index * 45}ms`
+                                                : "0ms",
                                     }}
                                 />
 
-                                {/* Month */}
+                                {/* =================================================
+                                    MONTH
+                                ================================================= */}
                                 <div
                                     style={{
-                                        position: "absolute",
+                                        position:
+                                            "absolute",
                                         bottom: -25,
                                         fontSize: 10,
                                         fontWeight: 800,
                                         color: "#475569",
-                                        whiteSpace: "nowrap",
+                                        whiteSpace:
+                                            "nowrap",
                                     }}
                                 >
                                     {item.month}
@@ -4472,8 +2739,9 @@ function TrendChart({ data, currency }) {
                 </div>
 
                 {/* =====================================================
-            DPO LINE
-        ===================================================== */}
+                    DSO LINE
+                    Existing behavior preserved
+                ===================================================== */}
                 <svg
                     style={{
                         position: "absolute",
@@ -4484,6 +2752,17 @@ function TrendChart({ data, currency }) {
                         height: 125,
                         pointerEvents: "none",
                         overflow: "visible",
+
+                        opacity: chartLoaded
+                            ? 1
+                            : 0,
+
+                        transform: chartLoaded
+                            ? "translateY(0)"
+                            : "translateY(8px)",
+
+                        transition:
+                            "opacity 0.7s ease 0.25s, transform 0.7s ease 0.25s",
                     }}
                     viewBox="0 0 600 125"
                     preserveAspectRatio="none"
@@ -4494,21 +2773,46 @@ function TrendChart({ data, currency }) {
                                 const x =
                                     data.length === 1
                                         ? 300
-                                        : (index / (data.length - 1)) * 600;
+                                        : (index /
+                                            (data.length -
+                                                1)) *
+                                        600;
 
-                                const minDpo = Math.min(
-                                    ...data.map((d) => Number(d.dpo))
-                                );
+                                const minDso =
+                                    Math.min(
+                                        ...data.map(
+                                            (d) =>
+                                                Number(
+                                                    d.dso
+                                                )
+                                        )
+                                    );
 
-                                const maxDpo = Math.max(
-                                    ...data.map((d) => Number(d.dpo))
-                                );
+                                const maxDso =
+                                    Math.max(
+                                        ...data.map(
+                                            (d) =>
+                                                Number(
+                                                    d.dso
+                                                )
+                                        )
+                                    );
 
-                                const range = Math.max(maxDpo - minDpo, 1);
+                                const range =
+                                    Math.max(
+                                        maxDso -
+                                        minDso,
+                                        1
+                                    );
 
                                 const y =
                                     105 -
-                                    ((Number(item.dpo) - minDpo) / range) * 80;
+                                    ((Number(
+                                        item.dso
+                                    ) -
+                                        minDso) /
+                                        range) *
+                                    80;
 
                                 return `${x},${y}`;
                             })
@@ -4519,37 +2823,66 @@ function TrendChart({ data, currency }) {
                         vectorEffect="non-scaling-stroke"
                     />
 
+                    {/* =================================================
+                        DSO POINTS
+                    ================================================= */}
                     {data.map((item, index) => {
                         const x =
                             data.length === 1
                                 ? 300
-                                : (index / (data.length - 1)) * 600;
+                                : (index /
+                                    (data.length -
+                                        1)) *
+                                600;
 
-                        const minDpo = Math.min(
-                            ...data.map((d) => Number(d.dpo))
+                        const minDso =
+                            Math.min(
+                                ...data.map((d) =>
+                                    Number(d.dso)
+                                )
+                            );
+
+                        const maxDso =
+                            Math.max(
+                                ...data.map((d) =>
+                                    Number(d.dso)
+                                )
+                            );
+
+                        const range = Math.max(
+                            maxDso - minDso,
+                            1
                         );
-
-                        const maxDpo = Math.max(
-                            ...data.map((d) => Number(d.dpo))
-                        );
-
-                        const range = Math.max(maxDpo - minDpo, 1);
 
                         const y =
                             105 -
-                            ((Number(item.dpo) - minDpo) / range) * 80;
+                            ((Number(item.dso) -
+                                minDso) /
+                                range) *
+                            80;
 
                         return (
                             <circle
                                 key={item.month}
                                 cx={x}
                                 cy={y}
-                                r={hoveredIndex === index ? 5 : 3}
+                                r={
+                                    hoveredIndex ===
+                                        index
+                                        ? 5
+                                        : 3
+                                }
                                 fill="#fff"
                                 stroke="#0e9f75"
-                                strokeWidth={hoveredIndex === index ? 3 : 2}
+                                strokeWidth={
+                                    hoveredIndex ===
+                                        index
+                                        ? 3
+                                        : 2
+                                }
                                 style={{
-                                    transition: "r 0.15s ease",
+                                    transition:
+                                        "r 0.15s ease",
                                 }}
                             />
                         );
@@ -4558,14 +2891,15 @@ function TrendChart({ data, currency }) {
             </div>
 
             {/* =====================================================
-          LEGEND
-      ===================================================== */}
+                LEGEND
+            ===================================================== */}
             <div
                 style={{
                     display: "flex",
-                    justifyContent: "center",
+                    justifyContent:
+                        "center",
                     gap: 20,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 800,
                     color: "#475569",
                     marginTop: -5,
@@ -4574,25 +2908,28 @@ function TrendChart({ data, currency }) {
                 <span>
                     <span
                         style={{
-                            display: "inline-block",
+                            display:
+                                "inline-block",
                             width: 10,
                             height: 8,
                             background: BLUE_2,
                             marginRight: 5,
                         }}
                     />
-                    Total Payables
+                    Total Receivables
                 </span>
 
                 <span>
                     <span
                         style={{
-                            display: "inline-block",
+                            display:
+                                "inline-block",
                             width: 18,
-                            borderTop: "2px dashed #0e9f75",
+                            borderTop:
+                                "2px dashed #0e9f75",
                             marginRight: 5,
-                            verticalAlign: "middle",
-
+                            verticalAlign:
+                                "middle",
                         }}
                     />
                     DSO (Days)
@@ -4601,197 +2938,1044 @@ function TrendChart({ data, currency }) {
         </div>
     );
 }
-
 /* ============================================================
    HORIZONTAL BAR CHART
    ============================================================ */
 
-function ParentDivisionChart({ data, currency }) {
+function ParentDivisionChart({ data, currency, onItemClick }) {
     const [hoveredIndex, setHoveredIndex] = useState(null);
+    const [page, setPage] = useState(1);
+    const [chartLoaded, setChartLoaded] = useState(false);
 
-    const max = Math.max(...data.map((item) => Number(item.amount || 0)));
+    // ADDED: tooltip mouse position only
+    const [tooltipPosition, setTooltipPosition] = useState({
+        x: 0,
+        y: 0,
+    });
+
+    const PAGE_SIZE = 5;
+
+    useEffect(() => {
+        setPage(1);
+        setHoveredIndex(null);
+        setChartLoaded(false);
+
+        const frame = requestAnimationFrame(() => {
+            setChartLoaded(true);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [data]);
+
+    // Normalize backend data
+    const chartData = Array.isArray(data)
+        ? data.map((item, index) => ({
+            name:
+                item?.name ??
+                item?.label ??
+                `Division ${index + 1}`,
+
+            amount: Number(
+                item?.amount ??
+                item?.total_receivables ??
+                0
+            ),
+
+            percentage: Number(
+                item?.percentage ??
+                item?.percentage_of_total ??
+                0
+            ),
+        }))
+        : [];
+
+    // Pagination
+    const totalPages = Math.max(
+        1,
+        Math.ceil(chartData.length / PAGE_SIZE)
+    );
+
+    const safePage = Math.min(
+        Math.max(page, 1),
+        totalPages
+    );
+
+    const startIndex = (safePage - 1) * PAGE_SIZE;
+
+    const paginatedChartData = chartData.slice(
+        startIndex,
+        startIndex + PAGE_SIZE
+    );
+
+    // Maximum amount used for bar width
+    const max = Math.max(
+        ...chartData.map((item) =>
+            Math.abs(item.amount)
+        ),
+        1
+    );
+
+    // Empty state
+    if (!chartData.length) {
+        return (
+            <div
+                style={{
+                    minHeight: 260,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#94a3b8",
+                    fontSize: 13,
+                    fontWeight: 600,
+                }}
+            >
+                No data available
+            </div>
+        );
+    }
+
+    const formatAmount = (amount) => {
+        const formatted = formatReceivablesCompact(
+            amount,
+            ""
+        );
+
+        return formatted.replace(
+            /^[A-Z]{3}\s*/,
+            ""
+        );
+    };
 
     return (
-        <div style={{ paddingTop: 5 }}>
-            {data.map((item, index) => {
-                const width =
-                    max > 0 ? (Number(item.amount || 0) / max) * 100 : 0;
+        <div
+            style={{
+                width: "100%",
+                overflow: "visible",
+            }}
+        >
+            {/* Chart Rows */}
+            <div
+                style={{
+                    width: "100%",
+                    overflow: "visible",
+                }}
+            >
+                {paginatedChartData.map((item, index) => {
+                    const actualIndex =
+                        startIndex + index;
 
-                const isHovered = hoveredIndex === index;
+                    const isHovered =
+                        hoveredIndex === actualIndex;
 
-                return (
-                    <div
-                        key={item.name}
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "70px 1fr 100px",
-                            alignItems: "center",
-                            gap: 8,
-                            // 👇 Gap between each horizontal bar
-                            marginBottom: index === data.length - 1 ? 0 : 25,
-                            position: "relative",
-                        }}
-                        onMouseEnter={() => setHoveredIndex(index)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                    >
-                        {/* Division Name */}
+                    const width =
+                        (Math.abs(item.amount) / max) * 100;
+
+                    const isNegative =
+                        item.amount < 0;
+
+                    return (
                         <div
+                            key={`${item.name}-${actualIndex}`}
+
+                            // CHANGED: track mouse position
+                            onMouseEnter={(e) => {
+                                setHoveredIndex(actualIndex);
+
+                                setTooltipPosition({
+                                    x: e.clientX,
+                                    y: e.clientY,
+                                });
+                            }}
+
+                            // ADDED: keep tooltip position updated
+                            onMouseMove={(e) => {
+                                if (
+                                    hoveredIndex ===
+                                    actualIndex
+                                ) {
+                                    setTooltipPosition({
+                                        x: e.clientX,
+                                        y: e.clientY,
+                                    });
+                                }
+                            }}
+
+                            onMouseLeave={() =>
+                                setHoveredIndex(null)
+                            }
+
+                            onClick={() =>
+                                onItemClick?.(item)
+                            }
+
                             style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                color: "#334155",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
+                                display: "grid",
+
+                                gridTemplateColumns:
+                                    "130px minmax(0, 1fr) 95px",
+
+                                alignItems: "center",
+                                columnGap: 9,
+
+                                marginBottom: 10,
+                                padding: "7px 8px",
+
+                                borderRadius: 9,
+
+                                background: isHovered
+                                    ? "#f8fbff"
+                                    : "transparent",
+
+                                border: isHovered
+                                    ? "1px solid #e5edf7"
+                                    : "1px solid transparent",
+
+                                boxShadow: isHovered
+                                    ? "0 3px 10px rgba(15, 23, 42, 0.05)"
+                                    : "none",
+
+                                cursor: onItemClick
+                                    ? "pointer"
+                                    : "default",
+
+                                transition:
+                                    "background 0.2s ease, border 0.2s ease, box-shadow 0.2s ease",
+
+                                position: "relative",
+
+                                zIndex: isHovered
+                                    ? 100
+                                    : 1,
+
+                                overflow: "visible",
                             }}
                         >
-                            {item.name}
-                        </div>
-
-                        {/* Bar */}
-                        <div
-                            style={{
-                                height: 17,
-                                background: "#eef3fb",
-                                borderRadius: 2,
-                                overflow: "hidden",
-                                cursor: "pointer",
-                            }}
-                        >
+                            {/* Division Name */}
                             <div
                                 style={{
-                                    height: "100%",
-                                    width: `${width}%`,
-                                    background: "#1464e8",
-                                    opacity: hoveredIndex !== null && !isHovered ? 0.65 : 1,
-                                    transition: "opacity 0.15s ease, width 0.2s ease",
-                                }}
-                            />
-                        </div>
+                                    minWidth: 0,
 
-                        {/* Value */}
-                        <div
-                            style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: "#27438b",
-                                textAlign: "right",
-                            }}
-                        >
-                            {formatPayablesCompact(item.amount, "").replace(/^[A-Z]{3}\s*/, "")}{" "}
-                            <span
-                                style={{
-                                    color: "#64748b",
-                                    fontWeight: 500,
+                                    whiteSpace: "normal",
+                                    overflowWrap: "anywhere",
+                                    wordBreak: "break-word",
+
+                                    fontSize: 13,
+                                    lineHeight: 1.3,
+                                    fontWeight: 700,
+
+                                    color: isHovered
+                                        ? "#0f172a"
+                                        : "#334155",
+
+                                    transition:
+                                        "color 0.2s ease",
                                 }}
+                                title={item.name}
                             >
-                                ({formatPercentage(item.percentage)})
-                            </span>
-                        </div>
+                                {item.name}
+                            </div>
 
-                        {/* Hover Tooltip */}
-                        {isHovered && (
+                            {/* Bar Area */}
                             <div
                                 style={{
-                                    position: "absolute",
-                                    left: "50%",
-                                    top: index === data.length - 1 ? "auto" : "100%",
-                                    bottom: index === data.length - 1 ? "100%" : "auto",
-                                    transform: "translateX(-50%)",
-                                    marginTop: index === data.length - 1 ? 0 : 6,
-                                    marginBottom: index === data.length - 1 ? 6 : 0,
-                                    zIndex: 9999,
-                                    background: "#ffffff",
-                                    border: "1px solid #dbe3ef",
-                                    borderRadius: 7,
-                                    boxShadow: "0 5px 18px rgba(15, 23, 42, 0.16)",
-                                    padding: "8px 11px",
-                                    minWidth: 165,
-                                    whiteSpace: "nowrap",
-                                    pointerEvents: "none",
+                                    position: "relative",
+                                    width: "100%",
+                                    minWidth: 0,
+                                    height: 18,
+
+                                    background: "#edf2f8",
+
+                                    borderRadius: 999,
+
+                                    overflow: "visible",
+
+                                    transition:
+                                        "background 0.2s ease",
+
+                                    zIndex: isHovered
+                                        ? 2
+                                        : 1,
                                 }}
                             >
+                                {/* Bar */}
+                                <div
+                                    onMouseEnter={(e) => {
+                                        setHoveredIndex(
+                                            actualIndex
+                                        );
+
+                                        setTooltipPosition({
+                                            x: e.clientX,
+                                            y: e.clientY,
+                                        });
+                                    }}
+                                    style={{
+                                        position: "absolute",
+                                        left: 0,
+                                        top: 0,
+
+                                        height: "100%",
+
+                                        width: chartLoaded
+                                            ? `${Math.max(
+                                                width,
+                                                2
+                                            )}%`
+                                            : "0%",
+
+                                        borderRadius: 999,
+
+                                        background: isNegative
+                                            ? "linear-gradient(90deg, #ef4444, #dc2626)"
+                                            : "linear-gradient(90deg, #1464e8, #3b82f6)",
+
+                                        transform: isHovered
+                                            ? "scaleY(1.18)"
+                                            : "scaleY(1)",
+
+                                        transformOrigin:
+                                            "center",
+
+                                        boxShadow: isHovered
+                                            ? isNegative
+                                                ? "0 4px 12px rgba(220, 38, 38, 0.30)"
+                                                : "0 4px 12px rgba(20, 100, 232, 0.30)"
+                                            : "0 1px 3px rgba(15, 23, 42, 0.08)",
+
+                                        filter: isHovered
+                                            ? "brightness(1.06)"
+                                            : "brightness(1)",
+
+                                        opacity:
+                                            chartLoaded
+                                                ? 1
+                                                : 0,
+
+                                        transition:
+                                            "width 0.7s ease, transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.35s ease",
+
+                                        zIndex: isHovered
+                                            ? 3
+                                            : 1,
+                                    }}
+                                />
+                            </div>
+
+                            {/* Value + Percentage */}
+                            <div
+                                style={{
+                                    minWidth: 0,
+
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "flex-end",
+
+                                    lineHeight: 1.2,
+                                }}
+                            >
+                                {/* Chart Value */}
                                 <div
                                     style={{
+                                        fontSize: 11,
+                                        fontWeight: 800,
+
+                                        color: isHovered
+                                            ? "#0f172a"
+                                            : "#334155",
+
+                                        whiteSpace: "nowrap",
+
+                                        transition:
+                                            "color 0.2s ease",
+                                    }}
+                                >
+                                    {formatAmount(
+                                        item.amount
+                                    )}
+                                </div>
+
+                                {/* Chart Percentage */}
+                                <div
+                                    style={{
+                                        marginTop: 2,
+
                                         fontSize: 10,
-                                        fontWeight: 900,
-                                        color: "#173b8f",
-                                        marginBottom: 5,
+
+                                        fontWeight: 650,
+
+                                        color: isHovered
+                                            ? "#475569"
+                                            : "#64748b",
+
+                                        whiteSpace: "nowrap",
+
+                                        transition:
+                                            "color 0.2s ease",
                                     }}
                                 >
-                                    {item.name}
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        gap: 18,
-                                        fontSize: 11, fontWeight: 900,
-                                        marginBottom: 3,
-                                    }}
-                                >
-                                    <span style={{ color: "#64748b" }}>
-                                        Payables
-                                    </span>
-
-                                    <span
-                                        style={{
-                                            color: "#27438b",
-                                            fontWeight: 800,
-                                        }}
-                                    >
-                                        {formatPayablesCompact(item.amount, currency)}
-                                    </span>
-                                </div>
-
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        gap: 18,
-                                        fontSize: 11, fontWeight: 900,
-                                    }}
-                                >
-                                    <span style={{ color: "#64748b" }}>
-                                        Percentage
-                                    </span>
-
-                                    <span
-                                        style={{
-                                            color: "#27438b",
-                                            fontWeight: 800,
-                                        }}
-                                    >
-                                        {formatPercentage(item.percentage)}
-                                    </span>
+                                    {item.percentage.toFixed(
+                                        2
+                                    )}
+                                    %
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    );
+                })}
+            </div>
 
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: 5,
+
+                        marginTop: 8,
+                    }}
+                >
+                    {/* First */}
+                    <button
+                        type="button"
+                        onClick={() => setPage(1)}
+                        disabled={safePage === 1}
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === 1
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === 1
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === 1
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        «
+                    </button>
+
+                    {/* Previous */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPage((p) =>
+                                Math.max(1, p - 1)
+                            )
+                        }
+                        disabled={safePage === 1}
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === 1
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === 1
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === 1
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        ‹
+                    </button>
+
+                    {/* Current Page */}
+                    <div
+                        style={{
+                            minWidth: 32,
+                            height: 28,
+
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+
+                            padding: "0 7px",
+
+                            borderRadius: 7,
+
+                            background: "#1464e8",
+                            color: "#fff",
+
+                            fontSize: 11,
+                            fontWeight: 700,
+
+                            boxShadow:
+                                "0 2px 6px rgba(20, 100, 232, 0.20)",
+                        }}
+                    >
+                        {safePage}
                     </div>
-                );
-            })}
+
+                    {/* Next */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPage((p) =>
+                                Math.min(
+                                    totalPages,
+                                    p + 1
+                                )
+                            )
+                        }
+                        disabled={
+                            safePage === totalPages
+                        }
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === totalPages
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === totalPages
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        ›
+                    </button>
+
+                    {/* Last */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPage(totalPages)
+                        }
+                        disabled={
+                            safePage === totalPages
+                        }
+                        style={{
+                            width: 28,
+                            height: 28,
+
+                            borderRadius: 7,
+                            border:
+                                "1px solid #e2e8f0",
+
+                            background:
+                                safePage === totalPages
+                                    ? "#f8fafc"
+                                    : "#fff",
+
+                            color:
+                                safePage === totalPages
+                                    ? "#cbd5e1"
+                                    : "#475569",
+
+                            cursor:
+                                safePage === totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+
+                            fontSize: 12,
+                            fontWeight: 700,
+                        }}
+                    >
+                        »
+                    </button>
+                </div>
+            )}
+
+            {/* =====================================================
+                FIXED TOOLTIP
+                This is outside all chart rows.
+               ===================================================== */}
+            {hoveredIndex !== null &&
+                chartData[hoveredIndex] &&
+                createPortal(
+                    <>
+                        <div
+                            style={{
+                                position: "fixed",
+
+                                /*
+                                 * Position beside the mouse so it
+                                 * cannot be clipped by chart rows.
+                                 */
+                                left: Math.max(8, Math.min(
+                                    tooltipPosition.x + 14,
+                                    window.innerWidth - 278
+                                )),
+
+                                top: tooltipPosition.y < 92
+                                    ? Math.min(window.innerHeight - 8, tooltipPosition.y + 16)
+                                    : Math.max(8, Math.min(
+                                        tooltipPosition.y - 10,
+                                        window.innerHeight - 8
+                                    )),
+
+                                /*
+                                 * Above the pointer when there is room; below it near
+                                 * the top edge. The position is always viewport-clamped.
+                                 */
+                                transform:
+                                    tooltipPosition.y < 92
+                                        ? "translateY(0)"
+                                        : "translateY(-100%)",
+
+                                minWidth: 175,
+                                maxWidth: "min(260px, calc(100vw - 16px))",
+
+                                padding: "9px 11px",
+
+                                borderRadius: 8,
+
+                                background:
+                                    "rgba(15, 23, 42, 0.96)",
+
+                                color: "#fff",
+
+                                boxShadow:
+                                    "0 8px 20px rgba(15, 23, 42, 0.18)",
+
+                                pointerEvents:
+                                    "none",
+
+                                /*
+                                 * Very high so other chart rows
+                                 * cannot cover it.
+                                 */
+                                zIndex: 999999,
+
+                                animation:
+                                    "parentDivisionTooltipIn 0.16s ease-out",
+
+                                whiteSpace: "normal",
+
+                                overflowWrap:
+                                    "anywhere",
+
+                                wordBreak:
+                                    "break-word",
+
+                                width: "max-content",
+                            }}
+                        >
+                            {/* Tooltip Division Name */}
+                            <div
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    lineHeight: 1.35,
+
+                                    color: "#e2e8f0",
+
+                                    marginBottom: 6,
+                                }}
+                            >
+                                {
+                                    chartData[
+                                        hoveredIndex
+                                    ].name
+                                }
+                            </div>
+
+                            {/* Tooltip Receivables */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent:
+                                        "space-between",
+                                    alignItems: "center",
+
+                                    gap: 12,
+
+                                    fontSize: 11.5,
+                                    lineHeight: 1.35,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        color: "#aebccc",
+                                        fontWeight: 600,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Receivables
+                                </span>
+
+                                <span
+                                    style={{
+                                        color: "#fff",
+                                        fontWeight: 800,
+                                        whiteSpace:
+                                            "nowrap",
+                                    }}
+                                >
+                                    {formatAmount(
+                                        chartData[
+                                            hoveredIndex
+                                        ].amount
+                                    )}
+                                </span>
+                            </div>
+
+                            {/* Tooltip Percentage */}
+                            <div
+                                style={{
+                                    display: "flex",
+                                    justifyContent:
+                                        "space-between",
+                                    alignItems: "center",
+
+                                    gap: 12,
+
+                                    marginTop: 4,
+
+                                    fontSize: 11.5,
+                                    lineHeight: 1.35,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        color: "#aebccc",
+                                        fontWeight: 600,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Percentage
+                                </span>
+
+                                <span
+                                    style={{
+                                        color: "#fff",
+                                        fontWeight: 800,
+                                        whiteSpace:
+                                            "nowrap",
+                                    }}
+                                >
+                                    {chartData[
+                                        hoveredIndex
+                                    ].percentage.toFixed(2)}
+                                    %
+                                </span>
+                            </div>
+                        </div>
+                    </>,
+                    document.body
+                )}
+
+            {/* Tooltip Animation */}
+            <style>
+                {`
+                    @keyframes parentDivisionTooltipIn {
+                        from {
+                            opacity: 0;
+                        }
+
+                        to {
+                            opacity: 1;
+                        }
+                    }
+                `}
+            </style>
         </div>
     );
 }
 
 /* ============================================================
-   TABLE
-   ============================================================ */
+   DATA TABLE
+============================================================ */
+
 function DataTable({
     columns,
     rows,
     compact = false,
     fitColumns = false,
     compactRows = false,
-    rowGap = false, // 👈 add this
+    rowGap = false,
+
+    // Pagination is opt-in so other tables are not affected
+    pageSize = null,
+
+    // When true, the LAST row is kept fixed as the Total row
+    keepFirstRow = false,
+
+    // Optional numbered pagination; disabled by default so other tables
+    // keep their existing pagination behavior.
+    showPageNumbers = false,
+
+    // Optional compact pagination matching the dashboard screenshot.
+    paginationStyle = "default",
+
+    // Optional cell-level click handler; disabled by default so existing
+    // tables keep their current behavior.
+    onCellClick = null,
 }) {
+    const [currentPage, setCurrentPage] = useState(1);
+
+    /*
+     * If keepFirstRow is true:
+     * - Last row is always displayed as the Total row
+     * - Remaining rows are paginated
+     *
+     * If false:
+     * - Existing behavior remains unchanged
+     */
+    const fixedTotalRow =
+        keepFirstRow && rows.length > 0
+            ? rows[rows.length - 1]
+            : null;
+
+    const paginatedRows =
+        keepFirstRow && rows.length > 0
+            ? rows.slice(0, -1)
+            : rows;
+
+    // Enable pagination only when pageSize is provided
+    const paginationEnabled =
+        pageSize !== null &&
+        Number(pageSize) > 0 &&
+        paginatedRows.length > Number(pageSize);
+
+    const totalPages = paginationEnabled
+        ? Math.ceil(
+            paginatedRows.length / Number(pageSize)
+        )
+        : 1;
+
+    // Keep current page valid if rows change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [rows]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+
+        if (currentPage < 1) {
+            setCurrentPage(1);
+        }
+    }, [currentPage, totalPages]);
+
+    const pageNumbers = useMemo(() => {
+        if (!showPageNumbers || totalPages <= 1) return [];
+        if (totalPages <= 7) {
+            return Array.from({ length: totalPages }, (_, index) => index + 1);
+        }
+
+        const pages = [1];
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+
+        if (start > 2) pages.push("ellipsis-left");
+        for (let page = start; page <= end; page += 1) pages.push(page);
+        if (end < totalPages - 1) pages.push("ellipsis-right");
+        pages.push(totalPages);
+
+        return pages;
+    }, [showPageNumbers, totalPages, currentPage]);
+
+    const startIndex = paginationEnabled
+        ? (currentPage - 1) * Number(pageSize)
+        : 0;
+
+    const displayedRows = paginationEnabled
+        ? paginatedRows.slice(
+            startIndex,
+            startIndex + Number(pageSize)
+        )
+        : paginatedRows;
+
+    // Check whether a value is negative
+    const isNegativeValue = (value) => {
+        if (value === null || value === undefined) {
+            return false;
+        }
+
+        if (typeof value === "number") {
+            return value < 0;
+        }
+
+        if (typeof value === "string") {
+            const cleaned = value
+                .replace(/,/g, "")
+                .replace(/\s/g, "");
+
+            // Handles:
+            // -123
+            // -123.45
+            // -5%
+            // AED -123.45
+            // -AED 123.45
+            return /^-/.test(cleaned) || /-\d/.test(cleaned);
+        }
+
+        return false;
+    };
+
+    // Render one table row
+    const renderRow = (
+        row,
+        rowIndex,
+        isFixedRow = false
+    ) => {
+        return (
+            <tr
+                key={
+                    row.id ||
+                    (isFixedRow
+                        ? "fixed-total-row"
+                        : `${startIndex}-${rowIndex}`)
+                }
+            >
+                {columns.map((column) => {
+                    const value = column.render
+                        ? column.render(row)
+                        : row[column.key];
+
+                    return (
+                        <td
+                            key={column.key}
+                            onClick={() => {
+                                if (typeof onCellClick === "function") {
+                                    onCellClick(row, column, value);
+                                }
+                            }}
+                            style={{
+                                cursor:
+                                    typeof onCellClick === "function"
+                                        ? "pointer"
+                                        : "default",
+                                padding: rowGap
+                                    ? "13px 4px"
+                                    : compactRows
+                                        ? "3px 4px"
+                                        : "6px 4px",
+
+                                lineHeight: rowGap
+                                    ? "17px"
+                                    : compactRows
+                                        ? "14px"
+                                        : "normal",
+
+                                borderBottom:
+                                    "1px solid #edf1f6",
+
+                                color: isNegativeValue(value)
+                                    ? "#dc2626"
+                                    : "#334155",
+
+                                fontWeight: 700,
+
+                                textAlign:
+                                    column.align || "left",
+
+                                width: column.width || undefined,
+
+                                whiteSpace:
+                                    column.key === "rank"
+                                        ? "nowrap"
+                                        : fitColumns
+                                            ? "normal"
+                                            : "nowrap",
+
+                                overflow:
+                                    column.key === "rank"
+                                        ? "visible"
+                                        : fitColumns
+                                            ? "hidden"
+                                            : "visible",
+
+                                textOverflow:
+                                    column.key === "rank"
+                                        ? "clip"
+                                        : fitColumns
+                                            ? "ellipsis"
+                                            : "clip",
+
+                                // Slight emphasis for fixed Total row
+                                ...(isFixedRow
+                                    ? {
+                                        fontWeight: 900,
+                                        background: "#f8fafc",
+                                        color:
+                                            column.key === "name"
+                                                ? "#172554"
+                                                : "#1E293B",
+                                    }
+                                    : {}),
+                            }}
+                        >
+                            {(() => {
+                                if (
+                                    typeof value ===
+                                    "string"
+                                ) {
+                                    return value
+                                        .replace(
+                                            /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
+                                            ""
+                                        )
+                                        .replace(
+                                            /^#\s*/,
+                                            ""
+                                        );
+                                }
+
+                                return value;
+                            })()}
+                        </td>
+                    );
+                })}
+            </tr>
+        );
+    };
+
     return (
         <div
             style={{
                 width: "100%",
-                overflowX: fitColumns ? "hidden" : "auto",
+                overflowX: fitColumns
+                    ? "hidden"
+                    : "auto",
                 border: "1px solid #e5eaf2",
                 borderRadius: 5,
             }}
@@ -4799,8 +3983,14 @@ function DataTable({
             <table
                 style={{
                     width: "100%",
-                    minWidth: fitColumns ? 0 : compact ? 520 : 650,
-                    tableLayout: fitColumns ? "fixed" : "auto",
+                    minWidth: fitColumns
+                        ? 0
+                        : compact
+                            ? 520
+                            : 650,
+                    tableLayout: fitColumns
+                        ? "fixed"
+                        : "auto",
                     borderCollapse: "collapse",
                     fontSize: 10,
                 }}
@@ -4811,14 +4001,19 @@ function DataTable({
                             <th
                                 key={column.key}
                                 style={{
-                                    background: "#eef4ff",
+                                    background:
+                                        "#eef4ff",
                                     color: BLUE,
                                     fontWeight: 700,
                                     padding: compactRows
                                         ? "5px 4px"
                                         : "7px 4px",
-                                    borderBottom: "1px solid #dce5f4",
-                                    textAlign: column.align || "left",
+                                    borderBottom:
+                                        "1px solid #dce5f4",
+                                    textAlign:
+                                        column.align ||
+                                        "left",
+                                    width: column.width || undefined,
                                     whiteSpace: fitColumns
                                         ? "normal"
                                         : "nowrap",
@@ -4831,173 +4026,643 @@ function DataTable({
                 </thead>
 
                 <tbody>
-                    {rows.map((row, rowIndex) => (
-                        <tr key={row.id || rowIndex}>
-                            {columns.map((column) => (
-                                <td
-                                    key={column.key}
-                                    style={{
-                                        padding: rowGap
-                                            ? "13px 4px" // 👈 more row spacing
-                                            : compactRows
-                                                ? "3px 4px"
-                                                : "6px 4px",
+                    {/* PAGINATED SUB-DIVISION ROWS */}
+                    {displayedRows.map(
+                        (row, rowIndex) =>
+                            renderRow(
+                                row,
+                                rowIndex,
+                                false
+                            )
+                    )}
 
-                                        lineHeight: rowGap
-                                            ? "17px"
-                                            : compactRows
-                                                ? "14px"
-                                                : "normal",
-
-                                        borderBottom:
-                                            rowIndex === rows.length - 1
-                                                ? "none"
-                                                : "1px solid #edf1f6",
-
-                                        color: "#334155", fontWeight: 700,
-                                        textAlign: column.align || "left",
-
-                                        whiteSpace: fitColumns
-                                            ? "normal"
-                                            : "nowrap",
-
-                                        overflow: fitColumns
-                                            ? "hidden"
-                                            : "visible",
-
-                                        textOverflow: fitColumns
-                                            ? "ellipsis"
-                                            : "clip",
-                                    }}
-                                >
-                                    {(() => {
-                                        const value = column.render
-                                            ? column.render(row)
-                                            : row[column.key];
-
-                                        if (typeof value === "string") {
-                                            return value
-                                                .replace(
-                                                    /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
-                                                    ""
-                                                )
-                                                .replace(/^#\s*/, "");
-                                        }
-
-                                        return value;
-                                    })()}
-                                </td>
-                            ))}
-                        </tr>
-                    ))}
+                    {/* FIXED TOTAL ROW AT BOTTOM */}
+                    {fixedTotalRow &&
+                        renderRow(
+                            fixedTotalRow,
+                            0,
+                            true
+                        )}
                 </tbody>
             </table>
+
+            {/* Pagination AFTER Total row */}
+            {paginationEnabled && paginationStyle === "compact" && (
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        padding: "9px 8px",
+                        borderTop: "1px solid #edf1f6",
+                        background: "#ffffff",
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: 9.5,
+                            color: "#64748b",
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        Showing {startIndex + 1}–{Math.min(startIndex + Number(pageSize), paginatedRows.length)} of {paginatedRows.length}
+                    </span>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        {[
+                            { label: "‹‹", action: () => setCurrentPage(1), disabled: currentPage === 1 },
+                            { label: "‹", action: () => setCurrentPage((p) => Math.max(1, p - 1)), disabled: currentPage === 1 },
+                            { label: String(currentPage), active: true, action: () => { }, disabled: false },
+                            { label: "›", action: () => setCurrentPage((p) => Math.min(totalPages, p + 1)), disabled: currentPage === totalPages },
+                            { label: "››", action: () => setCurrentPage(totalPages), disabled: currentPage === totalPages },
+                        ].map((item) => (
+                            <button
+                                key={item.label}
+                                type="button"
+                                onClick={item.action}
+                                disabled={item.disabled}
+                                style={{
+                                    width: 28,
+                                    height: 25,
+                                    padding: 0,
+                                    border: "1px solid #dbe3ef",
+                                    borderRadius: 5,
+                                    background: item.active ? "#172f80" : item.disabled ? "#f8fafc" : "#ffffff",
+                                    color: item.active ? "#ffffff" : item.disabled ? "#cbd5e1" : "#27438b",
+                                    fontSize: item.label.length > 1 ? 12 : 14,
+                                    fontWeight: 800,
+                                    cursor: item.disabled ? "not-allowed" : "pointer",
+                                }}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {paginationEnabled && paginationStyle !== "compact" && (
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "10px 8px",
+                        borderTop:
+                            "1px solid #edf1f6",
+                        background: "#ffffff",
+                    }}
+                >
+                    {/* First */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setCurrentPage(1)
+                        }
+                        disabled={currentPage === 1}
+                        style={{
+                            padding: "4px 8px",
+                            border:
+                                "1px solid #dbe3ef",
+                            borderRadius: 5,
+                            background:
+                                currentPage === 1
+                                    ? "#f1f5f9"
+                                    : "#ffffff",
+                            color:
+                                currentPage === 1
+                                    ? "#94a3b8"
+                                    : "#27438b",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor:
+                                currentPage === 1
+                                    ? "not-allowed"
+                                    : "pointer",
+                        }}
+                    >
+                        &lt;&lt; First
+                    </button>
+
+                    {/* Previous */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setCurrentPage((prev) =>
+                                Math.max(
+                                    1,
+                                    prev - 1
+                                )
+                            )
+                        }
+                        disabled={currentPage === 1}
+                        style={{
+                            padding: "4px 9px",
+                            border:
+                                "1px solid #dbe3ef",
+                            borderRadius: 5,
+                            background:
+                                currentPage === 1
+                                    ? "#f1f5f9"
+                                    : "#ffffff",
+                            color:
+                                currentPage === 1
+                                    ? "#94a3b8"
+                                    : "#27438b",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor:
+                                currentPage === 1
+                                    ? "not-allowed"
+                                    : "pointer",
+                        }}
+                    >
+                        Previous
+                    </button>
+
+                    {showPageNumbers ? (
+                        pageNumbers.map((pageNumber) =>
+                            typeof pageNumber === "string" ? (
+                                <span
+                                    key={pageNumber}
+                                    style={{
+                                        minWidth: 20,
+                                        textAlign: "center",
+                                        fontSize: 10,
+                                        color: "#94a3b8",
+                                        fontWeight: 700,
+                                    }}
+                                >
+                                    …
+                                </span>
+                            ) : (
+                                <button
+                                    key={pageNumber}
+                                    type="button"
+                                    onClick={() => setCurrentPage(pageNumber)}
+                                    style={{
+                                        minWidth: 27,
+                                        height: 25,
+                                        padding: "0 6px",
+                                        border: pageNumber === currentPage
+                                            ? "1px solid #5b5bea"
+                                            : "1px solid #dbe3ef",
+                                        borderRadius: 5,
+                                        background: pageNumber === currentPage
+                                            ? "#5b5bea"
+                                            : "#ffffff",
+                                        color: pageNumber === currentPage
+                                            ? "#ffffff"
+                                            : "#27438b",
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    {pageNumber}
+                                </button>
+                            )
+                        )
+                    ) : (
+                        <span
+                            style={{
+                                minWidth: 45,
+                                textAlign: "center",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: "#64748b",
+                            }}
+                        >
+                            {currentPage} / {totalPages}
+                        </span>
+                    )}
+
+                    {/* Next */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setCurrentPage((prev) =>
+                                Math.min(
+                                    totalPages,
+                                    prev + 1
+                                )
+                            )
+                        }
+                        disabled={
+                            currentPage === totalPages
+                        }
+                        style={{
+                            padding: "4px 9px",
+                            border:
+                                "1px solid #dbe3ef",
+                            borderRadius: 5,
+                            background:
+                                currentPage ===
+                                    totalPages
+                                    ? "#f1f5f9"
+                                    : "#ffffff",
+                            color:
+                                currentPage ===
+                                    totalPages
+                                    ? "#94a3b8"
+                                    : "#27438b",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor:
+                                currentPage ===
+                                    totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+                        }}
+                    >
+                        Next
+                    </button>
+
+                    {/* Last */}
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setCurrentPage(totalPages)
+                        }
+                        disabled={
+                            currentPage === totalPages
+                        }
+                        style={{
+                            padding: "4px 8px",
+                            border:
+                                "1px solid #dbe3ef",
+                            borderRadius: 5,
+                            background:
+                                currentPage ===
+                                    totalPages
+                                    ? "#f1f5f9"
+                                    : "#ffffff",
+                            color:
+                                currentPage ===
+                                    totalPages
+                                    ? "#94a3b8"
+                                    : "#27438b",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor:
+                                currentPage ===
+                                    totalPages
+                                    ? "not-allowed"
+                                    : "pointer",
+                        }}
+                    >
+                        Last &gt;&gt;
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
 /* ============================================================
+   RECEIVABLES-STYLE PAGE SKELETON FOR RECEIVABLES
+   ============================================================ */
+function ReceivablesPageSkeleton() {
+    return (
+        <div className="receivables-page-skeleton" aria-hidden="true">
+            <div className="receivables-skeleton-kpis">
+                {Array.from({ length: 5 }).map((_, index) => (
+                    <div className="receivables-skeleton-card" key={index}>
+                        <div className="receivables-skeleton-icon" />
+                        <div className="receivables-skeleton-copy">
+                            <div className="receivables-skeleton-line short" />
+                            <div className="receivables-skeleton-line value" />
+                            <div className="receivables-skeleton-line tiny" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <div className="receivables-skeleton-grid three">
+                {Array.from({ length: 3 }).map((_, index) => (
+                    <div className="receivables-skeleton-panel" key={index}>
+                        <div className="receivables-skeleton-line title" />
+                        <div className="receivables-skeleton-chart" />
+                    </div>
+                ))}
+            </div>
+            <div className="receivables-skeleton-grid three">
+                {Array.from({ length: 3 }).map((_, index) => (
+                    <div className="receivables-skeleton-panel compact" key={index}>
+                        <div className="receivables-skeleton-line title" />
+                        <div className="receivables-skeleton-table-line" />
+                        <div className="receivables-skeleton-table-line" />
+                        <div className="receivables-skeleton-table-line" />
+                        <div className="receivables-skeleton-table-line" />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/* ============================================================
    MAIN PAGE
    ============================================================ */
 
-export default function PayablesDashboard() {
-    const [filters, setFilters] = useState({
-        ...defaultPayablesFilters,
+export default function ReceivablesDashboard() {
+    const [filters, setFilters] = useState({ ...defaultReceivableFilters });
+    const [appliedFilters, setAppliedFilters] = useState({ ...defaultReceivableFilters });
+    const [filterOptions, setFilterOptions] = useState({
+        legal_groups: [], legal_entities: [], parent_divisions: [], sub_divisions: [],
+        reporting_currencies: [], as_on_dates: [], aging_bases: [], years: [],
     });
-
-    const [appliedFilters, setAppliedFilters] = useState({
-        ...defaultPayablesFilters,
-    });
-
+    const [dashboardResponse, setDashboardResponse] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [showFilters, setShowFilters] = useState(true);
     const [showViewAll, setShowViewAll] = useState(false);
+    const [viewAllContext, setViewAllContext] = useState({});
 
-    const data = useMemo(
-        () => getPayablesDataByBasis(appliedFilters.aging_basis),
-        [appliedFilters.aging_basis]
+    const buildApiFilters = (source = appliedFilters) => {
+        const ids = (values, options) => (Array.isArray(values) ? values : values ? [values] : [])
+            .map((label) => options.find((o) => String(o.label) === String(label) || String(o.value) === String(label))?.value ?? label)
+            .filter((value) => value !== "All" && value !== "");
+
+        return {
+            legal_group_id: ids(source.legal_group, filterOptions.legal_groups),
+            legal_entity_id: ids(source.legal_entities, filterOptions.legal_entities),
+            parent_division_id: ids(source.parent_divisions, filterOptions.parent_divisions),
+            subdivision_id: ids(source.sub_divisions, filterOptions.sub_divisions),
+            aging_basis: apiAgingBasis(source.aging_basis),
+            as_on_date: source.as_on_date || undefined,
+            reporting_currency: source.reporting_currency || "AED",
+            year: source.year,
+        };
+    };
+
+    const data = useMemo(() => normalizeDashboard(dashboardResponse || {}, appliedFilters), [dashboardResponse, appliedFilters]);
+    const kpis = data.kpis;
+    const currency = appliedFilters.reporting_currency || "AED";
+    const [momDisplayUnit, setMomDisplayUnit] = useState("AED");
+    const baseApiFilters = useMemo(() => buildApiFilters(), [appliedFilters, filterOptions]);
+
+    const mainLegalEntities = cascadeLegalEntities(filterOptions.legal_entities, filters.legal_group);
+    const mainParentDivisions = cascadeParentDivisions(
+        filterOptions.parent_divisions,
+        filters.legal_entities,
+        filters.legal_group
+    );
+    const mainSubDivisions = cascadeSubDivisions(
+        filterOptions.sub_divisions,
+        filters.parent_divisions,
+        filters.legal_entities,
+        filters.legal_group
     );
 
-    const kpis = data.kpis;
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const response = await getReceivableFilters();
+                const raw = response?.data ?? response ?? {};
+                const normalized = {
+                    legal_groups: normalizeOptions(raw.legal_groups),
+                    legal_entities: normalizeOptions(raw.legal_entities),
+                    parent_divisions: normalizeOptions(raw.parent_divisions),
+                    sub_divisions: normalizeOptions(raw.subdivisions || raw.sub_divisions),
+                    reporting_currencies: normalizeOptions(raw.reporting_currencies),
+                    as_on_dates: raw.as_on_dates || [],
+                    aging_bases: normalizeOptions(raw.aging_bases),
+                    years: Array.from(new Set((raw.as_on_dates || []).map((d) => Number(String(d).slice(0, 4))).filter(Boolean))),
+                };
+                const latestDate = normalized.as_on_dates[normalized.as_on_dates.length - 1] || "";
+                const currencyOption = normalized.reporting_currencies.find((x) => x.value === "AED" || x.label === "AED");
+                const dueOption = normalized.aging_bases.find((x) => x.value === "DUE_DATE" || String(x.label).toLowerCase().includes("due"));
+                if (!cancelled) {
+                    setFilterOptions(normalized);
+                    setFilters((prev) => ({
+                        ...prev,
+                        as_on_date: latestDate,
+                        reporting_currency: currencyOption?.value || "AED",
+                        aging_basis: dueOption?.label || "Due Date",
+                        year: Number(latestDate?.slice(0, 4)) || new Date().getFullYear(),
+                    }));
+                    setAppliedFilters((prev) => ({
+                        ...prev,
+                        as_on_date: latestDate,
+                        reporting_currency: currencyOption?.value || "AED",
+                        aging_basis: dueOption?.label || "Due Date",
+                        year: Number(latestDate?.slice(0, 4)) || new Date().getFullYear(),
+                    }));
+                }
+            } catch (error) {
+                console.error("Receivables filter options failed", error);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, []);
 
-    const currency = appliedFilters.reporting_currency;
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
 
-    const setFilter = (key, value) => {
-        setFilters((previous) => ({
-            ...previous,
-            [key]: value,
-        }));
-    };
+        (async () => {
+            try {
+                const [dashboardResponseValue, momResponse] = await Promise.all([
+                    getReceivableDashboard(baseApiFilters),
+                    getReceivableMonthOnMonth(baseApiFilters),
+                ]);
 
-    const handleApply = () => {
-        /*
-         * IMPORTANT:
-         * aging_basis is preserved exactly here.
-         * Future API calls should send:
-         *
-         * {
-         *   ...filters,
-         *   aging_basis: filters.aging_basis
-         * }
-         */
-        setAppliedFilters({
-            ...filters,
-            aging_basis:
-                filters.aging_basis === "Invoice Date"
-                    ? "Invoice Date"
-                    : "Due Date",
-        });
-    };
+                if (cancelled) return;
+
+                // Dashboard endsoint provides the main sections.
+                // Month-on-Month is a separate endsoint, so merge it into
+                // the same normalized shape expected by the existing UI.
+                const dashboardPayload =
+                    dashboardResponseValue?.data &&
+                        !Array.isArray(dashboardResponseValue.data)
+                        ? dashboardResponseValue.data
+                        : dashboardResponseValue?.data ?? dashboardResponseValue ?? {};
+
+                const momPayload =
+                    momResponse?.data?.data ??
+                    momResponse?.data ??
+                    momResponse ??
+                    {};
+
+                const normalizedMom =
+                    momPayload?.month_on_month ??
+                    momPayload?.monthOnMonth ??
+                    momPayload;
+
+                setDashboardResponse({
+                    ...dashboardResponseValue,
+                    data: {
+                        ...dashboardPayload,
+                        month_on_month: normalizedMom || {},
+                    },
+                });
+            } catch (error) {
+                console.error("Receivables dashboard / month-on-month failed", error);
+                if (!cancelled) setDashboardResponse(null);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [baseApiFilters, appliedFilters, filterOptions]);
+
+    const setFilter = (key, value) => setFilters((previous) => ({ ...previous, [key]: value }));
+
+    const handleApply = () => setAppliedFilters({ ...filters, aging_basis: uiAgingBasis(filters.aging_basis) });
 
     const handleReset = () => {
-        const reset = {
-            ...defaultPayablesFilters,
-        };
-
+        const reset = { ...defaultReceivableFilters, as_on_date: filterOptions.as_on_dates?.[filterOptions.as_on_dates.length - 1] || "" };
         setFilters(reset);
         setAppliedFilters(reset);
     };
 
-    const handleExport = async (format) => {
+    const handleExport = async (format, extra = {}) => {
         try {
-            const result = await exportPayablesMock({
-                filters: appliedFilters,
-                format: format === "excel" ? "xlsx" : "pdf",
-            });
+            const apiFilters = {
+                ...buildApiFilters(),
+                ...extra,
+            };
 
-            // Keep the existing export integration point intact.
-            // Replace only the mock function later when the real API is connected.
-            console.log("Payables export", result);
+            const response =
+                String(format).toLowerCase() === "pdf"
+                    ? await exportReceivablesPDF(apiFilters)
+                    : await exportReceivablesExcel(apiFilters);
+
+            triggerReceivablesBlobDownload(
+                response,
+                String(format).toLowerCase() === "pdf"
+                    ? "Receivables_Report.pdf"
+                    : "Receivables_Report.xlsx"
+            );
         } catch (error) {
-            console.error("Payables export failed", error);
+            console.error("Receivables export failed", error);
         }
     };
 
-    const openPayablesViewAll = () => {
+    const openReceivablesViewAll = (extra = {}) => {
+        setViewAllContext(extra || {});
         setShowViewAll(true);
     };
 
+    /*
+     * Drill-down helpers
+     * ------------------------------------------------------------
+     * Aggregate "View All" continues to open the unfiltered
+     * view-all. Chart/table/KPI interactions add only the backend
+     * drill-down parameter required for that specific record.
+     *
+     * All current page filters are still supplied by ReceivablesViewAll
+     * through baseFilters/appliedViewFilters.
+     */
+    const openAgingDrilldown = (item) => {
+        const bucket = item?.bucket_code;
+        if (bucket) openReceivablesViewAll({ aging_bucket: bucket, component: "Aging Summary" });
+    };
+
+    const openTrendDrilldown = (point) => {
+        if (point?.as_on_date) {
+            openReceivablesViewAll({ as_on_date: point.as_on_date, component: "Monthly Trend" });
+        }
+    };
+
+    const openParentDivisionDrilldown = (item) => {
+        const value = item?.value;
+        if (value !== undefined && value !== null && value !== "") {
+            openReceivablesViewAll({ parent_division_id: value, component: "Parent Division" });
+        }
+    };
+
+    const openCustomerDrilldown = (row) => {
+        const customerId = row?.customer_id;
+        if (customerId !== undefined && customerId !== null && customerId !== "") {
+            openReceivablesViewAll({ customer_id: customerId, component: "Top 10 Customers" });
+        }
+    };
+
+    const openOverdueDrilldown = () => {
+        openReceivablesViewAll({ balance_status: "OVERDUE" });
+    };
+
+    const openOverdueAbove90Drilldown = () => {
+        openReceivablesViewAll({ balance_status: "OVERDUE_ABOVE_90", component: "Overdue > 90 Days" });
+    };
+
+    const openSubdivisionDrilldown = (row) => {
+        const subdivisionId = row?.value;
+        if (
+            subdivisionId !== undefined &&
+            subdivisionId !== null &&
+            subdivisionId !== ""
+        ) {
+            openReceivablesViewAll({ subdivision_id: subdivisionId, component: "Sub-Division" });
+        }
+    };
+
+    const openMomDrilldown = (row, column) => {
+        const month = column?.key;
+        if (!month || !MONTHS.includes(month)) return;
+
+        const snapshotDates = row?._snapshot_dates || data?.snapshotDates || {};
+        const snapshotDate = snapshotDates[String(month).toUpperCase()];
+
+        if (!snapshotDate) return;
+
+        openReceivablesViewAll({
+            legal_entity_id: row?.legal_entity_id,
+            parent_division_id: row?.parent_division_id,
+            subdivision_id: row?.subdivision_id,
+            as_on_date: snapshotDate,
+            component: "Month-on-Month Receivables",
+        });
+    };
+
     const supplierRows = data.topSuppliers;
+
+    const subDivisionTableRows = useMemo(
+        () => [
+            ...data.subDivision,
+            {
+                id: "subdivision-total",
+                name: "Total",
+                amount: data.subDivision.reduce(
+                    (sum, item) => sum + Number(item.amount || 0),
+                    0
+                ),
+                percentage: 100,
+            },
+        ],
+        [data.subDivision]
+    );
 
     const supplierColumns = [
         {
             key: "rank",
             label: "#",
-            align: "left",
+            align: "center",
+            width: "8%",
         },
         {
             key: "supplier_name",
             label: "Customer Name",
+            width: "47%",
+            render: (row) => capitalizeTableText(row.supplier_name),
         },
         {
-            key: "payable_amount",
+            key: "receivable_amount",
             label: `Receivables (${currency})`,
             align: "right",
+            width: "24%",
             render: (row) =>
-                formatPayablesCompact(row.payable_amount, currency),
+                formatReceivablesCompact(row.receivable_amount, currency),
         },
         {
             key: "percentage",
             label: "% of Total",
             align: "right",
+            width: "21%",
             render: (row) => formatPercentage(row.percentage),
         },
     ];
@@ -5006,18 +4671,22 @@ export default function PayablesDashboard() {
         {
             key: "name",
             label: "Sub-Division",
+            width: "50%",
+            render: (row) => row.id === "subdivision-total" ? "Total:" : capitalizeTableText(row.name),
         },
         {
             key: "amount",
             label: `Receivables (${currency})`,
             align: "right",
+            width: "28%",
             render: (row) =>
-                formatPayablesCompact(row.amount, currency),
+                formatReceivablesCompact(row.amount, currency),
         },
         {
             key: "percentage",
             label: "% of Total",
             align: "right",
+            width: "22%",
             render: (row) => formatPercentage(row.percentage),
         },
     ];
@@ -5039,18 +4708,19 @@ export default function PayablesDashboard() {
             key: month,
             label: month,
             align: "right",
-            render: (row) => formatMoMValue(row[month]),
+            render: (row) => formatMoMValue(row[month], momDisplayUnit),
         })),
         {
             key: "latest",
             label: "Latest",
             align: "right",
-            render: (row) => formatMoMValue(row.latest),
+            render: (row) => formatMoMValue(row.latest, momDisplayUnit),
         },
     ];
 
     return (
         <div
+            className="receivables-sales-ui"
             style={{
                 minHeight: "100vh",
                 background: BG,
@@ -5059,15 +4729,298 @@ export default function PayablesDashboard() {
                 color: TEXT,
             }}
         >
+            <style>{`
+        .receivables-sales-ui {
+          --sales-navy: #0f172a;
+          --sales-slate: #64748b;
+          --sales-blue: #4f46e5;
+          --sales-border: rgba(0,0,0,0.04);
+          --sales-bg: #f8fafc;
+          --sales-surface: #ffffff;
+          --sales-border-strong: #e2e8f0;
+        }
+        .receivables-sales-ui, .receivables-sales-ui * { box-sizing: border-box; }
+        .receivables-sales-ui {
+          background: var(--sales-bg) !important;
+          color: var(--sales-navy);
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .receivables-sales-ui main {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+          color: var(--sales-navy);
+          animation: fadeInUp 0.35s ease forwards;
+        }
+        .receivables-sales-ui h1 {
+          color: var(--sales-navy) !important;
+          font-size: 1.45rem !important;
+          font-weight: 800 !important;
+          line-height: 1.15 !important;
+          letter-spacing: -0.02em !important;
+        }
+        .receivables-sales-ui .sales-style-subtitle {
+          color: var(--sales-slate) !important;
+          font-size: 0.78rem !important;
+          line-height: 1.45 !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar {
+          padding: 10px 14px !important;
+          margin-top: 0 !important;
+          margin-bottom: 16px !important;
+          gap: 6px !important;
+          border: 1px solid var(--sales-border) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03) !important;
+          background: #fff !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar {
+          display: grid !important;
+          grid-template-columns: repeat(7, minmax(0, 1fr)) auto auto !important;
+          align-items: end !important;
+          gap: 8px !important;
+          width: 100% !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > div {
+          min-width: 0 !important;
+          width: 100% !important;
+          max-width: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > button {
+          width: auto !important;
+          min-width: 72px !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar label {
+          color: #1e3a8a !important;
+          font-size: 0.66rem !important;
+          font-weight: 700 !important;
+          line-height: 1.2 !important;
+          margin-bottom: 4px !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input,
+        .receivables-sales-ui .sales-style-filter-bar select,
+        .receivables-sales-ui .sales-style-filter-bar > div > button {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > div > button {
+          height: 32px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 7px !important;
+          background: #fff !important;
+          color: #334155 !important;
+          font-size: 0.72rem !important;
+          font-weight: 600 !important;
+          box-shadow: none !important;
+          transition: all 0.15s !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar > div > button:hover {
+          border-color: #c7d2fe !important;
+          background: #f8fafc !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input,
+        .receivables-sales-ui .sales-style-filter-bar select {
+          min-height: 32px !important;
+          height: 32px !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 7px !important;
+          background: #fff !important;
+          color: #334155 !important;
+          font-size: 0.72rem !important;
+          font-weight: 600 !important;
+          outline: none !important;
+          box-shadow: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input[type="date"] {
+          width: 100% !important;
+          min-width: 0 !important;
+          padding-left: 26px !important;
+          padding-right: 6px !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar input:focus,
+        .receivables-sales-ui .sales-style-filter-bar select:focus,
+        .receivables-sales-ui .sales-style-filter-bar > div > button:focus-visible {
+          border-color: #818cf8 !important;
+          box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important;
+          outline: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button {
+          transition: all 0.15s ease !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-apply-filter {
+          background: #4f46e5 !important;
+          color: #fff !important;
+          border: 1px solid #4f46e5 !important;
+          border-radius: 7px !important;
+          font-size: 0.70rem !important;
+          font-weight: 700 !important;
+          box-shadow: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-apply-filter:hover {
+          background: #4338ca !important;
+          border-color: #4338ca !important;
+          transform: translateY(-1px);
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-reset-filter {
+          background: #fff !important;
+          color: #64748b !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 7px !important;
+          font-size: 0.70rem !important;
+          font-weight: 600 !important;
+          box-shadow: none !important;
+        }
+        .receivables-sales-ui .sales-style-filter-bar button#btn-reset-filter:hover {
+          background: #f8fafc !important;
+          color: #334155 !important;
+          border-color: #cbd5e1 !important;
+        }
+        .receivables-sales-ui .receivables-row-2 {
+         align-items: stretch !important;
+          grid-auto-rows: auto !important;
+        }
+        .receivables-sales-ui .receivables-row-2 > section {
+          height: 100% !important;
+          min-height: 0 !important;
+          align-self: stretch !important;
+        }
+        .receivables-sales-ui .receivables-row-2 > section > :last-child {
+          min-height: 0 !important;
+        }
+        .receivables-sales-ui .receivables-kpi-grid {
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+          gap: 10px !important;
+          margin-top: 0 !important;
+          margin-bottom: 16px !important;
+        }
+        .receivables-sales-ui .sales-style-kpi {
+          border: none !important;
+          border-radius: 12px !important;
+          padding: 10px !important;
+          min-height: 74px !important;
+          box-shadow: none !important;
+          transition: all 0.25s cubic-bezier(0.4,0,0.2,1) !important;
+        }
+        .receivables-sales-ui .sales-style-kpi:hover {
+          box-shadow: 0 8px 24px rgba(37,99,235,0.10) !important;
+          transform: translateY(-2px) !important;
+        }
+        .receivables-sales-ui section {
+          background: #fff !important;
+          border: 1px solid rgba(0,0,0,0.04) !important;
+          border-radius: 16px !important;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03) !important;
+          transition: box-shadow 0.2s cubic-bezier(0.4,0,0.2,1) !important;
+        }
+        .receivables-sales-ui section:hover {
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
+        }
+        .receivables-sales-ui table th {
+          padding: 10px 16px !important;
+          font-size: 0.74rem !important;
+          font-weight: 700 !important;
+          color: #1e3a8a !important;
+          background: #f8fafc !important;
+          border-bottom: 2px solid #e2e8f0 !important;
+          white-space: nowrap;
+        }
+        .receivables-sales-ui table td {
+          padding: 8px 16px !important;
+          font-size: 0.74rem !important;
+          color: #334155 !important;
+          border-bottom-color: #f1f5f9 !important;
+        }
+        .receivables-sales-ui table tbody tr { transition: background 0.12s ease !important; }
+        .receivables-sales-ui table tbody tr:hover td { background: #f8fafc !important; }
+        .receivables-sales-ui .receivables-page-skeleton { display: block; width: 100%; margin-top: 4px; }
+        .receivables-sales-ui .receivables-skeleton-kpis,
+        .receivables-sales-ui .receivables-skeleton-grid { display: grid; gap: 10px; width: 100%; margin-bottom: 10px; }
+        .receivables-sales-ui .receivables-skeleton-kpis { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+        .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .receivables-sales-ui .receivables-skeleton-card,
+        .receivables-sales-ui .receivables-skeleton-panel {
+          background: #fff; border: 1px solid rgba(0,0,0,0.04); border-radius: 16px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.02), 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .receivables-sales-ui .receivables-skeleton-card { min-height: 74px; padding: 10px; display: flex; align-items: center; gap: 8px; }
+        .receivables-sales-ui .receivables-skeleton-panel { min-height: 280px; padding: 14px 16px; }
+        .receivables-sales-ui .receivables-skeleton-panel.compact { min-height: 250px; }
+        .receivables-sales-ui .receivables-skeleton-icon { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        .receivables-sales-ui .receivables-skeleton-copy { flex: 1; min-width: 0; }
+        .receivables-sales-ui .receivables-skeleton-line,
+        .receivables-sales-ui .receivables-skeleton-chart,
+        .receivables-sales-ui .receivables-skeleton-table-line { background: linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+        .receivables-sales-ui .receivables-skeleton-line { height: 9px; border-radius: 5px; }
+        .receivables-sales-ui .receivables-skeleton-line.short { width: 55%; margin-bottom: 8px; }
+        .receivables-sales-ui .receivables-skeleton-line.value { width: 78%; height: 15px; margin-bottom: 7px; }
+        .receivables-sales-ui .receivables-skeleton-line.tiny { width: 42%; height: 7px; }
+        .receivables-sales-ui .receivables-skeleton-line.title { width: 42%; margin-bottom: 18px; }
+        .receivables-sales-ui .receivables-skeleton-chart { width: 100%; height: 205px; border-radius: 9px; }
+        .receivables-sales-ui .receivables-skeleton-table-line { width: 100%; height: 10px; border-radius: 5px; margin: 14px 0; }
+        .receivables-sales-ui .receivables-action-menu button { border-radius: 6px; }
+        .receivables-sales-ui .receivables-action-menu > button:hover { background: #f1f5f9 !important; }
+        .receivables-sales-ui .receivables-action-menu > div {
+          animation: scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal {
+          position: fixed !important;
+          top: 0 !important;
+          left: 50% !important;
+          right: auto !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+          width: 96vw !important;
+          max-width: 1540px !important;
+          height: 100vh !important;
+          max-height: 100vh !important;
+          transform: translateX(-50%) !important;
+          border: 1px solid #e2e8f0 !important;
+          border-radius: 16px !important;
+          box-shadow: 0 0 0 100vmax rgba(15,23,42,0.35), 0 20px 60px rgba(0,0,0,0.18) !important;
+          background: #fff !important;
+          animation: receivablesViewAllModalIn 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards !important;
+        }
+        .receivables-sales-ui .sales-style-view-all-modal input,
+        .receivables-sales-ui .sales-style-view-all-modal select {
+          border-radius: 8px !important; font-size: 0.74rem !important;
+          border-color: #e2e8f0 !important; color: #334155 !important;
+          background: #fff !important;
+        }
+        .receivables-sales-ui button { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        @keyframes receivablesViewAllModalIn {
+          from { transform: translateX(-50%) scale(0.97); opacity: 0; }
+          to { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        @keyframes scaleUp {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        .receivables-sales-ui .receivables-sales-main { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .receivables-sales-ui .sales-style-filter-bar { min-height: 58px; }
+        .receivables-sales-ui .sales-style-filter-bar > div { min-width: 88px; }
+        .receivables-sales-ui .sales-style-view-all-modal { overflow-y: auto !important; overflow-x: hidden !important; }
+        .receivables-sales-ui .sales-style-view-all-modal > div:not([aria-hidden]) { box-sizing: border-box; }
+        .receivables-sales-ui .sales-style-view-all-modal table th { position: sticky; top: 0; z-index: 3; }
+        .receivables-sales-ui .sales-style-view-all-modal button:hover { transform: translateY(-1px); }
+        .receivables-sales-ui .sales-style-view-all-modal input:focus,
+        .receivables-sales-ui .sales-style-view-all-modal select:focus { border-color: #818cf8 !important; box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important; outline: none; }
+
+        @media (max-width: 1200px) { .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 800px) {
+          .receivables-sales-ui .receivables-skeleton-grid.three { grid-template-columns: 1fr; }
+          .receivables-sales-ui .sales-style-filter-bar { align-items: stretch !important; }
+          .receivables-sales-ui .sales-style-filter-bar > div { flex: 1 1 120px !important; }
+        }
+      `}</style>
             {/* ======================================================
           PAGE CONTENT
           ====================================================== */}
 
             <main
+                className="receivables-sales-main animate-in"
                 style={{
                     width: "100%",
                     boxSizing: "border-box",
-                    padding: "16px 18px 22px",
+                    padding: "20px 0 32px",
+                    background: "#f8fafc",
+                    minHeight: "100%",
                 }}
             >
                 {/* HEADER */}
@@ -5085,24 +5038,34 @@ export default function PayablesDashboard() {
                         <h1
                             style={{
                                 margin: 0,
-                                color: "#00000",
-                                fontSize: 26,
+                                color: "#0f172a",
+                                fontSize: "1.45rem",
                                 lineHeight: 1.1,
                                 fontWeight: 800,
+                                letterSpacing: "-0.02em",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
                             }}
                         >
-                            Receivables Dashboard
+                            <span style={{ fontSize: "1.3rem" }}>💰</span> Receivables Dashboard
                         </h1>
 
                         <div
+                            className="sales-style-subtitle"
                             style={{
                                 marginTop: 3,
-                                color: "#66789e",
-                                fontSize: 12,
+                                color: "#64748b",
+                                fontSize: "0.78rem",
                             }}
                         >
-                            Track receivables, aging, overdue exposure and payment
-                            performance
+                            Track receivables, aging, overdue exposure and payment performance
+                            <br />
+                            <span style={{ background: "#f1f5f9", padding: "2px 8px", borderRadius: 4, display: "inline-block", marginTop: 4, fontWeight: 600 }}>
+                                Viewing: {filters.as_on_date || appliedFilters.as_on_date || "—"}
+                            </span>
+                            &nbsp;|&nbsp;
+                            <span style={{ color: "#16a34a", fontWeight: 700 }}>Currency: {currency}</span>
                         </div>
                     </div>
 
@@ -5191,6 +5154,7 @@ export default function PayablesDashboard() {
             ================================================== */}
 
                 <div
+                    className="sales-style-filter-bar"
                     style={{
                         width: "100%",
                         boxSizing: "border-box",
@@ -5208,12 +5172,15 @@ export default function PayablesDashboard() {
                     <FilterSelect
                         label="Legal Group"
                         value={filters.legal_group}
-                        options={payablesFilterOptions.legal_groups}
+                        options={filterOptions.legal_groups.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
                                 legal_group: value,
+                                legal_entities: [],
+                                parent_divisions: [],
+                                sub_divisions: [],
                             }))
                         }
                     />
@@ -5221,12 +5188,14 @@ export default function PayablesDashboard() {
                     <FilterSelect
                         label="Legal Entity"
                         value={filters.legal_entities}
-                        options={payablesFilterOptions.legal_entities}
+                        options={mainLegalEntities.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
                                 legal_entities: value,
+                                parent_divisions: [],
+                                sub_divisions: [],
                             }))
                         }
                     />
@@ -5234,12 +5203,13 @@ export default function PayablesDashboard() {
                     <FilterSelect
                         label="Parent Division"
                         value={filters.parent_divisions}
-                        options={payablesFilterOptions.parent_divisions}
+                        options={mainParentDivisions.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
                                 parent_divisions: value,
+                                sub_divisions: [],
                             }))
                         }
                     />
@@ -5247,7 +5217,7 @@ export default function PayablesDashboard() {
                     <FilterSelect
                         label="Sub-Division"
                         value={filters.sub_divisions}
-                        options={payablesFilterOptions.sub_divisions}
+                        options={mainSubDivisions.map((x) => x.label)}
                         multiple
                         onChange={(value) =>
                             setFilters((prev) => ({
@@ -5260,7 +5230,7 @@ export default function PayablesDashboard() {
                     <FilterSelect
                         label="Reporting Currency"
                         value={filters.reporting_currency}
-                        options={payablesFilterOptions.reporting_currencies}
+                        options={filterOptions.reporting_currencies.map((x) => x.label)}
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
@@ -5272,7 +5242,7 @@ export default function PayablesDashboard() {
                     <FilterSelect
                         label="Aging Basis"
                         value={filters.aging_basis}
-                        options={payablesFilterOptions.aging_basis}
+                        options={filterOptions.aging_bases.map((x) => x.label)}
                         onChange={(value) =>
                             setFilters((prev) => ({
                                 ...prev,
@@ -5283,12 +5253,24 @@ export default function PayablesDashboard() {
 
                     <DateFilter
                         value={filters.as_on_date}
-                        onChange={(value) =>
+                        options={filterOptions?.as_on_dates || []}
+                        onChange={(value) => {
                             setFilters((prev) => ({
                                 ...prev,
                                 as_on_date: value,
-                            }))
-                        }
+                            }));
+
+                            // Clear the previous snapshot immediately so stale values
+                            // never remain visible while the newly selected date loads.
+                            setDashboardResponse(null);
+
+                            // Date selection refreshes every dashboard component immediately.
+                            setAppliedFilters((prev) => ({
+                                ...prev,
+                                as_on_date: value,
+                                year: Number(String(value).slice(0, 4)) || prev.year,
+                            }));
+                        }}
                     />
 
                     <button
@@ -5333,527 +5315,624 @@ export default function PayablesDashboard() {
                     </button>
                 </div>
 
-                {/* ==================================================
+
+                {loading ? (
+                    <ReceivablesPageSkeleton />
+                ) : (
+                    <>
+
+                        {/* ==================================================
             KPI CARDS
             ================================================== */}
 
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-                        gap: "9px",
-                        width: "100%",
-                        marginTop: "20px",
-                        marginBottom: "12px",
-                    }}
-                >
-                    <KpiCard
-                        title="Total Receivables"
-                        value={kpis.total_payables}
-                        variance={kpis.total_payables_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="▤"
-                        iconBg="#F5F9FF"
-                        iconColor="#2563eb"
-                    />
+                        <div
+                            style={{
+                                marginTop: "20px",
+                                display: "grid",
+                                gridTemplateColumns:
+                                    "repeat(5, minmax(0, 1fr))",
+                                gap: 9,
+                                marginBottom: 12,
+                            }}
+                        >
 
-                    <KpiCard
-                        title="Current Receivables"
-                        value={kpis.current_payables}
-                        variance={kpis.current_payables_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="▣"
-                        iconBg="#F3FCF6"
-                        iconColor="#0e9f75"
-                    />
 
-                    <KpiCard
-                        title="Overdue Receivables"
-                        value={kpis.overdue_payables}
-                        variance={kpis.overdue_payables_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="⌛"
-                        iconBg="#FFF9F3"
-                        iconColor="#f59e0b"
-                    />
+                            <KpiCard
+                                title="Total Receivables"
+                                value={kpis.total_receivables}
+                                variance={kpis.total_receivables_variance}
+                                previousDate={kpis?.previous_date}
+                                currency={currency}
+                                icon="▤"
+                                iconBg="#dbeafe"
+                                iconColor="#2563eb"
+                                cardBg="#f0f5ff"
 
-                    <KpiCard
-                        title="Overdue > 90 Days"
-                        value={kpis.overdue_gt_90}
-                        variance={kpis.overdue_gt_90_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="!"
-                        iconBg="#FFF7FA"
-                        iconColor="#ef476f"
-                    />
+                            />
 
-                    <KpiCard
-                        title="DSO – Days Sales Outstanding"
-                        value={kpis.dpo}
-                        variance={kpis.dpo_variance}
-                        previousDate={kpis.previous_date}
-                        suffix="Days"
-                        currency={currency}
-                        icon="%"
-                        iconBg="#F3FCFF"
-                        iconColor="#0ea5c9"
-                    />
-                        <KpiCard
-                        title="Invoice Settlement Efficiency"
-                        value={kpis.invoice_settlement_efficiency}
-                        variance={kpis.invoice_settlement_efficiency_variance}
-                        previousDate={kpis.previous_date}
-                        currency={currency}
-                        icon="⟳"
-                        iconBg="#F1F5F9"
-                        iconColor="#6D28D9"
-                    />
-                </div>
+                            <KpiCard
+                                title="Current Receivables"
+                                value={kpis.current_receivables}
+                                variance={kpis.current_receivables_variance}
+                                previousDate={kpis.previous_date}
+                                currency={currency}
+                                icon="▣"
+                                iconBg="#dcfce7"
+                                iconColor="#16a34a"
+                                cardBg="#f0fdf4"
+                            />
 
-                {/* ==================================================
+                            <KpiCard
+                                title="Overdue Receivables"
+                                value={kpis.overdue_receivables}
+                                variance={kpis.overdue_receivables_variance}
+                                previousDate={kpis.previous_date}
+                                currency={currency}
+                                icon="⌛"
+                                iconBg="#ffedd5"
+                                iconColor="#ea580c"
+                                cardBg="#fff7ed"
+                            />
+
+                            <KpiCard
+                                title="Overdue > 90 Days"
+                                value={kpis.overdue_gt_90}
+                                onClick={openOverdueAbove90Drilldown}
+                                variance={kpis.overdue_gt_90_variance}
+                                previousDate={kpis.previous_date}
+                                currency={currency}
+                                icon="!"
+                                iconBg="#fce7f3"
+                                iconColor="#db2777"
+                                cardBg="#fdf2f8"
+                            />
+
+                            <KpiCard
+                                title="DSO – Days Sales Outstanding"
+                                value={kpis.dso}
+                                variance={kpis.dso_variance}
+                                previousDate={kpis.previous_date}
+                                suffix="Days"
+                                currency={currency}
+                                icon="%"
+                                iconBg="#cffafe"
+                                iconColor="#0891b2"
+                                cardBg="#ecfeff"
+                            />
+
+                        </div>
+
+                        {/* ==================================================
             ROW 1
             ================================================== */}
 
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: 9,
-                        marginBottom: 9,
-                        width: "100%",
-                        alignItems: "stretch",
-                    }}
-                >
-                    {/* Aging Summary */}
-                    <section
-                        style={{
-                            ...cardStyle,
-                            padding: 12,
-                            minWidth: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                            position: "relative",
-                        }}
-                    >
-                        <SectionActions
-                            onViewAll={openPayablesViewAll}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle info="Receivables grouped by aging bucket">
-                            Receivables Aging Summary ({currency})
-                        </SectionTitle>
-
                         <div
                             style={{
+                                display: "grid",
+                                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                                gap: 9,
+                                marginBottom: 9,
                                 width: "100%",
-                                minWidth: 0,
-                                overflow: "hidden",
+                                alignItems: "stretch",
                             }}
                         >
-                            <DonutChart
-                                data={data.agingSummary}
-                                total={kpis.total_payables}
-                                currency={currency}
-                                centerLabel="Total"
-                            />
+                            {/* Aging Summary */}
+                            <section
+                                style={{
+                                    ...cardStyle,
+                                    padding: 12,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    overflow: "hidden",
+                                    position: "relative",
+                                }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Aging Summary" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle info="Receivables grouped by aging bucket">
+                                    Receivables Aging Summary ({currency})
+                                </SectionTitle>
+
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {data.agingSummary?.length ? (
+                                        <DonutChart
+                                            data={data.agingSummary}
+                                            total={kpis.total_receivables}
+                                            currency={currency}
+                                            centerLabel="Total"
+                                            onSegmentClick={openAgingDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={185} />}
+                                </div>
+                            </section>
+
+                            {/* Trend */}
+                            <section
+                                style={{
+                                    ...cardStyle,
+                                    padding: 12,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    overflow: "hidden",
+                                    position: "relative",
+                                }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Monthly Trend" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle info="Historical total receivables and DSO">
+                                    Receivables Trend ({currency})
+                                </SectionTitle>
+
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {data.trend?.length ? (
+                                        <TrendChart
+                                            data={data.trend}
+                                            currency={currency}
+                                            onPointClick={openTrendDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={185} />}
+                                </div>
+                            </section>
+
+                            {/* Parent Division */}
+                            <section
+                                style={{
+                                    ...cardStyle,
+                                    padding: 12,
+                                    minWidth: 0,
+                                    width: "100%",
+                                    boxSizing: "border-box",
+                                    overflow: "hidden",
+                                    position: "relative",
+                                }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Parent Division" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Receivables by Parent Division ({currency})
+                                </SectionTitle>
+
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                    }}
+                                >
+                                    {data.parentDivision?.length ? (
+                                        <ParentDivisionChart
+                                            data={data.parentDivision}
+                                            currency={currency}
+                                            onItemClick={openParentDivisionDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={185} />}
+                                </div>
+                            </section>
                         </div>
-                    </section>
 
-                    {/* Trend */}
-                    <section
-                        style={{
-                            ...cardStyle,
-                            padding: 12,
-                            minWidth: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                            position: "relative",
-                        }}
-                    >
-                        <SectionActions
-                            onViewAll={openPayablesViewAll}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle info="Historical total receivables and DSO">
-                            Receivables Trend ({currency})
-                        </SectionTitle>
-
-                        <div
-                            style={{
-                                width: "100%",
-                                minWidth: 0,
-                                overflow: "hidden",
-                            }}
-                        >
-                            <TrendChart
-                                data={data.trend}
-                                currency={currency}
-                            />
-                        </div>
-                    </section>
-
-                    {/* Parent Division */}
-                    <section
-                        style={{
-                            ...cardStyle,
-                            padding: 12,
-                            minWidth: 0,
-                            width: "100%",
-                            boxSizing: "border-box",
-                            overflow: "hidden",
-                            position: "relative",
-                        }}
-                    >
-                        <SectionActions
-                            onViewAll={openPayablesViewAll}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Receivables by Parent Division ({currency})
-                        </SectionTitle>
-
-                        <div
-                            style={{
-                                width: "100%",
-                                minWidth: 0,
-                                overflow: "hidden",
-                            }}
-                        >
-                            <ParentDivisionChart
-                                data={data.parentDivision}
-                                currency={currency}
-                            />
-                        </div>
-                    </section>
-                </div>
-
-                {/* ==================================================
+                        {/* ==================================================
             ROW 2
             ================================================== */}
 
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-                        gap: 9,
-                        marginBottom: 9,
-                        width: "100%",
-                    }}
-                >
-                    {/* Top 10 Customers */}
-
-                    <section
-                        style={{ ...cardStyle, padding: 12, position: "relative" }}
-                    >
-                        <SectionActions
-                            onViewAll={openPayablesViewAll}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Top 10 Customers by Receivables ({currency})
-                        </SectionTitle>
-
-                        <DataTable
-                            columns={supplierColumns}
-                            rows={data.topSuppliers}
-                            fitColumns
-                            compactRows
-                        />
                         <div
+                            className="receivables-row-2"
                             style={{
                                 display: "grid",
-                                gridTemplateColumns: "1fr 100px 55px",
-                                alignItems: "center",
-                                marginTop: 7,
-                                padding: "0 4px",
-                                color: BLUE,
-                                fontSize: 12,
-                                fontWeight: 700,
+                                gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                                gap: 9,
+                                marginBottom: 9,
+                                width: "100%",
+                                alignItems: "stretch",
+                                gridAutoRows: "minmax(330px, auto)",
                             }}
                         >
-                            {/* Total */}
-                            <span
-                                style={{
-                                    textAlign: "center",
-                                }}
-                            >
-                                Total
-                            </span>
+                            {/* Top 10 Customers */}
 
-                            {/* Amount */}
-                            <span
-                                style={{
-                                    textAlign: "left",
-                                    whiteSpace: "nowrap",
-                                }}
+                            <section
+                                style={{ ...cardStyle, padding: 12, position: "relative" }}
                             >
-                                {formatPayablesCompact(
-                                    supplierRows.reduce(
-                                        (sum, item) =>
-                                            sum + Number(item.payable_amount || 0),
-                                        0
-                                    ),
-                                    currency
-                                ).replace(
-                                    /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
-                                    ""
-                                )}
-                            </span>
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Top 10 Customers" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Top 10 Customers by Receivables ({currency})
+                                </SectionTitle>
 
-                            {/* Percentage */}
-                            <span
-                                style={{
-                                    textAlign: "right",
-                                    whiteSpace: "nowrap",
-                                }}
+                                {data.topSuppliers?.length ? (
+                                    <DataTable
+                                        columns={supplierColumns}
+                                        rows={data.topSuppliers}
+                                        fitColumns
+                                        compactRows
+                                        onCellClick={(row) => {
+                                            openCustomerDrilldown(row);
+                                        }}
+                                    />
+                                ) : <NoDataAvailable minHeight={185} />}
+                                <div
+                                    style={{
+                                        display: "grid",
+                                        gridTemplateColumns: "8% 47% 24% 21%",
+                                        alignItems: "center",
+                                        marginTop: 7,
+                                        padding: "0 4px",
+                                        fontSize: 12,
+                                        fontWeight: 900,
+                                    }}
+                                >
+                                    {/* Rank spacer */}
+                                    <span aria-hidden="true" />
+
+                                    {/* Total */}
+                                    <span
+                                        style={{
+                                            textAlign: "left",
+                                            color: "#172554",
+                                            fontWeight: 900,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        Total:
+                                    </span>
+
+                                    {/* Amount */}
+                                    <span
+                                        style={{
+                                            textAlign: "right",
+                                            color: "#1E293B",
+                                            fontWeight: 900,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {formatReceivablesCompact(
+                                            supplierRows.reduce(
+                                                (sum, item) =>
+                                                    sum + Number(item.receivable_amount || 0),
+                                                0
+                                            ),
+                                            currency
+                                        ).replace(
+                                            /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
+                                            ""
+                                        )}
+                                    </span>
+
+                                    {/* Percentage */}
+                                    <span
+                                        style={{
+                                            textAlign: "right",
+                                            color: "#1E293B",
+                                            fontWeight: 900,
+                                            whiteSpace: "nowrap",
+                                        }}
+                                    >
+                                        {formatPercentage(
+                                            supplierRows.reduce(
+                                                (sum, item) =>
+                                                    sum + Number(item.percentage || 0),
+                                                0
+                                            )
+                                        )}
+                                    </span>
+                                </div>
+                            </section>
+
+                            {/* Overdue Summary */}
+
+                            <section
+                                style={{ ...cardStyle, padding: 12, position: "relative" }}
                             >
-                                {formatPercentage(
-                                    supplierRows.reduce(
-                                        (sum, item) =>
-                                            sum + Number(item.percentage || 0),
-                                        0
-                                    )
-                                )}
-                            </span>
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ balance_status: "OVERDUE", component: "Overdue Summary" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Overdue Summary ({currency})
+                                </SectionTitle>
+
+
+
+                                <div
+                                    style={{
+                                        width: "100%",
+                                        display: "flex",
+                                        justifyContent: "center",
+                                        alignItems: "center",
+                                        boxSizing: "border-box",
+                                        minHeight: 0,
+                                    }}
+                                >
+                                    {data.overdueSummary?.length ? (
+                                        <DonutChart
+                                            data={data.overdueSummary}
+                                            total={kpis.overdue_receivables}
+                                            currency={currency}
+                                            centerLabel="Overdue"
+                                            legendBelow
+                                            largeOverdueChart
+                                            onSegmentClick={openAgingDrilldown}
+                                        />
+                                    ) : <NoDataAvailable minHeight={250} />}
+                                </div>
+                            </section>
+
+                            {/* Sub Division */}
+
+                            <section
+                                style={{ ...cardStyle, padding: 12, position: "relative" }}
+                            >
+                                <SectionActions
+                                    onViewAll={() => openReceivablesViewAll({ component: "Sub-Division" })}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
+                                <SectionTitle>
+                                    Receivables by Sub-Division ({currency})
+                                </SectionTitle>
+
+                                {data.subDivision?.length ? (
+                                    <DataTable
+                                        columns={subDivisionColumns}
+                                        rows={subDivisionTableRows}
+                                        pageSize={10}
+                                        keepFirstRow={true}
+                                        showPageNumbers={true}
+                                        paginationStyle="compact"
+                                        fitColumns
+                                        rowGap
+                                        onCellClick={(row, column) => {
+                                            if (
+                                                row?.id !== "subdivision-total" &&
+                                                (column?.key === "name" ||
+                                                    column?.key === "amount" ||
+                                                    column?.key === "percentage")
+                                            ) {
+                                                openSubdivisionDrilldown(row);
+                                            }
+                                        }}
+                                    />
+                                ) : <NoDataAvailable minHeight={185} />}
+                            </section>
                         </div>
-                    </section>
 
-                    {/* Overdue Summary */}
-
-                    <section
-                        style={{ ...cardStyle, padding: 12, position: "relative" }}
-                    >
-                        <SectionActions
-                            onViewAll={openPayablesViewAll}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Overdue Summary ({currency})
-                        </SectionTitle>
-
-
-
-                        <DonutChart
-                            data={data.overdueSummary}
-                            total={kpis.overdue_payables}
-                            currency={currency}
-                            centerLabel="Overdue"
-                            legendBelow
-                        />
-                    </section>
-
-                    {/* Sub Division */}
-
-                    <section
-                        style={{ ...cardStyle, padding: 12, position: "relative" }}
-                    >
-                        <SectionActions
-                            onViewAll={openPayablesViewAll}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
-                        <SectionTitle>
-                            Receivables by Sub-Division ({currency})
-                        </SectionTitle>
-
-                        <DataTable
-                            columns={subDivisionColumns}
-                            rows={data.subDivision}
-                            fitColumns
-                            rowGap
-                        />
-
-                        <div
-                            style={{
-                                marginTop: 7,
-                                display: "grid",
-                                gridTemplateColumns: "1fr 100px 55px",
-                                alignItems: "center",
-                                padding: "0 4px",
-                                color: BLUE,
-                                fontSize: 12,
-                                fontWeight: 700,
-                            }}
-                        >
-                            {/* Total */}
-                            <span
-                                style={{
-                                    textAlign: "left",
-                                }}
-                            >
-                                Total
-                            </span>
-
-                            {/* Amount */}
-                            <span
-                                style={{
-                                    textAlign: "left",
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                {formatPayablesCompact(
-                                    data.subDivision.reduce(
-                                        (sum, item) =>
-                                            sum + Number(item.amount || 0),
-                                        0
-                                    ),
-                                    currency
-                                ).replace(
-                                    /^(AED|INR|OMR|QAR|SAR|USD)\s*/i,
-                                    ""
-                                )}
-                            </span>
-
-                            {/* Percentage */}
-                            <span
-                                style={{
-                                    textAlign: "right",
-                                    whiteSpace: "nowrap",
-                                }}
-                            >
-                                100.0%
-                            </span>
-                        </div>
-                    </section>
-                </div>
-
-                {/* ==================================================
+                        {/* ==================================================
             MONTH-ON-MONTH
             ================================================== */}
 
-                <section
-                    style={{
-                        ...cardStyle,
-                        padding: 12,
-                        marginBottom: 10,
-                        position: "relative",
-                    }}
-                >
-                    <SectionActions
-                        onViewAll={openPayablesViewAll}
-                        onExportExcel={() => handleExport("excel")}
-                        onExportPdf={() => handleExport("pdf")}
-                    />
-                    <div
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            gap: 14,
-                            marginBottom: 10,
-                            paddingRight: 42,
-                            boxSizing: "border-box",
-                        }}
-                    >
-                        <SectionTitle info="Monthly payable balance by legal entity">
-                            Month-on-Month Receivables ({currency})
-                        </SectionTitle>
+                        <section
+                            style={{
+                                ...cardStyle,
+                                padding: 12,
+                                marginBottom: 10,
+                                position: "relative",
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 20,
+                                    marginBottom: 10,
+                                    paddingRight: 42,
+                                    boxSizing: "border-box",
+                                    minWidth: 0,
+                                }}
+                            >
+                                {/* LEFT */}
+                                <SectionTitle info="Monthly receivable balance by legal entity">
+                                    Month-on-Month Receivables ({currency})
+                                </SectionTitle>
+
+                                {/* RIGHT */}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 14,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    {/* YEAR */}
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 7,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontSize: 10,
+                                                color: MUTED,
+                                            }}
+                                        >
+                                            Year
+                                        </span>
+
+                                        <select
+                                            value={filters.year}
+                                            onChange={(e) =>
+                                                setFilter(
+                                                    "year",
+                                                    Number(e.target.value)
+                                                )
+                                            }
+                                            style={{
+                                                height: 30,
+                                                minWidth: 75,
+                                                border: "1px solid #d5ddeb",
+                                                borderRadius: 5,
+                                                background: "#fff",
+                                                color: BLUE,
+                                                padding: "0 8px",
+                                                fontSize: 10,
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            {filterOptions.years.map((year) => (
+                                                <option key={year} value={year}>
+                                                    {year}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* AED / AED MILLIONS */}
+                                    <div
+                                        style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            height: 30,
+                                            border: "1px solid #d6deeb",
+                                            borderRadius: 6,
+                                            background: "#f8fafc",
+                                            overflow: "hidden",
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => setMomDisplayUnit("AED")}
+                                            style={{
+                                                height: "100%",
+                                                minWidth: 42,
+                                                padding: "0 9px",
+                                                border: "none",
+                                                borderRight: "1px solid #d6deeb",
+                                                background:
+                                                    momDisplayUnit === "AED"
+                                                        ? "#172f80"
+                                                        : "transparent",
+                                                color:
+                                                    momDisplayUnit === "AED"
+                                                        ? "#ffffff"
+                                                        : "#64748b",
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            AED
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setMomDisplayUnit("Millions")}
+                                            style={{
+                                                height: "100%",
+                                                minWidth: 86,
+                                                padding: "0 9px",
+                                                border: "none",
+                                                background:
+                                                    momDisplayUnit === "Millions"
+                                                        ? "#172f80"
+                                                        : "transparent",
+                                                color:
+                                                    momDisplayUnit === "Millions"
+                                                        ? "#ffffff"
+                                                        : "#64748b",
+                                                fontSize: 10,
+                                                fontWeight: 800,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            AED Millions
+                                        </button>
+                                    </div>
+
+                                    {/* 3 DOTS */}
+                                    <SectionActions
+                                        onViewAll={() => openReceivablesViewAll({ component: "Month-on-Month Receivables" })}
+                                        onExportExcel={() => handleExport("excel")}
+                                        onExportPdf={() => handleExport("pdf")}
+                                    />
+                                </div>
+                            </div>
+
+                            {data.monthOnMonth?.length ? (
+                                <DataTable
+                                    columns={monthColumns}
+                                    rows={data.monthOnMonth}
+                                    pageSize={8}
+                                    paginationStyle="compact"
+                                    onCellClick={openMomDrilldown}
+                                />
+                            ) : <NoDataAvailable minHeight={220} />}
+                        </section>
+
+                        {/* ==================================================
+            FOOTER
+            ================================================== */}
 
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
+                                justifyContent: "space-between",
                                 gap: 10,
-                                marginRight: 4,
+                                fontSize: 10, fontWeight: 700,
+                                color: "#64748b",
+                                padding: "3px 8px",
                             }}
                         >
-                            <span
-                                style={{
-                                    fontSize: 10,
-                                    color: MUTED,
-                                }}
-                            >
-                                Year
+                            <span>
+                                Values shown in {currency}
                             </span>
 
-                            <select
-                                value={filters.year}
-                                onChange={(e) =>
-                                    setFilter(
-                                        "year",
-                                        Number(e.target.value)
-                                    )
-                                }
-                                style={{
-                                    height: 30,
-                                    minWidth: 75,
-                                    border: "1px solid #d5ddeb",
-                                    borderRadius: 5,
-                                    background: "#fff",
-                                    color: BLUE,
-                                    padding: "0 8px",
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                }}
-                            >
-                                {payablesFilterOptions.years.map((year) => (
-                                    <option key={year} value={year}>
-                                        {year}
-                                    </option>
-                                ))}
-                            </select>
+                            <span>
+                                Aging Basis:{" "}
+                                <strong style={{ color: BLUE }}>
+                                    {appliedFilters.aging_basis}
+                                </strong>
+                            </span>
+
+                            <span>
+                                Last Updated  on: {appliedFilters.as_on_date}
+                            </span>
                         </div>
-                    </div>
-
-                    <DataTable
-                        columns={monthColumns}
-                        rows={data.monthOnMonth}
-                    />
-
-                </section>
-
-                {/* ==================================================
-            FOOTER
-            ================================================== */}
-
-                <div
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 10,
-                        fontSize: 9,
-                        color: "#64748b",
-                        padding: "3px 8px",
-                    }}
-                >
-                    <span>
-                        Values shown in selected reporting currency
-                    </span>
-
-                    <span>
-                        Aging Basis:{" "}
-                        <strong style={{ color: BLUE }}>
-                            {appliedFilters.aging_basis}
-                        </strong>
-                    </span>
-
-                    <span>
-                        As on: {appliedFilters.as_on_date}
-                    </span>
-                </div>
+                    </>
+                )}
             </main>
 
             {/* ======================================================
           VIEW ALL MODAL
           ====================================================== */}
 
+
             {showViewAll && (
-                <PayablesViewAll
+                <ReceivablesViewAll
                     filters={appliedFilters}
                     data={data.viewAll}
                     currency={currency}
+                    filterOptions={filterOptions}
+                    baseFilters={baseApiFilters}
+                    drilldown={viewAllContext}
                     onClose={() => setShowViewAll(false)}
                 />
             )}
@@ -5865,37 +5944,64 @@ export default function PayablesDashboard() {
    VIEW ALL
    ============================================================ */
 
-function PayablesViewAll({
+function ReceivablesViewAll({
     filters,
     data,
     currency,
+    filterOptions = {},
+    baseFilters = {},
+    drilldown = {},
     onClose,
 }) {
     const [search, setSearch] = useState("");
-    const [sortKey, setSortKey] = useState("total_payable");
+    const [sortKey, setSortKey] = useState("total_receivable");
     const [sortDirection, setSortDirection] = useState("desc");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+
+    // Display-only title for the View All modal. This never goes to the API.
+    const componentTitle = drilldown?.component || "Receivables";
 
     /* ============================================================
        VIEW ALL FILTERS
     ============================================================ */
 
     const getInitialViewFilters = () => ({
-        legal_group: [],
-        legal_entities: [],
-        parent_divisions: [],
-        sub_divisions: [],
-        reporting_currency: currency || "AED",
+        // Carry the exact filters already applied on the main dashboard
+        // into View All. This is only the initial UI state; Apply/Reset
+        // inside View All continues to use the existing API flow.
+        legal_group: Array.isArray(filters?.legal_group)
+            ? [...filters.legal_group]
+            : filters?.legal_group
+                ? [filters.legal_group]
+                : [],
+        legal_entities: Array.isArray(filters?.legal_entities)
+            ? [...filters.legal_entities]
+            : filters?.legal_entities
+                ? [filters.legal_entities]
+                : [],
+        parent_divisions: Array.isArray(filters?.parent_divisions)
+            ? [...filters.parent_divisions]
+            : filters?.parent_divisions
+                ? [filters.parent_divisions]
+                : [],
+        sub_divisions: Array.isArray(filters?.sub_divisions)
+            ? [...filters.sub_divisions]
+            : filters?.sub_divisions
+                ? [filters.sub_divisions]
+                : [],
+        reporting_currency:
+            filters?.reporting_currency || currency || "AED",
         as_on_date:
             filters?.as_on_date ||
             filters?.as_on_dates ||
             filters?.asOfDate ||
             "",
-        aging_basis:
+        aging_basis: uiAgingBasis(
             filters?.aging_basis ||
             filters?.agingBasis ||
-            "Due Date",
+            "DUE_DATE"
+        ),
     });
 
     const [viewFilters, setViewFilters] = useState(
@@ -5904,6 +6010,12 @@ function PayablesViewAll({
 
     const [appliedViewFilters, setAppliedViewFilters] =
         useState(getInitialViewFilters);
+
+    const viewAllCurrency =
+        appliedViewFilters?.reporting_currency ||
+        currency ||
+        "AED";
+
 
     /* ============================================================
        DROPDOWN STATE
@@ -5921,108 +6033,21 @@ function PayablesViewAll({
         aging_basis: "",
     });
 
-    const safeData = Array.isArray(data) ? data : [];
+    const initialData = Array.isArray(data) ? data : [];
 
     /* ============================================================
-       MOCK FILTER OPTIONS
-    ============================================================ */
-
-    const getUniqueValues = (key) => {
-        const values = safeData
-            .map((row) => row?.[key])
-            .filter(
-                (value) =>
-                    value !== undefined &&
-                    value !== null &&
-                    String(value).trim() !== ""
-            )
-            .map((value) => String(value));
-
-        return [...new Set(values)];
-    };
-
-    const mockLegalGroups = [
-        "FJ Group (Consolidated)",
-        "FJ Group",
-        "FJ Manufacturing Group",
-    ];
-
-    const mockLegalEntities = [
-        "Alpha Ducts LLC",
-        "Alpine Coils Industry LLC",
-        "DC Servo Equipment Trading LLC",
-        "Euroclima Middle East Central LLC",
-        "FJ Care Airconditioning Trading LLC",
-        "FJ Care Technical Services LLC",
-        "FJ Industries WLL",
-        "Flowtech Air Distribution Industries LLC",
-        "Tawreed Co. LLC",
-    ];
-
-    const mockParentDivisions = [
-        "Manufacturing",
-        "Trading",
-        "Services",
-        "Corporate",
-    ];
-
-    const mockSubDivisions = [
-        "Air Distribution",
-        "HVAC",
-        "Technical Services",
-        "Projects",
-        "Trading",
-    ];
+       API FILTER OPTIONS
+       ============================================================ */
 
     const viewFilterOptions = {
-        legal_group:
-            getUniqueValues("legal_group").length > 0
-                ? getUniqueValues("legal_group")
-                : mockLegalGroups,
-
-        legal_entities:
-            getUniqueValues("legal_entity").length > 0
-                ? getUniqueValues("legal_entity")
-                : mockLegalEntities,
-
-        parent_divisions:
-            getUniqueValues("parent_division").length > 0
-                ? getUniqueValues("parent_division")
-                : mockParentDivisions,
-
-        sub_divisions:
-            getUniqueValues("sub_division").length > 0
-                ? getUniqueValues("sub_division")
-                : mockSubDivisions,
-
-        reporting_currencies: [
-            "AED",
-            "INR",
-            "OMR",
-            "QAR",
-            "SAR",
-            "USD",
-        ],
-
-        as_on_dates: [
-            "30 Apr 2024",
-            "31 May 2024",
-            "30 Jun 2024",
-            "31 Jul 2024",
-            "31 Aug 2024",
-            "30 Sep 2024",
-        ],
-
-        aging_basis: [
-            "Due Date",
-            "Invoice Date",
-            "Accounting Date",
-        ],
+        legal_group: (filterOptions.legal_groups || []).map((x) => x.label ?? x),
+        legal_entities: (filterOptions.legal_entities || []).map((x) => x.label ?? x),
+        parent_divisions: (filterOptions.parent_divisions || []).map((x) => x.label ?? x),
+        sub_divisions: (filterOptions.sub_divisions || []).map((x) => x.label ?? x),
+        reporting_currencies: (filterOptions.reporting_currencies || []).map((x) => x.label ?? x),
+        as_on_dates: filterOptions.as_on_dates || [],
+        aging_basis: (filterOptions.aging_bases || []).map((x) => x.label ?? x),
     };
-
-    /* ============================================================
-       FILTER HELPERS
-    ============================================================ */
 
     const getFilterValue = (key, fallback = "All") => {
         const value = filters?.[key];
@@ -6071,12 +6096,6 @@ function PayablesViewAll({
 
     const formatTableAmount = (value) => {
         const number = Number(value || 0);
-
-        if (number < 0) {
-            return `(${Math.abs(number).toLocaleString("en-US", {
-                maximumFractionDigits: 0,
-            })})`;
-        }
 
         return number.toLocaleString("en-US", {
             maximumFractionDigits: 0,
@@ -6515,9 +6534,68 @@ function PayablesViewAll({
         );
     };
 
+    const ViewAllDateFilter = ({ filterKey = "as_on_date", label = "As On Date" }) => {
+        const dateRef = useRef(null);
+        const value = viewFilters[filterKey] || "";
+
+        const openCalendar = () => {
+            if (!dateRef.current) return;
+            if (typeof dateRef.current.showPicker === "function") dateRef.current.showPicker();
+            else dateRef.current.click();
+        };
+
+        return (
+            <div style={{ position: "relative" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>
+                    {label}
+                </div>
+                <input
+                    ref={dateRef}
+                    type="date"
+                    value={value}
+                    onChange={(e) => setViewFilters((prev) => ({ ...prev, [filterKey]: e.target.value }))}
+                    style={{
+                        position: "absolute",
+                        width: 1,
+                        height: 1,
+                        opacity: 0,
+                        pointerEvents: "none",
+                    }}
+                />
+                <button
+                    type="button"
+                    onClick={openCalendar}
+                    style={{
+                        width: "100%",
+                        height: 34,
+                        border: "1px solid #d9e1ee",
+                        borderRadius: 5,
+                        background: "#ffffff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "0 9px",
+                        boxSizing: "border-box",
+                        color: value ? "#29427f" : "#64748b",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        cursor: "pointer",
+                        textAlign: "left",
+                    }}
+                >
+                    <span>{value || "Select Date"}</span>
+                    <span style={{ fontSize: 15 }}>📅</span>
+                </button>
+            </div>
+        );
+    };
+
     const SingleSelectDropdown = ({
         filterKey,
         label,
+        noSearch = false,
+        noClear = false,
     }) => {
         const options =
             singleFilterConfig[filterKey]?.options || [];
@@ -6617,91 +6695,95 @@ function PayablesViewAll({
                         }}
                     >
                         {/* SEARCH */}
-                        <div
-                            style={{
-                                padding: "7px 8px",
-                                borderBottom:
-                                    "1px solid #edf1f6",
-                            }}
-                        >
+                        {!noSearch && (
                             <div
                                 style={{
-                                    position: "relative",
+                                    padding: "7px 8px",
+                                    borderBottom:
+                                        "1px solid #edf1f6",
                                 }}
                             >
-                                <span
+                                <div
                                     style={{
-                                        position: "absolute",
-                                        left: 9,
-                                        top: "50%",
-                                        transform:
-                                            "translateY(-50%)",
-                                        color: "#94a3b8",
-                                        fontSize: 13,
+                                        position: "relative",
                                     }}
                                 >
-                                    ⌕
-                                </span>
+                                    <span
+                                        style={{
+                                            position: "absolute",
+                                            left: 9,
+                                            top: "50%",
+                                            transform:
+                                                "translateY(-50%)",
+                                            color: "#94a3b8",
+                                            fontSize: 13,
+                                        }}
+                                    >
+                                        ⌕
+                                    </span>
 
-                                <input
-                                    type="text"
-                                    value={filterSearch[filterKey] || ""}
-                                    onChange={(e) =>
-                                        handleFilterSearch(
-                                            filterKey,
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="Search..."
-                                    autoFocus
-                                    style={{
-                                        width: "100%",
-                                        height: 30,
-                                        border:
-                                            "1px solid #d9e1ee",
-                                        borderRadius: 5,
-                                        padding:
-                                            "0 8px 0 27px",
-                                        outline: "none",
-                                        fontSize: 10,
-                                        color: "#334155",
-                                        boxSizing: "border-box",
-                                    }}
-                                />
+                                    <input
+                                        type="text"
+                                        value={filterSearch[filterKey] || ""}
+                                        onChange={(e) =>
+                                            handleFilterSearch(
+                                                filterKey,
+                                                e.target.value
+                                            )
+                                        }
+                                        placeholder="Search..."
+                                        autoFocus
+                                        style={{
+                                            width: "100%",
+                                            height: 30,
+                                            border:
+                                                "1px solid #d9e1ee",
+                                            borderRadius: 5,
+                                            padding:
+                                                "0 8px 0 27px",
+                                            outline: "none",
+                                            fontSize: 10,
+                                            color: "#334155",
+                                            boxSizing: "border-box",
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* CLEAR */}
-                        <div
-                            style={{
-                                display: "flex",
-                                justifyContent:
-                                    "flex-end",
-                                padding: "7px 9px",
-                                borderBottom:
-                                    "1px solid #edf1f6",
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    clearFilterValues(
-                                        filterKey
-                                    )
-                                }
+                        {!noClear && (
+                            <div
                                 style={{
-                                    border: "none",
-                                    background: "transparent",
-                                    padding: 0,
-                                    color: "#64748b",
-                                    cursor: "pointer",
-                                    fontSize: 10,
-                                    fontWeight: 600,
+                                    display: "flex",
+                                    justifyContent:
+                                        "flex-end",
+                                    padding: "7px 9px",
+                                    borderBottom:
+                                        "1px solid #edf1f6",
                                 }}
                             >
-                                Clear
-                            </button>
-                        </div>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        clearFilterValues(
+                                            filterKey
+                                        )
+                                    }
+                                    style={{
+                                        border: "none",
+                                        background: "transparent",
+                                        padding: 0,
+                                        color: "#64748b",
+                                        cursor: "pointer",
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        )}
 
                         {/* OPTIONS */}
                         <div
@@ -6772,94 +6854,146 @@ function PayablesViewAll({
         );
     };
 
-    /* ============================================================
-       FILTERED + SORTED DATA
-    ============================================================ */
+    const [serverRows, setServerRows] = useState(() => normalizeViewAllRows(initialData));
+    const safeData = serverRows;
+    const [serverMeta, setServerMeta] = useState({ total_records: 0, page: 1, page_size: pageSize });
+    const [detailLoading, setDetailLoading] = useState(false);
 
-    const filtered = useMemo(() => {
-        const query = search.trim().toLowerCase();
+    const handleExport = async (format) => {
+        try {
+            const apiFilters = buildDetailFilters();
+            const isPdf = String(format).toLowerCase() === "pdf";
 
-        let rows = safeData.filter((row) => {
-            if (!query) return true;
+            const response = isPdf
+                ? await exportReceivablesPDF(apiFilters)
+                : await exportReceivablesExcel(apiFilters);
 
-            return (
-                String(row.supplier_name || "")
-                    .toLowerCase()
-                    .includes(query) ||
-                String(row.supplier_code || "")
-                    .toLowerCase()
-                    .includes(query) ||
-                String(row.legal_entity || "")
-                    .toLowerCase()
-                    .includes(query) ||
-                String(row.parent_division || "")
-                    .toLowerCase()
-                    .includes(query) ||
-                String(row.sub_division || "")
-                    .toLowerCase()
-                    .includes(query) ||
-                String(row.country || "")
-                    .toLowerCase()
-                    .includes(query)
+            triggerReceivablesBlobDownload(
+                response,
+                isPdf
+                    ? "Receivables_View_All.pdf"
+                    : "Receivables_View_All.xlsx"
             );
+        } catch (error) {
+            console.error("Receivables View All export failed", error);
+        }
+    };
+
+    const buildDetailFilters = () => {
+        /*
+         * View-all supports the record drill-down parameters:
+         * aging_bucket, balance_status, customer_id, parent_division_id,
+         * subdivision_id and as_on_date. These are sent together with the
+         * current page filters and aging_basis/reporting_currency.
+         */
+        const toIds = (values, options) => (Array.isArray(values) ? values : values ? [values] : [])
+            .map((label) => options.find((x) => String(x.label ?? x) === String(label) || String(x.value ?? x) === String(label))?.value ?? label)
+            .filter((value) => value !== "All" && value !== "");
+        const optionList = (key) => filterOptions[key] || [];
+        const { component: _component, ...drilldownFilters } = drilldown || {};
+        return ({
+            ...baseFilters,
+            ...drilldownFilters,
+            aging_basis: apiAgingBasis(appliedViewFilters.aging_basis || filters?.aging_basis),
+            as_on_date:
+                drilldown?.as_on_date ||
+                appliedViewFilters.as_on_date ||
+                filters?.as_on_date ||
+                baseFilters.as_on_date,
+            reporting_currency:
+                appliedViewFilters.reporting_currency ||
+                filters?.reporting_currency ||
+                baseFilters.reporting_currency,
+            legal_group_id: toIds(appliedViewFilters.legal_group, optionList("legal_groups")),
+            legal_entity_id:
+                drilldown?.legal_entity_id ??
+                toIds(appliedViewFilters.legal_entities, optionList("legal_entities")),
+            parent_division_id:
+                drilldown?.parent_division_id ??
+                toIds(appliedViewFilters.parent_divisions, optionList("parent_divisions")),
+            subdivision_id:
+                drilldown?.subdivision_id ??
+                toIds(appliedViewFilters.sub_divisions, optionList("sub_divisions")),
+            ...(search.trim()
+                ? {
+                    customer_name: search.trim(),
+                    search: search.trim(),
+                }
+                : {}),
+            // Keep the exact drill-down context for View All exports.
+            // The export API accepts the same detail parameters as View All:
+            // aging_bucket, balance_status, customer_id, parent_division_id,
+            // subdivision_id and as_on_date.
+            page,
+            page_size: pageSize,
+            sort_by: sortKey === "supplier_name" ? "customer_name" :
+                sortKey === "legal_entity" ? "legal_entity_name" :
+                    sortKey === "parent_division" ? "parent_division_name" :
+                        sortKey === "sub_division" ? "subdivision_name" :
+                            sortKey === "total_receivable" ? "total_receivables" :
+                                sortKey === "overdue_receivable" ? "overdue_receivables" : sortKey,
+            sort_dir: sortDirection,
         });
-
-        rows = [...rows].sort((a, b) => {
-            const av = a?.[sortKey];
-            const bv = b?.[sortKey];
-
-            if (
-                typeof av === "string" ||
-                typeof bv === "string"
-            ) {
-                return sortDirection === "asc"
-                    ? String(av || "").localeCompare(
-                        String(bv || "")
-                    )
-                    : String(bv || "").localeCompare(
-                        String(av || "")
-                    );
-            }
-
-            return sortDirection === "asc"
-                ? Number(av || 0) - Number(bv || 0)
-                : Number(bv || 0) - Number(av || 0);
-        });
-
-        return rows;
-    }, [
-        safeData,
-        search,
-        sortKey,
-        sortDirection,
-    ]);
-
-    const totalPages = Math.max(
-        1,
-        Math.ceil(filtered.length / pageSize)
-    );
-
-    const pageRows = filtered.slice(
-        (page - 1) * pageSize,
-        page * pageSize
-    );
+    };
 
     useEffect(() => {
-        if (page > totalPages) {
-            setPage(totalPages);
-        }
+        let cancelled = false;
+        setDetailLoading(true);
+        getReceivableDetails(buildDetailFilters())
+            .then((response) => {
+                if (cancelled) return;
+
+                // Axios response is normally:
+                // { data: { data: [...], meta: {...} } }
+                // while some API wrappers may return the payload directly.
+                // Support both shapes so View All never treats the payload
+                // object itself as the row array.
+                const payload = response?.data ?? response ?? {};
+                const rows = Array.isArray(payload)
+                    ? payload
+                    : Array.isArray(payload?.data)
+                        ? payload.data
+                        : [];
+
+                const meta = Array.isArray(payload)
+                    ? response?.meta
+                    : payload?.meta ?? response?.meta;
+
+                setServerRows(normalizeViewAllRows(rows));
+                setServerMeta(
+                    meta ||
+                    { total_records: rows.length, page, page_size: pageSize }
+                );
+            })
+            .catch((error) => {
+                console.error("Receivables View All failed", error);
+                if (!cancelled) {
+                    setServerRows([]);
+                    setServerMeta({ total_records: 0, page, page_size: pageSize });
+                }
+            })
+            .finally(() => { if (!cancelled) setDetailLoading(false); });
+        return () => { cancelled = true; };
+    }, [appliedViewFilters, search, page, pageSize, sortKey, sortDirection, baseFilters, drilldown]);
+
+    const filtered = serverRows;
+    const totalPages = Math.max(1, Math.ceil(Number(serverMeta.total_records || 0) / pageSize));
+    const pageRows = filtered;
+
+    useEffect(() => {
+        if (page > totalPages) setPage(totalPages);
     }, [page, totalPages]);
 
     const changeSort = (key) => {
-        if (sortKey === key) {
-            setSortDirection((direction) =>
-                direction === "asc" ? "desc" : "asc"
-            );
-        } else {
-            setSortKey(key);
-            setSortDirection("desc");
-        }
+        if (sortKey === key) setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+        else { setSortKey(key); setSortDirection("desc"); }
+        setPage(1);
     };
+
+    // Searching must always start from the first server-side page.
+    useEffect(() => {
+        setPage(1);
+    }, [search]);
 
     /* ============================================================
        APPLY / RESET FILTERS
@@ -6939,7 +7073,7 @@ function PayablesViewAll({
             text: true,
         },
         {
-            key: "total_payable",
+            key: "total_receivable",
             label: "Total Receivables",
             sortable: true,
         },
@@ -6986,7 +7120,7 @@ function PayablesViewAll({
     ];
 
     const amountColumns = [
-        "total_payable",
+        "total_receivable",
         "current",
         "0_30",
         "31_60",
@@ -7001,19 +7135,19 @@ function PayablesViewAll({
        SUMMARY VALUES
     ============================================================ */
 
-    const totalPayables = safeData.reduce(
+    const totalReceivables = safeData.reduce(
         (sum, row) =>
-            sum + Number(row.total_payable || 0),
+            sum + Number(row.total_receivable || 0),
         0
     );
 
-    const currentPayables = safeData.reduce(
+    const currentReceivables = safeData.reduce(
         (sum, row) =>
             sum + Number(row.current || 0),
         0
     );
 
-    const overduePayables = safeData.reduce(
+    const overdueReceivables = safeData.reduce(
         (sum, row) =>
             sum +
             Number(row["0_30"] || 0) +
@@ -7037,6 +7171,7 @@ function PayablesViewAll({
     );
 
     const snapshotDate =
+        appliedViewFilters?.as_on_date ||
         filters?.as_on_date ||
         filters?.as_on_dates ||
         filters?.asOfDate ||
@@ -7044,6 +7179,7 @@ function PayablesViewAll({
         null;
 
     const agingBasis =
+        appliedViewFilters?.aging_basis ||
         filters?.aging_basis ||
         filters?.agingBasis ||
         "Due Date";
@@ -7052,6 +7188,13 @@ function PayablesViewAll({
        KPI CARD
     ============================================================ */
 
+    // Use the currency selected in View All after Apply for all View All summary cards.
+    // Keep this scoped to the View All component only.
+    // const viewAllCurrency =
+    //     appliedViewFilters?.reporting_currency ||
+    //     currency ||
+    //     "AED";
+
     const SummaryCard = ({
         icon,
         title,
@@ -7059,12 +7202,13 @@ function PayablesViewAll({
         iconBackground,
         iconColor,
         titleColor,
+        cardBackground,
     }) => (
         <div
             style={{
-                background: "#ffffff",
-                border: "1px solid #e5eaf2",
-                borderRadius: 8,
+                background: cardBackground || "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 12,
                 minHeight: 78,
                 padding: "12px 14px",
                 display: "flex",
@@ -7117,9 +7261,9 @@ function PayablesViewAll({
                         whiteSpace: "nowrap",
                     }}
                 >
-                    {formatPayablesCompact(
+                    {formatReceivablesCompact(
                         value,
-                        currency
+                        viewAllCurrency
                     )}
                 </div>
             </div>
@@ -7150,6 +7294,7 @@ function PayablesViewAll({
             }}
         >
             <div
+                className="sales-style-view-all-modal"
                 style={{
                     width: "min(1450px, 100%)",
                     maxHeight: "92vh",
@@ -7196,7 +7341,7 @@ function PayablesViewAll({
                                     letterSpacing: "-0.5px",
                                 }}
                             >
-                                Receivables View All
+                                {componentTitle} View All
                             </div>
 
                             <div
@@ -7206,7 +7351,7 @@ function PayablesViewAll({
                                     color: "#64748b",
                                 }}
                             >
-                                Review complete payable balances and
+                                Review complete receivable balances and
                                 aging details for the selected snapshot.
                             </div>
                         </div>
@@ -7371,7 +7516,7 @@ function PayablesViewAll({
                             />
 
                             {/* AS ON DATE */}
-                            <SingleSelectDropdown
+                            <ViewAllDateFilter
                                 filterKey="as_on_date"
                                 label="As On Date"
                             />
@@ -7380,6 +7525,8 @@ function PayablesViewAll({
                             <SingleSelectDropdown
                                 filterKey="aging_basis"
                                 label="Aging Basis"
+                                noSearch
+                                noClear
                             />
 
                             {/* APPLY */}
@@ -7442,9 +7589,9 @@ function PayablesViewAll({
                     >
                         <div
                             style={{
-                                background: "#ffffff",
-                                border: "1px solid #e5eaf2",
-                                borderRadius: 8,
+                                background: "#f0f5ff",
+                                border: "1px solid #dbeafe",
+                                borderRadius: 12,
                                 minHeight: 78,
                                 padding: "12px 14px",
                                 display: "flex",
@@ -7494,28 +7641,31 @@ function PayablesViewAll({
                         <SummaryCard
                             icon="▣"
                             title="Total Receivables"
-                            value={totalPayables}
+                            value={totalReceivables}
                             iconBackground="#e5faf2"
                             iconColor="#149b6f"
                             titleColor="#149b6f"
+                            cardBackground="#f0fdf4"
                         />
 
                         <SummaryCard
                             icon="▤"
                             title="Current"
-                            value={currentPayables}
+                            value={currentReceivables}
                             iconBackground="#e5faf2"
                             iconColor="#149b6f"
                             titleColor="#149b6f"
+                            cardBackground="#f0fdf4"
                         />
 
                         <SummaryCard
                             icon="⌛"
                             title="Overdue"
-                            value={overduePayables}
+                            value={overdueReceivables}
                             iconBackground="#fff2df"
                             iconColor="#ed8a17"
-                            titleColor="#ed8a17"
+                            titleColor="#c2410c"
+                            cardBackground="#fff7ed"
                         />
 
                         <SummaryCard
@@ -7524,12 +7674,13 @@ function PayablesViewAll({
                             value={overdue90}
                             iconBackground="#ffeaf0"
                             iconColor="#ed3c69"
-                            titleColor="#ed3c69"
+                            titleColor="#be185d"
+                            cardBackground="#fdf2f8"
                         />
                     </div>
 
                     {/* ======================================================
-              ALL PAYABLES CARD
+              ALL RECEIVABLES CARD
           ====================================================== */}
 
                     <div
@@ -7641,7 +7792,7 @@ function PayablesViewAll({
                                                 );
                                                 setPage(1);
                                             }}
-                                            placeholder="Search supplier"
+                                            placeholder="Search Customer"
                                             style={{
                                                 width: 245,
                                                 height: 34,
@@ -7783,17 +7934,24 @@ function PayablesViewAll({
                         </div>
 
                         {/* TABLE */}
-
+                        {/*
+                         * View All table only:
+                         * - More horizontal room between columns.
+                         * - First 3 columns stay visible while scrolling horizontally.
+                         * No other dashboard table is affected.
+                         */}
                         <div
                             style={{
                                 width: "100%",
                                 overflowX: "auto",
+                                overflowY: "auto",
+                                maxWidth: "100%",
                             }}
                         >
                             <table
                                 style={{
-                                    width: "100%",
-                                    minWidth: 1280,
+                                    width: "max-content",
+                                    minWidth: 1900,
                                     borderCollapse: "separate",
                                     borderSpacing: 0,
                                     tableLayout: "fixed",
@@ -7803,62 +7961,84 @@ function PayablesViewAll({
                                 <thead>
                                     <tr>
                                         {viewColumns.map(
-                                            (column) => {
-                                                const isText =
-                                                    column.text;
+                                            (column, columnIndex) => {
+                                                const isText = column.text;
+                                                const isSticky = columnIndex < 3;
+
+                                                const stickyLeft =
+                                                    columnIndex === 0
+                                                        ? 0
+                                                        : columnIndex === 1
+                                                            ? 210
+                                                            : 400;
+
+                                                const columnWidth =
+                                                    columnIndex === 0
+                                                        ? 210
+                                                        : columnIndex === 1
+                                                            ? 190
+                                                            : columnIndex === 2
+                                                                ? 180
+                                                                : columnIndex === 3
+                                                                    ? 145
+                                                                    : columnIndex === 4
+                                                                        ? 220
+                                                                        : columnIndex === 5
+                                                                            ? 130
+                                                                            : columnIndex === 6
+                                                                                ? 105
+                                                                                : 145;
 
                                                 return (
                                                     <th
                                                         key={column.key}
                                                         onClick={() =>
                                                             column.sortable &&
-                                                            changeSort(
-                                                                column.key
-                                                            )
+                                                            changeSort(column.key)
                                                         }
                                                         style={{
-                                                            position:
-                                                                "sticky",
+                                                            position: isSticky
+                                                                ? "sticky"
+                                                                : "static",
+                                                            left: isSticky
+                                                                ? stickyLeft
+                                                                : undefined,
                                                             top: 0,
-                                                            zIndex: 2,
-                                                            background:
-                                                                "#edf4ff",
-                                                            color:
-                                                                "#24479d",
+                                                            zIndex: isSticky ? 5 : 2,
+                                                            width: columnWidth,
+                                                            minWidth: columnWidth,
+                                                            maxWidth: columnWidth,
+                                                            boxSizing: "border-box",
+                                                            background: "#edf4ff",
+                                                            color: "#24479d",
                                                             fontWeight: 800,
-                                                            padding:
-                                                                "8px 6px",
+                                                            padding: "8px 12px",
                                                             borderBottom:
                                                                 "1px solid #d7e1ef",
-                                                            textAlign:
-                                                                isText
-                                                                    ? "left"
-                                                                    : "right",
-                                                            whiteSpace:
-                                                                "nowrap",
-                                                            cursor:
-                                                                column.sortable
-                                                                    ? "pointer"
-                                                                    : "default",
-                                                            overflow:
-                                                                "hidden",
-                                                            textOverflow:
-                                                                "ellipsis",
+                                                            borderRight:
+                                                                "1px solid #e7edf6",
+                                                            textAlign: isText
+                                                                ? "left"
+                                                                : "right",
+                                                            whiteSpace: "nowrap",
+                                                            cursor: column.sortable
+                                                                ? "pointer"
+                                                                : "default",
+                                                            overflow: "hidden",
+                                                            textOverflow: "ellipsis",
                                                         }}
                                                     >
                                                         {column.label}
 
                                                         {column.sortable &&
-                                                            sortKey ===
-                                                            column.key && (
+                                                            sortKey === column.key && (
                                                                 <span
                                                                     style={{
                                                                         marginLeft: 4,
                                                                         fontSize: 8,
                                                                     }}
                                                                 >
-                                                                    {sortDirection ===
-                                                                        "asc"
+                                                                    {sortDirection === "asc"
                                                                         ? "▲"
                                                                         : "▼"}
                                                                 </span>
@@ -7871,138 +8051,104 @@ function PayablesViewAll({
                                 </thead>
 
                                 <tbody>
-                                    {pageRows.map(
-                                        (row, rowIndex) => (
-                                            <tr
-                                                key={
-                                                    row.id ||
-                                                    row.supplier_code ||
-                                                    rowIndex
+                                    {filtered.map((row, rowIndex) => (
+                                        <tr key={row.id ?? rowIndex}>
+                                            {viewColumns.map((column, columnIndex) => {
+                                                const isSticky = columnIndex < 3;
+
+                                                const stickyLeft =
+                                                    columnIndex === 0
+                                                        ? 0
+                                                        : columnIndex === 1
+                                                            ? 210
+                                                            : 400;
+
+                                                let value;
+
+                                                if (column.key === "row_currency") {
+                                                    value =
+                                                        appliedViewFilters?.reporting_currency ||
+                                                        row.row_currency ||
+                                                        row.currency ||
+                                                        currency ||
+                                                        "AED";
+                                                } else {
+                                                    value = row[column.key];
                                                 }
-                                                style={{
-                                                    background:
-                                                        rowIndex % 2 === 0
-                                                            ? "#f9fbff"
-                                                            : "#ffffff",
-                                                }}
-                                            >
-                                                {viewColumns.map(
-                                                    (column) => {
-                                                        const isText =
-                                                            column.text;
 
-                                                        let value;
+                                                if (column.key === "supplier_name") {
+                                                    value = value || row.supplier || "-";
+                                                }
 
-                                                        if (
-                                                            column.key ===
-                                                            "row_currency"
-                                                        ) {
-                                                            value =
-                                                                row.currency ||
-                                                                currency ||
-                                                                "AED";
-                                                        } else {
-                                                            value =
-                                                                row[
-                                                                column.key
-                                                                ];
-                                                        }
-
-                                                        if (
-                                                            column.key ===
-                                                            "supplier_name"
-                                                        ) {
-                                                            value =
-                                                                value ||
-                                                                row.supplier ||
-                                                                "-";
-                                                        }
-
-                                                        if (
-                                                            amountColumns.includes(
-                                                                column.key
-                                                            )
-                                                        ) {
-                                                            const numericValue =
-                                                                Number(
-                                                                    value || 0
-                                                                );
-
-                                                            return (
-                                                                <td
-                                                                    key={
-                                                                        column.key
-                                                                    }
-                                                                    style={{
-                                                                        padding:
-                                                                            "7px 6px",
-                                                                        borderBottom:
-                                                                            "1px solid #edf1f6",
-                                                                        color:
-                                                                            numericValue <
-                                                                                0
-                                                                                ? "#c62828"
-                                                                                : "#334b8e",
-                                                                        textAlign:
-                                                                            "right",
-                                                                        whiteSpace:
-                                                                            "nowrap",
-                                                                        fontWeight:
-                                                                            column.key ===
-                                                                                "total_payable"
-                                                                                ? 700
-                                                                                : 500,
-                                                                    }}
-                                                                >
-                                                                    {formatTableAmount(
-                                                                        numericValue
-                                                                    )}
-                                                                </td>
-                                                            );
-                                                        }
-
-                                                        return (
-                                                            <td
-                                                                key={
-                                                                    column.key
-                                                                }
-                                                                style={{
-                                                                    padding:
-                                                                        "7px 6px",
-                                                                    borderBottom:
-                                                                        "1px solid #edf1f6",
-                                                                    color:
-                                                                        "#334b8e",
-                                                                    textAlign:
-                                                                        isText
-                                                                            ? "left"
-                                                                            : "center",
-                                                                    whiteSpace:
-                                                                        "nowrap",
-                                                                    overflow:
-                                                                        "hidden",
-                                                                    textOverflow:
-                                                                        "ellipsis",
-                                                                    fontWeight:
-                                                                        column.key ===
-                                                                            "supplier_name"
-                                                                            ? 600
-                                                                            : 500,
-                                                                }}
-                                                                title={
-                                                                    value || ""
-                                                                }
-                                                            >
-                                                                {cleanCurrency(
-                                                                    value || "-"
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    }
-                                                )}
-                                            </tr>
-                                        )
-                                    )}
+                                                return (
+                                                    <td
+                                                        key={column.key}
+                                                        style={{
+                                                            position: isSticky ? "sticky" : "static",
+                                                            left: isSticky ? stickyLeft : undefined,
+                                                            zIndex: isSticky ? 4 : 1,
+                                                            width:
+                                                                column.key === "total_receivable"
+                                                                    ? 180 :
+                                                                    columnIndex === 0
+                                                                        ? 210
+                                                                        : columnIndex === 1
+                                                                            ? 190
+                                                                            : columnIndex === 2
+                                                                                ? 180
+                                                                                : columnIndex === 3
+                                                                                    ? 145
+                                                                                    : columnIndex === 4
+                                                                                        ? 220
+                                                                                        : columnIndex === 5
+                                                                                            ? 130
+                                                                                            : columnIndex === 6
+                                                                                                ? 105
+                                                                                                : 145,
+                                                            minWidth:
+                                                                columnIndex === 0
+                                                                    ? 210
+                                                                    : columnIndex === 1
+                                                                        ? 190
+                                                                        : columnIndex === 2
+                                                                            ? 180
+                                                                            : columnIndex === 3
+                                                                                ? 145
+                                                                                : columnIndex === 4
+                                                                                    ? 220
+                                                                                    : columnIndex === 5
+                                                                                        ? 130
+                                                                                        : columnIndex === 6
+                                                                                            ? 105
+                                                                                            : 145,
+                                                            padding: "9px 12px",
+                                                            borderRight: "1px solid #edf1f6",
+                                                            background:
+                                                                rowIndex % 2 === 0
+                                                                    ? "#f9fbff"
+                                                                    : "#ffffff",
+                                                            whiteSpace: column.text
+                                                                ? "nowrap"
+                                                                : "normal",
+                                                            textAlign: column.text ? "left" : "right",
+                                                            color:
+                                                                amountColumns.includes(column.key) &&
+                                                                    Number(String(value ?? "0").replace(/,/g, "").replace(/[^\d.-]/g, "")) < 0
+                                                                    ? "#c62828"
+                                                                    : "#334b8e",
+                                                            fontWeight: amountColumns.includes(column.key) ? 600 : 500,
+                                                        }}
+                                                    >
+                                                        {column.key === "row_currency"
+                                                            ? value || "-"
+                                                            : amountColumns.includes(column.key)
+                                                                ? formatTableAmount(value)
+                                                                : cleanCurrency(value || "-")}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -8018,7 +8164,7 @@ function PayablesViewAll({
                                     fontSize: 12,
                                 }}
                             >
-                                No suppliers found.
+                                No Customers found.
                             </div>
                         )}
 
@@ -8044,8 +8190,7 @@ function PayablesViewAll({
                                     color: "#5b6d99",
                                 }}
                             >
-                                Values shown in selected
-                                reporting currency
+                                Values shown in {currency}
 
                                 <span
                                     style={{
@@ -8145,10 +8290,7 @@ function PayablesViewAll({
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
-
-
-
 
