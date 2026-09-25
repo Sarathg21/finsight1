@@ -1938,14 +1938,20 @@ const [loading, setLoading] = useState(true);
                 <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Parent Division</th>
                 <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Sub-Division</th>
                 <th style={{ textAlign: "left", width: 90, minWidth: 80 }}>Subinventory Code</th>
-                <th style={{ textAlign: "right", width: 95, minWidth: 85 }}>Total Stock Value ({mockData.reporting_currency || "AED"})</th>
+                <th style={{ textAlign: "left", width: 110, minWidth: 100 }}>Item Code</th>
+                <th style={{ textAlign: "left", width: 180, minWidth: 150 }}>Item Description</th>
+                <th style={{ textAlign: "right", width: 70, minWidth: 60 }}>Qty</th>
+                <th style={{ textAlign: "right", width: 95, minWidth: 85 }}>Total Stock Value ({mockData.reporting_currency || "AED"} Cr)</th>
                 <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>0-30</th>
                 <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>31-60</th>
                 <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>61-90</th>
                 <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>91-120</th>
                 <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>121-180</th>
                 <th style={{ textAlign: "right", width: 60, minWidth: 55 }}>181-365</th>
-                <th style={{ textAlign: "right", width: 90, minWidth: 80 }}>Obsolete Stock (Above 365 Days)</th>
+                <th style={{ textAlign: "right", width: 60, minWidth: 55 }}>366-730</th>
+                <th style={{ textAlign: "right", width: 70, minWidth: 60 }}>Above 730</th>
+                <th style={{ textAlign: "right", width: 55, minWidth: 50 }}>Days</th>
+                <th style={{ textAlign: "right", width: 85, minWidth: 75 }}>Avg Inv Value</th>
               </tr>
             </thead>
 
