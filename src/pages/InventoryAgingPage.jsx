@@ -636,7 +636,7 @@ const [loading, setLoading] = useState(true);
 
   const KpiCard = ({ item }) => {
     const isPositive = item.direction === "up";
-    const hasVariance = item.variance !== null && item.variance !== undefined;
+    const hasVariance = item.variance !== null && item.variance !== undefined && item.variance !== "";
 
     return (
         <div
@@ -729,21 +729,19 @@ const [loading, setLoading] = useState(true);
                 </div>
             ) : null}
 
-            <div
-                style={{
-                    marginLeft: "46px",
-                    fontSize: "11px",
-                    color: isPositive ? "#0e9f75" : "#ef476f",
-                    fontWeight: 600,
-                    lineHeight: 1.2,
-                }}
-            >
-                {hasVariance ? (
-                    <>{isPositive ? "▲" : "▼"} {item.variance} {item.varianceLabel || ""}</>
-                ) : (
-                    "—"
-                )}
-            </div>
+            {hasVariance && (
+                <div
+                    style={{
+                        marginLeft: "46px",
+                        fontSize: "11px",
+                        color: isPositive ? "#0e9f75" : "#ef476f",
+                        fontWeight: 600,
+                        lineHeight: 1.2,
+                    }}
+                >
+                    <>{isPositive ? " " : " "} {item.variance} {item.varianceLabel || ""}</>
+                </div>
+            )}
         </div>
     );
   };
@@ -3042,7 +3040,7 @@ const styles = {
 
   bottomGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns: "1fr 2fr",
     gap: 12,
     marginBottom: 16,
   },
