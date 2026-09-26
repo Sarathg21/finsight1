@@ -4343,6 +4343,7 @@ import {
 } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
 import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
+import { getApiBaseUrl } from "../../utils/apiBase";
 
 /* ========================================================= 
    FORMAT VALUE 
@@ -5850,10 +5851,7 @@ export default function MonthOnMonthOpexReport({
         }));
 
         try {
-            const configuredBase =
-                import.meta.env.VITE_API_BASE_URL || "";
-
-            const base = configuredBase.replace(/\/+$/, "");
+            const base = getApiBaseUrl();
 
             const apiUrl = base.endsWith("/api")
                 ? `${base}/opex/category-detail-monthly`

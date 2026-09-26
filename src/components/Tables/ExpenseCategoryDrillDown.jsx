@@ -1,6 +1,7 @@
 
 import React, { useState } from "react";
 import { deriveCategoryNaturalAccounts } from "../../data/opexNaturalAccounts";
+import { getApiBaseUrl } from "../../utils/apiBase";
 
 /* =========================================================
    MONTHS
@@ -477,15 +478,7 @@ export default function ExpenseCategoryDrillDown({
                Backend response is used first.
             =================================================== */
 
-            const configuredBaseUrl =
-                import.meta.env
-                    .VITE_API_BASE_URL || "";
-
-            let baseUrl =
-                configuredBaseUrl.replace(
-                    /\/+$/,
-                    ""
-                );
+            let baseUrl = getApiBaseUrl();
 
             const apiUrl =
                 baseUrl.endsWith("/api")

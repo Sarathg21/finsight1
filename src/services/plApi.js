@@ -11,12 +11,13 @@
  */
 
 // Keep ?? (not ||) — empty string means relative paths (Vite proxy), not fallback to default
+import { getApiBaseUrl } from '../utils/apiBase';
 import { LEGAL_ENTITIES } from '../data/masterData';
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE = getApiBaseUrl();
 
 /* ── Auth headers ───────────────────────────────────────────────── */
 function getAuthHeaders() {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -71,7 +72,17 @@ const MOCK_FILTERS = {
     'Sep-26',
   ],
 
-  compare_periods: [],
+  compare_periods: [
+    'Jan-26',
+    'Feb-26',
+    'Mar-26',
+    'Apr-26',
+    'May-26',
+    'Jun-26',
+    'Jul-26',
+    'Aug-26',
+    'Sep-26',
+  ],
 
   currencies: [
     'AED',
@@ -211,7 +222,7 @@ const MOCK_STATEMENT = {
 
 /* ── Mock router ────────────────────────────────────────────────── */
 function getMockDataForPath(path, params = {}) {
-  if (path.includes('/filters')) return MOCK_FILTERS;
+  if (path.includes('/filter')) return MOCK_FILTERS;
 
   if (path.includes('/summary')) return MOCK_SUMMARY;
 
@@ -240,6 +251,10 @@ function getMockDataForPath(path, params = {}) {
 
   if (path.includes('/statement')) return MOCK_STATEMENT;
 
+  if (path.includes('/direct-cost') || path.includes('/cost-classification')) {
+    return [];
+  }
+
   return {};
 }
 /* ══════════════════════════════════════════════════════════════════
@@ -255,7 +270,7 @@ const apiCache = new Map();
  * @returns {Promise<any>} parsed JSON response
  */
 async function apiCall(path, params = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   // Demo mode fallback — no token present
   if (!token) {
@@ -292,20 +307,20 @@ async function apiCall(path, params = {}) {
         headers: getAuthHeaders(),
       });
     } catch (networkErr) {
-      const err = { status: 0, message: `Network error: ${networkErr.message}` };
-      console.error('[plApi] Network error on', url, networkErr);
-      throw err;
+      console.warn(`[plApi] Network error on ${url} → mock fallback:`, networkErr);
+      return getMockDataForPath(path, params);
     }
 
     if (!res.ok) {
       if (res.status === 401) {
         console.warn('[plApi] 401 Unauthorized. Clearing token → mock fallback.');
+        localStorage.removeItem('token');
         localStorage.removeItem('finsight_token');
         return getMockDataForPath(path, params);
       }
 
-      if (res.status >= 500) {
-        console.warn(`[plApi] ${res.status} server error on ${url} → mock fallback.`);
+      if (res.status === 404 || res.status >= 500) {
+        console.warn(`[plApi] ${res.status} on ${url} → mock fallback.`);
         return getMockDataForPath(path, params);
       }
 
@@ -321,7 +336,7 @@ async function apiCall(path, params = {}) {
       if (!message) message = rawBody.slice(0, 120) || res.statusText || 'Error occurred';
 
       console.error(`[plApi] ${res.status} on ${url}\nBody:`, rawBody.slice(0, 500));
-      throw { status: res.status, message: String(message), rawBody: rawBody.slice(0, 300) };
+      return getMockDataForPath(path, params);
     }
 
     let json = await res.json();
@@ -449,7 +464,7 @@ function buildPLParams(filters = {}) {
  * @param {object} filters - current applied filters
  */
 export function exportPL(reportName, format, filters = {}) {
-  const token = localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
 
   const reportPathMap = {
     trend: 'trend',

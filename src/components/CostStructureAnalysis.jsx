@@ -5927,6 +5927,7 @@ import {
 } from '../services/plApi';
 
 import { C } from '../utils/theme';
+import { getApiBaseUrl } from '../utils/apiBase';
 import ExportButtons from "../components/Common/ExportButtons";
 
 
@@ -10666,7 +10667,7 @@ export default function CostStructureAnalysis({
 
     const downloadCostStructureExport = useCallback(
         async (reportName, format, sourceFilters = {}, category = null) => {
-            const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+            const baseUrl = getApiBaseUrl();
             const params = new URLSearchParams();
 
             params.set('format', format === 'xlsx' ? 'excel' : format);
