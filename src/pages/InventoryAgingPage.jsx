@@ -312,7 +312,7 @@ const [loading, setLoading] = useState(true);
                             titleColor: "#8b5cf6",
                             cardBg: "#f5f3ff",
                             value: fmtAED(dData.kpis.average_inventory || dData.kpis.average_inventory_value),
-                            subtitle: dData.kpis.average_inventory_months_used ? `${dData.kpis.average_inventory_months_used} Months used` : "12 Months used",
+                            subtitle: dData.kpis.average_inventory_months_used ? `${dData.kpis.average_inventory_months_used} Month${Number(dData.kpis.average_inventory_months_used) === 1 ? '' : 's'} used` : "12 Months used",
                             icon: BarChart3,
                             iconBg: "#ede9fe",
                             variance: dData.kpis.average_inventory_variance || null,
