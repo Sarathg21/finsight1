@@ -4136,18 +4136,24 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   }
 
                   if (viewAllModal === "slowMoving") {
-                    const rawList = (mockData.allSlowMoving && mockData.allSlowMoving.length > 0) ? mockData.allSlowMoving : ((mockData.slowMoving && mockData.slowMoving.length > 0) ? mockData.slowMoving : (viewAllData || []));
-                    const filtered = rawList.filter(item =>
-                      !viewAllSearch || (item.parentDiv && item.parentDiv.toLowerCase().includes(viewAllSearch.toLowerCase())) || 
-                      (item.parent_division_name && item.parent_division_name.toLowerCase().includes(viewAllSearch.toLowerCase()))
-                    );
-                    const totalObs = filtered.reduce((s, r) => s + (Number(r.obsolete || r.obsolete_stock) || 0), 0);
-                    const totalStock = filtered.reduce((s, r) => s + (Number(r.total || r.total_stock_value) || 0), 0);
-                    const totalPct = totalStock > 0 ? (totalObs / totalStock) * 100 : 0;
-                    
                     if (viewAllLoading) {
-                        return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+                        return <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: "0.85rem" }}>Loading slow moving stock by parent division...</div>;
                     }
+
+                    const rawList = (viewAllData && viewAllData.length > 0)
+                      ? viewAllData
+                      : ((mockData.allSlowMoving && mockData.allSlowMoving.length > 0)
+                          ? mockData.allSlowMoving
+                          : (mockData.slowMoving || []));
+
+                    const filtered = rawList.filter(item => {
+                      const name = (item.parent_division_name || item.parentDiv || item.desc || item.name || "").toLowerCase();
+                      return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
+                    });
+
+                    const totalObs = filtered.reduce((s, r) => s + (Number(r.obsolete_stock !== undefined ? r.obsolete_stock : (r.obsolete || r.value)) || 0), 0);
+                    const totalStock = filtered.reduce((s, r) => s + (Number(r.total_stock_value !== undefined ? r.total_stock_value : r.total) || 0), 0);
+                    const totalPct = totalStock > 0 ? (totalObs / totalStock) * 100 : 0;
 
                     return (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
@@ -4164,14 +4170,17 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                           ) : (
                             filtered.map((item, idx) => {
-                              const obs = Number(item.obsolete || item.obsolete_stock || 0);
-                              const tot = Number(item.total || item.total_stock_value || 0);
-                              const pct = tot > 0 ? (obs / tot) * 100 : 0;
+                              const obs = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
+                              const tot = Number(item.total_stock_value !== undefined ? item.total_stock_value : (item.total || 0));
+                              const pct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
+                                ? Number(item.obsolete_percentage)
+                                : (tot > 0 ? (obs / tot) * 100 : 0);
+                              const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
                               return (
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.parentDiv || item.parent_division_name}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{obs.toFixed(2)}</td>
+                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{divName}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{obs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{pct.toFixed(2)}%</td>
                               </tr>
                             )})
@@ -4182,7 +4191,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                               <td style={{ padding: "10px 10px" }} />
                               <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{totalObs.toFixed(2)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{totalObs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                               <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{totalPct.toFixed(2)}%</td>
                             </tr>
                           </tfoot>

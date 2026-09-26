@@ -4294,7 +4294,7 @@ export default function SalesRevenueReport() {
         canExport={canExport}
         isOpen={openModal === 'legalEntity'}
         onClose={() => setOpenModal(null)}
-        title="Sales Revenue by Legal Entity — View Details"
+        title="Sales Revenue by Legal Entity Detailed View"
         endpoint="legal-entity-detail"
         fetchFn={(f) => fetchLegalEntityDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={legalEntityCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
@@ -4318,7 +4318,7 @@ export default function SalesRevenueReport() {
         canExport={canExport}
         isOpen={openModal === 'parentDiv'}
         onClose={() => setOpenModal(null)}
-        title="Sales Revenue by Parent Division — View Details"
+        title="Sales Revenue by Parent Division Detailed View"
         endpoint="parent-division-detail"
         fetchFn={(f) => fetchParentDivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
         columnDefs={parentDivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
@@ -4594,7 +4594,7 @@ export default function SalesRevenueReport() {
             }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
-                  Revenue Trend — View Details
+                  Revenue Trend Detailed View
                 </h3>
                 {appliedPeriodLabel && (
                   <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2, fontWeight: 500 }}>
