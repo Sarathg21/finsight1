@@ -2994,7 +2994,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title={`Inventory Value by Sub-division (${currentCurrency})`}
             info="Sub-division holdings ranked by value"
-            onViewAll={() => setViewAllModal("subdivision")}
+            onViewAll={() => setViewAllModal("details")}
             onExport={(type) => handleExport(type || "excel")}
           />
 
