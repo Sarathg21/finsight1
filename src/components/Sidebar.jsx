@@ -202,33 +202,24 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
           {/* â”€â”€ Logo row â”€â”€ */}
           <div style={{
-            height: 'var(--topbar-h)',
+            height: isExpanded ? 64 : 'var(--topbar-h)',
             display: 'flex', alignItems: 'center',
-            padding: isExpanded ? '0 16px 0 18px' : '0 0 0 18px',
+            padding: isExpanded ? '0 16px 0 16px' : '0 10px',
             borderBottom: '1px solid var(--clr-border)',
             flexShrink: 0,
             gap: 10,
           }}>
-            {/* Logo mark */}
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: 'linear-gradient(135deg,#7c3aed,#6366f1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 900, fontSize: '0.85rem', color: '#fff',
-              boxShadow: '0 3px 10px rgba(99,102,241,0.3)',
-            }}>FJ</div>
-
-            {/* Brand name */}
-            <div style={{
-              overflow: 'hidden', whiteSpace: 'nowrap',
-              transition: 'opacity 0.2s, width 0.3s',
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? 'auto' : 0,
-              pointerEvents: isExpanded ? 'auto' : 'none',
-            }}>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: '#ffffff', lineHeight: 1.1 }}>FJ Group</div>
-              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#cbd5e1', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Finance Suite</div>
-            </div>
+            <img
+              src="/images/fj.png.png"
+              alt="FJ Group"
+              style={{
+                height: isExpanded ? 52 : 36,
+                maxWidth: isExpanded ? 210 : 44,
+                objectFit: 'contain',
+                objectPosition: isExpanded ? 'left center' : 'center',
+                transition: 'max-width 0.3s ease',
+              }}
+            />
           </div>
 
           {/* â”€â”€ Role badge â”€â”€ */}

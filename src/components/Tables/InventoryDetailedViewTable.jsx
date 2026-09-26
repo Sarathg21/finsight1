@@ -21,23 +21,23 @@ function ChartMenu({ onViewAll, onExportExcel, onExportPdf }) {
 }
 
 const baseColumns = [
-  { label: "Legal Entity", field: "legalEntity", width: 220, sticky: true },
-  { label: "Subdivision", field: "subDivision", width: 180, sticky: true },
-  { label: "Warehouse", field: "warehouse", width: 140, sticky: true },
-  { label: "Category", field: "category", width: 120, sticky: true },
+  { label: <>Legal<br />Entity</>, field: "legalEntity", width: 130, sticky: true },
+  { label: <>Sub-<br />division</>, field: "subDivision", width: 120, sticky: true },
+  { label: <>Subinventory<br />(Warehouse)</>, field: "warehouse", width: 95, sticky: true },
+  { label: <>Item<br />Category</>, field: "category", width: 95, sticky: true },
 
-  { label: "Item Code", field: "itemCode", width: 140 },
-  { label: "Description", field: "description", width: 320 },
-  { label: "Quantity", field: "quantity", align: "right", width: 90 },
-  { label: "Inv. Value", field: "inventoryValue", align: "right", width: 110 },
-  { label: "0-30", field: "days0to30", align: "right", width: 90 },
-  { label: "31-60", field: "days31to60", align: "right", width: 90 },
-  { label: "61-90", field: "days61to90", align: "right", width: 90 },
-  { label: "91-120", field: "days91to120", align: "right", width: 90 },
-  { label: "121-180", field: "days121to180", align: "right", width: 90 },
-  { label: "181-365", field: "days181to365", align: "right", width: 90 },
-  { label: "366-730", field: "days366to730", align: "right", width: 90 },
-  { label: ">730", field: "daysAbove730", align: "right", width: 90 },
+  { label: <>Item<br />Code</>, field: "itemCode", width: 90 },
+  { label: <>Item<br />Description</>, field: "description", width: 180 },
+  { label: <>Qty<br />(Nos)</>, field: "quantity", align: "right", width: 65 },
+  { label: <>Stock Value<br />(Total)</>, field: "inventoryValue", align: "right", width: 85 },
+  { label: <>0-30<br />Days</>, field: "days0to30", align: "right", width: 60 },
+  { label: <>31-60<br />Days</>, field: "days31to60", align: "right", width: 60 },
+  { label: <>61-90<br />Days</>, field: "days61to90", align: "right", width: 60 },
+  { label: <>91-120<br />Days</>, field: "days91to120", align: "right", width: 60 },
+  { label: <>121-180<br />Days</>, field: "days121to180", align: "right", width: 60 },
+  { label: <>181-365<br />Days</>, field: "days181to365", align: "right", width: 60 },
+  { label: <>366-730<br />Days</>, field: "days366to730", align: "right", width: 60 },
+  { label: <>>730<br />Days</>, field: "daysAbove730", align: "right", width: 60 },
 ];
 
 

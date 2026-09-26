@@ -621,19 +621,62 @@ function DetailApiModal({
             {dateFiltersConfig && dateFiltersConfig.map((cfg, idx) => (
               <div key={`df-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Period:</span>
-                <input
-                  type="date"
-                  value={dateFiltersState[cfg.fromKey] || ''}
-                  onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.fromKey]: e.target.value }))}
-                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.74rem', height: 30, cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>–</span>
-                <input
-                  type="date"
-                  value={dateFiltersState[cfg.toKey] || ''}
-                  onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.toKey]: e.target.value }))}
-                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: '0.74rem', height: 30, cursor: 'pointer' }}
-                />
+                
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id={`hidden-${cfg.fromKey}`} type="date"
+                    value={dateFiltersState[cfg.fromKey] || ''}
+                    onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.fromKey]: e.target.value }))}
+                    style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(`hidden-${cfg.fromKey}`);
+                      if (el) { el.showPicker ? el.showPicker() : el.click(); }
+                    }}
+                    style={{
+                        width: 95, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
+                        fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                    }}
+                  >
+                    {dateFiltersState[cfg.fromKey] ? dateFiltersState[cfg.fromKey].split('-').reverse().join('-') : 'Select'}
+                    <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                        📅
+                    </span>
+                  </button>
+                </div>
+
+                <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>-</span>
+                
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id={`hidden-${cfg.toKey}`} type="date"
+                    value={dateFiltersState[cfg.toKey] || ''}
+                    onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.toKey]: e.target.value }))}
+                    style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(`hidden-${cfg.toKey}`);
+                      if (el) { el.showPicker ? el.showPicker() : el.click(); }
+                    }}
+                    style={{
+                        width: 95, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
+                        fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                    }}
+                  >
+                    {dateFiltersState[cfg.toKey] ? dateFiltersState[cfg.toKey].split('-').reverse().join('-') : 'Select'}
+                    <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                        📅
+                    </span>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -3023,24 +3066,58 @@ export default function SalesRevenueReport() {
 
 
           <FilterField label="From Date">
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <svg width="13" height="13" style={{ position: 'absolute', left: 8, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <div style={{ position: 'relative' }}>
               <input
-                id="filter-from-date" type="date" value={filters.fromDate}
+                id="hidden-from-date" type="date" value={filters.fromDate}
                 onChange={e => updateFilter('fromDate', e.target.value)}
-                style={{ ...selStyle, backgroundImage: 'none', paddingLeft: 26, paddingRight: 6, cursor: 'pointer', width: 120, minWidth: 120, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
+                style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('hidden-from-date');
+                  if (el) { el.showPicker ? el.showPicker() : el.click(); }
+                }}
+                style={{
+                    width: 120, height: 32, boxSizing: "border-box", border: "1px solid #dce3ee",
+                    borderRadius: 9, padding: "0 30px 0 11px", background: "#f4f7fb", color: "#173b8f",
+                    fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                }}
+              >
+                {filters.fromDate ? filters.fromDate.split('-').reverse().join('-') : 'Select Date'}
+                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                    📅
+                </span>
+              </button>
             </div>
           </FilterField>
 
           <FilterField label="To Date">
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <svg width="13" height="13" style={{ position: 'absolute', left: 8, color: '#64748b', pointerEvents: 'none', zIndex: 1 }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <div style={{ position: 'relative' }}>
               <input
-                id="filter-to-date" type="date" value={filters.toDate}
+                id="hidden-to-date" type="date" value={filters.toDate}
                 onChange={e => updateFilter('toDate', e.target.value)}
-                style={{ ...selStyle, backgroundImage: 'none', paddingLeft: 26, paddingRight: 6, cursor: 'pointer', width: 120, minWidth: 120, height: 32, fontSize: '0.74rem', WebkitAppearance: 'none' }}
+                style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
               />
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('hidden-to-date');
+                  if (el) { el.showPicker ? el.showPicker() : el.click(); }
+                }}
+                style={{
+                    width: 120, height: 32, boxSizing: "border-box", border: "1px solid #dce3ee",
+                    borderRadius: 9, padding: "0 30px 0 11px", background: "#f4f7fb", color: "#173b8f",
+                    fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                }}
+              >
+                {filters.toDate ? filters.toDate.split('-').reverse().join('-') : 'Select Date'}
+                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                    📅
+                </span>
+              </button>
             </div>
           </FilterField>
 
