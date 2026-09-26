@@ -28,7 +28,7 @@ function getRawDateForInputGlobal(d) {
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle, Info, ChevronDown } from "lucide-react";
-import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth } from "../api/inventoryApi";
+import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
 
 
@@ -275,11 +275,12 @@ const [loading, setLoading] = useState(true);
               page_size: 500,
           };
 
-          const [filterRes, dashRes, detailsRes, momRes] = await Promise.all([
+          const [filterRes, dashRes, detailsRes, momRes, divWiseRes] = await Promise.all([
               getInventoryFilters(apiFilters).catch(() => ({ data: {} })),
               getInventoryDashboard(apiFilters).catch(() => ({ data: {} })),
               getInventoryDetails(detailsApiFilters).catch(() => ({ data: { items: [] } })),
-              getInventoryMonthOnMonth(apiFilters).catch(() => ({ data: { items: [] } }))
+              getInventoryMonthOnMonth(apiFilters).catch(() => ({ data: { items: [] } })),
+              getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } }))
           ]);
           setMomData(momRes.data?.items || []);
           
@@ -441,13 +442,18 @@ const [loading, setLoading] = useState(true);
 
               let allDivisions = [];
               let divisions = [];
-              if (dData.by_parent_division) {
+              const rawDivs = (divWiseRes?.data?.items && divWiseRes.data.items.length > 0)
+                  ? divWiseRes.data.items
+                  : (dData.by_parent_division || []);
+
+              if (rawDivs.length > 0) {
                   const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#ec4899", "#0891b2"];
-                  allDivisions = dData.by_parent_division.map((item, idx) => ({
+                  allDivisions = rawDivs.map((item, idx) => ({
                       ...item,
-                      name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : item.label,
-                      value: Number(item.inventory_value) / 10000000,
-                      percentage: Number(item.percentage_of_total),
+                      name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : (item.parent_division_name || item.label || item.name),
+                      parent_division_name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : (item.parent_division_name || item.label || item.name),
+                      value: Number(item.inventory_value || item.total_cost_value || item.value || 0) / 10000000,
+                      percentage: Number(item.percentage_of_total || 0),
                       color: colors[idx % colors.length]
                   })).sort((a,b) => b.value - a.value);
 
@@ -798,9 +804,17 @@ const [loading, setLoading] = useState(true);
         else if (viewAllModal === "slowMoving") section = "slow-moving";
 
         if (section) {
-          const res = await getInventoryDetails({ ...apiFilters, section });
-          if (active && res.data?.items) {
-            setViewAllData(res.data.items);
+          const [res, divWiseRes] = await Promise.all([
+            getInventoryDetails({ ...apiFilters, section }).catch(() => ({ data: {} })),
+            viewAllModal === "parentDivision" ? getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })
+          ]);
+          if (active) {
+            const list = res.data?.rows || res.data?.items || (Array.isArray(res.data) ? res.data : []);
+            const fallbackList = divWiseRes.data?.items || divWiseRes.data?.rows || [];
+            const finalList = list.length > 0 ? list : fallbackList;
+            if (finalList.length > 0) {
+              setViewAllData(finalList);
+            }
           }
         }
       } catch (err) {
@@ -4053,10 +4067,19 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           </table>
                         );
                     } else {
-                        const rawList = mockData.allDivisions?.length ? mockData.allDivisions : mockData.divisions;
-                        const filtered = (rawList || []).filter(item =>
-                          !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase()) || item.parent_division_name?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                        );
+                        if (viewAllLoading) {
+                            return <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: "0.85rem" }}>Loading parent divisions...</div>;
+                        }
+
+                        const rawList = (viewAllData && viewAllData.length > 0)
+                          ? viewAllData
+                          : (mockData.allDivisions?.length ? mockData.allDivisions : (mockData.divisions || []));
+
+                        const filtered = (rawList || []).filter(item => {
+                          const name = String(item.parent_division_name || item.name || item.label || "").toLowerCase();
+                          return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
+                        });
+
                         return (
                           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
@@ -4073,16 +4096,38 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               {filtered.length === 0 ? (
                                 <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No divisions found</td></tr>
                               ) : (
-                                filtered.map((item, idx) => (
-                                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name || item.parent_division_name}</td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || item.total_cost_value || item.inventory_value || 0).toFixed(2)}</td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{item.cost_of_material_ytd !== null && item.cost_of_material_ytd !== undefined ? Number(item.cost_of_material_ytd).toFixed(2) : "N/A"}</td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{item.average_inventory !== null && item.average_inventory !== undefined ? Number(item.average_inventory).toFixed(2) : "N/A"}</td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{item.dio_days !== null && item.dio_days !== undefined ? Number(item.dio_days).toFixed(0) : "N/A"}</td>
-                                  </tr>
-                                ))
+                                filtered.map((item, idx) => {
+                                  const name = item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label) || "—";
+                                  const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0));
+                                  const numVal = Number(rawVal || 0);
+                                  const displayVal = numVal > 10000 ? (numVal / 10000000).toFixed(2) : numVal.toFixed(2);
+
+                                  const rawMat = item.cost_of_material_ytd;
+                                  const displayMat = (rawMat !== null && rawMat !== undefined)
+                                    ? (Number(rawMat) > 10000 ? (Number(rawMat) / 10000000).toFixed(2) : Number(rawMat).toFixed(2))
+                                    : "N/A";
+
+                                  const rawAvg = item.average_inventory;
+                                  const displayAvg = (rawAvg !== null && rawAvg !== undefined)
+                                    ? (Number(rawAvg) > 10000 ? (Number(rawAvg) / 10000000).toFixed(2) : Number(rawAvg).toFixed(2))
+                                    : "N/A";
+
+                                  const rawDio = item.dio_days;
+                                  const displayDio = (rawDio !== null && rawDio !== undefined)
+                                    ? Number(rawDio).toFixed(0)
+                                    : "N/A";
+
+                                  return (
+                                    <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                      <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                      <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{name}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{displayVal}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{displayMat}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{displayAvg}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{displayDio}</td>
+                                    </tr>
+                                  );
+                                })
                               )}
                             </tbody>
                           </table>
