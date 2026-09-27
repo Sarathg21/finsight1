@@ -24,6 +24,7 @@ const ROUTE_ICON = {
   '/ap': CreditCard,
   '/inventory': Package,
   '/WorkingCapital': LayoutGrid,
+  '/FinancialPosition': Wallet,
   '/cash-collection': Wallet,
   '/excel-consolidator': FileSpreadsheet,
   '/admin': Shield,
@@ -69,6 +70,7 @@ const NAV_BY_ROLE = {
     { to: '/payables', label: 'Payables Report', group: 'Reports' },
     { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
     { to: '/WorkingCapital', label: 'WorkingCapital Report', group: 'Reports' },
+    { to: '/FinancialPosition', label: 'Financial Position ', group: 'Reports' },
 
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },
