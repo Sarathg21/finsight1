@@ -3707,8 +3707,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "Current Year vs Month By Month inventory details",
                 searchPlaceholder: "Search months...",
                 section: "trend",
-                width: "92%",
-                maxWidth: "760px",
+                width: "96vw",
+                maxWidth: "96vw",
               };
             case "parentDivision":
               return {
@@ -3716,8 +3716,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "Period: 01 Sept 2026 to 30 Sept 2026",
                 searchPlaceholder: "Search parent divisions...",
                 section: "parent-divisions",
-                width: parentDivViewMode === "mom" ? "96vw" : "92%",
-                maxWidth: parentDivViewMode === "mom" ? "96vw" : "880px",
+                width: "96vw",
+                maxWidth: "96vw",
               };
             case "subdivision":
               return {
@@ -3725,8 +3725,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: `Breakdown across all sub-divisions (${currentCurrency})`,
                 searchPlaceholder: "Search sub-divisions...",
                 section: null,
-                width: "92%",
-                maxWidth: "720px",
+                width: "96vw",
+                maxWidth: "96vw",
               };
             case "slowMoving":
               return {
@@ -3734,8 +3734,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: `Obsolete inventory vs total stock (${currentCurrency})`,
                 searchPlaceholder: "Search parent divisions...",
                 section: "slow-moving",
-                width: "92%",
-                maxWidth: "820px",
+                width: "96vw",
+                maxWidth: "96vw",
               };
             case "details":
               return {
@@ -3752,8 +3752,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "",
                 searchPlaceholder: "Search...",
                 section: null,
-                width: "92%",
-                maxWidth: "800px",
+                width: "96vw",
+                maxWidth: "96vw",
               };
           }
         })();
@@ -3780,9 +3780,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               style={{
                 background: "#fff",
                 borderRadius: 12,
-                width: modalConfig.width || "92%",
-                maxWidth: modalConfig.maxWidth || "96vw",
-                height: viewAllModal === "details" ? "92vh" : undefined,
+                width: "96vw",
+                maxWidth: "96vw",
+                height: "92vh",
                 maxHeight: "92vh",
                 display: "flex",
                 flexDirection: "column",
