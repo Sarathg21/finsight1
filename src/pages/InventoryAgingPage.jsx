@@ -288,6 +288,7 @@ const [loading, setLoading] = useState(true);
   const [momLoading, setMomLoading] = useState(false);
   const [momYear, setMomYear] = useState(2026);
   const [momCurrencyMode, setMomCurrencyMode] = useState("AED");
+  const [agingCurrencyMode, setAgingCurrencyMode] = useState("AED");
 
 
   const [modalDetailPage, setModalDetailPage] = useState(0);
@@ -2835,10 +2836,37 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
     return modalFilteredDetails.slice(start, start + modalDetailPageSize);
   }, [viewAllModal, modalFilteredDetails, safeModalPage, modalDetailPageSize]);
 
-  const modalTotalVal = useMemo(() => {
-    if (viewAllModal !== "details") return 0;
-    return modalFilteredDetails.reduce((s, r) => s + (Number(r.total_stock_value) || 0), 0);
+  const divStats = useMemo(() => {
+    const map = {};
+    const list = mockData.details || [];
+    list.forEach((r) => {
+      const pd = r.parent_division || "Other";
+      if (!map[pd]) map[pd] = { qty: 0, val: 0, stockVal: 0 };
+      map[pd].qty += Number(r.quantity || 0);
+      map[pd].val += Number(r.total_stock_value || 0);
+      map[pd].stockVal += Number(r.total_stock_value || 0);
+    });
+    return map;
+  }, [mockData.details]);
+
+  const modalTotals = useMemo(() => {
+    if (viewAllModal !== "details") {
+      return { totalVal: 0, b0_30: 0, b31_60: 0, b61_90: 0, b91_120: 0, b121_180: 0, b181_365: 0, bObsolete: 0 };
+    }
+    return modalFilteredDetails.reduce((acc, r) => {
+      acc.totalVal += Number(r.total_stock_value) || 0;
+      acc.b0_30 += Number(r.aging_0_30) || 0;
+      acc.b31_60 += Number(r.aging_31_60) || 0;
+      acc.b61_90 += Number(r.aging_61_90) || 0;
+      acc.b91_120 += Number(r.aging_91_120) || 0;
+      acc.b121_180 += Number(r.aging_121_180) || 0;
+      acc.b181_365 += Number(r.aging_181_365) || 0;
+      acc.bObsolete += (Number(r.aging_366_730) || 0) + (Number(r.aging_above_730) || 0);
+      return acc;
+    }, { totalVal: 0, b0_30: 0, b31_60: 0, b61_90: 0, b91_120: 0, b121_180: 0, b181_365: 0, bObsolete: 0 });
   }, [viewAllModal, modalFilteredDetails]);
+
+  const modalTotalVal = modalTotals.totalVal;
 
   if (loading) {
       return (
@@ -3194,8 +3222,49 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         {/* 1. AGING SUMMARY */}
         <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0, position: "relative" }}>
           <CardHeader isExporting={isExporting}
-            title={`Inventory Aging Summary (${currentCurrency})`}
+            title={`Inventory Aging Summary (${agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : currentCurrency})`}
             info="Summary of inventory value by aging bucket"
+            extra={
+              <div style={{ display: "inline-flex", background: "#f1f5f9", padding: 2, borderRadius: 6, border: "1px solid #e2e8f0", gap: 2 }}>
+                <button
+                  type="button"
+                  onClick={() => setAgingCurrencyMode("AED")}
+                  style={{
+                    fontSize: "0.70rem",
+                    fontWeight: 700,
+                    color: agingCurrencyMode === "AED" ? "#fff" : "#475569",
+                    background: agingCurrencyMode === "AED" ? "#5B3FE4" : "transparent",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                    cursor: "pointer",
+                    boxShadow: agingCurrencyMode === "AED" ? "0 1px 2px rgba(91,63,228,0.25)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  AED
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAgingCurrencyMode("AED_MILLIONS")}
+                  style={{
+                    fontSize: "0.70rem",
+                    fontWeight: 700,
+                    color: agingCurrencyMode === "AED_MILLIONS" ? "#fff" : "#475569",
+                    background: agingCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "transparent",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                    cursor: "pointer",
+                    boxShadow: agingCurrencyMode === "AED_MILLIONS" ? "0 1px 2px rgba(91,63,228,0.25)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Display in AED Millions"
+                >
+                  AED Millions
+                </button>
+              </div>
+            }
             onViewAll={() => setViewAllModal("details")}
             onExport={(type) => handleExport(type || "excel")}
           />
@@ -3204,11 +3273,11 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             <DonutChart
               data={mockData.aging}
               total={mockData.totalInventory || agingTotal}
-              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
+              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : (mockData.reporting_currency || currentCurrency))}
               centerSubText="Total"
               size={144}
               strokeWidth={20}
-              currency={mockData.reporting_currency || currentCurrency}
+              currency={agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : (mockData.reporting_currency || currentCurrency)}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
             />
@@ -3216,7 +3285,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             <div style={styles.agingTable}>
               <div style={styles.agingHeader}>
                 <span>Bucket</span>
-                <span style={{ textAlign: "right" }}>Amount ({currentCurrency})</span>
+                <span style={{ textAlign: "right" }}>Amount ({agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : currentCurrency})</span>
                 <span style={{ textAlign: "right" }}>% Total</span>
               </div>
 
@@ -3252,7 +3321,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
 
                     <div style={{ textAlign: "right", fontWeight: isHovered ? 800 : 600, color: isHovered ? "#0f172a" : "#1e293b" }}>
-                      {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)}
+                      {agingCurrencyMode === "AED_MILLIONS"
+                        ? `${(Number(item.value || 0) / 1000000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`
+                        : formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)}
                     </div>
 
                     <div style={{ textAlign: "right", color: isHovered ? item.color : "#64748b", fontWeight: isHovered ? 800 : 500 }}>
@@ -3267,7 +3338,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   Total
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  {formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
+                  {agingCurrencyMode === "AED_MILLIONS"
+                    ? `${(Number(mockData.totalInventory || agingTotal) / 1000000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`
+                    : formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
                   100%
@@ -3917,7 +3990,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           setModalDetailsFilters(prev => ({ ...prev, subinventory: vals }));
                           setModalDetailPage(0);
                         }}
-                        placeholder="All Subinventory"
+                        placeholder="All SUB-INV"
                       />
                     </div>
 
@@ -3969,8 +4042,54 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
                   </div>
 
-                  {/* Right side: Records count & Exports */}
+                  {/* Right side: Records count & Exports & Currency Toggle */}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                    {/* Currency Mode Toggle */}
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginRight: 4 }}>
+                      <button
+                        type="button"
+                        onClick={() => setMomCurrencyMode("AED")}
+                        style={{
+                          height: 28,
+                          minWidth: 40,
+                          padding: "0 8px",
+                          borderRadius: 6,
+                          border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                          background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
+                          color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          outline: "none",
+                        }}
+                        title="Display in AED"
+                      >
+                        AED
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMomCurrencyMode("AED_MILLIONS")}
+                        style={{
+                          height: 28,
+                          minWidth: 74,
+                          padding: "0 8px",
+                          borderRadius: 6,
+                          border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                          background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
+                          color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          outline: "none",
+                        }}
+                        title="Display in AED Millions"
+                      >
+                        AED Millions
+                      </button>
+                    </div>
+
                     {modalDetailsLoading ? (
                       <span style={{ fontSize: "0.72rem", color: "#2563eb", fontWeight: 600 }}>Loading...</span>
                     ) : (
@@ -4080,91 +4199,88 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
                   )}
 
-                  {viewAllModal === "parentDivision" && (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto", marginRight: 8 }}>
-                      {parentDivViewMode === "mom" && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Year</span>
-                          <input
-                            value={momYear}
-                            readOnly
-                            style={{
-                              height: 28,
-                              width: 60,
-                              border: "1px solid #d5ddeb",
-                              borderRadius: 5,
-                              background: "#fff",
-                              color: "#2563eb",
-                              padding: "0 6px",
-                              fontSize: "0.74rem",
-                              fontWeight: 700,
-                              textAlign: "center",
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <button
-                          type="button"
-                          onClick={() => setMomCurrencyMode("AED")}
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto", marginRight: 8, flexWrap: "wrap" }}>
+                    {viewAllModal === "parentDivision" && parentDivViewMode === "mom" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Year</span>
+                        <input
+                          value={momYear}
+                          readOnly
                           style={{
                             height: 28,
-                            minWidth: 42,
-                            padding: "0 10px",
-                            borderRadius: 6,
-                            border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
-                            background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
-                            color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            outline: "none",
+                            width: 60,
+                            border: "1px solid #d5ddeb",
+                            borderRadius: 5,
+                            background: "#fff",
+                            color: "#2563eb",
+                            padding: "0 6px",
+                            fontSize: "0.74rem",
+                            fontWeight: 700,
+                            textAlign: "center",
                           }}
-                          title="Display in AED"
-                        >
-                          AED
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setMomCurrencyMode("AED_MILLIONS")}
-                          style={{
-                            height: 28,
-                            minWidth: 78,
-                            padding: "0 10px",
-                            borderRadius: 6,
-                            border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
-                            background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
-                            color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
-                            fontSize: 10,
-                            fontWeight: 600,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            outline: "none",
-                          }}
-                          title="Display in AED Millions"
-                        >
-                          AED Millions
-                        </button>
+                        />
                       </div>
+                    )}
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => setMomCurrencyMode("AED")}
+                        style={{
+                          height: 28,
+                          minWidth: 42,
+                          padding: "0 10px",
+                          borderRadius: 6,
+                          border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                          background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
+                          color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          outline: "none",
+                        }}
+                        title="Display in AED"
+                      >
+                        AED
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMomCurrencyMode("AED_MILLIONS")}
+                        style={{
+                          height: 28,
+                          minWidth: 78,
+                          padding: "0 10px",
+                          borderRadius: 6,
+                          border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                          background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
+                          color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                          outline: "none",
+                        }}
+                        title="Display in AED Millions"
+                      >
+                        AED Millions
+                      </button>
                     </div>
-                  )}
 
-                  <input
-                    type="text"
-                    placeholder={modalConfig.searchPlaceholder}
-                    value={viewAllSearch}
-                    onChange={(e) => setViewAllSearch(e.target.value)}
-                    style={{
-                      padding: "6px 12px",
-                      borderRadius: 6,
-                      border: "1px solid #cbd5e1",
-                      fontSize: "0.76rem",
-                      width: 220,
-                      outline: "none",
-                      marginLeft: viewAllModal === "parentDivision" ? 0 : "auto",
-                    }}
-                  />
+                    <input
+                      type="text"
+                      placeholder={modalConfig.searchPlaceholder}
+                      value={viewAllSearch}
+                      onChange={(e) => setViewAllSearch(e.target.value)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.76rem",
+                        width: 220,
+                        outline: "none",
+                      }}
+                    />
+                  </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <button
@@ -4262,14 +4378,56 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                         return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
                     }
 
+                    const isMillions = momCurrencyMode === "AED_MILLIONS";
+                    const scale = isMillions ? 1000000 : 1;
+                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+
+                    const formatTrendVal = (val) => {
+                      if (val === null || val === undefined || val === "" || isNaN(val)) return "—";
+                      let num = Number(val);
+                      if (num < 10000 && num > 0) num = num * 10000000;
+                      return Math.round(num / scale).toLocaleString("en-US");
+                    };
+
+                    let totalStock = 0;
+                    let totalObs = 0;
+                    let turnoverSum = 0;
+                    let turnoverCount = 0;
+
+                    filtered.forEach(item => {
+                      const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.current !== undefined ? item.current : 0));
+                      let nVal = Number(rawVal || 0);
+                      if (nVal < 10000 && nVal > 0) nVal = nVal * 10000000;
+                      totalStock += nVal;
+
+                      const rawObs = item.obsolete_stock !== undefined ? item.obsolete_stock : (item.total_obsolete_stock !== undefined ? item.total_obsolete_stock : 0);
+                      let nObs = Number(rawObs || 0);
+                      if (nObs < 10000 && nObs > 0) nObs = nObs * 10000000;
+                      totalObs += nObs;
+
+                      const tVal = item.annual_inventory_turnover !== undefined && item.annual_inventory_turnover !== null
+                        ? Number(item.annual_inventory_turnover)
+                        : (item.annual_turnover !== undefined && item.annual_turnover !== null
+                          ? Number(item.annual_turnover)
+                          : (item.annual_inventory_turnover_ratio !== undefined && item.annual_inventory_turnover_ratio !== null
+                            ? Number(item.annual_inventory_turnover_ratio)
+                            : (item.inventory_turnover ? Number(item.inventory_turnover) * 12 : null)));
+                      if (tVal !== null && !isNaN(tVal)) {
+                        turnoverSum += tVal;
+                        turnoverCount++;
+                      }
+                    });
+
+                    const avgTurnover = turnoverCount > 0 ? (turnoverSum / turnoverCount) : 0;
+
                     return (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                         <thead>
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 45, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Month</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currentCurrency})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Obsolete Stock<br />({currentCurrency})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Obsolete Stock<br />({currencyHeader})</th>
                             <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Annual Inventory<br />Turnover Ratio</th>
                           </tr>
                         </thead>
@@ -4281,12 +4439,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               const rawMonth = item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : item.month_start) : (item.month || item.as_on_date);
                               const monthLabel = formatTrendMonthName(rawMonth) || `M${idx + 1}`;
                               const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.current !== undefined ? item.current : 0));
-                              const numVal = Number(rawVal || 0);
-                              const displayStock = numVal > 10000 ? Math.round(numVal / 10000000).toLocaleString() : Math.round(numVal).toLocaleString();
+                              const displayStock = formatTrendVal(rawVal);
 
                               const rawObs = item.obsolete_stock !== undefined ? item.obsolete_stock : (item.total_obsolete_stock !== undefined ? item.total_obsolete_stock : 0);
-                              const numObs = Number(rawObs || 0);
-                              const displayObs = numObs > 10000 ? Math.round(numObs / 10000000).toLocaleString() : (numObs > 0 ? Math.round(numObs).toLocaleString() : "-");
+                              const displayObs = Number(rawObs || 0) > 0 ? formatTrendVal(rawObs) : "-";
 
                               const annualTurnover = item.annual_inventory_turnover !== undefined && item.annual_inventory_turnover !== null
                                 ? Math.round(Number(item.annual_inventory_turnover))
@@ -4308,6 +4464,17 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             })
                           )}
                         </tbody>
+                        {filtered.length > 0 && (
+                          <tfoot>
+                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                              <td style={{ padding: "10px 10px" }} />
+                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{formatTrendVal(totalStock)}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#dc2626" }}>{totalObs > 0 ? formatTrendVal(totalObs) : "-"}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a" }}>{turnoverCount > 0 ? Math.round(avgTurnover) : "-"}</td>
+                            </tr>
+                          </tfoot>
+                        )}
                       </table>
                     );
                   }
@@ -4669,6 +4836,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     const filtered = (rawList || []).filter(item =>
                       !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
                     );
+                    const isMillions = momCurrencyMode === "AED_MILLIONS";
+                    const scale = isMillions ? 1000000 : 1;
+                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+
                     const totalVal = filtered.reduce((s, r) => s + (Number(r.value || r.inventory_value) || 0), 0);
                     const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
                     return (
@@ -4677,7 +4848,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-<br />Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Value<br />({currentCurrency})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Value<br />({currencyHeader})</th>
                             <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>% of<br />Total</th>
                           </tr>
                         </thead>
@@ -4689,7 +4860,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name || item.subdivision_name}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(Number(item.value || item.inventory_value || 0)).toLocaleString("en-US")}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(Number(item.value || item.inventory_value || 0) / scale).toLocaleString("en-US")}</td>
                                 <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Math.round(Number(item.percentage || 0))}%</td>
                               </tr>
                             ))
@@ -4700,7 +4871,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                               <td style={{ padding: "10px 10px" }} />
                               <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
                               <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalPct)}%</td>
                             </tr>
                           </tfoot>
@@ -4725,9 +4896,33 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                       return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
                     });
 
-                    const totalObs = filtered.reduce((s, r) => s + (Number(r.obsolete_stock !== undefined ? r.obsolete_stock : (r.obsolete || r.value)) || 0), 0);
-                    const totalStock = filtered.reduce((s, r) => s + (Number(r.total_stock_value !== undefined ? r.total_stock_value : r.total) || 0), 0);
-                    const totalPct = totalStock > 0 ? (totalObs / totalStock) * 100 : 0;
+                    const isMillions = momCurrencyMode === "AED_MILLIONS";
+                    const scale = isMillions ? 1000000 : 1;
+                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+
+                    let totalQty = 0;
+                    let totalVal = 0;
+                    let totalStockVal = 0;
+                    let totalObs = 0;
+
+                    filtered.forEach(item => {
+                      const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                      const stats = divStats[divName] || {};
+
+                      const itemQty = item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0)));
+                      totalQty += itemQty;
+
+                      const itemVal = item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0)));
+                      totalVal += itemVal;
+
+                      const itemStock = item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0));
+                      totalStockVal += itemStock;
+
+                      const obs = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
+                      totalObs += obs;
+                    });
+
+                    const totalPct = totalStockVal > 0 ? (totalObs / totalStockVal) * 100 : 0;
 
                     return (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
@@ -4735,29 +4930,45 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock<br />({currentCurrency})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Total<br />Quantity</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Value<br />({currencyHeader})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock<br />({currencyHeader})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filtered.length === 0 ? (
-                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                            <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                           ) : (
                             filtered.map((item, idx) => {
+                              const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                              const stats = divStats[divName] || {};
+
+                              const itemQty = item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0)));
+
+                              const itemVal = item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0)));
+
+                              const itemStock = item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0));
+
                               const obs = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
-                              const tot = Number(item.total_stock_value !== undefined ? item.total_stock_value : (item.total || 0));
+
                               const pct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
                                 ? Number(item.obsolete_percentage)
-                                : (tot > 0 ? (obs / tot) * 100 : 0);
-                              const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                                : (itemStock > 0 ? (obs / itemStock) * 100 : 0);
+
                               return (
-                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{divName}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs).toLocaleString("en-US")}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
-                              </tr>
-                            )})
+                                <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                  <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
+                                  <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{divName}</td>
+                                  <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemQty).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemVal / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
+                                </tr>
+                              );
+                            })
                           )}
                         </tbody>
                         {filtered.length > 0 && (
@@ -4765,7 +4976,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                               <td style={{ padding: "10px 10px" }} />
                               <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{Math.round(totalObs).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155" }}>{Math.round(totalQty).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{Math.round(totalObs / scale).toLocaleString("en-US")}</td>
                               <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(totalPct)}%</td>
                             </tr>
                           </tfoot>
@@ -4783,22 +4997,32 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                       );
                     }
 
+                    const isMillions = momCurrencyMode === "AED_MILLIONS";
+                    const scale = isMillions ? 1000000 : 1;
+                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+
+                    const formatDetailVal = (val) => {
+                      if (val === null || val === undefined || val === "" || isNaN(val)) return "0";
+                      const num = Number(val);
+                      return Math.round(num / scale).toLocaleString("en-US");
+                    };
+
                     return (
-                      <table style={{ width: "100%", minWidth: 1600, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
+                      <table style={{ width: "100%", minWidth: 1120, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
                         <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
                           <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 160, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Legal<br />Entity</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Parent<br />Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Sub-<br />Division</th>
-                            <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 95, maxWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Subinventory<br />Code</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 120, maxWidth: 140, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currentCurrency})</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 60, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 60, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>31-60<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 60, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>61-90<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 60, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>91-120<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 70, minWidth: 65, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>121-180<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 70, minWidth: 65, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>181-365<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 80, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Obsolete Stock<br />(Above 365 Days)</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 105, maxWidth: 135, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Legal<br />Entity</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Parent<br />Division</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Sub-<br />Division</th>
+                            <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 80, maxWidth: 90, verticalAlign: "bottom", lineHeight: 1.2, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>SUB-INV<br />CODE</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 100, maxWidth: 125, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currencyHeader})</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>31-60<br />Days</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>61-90<br />Days</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>91-120<br />Days</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 58, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>121-180<br />Days</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 58, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>181-365<br />Days</th>
+                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 78, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Obsolete Stock<br />(Above 365 Days)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -4807,18 +5031,18 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           ) : (
                             modalPaginatedDetails.map((row, idx) => (
                               <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                <td style={{ padding: "7px 10px", fontWeight: 600, color: "#1e293b", minWidth: 160, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.legal_entity}</td>
-                                <td style={{ padding: "7px 10px", color: "#334155", minWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.parent_division}</td>
-                                <td style={{ padding: "7px 10px", color: "#334155", minWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.subdivision}</td>
-                                <td style={{ padding: "7px 8px", color: "#475569", width: 100, minWidth: 95, maxWidth: 110, whiteSpace: "nowrap" }}>{row.subinventory}</td>
-                                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", width: 130, minWidth: 120, maxWidth: 140, whiteSpace: "nowrap" }}>{Math.round(Number(row.total_stock_value || 0)).toLocaleString("en-US")}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_0_30 || 0).toFixed(0)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_31_60 || 0).toFixed(0)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_61_90 || 0).toFixed(0)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_91_120 || 0).toFixed(0)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 70, minWidth: 65 }}>{Number(row.aging_121_180 || 0).toFixed(0)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 70, minWidth: 65 }}>{Number(row.aging_181_365 || 0).toFixed(0)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600, width: 85, minWidth: 80 }}>{(Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0)).toFixed(0)}</td>
+                                <td style={{ padding: "7px 10px", fontWeight: 600, color: "#1e293b", width: 125, minWidth: 105, maxWidth: 135, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.legal_entity}</td>
+                                <td style={{ padding: "7px 10px", color: "#334155", width: 120, minWidth: 105, maxWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.parent_division}</td>
+                                <td style={{ padding: "7px 10px", color: "#334155", width: 120, minWidth: 105, maxWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.subdivision}</td>
+                                <td style={{ padding: "7px 8px", color: "#475569", width: 85, minWidth: 80, maxWidth: 90, whiteSpace: "nowrap" }}>{row.subinventory}</td>
+                                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", width: 110, minWidth: 100, maxWidth: 125, whiteSpace: "nowrap" }}>{formatDetailVal(row.total_stock_value)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_0_30)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_31_60)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_61_90)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_91_120)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", width: 68, minWidth: 58 }}>{formatDetailVal(row.aging_121_180)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", width: 68, minWidth: 58 }}>{formatDetailVal(row.aging_181_365)}</td>
+                                <td style={{ padding: "7px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600, width: 85, minWidth: 78 }}>{formatDetailVal(Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0))}</td>
                               </tr>
                             ))
                           )}
@@ -4827,8 +5051,14 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
                             <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
                               <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
-                              <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 130, minWidth: 120, maxWidth: 140 }}>{Math.round(modalTotalVal).toLocaleString("en-US")}</td>
-                              <td colSpan={7} style={{ padding: "9px 10px", background: "#f8fafc" }} />
+                              <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 110, minWidth: 100, maxWidth: 125 }}>{formatDetailVal(modalTotals.totalVal)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b0_30)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b31_60)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b61_90)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b91_120)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{formatDetailVal(modalTotals.b121_180)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{formatDetailVal(modalTotals.b181_365)}</td>
+                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 700, background: "#f8fafc", width: 85, minWidth: 78 }}>{formatDetailVal(modalTotals.bObsolete)}</td>
                             </tr>
                           </tfoot>
                         )}
