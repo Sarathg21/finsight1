@@ -2334,9 +2334,9 @@ const [loading, setLoading] = useState(true);
 
     if (variant === "table") {
       return (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid #e2e8f0", background: "#fff", gap: 8, borderRadius: "10px 10px 0 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-            <span style={{ fontWeight: 800, fontSize: "0.86rem", color: "#1e293b", letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>{title}</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid #e2e8f0", background: "#fff", gap: 8, borderRadius: "10px 10px 0 0" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
+            <span style={{ fontWeight: 800, fontSize: "0.86rem", color: "#1e293b", letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
             {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
           </div>
           {actionButtons}
@@ -2346,12 +2346,12 @@ const [loading, setLoading] = useState(true);
 
     if (extra) {
       return (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 0", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-            <span>{title}</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 0", marginBottom: 8, gap: 8 }}>
+          <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
             {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }}>
             {extra}
             {actionButtons}
           </div>
@@ -2360,9 +2360,9 @@ const [loading, setLoading] = useState(true);
     }
 
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 0", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-          <span>{title}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 0", marginBottom: 8, gap: 8 }}>
+        <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
           {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
         </div>
         {actionButtons}
@@ -3047,59 +3047,44 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             title={`Inventory Value by Parent Division (${currentCurrency})`}
             info="Breakdown across key parent divisions"
             extra={
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button type="button"
+              <div style={{ display: "inline-flex", background: "#f1f5f9", padding: 2, borderRadius: 6, border: "1px solid #e2e8f0", gap: 2 }}>
+                <button
+                  type="button"
                   onClick={() => setParentDivViewMode("month")}
                   style={{
-                    fontSize: "0.72rem",
+                    fontSize: "0.70rem",
                     fontWeight: 700,
                     color: parentDivViewMode === "month" ? "#fff" : "#475569",
-                    background: parentDivViewMode === "month" ? "#2563eb" : "#f1f5f9",
-                    border: parentDivViewMode === "month" ? "1px solid #2563eb" : "1px solid #cbd5e1",
-                    borderRadius: 5,
-                    padding: "3px 10px",
+                    background: parentDivViewMode === "month" ? "#2563eb" : "transparent",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "2px 8px",
                     cursor: "pointer",
                     boxShadow: parentDivViewMode === "month" ? "0 1px 2px rgba(37,99,235,0.25)" : "none",
-                    transition: "all 0.15s",
+                    transition: "all 0.15s ease",
                   }}
                 >
                   Month
                 </button>
-
-                <div
-                  onClick={() => setParentDivViewMode(prev => prev === "mom" ? "month" : "mom")}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}
-                  title="Toggle Month on Month comparison"
+                <button
+                  type="button"
+                  onClick={() => setParentDivViewMode("mom")}
+                  style={{
+                    fontSize: "0.70rem",
+                    fontWeight: 700,
+                    color: parentDivViewMode === "mom" ? "#fff" : "#475569",
+                    background: parentDivViewMode === "mom" ? "#2563eb" : "transparent",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                    cursor: "pointer",
+                    boxShadow: parentDivViewMode === "mom" ? "0 1px 2px rgba(37,99,235,0.25)" : "none",
+                    transition: "all 0.15s ease",
+                  }}
+                  title="Month on Month comparison"
                 >
-                  <div
-                    style={{
-                      width: 32,
-                      height: 18,
-                      borderRadius: 10,
-                      background: parentDivViewMode === "mom" ? "#2563eb" : "#cbd5e1",
-                      padding: 2,
-                      position: "relative",
-                      transition: "background 0.2s",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: "50%",
-                        background: "#fff",
-                        position: "absolute",
-                        top: 2,
-                        left: parentDivViewMode === "mom" ? 16 : 2,
-                        transition: "left 0.2s",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
-                      }}
-                    />
-                  </div>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 600, color: parentDivViewMode === "mom" ? "#1e3a8a" : "#475569" }}>
-                    Month on Month
-                  </span>
-                </div>
+                  MoM
+                </button>
               </div>
             }
             onViewAll={() => setViewAllModal("parentDivision")}
@@ -3117,8 +3102,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 total={mockData.totalInventory || parentDivTotal}
                 centerText={formatChartValueCompact(mockData.totalInventory || parentDivTotal, mockData.reporting_currency || currentCurrency)}
                 centerSubText="Total"
-                size={160}
-                strokeWidth={24}
+                size={144}
+                strokeWidth={20}
                 currency={mockData.reporting_currency || currentCurrency}
                 activeSegment={hoveredParentDivSegment}
                 onSegmentHover={setHoveredParentDivSegment}
@@ -3133,7 +3118,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                       style={{
                         ...styles.legendListRow,
                         cursor: "pointer",
-                        padding: "4px 6px",
+                        padding: "3px 4px",
                         borderRadius: 6,
                         background: isHovered ? "rgba(241, 245, 249, 0.95)" : "transparent",
                         transition: "all 0.2s ease",
@@ -3148,7 +3133,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             background: item.color,
                             flexShrink: 0,
                             boxShadow: isHovered ? `0 2px 6px ${item.color}88` : "none",
-                            transform: isHovered ? "scale(1.25)" : "scale(1)",
+                            transform: isHovered ? "scale(1.2)" : "scale(1)",
                             transition: "all 0.2s ease",
                           }}
                         />
@@ -3159,6 +3144,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             whiteSpace: "nowrap",
                             fontWeight: isHovered ? 700 : 500,
                             color: isHovered ? "#0f172a" : "#334155",
+                            flex: 1,
+                            minWidth: 0,
                           }}
                         >
                           {item.name}
@@ -3170,6 +3157,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           ...styles.legendValue,
                           color: isHovered ? item.color : "#1e293b",
                           fontWeight: isHovered ? 800 : 600,
+                          flexShrink: 0,
+                          marginLeft: 6,
                         }}
                       >
                         {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)} ({Math.round(Number(item.percentage || 0))}%)
@@ -3217,8 +3206,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               total={mockData.totalInventory || agingTotal}
               centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
               centerSubText="Total"
-              size={160}
-              strokeWidth={24}
+              size={144}
+              strokeWidth={20}
               currency={mockData.reporting_currency || currentCurrency}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
@@ -5293,33 +5282,38 @@ const styles = {
   },
 
   donutRow: {
-    minHeight: 240,
+    minHeight: 220,
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-around",
-    gap: 10,
+    justifyContent: "space-between",
+    gap: 12,
     flex: 1,
+    padding: "0 14px 10px 14px",
+    boxSizing: "border-box",
+    overflow: "hidden",
   },
 
   donutWrapper: {
-    width: 155,
-    height: 155,
-    flex: "0 0 155px",
+    width: 144,
+    height: 144,
+    flex: "0 0 144px",
   },
 
   legendList: {
     flex: 1,
     minWidth: 0,
+    overflow: "hidden",
   },
 
   legendListRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
-    padding: "4px 0",
+    gap: 6,
+    padding: "3.5px 0",
     borderBottom: "1px solid #f8fafc",
     fontSize: "0.72rem",
+    minWidth: 0,
   },
 
   legendName: {
@@ -5327,8 +5321,10 @@ const styles = {
     alignItems: "center",
     gap: 6,
     color: "#334155",
-    whiteSpace: "nowrap",
     fontWeight: 500,
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
   },
 
   legendCircle: {
@@ -5337,12 +5333,15 @@ const styles = {
     minWidth: 8,
     borderRadius: "50%",
     display: "inline-block",
+    flexShrink: 0,
   },
 
   legendValue: {
     color: "#1e293b",
     fontWeight: 600,
     whiteSpace: "nowrap",
+    flexShrink: 0,
+    marginLeft: 6,
   },
 
   agingContent: {
@@ -5352,7 +5351,9 @@ const styles = {
     gap: 12,
     flex: 1,
     height: "100%",
-    padding: "6px 0",
+    padding: "0 14px 10px 14px",
+    boxSizing: "border-box",
+    overflow: "hidden",
   },
 
   agingTable: {
