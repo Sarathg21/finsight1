@@ -9104,7 +9104,6 @@ function ViewAllContent({
                 display: 'flex',
                 flexDirection: 'column',
                 flex: '1 1 auto',
-                minHeight: 0,
                 height: '100%',
                 minHeight: '100%',
                 overflow: 'hidden',

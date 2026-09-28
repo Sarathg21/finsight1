@@ -4308,7 +4308,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={true}
+        showUnitToggle={false}
         searchPlaceholder="Search legal entities..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4331,7 +4331,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={true}
+        showUnitToggle={false}
         searchPlaceholder="Search parent divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4355,7 +4355,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={true}
+        showUnitToggle={false}
         searchPlaceholder="Search sub-divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4380,7 +4380,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={true}
+        showUnitToggle={false}
         searchPlaceholder="Search sub-divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4404,7 +4404,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={true}
+        showUnitToggle={false}
         searchPlaceholder="Search salespeople..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4449,7 +4449,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={true}
+        showUnitToggle={false}
         searchPlaceholder="Search customers..."
         periodLabel={appliedPeriodLabel}
       />

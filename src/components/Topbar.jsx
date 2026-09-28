@@ -10,7 +10,7 @@ const PAGE_TITLES = {
   '/pl': { title: 'Profitability Analysis', sub: 'Income statement analysis' },
   '/ar': { title: 'Receivables Aging', sub: 'AR aging & collection tracking' },
   '/ap': { title: 'Payables Aging', sub: 'AP aging & cash planning' },
-  '/inventory': { title: 'Inventory Aging', sub: 'Stock movement & slow-moving analysis' },
+  '/inventory': { title: 'Inventory Overview', sub: 'Stock movement & slow-moving analysis' },
   '/working-capital': { title: 'Working Capital Dashboard', sub: 'DSO / DIO / DPO & NWC trend' },
   '/balance-sheet': { title: 'Balance Sheet', sub: 'Assets, liabilities & equity' },
   '/cash-collection': { title: 'Cash Collection Report', sub: 'Collections vs. targets' },
@@ -112,14 +112,20 @@ export default function Topbar() {
         padding: "0 16px",
       }}>
       {/* Page title */}
-      <div className="topbar-title">
-        <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--clr-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {page.title}
+      {(page.title || page.sub) ? (
+        <div className="topbar-title">
+          {page.title ? (
+            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--clr-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {page.title}
+            </div>
+          ) : null}
+          {page.sub ? (
+            <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-dim)', fontWeight: 400, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {page.sub}
+            </div>
+          ) : null}
         </div>
-        <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-dim)', fontWeight: 400, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {page.sub}
-        </div>
-      </div>
+      ) : null}
 
       <div className="topbar-actions">
         {/* Search */}

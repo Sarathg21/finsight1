@@ -30,12 +30,13 @@ import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle, Info, ChevronDown } from "lucide-react";
 import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
+import * as XLSX from "xlsx";
 
 
 /* ================================================================
    DATE FILTER
    ================================================================ */
-function DateFilter({ value, onChange, minWidth = 110 }) {
+function DateFilter({ value, onChange, minWidth = 120 }) {
     const dateInputRef = React.useRef(null);
     const openCalendar = () => {
         if (dateInputRef.current) {
@@ -58,8 +59,37 @@ function DateFilter({ value, onChange, minWidth = 110 }) {
         return d;
     };
 
+    const displayText = formatDisplayDate(value);
+
+    const renderDateContent = () => {
+        if (!displayText) return null;
+        if (displayText.includes(" ")) {
+            const parts = displayText.split(" ");
+            if (parts.length === 2) {
+                return (
+                    <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, fontSize: "0.68rem", fontWeight: 700, textAlign: "left", color: "#173b8f" }}>
+                        <span>{parts[0]}</span>
+                        <span>{parts[1]}</span>
+                    </div>
+                );
+            }
+            const mid = Math.ceil(parts.length / 2);
+            return (
+                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, fontSize: "0.68rem", fontWeight: 700, textAlign: "left", color: "#173b8f" }}>
+                    <span>{parts.slice(0, mid).join(" ")}</span>
+                    <span>{parts.slice(mid).join(" ")}</span>
+                </div>
+            );
+        }
+        return (
+            <span style={{ fontSize: "0.72rem", fontWeight: 600, textAlign: "left", lineHeight: 1.2, color: "#173b8f" }}>
+                {displayText}
+            </span>
+        );
+    };
+
     return (
-        <div style={{ flex: "1 1 0", minWidth: 120, position: "relative" }}>
+        <div style={{ flex: "1 1 0", minWidth, position: "relative" }}>
             <label style={{ display: "block", fontSize: 11, fontWeight: 800, color: "#173b8f", marginBottom: 6, lineHeight: "12px", whiteSpace: "nowrap" }}>
                 As On Date
             </label>
@@ -75,14 +105,14 @@ function DateFilter({ value, onChange, minWidth = 110 }) {
                 onClick={openCalendar}
                 style={{
                     width: "100%", height: 34, boxSizing: "border-box", border: "1px solid #dce3ee",
-                    borderRadius: 9, padding: "0 34px 0 11px", background: "#f4f7fb", color: "#173b8f",
-                    fontSize: 12, fontWeight: 600, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+                    borderRadius: 9, padding: "0 28px 0 10px", background: "#f4f7fb", color: "#173b8f",
+                    outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                    display: "flex", alignItems: "center", justifyContent: "flex-start"
                 }}
                 title={value && value !== "All" ? value : "Selected Date"}
             >
-                {formatDisplayDate(value)}
-                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>📅</span>
+                {renderDateContent()}
+                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 15, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>📅</span>
             </button>
         </div>
     );
@@ -152,6 +182,87 @@ export default function InventoryOverview() {
     }
   };
 
+  const handleExportMoM = (format = "excel") => {
+    const rawList = (momData && momData.length > 0)
+      ? momData
+      : (viewAllData && viewAllData.length > 0)
+        ? viewAllData.map(item => ({
+            parent_division_name: item.parent_division_name || item.name || item.label,
+            current_value: item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value || item.value || 0),
+            previous_value: 0,
+            current_as_on_date: "2026-09-25",
+            previous_as_on_date: null,
+          }))
+        : [];
+
+    const filtered = rawList.filter(item => {
+      const name = String(item.parent_division_name || item.name || item.label || "").toLowerCase();
+      return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
+    });
+
+    const MOM_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"];
+
+    if (format === "excel") {
+      const currencySuffix = momCurrencyMode === "AED_MILLIONS" ? " (AED Millions)" : " (AED)";
+      const headerRow = [
+        "Sr. No.",
+        "Parent Division",
+        ...MOM_MONTHS,
+        `LATEST${currencySuffix}`,
+        `PREVIOUS MONTH${currencySuffix}`,
+        `VARIANCE${currencySuffix}`,
+        "VARIANCE %"
+      ];
+
+      const scale = momCurrencyMode === "AED_MILLIONS" ? 1000000 : 1;
+
+      const dataRows = filtered.map((item, idx) => {
+        const curDate = item.current_as_on_date || "2026-09-25";
+        const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : 8;
+        const curMonthKey = MOM_MONTHS[curMonthIdx] || "SEPT";
+        const curVal = Number(item.current_value || 0);
+
+        const prevDate = item.previous_as_on_date;
+        const prevMonthIdx = prevDate ? (new Date(prevDate).getMonth()) : null;
+        const prevMonthKey = prevMonthIdx !== null ? MOM_MONTHS[prevMonthIdx] : null;
+        const prevVal = prevDate ? Number(item.previous_value || 0) : null;
+
+        const variance = prevDate ? (curVal - prevVal) : null;
+        const variancePct = (prevDate && prevVal !== 0) ? ((curVal - prevVal) / prevVal * 100) : null;
+
+        const monthCells = MOM_MONTHS.map(m => {
+          if (m === curMonthKey) return Math.round(curVal / scale);
+          if (m === prevMonthKey && prevVal !== null) return Math.round(prevVal / scale);
+          return "-";
+        });
+
+        return [
+          idx + 1,
+          item.parent_division_name || item.name || item.label,
+          ...monthCells,
+          Math.round(curVal / scale),
+          prevVal !== null ? Math.round(prevVal / scale) : "-",
+          variance !== null ? Math.round(variance / scale) : "-",
+          variancePct !== null ? `${variancePct > 0 ? '+' : ''}${Math.round(variancePct)}%` : "-"
+        ];
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet([
+        [`Inventory Value by Parent Division - Month-on-Month (${momYear})`],
+        [`Reporting Currency: ${momCurrencyMode === 'AED_MILLIONS' ? 'AED Millions' : 'AED'} | Generated: ${new Date().toLocaleDateString()}`],
+        [],
+        headerRow,
+        ...dataRows
+      ]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Inventory_MoM");
+      XLSX.writeFile(wb, `Inventory_Parent_Division_MoM_${momYear}.xlsx`);
+      toast.success("Excel exported successfully");
+    } else {
+      window.print();
+    }
+  };
+
   const [filters, setFilters] = useState({
       legalGroup: [],
       legalEntity: [],
@@ -175,6 +286,8 @@ const [loading, setLoading] = useState(true);
   const [viewAllLoading, setViewAllLoading] = useState(false);
   const [momData, setMomData] = useState([]);
   const [momLoading, setMomLoading] = useState(false);
+  const [momYear, setMomYear] = useState(2026);
+  const [momCurrencyMode, setMomCurrencyMode] = useState("AED");
 
 
   const [modalDetailPage, setModalDetailPage] = useState(0);
@@ -193,6 +306,8 @@ const [loading, setLoading] = useState(true);
       legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
     },
     kpis: [],
+    totalInventory: 0,
+    rawKpis: null,
     trend: { labels: [], previous: [], current: [], list: [] },
     divisions: [],
     allDivisions: [],
@@ -219,10 +334,23 @@ const [loading, setLoading] = useState(true);
       const n = Number(v);
       if (isNaN(n)) return "-";
       const cur = currentCurrency;
-      if (Math.abs(n) >= 1_000_000_000) return `${cur} ${(n / 1_000_000_000).toFixed(2)}B`;
-      if (Math.abs(n) >= 1_000_000) return `${cur} ${(n / 1_000_000).toFixed(2)}M`;
-      if (Math.abs(n) >= 1_000) return `${cur} ${(n / 1_000).toFixed(2)}K`;
-      return `${cur} ${n.toFixed(2)}`;
+      if (Math.abs(n) >= 1_000_000_000) return `${cur} ${Math.round(n / 1_000_000_000).toLocaleString()}B`;
+      if (Math.abs(n) >= 1_000_000) return `${cur} ${Math.round(n / 1_000_000).toLocaleString()}M`;
+      if (Math.abs(n) >= 1_000) return `${cur} ${Math.round(n / 1_000).toLocaleString()}K`;
+      return `${cur} ${Math.round(n).toLocaleString()}`;
+  };
+
+  const formatChartValueCompact = (value, currency = null) => {
+      if (value === null || value === undefined || value === "") return "—";
+      let number = Number(value);
+      if (isNaN(number)) return "—";
+      if (number > 0 && number < 10000) {
+          number = number * 10000000;
+      }
+      const prefix = currency === null
+        ? (currentCurrency ? `${currentCurrency} ` : "AED ")
+        : (currency ? `${currency} ` : "");
+      return `${prefix}${(number / 1_000_000).toFixed(2)}M`;
   };
 
   const loadData = useCallback(async () => {
@@ -328,7 +456,7 @@ const [loading, setLoading] = useState(true);
                                 : (dData.kpis.inventory_turnover !== null && dData.kpis.inventory_turnover !== undefined ? "TTM" : null),
                             titleColor: "#ea580c",
                             cardBg: "#fff7ed",
-                            value: (dData.kpis.inventory_turnover !== null && dData.kpis.inventory_turnover !== undefined) ? `${Number(dData.kpis.inventory_turnover).toFixed(2)} Times` : "N/A",
+                            value: (dData.kpis.inventory_turnover !== null && dData.kpis.inventory_turnover !== undefined) ? `${Math.round(Number(dData.kpis.inventory_turnover))} Times` : "N/A",
                             icon: RotateCw,
                             iconBg: "#ffedd5",
                             variance: dData.kpis.turnover_variance || null,
@@ -541,7 +669,7 @@ const [loading, setLoading] = useState(true);
                       code: item.item_code || item.code || "-",
                       qty: item.quantity !== undefined && item.quantity !== null ? Number(item.quantity).toLocaleString() : "-",
                       value: Number(item.obsolete_stock || item.inventory_value || item.total_stock_value || item.value || 0) / 10000000,
-                      days: item.dio !== undefined && item.dio !== null ? Number(item.dio) : (item.days !== undefined && item.days !== null ? Number(item.days) : (item.percentage_obsolete ? `${Number(item.percentage_obsolete).toFixed(1)}%` : "-"))
+                      days: item.dio !== undefined && item.dio !== null ? Math.round(Number(item.dio)) : (item.days !== undefined && item.days !== null ? Math.round(Number(item.days)) : (item.percentage_obsolete ? `${Math.round(Number(item.percentage_obsolete))}%` : "-"))
                   }));
                   slowMoving = allSlowMoving.slice(0, 5);
               } else if (details && details.length > 0) {
@@ -650,6 +778,8 @@ const [loading, setLoading] = useState(true);
                   locations,
                   allLocations,
                   details,
+                  totalInventory: Number(dData.kpis?.total_inventory || 0),
+                  rawKpis: dData.kpis || null,
                   reporting_currency: dData.reporting_currency || dData.currency || filters.currency || "AED",
                   dataAsOf: dData.data_as_of || dData.dataAsOf || fData.data_as_of || null
               });
@@ -804,9 +934,10 @@ const [loading, setLoading] = useState(true);
         else if (viewAllModal === "slowMoving") section = "slow-moving";
 
         if (section) {
-          const [res, divWiseRes] = await Promise.all([
+          const [res, divWiseRes, momRes] = await Promise.all([
             getInventoryDetails({ ...apiFilters, section }).catch(() => ({ data: {} })),
-            viewAllModal === "parentDivision" ? getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })
+            viewAllModal === "parentDivision" ? getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+            viewAllModal === "parentDivision" ? getInventoryMonthOnMonth(apiFilters).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })
           ]);
           if (active) {
             const list = res.data?.rows || res.data?.items || (Array.isArray(res.data) ? res.data : []);
@@ -814,6 +945,9 @@ const [loading, setLoading] = useState(true);
             const finalList = list.length > 0 ? list : fallbackList;
             if (finalList.length > 0) {
               setViewAllData(finalList);
+            }
+            if (momRes.data?.items && momRes.data.items.length > 0) {
+              setMomData(momRes.data.items);
             }
           }
         }
@@ -1144,7 +1278,7 @@ const [loading, setLoading] = useState(true);
                 fontWeight="500"
                 fill="#64748b"
               >
-                {value}
+                {value}M
               </text>
             </g>
           );
@@ -1206,7 +1340,7 @@ const [loading, setLoading] = useState(true);
               fontWeight="700"
               fill="#2563eb"
             >
-              CY: {Number(cyValues[0]).toFixed(2)} {currentCurrency}
+              CY: {formatChartValueCompact(cyValues[0], currentCurrency)}
             </text>
           </g>
         )}
@@ -1445,7 +1579,7 @@ const [loading, setLoading] = useState(true);
                 style={{ filter: "drop-shadow(0 4px 10px rgba(15,23,42,0.10))" }}
               />
               <text x={getX(0)} y={paddingTop + 23} textAnchor="middle" fontSize="10" fontWeight="700" fill="#ea580c">
-                Turnover: {Number(turnoverValues[0] || 0).toFixed(2)} Times
+                Turnover: {Math.round(Number(turnoverValues[0] || 0))} Times
               </text>
               <text x={getX(0)} y={paddingTop + 39} textAnchor="middle" fontSize="10" fontWeight="700" fill="#2563eb">
                 DIO: {Math.round(dioValues[0] || 0)} Days
@@ -1543,7 +1677,7 @@ const [loading, setLoading] = useState(true);
                 <span style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 500 }}>Turnover</span>
               </div>
               <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
-                {turnoverValues[hoveredTrendIdx] !== undefined ? Number(turnoverValues[hoveredTrendIdx]).toFixed(2) : "-"} Times
+                {turnoverValues[hoveredTrendIdx] !== undefined ? Math.round(Number(turnoverValues[hoveredTrendIdx])) : "-"} Times
               </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14 }}>
@@ -1569,9 +1703,9 @@ const [loading, setLoading] = useState(true);
     data,
     total,
     centerText,
-    centerSubText,
-    size = 120,
-    strokeWidth = 18,
+    centerSubText = "Total",
+    size = 170,
+    strokeWidth = 24,
     currency = "AED",
     activeSegment,
     onSegmentHover,
@@ -1589,6 +1723,7 @@ const [loading, setLoading] = useState(true);
     });
 
     const active = activeSegment ? (data || []).find((d) => d.name === activeSegment) : null;
+    const displayCenter = centerText || formatChartValueCompact(total, currency);
 
     return (
       <div style={{ width: size, height: size, flex: `0 0 ${size}px`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
@@ -1606,7 +1741,7 @@ const [loading, setLoading] = useState(true);
         >
           <g transform={`rotate(-90 ${half} ${half})`}>
             {/* Track */}
-            <circle cx={half} cy={half} r={radius} fill="none" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+            <circle cx={half} cy={half} r={radius} fill="none" stroke="#eef2f7" strokeWidth={strokeWidth} />
 
             {segments.map(({ item, dash, offset: segOffset }) => {
               const isActive = activeSegment === item.name;
@@ -1634,31 +1769,44 @@ const [loading, setLoading] = useState(true);
               );
             })}
           </g>
-
-          {/* Center text inside donut hole */}
-          <text
-            x={half}
-            y={half - 5}
-            textAnchor="middle"
-            fontSize="8.5"
-            fontWeight="700"
-            fill="#64748b"
-            letterSpacing="0.4px"
-          >
-            {centerSubText ? centerSubText.toUpperCase() : "TOTAL"}
-          </text>
-          <text
-            x={half}
-            y={half + 8}
-            textAnchor="middle"
-            fontSize="11"
-            fontWeight="800"
-            fill="#0f172a"
-            letterSpacing="-0.3px"
-          >
-            {centerText}
-          </text>
         </svg>
+
+        {/* Center text inside donut hole matching Receivables & Payables */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#000000",
+            pointerEvents: "none",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: size >= 150 ? 16 : 14,
+              fontWeight: 800,
+              color: "#000000",
+              lineHeight: 1.25,
+              letterSpacing: "-0.2px",
+            }}
+          >
+            {displayCenter}
+          </div>
+          <div
+            style={{
+              fontSize: size >= 150 ? 11 : 10,
+              fontWeight: 700,
+              color: "#000000",
+              marginTop: 3,
+            }}
+          >
+            {centerSubText || "Total"}
+          </div>
+        </div>
 
         {/* Floating detail card matching Expense Breakdown reference */}
         {active && (
@@ -1698,13 +1846,13 @@ const [loading, setLoading] = useState(true);
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, marginBottom: 5 }}>
               <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>Amount</span>
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
-                {currency} {Number(active.value).toFixed(2)}
+                {formatChartValueCompact(active.value, currency)}
               </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18 }}>
               <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>Share</span>
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: active.color, fontVariantNumeric: "tabular-nums" }}>
-                {typeof active.percentage === "number" ? `${active.percentage.toFixed(1)}%` : active.percentage}
+                {typeof active.percentage === "number" ? `${Math.round(active.percentage)}%` : active.percentage}
               </span>
             </div>
           </div>
@@ -1747,7 +1895,7 @@ const [loading, setLoading] = useState(true);
             key={item.parent_division_name}
             style={{
               display: "grid",
-              gridTemplateColumns: "110px 1fr 60px",
+              gridTemplateColumns: "110px 1fr 68px",
               alignItems: "center",
               gap: 8,
               marginBottom: 12,
@@ -1794,14 +1942,14 @@ const [loading, setLoading] = useState(true);
             </div>
 
             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#334155", textAlign: "right" }}>
-                <div style={{ color: "#1e3a8a" }}>{Number(item.current_value || 0).toFixed(2)}</div>
-                <div style={{ color: "#64748b" }}>{Number(item.previous_value || 0).toFixed(2)}</div>
+                <div style={{ color: "#1e3a8a" }}>{formatChartValueCompact(item.current_value, "")}</div>
+                <div style={{ color: "#64748b" }}>{formatChartValueCompact(item.previous_value, "")}</div>
             </div>
           </div>
         ))}
         
         {/* X-Axis Ticks */}
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 60px", gap: 8, marginTop: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 68px", gap: 8, marginTop: 8 }}>
           <div />
           <div style={{ position: "relative", height: 15 }}>
             {ticks.map((t, i) => (
@@ -1831,10 +1979,15 @@ const [loading, setLoading] = useState(true);
 
   const SubdivisionChart = () => {
     const [hoveredSubdiv, setHoveredSubdiv] = useState(null);
-    const max = Math.max(
-      ...(mockData.bySubdivision && mockData.bySubdivision.length > 0 ? mockData.bySubdivision.map((x) => x.value) : [1])
-    );
-    const roundMax = max <= 10 ? 10 : Math.ceil(max / 10) * 10;
+    const items = (mockData.bySubdivision || []).map((x) => {
+      let num = Number(x.value || 0);
+      if (num > 0 && num < 10000) num = num * 10000000;
+      const inMillions = num / 1_000_000;
+      return { ...x, rawValue: num, inMillions };
+    });
+
+    const max = Math.max(...(items.length > 0 ? items.map((x) => x.inMillions) : [1]));
+    const roundMax = max <= 5 ? 5 : Math.ceil(max / 5) * 5;
     const ticks = [
       0,
       Math.round(roundMax * 0.25),
@@ -1851,7 +2004,7 @@ const [loading, setLoading] = useState(true);
             to { opacity: 1; transform: scale(1) translateY(0); }
           }
         `}</style>
-        {(mockData.bySubdivision || []).map((item) => {
+        {items.map((item) => {
           const isHovered = hoveredSubdiv?.name === item.name;
           return (
             <div
@@ -1860,7 +2013,7 @@ const [loading, setLoading] = useState(true);
               onMouseLeave={() => setHoveredSubdiv(null)}
               style={{
                 display: "grid",
-                gridTemplateColumns: "90px 1fr 48px",
+                gridTemplateColumns: "100px 1fr 78px",
                 alignItems: "center",
                 gap: 8,
                 marginBottom: 8,
@@ -1901,7 +2054,7 @@ const [loading, setLoading] = useState(true);
                 <div
                   style={{
                     height: "100%",
-                    width: `${roundMax > 0 ? (item.value / roundMax) * 100 : 0}%`,
+                    width: `${roundMax > 0 ? (item.inMillions / roundMax) * 100 : 0}%`,
                     background: isHovered
                       ? "linear-gradient(90deg, #2563eb, #1d4ed8)"
                       : "linear-gradient(90deg, #3b82f6, #1d4ed8)",
@@ -1917,10 +2070,11 @@ const [loading, setLoading] = useState(true);
                   fontWeight: isHovered ? 800 : 700,
                   color: isHovered ? "#2563eb" : "#1e293b",
                   textAlign: "right",
+                  whiteSpace: "nowrap",
                   transition: "color 0.15s ease",
                 }}
               >
-                {item.value.toFixed(2)}
+                {formatChartValueCompact(item.rawValue, currentCurrency)}
               </div>
             </div>
           );
@@ -1929,7 +2083,8 @@ const [loading, setLoading] = useState(true);
         <div
           style={{
             marginTop: 4,
-            marginLeft: 98,
+            marginLeft: 108,
+            marginRight: 86,
             borderTop: "1px solid #e2e8f0",
             paddingTop: 4,
             display: "flex",
@@ -1939,7 +2094,7 @@ const [loading, setLoading] = useState(true);
           }}
         >
           {ticks.map((t, idx) => (
-            <span key={idx}>{t}</span>
+            <span key={idx}>{t}M</span>
           ))}
         </div>
 
@@ -1952,7 +2107,7 @@ const [loading, setLoading] = useState(true);
             fontWeight: 600,
           }}
         >
-          {currentCurrency}
+          {currentCurrency} (Millions)
         </div>
 
         {/* Floating detail card matching Parent Division extra box */}
@@ -1993,13 +2148,13 @@ const [loading, setLoading] = useState(true);
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, marginBottom: 5 }}>
               <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>Amount</span>
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
-                {currentCurrency} {Number(hoveredSubdiv.value || 0).toFixed(2)}
+                {formatChartValueCompact(hoveredSubdiv.rawValue || hoveredSubdiv.value, currentCurrency)}
               </span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18 }}>
               <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>Share</span>
               <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
-                {typeof hoveredSubdiv.percentage === "number" ? `${hoveredSubdiv.percentage.toFixed(1)}%` : (hoveredSubdiv.percentage || "0.0%")}
+                {typeof hoveredSubdiv.percentage === "number" ? `${Math.round(hoveredSubdiv.percentage)}%` : (hoveredSubdiv.percentage || "0%")}
               </span>
             </div>
           </div>
@@ -2935,12 +3090,12 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             <div style={styles.donutRow}>
               <DonutChart
                 data={mockData.divisions}
-                total={parentDivTotal.toFixed(2)}
-                centerText={`${parentDivTotal.toFixed(2)}`}
+                total={mockData.totalInventory || parentDivTotal}
+                centerText={formatChartValueCompact(mockData.totalInventory || parentDivTotal, mockData.reporting_currency || currentCurrency)}
                 centerSubText="Total"
-                size={150}
-                strokeWidth={26}
-                currency={mockData.reporting_currency || "AED"}
+                size={160}
+                strokeWidth={24}
+                currency={mockData.reporting_currency || currentCurrency}
                 activeSegment={hoveredParentDivSegment}
                 onSegmentHover={setHoveredParentDivSegment}
               />
@@ -2993,7 +3148,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           fontWeight: isHovered ? 800 : 600,
                         }}
                       >
-                        {item.value.toFixed(2)} ({item.percentage.toFixed(1)}%)
+                        {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)} ({Math.round(Number(item.percentage || 0))}%)
                       </div>
                     </div>
                   );
@@ -3035,12 +3190,12 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <div style={styles.agingContent}>
             <DonutChart
               data={mockData.aging}
-              total={agingTotal.toFixed(2)}
-              centerText={`${agingTotal.toFixed(2)}`}
+              total={mockData.totalInventory || agingTotal}
+              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
               centerSubText="Total"
-              size={150}
-              strokeWidth={26}
-              currency={mockData.reporting_currency || "AED"}
+              size={160}
+              strokeWidth={24}
+              currency={mockData.reporting_currency || currentCurrency}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
             />
@@ -3084,11 +3239,11 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
 
                     <div style={{ textAlign: "right", fontWeight: isHovered ? 800 : 600, color: isHovered ? "#0f172a" : "#1e293b" }}>
-                      {item.value.toFixed(2)}
+                      {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)}
                     </div>
 
                     <div style={{ textAlign: "right", color: isHovered ? item.color : "#64748b", fontWeight: isHovered ? 800 : 500 }}>
-                      {typeof item.percentage === "number" ? `${item.percentage.toFixed(1)}%` : item.percentage}
+                      {typeof item.percentage === "number" ? `${Math.round(item.percentage)}%` : item.percentage}
                     </div>
                   </div>
                 );
@@ -3099,10 +3254,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   Total
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  {agingTotal.toFixed(2)}
+                  {formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  100.0%
+                  100%
                 </div>
               </div>
             </div>
@@ -3170,7 +3325,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               {item.qty || (item.total ? Math.round(item.total * 1000).toLocaleString() : "-")}
                             </td>
                             <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, color: "#e11d48", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.72rem" }}>
-                              {item.value ? item.value.toFixed(2) : (item.obsolete ? item.obsolete.toFixed(2) : "-")}
+                              {item.value ? formatChartValueCompact(item.value, "") : (item.obsolete ? formatChartValueCompact(item.obsolete, "") : "-")}
                             </td>
                             <td style={{ padding: "6px 4px", textAlign: "right", fontWeight: 700, color: "#dc2626", fontVariantNumeric: "tabular-nums", verticalAlign: "middle", fontSize: "0.72rem" }}>
                               {item.days || Math.round(200 + idx * 10)}
@@ -3183,7 +3338,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           <td style={{ padding: "6px 4px" }} />
                           <td style={{ padding: "6px 4px" }} />
                           <td style={{ padding: "6px 4px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums", fontSize: "0.72rem" }}>
-                            {totalVal.toFixed(2)}
+                            {formatChartValueCompact(totalVal, "")}
                           </td>
                           <td style={{ padding: "6px 4px" }} />
                         </tr>
@@ -3228,24 +3383,24 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <table style={styles.detailTable} className="compact-table">
             <thead>
               <tr>
-                <th style={{ textAlign: "left", width: 85, minWidth: 70, verticalAlign: "bottom" }}>Legal<br />Entity</th>
-                <th style={{ textAlign: "left", width: 80, minWidth: 65, verticalAlign: "bottom" }}>Parent<br />Division</th>
-                <th style={{ textAlign: "left", width: 80, minWidth: 65, verticalAlign: "bottom" }}>Sub-<br />Division</th>
-                <th style={{ textAlign: "left", width: 75, minWidth: 60, verticalAlign: "bottom" }}>Subinventory<br />Code</th>
-                <th style={{ textAlign: "left", width: 75, minWidth: 60, verticalAlign: "bottom" }}>Item<br />Code</th>
-                <th style={{ textAlign: "left", width: 110, minWidth: 90, verticalAlign: "bottom" }}>Item<br />Description</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 35, verticalAlign: "bottom" }}>Qty<br />(Nos)</th>
-                <th style={{ textAlign: "right", width: 55, minWidth: 45, verticalAlign: "bottom" }}>Total<br />Stock<br />Value<br />({currentCurrency})</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 35, verticalAlign: "bottom" }}>0-30<br />Days</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 35, verticalAlign: "bottom" }}>31-60<br />Days</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 35, verticalAlign: "bottom" }}>61-90<br />Days</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 35, verticalAlign: "bottom" }}>91-120<br />Days</th>
-                <th style={{ textAlign: "right", width: 48, minWidth: 38, verticalAlign: "bottom" }}>121-180<br />Days</th>
-                <th style={{ textAlign: "right", width: 50, minWidth: 40, verticalAlign: "bottom" }}>181-365<br />Days</th>
-                <th style={{ textAlign: "right", width: 52, minWidth: 40, verticalAlign: "bottom" }}>366-730<br />Days</th>
-                <th style={{ textAlign: "right", width: 55, minWidth: 42, verticalAlign: "bottom" }}>Above 730<br />Days</th>
-                <th style={{ textAlign: "right", width: 45, minWidth: 35, verticalAlign: "bottom", lineHeight: 1.25 }}>Holding<br />Days</th>
-                <th style={{ textAlign: "right", width: 65, minWidth: 50, verticalAlign: "bottom" }}>Avg. Inv.<br />Value</th>
+                <th style={{ textAlign: "left", width: 160, minWidth: 140, verticalAlign: "bottom" }}>Legal<br />Entity</th>
+                <th style={{ textAlign: "left", width: 140, minWidth: 120, verticalAlign: "bottom" }}>Parent<br />Division</th>
+                <th style={{ textAlign: "left", width: 140, minWidth: 120, verticalAlign: "bottom" }}>Sub-<br />Division</th>
+                <th style={{ textAlign: "left", width: 110, minWidth: 95, verticalAlign: "bottom" }}>Subinventory<br />Code</th>
+                <th style={{ textAlign: "left", width: 110, minWidth: 95, verticalAlign: "bottom" }}>Item<br />Code</th>
+                <th style={{ textAlign: "left", width: 220, minWidth: 180, verticalAlign: "bottom" }}>Item<br />Description</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>Qty<br />(Nos)</th>
+                <th style={{ textAlign: "right", width: 125, minWidth: 110, verticalAlign: "bottom" }}>Total<br />Stock<br />Value<br />({currentCurrency})</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>0-30<br />Days</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>31-60<br />Days</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>61-90<br />Days</th>
+                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>91-120<br />Days</th>
+                <th style={{ textAlign: "right", width: 80, minWidth: 70, verticalAlign: "bottom" }}>121-180<br />Days</th>
+                <th style={{ textAlign: "right", width: 80, minWidth: 70, verticalAlign: "bottom" }}>181-365<br />Days</th>
+                <th style={{ textAlign: "right", width: 85, minWidth: 75, verticalAlign: "bottom" }}>366-730<br />Days</th>
+                <th style={{ textAlign: "right", width: 85, minWidth: 75, verticalAlign: "bottom" }}>Above 730<br />Days</th>
+                <th style={{ textAlign: "right", width: 80, minWidth: 70, verticalAlign: "bottom", lineHeight: 1.25 }}>Holding<br />Days</th>
+                <th style={{ textAlign: "right", width: 100, minWidth: 85, verticalAlign: "bottom" }}>Avg. Inv.<br />Value</th>
               </tr>
             </thead>
 
@@ -3324,37 +3479,37 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "#1e293b" }}>
                     {row.total_stock_value
-                      ? (Number(row.total_stock_value) / 10000000).toFixed(2)
-                      : "0.00"}
+                      ? Math.round(Number(row.total_stock_value) / 10000000).toLocaleString()
+                      : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_0_30 ? (Number(row.aging_0_30) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_0_30 ? Math.round(Number(row.aging_0_30) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_31_60 ? (Number(row.aging_31_60) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_31_60 ? Math.round(Number(row.aging_31_60) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_61_90 ? (Number(row.aging_61_90) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_61_90 ? Math.round(Number(row.aging_61_90) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_91_120 ? (Number(row.aging_91_120) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_91_120 ? Math.round(Number(row.aging_91_120) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_121_180 ? (Number(row.aging_121_180) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_121_180 ? Math.round(Number(row.aging_121_180) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_181_365 ? (Number(row.aging_181_365) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_181_365 ? Math.round(Number(row.aging_181_365) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_366_730 ? (Number(row.aging_366_730) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_366_730 ? Math.round(Number(row.aging_366_730) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_above_730 ? (Number(row.aging_above_730) / 10000000).toFixed(2) : "0.00"}
+                    {row.aging_above_730 ? Math.round(Number(row.aging_above_730) / 10000000).toLocaleString() : "0"}
                   </td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{row.days || "-"}</td>
                   <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                     {typeof row.avg_inv_value === "number"
-                      ? (row.avg_inv_value / 10000000).toFixed(2)
+                      ? Math.round(row.avg_inv_value / 10000000).toLocaleString()
                       : (row.avg_inv_value || "-")}
                   </td>
                 </tr>
@@ -3383,28 +3538,28 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     <td />
                     <td />
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.totalVal / 10000000).toFixed(2)}
+                      {Math.round(totals.totalVal / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d30 / 10000000).toFixed(2)}
+                      {Math.round(totals.d30 / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d60 / 10000000).toFixed(2)}
+                      {Math.round(totals.d60 / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d90 / 10000000).toFixed(2)}
+                      {Math.round(totals.d90 / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d120 / 10000000).toFixed(2)}
+                      {Math.round(totals.d120 / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d180 / 10000000).toFixed(2)}
+                      {Math.round(totals.d180 / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {(totals.d365 / 10000000).toFixed(2)}
+                      {Math.round(totals.d365 / 10000000).toLocaleString()}
                     </td>
                     <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: "#e11d48" }}>
-                      {((totals.d730 + totals.dAbove730) / 10000000).toFixed(2)}
+                      {Math.round((totals.d730 + totals.dAbove730) / 10000000).toLocaleString()}
                     </td>
                   </tr>
                 );
@@ -3524,35 +3679,35 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           switch (viewAllModal) {
             case "trend":
               return {
-                title: "Inventory Value Trend - detailed view",
+                title: "Inventory Value Trend Detailed View",
                 subtitle: "Current Year vs Month By Month inventory details",
                 searchPlaceholder: "Search months...",
                 section: "trend",
-                maxWidth: "94vw",
+                maxWidth: "96vw",
               };
             case "parentDivision":
               return {
-                title: "Inventory Value by Parent Division - detailed view",
-                subtitle: `Breakdown across all parent divisions (${currentCurrency})`,
+                title: "Inventory Value by Parent Division Detailed View",
+                subtitle: "Period: 01 Sept 2026 to 30 Sept 2026",
                 searchPlaceholder: "Search parent divisions...",
                 section: "parent-divisions",
-                maxWidth: "94vw",
+                maxWidth: "96vw",
               };
             case "subdivision":
               return {
-                title: "Inventory Value by Sub-division - detailed view",
+                title: "Inventory Value by Sub-Division Detailed View",
                 subtitle: `Breakdown across all sub-divisions (${currentCurrency})`,
                 searchPlaceholder: "Search sub-divisions...",
                 section: null,
-                maxWidth: "94vw",
+                maxWidth: "96vw",
               };
             case "slowMoving":
               return {
-                title: "Slow Moving Stock by Parent Div - detailed view",
+                title: "Slow Moving Stock by Parent Division Detailed View",
                 subtitle: `Obsolete inventory vs total stock (${currentCurrency})`,
                 searchPlaceholder: "Search parent divisions...",
                 section: "slow-moving",
-                maxWidth: "94vw",
+                maxWidth: "96vw",
               };
             case "details":
               return {
@@ -3560,7 +3715,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: `Line-item inventory breakdown and aging status (${mockData.reporting_currency || "AED"})`,
                 searchPlaceholder: "Search item code, description, legal entity...",
                 section: null,
-                maxWidth: "94vw",
+                maxWidth: "96vw",
               };
             default:
               return {
@@ -3568,7 +3723,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "",
                 searchPlaceholder: "Search...",
                 section: null,
-                maxWidth: "94vw",
+                maxWidth: "96vw",
               };
           }
         })();
@@ -3595,10 +3750,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               style={{
                 background: "#fff",
                 borderRadius: 12,
-                width: "94vw",
-                maxWidth: "1450px",
-                height: viewAllModal === "details" ? "90vh" : undefined,
-                maxHeight: "90vh",
+                width: "96vw",
+                maxWidth: modalConfig.maxWidth || "96vw",
+                height: viewAllModal === "details" ? "92vh" : undefined,
+                maxHeight: "92vh",
                 display: "flex",
                 flexDirection: "column",
                 boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
@@ -3626,29 +3781,35 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     {modalConfig.subtitle}
                   </div>
                 </div>
-                <button type="button"
-                  onClick={() => {
-                    setViewAllModal(null);
-                    setViewAllSearch("");
-                  }}
-                  style={{
-                    background: "#f1f5f9",
-                    border: "none",
-                    borderRadius: "50%",
-                    width: 28,
-                    height: 28,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    color: "#64748b",
-                    fontSize: "0.85rem",
-                    fontWeight: 700,
-                    outline: "none",
-                  }}
-                >
-                  ✕
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <button
+                    onClick={() => {
+                      setViewAllModal(null);
+                      setViewAllSearch("");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      borderRadius: "50%",
+                      width: 28,
+                      height: 28,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      color: "#64748b",
+                      fontSize: "0.85rem",
+                      fontWeight: 700,
+                      outline: "none",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    title="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               {/* Modal Search & Export Bar */}
@@ -3763,14 +3924,25 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           }}
                           style={{
                             height: 32, boxSizing: "border-box", border: "1px solid #cbd5e1",
-                            borderRadius: 7, padding: "0 26px 0 10px", background: "#f8fafc", color: "#334155",
-                            fontSize: '0.76rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
-                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 105
+                            borderRadius: 7, padding: "0 24px 0 9px", background: "#f8fafc", color: "#334155",
+                            outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
+                            display: "flex", alignItems: "center", justifyContent: "flex-start", minWidth: 105
                           }}
                           title={modalDetailsFilters.asOnDate && modalDetailsFilters.asOnDate !== "All" ? modalDetailsFilters.asOnDate : "Selected Date"}
                         >
-                          {formatDisplayDateGlobal(modalDetailsFilters.asOnDate && modalDetailsFilters.asOnDate !== "All" ? modalDetailsFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate || "Selected Date"))}
-                          <span style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none" }}>
+                          {(() => {
+                            const dText = formatDisplayDateGlobal(modalDetailsFilters.asOnDate && modalDetailsFilters.asOnDate !== "All" ? modalDetailsFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate || "Selected Date"));
+                            if (dText === "Selected Date") {
+                              return (
+                                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, fontSize: "0.66rem", fontWeight: 600 }}>
+                                  <span>Selected</span>
+                                  <span>Date</span>
+                                </div>
+                              );
+                            }
+                            return <span style={{ fontSize: "0.74rem", fontWeight: 500 }}>{dText}</span>;
+                          })()}
+                          <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none" }}>
                             📅
                           </span>
                         </button>
@@ -3791,43 +3963,47 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                       type="button"
                       disabled={isExporting}
                       onClick={() => handleExport("excel", null, modalDetailsFilters)}
+                      title="Export to Excel"
                       style={{
-                        padding: "6px 12px",
+                        padding: "5px 10px",
                         borderRadius: 7,
-                        border: "1px solid #cbd5e1",
-                        background: "#fff",
-                        color: "#166534",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
+                        border: "1px solid #bbf7d0",
+                        background: isExporting ? "#d1fae5" : "#f0fdf4",
+                        color: "#15803d",
+                        fontSize: "0.70rem",
+                        fontWeight: 700,
                         cursor: isExporting ? "not-allowed" : "pointer",
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
-                        height: 32,
+                        outline: "none",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      Export Excel (.xlsx)
+                      {isExporting ? "⏳" : "📊"} Excel
                     </button>
                     <button
                       type="button"
                       disabled={isExporting}
                       onClick={() => handleExport("pdf", null, modalDetailsFilters)}
+                      title="Export to PDF"
                       style={{
-                        padding: "6px 12px",
+                        padding: "5px 10px",
                         borderRadius: 7,
-                        border: "1px solid #cbd5e1",
-                        background: "#fff",
-                        color: "#991b1b",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
+                        border: "1px solid #fecdd3",
+                        background: isExporting ? "#fee2e2" : "#fff1f2",
+                        color: "#be123c",
+                        fontSize: "0.70rem",
+                        fontWeight: 700,
                         cursor: isExporting ? "not-allowed" : "pointer",
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
-                        height: 32,
+                        outline: "none",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      Export PDF (.pdf)
+                      {isExporting ? "⏳" : "📄"} PDF
                     </button>
                   </div>
                 </div>
@@ -3885,6 +4061,76 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
                   )}
 
+                  {viewAllModal === "parentDivision" && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto", marginRight: 8 }}>
+                      {parentDivViewMode === "mom" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Year</span>
+                          <input
+                            value={momYear}
+                            readOnly
+                            style={{
+                              height: 28,
+                              width: 60,
+                              border: "1px solid #d5ddeb",
+                              borderRadius: 5,
+                              background: "#fff",
+                              color: "#2563eb",
+                              padding: "0 6px",
+                              fontSize: "0.74rem",
+                              fontWeight: 700,
+                              textAlign: "center",
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <button
+                          type="button"
+                          onClick={() => setMomCurrencyMode("AED")}
+                          style={{
+                            height: 28,
+                            minWidth: 42,
+                            padding: "0 10px",
+                            borderRadius: 6,
+                            border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                            background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
+                            color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            outline: "none",
+                          }}
+                          title="Display in AED"
+                        >
+                          AED
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMomCurrencyMode("AED_MILLIONS")}
+                          style={{
+                            height: 28,
+                            minWidth: 78,
+                            padding: "0 10px",
+                            borderRadius: 6,
+                            border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                            background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
+                            color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
+                            fontSize: 10,
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            outline: "none",
+                          }}
+                          title="Display in AED Millions"
+                        >
+                          AED Millions
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <input
                     type="text"
                     placeholder={modalConfig.searchPlaceholder}
@@ -3895,49 +4141,70 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                       borderRadius: 6,
                       border: "1px solid #cbd5e1",
                       fontSize: "0.76rem",
-                      width: 240,
+                      width: 220,
                       outline: "none",
+                      marginLeft: viewAllModal === "parentDivision" ? 0 : "auto",
                     }}
                   />
 
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button type="button"
-                        disabled={isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")}
-                        onClick={() => handleExport("excel", modalConfig.section)}
-                        title={viewAllModal === "parentDivision" && parentDivViewMode === "mom" ? "Export not available for Month-on-Month view" : "Export to Excel"}
-                        style={{ opacity: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? 0.6 : 1, cursor: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? "not-allowed" : "pointer", 
-                        padding: "5px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: "#fff",
-                        color: "#166534",
-                        fontSize: "0.72rem",
-                        fontWeight: 600,
-                        display: "flex",
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => {
+                        if (viewAllModal === "parentDivision" && parentDivViewMode === "mom") {
+                          handleExportMoM("excel");
+                        } else {
+                          handleExport("excel", modalConfig.section);
+                        }
+                      }}
+                      title="Export to Excel"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: 7,
+                        border: "1px solid #bbf7d0",
+                        background: isExporting ? "#d1fae5" : "#f0fdf4",
+                        color: "#15803d",
+                        fontSize: "0.70rem",
+                        fontWeight: 700,
+                        cursor: isExporting ? "not-allowed" : "pointer",
+                        display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
+                        outline: "none",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      Export Excel (.xlsx)
+                      {isExporting ? "⏳" : "📊"} Excel
                     </button>
-                    <button type="button"
-                        disabled={isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")}
-                        onClick={() => handleExport("pdf", modalConfig.section)}
-                        title={viewAllModal === "parentDivision" && parentDivViewMode === "mom" ? "Export not available for Month-on-Month view" : "Export to PDF"}
-                        style={{ opacity: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? 0.6 : 1, cursor: (isExporting || (viewAllModal === "parentDivision" && parentDivViewMode === "mom")) ? "not-allowed" : "pointer", 
-                        padding: "5px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: "#fff",
-                        color: "#991b1b",
-                        fontSize: "0.72rem",
-                        fontWeight: 600,
-                        display: "flex",
+                    <button
+                      type="button"
+                      disabled={isExporting}
+                      onClick={() => {
+                        if (viewAllModal === "parentDivision" && parentDivViewMode === "mom") {
+                          handleExportMoM("pdf");
+                        } else {
+                          handleExport("pdf", modalConfig.section);
+                        }
+                      }}
+                      title="Export to PDF"
+                      style={{
+                        padding: "5px 10px",
+                        borderRadius: 7,
+                        border: "1px solid #fecdd3",
+                        background: isExporting ? "#fee2e2" : "#fff1f2",
+                        color: "#be123c",
+                        fontSize: "0.70rem",
+                        fontWeight: 700,
+                        cursor: isExporting ? "not-allowed" : "pointer",
+                        display: "inline-flex",
                         alignItems: "center",
                         gap: 4,
+                        outline: "none",
+                        transition: "all 0.15s ease",
                       }}
                     >
-                      Export PDF (.pdf)
+                      {isExporting ? "⏳" : "📄"} PDF
                     </button>
                   </div>
                 </div>
@@ -3945,7 +4212,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
 
               {/* Modal Table Content */}
               <div
-                className="detail-table-scroll"
+                className="modal-table-scroll detail-table-scroll"
                 style={{
                   flex: 1,
                   minHeight: 0,
@@ -3994,19 +4261,19 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               const monthLabel = item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : String(item.month_start).substring(0, 7)) : (item.month || item.as_on_date || `M${idx + 1}`);
                               const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.current !== undefined ? item.current : 0));
                               const numVal = Number(rawVal || 0);
-                              const displayStock = numVal > 10000 ? (numVal / 10000000).toFixed(2) : numVal.toFixed(2);
+                              const displayStock = numVal > 10000 ? Math.round(numVal / 10000000).toLocaleString() : Math.round(numVal).toLocaleString();
 
                               const rawObs = item.obsolete_stock !== undefined ? item.obsolete_stock : (item.total_obsolete_stock !== undefined ? item.total_obsolete_stock : 0);
                               const numObs = Number(rawObs || 0);
-                              const displayObs = numObs > 10000 ? (numObs / 10000000).toFixed(2) : (numObs > 0 ? numObs.toFixed(2) : "-");
+                              const displayObs = numObs > 10000 ? Math.round(numObs / 10000000).toLocaleString() : (numObs > 0 ? Math.round(numObs).toLocaleString() : "-");
 
                               const annualTurnover = item.annual_inventory_turnover !== undefined && item.annual_inventory_turnover !== null
-                                ? Number(item.annual_inventory_turnover).toFixed(2)
+                                ? Math.round(Number(item.annual_inventory_turnover))
                                 : (item.annual_turnover !== undefined && item.annual_turnover !== null
-                                  ? Number(item.annual_turnover).toFixed(2)
+                                  ? Math.round(Number(item.annual_turnover))
                                   : (item.annual_inventory_turnover_ratio !== undefined && item.annual_inventory_turnover_ratio !== null
-                                    ? Number(item.annual_inventory_turnover_ratio).toFixed(2)
-                                    : (item.inventory_turnover ? (Number(item.inventory_turnover) * 12).toFixed(2) : "-")));
+                                    ? Math.round(Number(item.annual_inventory_turnover_ratio))
+                                    : (item.inventory_turnover ? Math.round(Number(item.inventory_turnover) * 12) : "-")));
 
                               return (
                                 <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
@@ -4026,44 +4293,245 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   
                   if (viewAllModal === "parentDivision") {
                     if (parentDivViewMode === "mom") {
-                        const rawList = momData || [];
-                        const filtered = rawList.filter(item =>
-                          !viewAllSearch || item.parent_division_name?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                        );
+                        const rawList = (momData && momData.length > 0)
+                          ? momData
+                          : (viewAllData && viewAllData.length > 0)
+                            ? viewAllData.map(item => ({
+                                parent_division_id: item.parent_division_id || item.value,
+                                parent_division_name: item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label),
+                                current_value: item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0)),
+                                previous_value: 0,
+                                variance: item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0)),
+                                variance_percentage: null,
+                                current_as_on_date: "2026-09-25",
+                                previous_as_on_date: null,
+                              }))
+                            : [];
+
+                        const filtered = rawList.filter(item => {
+                          const name = String(item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label) || "").toLowerCase();
+                          return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
+                        });
+
+                        const MOM_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"];
+
+                        const scale = momCurrencyMode === "AED_MILLIONS" ? 1000000 : 1;
+
+                        const formatMoMVal = (val) => {
+                          if (val === null || val === undefined || val === "" || isNaN(val)) return "—";
+                          const num = Number(val);
+                          return Math.round(num / scale).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                        };
+
+                        // Calculate totals across filtered rows
+                        const monthTotals = {};
+                        MOM_MONTHS.forEach(m => { monthTotals[m] = 0; });
+                        let totalLatest = 0;
+                        let totalPrevious = 0;
+                        let hasPreviousTotal = false;
+
+                        filtered.forEach(item => {
+                          const curDate = item.current_as_on_date || "2026-09-25";
+                          const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : 8; // 8 = Sep
+                          const curMonthKey = MOM_MONTHS[curMonthIdx] || "SEPT";
+                          const curVal = Number(item.current_value || 0);
+
+                          monthTotals[curMonthKey] = (monthTotals[curMonthKey] || 0) + curVal;
+                          totalLatest += curVal;
+
+                          if (item.previous_as_on_date) {
+                            const prevMonthIdx = new Date(item.previous_as_on_date).getMonth();
+                            const prevMonthKey = MOM_MONTHS[prevMonthIdx] || "AUG";
+                            const prevVal = Number(item.previous_value || 0);
+                            monthTotals[prevMonthKey] = (monthTotals[prevMonthKey] || 0) + prevVal;
+                            totalPrevious += prevVal;
+                            hasPreviousTotal = true;
+                          }
+                        });
+
+                        const totalVariance = hasPreviousTotal ? (totalLatest - totalPrevious) : null;
+                        const totalVariancePct = (hasPreviousTotal && totalPrevious !== 0)
+                          ? ((totalLatest - totalPrevious) / totalPrevious * 100)
+                          : null;
+
                         return (
-                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                            <thead>
-                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Current Value<br />({currentCurrency})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Previous Value<br />({currentCurrency})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Variance<br />({currentCurrency})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Variance<br />%</th>
+                          <table style={{ width: "100%", minWidth: 1850, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.78rem", marginTop: 8 }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#f8fafc" }}>
+                              <tr>
+                                <th style={{ position: "sticky", top: 0, left: 0, zIndex: 45, background: "#f8fafc", padding: "10px 8px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 44, minWidth: 44, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
+                                  Sr.<br />No.
+                                </th>
+                                <th style={{ position: "sticky", top: 0, left: 44, zIndex: 45, background: "#f8fafc", padding: "10px 12px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 220, minWidth: 220, borderRight: "2px solid #cbd5e1", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>
+                                  Parent Division
+                                </th>
+                                {MOM_MONTHS.map(month => (
+                                  <th
+                                    key={month}
+                                    style={{
+                                      position: "sticky",
+                                      top: 0,
+                                      zIndex: 25,
+                                      padding: "10px 8px",
+                                      textAlign: "right",
+                                      color: "#1e3a8a",
+                                      fontWeight: 700,
+                                      width: 95,
+                                      minWidth: 95,
+                                      background: "#f8fafc",
+                                      borderRight: "1px solid #f1f5f9",
+                                      borderBottom: "2px solid #cbd5e1",
+                                    }}
+                                  >
+                                    {month}
+                                  </th>
+                                ))}
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 800, width: 110, minWidth: 110, background: "#f8fafc", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
+                                  LATEST
+                                </th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 115, minWidth: 115, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
+                                  PREVIOUS<br />MONTH
+                                </th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 105, minWidth: 105, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
+                                  VARIANCE
+                                </th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 95, borderBottom: "2px solid #cbd5e1" }}>
+                                  VARIANCE<br />%
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
                               {filtered.length === 0 ? (
-                                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No data found</td></tr>
+                                <tr>
+                                  <td colSpan={18} style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
+                                    No parent divisions found
+                                  </td>
+                                </tr>
                               ) : (
-                                filtered.map((item, idx) => (
-                                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                    <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.parent_division_name}</td>
-                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.current_value || 0).toFixed(2)}</td>
-                                    {item.previous_as_on_date ? (
-                                      <>
-                                        <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{Number(item.previous_value || 0).toFixed(2)}</td>
-                                        <td style={{ padding: "8px 10px", textAlign: "right", color: item.variance < 0 ? "#16a34a" : "#dc2626" }}>{Number(item.variance || 0).toFixed(2)}</td>
-                                        <td style={{ padding: "8px 10px", textAlign: "right", color: item.variance_percentage < 0 ? "#16a34a" : "#dc2626" }}>{Number(item.variance_percentage || 0).toFixed(2)}%</td>
-                                      </>
-                                    ) : (
-                                      <td colSpan={3} style={{ padding: "8px 10px", textAlign: "center", color: "#94a3b8" }}>Previous period comparison unavailable</td>
-                                    )}
-                                  </tr>
-                                ))
+                                filtered.map((item, idx) => {
+                                  const curDate = item.current_as_on_date || "2026-09-25";
+                                  const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : 8;
+                                  const curMonthKey = MOM_MONTHS[curMonthIdx] || "SEPT";
+                                  const curVal = Number(item.current_value || 0);
+
+                                  const prevDate = item.previous_as_on_date;
+                                  const prevMonthIdx = prevDate ? (new Date(prevDate).getMonth()) : null;
+                                  const prevMonthKey = prevMonthIdx !== null ? MOM_MONTHS[prevMonthIdx] : null;
+                                  const prevVal = prevDate ? Number(item.previous_value || 0) : null;
+
+                                  const variance = prevDate ? (curVal - prevVal) : null;
+                                  const variancePct = (prevDate && prevVal !== 0) ? ((curVal - prevVal) / prevVal * 100) : null;
+
+                                  const rowBg = idx % 2 === 0 ? "#ffffff" : "#fbfcfd";
+
+                                  return (
+                                    <tr
+                                      key={idx}
+                                      style={{
+                                        background: rowBg,
+                                        transition: "background 0.1s ease",
+                                      }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
+                                    >
+                                      <td style={{ position: "sticky", left: 0, zIndex: 15, background: rowBg, padding: "8px 6px", textAlign: "center", color: "#64748b", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
+                                        {idx + 1}
+                                      </td>
+                                      <td style={{ position: "sticky", left: 44, zIndex: 15, background: rowBg, padding: "8px 12px", fontWeight: 600, color: "#0f172a", borderRight: "2px solid #cbd5e1", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
+                                        {item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label)}
+                                      </td>
+                                      {MOM_MONTHS.map(month => {
+                                        const isCurrentMonth = month === curMonthKey;
+                                        const isPrevMonth = prevMonthKey && month === prevMonthKey;
+                                        let cellVal = null;
+                                        if (isCurrentMonth) cellVal = curVal;
+                                        else if (isPrevMonth) cellVal = prevVal;
+
+                                        return (
+                                          <td
+                                            key={month}
+                                            style={{
+                                              padding: "8px 8px",
+                                              textAlign: "right",
+                                              fontWeight: 400,
+                                              color: cellVal !== null ? "#334155" : "#94a3b8",
+                                              background: "transparent",
+                                              borderRight: "1px solid #f8fafc",
+                                              borderBottom: "1px solid #f1f5f9",
+                                            }}
+                                          >
+                                            {formatMoMVal(cellVal)}
+                                          </td>
+                                        );
+                                      })}
+                                      {/* LATEST */}
+                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#0f172a", background: "transparent", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
+                                        {formatMoMVal(curVal)}
+                                      </td>
+                                      {/* PREVIOUS MONTH */}
+                                      <td style={{ padding: "8px 8px", textAlign: "right", color: prevVal !== null ? "#334155" : "#94a3b8", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
+                                        {formatMoMVal(prevVal)}
+                                      </td>
+                                      {/* VARIANCE */}
+                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, color: variance === null ? "#94a3b8" : variance < 0 ? "#16a34a" : "#dc2626", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
+                                        {variance === null ? "—" : (variance > 0 ? `+${formatMoMVal(variance)}` : formatMoMVal(variance))}
+                                      </td>
+                                      {/* VARIANCE % */}
+                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, color: variancePct === null ? "#94a3b8" : variancePct < 0 ? "#16a34a" : "#dc2626", borderBottom: "1px solid #f1f5f9" }}>
+                                        {variancePct === null ? "—" : `${variancePct > 0 ? '+' : ''}${Math.round(variancePct)}%`}
+                                      </td>
+                                    </tr>
+                                  );
+                                })
                               )}
                             </tbody>
+                            {filtered.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 30, background: "#f1f5f9" }}>
+                                <tr style={{ fontWeight: 700, color: "#0f172a" }}>
+                                  <td style={{ position: "sticky", bottom: 0, left: 0, zIndex: 45, background: "#f1f5f9", padding: "10px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
+                                    Σ
+                                  </td>
+                                  <td style={{ position: "sticky", bottom: 0, left: 44, zIndex: 45, background: "#f1f5f9", padding: "10px 12px", borderRight: "2px solid #cbd5e1", borderTop: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>
+                                    Total ({filtered.length} Parent Divisions)
+                                  </td>
+                                  {MOM_MONTHS.map(month => {
+                                    const mVal = monthTotals[month];
+                                    return (
+                                      <td
+                                        key={month}
+                                        style={{
+                                          position: "sticky",
+                                          bottom: 0,
+                                          zIndex: 25,
+                                          padding: "10px 8px",
+                                          textAlign: "right",
+                                          background: "#f1f5f9",
+                                          borderRight: "1px solid #e2e8f0",
+                                          borderTop: "2px solid #cbd5e1",
+                                        }}
+                                      >
+                                        {mVal > 0 ? formatMoMVal(mVal) : "—"}
+                                      </td>
+                                    );
+                                  })}
+                                  {/* LATEST TOTAL */}
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", background: "#f1f5f9", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
+                                    {formatMoMVal(totalLatest)}
+                                  </td>
+                                  {/* PREVIOUS MONTH TOTAL */}
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
+                                    {hasPreviousTotal ? formatMoMVal(totalPrevious) : "—"}
+                                  </td>
+                                  {/* VARIANCE TOTAL */}
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: totalVariance === null ? "#94a3b8" : totalVariance < 0 ? "#16a34a" : "#dc2626", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
+                                    {totalVariance === null ? "—" : (totalVariance > 0 ? `+${formatMoMVal(totalVariance)}` : formatMoMVal(totalVariance))}
+                                  </td>
+                                  {/* VARIANCE % TOTAL */}
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: totalVariancePct === null ? "#94a3b8" : totalVariancePct < 0 ? "#16a34a" : "#dc2626", borderTop: "2px solid #cbd5e1" }}>
+                                    {totalVariancePct === null ? "—" : `${totalVariancePct > 0 ? '+' : ''}${Math.round(totalVariancePct)}%`}
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            )}
                           </table>
                         );
                     } else {
@@ -4080,16 +4548,39 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
                         });
 
+                        const isMillions = momCurrencyMode === "AED_MILLIONS";
+                        const scale = isMillions ? 1000000 : 1;
+                        const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+
+                        const formatDivVal = (val) => {
+                          if (val === null || val === undefined || val === "" || isNaN(val)) return "N/A";
+                          const num = Number(val);
+                          return Math.round(num / scale).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                        };
+
+                        const totalStock = filtered.reduce((s, r) => {
+                          const v = r.total_stock_value !== undefined ? r.total_stock_value : (r.inventory_value !== undefined ? r.inventory_value : (r.value || 0));
+                          let n = Number(v || 0);
+                          if (n < 10000 && n > 0 && r.total_stock_value === undefined && r.inventory_value === undefined) n = n * 10000000;
+                          return s + n;
+                        }, 0);
+
+                        const hasMatTotal = filtered.some(r => r.cost_of_material_ytd !== null && r.cost_of_material_ytd !== undefined);
+                        const totalMat = hasMatTotal ? filtered.reduce((s, r) => s + (Number(r.cost_of_material_ytd) || 0), 0) : null;
+
+                        const hasAvgTotal = filtered.some(r => r.average_inventory !== null && r.average_inventory !== undefined);
+                        const totalAvg = hasAvgTotal ? filtered.reduce((s, r) => s + (Number(r.average_inventory) || 0), 0) : null;
+
                         return (
-                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
-                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Cost<br />Value ({currentCurrency})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Cost of Material<br />({currentCurrency})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Average<br />Inventory ({currentCurrency})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>DIO Days</th>
+                              <tr style={{ background: "#f8fafc" }}>
+                                <th style={{ position: "sticky", top: 0, left: 0, zIndex: 45, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 44, minWidth: 44, verticalAlign: "bottom", lineHeight: 1.25, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0" }}>Sr.<br />No.</th>
+                                <th style={{ position: "sticky", top: 0, left: 44, zIndex: 45, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25, borderBottom: "2px solid #cbd5e1", borderRight: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>Parent<br />Division</th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #f1f5f9" }}>Total Cost<br />Value ({currencyHeader})</th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #f1f5f9" }}>Cost of Material<br />({currencyHeader})</th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #f1f5f9" }}>Average<br />Inventory ({currencyHeader})</th>
+                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1" }}>DIO Days</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -4099,37 +4590,54 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                                 filtered.map((item, idx) => {
                                   const name = item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label) || "—";
                                   const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0));
-                                  const numVal = Number(rawVal || 0);
-                                  const displayVal = numVal > 10000 ? (numVal / 10000000).toFixed(2) : numVal.toFixed(2);
+                                  let numVal = Number(rawVal || 0);
+                                  if (numVal < 10000 && numVal > 0 && item.total_stock_value === undefined && item.inventory_value === undefined) {
+                                    numVal = numVal * 10000000;
+                                  }
 
                                   const rawMat = item.cost_of_material_ytd;
-                                  const displayMat = (rawMat !== null && rawMat !== undefined)
-                                    ? (Number(rawMat) > 10000 ? (Number(rawMat) / 10000000).toFixed(2) : Number(rawMat).toFixed(2))
-                                    : "N/A";
+                                  const numMat = (rawMat !== null && rawMat !== undefined) ? Number(rawMat) : null;
 
                                   const rawAvg = item.average_inventory;
-                                  const displayAvg = (rawAvg !== null && rawAvg !== undefined)
-                                    ? (Number(rawAvg) > 10000 ? (Number(rawAvg) / 10000000).toFixed(2) : Number(rawAvg).toFixed(2))
-                                    : "N/A";
+                                  const numAvg = (rawAvg !== null && rawAvg !== undefined) ? Number(rawAvg) : null;
 
                                   const rawDio = item.dio_days;
                                   const displayDio = (rawDio !== null && rawDio !== undefined)
                                     ? Number(rawDio).toFixed(0)
                                     : "N/A";
 
+                                  const rowBg = idx % 2 === 0 ? "#ffffff" : "#fbfcfd";
+
                                   return (
-                                    <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                      <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                      <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{name}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{displayVal}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{displayMat}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{displayAvg}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569" }}>{displayDio}</td>
+                                    <tr
+                                      key={idx}
+                                      style={{ background: rowBg, transition: "background 0.1s ease" }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
+                                    >
+                                      <td style={{ position: "sticky", left: 0, zIndex: 15, background: rowBg, padding: "8px 10px", color: "#64748b", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>{idx + 1}</td>
+                                      <td style={{ position: "sticky", left: 44, zIndex: 15, background: rowBg, padding: "8px 10px", fontWeight: 600, color: "#1e293b", borderRight: "2px solid #cbd5e1", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{name}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b", borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>{formatDivVal(numVal)}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>{numMat !== null ? formatDivVal(numMat) : "N/A"}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>{numAvg !== null ? formatDivVal(numAvg) : "N/A"}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", borderBottom: "1px solid #f1f5f9" }}>{displayDio}</td>
                                     </tr>
                                   );
                                 })
                               )}
                             </tbody>
+                            {filtered.length > 0 && (
+                              <tfoot>
+                                <tr style={{ background: "#f8fafc", fontWeight: 800 }}>
+                                  <td style={{ position: "sticky", bottom: 0, left: 0, zIndex: 35, background: "#f8fafc", padding: "10px 10px", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }} />
+                                  <td style={{ position: "sticky", bottom: 0, left: 44, zIndex: 35, background: "#f8fafc", padding: "10px 10px", color: "#1e3a8a", borderTop: "2px solid #cbd5e1", borderRight: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>Total</td>
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }}>{formatDivVal(totalStock)}</td>
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }}>{totalMat !== null ? formatDivVal(totalMat) : "—"}</td>
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }}>{totalAvg !== null ? formatDivVal(totalAvg) : "—"}</td>
+                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1" }}>—</td>
+                                </tr>
+                              </tfoot>
+                            )}
                           </table>
                         );
                     }
@@ -4160,8 +4668,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name || item.subdivision_name}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Number(item.value || item.inventory_value || 0).toFixed(2)}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Number(item.percentage || 0).toFixed(2)}%</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(Number(item.value || item.inventory_value || 0)).toLocaleString("en-US")}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Math.round(Number(item.percentage || 0))}%</td>
                               </tr>
                             ))
                           )}
@@ -4171,8 +4679,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                               <td style={{ padding: "10px 10px" }} />
                               <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalVal.toFixed(2)}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{totalPct.toFixed(2)}%</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalPct)}%</td>
                             </tr>
                           </tfoot>
                         )}
@@ -4225,8 +4733,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                 <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
                                 <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{divName}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{obs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{pct.toFixed(2)}%</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs).toLocaleString("en-US")}</td>
+                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
                               </tr>
                             )})
                           )}
@@ -4236,8 +4744,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
                               <td style={{ padding: "10px 10px" }} />
                               <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{totalObs.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{totalPct.toFixed(2)}%</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{Math.round(totalObs).toLocaleString("en-US")}</td>
+                              <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(totalPct)}%</td>
                             </tr>
                           </tfoot>
                         )}
@@ -4255,7 +4763,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     }
 
                     return (
-                      <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
+                      <table style={{ width: "100%", minWidth: 1600, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
                         <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
                           <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, minWidth: 160, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Legal<br />Entity</th>
@@ -4282,7 +4790,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                                 <td style={{ padding: "7px 10px", color: "#334155", minWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.parent_division}</td>
                                 <td style={{ padding: "7px 10px", color: "#334155", minWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.subdivision}</td>
                                 <td style={{ padding: "7px 8px", color: "#475569", width: 100, minWidth: 95, maxWidth: 110, whiteSpace: "nowrap" }}>{row.subinventory}</td>
-                                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", width: 130, minWidth: 120, maxWidth: 140, whiteSpace: "nowrap" }}>{Number(row.total_stock_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", width: 130, minWidth: 120, maxWidth: 140, whiteSpace: "nowrap" }}>{Math.round(Number(row.total_stock_value || 0)).toLocaleString("en-US")}</td>
                                 <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_0_30 || 0).toFixed(0)}</td>
                                 <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_31_60 || 0).toFixed(0)}</td>
                                 <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 60 }}>{Number(row.aging_61_90 || 0).toFixed(0)}</td>
@@ -4298,7 +4806,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
                             <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
                               <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
-                              <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 130, minWidth: 120, maxWidth: 140 }}>{modalTotalVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                              <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 130, minWidth: 120, maxWidth: 140 }}>{Math.round(modalTotalVal).toLocaleString("en-US")}</td>
                               <td colSpan={7} style={{ padding: "9px 10px", background: "#f8fafc" }} />
                             </tr>
                           </tfoot>
@@ -4827,7 +5335,7 @@ const styles = {
 
   agingHeader: {
     display: "grid",
-    gridTemplateColumns: "minmax(70px, 1fr) 60px 46px",
+    gridTemplateColumns: "minmax(85px, 1fr) minmax(75px, auto) 40px",
     gap: 6,
     color: "#1e3a8a",
     fontWeight: 700,
@@ -4840,7 +5348,7 @@ const styles = {
 
   agingRow: {
     display: "grid",
-    gridTemplateColumns: "minmax(70px, 1fr) 60px 46px",
+    gridTemplateColumns: "minmax(85px, 1fr) minmax(75px, auto) 40px",
     gap: 6,
     alignItems: "center",
     padding: "3.5px 6px",
@@ -4859,7 +5367,7 @@ const styles = {
 
   agingTotalRow: {
     display: "grid",
-    gridTemplateColumns: "minmax(70px, 1fr) 60px 46px",
+    gridTemplateColumns: "minmax(85px, 1fr) minmax(75px, auto) 40px",
     gap: 6,
     alignItems: "center",
     padding: "4px 6px",
@@ -4903,12 +5411,12 @@ const styles = {
     overflowY: "hidden",
     paddingBottom: 6,
     scrollbarWidth: "auto",
-    scrollbarColor: "#cbd5e1 #f1f5f9",
+    scrollbarColor: "#64748b #e2e8f0",
   },
 
   detailTable: {
     width: "100%",
-    minWidth: 1200,
+    minWidth: 1850,
     borderCollapse: "collapse",
     fontSize: "0.82rem",
     color: "#334155",
@@ -4979,25 +5487,37 @@ if (
       background: #f8fafc;
     }
 
+    /* Sticky column header on vertical scroll for all modal tables */
+    .modal-table-scroll table thead th {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 20;
+      background: #f8fafc !important;
+    }
+
     /* Enhanced, Thick Horizontal Scrollbar matching BalanceSheet and SalesRevenue */
-    .detail-table-scroll::-webkit-scrollbar {
-      height: 10px !important;
-      width: 10px !important;
+    .detail-table-scroll::-webkit-scrollbar,
+    .modal-table-scroll::-webkit-scrollbar {
+      height: 14px !important;
+      width: 14px !important;
     }
 
-    .detail-table-scroll::-webkit-scrollbar-track {
-      background: #f1f5f9 !important;
+    .detail-table-scroll::-webkit-scrollbar-track,
+    .modal-table-scroll::-webkit-scrollbar-track {
+      background: #e2e8f0 !important;
       border-radius: 6px !important;
     }
 
-    .detail-table-scroll::-webkit-scrollbar-thumb {
-      background: #cbd5e1 !important;
-      border-radius: 6px !important;
-      border: 2px solid #f1f5f9 !important;
-    }
-
-    .detail-table-scroll::-webkit-scrollbar-thumb:hover {
+    .detail-table-scroll::-webkit-scrollbar-thumb,
+    .modal-table-scroll::-webkit-scrollbar-thumb {
       background: #64748b !important;
+      border-radius: 6px !important;
+      border: 3px solid #e2e8f0 !important;
+    }
+
+    .detail-table-scroll::-webkit-scrollbar-thumb:hover,
+    .modal-table-scroll::-webkit-scrollbar-thumb:hover {
+      background: #334155 !important;
     }
 
     /* Enhanced Detail Table Styling for high legibility */
@@ -5040,6 +5560,7 @@ if (
 
   document.head.appendChild(style);
 }
+
 
 
 

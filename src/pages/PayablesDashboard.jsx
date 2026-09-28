@@ -5156,7 +5156,8 @@ function DataTable({
 
     const getFixedColumnStyle = (
         column,
-        columnIndex
+        columnIndex,
+        isHeader = false
     ) => {
         if (
             !fixedHierarchyColumns ||
@@ -5179,13 +5180,20 @@ function DataTable({
 
             left,
 
-            zIndex: 4,
+            zIndex: isHeader ? 6 : 4,
 
             background:
-                "#ffffff",
+                isHeader ? "#edf4ff" : "#ffffff",
 
             boxShadow:
-                "3px 0 6px rgba(15, 23, 42, 0.07)",
+                columnIndex === 2
+                    ? "3px 0 6px rgba(15, 23, 42, 0.08)"
+                    : undefined,
+
+            borderRight:
+                columnIndex === 2
+                    ? "2px solid #cbd5e1"
+                    : "1px solid #e7edf6",
         };
     };
 
@@ -6466,7 +6474,7 @@ function DataTable({
                                 ? 0
                                 : Math.max(
                                     fixedHierarchyColumns
-                                        ? 1050
+                                        ? 1800
                                         : useMonthOnMonthStyle
                                             ? 850
                                             : subDivisionTableStyle
@@ -6490,12 +6498,17 @@ function DataTable({
                                 : fitColumns
                                     ? "fixed"
                                     : topSupplierStyle ||
-                                        subDivisionTableStyle
+                                        subDivisionTableStyle ||
+                                        fixedHierarchyColumns
                                         ? "fixed"
                                         : "auto",
 
                         borderCollapse:
-                            "collapse",
+                            fixedHierarchyColumns
+                                ? "separate"
+                                : "collapse",
+
+                        borderSpacing: 0,
 
                         fontSize:
                             useMonthOnMonthStyle
@@ -6680,31 +6693,42 @@ function DataTable({
                                                                                     isLegal
                                                                                     ? 240
                                                                                     : fixedHierarchyColumns &&
-                                                                                        isLegal
-                                                                                        ? 220
-                                                                                        : useMonthOnMonthStyle &&
-                                                                                            isLegal
-                                                                                            ? 240
-                                                                                            : undefined,
+                                                                                        isFixedHierarchyColumn(column)
+                                                                                        ? getColumnWidth(column)
+                                                                                        : fixedHierarchyColumns
+                                                                                            ? 90
+                                                                                            : useMonthOnMonthStyle &&
+                                                                                                isLegal
+                                                                                                ? 240
+                                                                                                : undefined,
 
                                                 minWidth:
-                                                    topSupplierStyle &&
+                                                    fixedHierarchyColumns &&
+                                                    isFixedHierarchyColumn(column)
+                                                        ? getColumnWidth(column)
+                                                        : fixedHierarchyColumns
+                                                            ? 85
+                                                    : topSupplierStyle &&
                                                         isRankColumn
                                                         ? 48
                                                         : widerLegalEntity &&
                                                             isLegal
                                                             ? 240
-                                                            : fixedHierarchyColumns &&
+                                                            : useMonthOnMonthStyle &&
                                                                 isLegal
-                                                                ? 220
-                                                                : useMonthOnMonthStyle &&
-                                                                    isLegal
-                                                                    ? 240
-                                                                    : undefined,
+                                                                ? 240
+                                                                : undefined,
+
+                                                maxWidth:
+                                                    fixedHierarchyColumns &&
+                                                    isFixedHierarchyColumn(column)
+                                                        ? getColumnWidth(column)
+                                                        : undefined,
 
                                                 ...getFixedColumnStyle(
                                                     column,
-                                                    columnIndex
+                                                    columnIndex,
+                                                    true
                                                 ),
 
                                                 zIndex:
@@ -7044,52 +7068,59 @@ function DataTable({
                                                                 "clip",
 
                                                             minWidth:
-                                                                topSupplierStyle &&
+                                                                fixedHierarchyColumns &&
+                                                                isFixedHierarchyColumn(column)
+                                                                    ? getColumnWidth(column)
+                                                                    : fixedHierarchyColumns
+                                                                        ? 85
+                                                                : topSupplierStyle &&
                                                                     isRankColumn
                                                                     ? 48
                                                                     : widerLegalEntity &&
                                                                         isLegalEntity
                                                                         ? 240
-                                                                        : fixedHierarchyColumns &&
+                                                                        : useMonthOnMonthStyle &&
                                                                             isLegalEntity
-                                                                            ? 220
-                                                                            : useMonthOnMonthStyle &&
-                                                                                isLegalEntity
-                                                                                ? 240
-                                                                                : undefined,
+                                                                            ? 240
+                                                                            : undefined,
 
                                                             width:
-                                                                topSupplierStyle &&
+                                                                fixedHierarchyColumns &&
+                                                                isFixedHierarchyColumn(column)
+                                                                    ? getColumnWidth(column)
+                                                                    : fixedHierarchyColumns
+                                                                        ? 90
+                                                                : topSupplierStyle &&
                                                                     isRankColumn
                                                                     ? 48
                                                                     : widerLegalEntity &&
                                                                         isLegalEntity
                                                                         ? 240
-                                                                        : fixedHierarchyColumns &&
+                                                                        : useMonthOnMonthStyle &&
                                                                             isLegalEntity
-                                                                            ? 220
-                                                                            : useMonthOnMonthStyle &&
-                                                                                isLegalEntity
-                                                                                ? 240
-                                                                                : undefined,
+                                                                            ? 240
+                                                                            : undefined,
 
                                                             maxWidth:
-                                                                widerLegalEntity &&
-                                                                    isLegalEntity
-                                                                    ? 240
-                                                                    : useMonthOnMonthStyle &&
+                                                                fixedHierarchyColumns &&
+                                                                isFixedHierarchyColumn(column)
+                                                                    ? getColumnWidth(column)
+                                                                    : widerLegalEntity &&
                                                                         isLegalEntity
                                                                         ? 240
+                                                                        : useMonthOnMonthStyle &&
+                                                                            isLegalEntity
+                                                                            ? 240
                                                                         : topSupplierStyle &&
                                                                             isSupplier
                                                                             ? 250
-                                                                            : supplierTwoLine &&
-                                                                                isSupplier
-                                                                                ? 250
-                                                                                : truncateLegalEntity &&
-                                                                                    isLegalEntity
-                                                                                    ? 180
-                                                                                    : undefined,
+                                                                        : supplierTwoLine &&
+                                                                            isSupplier
+                                                                            ? 250
+                                                                        : truncateLegalEntity &&
+                                                                            isLegalEntity
+                                                                            ? 180
+                                                                            : undefined,
 
                                                             wordBreak:
                                                                 useMonthOnMonthStyle &&
@@ -9896,120 +9927,148 @@ export default function PayablesDashboard() {
                             position: "relative",
                         }}
                     >
-                        <SectionActions
-                            onViewAll={() => openPayablesViewAll("month_on_month")}
-                            onExportExcel={() => handleExport("excel")}
-                            onExportPdf={() => handleExport("pdf")}
-                        />
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
-                                gap: 14,
+                                gap: 20,
                                 marginBottom: 10,
-                                paddingRight: 58,
+                                paddingRight: 42,
                                 boxSizing: "border-box",
+                                minWidth: 0,
                             }}
                         >
+                            {/* LEFT */}
                             <SectionTitle info="Monthly payable balance by legal entity">
                                 Month-on-Month Payables ({currency})
                             </SectionTitle>
 
+                            {/* RIGHT */}
                             <div
                                 style={{
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: 8,
-                                    marginRight: 10,
+                                    gap: 14,
                                     flexShrink: 0,
                                 }}
                             >
-                                <span
+                                {/* YEAR */}
+                                <div
                                     style={{
-                                        fontSize: 10,
-                                        color: MUTED,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 7,
                                     }}
                                 >
-                                    Year
-                                </span>
+                                    <span
+                                        style={{
+                                            fontSize: 10,
+                                            color: MUTED,
+                                        }}
+                                    >
+                                        Year
+                                    </span>
 
-                                <input
-                                    value={monthOnMonthYear || filters.year}
-                                    onChange={(e) => {
-                                        const nextYear = Number(e.target.value);
-                                        setMonthOnMonthYear(nextYear);
-                                        setFilter("year", nextYear);
-                                        setAppliedFilters((previous) => ({
-                                            ...previous,
-                                            year: nextYear,
-                                        }));
-                                    }} readOnly
-                                    style={{
-                                        height: 30,
-                                        minWidth: 75,
-                                        border: "1px solid #d5ddeb",
-                                        borderRadius: 5,
-                                        background: "#fff",
-                                        color: BLUE,
-                                        padding: "0 8px",
-                                        fontSize: 10,
-                                        fontWeight: 600,
-                                    }}
-                                />
-                                {/* {filterOptions.years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))} */}
+                                    <select
+                                        value={filters.year}
+                                        onChange={(e) => {
+                                            const nextYear = Number(e.target.value);
+                                            setMonthOnMonthYear(nextYear);
+                                            setFilter("year", nextYear);
+                                            setAppliedFilters((previous) => ({
+                                                ...previous,
+                                                year: nextYear,
+                                            }));
+                                        }}
+                                        style={{
+                                            height: 30,
+                                            minWidth: 75,
+                                            border: "1px solid #d5ddeb",
+                                            borderRadius: 5,
+                                            background: "#fff",
+                                            color: BLUE,
+                                            padding: "0 8px",
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        {(filterOptions.years?.length ? filterOptions.years : [2026, 2025, 2024]).map((year) => (
+                                            <option key={year} value={year}>
+                                                {year}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-
-                                {/* AED / AED Millions toggle stays on the same row as Year and the ⋮ menu. */}
+                                {/* AED / AED MILLIONS */}
                                 <div
                                     style={{
                                         display: "inline-flex",
                                         alignItems: "center",
-                                        border: "1px solid #dbe3ef",
-                                        borderRadius: 5,
-                                        padding: 2,
+                                        height: 30,
+                                        border: "1px solid #d6deeb",
+                                        borderRadius: 6,
                                         background: "#f8fafc",
-                                        gap: 2,
-                                        flexShrink: 0,
+                                        overflow: "hidden",
                                     }}
                                 >
                                     <button
                                         type="button"
                                         onClick={() => setMonthCurrencyMode("AED")}
                                         style={{
+                                            height: "100%",
+                                            minWidth: 42,
+                                            padding: "0 9px",
                                             border: "none",
-                                            borderRadius: 4,
-                                            padding: "5px 9px",
+                                            borderRight: "1px solid #d6deeb",
+                                            background:
+                                                monthCurrencyMode === "AED"
+                                                    ? "#172f80"
+                                                    : "transparent",
+                                            color:
+                                                monthCurrencyMode === "AED"
+                                                    ? "#ffffff"
+                                                    : "#64748b",
                                             fontSize: 10,
-                                            fontWeight: 700,
+                                            fontWeight: 800,
                                             cursor: "pointer",
-                                            background: monthCurrencyMode === "AED" ? BLUE : "transparent",
-                                            color: monthCurrencyMode === "AED" ? "#fff" : "#475569",
                                         }}
                                     >
                                         AED
                                     </button>
+
                                     <button
                                         type="button"
                                         onClick={() => setMonthCurrencyMode("AED_MILLIONS")}
                                         style={{
+                                            height: "100%",
+                                            minWidth: 86,
+                                            padding: "0 9px",
                                             border: "none",
-                                            borderRadius: 4,
-                                            padding: "5px 9px",
+                                            background:
+                                                monthCurrencyMode === "AED_MILLIONS"
+                                                    ? "#172f80"
+                                                    : "transparent",
+                                            color:
+                                                monthCurrencyMode === "AED_MILLIONS"
+                                                    ? "#ffffff"
+                                                    : "#64748b",
                                             fontSize: 10,
-                                            fontWeight: 700,
+                                            fontWeight: 800,
                                             cursor: "pointer",
-                                            background: monthCurrencyMode === "AED_MILLIONS" ? BLUE : "transparent",
-                                            color: monthCurrencyMode === "AED_MILLIONS" ? "#fff" : "#475569",
                                         }}
                                     >
                                         AED Millions
                                     </button>
                                 </div>
+
+                                {/* 3 DOTS */}
+                                <SectionActions
+                                    onViewAll={() => openPayablesViewAll("month_on_month")}
+                                    onExportExcel={() => handleExport("excel")}
+                                    onExportPdf={() => handleExport("pdf")}
+                                />
                             </div>
                         </div>
 
@@ -13399,12 +13458,14 @@ function PayablesViewAll({
                             style={{
                                 width: "100%",
                                 overflowX: "auto",
+                                overflowY: "auto",
+                                maxWidth: "100%",
                             }}
                         >
                             <table
                                 style={{
-                                    width: "100%",
-                                    minWidth: viewTableMinWidth,
+                                    width: "max-content",
+                                    minWidth: Math.max(1900, viewTableMinWidth),
                                     borderCollapse: "separate",
                                     borderSpacing: 0,
                                     tableLayout: "fixed",
@@ -13412,23 +13473,39 @@ function PayablesViewAll({
                                 }}
                             >
                                 <colgroup>
-                                    {viewColumns.map((column) => (
-                                        <col
-                                            key={`col-${column.key}`}
-                                            style={{
-                                                width:
-                                                    viewColumnWidths[column.key] ||
-                                                    100,
-                                            }}
-                                        />
-                                    ))}
+                                    {viewColumns.map((column, columnIndex) => {
+                                        const colWidth = columnIndex === 0 ? 210 : columnIndex === 1 ? 190 : columnIndex === 2 ? 180 : (viewColumnWidths[column.key] || 100);
+                                        return (
+                                            <col
+                                                key={`col-${column.key}`}
+                                                style={{
+                                                    width: colWidth,
+                                                }}
+                                            />
+                                        );
+                                    })}
                                 </colgroup>
                                 <thead>
                                     <tr>
                                         {viewColumns.map(
-                                            (column) => {
+                                            (column, columnIndex) => {
                                                 const isText =
                                                     column.text;
+                                                const isSticky = columnIndex < 3;
+                                                const stickyLeft =
+                                                    columnIndex === 0
+                                                        ? 0
+                                                        : columnIndex === 1
+                                                            ? 210
+                                                            : 400;
+                                                const columnWidth =
+                                                    columnIndex === 0
+                                                        ? 210
+                                                        : columnIndex === 1
+                                                            ? 190
+                                                            : columnIndex === 2
+                                                                ? 180
+                                                                : (viewColumnWidths[column.key] || 100);
 
                                                 return (
                                                     <th
@@ -13440,41 +13517,33 @@ function PayablesViewAll({
                                                             )
                                                         }
                                                         style={{
-                                                            position:
-                                                                "sticky",
+                                                            position: isSticky ? "sticky" : "static",
+                                                            left: isSticky ? stickyLeft : undefined,
                                                             top: 0,
-                                                            zIndex: 2,
-                                                            background:
-                                                                "#edf4ff",
-                                                            color:
-                                                                "#24479d",
+                                                            zIndex: isSticky ? 5 : 2,
+                                                            background: "#edf4ff",
+                                                            color: "#24479d",
                                                             fontWeight: 800,
-                                                            padding:
-                                                                "9px 8px",
-                                                            borderBottom:
-                                                                "1px solid #d7e1ef",
+                                                            padding: "8px 12px",
+                                                            borderBottom: "1px solid #d7e1ef",
+                                                            borderRight: "1px solid #e7edf6",
                                                             lineHeight: 1.25,
                                                             minHeight: 34,
-
                                                             textAlign:
                                                                 isText
                                                                     ? "left"
                                                                     : "right",
                                                             whiteSpace:
                                                                 "nowrap",
-                                                            overflow: "visible",
                                                             cursor:
                                                                 column.sortable
                                                                     ? "pointer"
                                                                     : "default",
-                                                            width:
-                                                                viewColumnWidths[column.key] ||
-                                                                100,
-                                                            maxWidth:
-                                                                viewColumnWidths[column.key] ||
-                                                                100,
-                                                            overflow:
-                                                                "hidden",
+                                                            width: columnWidth,
+                                                            minWidth: columnWidth,
+                                                            maxWidth: columnWidth,
+                                                            boxSizing: "border-box",
+                                                            overflow: "hidden",
                                                             textOverflow:
                                                                 "ellipsis",
                                                         }}
@@ -13520,9 +13589,24 @@ function PayablesViewAll({
                                                 }}
                                             >
                                                 {viewColumns.map(
-                                                    (column) => {
+                                                    (column, columnIndex) => {
                                                         const isText =
                                                             column.text;
+                                                        const isSticky = columnIndex < 3;
+                                                        const stickyLeft =
+                                                            columnIndex === 0
+                                                                ? 0
+                                                                : columnIndex === 1
+                                                                    ? 210
+                                                                    : 400;
+                                                        const columnWidth =
+                                                            columnIndex === 0
+                                                                ? 210
+                                                                : columnIndex === 1
+                                                                    ? 190
+                                                                    : columnIndex === 2
+                                                                        ? 180
+                                                                        : (viewColumnWidths[column.key] || 100);
 
                                                         let value;
 
@@ -13575,16 +13659,23 @@ function PayablesViewAll({
                                                                         column.key
                                                                     }
                                                                     style={{
+                                                                        position: isSticky ? "sticky" : "static",
+                                                                        left: isSticky ? stickyLeft : undefined,
+                                                                        zIndex: isSticky ? 4 : 1,
                                                                         padding:
-                                                                            "7px 6px",
-                                                                        width:
-                                                                            viewColumnWidths[column.key] ||
-                                                                            100,
-                                                                        maxWidth:
-                                                                            viewColumnWidths[column.key] ||
-                                                                            100,
+                                                                            "8px 12px",
+                                                                        width: columnWidth,
+                                                                        minWidth: columnWidth,
+                                                                        maxWidth: columnWidth,
+                                                                        boxSizing: "border-box",
                                                                         borderBottom:
                                                                             "1px solid #edf1f6",
+                                                                        borderRight:
+                                                                            "1px solid #edf1f6",
+                                                                        background:
+                                                                            rowIndex % 2 === 0
+                                                                                ? "#f9fbff"
+                                                                                : "#ffffff",
                                                                         color:
                                                                             numericValue <
                                                                                 0
@@ -13614,16 +13705,23 @@ function PayablesViewAll({
                                                                     column.key
                                                                 }
                                                                 style={{
+                                                                    position: isSticky ? "sticky" : "static",
+                                                                    left: isSticky ? stickyLeft : undefined,
+                                                                    zIndex: isSticky ? 4 : 1,
                                                                     padding:
-                                                                        "7px 6px",
-                                                                    width:
-                                                                        viewColumnWidths[column.key] ||
-                                                                        100,
-                                                                    maxWidth:
-                                                                        viewColumnWidths[column.key] ||
-                                                                        100,
+                                                                        "8px 12px",
+                                                                    width: columnWidth,
+                                                                    minWidth: columnWidth,
+                                                                    maxWidth: columnWidth,
+                                                                    boxSizing: "border-box",
                                                                     borderBottom:
                                                                         "1px solid #edf1f6",
+                                                                    borderRight:
+                                                                        "1px solid #edf1f6",
+                                                                    background:
+                                                                        rowIndex % 2 === 0
+                                                                            ? "#f9fbff"
+                                                                            : "#ffffff",
                                                                     color:
                                                                         "#334b8e",
                                                                     textAlign:
@@ -13631,7 +13729,9 @@ function PayablesViewAll({
                                                                             ? "left"
                                                                             : "center",
                                                                     whiteSpace:
-                                                                        "nowrap",
+                                                                        isText
+                                                                            ? "nowrap"
+                                                                            : "normal",
                                                                     overflow:
                                                                         "hidden",
                                                                     textOverflow:
