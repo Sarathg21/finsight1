@@ -5,7 +5,7 @@ LayoutDashboard, Users, BarChart3, TrendingUp, TrendingDown,
 AlertCircle, CheckCircle2, Clock, RefreshCw, ChevronRight,
 ArrowUpRight, ArrowDownRight, Minus, Info
 } from 'lucide-react';
-import StatsCard from '../components/UI/StatsCard';
+import StatsCard from '../components/ui/StatsCard';
 
 const DeptHealthMatrixPage = () => {
 

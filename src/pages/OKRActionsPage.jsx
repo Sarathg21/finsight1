@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, CheckCircle2, AlertTriangle, Clock, Filter, Layers, Loader2, RefreshCw, Target, TrendingUp, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import SearchableSelect from '../components/UI/SearchableSelect';
-import MultiSearchableSelect from '../components/UI/MultiSearchableSelect';
+import SearchableSelect from '../components/ui/SearchableSelect';
+import MultiSearchableSelect from '../components/ui/MultiSearchableSelect';
 import {
   fetchAssignedEmployeesDropdown,
   fetchManagersDropdown,

@@ -3,7 +3,7 @@ import api from "../services/api";
 import { Building2, Plus, Edit3, Trash2, MoreHorizontal, User, Users, RefreshCw, Loader2, Search, ArrowLeft, AlertCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import DepartmentFormModal from "../components/Modals/DepartmentFormModal";
-import ConfirmationModal from "../components/UI/ConfirmationModal";
+import ConfirmationModal from "../components/ui/ConfirmationModal";
 
 const DepartmentsPage = () => {
     const [departments, setDepartments] = useState([]);

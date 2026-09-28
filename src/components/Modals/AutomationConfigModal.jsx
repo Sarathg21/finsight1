@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    X, RefreshCw, Calendar, User, 
+import {
+    X, RefreshCw, Calendar, User,
     Building2, AlertCircle, Loader2, Save,
     Plus, Trash2
 } from 'lucide-react';
@@ -69,7 +69,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
 
     const fetchMetadata = async () => {
         try {
-            const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
+            const savedUser = JSON.parse(localStorage.getItem('finsight_user') || '{}');
             const role = String(savedUser?.role || '').toUpperCase();
             const isAltRole = role === 'ADMIN' || role === 'CFO' || role === 'MANAGER';
 
@@ -83,7 +83,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                     .catch(() => api.get('/employees/assignable', { skip403Graceful: true }))
                     .catch(() => ({ data: [] }))
             ]);
-            
+
             const extractList = (res) => {
                 const raw = res?.data;
                 if (Array.isArray(raw)) return raw;
@@ -96,7 +96,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             };
 
             const depts = extractList(deptRes);
-            
+
             // Normalize depts to have dept_id
             const normalizedDepts = depts.map(d => {
                 if (typeof d === 'string') {
@@ -111,8 +111,8 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
 
             // Extract employees — handle both wrapped and plain array responses
             const emps = Array.isArray(empRes.data?.data) ? empRes.data.data
-                        : Array.isArray(empRes.data?.items) ? empRes.data.items
-                        : Array.isArray(empRes.data) ? empRes.data
+                : Array.isArray(empRes.data?.items) ? empRes.data.items
+                    : Array.isArray(empRes.data) ? empRes.data
                         : [];
             const normalizedEmps = emps.map(e => ({
                 ...e,
@@ -221,10 +221,10 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
 
     const handleAddSubtask = async () => {
         const rid = template?.id || template?.recurring_id;
-        
+
         const defaultDept = formData.department_id || (departments[0]?.department_id || departments[0]?.id || '');
         const defaultEmp = formData.assigned_to_emp_id || (employees[0]?.emp_id || '');
-        
+
         const maxSeq = subtasks.reduce((max, s) => Math.max(max, s.sequence_no ?? 0), 0);
         const newSt = {
             title: 'New Subtask',
@@ -241,7 +241,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             // Local mode for new recurring tasks
             setSubtasks(prev => [
                 ...prev,
-                { ...newSt, id: `local-${Date.now()}-${Math.random()}`}
+                { ...newSt, id: `local-${Date.now()}-${Math.random()}` }
             ]);
             toast.success('Local subtask template added');
             return;
@@ -435,7 +435,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!formData.title || !formData.department_id || !formData.assigned_to_emp_id) {
             toast.error("Process Title, Department and Process Owner are required.");
             return;
@@ -458,7 +458,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 : (parseInt(formData.weekly_day, 10) || 1);
 
             // Get current user ID for assigned_by_emp_id
-            const savedUser = JSON.parse(localStorage.getItem('pms_user') || '{}');
+            const savedUser = JSON.parse(localStorage.getItem('finsight_user') || '{}');
             const currentEmpId = savedUser?.id || savedUser?.emp_id || '';
 
             const payload = {
@@ -487,12 +487,12 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
             } else {
                 res = await api.post('/recurring-tasks', payload);
                 const newRid = res.data?.id || res.data?.recurring_id;
-                
+
                 // If we have local subtasks, save them for the new template
                 if (newRid && subtasks.length > 0) {
                     for (const st of subtasks) {
                         try {
-                            const { id, ...stPayload } = st; 
+                            const { id, ...stPayload } = st;
                             stPayload.due_in_days = toNonNegativeDayCount(stPayload.due_in_days);
                             await api.post(`/recurring-tasks/${newRid}/subtasks`, stPayload);
                         } catch (stErr) {
@@ -502,7 +502,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 }
                 toast.success('Recurring task created with subtasks!');
             }
-            
+
             if (res?.data) {
                 onSave(res.data?.data || res.data);
             }
@@ -537,7 +537,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Automation Governance</p>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={onClose}
                         className="p-2 hover:bg-slate-200/50 rounded-xl transition-colors text-slate-400 hover:text-slate-600"
                     >
@@ -549,25 +549,25 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                 <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto overflow-x-hidden custom-scrollbar">
                     <div className="space-y-6">
                         <h3 className="text-[12px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Core Definition</h3>
-                        
+
                         <div>
                             <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Template Title</label>
-                            <input 
+                            <input
                                 type="text"
                                 required
                                 className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                 value={formData.title}
-                                onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Responsible Dept</label>
-                                <select 
+                                <select
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.department_id}
-                                    onChange={(e) => setFormData({...formData, department_id: e.target.value, assigned_to_emp_id: ''})}
+                                    onChange={(e) => setFormData({ ...formData, department_id: e.target.value, assigned_to_emp_id: '' })}
                                 >
                                     <option value="">Select Department</option>
                                     {departments.map((d, dik) => (
@@ -577,10 +577,10 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                             </div>
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Process Owner</label>
-                                <select 
+                                <select
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.assigned_to_emp_id}
-                                    onChange={(e) => setFormData({...formData, assigned_to_emp_id: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, assigned_to_emp_id: e.target.value })}
                                 >
                                     <option value="">Select Manager</option>
                                     {employees
@@ -600,10 +600,10 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                         <div className="grid grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Frequency</label>
-                                <select 
+                                <select
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-black text-[11px] uppercase tracking-widest transition-all"
                                     value={formData.frequency}
-                                    onChange={(e) => setFormData({...formData, frequency: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
                                 >
                                     <option value="DAILY">Daily</option>
                                     <option value="WEEKLY">Weekly</option>
@@ -616,12 +616,12 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                 {formData.frequency === 'WEEKLY' && (
                                     <>
                                         <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Day of Week</label>
-                                        <select 
+                                        <select
                                             className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                             value={formData.weekly_day}
-                                            onChange={(e) => setFormData({...formData, weekly_day: parseInt(e.target.value)})}
+                                            onChange={(e) => setFormData({ ...formData, weekly_day: parseInt(e.target.value) })}
                                         >
-                                            {[['MON',1],['TUE',2],['WED',3],['THU',4],['FRI',5],['SAT',6],['SUN',7]].map(([label, val]) => (
+                                            {[['MON', 1], ['TUE', 2], ['WED', 3], ['THU', 4], ['FRI', 5], ['SAT', 6], ['SUN', 7]].map(([label, val]) => (
                                                 <option key={val} value={val}>{label}</option>
                                             ))}
                                         </select>
@@ -630,11 +630,11 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                 {formData.frequency === 'MONTHLY' && (
                                     <>
                                         <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Day of Month</label>
-                                        <input 
+                                        <input
                                             type="number" min="1" max="31"
                                             className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                             value={formData.monthly_day}
-                                            onChange={(e) => setFormData({...formData, monthly_day: parseInt(e.target.value)})}
+                                            onChange={(e) => setFormData({ ...formData, monthly_day: parseInt(e.target.value) })}
                                         />
                                     </>
                                 )}
@@ -645,10 +645,10 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                             <div className="grid grid-cols-2 gap-6">
                                 <div>
                                     <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Month</label>
-                                    <select 
+                                    <select
                                         className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                         value={formData.yearly_month}
-                                        onChange={(e) => setFormData({...formData, yearly_month: parseInt(e.target.value)})}
+                                        onChange={(e) => setFormData({ ...formData, yearly_month: parseInt(e.target.value) })}
                                     >
                                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                                             <option key={m} value={m}>{new Date(0, m - 1).toLocaleString('en', { month: 'long' })}</option>
@@ -657,11 +657,11 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                 </div>
                                 <div>
                                     <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Day</label>
-                                    <input 
+                                    <input
                                         type="number" min="1" max="31"
                                         className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                         value={formData.yearly_day}
-                                        onChange={(e) => setFormData({...formData, yearly_day: parseInt(e.target.value)})}
+                                        onChange={(e) => setFormData({ ...formData, yearly_day: parseInt(e.target.value) })}
                                     />
                                 </div>
                             </div>
@@ -670,10 +670,10 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Priority Level</label>
-                                <select 
+                                <select
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.priority}
-                                    onChange={(e) => setFormData({...formData, priority: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
                                 >
                                     <option value="LOW">Low Priority</option>
                                     <option value="MEDIUM">Medium Priority</option>
@@ -682,11 +682,11 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                             </div>
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Task Goal (Description)</label>
-                                <textarea 
+                                <textarea
                                     rows="2"
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-medium transition-all text-sm"
                                     value={formData.description}
-                                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="High-level requirements..."
                                 />
                             </div>
@@ -695,20 +695,20 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Effective From</label>
-                                <input 
+                                <input
                                     type="date"
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.start_date}
-                                    onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                                 />
                             </div>
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1">Effective Until (Optional)</label>
-                                <input 
+                                <input
                                     type="date"
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.end_date}
-                                    onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -716,11 +716,11 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-1" title="Number of days from task generation until it is due">Due in Days</label>
-                                <input 
+                                <input
                                     type="number" min="0"
                                     className="w-full px-5 py-3 rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-300 font-bold transition-all text-sm"
                                     value={formData.due_in_days}
-                                    onChange={(e) => setFormData({...formData, due_in_days: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, due_in_days: e.target.value })}
                                 />
                             </div>
                         </div>
@@ -729,8 +729,8 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                     <div className="space-y-6 pt-8 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-[12px] font-black text-indigo-600 uppercase tracking-[0.2em]">Subtask Templates</h3>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={handleAddSubtask}
                                 className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all border border-indigo-100 shadow-sm flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-4"
                             >
@@ -745,200 +745,200 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                                 <div className="py-10 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 font-medium italic text-[11px]">No subtask templates defined.</div>
                             ) : (
                                 <div className="space-y-3">
-                                        {subtasks.sort((a,b) => (a.sequence_no || 0) - (b.sequence_no || 0)).map((st, idx) => {
-                                            const subtaskId = getSubtaskId(st);
-                                            return (
-                                                <div key={subtaskId || `local-${idx}`} className="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group overflow-hidden relative">
-                                                    {/* Sequence indicator */}
-                                                    <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-20 group-hover:opacity-100 transition-opacity" />
-                                                    
-                                                    <div className="flex flex-col gap-4">
-                                                        <div className="flex items-center justify-between gap-4">
-                                                            <div className="flex items-center gap-3 flex-1">
-                                                                {/* Sequence Number Field */}
-                                                                <div className="flex flex-col items-center gap-0.5 shrink-0">
-                                                                    <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest leading-none">#</label>
-                                                                    <input
-                                                                        type="number"
-                                                                        min="1"
-                                                                        className="w-10 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-center text-indigo-600 font-black text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                                                        value={st.sequence_no ?? idx + 1}
-                                                                        onChange={(e) => {
-                                                                            const val = parseInt(e.target.value, 10) || 1;
-                                                                            setSubtasks(prev => prev.map(s => {
-                                                                                const sid = getSubtaskId(s);
-                                                                                const tid = getSubtaskId(st);
-                                                                                return String(sid) === String(tid) ? { ...s, sequence_no: val } : s;
-                                                                            }));
-                                                                        }}
-                                                                        onBlur={() => handleUpdateSubtask(subtaskId, { sequence_no: st.sequence_no ?? idx + 1 })}
-                                                                        title="Sequence Number"
-                                                                    />
-                                                                </div>
-                                                                {/* Subtask Name Field */}
-                                                                <div className="flex flex-col gap-0.5 flex-1">
-                                                                    <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none ml-1">Subtask Name</label>
-                                                                    <input 
-                                                                        type="text"
-                                                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[13px] font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 focus:border-indigo-300 placeholder:text-slate-300 tracking-tight transition-all"
-                                                                        value={st.title}
-                                                                        placeholder="Enter subtask name..."
-                                                                        onChange={(e) => setSubtasks(prev => prev.map(s => {
-                                                                            const sid = getSubtaskId(s);
-                                                                            const tid = getSubtaskId(st);
-                                                                            return String(sid) === String(tid) ? {...s, title: e.target.value} : s;
-                                                                        }))}
-                                                                        onBlur={() => handleUpdateSubtask(subtaskId, { title: st.title })}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-2 self-end pb-0.5">
-                                                                <button 
-                                                                    type="button"
-                                                                    onClick={async () => {
-                                                                        if (window.confirm(`Delete subtask "${st.title}"?`)) {
-                                                                            handleDeleteSubtask(subtaskId);
-                                                                        }
-                                                                    }}
-                                                                    className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                                                    title="Remove Subtask"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </div>
-                                                        </div>
+                                    {subtasks.sort((a, b) => (a.sequence_no || 0) - (b.sequence_no || 0)).map((st, idx) => {
+                                        const subtaskId = getSubtaskId(st);
+                                        return (
+                                            <div key={subtaskId || `local-${idx}`} className="bg-white border border-slate-100 rounded-[1.5rem] p-5 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all group overflow-hidden relative">
+                                                {/* Sequence indicator */}
+                                                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 opacity-20 group-hover:opacity-100 transition-opacity" />
 
-                                                        <div className="flex flex-col gap-2 px-1 py-1">
-                                                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none ml-1">Subtask Goal & Instructions</label>
-                                                            <textarea 
-                                                                rows="3"
-                                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 focus:border-indigo-300 placeholder:text-slate-300 transition-all resize-none custom-scrollbar"
-                                                                value={st.description || ''}
-                                                                placeholder="Describe the specific steps, benchmarks, or expectations for this subtask..."
-                                                                onChange={(e) => setSubtasks(prev => prev.map(s => {
-                                                                    const sid = getSubtaskId(s);
-                                                                    const tid = getSubtaskId(st);
-                                                                    return String(sid) === String(tid) ? {...s, description: e.target.value} : s;
-                                                                }))}
-                                                                onBlur={(e) => handleUpdateSubtask(subtaskId, { description: e.target.value })}
-                                                            />
-                                                        </div>
-
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-2xl">
-                                                            <div className="space-y-1">
-                                                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsible Dept</label>
-                                                                    <select 
-                                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                                        value={st.department_id || st.dept_id || ''}
-                                                                        onChange={(e) => {
-                                                                            // ✅ Only update local state — do NOT PATCH yet.
-                                                                            // Backend requires dept + assignee together in one call.
-                                                                            // The PATCH fires when the user picks an assignee.
-                                                                            setSubtasks(prev => prev.map(s => {
-                                                                                const sid = getSubtaskId(s);
-                                                                                const tid = getSubtaskId(st);
-                                                                                return String(sid) === String(tid)
-                                                                                    ? { ...s, department_id: e.target.value, assigned_to_emp_id: '' }
-                                                                                    : s;
-                                                                            }));
-                                                                        }}
-                                                                    >
-                                                                        <option value="">Select Dept</option>
-                                                                        {departments.map((d, dk) => {
-                                                                            const dId = d.dept_id;
-                                                                            return <option key={dId || `st-dept-${dk}`} value={dId}>{d.name || d.dept_name}</option>;
-                                                                        })}
-                                                                    </select>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Assignee</label>
-                                                                <select 
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                                    value={st.assigned_to_emp_id || ''}
-                                                                    onChange={(e) => {
-                                                                        const selectedEmpId = e.target.value;
-
-                                                                        // Update local state immediately
-                                                                        setSubtasks(prev => prev.map(s => {
-                                                                            const sid = getSubtaskId(s);
-                                                                            const tid = getSubtaskId(st);
-                                                                            return String(sid) === String(tid) ? { ...s, assigned_to_emp_id: selectedEmpId } : s;
-                                                                        }));
-
-                                                                        if (!selectedEmpId) return; // nothing to PATCH if cleared
-
-                                                                        // ✅ Always send dept + assignee together so backend can validate them as a pair
-                                                                        const currentDeptId = st.department_id || '';
-                                                                        if (!currentDeptId) {
-                                                                            toast.error('Please select a department before choosing an assignee.');
-                                                                            return;
-                                                                        }
-
-                                                                        handleUpdateSubtask(subtaskId, {
-                                                                            department_id: currentDeptId,
-                                                                            assigned_to_emp_id: selectedEmpId
-                                                                        });
-                                                                    }}
-                                                                >
-                                                                    <option value="">Select Owner</option>
-                                                                    {employees
-                                                                        .filter(e => {
-                                                                            const stDeptId = String(st.department_id || '').trim();
-                                                                            if (!stDeptId) return true;
-
-                                                                            // Direct dept code match
-                                                                            const empDeptId = String(e.department_id || '').trim();
-                                                                            if (empDeptId === stDeptId) return true;
-
-                                                                            // Fallback: match by dept name (handles format mismatches between APIs)
-                                                                            const selectedDept = departments.find(d => String(d.dept_id || '').trim() === stDeptId);
-                                                                            const stDeptName = (selectedDept?.name || selectedDept?.dept_name || '').toLowerCase().trim();
-                                                                            if (!stDeptName) return false;
-                                                                            const empDeptName = (e.department_name || '').toLowerCase().trim();
-                                                                            return empDeptName === stDeptName;
-                                                                        })
-                                                                        .map((e, ek) => <option key={e.emp_id || `st-emp-${ek}`} value={e.emp_id}>{e.name}</option>)
-                                                                    }
-                                                                </select>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
-                                                                <select 
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                                    value={st.priority}
-                                                                    onChange={(e) => handleUpdateSubtask(subtaskId, { priority: e.target.value })}
-                                                                >
-                                                                    <option value="LOW">Low</option>
-                                                                    <option value="MEDIUM">Medium</option>
-                                                                    <option value="HIGH">High</option>
-                                                                </select>
-                                                            </div>
-                                                            <div className="space-y-1">
-                                                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Due In Days</label>
+                                                <div className="flex flex-col gap-4">
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-3 flex-1">
+                                                            {/* Sequence Number Field */}
+                                                            <div className="flex flex-col items-center gap-0.5 shrink-0">
+                                                                <label className="text-[8px] font-black text-indigo-400 uppercase tracking-widest leading-none">#</label>
                                                                 <input
                                                                     type="number"
-                                                                    min="0"
-                                                                    max={toNonNegativeDayCount(formData.due_in_days)}
-                                                                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                                                    value={st.due_in_days ?? 0}
+                                                                    min="1"
+                                                                    className="w-10 h-8 rounded-lg bg-indigo-50 border border-indigo-100 text-center text-indigo-600 font-black text-[11px] focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-300 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                                                    value={st.sequence_no ?? idx + 1}
                                                                     onChange={(e) => {
-                                                                        const nextDueInDays = toNonNegativeDayCount(e.target.value);
+                                                                        const val = parseInt(e.target.value, 10) || 1;
                                                                         setSubtasks(prev => prev.map(s => {
                                                                             const sid = getSubtaskId(s);
                                                                             const tid = getSubtaskId(st);
-                                                                            return String(sid) === String(tid) ? { ...s, due_in_days: nextDueInDays } : s;
+                                                                            return String(sid) === String(tid) ? { ...s, sequence_no: val } : s;
                                                                         }));
                                                                     }}
-                                                                    onBlur={(e) => handleUpdateSubtask(subtaskId, { due_in_days: e.target.value })}
-                                                                    title="Must be less than or equal to the parent template due days"
+                                                                    onBlur={() => handleUpdateSubtask(subtaskId, { sequence_no: st.sequence_no ?? idx + 1 })}
+                                                                    title="Sequence Number"
                                                                 />
-                                                                <p className="mt-1 text-[9px] font-semibold text-slate-400">Must be within parent due timeline</p>
                                                             </div>
+                                                            {/* Subtask Name Field */}
+                                                            <div className="flex flex-col gap-0.5 flex-1">
+                                                                <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-none ml-1">Subtask Name</label>
+                                                                <input
+                                                                    type="text"
+                                                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-[13px] font-black text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 focus:border-indigo-300 placeholder:text-slate-300 tracking-tight transition-all"
+                                                                    value={st.title}
+                                                                    placeholder="Enter subtask name..."
+                                                                    onChange={(e) => setSubtasks(prev => prev.map(s => {
+                                                                        const sid = getSubtaskId(s);
+                                                                        const tid = getSubtaskId(st);
+                                                                        return String(sid) === String(tid) ? { ...s, title: e.target.value } : s;
+                                                                    }))}
+                                                                    onBlur={() => handleUpdateSubtask(subtaskId, { title: st.title })}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 self-end pb-0.5">
+                                                            <button
+                                                                type="button"
+                                                                onClick={async () => {
+                                                                    if (window.confirm(`Delete subtask "${st.title}"?`)) {
+                                                                        handleDeleteSubtask(subtaskId);
+                                                                    }
+                                                                }}
+                                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                                title="Remove Subtask"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-col gap-2 px-1 py-1">
+                                                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none ml-1">Subtask Goal & Instructions</label>
+                                                        <textarea
+                                                            rows="3"
+                                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/20 focus:border-indigo-300 placeholder:text-slate-300 transition-all resize-none custom-scrollbar"
+                                                            value={st.description || ''}
+                                                            placeholder="Describe the specific steps, benchmarks, or expectations for this subtask..."
+                                                            onChange={(e) => setSubtasks(prev => prev.map(s => {
+                                                                const sid = getSubtaskId(s);
+                                                                const tid = getSubtaskId(st);
+                                                                return String(sid) === String(tid) ? { ...s, description: e.target.value } : s;
+                                                            }))}
+                                                            onBlur={(e) => handleUpdateSubtask(subtaskId, { description: e.target.value })}
+                                                        />
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-2xl">
+                                                        <div className="space-y-1">
+                                                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Responsible Dept</label>
+                                                            <select
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                                value={st.department_id || st.dept_id || ''}
+                                                                onChange={(e) => {
+                                                                    // ✅ Only update local state — do NOT PATCH yet.
+                                                                    // Backend requires dept + assignee together in one call.
+                                                                    // The PATCH fires when the user picks an assignee.
+                                                                    setSubtasks(prev => prev.map(s => {
+                                                                        const sid = getSubtaskId(s);
+                                                                        const tid = getSubtaskId(st);
+                                                                        return String(sid) === String(tid)
+                                                                            ? { ...s, department_id: e.target.value, assigned_to_emp_id: '' }
+                                                                            : s;
+                                                                    }));
+                                                                }}
+                                                            >
+                                                                <option value="">Select Dept</option>
+                                                                {departments.map((d, dk) => {
+                                                                    const dId = d.dept_id;
+                                                                    return <option key={dId || `st-dept-${dk}`} value={dId}>{d.name || d.dept_name}</option>;
+                                                                })}
+                                                            </select>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Assignee</label>
+                                                            <select
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                                value={st.assigned_to_emp_id || ''}
+                                                                onChange={(e) => {
+                                                                    const selectedEmpId = e.target.value;
+
+                                                                    // Update local state immediately
+                                                                    setSubtasks(prev => prev.map(s => {
+                                                                        const sid = getSubtaskId(s);
+                                                                        const tid = getSubtaskId(st);
+                                                                        return String(sid) === String(tid) ? { ...s, assigned_to_emp_id: selectedEmpId } : s;
+                                                                    }));
+
+                                                                    if (!selectedEmpId) return; // nothing to PATCH if cleared
+
+                                                                    // ✅ Always send dept + assignee together so backend can validate them as a pair
+                                                                    const currentDeptId = st.department_id || '';
+                                                                    if (!currentDeptId) {
+                                                                        toast.error('Please select a department before choosing an assignee.');
+                                                                        return;
+                                                                    }
+
+                                                                    handleUpdateSubtask(subtaskId, {
+                                                                        department_id: currentDeptId,
+                                                                        assigned_to_emp_id: selectedEmpId
+                                                                    });
+                                                                }}
+                                                            >
+                                                                <option value="">Select Owner</option>
+                                                                {employees
+                                                                    .filter(e => {
+                                                                        const stDeptId = String(st.department_id || '').trim();
+                                                                        if (!stDeptId) return true;
+
+                                                                        // Direct dept code match
+                                                                        const empDeptId = String(e.department_id || '').trim();
+                                                                        if (empDeptId === stDeptId) return true;
+
+                                                                        // Fallback: match by dept name (handles format mismatches between APIs)
+                                                                        const selectedDept = departments.find(d => String(d.dept_id || '').trim() === stDeptId);
+                                                                        const stDeptName = (selectedDept?.name || selectedDept?.dept_name || '').toLowerCase().trim();
+                                                                        if (!stDeptName) return false;
+                                                                        const empDeptName = (e.department_name || '').toLowerCase().trim();
+                                                                        return empDeptName === stDeptName;
+                                                                    })
+                                                                    .map((e, ek) => <option key={e.emp_id || `st-emp-${ek}`} value={e.emp_id}>{e.name}</option>)
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Priority</label>
+                                                            <select
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                                value={st.priority}
+                                                                onChange={(e) => handleUpdateSubtask(subtaskId, { priority: e.target.value })}
+                                                            >
+                                                                <option value="LOW">Low</option>
+                                                                <option value="MEDIUM">Medium</option>
+                                                                <option value="HIGH">High</option>
+                                                            </select>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Due In Days</label>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max={toNonNegativeDayCount(formData.due_in_days)}
+                                                                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                                                value={st.due_in_days ?? 0}
+                                                                onChange={(e) => {
+                                                                    const nextDueInDays = toNonNegativeDayCount(e.target.value);
+                                                                    setSubtasks(prev => prev.map(s => {
+                                                                        const sid = getSubtaskId(s);
+                                                                        const tid = getSubtaskId(st);
+                                                                        return String(sid) === String(tid) ? { ...s, due_in_days: nextDueInDays } : s;
+                                                                    }));
+                                                                }}
+                                                                onBlur={(e) => handleUpdateSubtask(subtaskId, { due_in_days: e.target.value })}
+                                                                title="Must be less than or equal to the parent template due days"
+                                                            />
+                                                            <p className="mt-1 text-[9px] font-semibold text-slate-400">Must be within parent due timeline</p>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            );
-                                        })}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -947,7 +947,7 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
 
                 {/* Footer */}
                 <div className="px-8 py-6 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-                    <div 
+                    <div
                         className="flex items-center gap-3 cursor-pointer group"
                         onClick={() => setFormData(prev => ({ ...prev, status: prev.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }))}
                     >
@@ -959,14 +959,14 @@ const AutomationConfigModal = ({ isOpen, onClose, template, onSave }) => {
                         </span>
                     </div>
                     <div className="flex gap-3">
-                        <button 
+                        <button
                             type="button"
                             onClick={onClose}
                             className="px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 transition-all active:scale-95"
                         >
                             Discard
                         </button>
-                        <button 
+                        <button
                             onClick={handleSubmit}
                             disabled={submitting}
                             className="px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all flex items-center gap-3 active:scale-95 disabled:opacity-50"

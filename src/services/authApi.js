@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from '../utils/apiBase';
 /**
  * Auth API Service
  * ────────────────
@@ -15,8 +16,7 @@
 // use relative paths (/api/...) which are intercepted by the Vite dev proxy
 // → http://13.233.207.68:8000.  Using || would bypass the proxy and cause
 // CORS errors because the browser would hit the backend directly.
-export const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? '';
+export const API_BASE = getApiBaseUrl();
 
 // Static display constant – always shows the real backend host in the UI
 // regardless of whether API_BASE is empty (proxy mode) or a full URL.
@@ -179,6 +179,7 @@ export async function loginWithBackend(email, password) {
 
   // ── Step 4: Store token ───────────────────────────────────────
   localStorage.setItem('finsight_token', token);
+  localStorage.setItem('token', token);
   _online = true;
   console.info('[authApi] ✓ Authenticated via', LOGIN_URL);
   return { token, raw: body };
@@ -187,10 +188,74 @@ export async function loginWithBackend(email, password) {
 /* ── Logout ──────────────────────────────────────────────────────── */
 export function logoutFromBackend() {
   localStorage.removeItem('finsight_token');
+  localStorage.removeItem('token');
   _online = null;
 }
 
 /* ── Token accessor ──────────────────────────────────────────────── */
 export function getStoredToken() {
-  return localStorage.getItem('finsight_token');
+  const token = localStorage.getItem('token') || localStorage.getItem('finsight_token');
+  if (!token) return null;
+  return token.replace(/^Bearer\s+/i, '').replace(/^"+|"+$/g, '').trim();
 }
+
+/* ── Authoritative Current User Profile ──────────────────────────── */
+const ACCESS_ME_URL = `${API_BASE}/api/access/me`;
+
+/**
+ * Fetch current authenticated user's profile, module permissions, and access scopes
+ * from GET /api/access/me.
+ *
+ * @param {string} [tokenOverride] - Optional token to use instead of reading from storage.
+ * @returns {Promise<object>} Authoritative user profile response from backend.
+ */
+export async function getCurrentUser(tokenOverride) {
+  let token = tokenOverride || getStoredToken();
+  if (token) {
+    token = token.replace(/^Bearer\s+/i, '').replace(/^"+|"+$/g, '').trim();
+  }
+
+  if (!token) {
+    throw new Error('No authentication token found.');
+  }
+
+  let response;
+  try {
+    response = await fetchWithTimeout(ACCESS_ME_URL, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  } catch (error) {
+    console.error('[authApi] Network error fetching /api/access/me:', error);
+    throw {
+      status: 503,
+      message: 'Unable to connect to authentication server.',
+      isNetworkError: true,
+    };
+  }
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    console.warn(`[authApi] /api/access/me returned ${response.status}:`, body);
+    throw {
+      status: response.status,
+      message: body?.detail || body?.message || 'Failed to fetch user access profile.',
+      isAuthError: response.status === 401 || response.status === 403,
+    };
+  }
+
+  return {
+    ...body,
+    role_code: body?.role_code || body?.role || null,
+    role: body?.role_code || body?.role || null,
+    name: body?.employee_name || body?.full_name || body?.name || null,
+    email: body?.official_email || body?.email || null,
+  };
+}
+
+export const fetchAccessMe = getCurrentUser;
+

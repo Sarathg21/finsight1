@@ -1,13 +1,14 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   // ── Backend target ────────────────────────────────────────────────────────────
-  // Default: http://localhost:8000 (local backend)
-  const BACKEND = process.env.VITE_BACKEND || env.VITE_BACKEND || env.VITE_API_BASE_URL || 'http://localhost:8000';
+  // Default: http://13.233.207.68:8000 (AWS backend)
+  const BACKEND = process.env.VITE_BACKEND || env.VITE_BACKEND || env.VITE_API_BASE_URL || 'http://13.233.207.68:8000';
 
   const proxyConfig = {
     target: BACKEND,
@@ -21,7 +22,11 @@ export default defineConfig(({ mode }) => {
   };
 
   return {
-    plugins: [react()],
+    plugins: [tailwindcss(), react()],
+    build: {
+      sourcemap: true,
+      chunkSizeWarningLimit: 3000,
+    },
     server: {
       // Serve index.html for all routes so React Router handles them client-side.
       historyApiFallback: true,

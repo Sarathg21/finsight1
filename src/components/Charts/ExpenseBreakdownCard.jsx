@@ -133,7 +133,7 @@ export default function ExpenseBreakdownCard({ data = [], loading = false, curre
     <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: 460 }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', letterSpacing: '-0.01em' }}>Expense Breakdown (MTD)</div>
+        <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', letterSpacing: '-0.01em' }}>Expense Breakdown (PTD)</div>
         {KebabMenu && menuItems && <KebabMenu id="menu-expense" items={menuItems} />}
       </div>
 
@@ -351,3 +351,4 @@ export default function ExpenseBreakdownCard({ data = [], loading = false, curre
     </div>
   );
 }
+
