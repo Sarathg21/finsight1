@@ -49,8 +49,10 @@ export const getInventoryMonthOnMonth = (params = {}) =>
 
 
 export const getInventoryDetails = (params = {}) => {
-  const { limit, page_size, section, ...rest } = params;
+  const { limit, page_size, section, slow_moving, ...rest } = params;
   let route = "/inventory/view-all";
+  // Note: all drilldowns go to /inventory/view-all (per Madam's spec).
+  // Section-specific routes are only used for summary-level View All tabs.
   if (section === 'trend') route = "/inventory/view-all/trend";
   else if (section === 'parent-divisions') route = "/inventory/view-all/parent-divisions";
   else if (section === 'slow-moving') route = "/inventory/view-all/slow-moving";
@@ -59,6 +61,7 @@ export const getInventoryDetails = (params = {}) => {
     params: {
       page: rest.page || 1,
       page_size: page_size || limit || 100,
+      ...(slow_moving ? { slow_moving: true } : {}),
       ...rest
     },
     paramsSerializer: serializeParams

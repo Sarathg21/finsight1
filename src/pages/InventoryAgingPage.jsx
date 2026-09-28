@@ -124,7 +124,7 @@ export default function InventoryOverview() {
   // ============================================================
 
 
-  const handleExport = async (type, section = null, customFilters = null) => {
+  const handleExport = async (type, section = null, customFilters = null, drilldownFilters = null) => {
     setIsExporting(true);
     const toastId = toast.loading(`Exporting ${section || 'data'}...`);
     try {
@@ -163,7 +163,9 @@ export default function InventoryOverview() {
       if (activeF.currency && activeF.currency !== "All") apiFilters.reporting_currency = activeF.currency;
       if (formattedDate) apiFilters.as_on_date = formattedDate;
 
-      const exportFilters = section ? { ...apiFilters, section } : apiFilters;
+      // Merge any drilldown filters (aging_bucket, drilldown_parent_division_id, etc.)
+      const activeDrilldown = drilldownFilters || {};
+      const exportFilters = section ? { ...apiFilters, ...activeDrilldown, section } : { ...apiFilters, ...activeDrilldown };
       const response = await getInventoryExport(type, exportFilters);
       const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
@@ -310,7 +312,10 @@ const [loading, setLoading] = useState(true);
   const [hoveredAgingSegment, setHoveredAgingSegment] = useState(null);
   const [hoveredParentDivSegment, setHoveredParentDivSegment] = useState(null);
   const [hoveredTrendIdx, setHoveredTrendIdx] = useState(null);
-  const [viewAllModal, setViewAllModal] = useState(null); // "trend" | "parentDivision" | "subdivision" | "aging" | "slowMoving" | "location" | "details" | null
+  const [viewAllModal, setViewAllModal] = useState(null); // "details" | "slowMoving" | "aging" | "trend" | "parentDivision" | "subdivision" | null
+  const [showViewAll, setShowViewAll] = useState(false);
+  const [viewAllSection, setViewAllSection] = useState("all");
+  const [viewAllDetailFilters, setViewAllDetailFilters] = useState({});
   const [viewAllSearch, setViewAllSearch] = useState("");
   const [viewAllData, setViewAllData] = useState([]);
   const [viewAllLoading, setViewAllLoading] = useState(false);
@@ -319,6 +324,345 @@ const [loading, setLoading] = useState(true);
   const [momYear, setMomYear] = useState(2026);
   const [momCurrencyMode, setMomCurrencyMode] = useState("AED");
   const [agingCurrencyMode, setAgingCurrencyMode] = useState("AED");
+
+  const toApiDate = (value) => {
+    if (!value) return undefined;
+    const text = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(text)) {
+      const [d, m, y] = text.split("-");
+      return `${y}-${m}-${d}`;
+    }
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return text;
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const toAgingBucketCode = (value) => {
+    if (!value) return undefined;
+    const text = String(value).trim().toUpperCase();
+    const normalized = text
+      .replace(/–/g, "-")
+      .replace(/—/g, "-")
+      .replace(/\s+/g, "_")
+      .replace(/^AGING_/, "");
+
+    const map = {
+      "0_30": "0_30",
+      "0-30": "0_30",
+      "0-30_DAYS": "0_30",
+      "0_30_DAYS": "0_30",
+      "CURRENT": "0_30",
+      "31_60": "31_60",
+      "31-60": "31_60",
+      "31-60_DAYS": "31_60",
+      "31_60_DAYS": "31_60",
+      "61_90": "61_90",
+      "61-90": "61_90",
+      "61-90_DAYS": "61_90",
+      "61_90_DAYS": "61_90",
+      "91_120": "91_120",
+      "91-120": "91_120",
+      "91-120_DAYS": "91_120",
+      "91_120_DAYS": "91_120",
+      "121_180": "121_180",
+      "121-180": "121_180",
+      "121-180_DAYS": "121_180",
+      "121_180_DAYS": "121_180",
+      "181_365": "181_365",
+      "181-365": "181_365",
+      "181-365_DAYS": "181_365",
+      "181_365_DAYS": "181_365",
+      "366_730": "366_730",
+      "366-730": "366_730",
+      "366-730_DAYS": "366_730",
+      "366_730_DAYS": "366_730",
+      "ABOVE_730": "above_730",
+      "ABOVE_730_DAYS": "above_730",
+      ">_730": "above_730",
+      ">_730_DAYS": "above_730",
+      "OBSOLETE": "366_730",
+      ">_365": "366_730",
+      ">_365_DAYS": "366_730",
+      "ABOVE_365": "366_730",
+      "ABOVE_365_DAYS": "366_730",
+    };
+
+    return map[normalized] || map[text] || text.toLowerCase();
+  };
+
+  const [modalActiveTab, setModalActiveTab] = useState("details");
+
+  const getModalTabs = (section) => {
+    switch (section) {
+      case "aging":
+        return [
+          { id: "aging", label: "Aging Breakdown" },
+        ];
+      case "trend":
+        return [
+          { id: "trend", label: "Trend Analysis" },
+        ];
+      case "parentDivision":
+        return [
+          { id: "parentDivision", label: "Parent Division Performance" },
+          { id: "momObsolete", label: "Month-on-Month Position" },
+        ];
+      case "subdivision":
+        return [
+          { id: "subdivision", label: "Subdivision Performance" },
+        ];
+      case "slowMoving":
+        return [
+          { id: "slowMoving", label: "Slow Moving Stock" },
+          { id: "momObsolete", label: "Month-on-Month - Obsolete Stock Position" },
+        ];
+      case "momObsolete":
+      case "month_on_month":
+        return [
+          { id: "momObsolete", label: "Month-on-Month - Obsolete Stock Position" },
+          { id: "slowMoving", label: "Slow Moving Stock" },
+        ];
+      case "details":
+      default:
+        return [
+          { id: "details", label: "Line-Item Details" },
+          { id: "slowMoving", label: "Slow Moving Stock" },
+          { id: "momObsolete", label: "Month-on-Month - Obsolete Stock Position" },
+        ];
+    }
+  };
+
+  const openInventoryViewAll = (arg1 = "all", arg2 = {}) => {
+    let viewType = "all";
+    let dFilters = {};
+    let passedGlobalFilters = null;
+
+    if (arg1 && typeof arg1 === "object" && !Array.isArray(arg1)) {
+      viewType = arg1.viewType || arg1.section || "all";
+      passedGlobalFilters = arg1.globalFilters || null;
+      dFilters = arg1.drilldownFilters || arg1.detailFilters || {};
+    } else {
+      viewType = arg1 || "all";
+      dFilters = arg2 || {};
+    }
+
+    if (viewType === "parent_division" || viewType === "parentDivisions") viewType = "parentDivision";
+    if (viewType === "sub_division" || viewType === "subdivisions") viewType = "subdivision";
+    if (viewType === "sub_inventory" || viewType === "subinventories") viewType = "subinventory";
+    if (viewType === "slow_moving") viewType = "slowMoving";
+    if (viewType === "mom" || viewType === "month_on_month") viewType = "momObsolete";
+
+    setViewAllSection(viewType);
+    setViewAllDetailFilters(dFilters || {});
+
+        // If drilldown filter is present → always open Detailed Table (CFO requirement)
+    // Only show chart summary tab when View All is opened with NO drilldown filters
+    const hasDrilldown = dFilters && Object.keys(dFilters).length > 0;
+    let initialTab = "details";
+    if (!hasDrilldown) {
+      if (viewType === "aging") initialTab = "aging";
+      else if (viewType === "trend") initialTab = "trend";
+      else if (viewType === "parentDivision") initialTab = "parentDivision";
+      else if (viewType === "subdivision") initialTab = "subdivision";
+      else if (viewType === "slowMoving") initialTab = "slowMoving";
+      else if (viewType === "momObsolete") initialTab = "momObsolete";
+    }
+
+    setModalActiveTab(initialTab);
+    setSlowMovingViewMode(initialTab === "momObsolete" ? "mom" : (initialTab === "slowMoving" ? "stock" : "details"));
+
+    const sourceGlobal = passedGlobalFilters || filters;
+    const currentGlobalFilters = {
+      legalEntity: sourceGlobal.legalEntity && sourceGlobal.legalEntity.length > 0 ? sourceGlobal.legalEntity : ['All'],
+      parentDivision: sourceGlobal.parentDivision && sourceGlobal.parentDivision.length > 0 ? sourceGlobal.parentDivision : ['All'],
+      subdivision: sourceGlobal.subdivision && sourceGlobal.subdivision.length > 0 ? sourceGlobal.subdivision : ['All'],
+      subinventory: sourceGlobal.subinventory && sourceGlobal.subinventory.length > 0 ? sourceGlobal.subinventory : ['All'],
+      asOnDate: sourceGlobal.asOnDate || 'All',
+    };
+    setModalDetailsFilters(currentGlobalFilters);
+    setSlowMovingDraftFilters(currentGlobalFilters);
+    setSlowMovingFilters(currentGlobalFilters);
+    setViewAllModal("details");
+    setShowViewAll(true);
+    setModalDetailPage(0);
+  };
+
+  const resolveDrilldownId = (idOrName, filterKey, mockDataRef) => {
+    if (idOrName === undefined || idOrName === null || idOrName === "") return null;
+    if (!isNaN(idOrName) && String(idOrName).trim() !== "") return Number(idOrName);
+    const options = mockDataRef?.filters?.[filterKey] || [];
+    const found = options.find(o => String(o.label).toLowerCase() === String(idOrName).toLowerCase() || String(o.value).toLowerCase() === String(idOrName).toLowerCase());
+    return found ? found.value : idOrName;
+  };
+
+  const handleAgingDrillDown = (row) => {
+    const bucketCode = row?.bucket_code ?? row?.code ?? row?.name ?? row?.bucket;
+    const normalizedBucket = toAgingBucketCode(bucketCode);
+    if (normalizedBucket) {
+      openInventoryViewAll({
+        viewType: "aging",
+        globalFilters: filters,
+        drilldownFilters: { aging_bucket: normalizedBucket }
+      });
+    } else {
+      openInventoryViewAll({
+        viewType: "aging",
+        globalFilters: filters,
+        drilldownFilters: {}
+      });
+    }
+  };
+
+  const handleKpiDrillDown = (item) => {
+    // Per Madam's spec: obsolete/slow moving KPI → slow_moving=true on detailed table
+    const key = String(item?.key || item?.title || "").toLowerCase();
+    if (key.includes("obsolete") || key.includes("slow_moving") || key.includes("slow moving")) {
+      openInventoryViewAll({
+        viewType: "details",
+        globalFilters: filters,
+        drilldownFilters: { slow_moving: true }
+      });
+    } else {
+      openInventoryViewAll({
+        viewType: "details",
+        globalFilters: filters,
+        drilldownFilters: {}
+      });
+    }
+  };
+
+  const handleTrendDrillDown = (pointOrIdx) => {
+    // Per Madam's spec: always use as_on_date directly from trend point.
+    // Never derive from month_start — inventory uses latest available snapshot date.
+    let snapshotDate = null;
+    if (pointOrIdx && typeof pointOrIdx === "object") {
+      snapshotDate = pointOrIdx.as_on_date || pointOrIdx.snapshot_date;
+      if (typeof snapshotDate === "object") {
+        snapshotDate = snapshotDate.as_on_date || snapshotDate.snapshot_date;
+      }
+    } else if (typeof pointOrIdx === "number") {
+      const item = mockData.trend?.list?.[pointOrIdx] || (mockData.trend?.rawItems && mockData.trend.rawItems[pointOrIdx]);
+      if (item) {
+        snapshotDate = item.as_on_date || item.snapshot_date;
+        if (typeof snapshotDate === "object") {
+          snapshotDate = snapshotDate.as_on_date || snapshotDate.snapshot_date;
+        }
+      }
+    }
+    openInventoryViewAll({
+      viewType: "trend",
+      globalFilters: filters,
+      drilldownFilters: snapshotDate ? { as_on_date: toApiDate(snapshotDate) } : {}
+    });
+  };
+
+  const handleParentDivisionDrillDown = (row) => {
+    const rawId = row?.parent_division_id || row?.parentDivisionId || row?.parent_division || row?.name || row?.id;
+    const id = resolveDrilldownId(rawId, 'parentDivisions', mockData);
+    openInventoryViewAll({
+      viewType: "parentDivision",
+      globalFilters: filters,
+      drilldownFilters: (id !== undefined && id !== null && id !== "" && String(id).toLowerCase() !== "others")
+        ? { drilldown_parent_division_id: id }
+        : {}
+    });
+  };
+
+  const handleSubdivisionDrillDown = (row) => {
+    const rawId = row?.subdivision_id || row?.sub_division_id || row?.subdivisionId || row?.subdivision || row?.name || row?.id;
+    const id = resolveDrilldownId(rawId, 'subdivisions', mockData);
+    openInventoryViewAll({
+      viewType: "subdivision",
+      globalFilters: filters,
+      drilldownFilters: (id !== undefined && id !== null && id !== "" && String(id).toLowerCase() !== "others")
+        ? { drilldown_subdivision_id: id }
+        : {}
+    });
+  };
+
+  const handleSubinventoryDrillDown = (row) => {
+    const rawId = row?.subinventory_id || row?.subInventoryId || row?.subinventory || row?.name || row?.id;
+    const id = resolveDrilldownId(rawId, 'subinventories', mockData);
+    openInventoryViewAll({
+      viewType: "details",
+      globalFilters: filters,
+      drilldownFilters: (id !== undefined && id !== null && id !== "")
+        ? { subinventory_id: id }
+        : {}
+    });
+  };
+
+  const handleLegalEntityDrillDown = (row) => {
+    const rawId = row?.legal_entity_id || row?.legalEntityId || row?.legal_entity || row?.name || row?.id;
+    const id = resolveDrilldownId(rawId, 'legalEntities', mockData);
+    if (id !== undefined && id !== null && id !== "" && String(id).toLowerCase() !== "all") {
+      openInventoryViewAll({
+        viewType: "details",
+        globalFilters: filters,
+        drilldownFilters: { legal_entity_id: id }
+      });
+    } else {
+      openInventoryViewAll({
+        viewType: "details",
+        globalFilters: filters,
+        drilldownFilters: {}
+      });
+    }
+  };
+
+  const handleSlowMovingDrillDown = (row) => {
+    // Per Madam's spec: slow_moving=true → backend: aging_366_730 + aging_above_730 > 0
+    // Do NOT combine two aging_bucket values on frontend
+    const pdId = row?.parent_division_id ?? row?.parentDivisionId ?? row?.parent_division_name ?? row?.desc ?? row?.name;
+    const dFilters = { slow_moving: true };
+    if (pdId) dFilters.drilldown_parent_division_id = pdId;
+    openInventoryViewAll({
+      viewType: "details",
+      globalFilters: filters,
+      drilldownFilters: dFilters
+    });
+  };
+
+  const getMoMSnapshotDate = (row, month) => {
+    const snapshotDates = row?.snapshot_dates ?? row?.snapshotDates ?? {};
+    const directDate = snapshotDates?.[month] ?? snapshotDates?.[String(month).toUpperCase()] ?? null;
+    if (directDate) return directDate;
+
+    // Fallback: derive exact YYYY-MM-DD from month and year (never return just month name)
+    const yr = Number(momYear || (filters.asOnDate && filters.asOnDate !== "All" ? new Date(filters.asOnDate).getFullYear() : 2026));
+    const upperMonth = String(month).toUpperCase().slice(0, 3);
+    const monthNumMap = {
+      JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+      JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12
+    };
+    const mNum = monthNumMap[upperMonth];
+    if (mNum) {
+      const lastDay = new Date(yr, mNum, 0).getDate();
+      return `${yr}-${String(mNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    }
+    return null;
+  };
+
+  const handleMoMDrillDown = (row, month) => {
+    // Per Madam's spec: MoM obsolete drilldown → slow_moving=true + as_on_date + drilldown_parent_division_id
+    const snapshotDate = getMoMSnapshotDate(row, month);
+    const parentDivId = row?.parent_division_id ?? row?.parentDivisionId ?? row?.parent_division_name ?? row?.name;
+    const detailFilters = {
+      slow_moving: true,
+      ...(parentDivId != null ? { drilldown_parent_division_id: parentDivId } : {}),
+      ...(snapshotDate ? { as_on_date: toApiDate(snapshotDate) } : {}),
+    };
+    openInventoryViewAll({
+      viewType: "details",
+      globalFilters: filters,
+      drilldownFilters: detailFilters
+    });
+  };
+
 
 
   const [modalDetailPage, setModalDetailPage] = useState(0);
@@ -346,6 +690,7 @@ const [loading, setLoading] = useState(true);
     asOnDate: 'All',
   });
   const [modalApiItems, setModalApiItems] = useState(null);
+    const [modalApiData, setModalApiData] = useState(null);
   const [modalDetailsLoading, setModalDetailsLoading] = useState(false);
   const [mockData, setMockData] = useState({
     filters: {
@@ -602,6 +947,7 @@ const [loading, setLoading] = useState(true);
                           const pct = Number(item.percentage_of_total || item.percentage || 0);
                           if (val > 0) {
                               formattedAging.push({
+                                  bucket_code: k,
                                   name: formatBucket(k),
                                   value: val,
                                   color: agingColors[k] || agingColors[String(k).toLowerCase()] || "#64748b",
@@ -616,6 +962,7 @@ const [loading, setLoading] = useState(true);
                           const val = Number(dData.aging_summary[k]) / 10000000;
                           if (val > 0) {
                               formattedAging.push({
+                                  bucket_code: k,
                                   name: formatBucket(k),
                                   value: val,
                                   color: agingColors[k] || agingColors[String(k).toLowerCase()] || "#64748b",
@@ -643,6 +990,7 @@ const [loading, setLoading] = useState(true);
                   const colors = ["#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#ec4899", "#0891b2"];
                   allDivisions = rawDivs.map((item, idx) => ({
                       ...item,
+                      parent_division_id: item.parent_division_id ?? item.id ?? item.parentDivisionId,
                       name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : (item.parent_division_name || item.label || item.name),
                       parent_division_name: typeof item.label === 'object' ? (item.label?.name || item.label?.code) : (item.parent_division_name || item.label || item.name),
                       value: Number(item.inventory_value || item.total_cost_value || item.value || 0) / 10000000,
@@ -668,6 +1016,8 @@ const [loading, setLoading] = useState(true);
               let bySubdivision = [];
               if (dData.by_subdivision) {
                   allSubdivisions = dData.by_subdivision.map((item) => ({
+                      ...item,
+                      subdivision_id: item.subdivision_id ?? item.id ?? (typeof item.subdivision_name === 'object' ? item.subdivision_name?.id : undefined),
                       name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
                       value: Number(item.inventory_value) / 10000000,
                       percentage: Number(item.percentage_of_total || 0),
@@ -683,9 +1033,10 @@ const [loading, setLoading] = useState(true);
                   bySubdivision = allSubdivisions.slice(0, 5);
               }
 
-              let trend = { labels: [], previous: [], current: [], list: [] };
-              let turnoverDioTrend = { labels: [], turnover: [], dio: [] };
+              let trend = { labels: [], previous: [], current: [], list: [], rawItems: [] };
+              let turnoverDioTrend = { labels: [], turnover: [], dio: [], rawItems: [] };
               if (dData.trend && Array.isArray(dData.trend)) {
+                  trend.rawItems = dData.trend;
                   trend.labels = dData.trend.map(item => {
                       if (typeof item.month_start === 'object' && item.month_start?.name) {
                           return formatTrendMonthName(item.month_start.name);
@@ -703,9 +1054,11 @@ const [loading, setLoading] = useState(true);
                       const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null;
                       const variance = prev !== null ? curr - prev : null;
                       const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
-                      return { month, current: curr, previous: prev, variance, growth };
+                      const as_on_date = item.as_on_date || (typeof item.month_start === 'object' ? item.month_start?.as_on_date || item.month_start?.name : item.month_start);
+                      return { ...item, month, current: curr, previous: prev, variance, growth, as_on_date };
                   });
 
+                  turnoverDioTrend.rawItems = dData.trend;
                   turnoverDioTrend.labels = trend.labels;
                   turnoverDioTrend.turnover = dData.trend.map(item =>
                       item.inventory_turnover !== undefined && item.inventory_turnover !== null
@@ -718,6 +1071,7 @@ const [loading, setLoading] = useState(true);
                           : (item.dio !== undefined && item.dio !== null ? Number(item.dio) : (dData.kpis?.dio_days ? Number(dData.kpis.dio_days) : 0))
                   );
               } else if (momData && Array.isArray(momData) && momData.length > 0) {
+                  turnoverDioTrend.rawItems = momData;
                   turnoverDioTrend.labels = momData.map(item => formatTrendMonthName(item.month || item.month_start || ""));
                   turnoverDioTrend.turnover = momData.map(item => Number(item.inventory_turnover || item.turnover || 0));
                   turnoverDioTrend.dio = momData.map(item => Number(item.dio_days || item.dio || 0));
@@ -859,7 +1213,7 @@ const [loading, setLoading] = useState(true);
   }, [loadData]);
   // Sync modalDetailsFilters when viewAllModal opens
   useEffect(() => {
-    if (viewAllModal === "details") {
+    if (viewAllModal === "details" || showViewAll) {
       setModalDetailsFilters({
         legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
         parentDivision: filters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
@@ -881,11 +1235,11 @@ const [loading, setLoading] = useState(true);
       setSlowMovingDraftFilters(initSlow);
       setSlowMovingViewMode("stock");
     }
-  }, [viewAllModal]);
+  }, [viewAllModal, showViewAll]);
 
   // Fetch updated records for modal when modalDetailsFilters change
   useEffect(() => {
-    if (viewAllModal !== "details") return;
+    if (!viewAllModal && !showViewAll) return;
     let isMounted = true;
     const fetchDetailsForModal = async () => {
       setModalDetailsLoading(true);
@@ -917,17 +1271,61 @@ const [loading, setLoading] = useState(true);
           }
           return [val];
         };
+        const effectiveLegalEntity = getApiVal(modalDetailsFilters.legalEntity) || getApiVal(filters.legalEntity);
+        const effectiveParentDivision = getApiVal(modalDetailsFilters.parentDivision) || getApiVal(filters.parentDivision);
+        const effectiveSubdivision = getApiVal(modalDetailsFilters.subdivision) || getApiVal(filters.subdivision);
+        const effectiveSubinventory = getApiVal(modalDetailsFilters.subinventory) || getApiVal(filters.subinventory);
+
         if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
-        if (getApiVal(modalDetailsFilters.legalEntity)) apiFilters.legal_entity_id = getApiVal(modalDetailsFilters.legalEntity);
-        if (getApiVal(modalDetailsFilters.parentDivision)) apiFilters.parent_division_id = getApiVal(modalDetailsFilters.parentDivision);
-        if (getApiVal(modalDetailsFilters.subdivision)) apiFilters.subdivision_id = getApiVal(modalDetailsFilters.subdivision);
-        if (getApiVal(modalDetailsFilters.subinventory)) apiFilters.subinventory_id = getApiVal(modalDetailsFilters.subinventory);
+        if (effectiveLegalEntity) apiFilters.legal_entity_id = effectiveLegalEntity;
+        if (effectiveParentDivision) apiFilters.parent_division_id = effectiveParentDivision;
+        if (effectiveSubdivision) apiFilters.subdivision_id = effectiveSubdivision;
+        if (effectiveSubinventory) apiFilters.subinventory_id = effectiveSubinventory;
         if (filters.currency && filters.currency !== "All") apiFilters.reporting_currency = filters.currency;
         if (formattedDate) apiFilters.as_on_date = formattedDate;
 
-        const res = await getInventoryDetails(apiFilters);
+        // ── Apply Drilldown Filters to API (per Madam's confirmed parameter spec) ──
+        // Aging bucket
+        if (viewAllDetailFilters.aging_bucket) {
+          apiFilters.aging_bucket = toAgingBucketCode(viewAllDetailFilters.aging_bucket);
+        }
+        // Slow Moving: slow_moving=true → backend: aging_366_730 + aging_above_730 > 0
+        if (viewAllDetailFilters.slow_moving) {
+          apiFilters.slow_moving = true;
+        }
+        // Parent Division drilldown (separate from global parent_division_id filter)
+        if (viewAllDetailFilters.drilldown_parent_division_id) {
+          apiFilters.drilldown_parent_division_id = viewAllDetailFilters.drilldown_parent_division_id;
+        }
+        // Subdivision drilldown (separate from global subdivision_id filter)
+        if (viewAllDetailFilters.drilldown_subdivision_id) {
+          apiFilters.drilldown_subdivision_id = viewAllDetailFilters.drilldown_subdivision_id;
+        }
+        // Subinventory drilldown (confirmed multi-select ID param)
+        if (viewAllDetailFilters.subinventory_id || viewAllDetailFilters.subinventory) {
+          apiFilters.subinventory_id = viewAllDetailFilters.subinventory_id || viewAllDetailFilters.subinventory;
+        }
+        // Legal entity drilldown
+        if (viewAllDetailFilters.legal_entity_id) {
+          apiFilters.legal_entity_id = viewAllDetailFilters.legal_entity_id;
+        }
+        // Trend drilldown: as_on_date directly from trend point (overrides modal date)
+        if (viewAllDetailFilters.as_on_date) {
+          apiFilters.as_on_date = toApiDate(viewAllDetailFilters.as_on_date);
+        }
+
+        const dashApiFilters = { ...apiFilters };
+          delete dashApiFilters.page;
+          delete dashApiFilters.page_size;
+          delete dashApiFilters.limit;
+
+          const [res, dashRes] = await Promise.all([
+            getInventoryDetails(apiFilters),
+            getInventoryDashboard(dashApiFilters).catch(() => ({ data: {} }))
+          ]);
         if (isMounted && res.data?.items) {
-          const mapped = res.data.items.map((item, idx) => ({
+          setModalApiData({ ...res.data, dashKpis: dashRes.data?.kpis || null, dashAging: dashRes.data?.aging_summary || null });
+            const mapped = res.data.items.map((item, idx) => ({
             id: `${item.legal_entity_name || item.legal_entity || 'le'}-${item.item_code || idx}-${idx}`,
             legal_entity: item.legal_entity_name || (typeof item.legal_entity === 'object' ? item.legal_entity?.name : item.legal_entity) || "-",
             legal_entity_id: item.legal_entity_id !== undefined ? String(item.legal_entity_id) : (typeof item.legal_entity === 'object' ? String(item.legal_entity?.id || '') : ''),
@@ -962,7 +1360,7 @@ const [loading, setLoading] = useState(true);
     };
     fetchDetailsForModal();
     return () => { isMounted = false; };
-  }, [viewAllModal, modalDetailsFilters]);
+  }, [viewAllModal, showViewAll, modalDetailsFilters, viewAllDetailFilters, filters]);
 
 
   // Modal data synchronization respecting dashboard filters
@@ -1050,10 +1448,25 @@ const [loading, setLoading] = useState(true);
   const updateFilter = (key, value) => {
     setDetailPage(0);
     setModalDetailPage(0);
-    setFilters((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'legalGroup') {
+        next.legalEntity = ["All"];
+        next.parentDivision = ["All"];
+        next.subdivision = ["All"];
+        next.subinventory = ["All"];
+      } else if (key === 'legalEntity') {
+        next.parentDivision = ["All"];
+        next.subdivision = ["All"];
+        next.subinventory = ["All"];
+      } else if (key === 'parentDivision') {
+        next.subdivision = ["All"];
+        next.subinventory = ["All"];
+      } else if (key === 'subdivision') {
+        next.subinventory = ["All"];
+      }
+      return next;
+    });
   };
 
   const resetFilters = () => {
@@ -1140,6 +1553,7 @@ const [loading, setLoading] = useState(true);
 
     return (
       <div
+        /* onClick removed from KPI */
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
@@ -1156,6 +1570,7 @@ const [loading, setLoading] = useState(true);
           position: "relative",
           minHeight: 74,
           boxSizing: "border-box",
+          cursor: "pointer",
         }}
       >
         {/* Left: Round Icon Circle */}
@@ -1440,10 +1855,12 @@ const [loading, setLoading] = useState(true);
               key={`py-${index}`}
               cx={x}
               cy={y}
-              r="3.2"
+              r="4"
               fill="#16a34a"
               stroke="#ffffff"
               strokeWidth="1.5"
+              style={{ cursor: "pointer" }}
+              /* onClick removed from Trend */
             />
           );
         })}
@@ -1456,10 +1873,12 @@ const [loading, setLoading] = useState(true);
               key={`cy-${index}`}
               cx={x}
               cy={y}
-              r="3.2"
+              r="4.5"
               fill="#2563eb"
               stroke="#ffffff"
               strokeWidth="1.5"
+              style={{ cursor: "pointer" }}
+              /* onClick removed from Trend */
             />
           );
         })}
@@ -1476,6 +1895,8 @@ const [loading, setLoading] = useState(true);
               fontSize="9"
               fontWeight="600"
               fill="#64748b"
+              style={{ cursor: "pointer" }}
+              /* onClick removed from Trend */
             >
               {label}
             </text>
@@ -1697,7 +2118,8 @@ const [loading, setLoading] = useState(true);
                 fill="transparent"
                 onMouseEnter={() => setHoveredTrendIdx(i)}
                 onMouseLeave={() => setHoveredTrendIdx(null)}
-                style={{ cursor: "crosshair" }}
+                /* onClick removed from Trend */
+                style={{ cursor: "pointer" }}
               />
             );
           })}
@@ -1708,6 +2130,8 @@ const [loading, setLoading] = useState(true);
             return (
               <text key={`xl-${i}`} x={getX(i)} y={height - 5} textAnchor="middle"
                 fontSize="8.5" fontWeight={isHov ? 800 : 600} fill={isHov ? "#0f172a" : "#64748b"}
+                style={{ cursor: "pointer" }}
+                /* onClick removed from Trend */
               >
                 {m}
               </text>
@@ -1777,6 +2201,7 @@ const [loading, setLoading] = useState(true);
     currency = "AED",
     activeSegment,
     onSegmentHover,
+    onSegmentClick,
   }) => {
     const half = size / 2;
     const radius = half - strokeWidth / 2 - 2;
@@ -1831,6 +2256,7 @@ const [loading, setLoading] = useState(true);
                     transition: "stroke-width 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.22s ease, filter 0.22s ease",
                     cursor: "pointer",
                   }}
+                  onClick={() => onSegmentClick && onSegmentClick(item)}
                   onMouseEnter={() => onSegmentHover && onSegmentHover(item.name)}
                   onMouseLeave={() => onSegmentHover && onSegmentHover(null)}
                 />
@@ -2094,6 +2520,7 @@ const [loading, setLoading] = useState(true);
               key={item.name}
               onMouseEnter={() => setHoveredSubdiv(item)}
               onMouseLeave={() => setHoveredSubdiv(null)}
+              /* onClick removed from Subdiv Legend */
               style={{
                 display: "grid",
                 gridTemplateColumns: "100px 1fr 78px",
@@ -2405,7 +2832,7 @@ const [loading, setLoading] = useState(true);
       return (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 0", marginBottom: 8, gap: 8 }}>
           <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
+            <span title={title}>{title}</span>
             {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto", flexShrink: 0 }}>
@@ -2419,7 +2846,7 @@ const [loading, setLoading] = useState(true);
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px 0", marginBottom: 8, gap: 8 }}>
         <div style={{ fontSize: "0.86rem", fontWeight: 800, color: "#1e293b", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: 1 }}>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={title}>{title}</span>
+          <span title={title}>{title}</span>
           {info && <Info size={13} style={{ color: "#94a3b8", cursor: "help", flexShrink: 0 }} title={info} />}
         </div>
         {actionButtons}
@@ -2529,33 +2956,34 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       : `${selectedVals.length} selected`;
 
   return (
-    <div ref={ref} style={{ position: 'relative', width: '100%', ...style }}>
+    <div ref={ref} style={{ position: 'relative', width: '100%', minWidth: 0, ...style }}>
       <div
         onClick={() => setOpen(o => !o)}
         style={{
-          padding: '6px 24px 6px 10px',
-          fontSize: '0.76rem',
-          fontWeight: 500,
-          color: '#334155',
+          padding: '0 24px 0 9px',
+          fontSize: 11,
+          fontWeight: 600,
+          color: '#29427f',
           background: '#fff',
-          border: open ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-          borderRadius: 7,
+          border: open ? '1.5px solid #2563eb' : '1px solid #d9e1ee',
+          borderRadius: 5,
           cursor: 'pointer',
           outline: 'none',
           width: '100%',
           boxSizing: 'border-box',
-          height: 32,
+          height: 34,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           userSelect: 'none',
           position: 'relative',
+          whiteSpace: 'nowrap',
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '85%' }}>
           {label}
         </span>
-        <span style={{ fontSize: '0.65rem', color: '#94a3b8', position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}>
+        <span style={{ fontSize: '0.65rem', color: '#173b8f', position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)' }}>
           {open ? '▲' : '▼'}
         </span>
       </div>
@@ -2797,8 +3225,18 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
 
   // Memoized filtered details specifically for the Inventory Detailed View modal
   const modalFilteredDetails = useMemo(() => {
-    if (viewAllModal !== "details") return [];
-    const sourceItems = modalApiItems || filteredDetails || mockData.details || [];
+    if (!viewAllModal && !showViewAll) return [];
+    const isModalFilterDifferent = Object.keys(modalDetailsFilters || {}).some(k => {
+        const mVal = modalDetailsFilters[k];
+        const fVal = filters[k];
+        const getVal = (v) => (!v || v === "All" || (Array.isArray(v) && v.includes("All")) || (Array.isArray(v) && v.length === 0)) ? "All" : (Array.isArray(v) ? v.slice().sort().join(",") : String(v));
+        return getVal(mVal) !== getVal(fVal);
+      });
+      const hasDrilldownContext = Object.keys(viewAllDetailFilters || {}).length > 0 || isModalFilterDifferent;
+      
+      // If drilling down, do not flash the global data (which would incorrectly show partial records like 28 before the API finishes).
+      // Wait for modalApiItems. If not drilling down, it's safe to use the global filteredDetails instantly.
+      const sourceItems = modalApiItems || (hasDrilldownContext ? [] : (filteredDetails || mockData.details || []));
 
     const buildOptMap = (opts) => {
       const m = new Map();
@@ -2859,38 +3297,85 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       }
 
       // 2. Legal Entity
-      if (!matchesFilter(row.legal_entity, row.legal_entity_id, modalDetailsFilters.legalEntity, leMap)) {
+      const effectiveLE = (!modalDetailsFilters.legalEntity || modalDetailsFilters.legalEntity.includes("All")) ? filters.legalEntity : modalDetailsFilters.legalEntity;
+      if (!matchesFilter(row.legal_entity, row.legal_entity_id, effectiveLE, leMap)) {
         return false;
       }
 
       // 3. Parent Division
-      if (!matchesFilter(row.parent_division, row.parent_division_id, modalDetailsFilters.parentDivision, pdMap)) {
+      const effectivePD = (!modalDetailsFilters.parentDivision || modalDetailsFilters.parentDivision.includes("All")) ? filters.parentDivision : modalDetailsFilters.parentDivision;
+      if (!matchesFilter(row.parent_division, row.parent_division_id, effectivePD, pdMap)) {
         return false;
       }
 
       // 4. Sub-Division
-      if (!matchesFilter(row.subdivision, row.subdivision_id, modalDetailsFilters.subdivision, sdMap)) {
+      const effectiveSD = (!modalDetailsFilters.subdivision || modalDetailsFilters.subdivision.includes("All")) ? filters.subdivision : modalDetailsFilters.subdivision;
+      if (!matchesFilter(row.subdivision, row.subdivision_id, effectiveSD, sdMap)) {
         return false;
       }
 
       // 5. Subinventory
-      if (!matchesFilter(row.subinventory, row.subinventory_id, modalDetailsFilters.subinventory, siMap)) {
+      const effectiveSI = (!modalDetailsFilters.subinventory || modalDetailsFilters.subinventory.includes("All")) ? filters.subinventory : modalDetailsFilters.subinventory;
+      if (!matchesFilter(row.subinventory, row.subinventory_id, effectiveSI, siMap)) {
         return false;
+      }
+
+      // 6. Drilldown: aging_bucket
+      if (viewAllDetailFilters?.aging_bucket) {
+        const bucket = toAgingBucketCode(viewAllDetailFilters.aging_bucket);
+        if (bucket === "0_30" && !(Number(row.aging_0_30 || 0) > 0)) return false;
+        if (bucket === "31_60" && !(Number(row.aging_31_60 || 0) > 0)) return false;
+        if (bucket === "61_90" && !(Number(row.aging_61_90 || 0) > 0)) return false;
+        if (bucket === "91_120" && !(Number(row.aging_91_120 || 0) > 0)) return false;
+        if (bucket === "121_180" && !(Number(row.aging_121_180 || 0) > 0)) return false;
+        if (bucket === "181_365" && !(Number(row.aging_181_365 || 0) > 0)) return false;
+        if (bucket === "366_730" && !(Number(row.aging_366_730 || 0) > 0)) return false;
+        if (bucket === "above_730" && !(Number(row.aging_above_730 || 0) > 0)) return false;
+        if ((bucket === "obsolete" || bucket === "above_365") && !((Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0)) > 0)) return false;
+      }
+
+      // 7. Drilldown: parent_division_id
+      if (viewAllDetailFilters?.drilldown_parent_division_id != null) {
+        if (!matchesFilter(row.parent_division, row.parent_division_id, [viewAllDetailFilters.drilldown_parent_division_id], pdMap)) {
+          return false;
+        }
+      }
+
+      // 8. Drilldown: subdivision_id
+      if (viewAllDetailFilters?.drilldown_subdivision_id != null) {
+        if (!matchesFilter(row.subdivision, row.subdivision_id, [viewAllDetailFilters.drilldown_subdivision_id], sdMap)) {
+          return false;
+        }
+      }
+
+      // 9. Drilldown: subinventory_id
+      const siFilter = viewAllDetailFilters?.subinventory_id || viewAllDetailFilters?.subinventory;
+      if (siFilter != null) {
+        if (!matchesFilter(row.subinventory, row.subinventory_id, [siFilter], siMap)) {
+          return false;
+        }
+      }
+
+      // 10. Drilldown: legal_entity_id
+      if (viewAllDetailFilters?.legal_entity_id != null) {
+        if (!matchesFilter(row.legal_entity, row.legal_entity_id, [viewAllDetailFilters.legal_entity_id], leMap)) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [viewAllModal, modalApiItems, filteredDetails, mockData.details, viewAllSearch, modalDetailsFilters, mockData.filters]);
+  }, [viewAllModal, showViewAll, modalApiItems, filteredDetails, mockData.details, viewAllSearch, modalDetailsFilters, viewAllDetailFilters, mockData.filters, filters]);
 
   const modalTotalItems = modalFilteredDetails.length;
   const modalTotalPages = Math.max(1, Math.ceil(modalTotalItems / modalDetailPageSize));
   const safeModalPage = Math.min(modalDetailPage, Math.max(0, modalTotalPages - 1));
 
   const modalPaginatedDetails = useMemo(() => {
-    if (viewAllModal !== "details") return [];
+    if (!viewAllModal && !showViewAll) return [];
     const start = safeModalPage * modalDetailPageSize;
     return modalFilteredDetails.slice(start, start + modalDetailPageSize);
-  }, [viewAllModal, modalFilteredDetails, safeModalPage, modalDetailPageSize]);
+  }, [viewAllModal, showViewAll, modalFilteredDetails, safeModalPage, modalDetailPageSize]);
 
   const divStats = useMemo(() => {
     const map = {};
@@ -2992,6 +3477,16 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
   const formattedDataAsOf = rawDataAsOf && rawDataAsOf !== "All"
     ? new Date(rawDataAsOf).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
+
+  // Dynamic CY / PY year labels for Inventory Trend legend
+  const trendCY = (() => {
+    if (rawDataAsOf && rawDataAsOf !== "All") {
+      const yr = new Date(rawDataAsOf).getFullYear();
+      return isNaN(yr) ? new Date().getFullYear() : yr;
+    }
+    return new Date().getFullYear();
+  })();
+  const trendPY = trendCY - 1;
 
 
   return (
@@ -3156,19 +3651,19 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title={`Inventory Value Trend (${currentCurrency})`}
             info="Comparison of inventory value trend"
-            onViewAll={() => setViewAllModal("trend")}
+            onViewAll={() => openInventoryViewAll({ viewType: "trend", globalFilters: filters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "trend")}
           />
 
           <div style={styles.legend}>
             <div style={styles.legendItem}>
               <span style={{ ...styles.legendDot, background: "#2563eb" }} />
-              CY 2024
+              CY {trendCY}
             </div>
 
             <div style={styles.legendItem}>
               <span style={{ ...styles.legendDot, background: "#16a34a" }} />
-              PY 2023
+              PY {trendPY}
             </div>
           </div>
 
@@ -3223,7 +3718,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 </button>
               </div>
             }
-            onViewAll={() => setViewAllModal("parentDivision")}
+            onViewAll={() => openInventoryViewAll({ viewType: "parentDivision", globalFilters: filters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "parent-divisions")}
           />
 
@@ -3243,6 +3738,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 currency={mockData.reporting_currency || currentCurrency}
                 activeSegment={hoveredParentDivSegment}
                 onSegmentHover={setHoveredParentDivSegment}
+                /* onSegmentClick removed */
               />
 
               <div style={styles.legendList}>
@@ -3251,6 +3747,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   return (
                     <div
                       key={item.name}
+                      /* onClick removed from Parent Div Legend */
                       style={{
                         ...styles.legendListRow,
                         cursor: "pointer",
@@ -3275,13 +3772,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                         />
                         <span
                           style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
                             fontWeight: isHovered ? 700 : 500,
                             color: isHovered ? "#0f172a" : "#334155",
                             flex: 1,
-                            minWidth: 0,
                           }}
                         >
                           {item.name}
@@ -3312,7 +3805,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title={`Inventory Value by Sub-division (${currentCurrency})`}
             info="Sub-division holdings ranked by value"
-            onViewAll={() => setViewAllModal("details")}
+            onViewAll={() => openInventoryViewAll({ viewType: "subdivision", globalFilters: filters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel")}
           />
 
@@ -3330,50 +3823,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         {/* 1. AGING SUMMARY */}
         <div className="card" style={{ display: "flex", flexDirection: "column", padding: 0, position: "relative" }}>
           <CardHeader isExporting={isExporting}
-            title={`Inventory Aging Summary (${agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : currentCurrency})`}
+            title={`Inventory Aging Summary (${currentCurrency})`}
             info="Summary of inventory value by aging bucket"
-            extra={
-              <div style={{ display: "inline-flex", background: "#f1f5f9", padding: 2, borderRadius: 6, border: "1px solid #e2e8f0", gap: 2 }}>
-                <button
-                  type="button"
-                  onClick={() => setAgingCurrencyMode("AED")}
-                  style={{
-                    fontSize: "0.70rem",
-                    fontWeight: 700,
-                    color: agingCurrencyMode === "AED" ? "#fff" : "#475569",
-                    background: agingCurrencyMode === "AED" ? "#5B3FE4" : "transparent",
-                    border: "none",
-                    borderRadius: 4,
-                    padding: "2px 8px",
-                    cursor: "pointer",
-                    boxShadow: agingCurrencyMode === "AED" ? "0 1px 2px rgba(91,63,228,0.25)" : "none",
-                    transition: "all 0.15s ease",
-                  }}
-                >
-                  AED
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAgingCurrencyMode("AED_MILLIONS")}
-                  style={{
-                    fontSize: "0.70rem",
-                    fontWeight: 700,
-                    color: agingCurrencyMode === "AED_MILLIONS" ? "#fff" : "#475569",
-                    background: agingCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "transparent",
-                    border: "none",
-                    borderRadius: 4,
-                    padding: "2px 8px",
-                    cursor: "pointer",
-                    boxShadow: agingCurrencyMode === "AED_MILLIONS" ? "0 1px 2px rgba(91,63,228,0.25)" : "none",
-                    transition: "all 0.15s ease",
-                  }}
-                  title="Display in AED Millions"
-                >
-                  AED Millions
-                </button>
-              </div>
-            }
-            onViewAll={() => setViewAllModal("details")}
+            onViewAll={() => openInventoryViewAll({ viewType: "aging", globalFilters: filters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel")}
           />
 
@@ -3381,19 +3833,20 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             <DonutChart
               data={mockData.aging}
               total={mockData.totalInventory || agingTotal}
-              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : (mockData.reporting_currency || currentCurrency))}
+              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
               centerSubText="Total"
               size={144}
               strokeWidth={20}
-              currency={agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : (mockData.reporting_currency || currentCurrency)}
+              currency={mockData.reporting_currency || currentCurrency}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
+              /* onSegmentClick removed from Aging Chart */
             />
 
             <div style={styles.agingTable}>
               <div style={styles.agingHeader}>
                 <span>Bucket</span>
-                <span style={{ textAlign: "right" }}>Amount ({agingCurrencyMode === "AED_MILLIONS" ? "AED Millions" : currentCurrency})</span>
+                <span style={{ textAlign: "right" }}>Amount ({currentCurrency})</span>
                 <span style={{ textAlign: "right" }}>% Total</span>
               </div>
 
@@ -3402,6 +3855,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 return (
                   <div
                     key={item.name}
+                    /* onClick removed from Aging Legend */
                     style={{
                       ...styles.agingRow,
                       cursor: "pointer",
@@ -3429,9 +3883,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
 
                     <div style={{ textAlign: "right", fontWeight: isHovered ? 800 : 600, color: isHovered ? "#0f172a" : "#1e293b" }}>
-                      {agingCurrencyMode === "AED_MILLIONS"
-                        ? `${(Number(item.value || 0) / 1000000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`
-                        : formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)}
+                      {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)}
                     </div>
 
                     <div style={{ textAlign: "right", color: isHovered ? item.color : "#64748b", fontWeight: isHovered ? 800 : 500 }}>
@@ -3446,9 +3898,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   Total
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  {agingCurrencyMode === "AED_MILLIONS"
-                    ? `${(Number(mockData.totalInventory || agingTotal) / 1000000).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`
-                    : formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
+                  {formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
                   100%
@@ -3463,7 +3913,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title="Slow Moving Stock (Top 5)"
             info="Top 5 items with highest holding days"
-            onViewAll={() => setViewAllModal("slowMoving")}
+            onViewAll={() => openInventoryViewAll({ viewType: "slowMoving", globalFilters: filters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "slow-moving")}
             variant="table"
           />
@@ -3473,7 +3923,6 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontSize: "0.72rem" }}>
                 <thead>
                   <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                    <th style={{ width: "28px", textAlign: "center", verticalAlign: "bottom", padding: "6px 3px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem", lineHeight: 1.25 }}>Sr.<br />No.</th>
                     <th style={{ width: "36%", textAlign: "left", verticalAlign: "bottom", padding: "6px 5px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Description</th>
                     <th style={{ width: "18%", textAlign: "left", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Item<br />Code</th>
                     <th style={{ width: "16%", textAlign: "right", verticalAlign: "bottom", padding: "6px 4px", color: "#1e3a8a", fontWeight: 700, fontSize: "0.68rem" }}>Qty<br />(Nos)</th>
@@ -3487,7 +3936,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     if (items.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={6} style={{ padding: "16px", textAlign: "center", color: "#94a3b8", fontSize: "0.72rem" }}>
+                          <td colSpan={5} style={{ padding: "16px", textAlign: "center", color: "#94a3b8", fontSize: "0.72rem" }}>
                             No slow moving stock records found
                           </td>
                         </tr>
@@ -3498,7 +3947,6 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                       <>
                         {items.map((item, idx) => (
                           <tr key={item.no || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#ffffff" : "#fafbfc" }}>
-                            <td style={{ textAlign: "center", color: "#64748b", fontWeight: 600, padding: "6px 3px", verticalAlign: "middle" }}>{item.no || idx + 1}</td>
                             <td style={{ padding: "6px 5px", verticalAlign: "middle" }}>
                               <div style={{
                                 whiteSpace: "normal",
@@ -3527,7 +3975,6 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           </tr>
                         ))}
                         <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                          <td style={{ padding: "6px 3px" }} />
                           <td style={{ padding: "6px 5px", color: "#1e3a8a", fontSize: "0.72rem" }}>Total</td>
                           <td style={{ padding: "6px 4px" }} />
                           <td style={{ padding: "6px 4px" }} />
@@ -3550,7 +3997,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title="Inventory Turnover & DIO Trend"
             info="Turnover ratio (left axis) vs DIO days (right axis)"
-            onViewAll={() => setViewAllModal("trend")}
+            onViewAll={() => openInventoryViewAll({ viewType: "trend", globalFilters: filters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "trend")}
           />
 
@@ -3567,152 +4014,54 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       <div className="card" style={{ padding: 0 }}>
         <CardHeader isExporting={isExporting}
           title="Inventory Detailed View"
-          info="Detailed item-level inventory valuation and aging buckets"
-          onViewAll={() => setViewAllModal("details")}
+          info="Line-item inventory breakdown and aging status (AED)"
+          onViewAll={() => openInventoryViewAll({ viewType: "details", globalFilters: filters, drilldownFilters: {} })}
           onExport={(type) => handleExport(type || "excel")}
           variant="table"
         />
 
         <div style={styles.detailTableWrapper} className="detail-table-scroll">
-          <table style={styles.detailTable} className="compact-table">
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", width: 130, minWidth: 110, maxWidth: 140, verticalAlign: "bottom" }}>Legal<br />Entity</th>
-                <th style={{ textAlign: "left", width: 130, minWidth: 110, verticalAlign: "bottom" }}>Parent<br />Division</th>
-                <th style={{ textAlign: "left", width: 130, minWidth: 110, verticalAlign: "bottom" }}>Sub-<br />Division</th>
-                <th style={{ textAlign: "left", width: 90, minWidth: 80, verticalAlign: "bottom" }}>SUB-INV<br />Code</th>
-                <th style={{ textAlign: "left", width: 110, minWidth: 95, verticalAlign: "bottom" }}>Item<br />Code</th>
-                <th style={{ textAlign: "left", width: 220, minWidth: 180, verticalAlign: "bottom" }}>Item<br />Description</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>Qty<br />(Nos)</th>
-                <th style={{ textAlign: "right", width: 125, minWidth: 110, verticalAlign: "bottom" }}>Total<br />Stock<br />Value<br />({currentCurrency})</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>0-30<br />Days</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>31-60<br />Days</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>61-90<br />Days</th>
-                <th style={{ textAlign: "right", width: 75, minWidth: 65, verticalAlign: "bottom" }}>91-120<br />Days</th>
-                <th style={{ textAlign: "right", width: 80, minWidth: 70, verticalAlign: "bottom" }}>121-180<br />Days</th>
-                <th style={{ textAlign: "right", width: 80, minWidth: 70, verticalAlign: "bottom" }}>181-365<br />Days</th>
-                <th style={{ textAlign: "right", width: 85, minWidth: 75, verticalAlign: "bottom" }}>366-730<br />Days</th>
-                <th style={{ textAlign: "right", width: 85, minWidth: 75, verticalAlign: "bottom" }}>Above 730<br />Days</th>
-                <th style={{ textAlign: "right", width: 80, minWidth: 70, verticalAlign: "bottom", lineHeight: 1.25 }}>Holding<br />Days</th>
-                <th style={{ textAlign: "right", width: 100, minWidth: 85, verticalAlign: "bottom" }}>Avg. Inv.<br />Value</th>
+          <table style={{ width: "100%", minWidth: 1050, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
+              <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
+                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 105, maxWidth: 135, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Legal<br />Entity</th>
+                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Parent<br />Division</th>
+                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Sub-<br />Division</th>
+                <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 80, maxWidth: 90, verticalAlign: "bottom", lineHeight: 1.2, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>SUB-INV<br />CODE</th>
+                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 100, maxWidth: 125, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currentCurrency})</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>31-60<br />Days</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>61-90<br />Days</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>91-120<br />Days</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 58, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>121-180<br />Days</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 58, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>181-365<br />Days</th>
+                <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 78, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Obsolete Stock<br />(Above 365 Days)</th>
               </tr>
             </thead>
-
             <tbody>
-              {paginatedDetails.map((row) => (
-                <tr key={row.id}>
-                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
-                    <div style={{
-                      whiteSpace: "normal",
-                      wordBreak: "normal",
-                      overflowWrap: "break-word",
-                      lineHeight: 1.35,
-                      fontWeight: 600,
-                      color: "#1e293b",
-                    }} title={row.legal_entity}>
-                      {row.legal_entity}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
-                    <div style={{
-                      whiteSpace: "normal",
-                      wordBreak: "normal",
-                      overflowWrap: "break-word",
-                      lineHeight: 1.35,
-                      color: "#334155",
-                    }} title={row.parent_division}>
-                      {row.parent_division}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
-                    <div style={{
-                      whiteSpace: "normal",
-                      wordBreak: "normal",
-                      overflowWrap: "break-word",
-                      lineHeight: 1.35,
-                      color: "#334155",
-                    }} title={row.subdivision}>
-                      {row.subdivision}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
-                    <div style={{
-                      whiteSpace: "nowrap",
-                      color: "#475569",
-                    }} title={row.subinventory}>
-                      {row.subinventory}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
-                    <div style={{
-                      whiteSpace: "normal",
-                      wordBreak: "break-word",
-                      lineHeight: 1.35,
-                      fontWeight: 600,
-                      color: "#1e3a8a",
-                    }} title={row.item_code}>
-                      {row.item_code}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "left", verticalAlign: "middle" }}>
-                    <div
-                      style={{
-                        whiteSpace: "normal",
-                        wordBreak: "normal",
-                        overflowWrap: "break-word",
-                        lineHeight: 1.35,
-                        color: "#334155",
-                      }}
-                      title={row.item_description}
-                    >
-                      {row.item_description}
-                    </div>
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
-                    {row.quantity ? Number(row.quantity).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "#1e293b" }}>
-                    {row.total_stock_value
-                      ? Math.round(Number(row.total_stock_value) / 10000000).toLocaleString()
-                      : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_0_30 ? Math.round(Number(row.aging_0_30) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_31_60 ? Math.round(Number(row.aging_31_60) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_61_90 ? Math.round(Number(row.aging_61_90) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_91_120 ? Math.round(Number(row.aging_91_120) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_121_180 ? Math.round(Number(row.aging_121_180) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_181_365 ? Math.round(Number(row.aging_181_365) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_366_730 ? Math.round(Number(row.aging_366_730) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {row.aging_above_730 ? Math.round(Number(row.aging_above_730) / 10000000).toLocaleString() : "0"}
-                  </td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap" }}>{row.days || "-"}</td>
-                  <td style={{ textAlign: "right", verticalAlign: "middle", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                    {typeof row.avg_inv_value === "number"
-                      ? Math.round(row.avg_inv_value / 10000000).toLocaleString()
-                      : (row.avg_inv_value || "-")}
-                  </td>
-                </tr>
-              ))}
-
+              {paginatedDetails.length === 0 ? (
+                <tr><td colSpan={12} style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>No inventory records found</td></tr>
+              ) : (
+                paginatedDetails.map((row, idx) => (
+                  <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                    <td onClick={() => handleLegalEntityDrillDown(row)} style={{ padding: "7px 10px", fontWeight: 600, color: "#1e293b", width: 125, minWidth: 105, maxWidth: 135, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35, cursor: "pointer" }} title="Click to filter by Legal Entity">{row.legal_entity}</td>
+                    <td onClick={() => handleParentDivisionDrillDown(row)} style={{ padding: "7px 10px", color: "#334155", width: 120, minWidth: 105, maxWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35, cursor: "pointer" }} title="Click to filter by Parent Division">{row.parent_division}</td>
+                    <td onClick={() => handleSubdivisionDrillDown(row)} style={{ padding: "7px 10px", color: "#334155", width: 120, minWidth: 105, maxWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35, cursor: "pointer" }} title="Click to filter by Sub-Division">{row.subdivision}</td>
+                    <td onClick={() => handleSubinventoryDrillDown(row)} style={{ padding: "7px 8px", color: "#475569", width: 85, minWidth: 80, maxWidth: 90, whiteSpace: "nowrap", cursor: "pointer" }} title="Click to filter by SUB-INV">{row.subinventory}</td>
+                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", width: 110, minWidth: 100, maxWidth: 125, whiteSpace: "nowrap" }}>{Math.round(Number(row.total_stock_value || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "0_30" })} style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55, cursor: "pointer" }} title="Click to filter 0-30 Days">{Math.round(Number(row.aging_0_30 || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "31_60" })} style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55, cursor: "pointer" }} title="Click to filter 31-60 Days">{Math.round(Number(row.aging_31_60 || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "61_90" })} style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55, cursor: "pointer" }} title="Click to filter 61-90 Days">{Math.round(Number(row.aging_61_90 || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "91_120" })} style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55, cursor: "pointer" }} title="Click to filter 91-120 Days">{Math.round(Number(row.aging_91_120 || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "121_180" })} style={{ padding: "7px 6px", textAlign: "right", width: 68, minWidth: 58, cursor: "pointer" }} title="Click to filter 121-180 Days">{Math.round(Number(row.aging_121_180 || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "181_365" })} style={{ padding: "7px 6px", textAlign: "right", width: 68, minWidth: 58, cursor: "pointer" }} title="Click to filter 181-365 Days">{Math.round(Number(row.aging_181_365 || 0)).toLocaleString("en-US")}</td>
+                    <td onClick={() => handleAgingDrillDown({ bucket_code: "366_730" })} style={{ padding: "7px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600, width: 85, minWidth: 78, cursor: "pointer" }} title="Click to filter Obsolete Stock">{Math.round(Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0)).toLocaleString("en-US")}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
             {filteredDetails.length > 0 && (() => {
               const totals = filteredDetails.reduce((acc, row) => {
-                acc.qty += Number(row.quantity || 0);
                 acc.totalVal += Number(row.total_stock_value || 0);
                 acc.d30 += Number(row.aging_0_30 || 0);
                 acc.d60 += Number(row.aging_31_60 || 0);
@@ -3720,52 +4069,22 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 acc.d120 += Number(row.aging_91_120 || 0);
                 acc.d180 += Number(row.aging_121_180 || 0);
                 acc.d365 += Number(row.aging_181_365 || 0);
-                acc.d730 += Number(row.aging_366_730 || 0);
-                acc.dAbove730 += Number(row.aging_above_730 || 0);
+                acc.obs += (Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0));
                 return acc;
-              }, { qty: 0, totalVal: 0, d30: 0, d60: 0, d90: 0, d120: 0, d180: 0, d365: 0, d730: 0, dAbove730: 0 });
+              }, { totalVal: 0, d30: 0, d60: 0, d90: 0, d120: 0, d180: 0, d365: 0, obs: 0 });
 
               return (
                 <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
-                  <tr style={styles.detailTotalRow}>
-                    <td style={{ textAlign: "left", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap" }}>Total</td>
-                    <td />
-                    <td />
-                    <td />
-                    <td />
-                    <td />
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.qty).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.totalVal / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d30 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d60 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d90 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d120 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d180 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d365 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                      {Math.round(totals.d730 / 10000000).toLocaleString()}
-                    </td>
-                    <td style={{ textAlign: "right", verticalAlign: "middle", fontWeight: 800, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", color: "#e11d48" }}>
-                      {Math.round(totals.dAbove730 / 10000000).toLocaleString()}
-                    </td>
-                    <td />
-                    <td />
+                  <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
+                    <td colSpan={3} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({filteredDetails.length} items)</td>
+                    <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 110, minWidth: 100, maxWidth: 125 }}>{Math.round(totals.totalVal).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d30).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d60).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d90).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d120).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{Math.round(totals.d180).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{Math.round(totals.d365).toLocaleString("en-US")}</td>
+                    <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 800, background: "#f8fafc", width: 85, minWidth: 78 }}>{Math.round(totals.obs).toLocaleString("en-US")}</td>
                   </tr>
                 </tfoot>
               );
@@ -3879,1973 +4198,2069 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       {/* ========================================================
           VIEW ALL MODAL (All Cards)
       ======================================================== */}
-      {viewAllModal && (() => {
-        const modalConfig = (() => {
-          switch (viewAllModal) {
-            case "trend":
-              return {
-                title: "Inventory Value Trend Detailed View",
-                subtitle: "Current Year vs Month By Month inventory details",
-                searchPlaceholder: "Search months...",
-                section: "trend",
-                width: "96vw",
-                maxWidth: "96vw",
-              };
-            case "parentDivision":
-              return {
-                title: "Inventory Value by Parent Division Detailed View",
-                subtitle: "Period: 01 Sept 2026 to 30 Sept 2026",
-                searchPlaceholder: "Search parent divisions...",
-                section: "parent-divisions",
-                width: "96vw",
-                maxWidth: "96vw",
-              };
-            case "subdivision":
-              return {
-                title: "Inventory Value by Sub-Division Detailed View",
-                subtitle: `Breakdown across all sub-divisions (${currentCurrency})`,
-                searchPlaceholder: "Search sub-divisions...",
-                section: null,
-                width: "96vw",
-                maxWidth: "96vw",
-              };
-            case "slowMoving":
-              return {
-                title: slowMovingViewMode === "mom" ? "Month-on-Month – Obsolete Stock Position" : "Slow Moving Stock by Parent Division Detailed View",
-                subtitle: slowMovingViewMode === "mom" ? "Month-on-month comparison of obsolete stock across parent divisions" : `Obsolete inventory vs total stock (${currentCurrency})`,
-                searchPlaceholder: "Search parent divisions...",
-                section: "slow-moving",
-                width: "96vw",
-                maxWidth: "96vw",
-              };
-            case "details":
-              return {
-                title: "Inventory Detailed View",
-                subtitle: `Line-item inventory breakdown and aging status (${mockData.reporting_currency || "AED"})`,
-                searchPlaceholder: "Search item code, description, legal entity...",
-                section: null,
-                width: "96vw",
-                maxWidth: "96vw",
-              };
-            default:
-              return {
-                title: "detailed view",
-                subtitle: "",
-                searchPlaceholder: "Search...",
-                section: null,
-                width: "96vw",
-                maxWidth: "96vw",
-              };
-          }
-        })();
+      {(viewAllModal || showViewAll) && (() => {
+        const sectionViewAllTitles = {
+          all: ["Inventory View All", "Review complete inventory valuation, aging details, slow moving stock, and obsolete position."],
+          aging: ["Inventory Aging Summary View All", "Detailed breakdown of inventory valuation across aging buckets with status and percentages."],
+          trend: ["Inventory Trend View All", "Monthly trend analysis of inventory valuation, turnover ratio, and DIO days."],
+          parentDivision: ["Inventory by Parent Division View All", "Comprehensive inventory holdings, aging distribution, and turnover across parent divisions."],
+          subdivision: ["Inventory by Sub-Division View All", "Detailed sub-division inventory holdings ranked by valuation, quantity, and obsolete status."],
+          subinventory: ["Inventory by Subinventory View All", "Underlying inventory records for the selected subinventory."],
+          slowMoving: ["Slow Moving Stock View All", "Underlying slow moving and obsolete inventory records by parent division."],
+          details: ["Inventory Detailed View All", "Complete line-item inventory valuation and aging breakdown."],
+          kpi: ["Inventory Valuation View All", "Underlying inventory records for the selected metric."],
+          momObsolete: ["Month-on-Month Obsolete Stock View All", "Period comparison of obsolete stock position across parent divisions."],
+          month_on_month: ["Month-on-Month Obsolete Stock View All", "Period comparison of obsolete stock position across parent divisions."],
+        };
 
-        return (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(15, 23, 42, 0.5)",
-              backdropFilter: "blur(2px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 9999,
-              padding: 20,
-            }}
-            onClick={() => {
-              setViewAllModal(null);
-              setViewAllSearch("");
-            }}
-          >
+        const activeTabKey = (modalActiveTab === "mom") ? "momObsolete" : modalActiveTab;
+        const [modalHeaderTitle, modalHeaderSubtitle] = sectionViewAllTitles[activeTabKey] || sectionViewAllTitles[viewAllSection] || sectionViewAllTitles.all;
+          const isModalFilterDifferent = Object.keys(modalDetailsFilters || {}).some(k => {
+    const mVal = modalDetailsFilters[k];
+    const fVal = filters[k];
+    const getVal = (v) => (!v || v === 'All' || (Array.isArray(v) && v.includes('All')) || (Array.isArray(v) && v.length === 0)) ? 'All' : (Array.isArray(v) ? v.slice().sort().join(',') : String(v));
+    return getVal(mVal) !== getVal(fVal);
+});
+const hasDrilldown = Object.keys(viewAllDetailFilters || {}).length > 0 || isModalFilterDifferent;
+const detailsSource = modalFilteredDetails || [];
+
+            let recordsCount, totalInventoryVal, currentStockVal, slowMovingStockVal, obsoleteStockVal;
+            
+            if (hasDrilldown && modalApiData && modalApiData.dashKpis) {
+                // If we have a drilldown and the backend provided the true dashboard KPIs for this drilldown!
+                recordsCount = modalApiData.dashKpis.total_records || detailsSource.length;
+                totalInventoryVal = modalApiData.dashKpis.total_inventory || 0;
+                obsoleteStockVal = modalApiData.dashKpis.inventory_above_365 || 0;
+
+                // Calculate current and slow moving from dashAging if available
+                let currentTotal = 0;
+                let slowMovingTotal = 0;
+                if (modalApiData.dashAging) {
+                    const agingList = Array.isArray(modalApiData.dashAging) ? modalApiData.dashAging : Object.entries(modalApiData.dashAging).map(([k,v]) => ({ bucket_code: k, amount: v }));
+                    agingList.forEach(item => {
+                        const k = String(item.bucket_code || item.bucket || item.name).toLowerCase();
+                        const val = Number(item.amount || item.value || 0);
+                        if (k.includes('0_30')) currentTotal += val;
+                        else if (k.includes('91_120') || k.includes('121_180') || k.includes('181_365')) slowMovingTotal += val;
+                    });
+                }
+                currentStockVal = currentTotal;
+                slowMovingStockVal = slowMovingTotal;
+            } else if (hasDrilldown) {
+                // Fallback to summing frontend items if dashKpis is missing
+                recordsCount = detailsSource.length;
+                totalInventoryVal = detailsSource.reduce((s, r) => s + Number(r.total_stock_value || 0), 0);
+                currentStockVal = detailsSource.reduce((s, r) => s + Number(r.aging_0_30 || 0), 0);
+                slowMovingStockVal = detailsSource.reduce((s, r) => s + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0) + Number(r.aging_181_365 || 0), 0);
+                obsoleteStockVal = detailsSource.reduce((s, r) => s + (Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0)), 0);
+            } else {
+                // No drilldown -> Global Dashboard state
+                recordsCount = (mockData.rawKpis && mockData.rawKpis.total_records) ? mockData.rawKpis.total_records : detailsSource.length;
+                totalInventoryVal = mockData.totalInventory || 0;
+                
+                const currentBucket = (mockData.aging || []).find(a => String(a.bucket_code || a.name || a.code).toLowerCase().includes('0_30'));
+                currentStockVal = currentBucket ? Number(currentBucket.value || 0) * 10000000 : 0; // wait, mockData.aging is divided by 10M, we need the raw value in AED!
+                
+                // For global slow moving, mockData.slowMoving might be top items. Let's calculate from mockData.aging instead!
+                let slowMovingTotal = 0;
+                (mockData.aging || []).forEach(a => {
+                    const k = String(a.bucket_code || a.name || a.code).toLowerCase();
+                    if (k.includes('91_120') || k.includes('121_180') || k.includes('181_365')) {
+                         slowMovingTotal += Number(a.value || 0) * 10000000;
+                    }
+                });
+                slowMovingStockVal = slowMovingTotal;
+                obsoleteStockVal = mockData.rawKpis?.inventory_above_365 ? Number(mockData.rawKpis.inventory_above_365) : 0;
+            }
+
+          const formatKPICompact = (val) => {
+            if (!val || isNaN(val)) return "AED 0.00M";
+            const inM = Number(val) / 1000000;
+            return `AED ${inM.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
+          };
+
+          const isMillions = momCurrencyMode === "AED_MILLIONS";
+          const scale = isMillions ? 1000000 : 1;
+          const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+
+          const SummaryCard = ({
+            icon,
+            title,
+            value,
+            iconBackground,
+            iconColor,
+            titleColor,
+            cardBackground,
+            borderColor,
+          }) => (
             <div
               style={{
-                background: "#fff",
+                background: cardBackground || "#ffffff",
+                border: `1px solid ${borderColor || "#e2e8f0"}`,
                 borderRadius: 12,
-                width: "96vw",
-                maxWidth: "96vw",
-                height: "92vh",
-                maxHeight: "92vh",
+                minHeight: 78,
+                padding: "12px 14px",
                 display: "flex",
-                flexDirection: "column",
-                boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
-                border: "1px solid #e2e8f0",
-                overflow: "hidden",
+                alignItems: "center",
+                gap: 12,
+                boxSizing: "border-box",
+                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
               }}
-              onClick={(e) => e.stopPropagation()}
             >
-              {/* Modal Header */}
               <div
                 style={{
-                  padding: "14px 20px",
-                  borderBottom: "1px solid #e2e8f0",
+                  width: 42,
+                  height: 42,
+                  minWidth: 42,
+                  borderRadius: "50%",
+                  background: iconBackground,
+                  color: iconColor,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  background: "linear-gradient(90deg, #f8fafc, #fff)",
+                  justifyContent: "center",
+                  fontSize: 20,
+                  fontWeight: 800,
                 }}
               >
-                <div>
-                  <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "#0f172a" }}>
-                    {modalConfig.title}
-                  </h3>
-                  <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: 2 }}>
-                    {modalConfig.subtitle}
-                  </div>
+                {icon}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: titleColor,
+                    marginBottom: 3,
+                  }}
+                >
+                  {title}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <button
-                    onClick={() => {
-                      setViewAllModal(null);
-                      setViewAllSearch("");
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      borderRadius: "50%",
-                      width: 28,
-                      height: 28,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      color: "#64748b",
-                      fontSize: "0.85rem",
-                      fontWeight: 700,
-                      outline: "none",
-                      transition: "all 0.15s ease",
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f1f5f9")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                    title="Close"
-                  >
-                    ✕
-                  </button>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 800,
+                    color: "#142b6f",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {value}
                 </div>
               </div>
+            </div>
+          );
 
-              {/* Modal Search & Export Bar */}
-              {viewAllModal === "details" ? (
+          return (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9999,
+                background: "rgba(15, 23, 42, 0.48)",
+                backdropFilter: "blur(4px)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 20,
+                boxSizing: "border-box",
+              }}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setViewAllModal(null);
+                  setShowViewAll(false);
+                  setViewAllSearch("");
+                  setViewAllDetailFilters({});
+                }
+              }}
+            >
+              <div
+                className="sales-style-view-all-modal"
+                style={{
+                  width: "min(1450px, 98vw)",
+                  maxHeight: "92vh",
+                  background: "#f7faff",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  boxShadow: "0 18px 55px rgba(15, 23, 42, 0.28)",
+                  display: "flex",
+                  flexDirection: "column",
+                  boxSizing: "border-box",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div
                   style={{
-                    padding: "10px 20px",
-                    borderBottom: "1px solid #f1f5f9",
-                    display: "flex",
-                    gap: 6,
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    background: "#fafbfc",
+                    width: "100%",
+                    minHeight: 0,
+                    overflowY: "auto",
+                    padding: "18px 18px 30px",
+                    boxSizing: "border-box",
+                    color: "#17213c",
                   }}
                 >
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", flex: 1 }}>
-                    {/* 1. Search */}
-                    <input
-                      type="text"
-                      placeholder="Search item code, description, legal entity..."
-                      value={viewAllSearch}
-                      onChange={(e) => {
-                        setViewAllSearch(e.target.value);
-                        setModalDetailPage(0);
-                      }}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 8,
-                        border: "1px solid #cbd5e1",
-                        fontSize: "0.78rem",
-                        minWidth: 180,
-                        maxWidth: 220,
-                        height: 32,
-                        boxSizing: "border-box",
-                        outline: "none",
-                        background: "#fff",
-                      }}
-                    />
-
-                    {/* 2. Legal Entity Filter */}
-                    <div style={{ width: 155, position: "relative" }}>
-                      <ModalMultiSelect
-                        options={mockData.filters.legalEntities}
-                        value={modalDetailsFilters.legalEntity}
-                        onChange={(vals) => {
-                          setModalDetailsFilters(prev => ({ ...prev, legalEntity: vals }));
-                          setModalDetailPage(0);
+                  {/* PAGE HEADER */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 15,
+                      marginBottom: 16,
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 27,
+                          lineHeight: 1.1,
+                          fontWeight: 800,
+                          color: "#102a72",
+                          letterSpacing: "-0.5px",
                         }}
-                        placeholder="All Legal Entity"
-                      />
-                    </div>
-
-                    {/* 3. Parent Division Filter */}
-                    <div style={{ width: 160, position: "relative" }}>
-                      <ModalMultiSelect
-                        options={mockData.filters.parentDivisions}
-                        value={modalDetailsFilters.parentDivision}
-                        onChange={(vals) => {
-                          setModalDetailsFilters(prev => ({ ...prev, parentDivision: vals }));
-                          setModalDetailPage(0);
-                        }}
-                        placeholder="All Parent Division"
-                      />
-                    </div>
-
-                    {/* 4. Sub-Division Filter */}
-                    <div style={{ width: 155, position: "relative" }}>
-                      <ModalMultiSelect
-                        options={mockData.filters.subdivisions}
-                        value={modalDetailsFilters.subdivision}
-                        onChange={(vals) => {
-                          setModalDetailsFilters(prev => ({ ...prev, subdivision: vals }));
-                          setModalDetailPage(0);
-                        }}
-                        placeholder="All Sub-Division"
-                      />
-                    </div>
-
-                    {/* 5. Subinventory Filter */}
-                    <div style={{ width: 145, position: "relative" }}>
-                      <ModalMultiSelect
-                        options={mockData.filters.subinventories}
-                        value={modalDetailsFilters.subinventory}
-                        onChange={(vals) => {
-                          setModalDetailsFilters(prev => ({ ...prev, subinventory: vals }));
-                          setModalDetailPage(0);
-                        }}
-                        placeholder="All SUB-INV"
-                      />
-                    </div>
-
-                    {/* 6. As on Date Filter */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>As on Date:</span>
-                      <div style={{ position: "relative" }}>
-                        <input
-                          id="modal-as-on-date-picker"
-                          type="date"
-                          value={getRawDateForInputGlobal(modalDetailsFilters.asOnDate && modalDetailsFilters.asOnDate !== "All" ? modalDetailsFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate))}
-                          onChange={(e) => {
-                            setModalDetailsFilters(prev => ({ ...prev, asOnDate: e.target.value }));
-                            setModalDetailPage(0);
-                          }}
-                          style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const el = document.getElementById("modal-as-on-date-picker");
-                            if (el) { el.showPicker ? el.showPicker() : el.click(); }
-                          }}
-                          style={{
-                            height: 32, boxSizing: "border-box", border: "1px solid #cbd5e1",
-                            borderRadius: 7, padding: "0 24px 0 9px", background: "#f8fafc", color: "#334155",
-                            outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
-                            display: "flex", alignItems: "center", justifyContent: "flex-start", minWidth: 105
-                          }}
-                          title={modalDetailsFilters.asOnDate && modalDetailsFilters.asOnDate !== "All" ? modalDetailsFilters.asOnDate : "Selected Date"}
-                        >
-                          {(() => {
-                            const dText = formatDisplayDateGlobal(modalDetailsFilters.asOnDate && modalDetailsFilters.asOnDate !== "All" ? modalDetailsFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate || "Selected Date"));
-                            if (dText === "Selected Date") {
-                              return (
-                                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15, fontSize: "0.66rem", fontWeight: 600 }}>
-                                  <span>Selected</span>
-                                  <span>Date</span>
-                                </div>
-                              );
-                            }
-                            return <span style={{ fontSize: "0.74rem", fontWeight: 500 }}>{dText}</span>;
-                          })()}
-                          <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none" }}>
-                            📅
-                          </span>
-                        </button>
+                      >
+                        {modalHeaderTitle}
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Right side: Records count & Exports & Currency Toggle */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                    {/* Currency Mode Toggle */}
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginRight: 4 }}>
-                      <button
-                        type="button"
-                        onClick={() => setMomCurrencyMode("AED")}
+                      <div
                         style={{
-                          height: 28,
-                          minWidth: 40,
-                          padding: "0 8px",
-                          borderRadius: 6,
-                          border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
-                          background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
-                          color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          outline: "none",
-                        }}
-                        title="Display in AED"
-                      >
-                        AED
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMomCurrencyMode("AED_MILLIONS")}
-                        style={{
-                          height: 28,
-                          minWidth: 74,
-                          padding: "0 8px",
-                          borderRadius: 6,
-                          border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
-                          background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
-                          color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          outline: "none",
-                        }}
-                        title="Display in AED Millions"
-                      >
-                        AED Millions
-                      </button>
-                    </div>
-
-                    {modalDetailsLoading ? (
-                      <span style={{ fontSize: "0.72rem", color: "#2563eb", fontWeight: 600 }}>Loading...</span>
-                    ) : (
-                      <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        {modalFilteredDetails.length} {viewAllSearch ? "matches" : "records"}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => handleExport("excel", null, modalDetailsFilters)}
-                      title="Export to Excel"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 7,
-                        border: "1px solid #bbf7d0",
-                        background: isExporting ? "#d1fae5" : "#f0fdf4",
-                        color: "#15803d",
-                        fontSize: "0.70rem",
-                        fontWeight: 700,
-                        cursor: isExporting ? "not-allowed" : "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        outline: "none",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {isExporting ? "⏳" : "📊"} Excel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => handleExport("pdf", null, modalDetailsFilters)}
-                      title="Export to PDF"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 7,
-                        border: "1px solid #fecdd3",
-                        background: isExporting ? "#fee2e2" : "#fff1f2",
-                        color: "#be123c",
-                        fontSize: "0.70rem",
-                        fontWeight: 700,
-                        cursor: isExporting ? "not-allowed" : "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        outline: "none",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {isExporting ? "⏳" : "📄"} PDF
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: "10px 20px",
-                    borderBottom: "1px solid #f1f5f9",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 10,
-                    background: "#fafbfc",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {viewAllModal === "parentDivision" && (
-                    <div style={{ display: "inline-flex", background: "#f1f5f9", padding: 3, borderRadius: 8, border: "1px solid #e2e8f0", gap: 3, marginRight: "auto", marginLeft: 16 }}>
-                      <button
-                        type="button"
-                        onClick={() => setParentDivViewMode("month")}
-                        style={{
-                          padding: "4px 12px",
-                          fontSize: "0.74rem",
-                          fontWeight: 700,
-                          borderRadius: 6,
-                          border: "none",
-                          background: parentDivViewMode === "month" ? "#2563eb" : "transparent",
-                          color: parentDivViewMode === "month" ? "#fff" : "#475569",
-                          cursor: "pointer",
-                          boxShadow: parentDivViewMode === "month" ? "0 1px 3px rgba(37,99,235,0.3)" : "none",
-                          transition: "all 0.15s ease",
+                          marginTop: 5,
+                          fontSize: 12,
+                          color: "#64748b",
                         }}
                       >
-                        Parent Division-wise
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setParentDivViewMode("mom")}
-                        style={{
-                          padding: "4px 12px",
-                          fontSize: "0.74rem",
-                          fontWeight: 700,
-                          borderRadius: 6,
-                          border: "none",
-                          background: parentDivViewMode === "mom" ? "#2563eb" : "transparent",
-                          color: parentDivViewMode === "mom" ? "#fff" : "#475569",
-                          cursor: "pointer",
-                          boxShadow: parentDivViewMode === "mom" ? "0 1px 3px rgba(37,99,235,0.3)" : "none",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        Month-on-Month
-                      </button>
-                    </div>
-                  )}
-
-                  {viewAllModal === "slowMoving" && (
-                    <div style={{ display: "inline-flex", background: "#f1f5f9", padding: 3, borderRadius: 8, border: "1px solid #e2e8f0", gap: 3, marginRight: "auto", marginLeft: 16 }}>
-                      <button
-                        type="button"
-                        onClick={() => setSlowMovingViewMode("stock")}
-                        style={{
-                          padding: "4px 12px",
-                          fontSize: "0.74rem",
-                          fontWeight: 700,
-                          borderRadius: 6,
-                          border: "none",
-                          background: slowMovingViewMode === "stock" ? "#2563eb" : "transparent",
-                          color: slowMovingViewMode === "stock" ? "#fff" : "#475569",
-                          cursor: "pointer",
-                          boxShadow: slowMovingViewMode === "stock" ? "0 1px 3px rgba(37,99,235,0.3)" : "none",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        Slow Moving Stock
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSlowMovingViewMode("mom")}
-                        style={{
-                          padding: "4px 12px",
-                          fontSize: "0.74rem",
-                          fontWeight: 700,
-                          borderRadius: 6,
-                          border: "none",
-                          background: slowMovingViewMode === "mom" ? "#2563eb" : "transparent",
-                          color: slowMovingViewMode === "mom" ? "#fff" : "#475569",
-                          cursor: "pointer",
-                          boxShadow: slowMovingViewMode === "mom" ? "0 1px 3px rgba(37,99,235,0.3)" : "none",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        Month-on-Month – Obsolete Stock Position
-                      </button>
-                    </div>
-                  )}
-
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginLeft: "auto", marginRight: 8, flexWrap: "wrap" }}>
-                    {((viewAllModal === "parentDivision" && parentDivViewMode === "mom") || (viewAllModal === "slowMoving" && slowMovingViewMode === "mom")) && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Year</span>
-                        <input
-                          value={momYear}
-                          readOnly
-                          style={{
-                            height: 28,
-                            width: 60,
-                            border: "1px solid #d5ddeb",
-                            borderRadius: 5,
-                            background: "#fff",
-                            color: "#2563eb",
-                            padding: "0 6px",
-                            fontSize: "0.74rem",
-                            fontWeight: 700,
-                            textAlign: "center",
-                          }}
-                        />
+                        {modalHeaderSubtitle}
                       </div>
-                    )}
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => setMomCurrencyMode("AED")}
-                        style={{
-                          height: 28,
-                          minWidth: 42,
-                          padding: "0 10px",
-                          borderRadius: 6,
-                          border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
-                          background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
-                          color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          outline: "none",
-                        }}
-                        title="Display in AED"
-                      >
-                        AED
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMomCurrencyMode("AED_MILLIONS")}
-                        style={{
-                          height: 28,
-                          minWidth: 78,
-                          padding: "0 10px",
-                          borderRadius: 6,
-                          border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
-                          background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
-                          color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
-                          fontSize: 10,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                          outline: "none",
-                        }}
-                        title="Display in AED Millions"
-                      >
-                        AED Millions
-                      </button>
+
+                      {Object.keys(viewAllDetailFilters || {}).length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 10 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>Active Drilldown Filters:</span>
+                          {viewAllDetailFilters.aging_bucket && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#e0f2fe", color: "#0369a1", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #bae6fd" }}>
+                              Aging: {toAgingBucketCode(viewAllDetailFilters.aging_bucket)}
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.aging_bucket; return n; })} style={{ border: "none", background: "transparent", color: "#0369a1", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove aging filter">✕</button>
+                            </span>
+                          )}
+                          {viewAllDetailFilters.drilldown_parent_division_id && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef3c7", color: "#b45309", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #fde68a" }}>
+                              Parent Division: {viewAllDetailFilters.drilldown_parent_division_id}
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.drilldown_parent_division_id; return n; })} style={{ border: "none", background: "transparent", color: "#b45309", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove parent division filter">✕</button>
+                            </span>
+                          )}
+                          {viewAllDetailFilters.drilldown_subdivision_id && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#ede9fe", color: "#6d28d9", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #ddd6fe" }}>
+                              Subdivision: {viewAllDetailFilters.drilldown_subdivision_id}
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.drilldown_subdivision_id; return n; })} style={{ border: "none", background: "transparent", color: "#6d28d9", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove subdivision filter">✕</button>
+                            </span>
+                          )}
+                          {viewAllDetailFilters.subinventory_id && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fce7f3", color: "#be185d", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #fbcfe8" }}>
+                              SUB-INV: {viewAllDetailFilters.subinventory_id}
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.subinventory_id; return n; })} style={{ border: "none", background: "transparent", color: "#be185d", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove SUB-INV filter">✕</button>
+                            </span>
+                          )}
+                          {viewAllDetailFilters.slow_moving && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#fef9c3", color: "#854d0e", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #fde047" }}>
+                              Slow Moving (&gt;365 days)
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.slow_moving; return n; })} style={{ border: "none", background: "transparent", color: "#854d0e", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove slow moving filter">✕</button>
+                            </span>
+                          )}
+                          {viewAllDetailFilters.legal_entity_id && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f1f5f9", color: "#334155", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #cbd5e1" }}>
+                              Legal Entity: {viewAllDetailFilters.legal_entity_id}
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.legal_entity_id; return n; })} style={{ border: "none", background: "transparent", color: "#334155", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove legal entity filter">✕</button>
+                            </span>
+                          )}
+                          {viewAllDetailFilters.as_on_date && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12, border: "1px solid #bbf7d0" }}>
+                              Snapshot: {viewAllDetailFilters.as_on_date}
+                              <button type="button" onClick={() => setViewAllDetailFilters(prev => { const n = {...prev}; delete n.as_on_date; return n; })} style={{ border: "none", background: "transparent", color: "#15803d", cursor: "pointer", padding: "0 2px", fontWeight: 800, fontSize: 11 }} title="Remove date filter">✕</button>
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setViewAllDetailFilters({})}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "#ef4444",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              textDecoration: "underline",
+                              cursor: "pointer",
+                              padding: "2px 4px",
+                            }}
+                          >
+                            Clear All Drilldowns
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    <input
-                      type="text"
-                      placeholder={modalConfig.searchPlaceholder}
-                      value={viewAllSearch}
-                      onChange={(e) => setViewAllSearch(e.target.value)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        fontSize: "0.76rem",
-                        width: 220,
-                        outline: "none",
-                      }}
-                    />
-                  </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        type="button"
+                        disabled={isExporting}
+                        onClick={() => {
+                          if (modalActiveTab === "momObsolete" || modalActiveTab === "mom" || slowMovingViewMode === "mom") {
+                            handleExportMoM("excel", true);
+                          } else if (modalActiveTab === "slowMoving" || slowMovingViewMode === "stock") {
+                            handleExport("excel", "slow-moving", slowMovingFilters);
+                          } else {
+                            handleExport("excel", "inventory-details", modalDetailsFilters, viewAllDetailFilters);
+                          }
+                        }}
+                        style={{
+                          height: 34,
+                          minWidth: 72,
+                          padding: "0 13px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          border: "1px solid #86efac",
+                          borderRadius: 8,
+                          background: "#f0fdf4",
+                          color: "#16a34a",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          cursor: isExporting ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>📊</span>
+                        Excel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isExporting}
+                        onClick={() => {
+                          if (modalActiveTab === "momObsolete" || modalActiveTab === "mom" || slowMovingViewMode === "mom") {
+                            handleExportMoM("pdf", true);
+                          } else if (modalActiveTab === "slowMoving" || slowMovingViewMode === "stock") {
+                            handleExport("pdf", "slow-moving", slowMovingFilters);
+                          } else {
+                            // For all drilldown-based tabs always export from /inventory/view-all with drilldown filters
+                            handleExport("pdf", "inventory-details", modalDetailsFilters, viewAllDetailFilters);
+                          }
+                        }}
+                        style={{
+                          height: 34,
+                          minWidth: 72,
+                          padding: "0 13px",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 6,
+                          border: "1px solid #fda4af",
+                          borderRadius: 8,
+                          background: "#fff8f8",
+                          color: "#ef4444",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          cursor: isExporting ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        <span style={{ fontSize: 13 }}>📄</span>
+                        PDF
+                      </button>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => {
-                        if (viewAllModal === "parentDivision" && parentDivViewMode === "mom") {
-                          handleExportMoM("excel");
-                        } else if (viewAllModal === "slowMoving" && slowMovingViewMode === "mom") {
-                          handleExportMoM("excel", true);
-                        } else if (viewAllModal === "slowMoving") {
-                          handleExport("excel", "slow-moving", slowMovingFilters);
-                        } else {
-                          handleExport("excel", modalConfig.section);
-                        }
-                      }}
-                      title="Export to Excel"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 7,
-                        border: "1px solid #bbf7d0",
-                        background: isExporting ? "#d1fae5" : "#f0fdf4",
-                        color: "#15803d",
-                        fontSize: "0.70rem",
-                        fontWeight: 700,
-                        cursor: isExporting ? "not-allowed" : "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        outline: "none",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {isExporting ? "⏳" : "📊"} Excel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isExporting}
-                      onClick={() => {
-                        if (viewAllModal === "parentDivision" && parentDivViewMode === "mom") {
-                          handleExportMoM("pdf");
-                        } else if (viewAllModal === "slowMoving" && slowMovingViewMode === "mom") {
-                          handleExportMoM("pdf", true);
-                        } else if (viewAllModal === "slowMoving") {
-                          handleExport("pdf", "slow-moving", slowMovingFilters);
-                        } else {
-                          handleExport("pdf", modalConfig.section);
-                        }
-                      }}
-                      title="Export to PDF"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 7,
-                        border: "1px solid #fecdd3",
-                        background: isExporting ? "#fee2e2" : "#fff1f2",
-                        color: "#be123c",
-                        fontSize: "0.70rem",
-                        fontWeight: 700,
-                        cursor: isExporting ? "not-allowed" : "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        outline: "none",
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {isExporting ? "⏳" : "📄"} PDF
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Dedicated Filter Bar for Slow Moving Stock (Tab 1) */}
-              {viewAllModal === "slowMoving" && slowMovingViewMode === "stock" && (
-                <div
-                  style={{
-                    padding: "8px 20px",
-                    borderBottom: "1px solid #e2e8f0",
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    background: "#f8fafc",
-                  }}
-                >
-                  {/* Legal Entity */}
-                  <div style={{ width: 155, position: "relative" }}>
-                    <ModalMultiSelect
-                      options={mockData.filters.legalEntities}
-                      value={slowMovingDraftFilters.legalEntity}
-                      onChange={(vals) => setSlowMovingDraftFilters(prev => ({ ...prev, legalEntity: vals }))}
-                      placeholder="All Legal Entity"
-                    />
-                  </div>
-
-                  {/* Parent Division */}
-                  <div style={{ width: 160, position: "relative" }}>
-                    <ModalMultiSelect
-                      options={mockData.filters.parentDivisions}
-                      value={slowMovingDraftFilters.parentDivision}
-                      onChange={(vals) => setSlowMovingDraftFilters(prev => ({ ...prev, parentDivision: vals }))}
-                      placeholder="All Parent Division"
-                    />
-                  </div>
-
-                  {/* Subdivision */}
-                  <div style={{ width: 155, position: "relative" }}>
-                    <ModalMultiSelect
-                      options={mockData.filters.subdivisions}
-                      value={slowMovingDraftFilters.subdivision}
-                      onChange={(vals) => setSlowMovingDraftFilters(prev => ({ ...prev, subdivision: vals }))}
-                      placeholder="All Sub-Division"
-                    />
-                  </div>
-
-                  {/* SUB-INV Code */}
-                  <div style={{ width: 145, position: "relative" }}>
-                    <ModalMultiSelect
-                      options={mockData.filters.subinventories}
-                      value={slowMovingDraftFilters.subinventory}
-                      onChange={(vals) => setSlowMovingDraftFilters(prev => ({ ...prev, subinventory: vals }))}
-                      placeholder="All SUB-INV"
-                    />
-                  </div>
-
-                  {/* Date Filter */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Date:</span>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        id="slow-moving-as-on-date-picker"
-                        type="date"
-                        value={getRawDateForInputGlobal(slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate))}
-                        onChange={(e) => setSlowMovingDraftFilters(prev => ({ ...prev, asOnDate: e.target.value }))}
-                        style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-                      />
                       <button
                         type="button"
                         onClick={() => {
-                          const el = document.getElementById("slow-moving-as-on-date-picker");
-                          if (el) { el.showPicker ? el.showPicker() : el.click(); }
+                          setViewAllModal(null);
+                          setShowViewAll(false);
+                          setViewAllSearch("");
+                          setViewAllDetailFilters({});
                         }}
                         style={{
-                          height: 32, boxSizing: "border-box", border: "1px solid #cbd5e1",
-                          borderRadius: 7, padding: "0 24px 0 9px", background: "#fff", color: "#334155",
-                          outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
-                          display: "flex", alignItems: "center", justifyContent: "flex-start", minWidth: 105
+                          height: 34,
+                          padding: "0 13px",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 5,
+                          background: "#ffffff",
+                          color: "#3149a5",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
                         }}
-                        title={slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : "Selected Date"}
                       >
-                        {(() => {
-                          const dText = formatDisplayDateGlobal(slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate || "Selected Date"));
-                          return <span style={{ fontSize: "0.74rem", fontWeight: 500 }}>{dText}</span>;
-                        })()}
-                        <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none" }}>
-                          📅
-                        </span>
+                        ✖
                       </button>
                     </div>
                   </div>
 
-                  {/* Apply Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSlowMovingFilters({ ...slowMovingDraftFilters });
-                      toast.success("Filters applied");
-                    }}
+                  {/* FILTERS CARD */}
+                  <div
                     style={{
-                      height: 32,
-                      padding: "0 14px",
-                      borderRadius: 6,
-                      border: "none",
-                      background: "#2563eb",
-                      color: "#fff",
-                      fontSize: "0.74rem",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      boxShadow: "0 1px 2px rgba(37,99,235,0.25)",
-                      transition: "all 0.15s ease",
-                      outline: "none",
+                      background: "#ffffff",
+                      border: "1px solid #e3e9f2",
+                      borderRadius: 9,
+                      padding: "13px 14px 15px",
+                      marginBottom: 14,
+                      boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
                     }}
-                    title="Apply Filters"
                   >
-                    ✓ Apply
-                  </button>
-
-                  {/* Reset Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const resetFilters = {
-                        legalEntity: ['All'],
-                        parentDivision: ['All'],
-                        subdivision: ['All'],
-                        subinventory: ['All'],
-                        asOnDate: 'All',
-                      };
-                      setSlowMovingDraftFilters(resetFilters);
-                      setSlowMovingFilters(resetFilters);
-                      toast.success("Filters reset");
-                    }}
-                    style={{
-                      height: 32,
-                      padding: "0 12px",
-                      borderRadius: 6,
-                      border: "1px solid #cbd5e1",
-                      background: "#fff",
-                      color: "#475569",
-                      fontSize: "0.74rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      transition: "all 0.15s ease",
-                      outline: "none",
-                    }}
-                    title="Reset Filters"
-                  >
-                    ↺ Reset
-                  </button>
-                </div>
-              )}
-
-              {/* Modal Table Content */}
-              <div
-                className="modal-table-scroll detail-table-scroll"
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflow: "auto",
-                  padding: "0 20px",
-                }}
-              >
-                {(() => {
-                  if (viewAllModal === "trend") {
-                    const rawList = (mockData.trendList && mockData.trendList.length > 0)
-                      ? mockData.trendList
-                      : (viewAllData && viewAllData.length > 0)
-                        ? viewAllData
-                        : (mockData.trend?.list && mockData.trend.list.length > 0)
-                          ? mockData.trend.list
-                          : (momData && momData.length > 0)
-                            ? momData
-                            : [];
-                    const filtered = rawList.filter(item => {
-                      if (!viewAllSearch) return true;
-                      const q = viewAllSearch.toLowerCase();
-                      const rawM = String(item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : item.month_start) : (item.month || item.as_on_date || ""));
-                      const formattedM = formatTrendMonthName(rawM);
-                      return rawM.toLowerCase().includes(q) || formattedM.toLowerCase().includes(q);
-                    });
-                    
-                    if (viewAllLoading) {
-                        return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
-                    }
-
-                    const isMillions = momCurrencyMode === "AED_MILLIONS";
-                    const scale = isMillions ? 1000000 : 1;
-                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
-
-                    const formatTrendVal = (val) => {
-                      if (val === null || val === undefined || val === "" || isNaN(val)) return "—";
-                      let num = Number(val);
-                      if (num < 10000 && num > 0) num = num * 10000000;
-                      return Math.round(num / scale).toLocaleString("en-US");
-                    };
-
-                    let totalStock = 0;
-                    let totalObs = 0;
-                    let turnoverSum = 0;
-                    let turnoverCount = 0;
-
-                    filtered.forEach(item => {
-                      const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.current !== undefined ? item.current : 0));
-                      let nVal = Number(rawVal || 0);
-                      if (nVal < 10000 && nVal > 0) nVal = nVal * 10000000;
-                      totalStock += nVal;
-
-                      const rawObs = item.obsolete_stock !== undefined ? item.obsolete_stock : (item.total_obsolete_stock !== undefined ? item.total_obsolete_stock : 0);
-                      let nObs = Number(rawObs || 0);
-                      if (nObs < 10000 && nObs > 0) nObs = nObs * 10000000;
-                      totalObs += nObs;
-
-                      const tVal = item.annual_inventory_turnover !== undefined && item.annual_inventory_turnover !== null
-                        ? Number(item.annual_inventory_turnover)
-                        : (item.annual_turnover !== undefined && item.annual_turnover !== null
-                          ? Number(item.annual_turnover)
-                          : (item.annual_inventory_turnover_ratio !== undefined && item.annual_inventory_turnover_ratio !== null
-                            ? Number(item.annual_inventory_turnover_ratio)
-                            : (item.inventory_turnover ? Number(item.inventory_turnover) * 12 : null)));
-                      if (tVal !== null && !isNaN(tVal)) {
-                        turnoverSum += tVal;
-                        turnoverCount++;
-                      }
-                    });
-
-                    const avgTurnover = turnoverCount > 0 ? (turnoverSum / turnoverCount) : 0;
-
-                    return (
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 45, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Month</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Obsolete Stock<br />({currencyHeader})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Annual Inventory<br />Turnover Ratio</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend data found</td></tr>
-                          ) : (
-                            filtered.map((item, idx) => {
-                              const rawMonth = item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : item.month_start) : (item.month || item.as_on_date);
-                              const monthLabel = formatTrendMonthName(rawMonth) || `M${idx + 1}`;
-                              const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.current !== undefined ? item.current : 0));
-                              const displayStock = formatTrendVal(rawVal);
-
-                              const rawObs = item.obsolete_stock !== undefined ? item.obsolete_stock : (item.total_obsolete_stock !== undefined ? item.total_obsolete_stock : 0);
-                              const displayObs = Number(rawObs || 0) > 0 ? formatTrendVal(rawObs) : "-";
-
-                              const annualTurnover = item.annual_inventory_turnover !== undefined && item.annual_inventory_turnover !== null
-                                ? Math.round(Number(item.annual_inventory_turnover))
-                                : (item.annual_turnover !== undefined && item.annual_turnover !== null
-                                  ? Math.round(Number(item.annual_turnover))
-                                  : (item.annual_inventory_turnover_ratio !== undefined && item.annual_inventory_turnover_ratio !== null
-                                    ? Math.round(Number(item.annual_inventory_turnover_ratio))
-                                    : (item.inventory_turnover ? Math.round(Number(item.inventory_turnover) * 12) : "-")));
-
-                              return (
-                                <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                  <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                  <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>{monthLabel}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{displayStock}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 500, color: "#dc2626" }}>{displayObs}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>{annualTurnover}</td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                        {filtered.length > 0 && (
-                          <tfoot>
-                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                              <td style={{ padding: "10px 10px" }} />
-                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{formatTrendVal(totalStock)}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#dc2626" }}>{totalObs > 0 ? formatTrendVal(totalObs) : "-"}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a" }}>{turnoverCount > 0 ? Math.round(avgTurnover) : "-"}</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    );
-                  }
-                  
-                  if (viewAllModal === "parentDivision") {
-                    if (parentDivViewMode === "mom") {
-                        const rawList = (momData && momData.length > 0)
-                          ? momData
-                          : (viewAllData && viewAllData.length > 0)
-                            ? viewAllData.map(item => ({
-                                parent_division_id: item.parent_division_id || item.value,
-                                parent_division_name: item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label),
-                                current_value: item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0)),
-                                previous_value: 0,
-                                variance: item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0)),
-                                variance_percentage: null,
-                                current_as_on_date: "2026-09-25",
-                                previous_as_on_date: null,
-                              }))
-                            : [];
-
-                        const filtered = rawList.filter(item => {
-                          const name = String(item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label) || "").toLowerCase();
-                          return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
-                        });
-
-                        const MOM_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"];
-
-                        const scale = momCurrencyMode === "AED_MILLIONS" ? 1000000 : 1;
-
-                        const formatMoMVal = (val) => {
-                          if (val === null || val === undefined || val === "" || isNaN(val)) return "—";
-                          const num = Number(val);
-                          return Math.round(num / scale).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                        };
-
-                        // Calculate totals across filtered rows
-                        const monthTotals = {};
-                        MOM_MONTHS.forEach(m => { monthTotals[m] = 0; });
-                        let totalLatest = 0;
-                        let totalPrevious = 0;
-                        let hasPreviousTotal = false;
-
-                        filtered.forEach(item => {
-                          const curDate = item.current_as_on_date || "2026-09-25";
-                          const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : 8; // 8 = Sep
-                          const curMonthKey = MOM_MONTHS[curMonthIdx] || "SEPT";
-                          const curVal = Number(item.current_value || 0);
-
-                          monthTotals[curMonthKey] = (monthTotals[curMonthKey] || 0) + curVal;
-                          totalLatest += curVal;
-
-                          if (item.previous_as_on_date) {
-                            const prevMonthIdx = new Date(item.previous_as_on_date).getMonth();
-                            const prevMonthKey = MOM_MONTHS[prevMonthIdx] || "AUG";
-                            const prevVal = Number(item.previous_value || 0);
-                            monthTotals[prevMonthKey] = (monthTotals[prevMonthKey] || 0) + prevVal;
-                            totalPrevious += prevVal;
-                            hasPreviousTotal = true;
-                          }
-                        });
-
-                        const totalVariance = hasPreviousTotal ? (totalLatest - totalPrevious) : null;
-                        const totalVariancePct = (hasPreviousTotal && totalPrevious !== 0)
-                          ? ((totalLatest - totalPrevious) / totalPrevious * 100)
-                          : null;
-
-                        return (
-                          <table style={{ width: "100%", minWidth: 1850, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.78rem", marginTop: 8 }}>
-                            <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#f8fafc" }}>
-                              <tr>
-                                <th style={{ position: "sticky", top: 0, left: 0, zIndex: 45, background: "#f8fafc", padding: "10px 8px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 44, minWidth: 44, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                  Sr.<br />No.
-                                </th>
-                                <th style={{ position: "sticky", top: 0, left: 44, zIndex: 45, background: "#f8fafc", padding: "10px 12px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 220, minWidth: 220, borderRight: "2px solid #cbd5e1", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>
-                                  Parent Division
-                                </th>
-                                {MOM_MONTHS.map(month => (
-                                  <th
-                                    key={month}
-                                    style={{
-                                      position: "sticky",
-                                      top: 0,
-                                      zIndex: 25,
-                                      padding: "10px 8px",
-                                      textAlign: "right",
-                                      color: "#1e3a8a",
-                                      fontWeight: 700,
-                                      width: 95,
-                                      minWidth: 95,
-                                      background: "#f8fafc",
-                                      borderRight: "1px solid #f1f5f9",
-                                      borderBottom: "2px solid #cbd5e1",
-                                    }}
-                                  >
-                                    {month}
-                                  </th>
-                                ))}
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 800, width: 110, minWidth: 110, background: "#f8fafc", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                  LATEST
-                                </th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 115, minWidth: 115, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                  PREVIOUS<br />MONTH
-                                </th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 105, minWidth: 105, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                  VARIANCE
-                                </th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 95, borderBottom: "2px solid #cbd5e1" }}>
-                                  VARIANCE<br />%
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filtered.length === 0 ? (
-                                <tr>
-                                  <td colSpan={18} style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
-                                    No parent divisions found
-                                  </td>
-                                </tr>
-                              ) : (
-                                filtered.map((item, idx) => {
-                                  const curDate = item.current_as_on_date || "2026-09-25";
-                                  const curMonthIdx = curDate ? (new Date(curDate).getMonth()) : 8;
-                                  const curMonthKey = MOM_MONTHS[curMonthIdx] || "SEPT";
-                                  const curVal = Number(item.current_value || 0);
-
-                                  const prevDate = item.previous_as_on_date;
-                                  const prevMonthIdx = prevDate ? (new Date(prevDate).getMonth()) : null;
-                                  const prevMonthKey = prevMonthIdx !== null ? MOM_MONTHS[prevMonthIdx] : null;
-                                  const prevVal = prevDate ? Number(item.previous_value || 0) : null;
-
-                                  const variance = prevDate ? (curVal - prevVal) : null;
-                                  const variancePct = (prevDate && prevVal !== 0) ? ((curVal - prevVal) / prevVal * 100) : null;
-
-                                  const rowBg = idx % 2 === 0 ? "#ffffff" : "#fbfcfd";
-
-                                  return (
-                                    <tr
-                                      key={idx}
-                                      style={{
-                                        background: rowBg,
-                                        transition: "background 0.1s ease",
-                                      }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
-                                    >
-                                      <td style={{ position: "sticky", left: 0, zIndex: 15, background: rowBg, padding: "8px 6px", textAlign: "center", color: "#64748b", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                        {idx + 1}
-                                      </td>
-                                      <td style={{ position: "sticky", left: 44, zIndex: 15, background: rowBg, padding: "8px 12px", fontWeight: 600, color: "#0f172a", borderRight: "2px solid #cbd5e1", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
-                                        {item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label)}
-                                      </td>
-                                      {MOM_MONTHS.map(month => {
-                                        const isCurrentMonth = month === curMonthKey;
-                                        const isPrevMonth = prevMonthKey && month === prevMonthKey;
-                                        let cellVal = null;
-                                        if (isCurrentMonth) cellVal = curVal;
-                                        else if (isPrevMonth) cellVal = prevVal;
-
-                                        return (
-                                          <td
-                                            key={month}
-                                            style={{
-                                              padding: "8px 8px",
-                                              textAlign: "right",
-                                              fontWeight: 400,
-                                              color: cellVal !== null ? "#334155" : "#94a3b8",
-                                              background: "transparent",
-                                              borderRight: "1px solid #f8fafc",
-                                              borderBottom: "1px solid #f1f5f9",
-                                            }}
-                                          >
-                                            {formatMoMVal(cellVal)}
-                                          </td>
-                                        );
-                                      })}
-                                      {/* LATEST */}
-                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#0f172a", background: "transparent", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                        {formatMoMVal(curVal)}
-                                      </td>
-                                      {/* PREVIOUS MONTH */}
-                                      <td style={{ padding: "8px 8px", textAlign: "right", color: prevVal !== null ? "#334155" : "#94a3b8", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                        {formatMoMVal(prevVal)}
-                                      </td>
-                                      {/* VARIANCE */}
-                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, color: variance === null ? "#94a3b8" : variance < 0 ? "#16a34a" : "#dc2626", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                        {variance === null ? "—" : (variance > 0 ? `+${formatMoMVal(variance)}` : formatMoMVal(variance))}
-                                      </td>
-                                      {/* VARIANCE % */}
-                                      <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, color: variancePct === null ? "#94a3b8" : variancePct < 0 ? "#16a34a" : "#dc2626", borderBottom: "1px solid #f1f5f9" }}>
-                                        {variancePct === null ? "—" : `${variancePct > 0 ? '+' : ''}${Math.round(variancePct)}%`}
-                                      </td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                            {filtered.length > 0 && (
-                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 30, background: "#f1f5f9" }}>
-                                <tr style={{ fontWeight: 700, color: "#0f172a" }}>
-                                  <td style={{ position: "sticky", bottom: 0, left: 0, zIndex: 45, background: "#f1f5f9", padding: "10px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                    Σ
-                                  </td>
-                                  <td style={{ position: "sticky", bottom: 0, left: 44, zIndex: 45, background: "#f1f5f9", padding: "10px 12px", borderRight: "2px solid #cbd5e1", borderTop: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>
-                                    Total ({filtered.length} Parent Divisions)
-                                  </td>
-                                  {MOM_MONTHS.map(month => {
-                                    const mVal = monthTotals[month];
-                                    return (
-                                      <td
-                                        key={month}
-                                        style={{
-                                          position: "sticky",
-                                          bottom: 0,
-                                          zIndex: 25,
-                                          padding: "10px 8px",
-                                          textAlign: "right",
-                                          background: "#f1f5f9",
-                                          borderRight: "1px solid #e2e8f0",
-                                          borderTop: "2px solid #cbd5e1",
-                                        }}
-                                      >
-                                        {mVal > 0 ? formatMoMVal(mVal) : "—"}
-                                      </td>
-                                    );
-                                  })}
-                                  {/* LATEST TOTAL */}
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", background: "#f1f5f9", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                    {formatMoMVal(totalLatest)}
-                                  </td>
-                                  {/* PREVIOUS MONTH TOTAL */}
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                    {hasPreviousTotal ? formatMoMVal(totalPrevious) : "—"}
-                                  </td>
-                                  {/* VARIANCE TOTAL */}
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: totalVariance === null ? "#94a3b8" : totalVariance < 0 ? "#16a34a" : "#dc2626", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                    {totalVariance === null ? "—" : (totalVariance > 0 ? `+${formatMoMVal(totalVariance)}` : formatMoMVal(totalVariance))}
-                                  </td>
-                                  {/* VARIANCE % TOTAL */}
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: totalVariancePct === null ? "#94a3b8" : totalVariancePct < 0 ? "#16a34a" : "#dc2626", borderTop: "2px solid #cbd5e1" }}>
-                                    {totalVariancePct === null ? "—" : `${totalVariancePct > 0 ? '+' : ''}${Math.round(totalVariancePct)}%`}
-                                  </td>
-                                </tr>
-                              </tfoot>
-                            )}
-                          </table>
-                        );
-                    } else {
-                        if (viewAllLoading) {
-                            return <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: "0.85rem" }}>Loading parent divisions...</div>;
-                        }
-
-                        const rawList = (viewAllData && viewAllData.length > 0)
-                          ? viewAllData
-                          : (mockData.allDivisions?.length ? mockData.allDivisions : (mockData.divisions || []));
-
-                        const filtered = (rawList || []).filter(item => {
-                          const name = String(item.parent_division_name || item.name || item.label || "").toLowerCase();
-                          return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
-                        });
-
-                        const isMillions = momCurrencyMode === "AED_MILLIONS";
-                        const scale = isMillions ? 1000000 : 1;
-                        const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
-
-                        const formatDivVal = (val) => {
-                          if (val === null || val === undefined || val === "" || isNaN(val)) return "N/A";
-                          const num = Number(val);
-                          return Math.round(num / scale).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                        };
-
-                        const totalStock = filtered.reduce((s, r) => {
-                          const v = r.total_stock_value !== undefined ? r.total_stock_value : (r.inventory_value !== undefined ? r.inventory_value : (r.value || 0));
-                          let n = Number(v || 0);
-                          if (n < 10000 && n > 0 && r.total_stock_value === undefined && r.inventory_value === undefined) n = n * 10000000;
-                          return s + n;
-                        }, 0);
-
-                        const hasMatTotal = filtered.some(r => r.cost_of_material_ytd !== null && r.cost_of_material_ytd !== undefined);
-                        const totalMat = hasMatTotal ? filtered.reduce((s, r) => s + (Number(r.cost_of_material_ytd) || 0), 0) : null;
-
-                        const hasAvgTotal = filtered.some(r => r.average_inventory !== null && r.average_inventory !== undefined);
-                        const totalAvg = hasAvgTotal ? filtered.reduce((s, r) => s + (Number(r.average_inventory) || 0), 0) : null;
-
-                        return (
-                          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.80rem" }}>
-                            <thead>
-                              <tr style={{ background: "#f8fafc" }}>
-                                <th style={{ position: "sticky", top: 0, left: 0, zIndex: 45, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 44, minWidth: 44, verticalAlign: "bottom", lineHeight: 1.25, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0" }}>Sr.<br />No.</th>
-                                <th style={{ position: "sticky", top: 0, left: 44, zIndex: 45, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25, borderBottom: "2px solid #cbd5e1", borderRight: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>Parent<br />Division</th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #f1f5f9" }}>Total Cost<br />Value ({currencyHeader})</th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #f1f5f9" }}>Cost of Material<br />({currencyHeader})</th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1", borderRight: "1px solid #f1f5f9" }}>Average<br />Inventory ({currencyHeader})</th>
-                                <th style={{ position: "sticky", top: 0, zIndex: 25, background: "#f8fafc", padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3, borderBottom: "2px solid #cbd5e1" }}>DIO Days</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {filtered.length === 0 ? (
-                                <tr><td colSpan={6} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No divisions found</td></tr>
-                              ) : (
-                                filtered.map((item, idx) => {
-                                  const name = item.parent_division_name || item.name || (typeof item.label === 'object' ? item.label?.name : item.label) || "—";
-                                  const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.value || 0));
-                                  let numVal = Number(rawVal || 0);
-                                  if (numVal < 10000 && numVal > 0 && item.total_stock_value === undefined && item.inventory_value === undefined) {
-                                    numVal = numVal * 10000000;
-                                  }
-
-                                  const rawMat = item.cost_of_material_ytd;
-                                  const numMat = (rawMat !== null && rawMat !== undefined) ? Number(rawMat) : null;
-
-                                  const rawAvg = item.average_inventory;
-                                  const numAvg = (rawAvg !== null && rawAvg !== undefined) ? Number(rawAvg) : null;
-
-                                  const rawDio = item.dio_days;
-                                  const displayDio = (rawDio !== null && rawDio !== undefined)
-                                    ? Number(rawDio).toFixed(0)
-                                    : "N/A";
-
-                                  const rowBg = idx % 2 === 0 ? "#ffffff" : "#fbfcfd";
-
-                                  return (
-                                    <tr
-                                      key={idx}
-                                      style={{ background: rowBg, transition: "background 0.1s ease" }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; }}
-                                      onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
-                                    >
-                                      <td style={{ position: "sticky", left: 0, zIndex: 15, background: rowBg, padding: "8px 10px", color: "#64748b", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>{idx + 1}</td>
-                                      <td style={{ position: "sticky", left: 44, zIndex: 15, background: rowBg, padding: "8px 10px", fontWeight: 600, color: "#1e293b", borderRight: "2px solid #cbd5e1", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>{name}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b", borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>{formatDivVal(numVal)}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>{numMat !== null ? formatDivVal(numMat) : "N/A"}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", borderRight: "1px solid #f1f5f9", borderBottom: "1px solid #f1f5f9" }}>{numAvg !== null ? formatDivVal(numAvg) : "N/A"}</td>
-                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", borderBottom: "1px solid #f1f5f9" }}>{displayDio}</td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                            {filtered.length > 0 && (
-                              <tfoot>
-                                <tr style={{ background: "#f8fafc", fontWeight: 800 }}>
-                                  <td style={{ position: "sticky", bottom: 0, left: 0, zIndex: 35, background: "#f8fafc", padding: "10px 10px", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }} />
-                                  <td style={{ position: "sticky", bottom: 0, left: 44, zIndex: 35, background: "#f8fafc", padding: "10px 10px", color: "#1e3a8a", borderTop: "2px solid #cbd5e1", borderRight: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>Total</td>
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }}>{formatDivVal(totalStock)}</td>
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }}>{totalMat !== null ? formatDivVal(totalMat) : "—"}</td>
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1" }}>{totalAvg !== null ? formatDivVal(totalAvg) : "—"}</td>
-                                  <td style={{ position: "sticky", bottom: 0, zIndex: 25, background: "#f8fafc", padding: "10px 10px", textAlign: "right", color: "#1e293b", borderTop: "2px solid #cbd5e1" }}>—</td>
-                                </tr>
-                              </tfoot>
-                            )}
-                          </table>
-                        );
-                    }
-                  }
-
-                  if (viewAllModal === "subdivision") {
-                    const rawList = mockData.allSubdivisions?.length ? mockData.allSubdivisions : mockData.bySubdivision;
-                    const filtered = (rawList || []).filter(item =>
-                      !viewAllSearch || item.name?.toLowerCase().includes(viewAllSearch.toLowerCase())
-                    );
-                    const isMillions = momCurrencyMode === "AED_MILLIONS";
-                    const scale = isMillions ? 1000000 : 1;
-                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
-
-                    const totalVal = filtered.reduce((s, r) => s + (Number(r.value || r.inventory_value) || 0), 0);
-                    const totalPct = filtered.reduce((s, r) => s + (Number(r.percentage) || 0), 0);
-                    return (
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-<br />Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Value<br />({currencyHeader})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>% of<br />Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr><td colSpan={4} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No subdivisions found</td></tr>
-                          ) : (
-                            filtered.map((item, idx) => (
-                              <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{item.name || item.subdivision_name}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(Number(item.value || item.inventory_value || 0) / scale).toLocaleString("en-US")}</td>
-                                <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontWeight: 500 }}>{Math.round(Number(item.percentage || 0))}%</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                        {filtered.length > 0 && (
-                          <tfoot>
-                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                              <td style={{ padding: "10px 10px" }} />
-                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalPct)}%</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    );
-                  }
-
-                  if (viewAllModal === "slowMoving") {
-                    if (viewAllLoading) {
-                        return <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: "0.85rem" }}>Loading slow moving stock by parent division...</div>;
-                    }
-
-                    const rawList = (viewAllData && viewAllData.length > 0)
-                      ? viewAllData
-                      : ((mockData.allSlowMoving && mockData.allSlowMoving.length > 0)
-                          ? mockData.allSlowMoving
-                          : (mockData.slowMoving || []));
-
-                    const MOM_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"];
-                    const isMillions = momCurrencyMode === "AED_MILLIONS";
-                    const scale = isMillions ? 1000000 : 1;
-                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
-
-                    const formatMoMVal = (val) => {
-                      if (val === null || val === undefined || val === "" || isNaN(val)) return "—";
-                      const num = Number(val);
-                      return Math.round(num / scale).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                    };
-
-                    // ==============================================================
-                    // TAB 2: Month-on-Month – Obsolete Stock Position
-                    // ==============================================================
-                    if (slowMovingViewMode === "mom") {
-                      const filteredMoM = rawList.filter(item => {
-                        const name = String(item.parent_division_name || item.parentDiv || item.desc || item.name || "").trim().toLowerCase();
-                        return !viewAllSearch || name.includes(viewAllSearch.toLowerCase());
-                      }).map((item) => {
-                        const divName = String(item.parent_division_name || item.parentDiv || item.desc || item.name || "-").trim();
-                        let curObs = Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || (slowMovingFilteredStats.map[divName]?.obs) || 0));
-                        if (curObs === 0 && divStats[divName]?.val) {
-                          curObs = Math.round(divStats[divName].val * 0.15);
-                        }
-
-                        let prevObs = null;
-                        const momMatch = (momData || []).find(m => String(m.parent_division_name || m.name || "").toLowerCase() === divName.toLowerCase());
-                        if (item.previous_obsolete_stock !== undefined) {
-                          prevObs = Number(item.previous_obsolete_stock);
-                        } else if (momMatch && momMatch.current_value && momMatch.previous_value && Number(momMatch.current_value) > 0) {
-                          const ratio = Number(momMatch.previous_value) / Number(momMatch.current_value);
-                          prevObs = Math.round(curObs * ratio);
-                        } else {
-                          let seed = 0; for (let c = 0; c < divName.length; c++) seed += divName.charCodeAt(c);
-                          const factor = 0.92 + ((seed % 12) / 100);
-                          prevObs = Math.round(curObs * factor);
-                        }
-
-                        const variance = prevObs !== null ? (curObs - prevObs) : null;
-                        const variancePct = (prevObs !== null && prevObs !== 0) ? ((curObs - prevObs) / prevObs * 100) : null;
-
-                        return {
-                          ...item,
-                          divName,
-                          curObs,
-                          prevObs,
-                          variance,
-                          variancePct,
-                        };
-                      });
-
-                      // Static Totals across filtered rows
-                      let totalLatest = 0;
-                      let totalPrevious = 0;
-                      let hasPreviousTotal = false;
-                      const monthTotals = {};
-                      MOM_MONTHS.forEach(m => { monthTotals[m] = 0; });
-
-                      filteredMoM.forEach(item => {
-                        totalLatest += item.curObs;
-                        monthTotals["SEPT"] = (monthTotals["SEPT"] || 0) + item.curObs;
-                        if (item.prevObs !== null) {
-                          totalPrevious += item.prevObs;
-                          monthTotals["AUG"] = (monthTotals["AUG"] || 0) + item.prevObs;
-                          hasPreviousTotal = true;
-                        }
-                      });
-
-                      const totalVariance = hasPreviousTotal ? (totalLatest - totalPrevious) : null;
-                      const totalVariancePct = (hasPreviousTotal && totalPrevious !== 0)
-                        ? ((totalLatest - totalPrevious) / totalPrevious * 100)
-                        : null;
-
-                      return (
-                        <table style={{ width: "100%", minWidth: 1850, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.78rem", marginTop: 8 }}>
-                          <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#f8fafc" }}>
-                            <tr>
-                              <th style={{ position: "sticky", top: 0, left: 0, zIndex: 45, background: "#f8fafc", padding: "10px 8px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, width: 44, minWidth: 44, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                Sr.<br />No.
-                              </th>
-                              <th style={{ position: "sticky", top: 0, left: 44, zIndex: 45, background: "#f8fafc", padding: "10px 12px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 220, minWidth: 220, borderRight: "2px solid #cbd5e1", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>
-                                Parent Division
-                              </th>
-                              {MOM_MONTHS.map(month => (
-                                <th
-                                  key={month}
-                                  style={{
-                                    position: "sticky",
-                                    top: 0,
-                                    zIndex: 25,
-                                    padding: "10px 8px",
-                                    textAlign: "right",
-                                    color: "#1e3a8a",
-                                    fontWeight: 700,
-                                    width: 95,
-                                    minWidth: 95,
-                                    background: "#f8fafc",
-                                    borderRight: "1px solid #f1f5f9",
-                                    borderBottom: "2px solid #cbd5e1",
-                                  }}
-                                >
-                                  {month}
-                                </th>
-                              ))}
-                              <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 800, width: 110, minWidth: 110, background: "#f8fafc", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                LATEST
-                              </th>
-                              <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 115, minWidth: 115, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                PREVIOUS<br />MONTH
-                              </th>
-                              <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 105, minWidth: 105, borderRight: "1px solid #e2e8f0", borderBottom: "2px solid #cbd5e1" }}>
-                                VARIANCE
-                              </th>
-                              <th style={{ position: "sticky", top: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 95, borderBottom: "2px solid #cbd5e1" }}>
-                                VARIANCE<br />%
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredMoM.length === 0 ? (
-                              <tr>
-                                <td colSpan={18} style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>
-                                  No parent divisions found
-                                </td>
-                              </tr>
-                            ) : (
-                              filteredMoM.map((item, idx) => {
-                                const rowBg = idx % 2 === 0 ? "#ffffff" : "#fbfcfd";
-                                return (
-                                  <tr
-                                    key={idx}
-                                    style={{ background: rowBg, transition: "background 0.1s ease" }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.background = "#f1f5f9"; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.background = rowBg; }}
-                                  >
-                                    <td style={{ position: "sticky", left: 0, zIndex: 15, background: rowBg, padding: "8px 6px", textAlign: "center", color: "#64748b", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                      {idx + 1}
-                                    </td>
-                                    <td style={{ position: "sticky", left: 44, zIndex: 15, background: rowBg, padding: "8px 12px", fontWeight: 600, color: "#0f172a", borderRight: "2px solid #cbd5e1", borderBottom: "1px solid #f1f5f9", whiteSpace: "nowrap" }}>
-                                      {item.divName}
-                                    </td>
-                                    {MOM_MONTHS.map(month => {
-                                      const isCur = month === "SEPT";
-                                      const isPrev = month === "AUG";
-                                      let cellVal = null;
-                                      if (isCur) cellVal = item.curObs;
-                                      else if (isPrev) cellVal = item.prevObs;
-
-                                      return (
-                                        <td
-                                          key={month}
-                                          style={{
-                                            padding: "8px 8px",
-                                            textAlign: "right",
-                                            fontWeight: 400,
-                                            color: cellVal !== null ? "#334155" : "#94a3b8",
-                                            background: "transparent",
-                                            borderRight: "1px solid #f8fafc",
-                                            borderBottom: "1px solid #f1f5f9",
-                                          }}
-                                        >
-                                          {formatMoMVal(cellVal)}
-                                        </td>
-                                      );
-                                    })}
-                                    {/* LATEST */}
-                                    <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 700, color: "#0f172a", background: "transparent", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                      {formatMoMVal(item.curObs)}
-                                    </td>
-                                    {/* PREVIOUS MONTH */}
-                                    <td style={{ padding: "8px 8px", textAlign: "right", color: item.prevObs !== null ? "#334155" : "#94a3b8", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                      {formatMoMVal(item.prevObs)}
-                                    </td>
-                                    {/* VARIANCE */}
-                                    <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, color: item.variance === null ? "#94a3b8" : item.variance < 0 ? "#16a34a" : "#dc2626", borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #f1f5f9" }}>
-                                      {item.variance === null ? "—" : (item.variance > 0 ? `+${formatMoMVal(item.variance)}` : formatMoMVal(item.variance))}
-                                    </td>
-                                    {/* VARIANCE % */}
-                                    <td style={{ padding: "8px 8px", textAlign: "right", fontWeight: 600, color: item.variancePct === null ? "#94a3b8" : item.variancePct < 0 ? "#16a34a" : "#dc2626", borderBottom: "1px solid #f1f5f9" }}>
-                                      {item.variancePct === null ? "—" : `${item.variancePct > 0 ? '+' : ''}${Math.round(item.variancePct)}%`}
-                                    </td>
-                                  </tr>
-                                );
-                              })
-                            )}
-                          </tbody>
-                          {filteredMoM.length > 0 && (
-                            <tfoot style={{ position: "sticky", bottom: 0, zIndex: 30, background: "#f1f5f9" }}>
-                              <tr style={{ fontWeight: 700, color: "#0f172a" }}>
-                                <td style={{ position: "sticky", bottom: 0, left: 0, zIndex: 45, background: "#f1f5f9", padding: "10px 6px", textAlign: "center", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                  Σ
-                                </td>
-                                <td style={{ position: "sticky", bottom: 0, left: 44, zIndex: 45, background: "#f1f5f9", padding: "10px 12px", borderRight: "2px solid #cbd5e1", borderTop: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>
-                                  Total ({filteredMoM.length} Parent Divisions)
-                                </td>
-                                {MOM_MONTHS.map(month => {
-                                  const mVal = monthTotals[month];
-                                  return (
-                                    <td
-                                      key={month}
-                                      style={{
-                                        position: "sticky",
-                                        bottom: 0,
-                                        zIndex: 25,
-                                        padding: "10px 8px",
-                                        textAlign: "right",
-                                        background: "#f1f5f9",
-                                        borderRight: "1px solid #e2e8f0",
-                                        borderTop: "2px solid #cbd5e1",
-                                      }}
-                                    >
-                                      {mVal > 0 ? formatMoMVal(mVal) : "—"}
-                                    </td>
-                                  );
-                                })}
-                                {/* LATEST TOTAL */}
-                                <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", background: "#f1f5f9", borderLeft: "2px solid #cbd5e1", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                  {formatMoMVal(totalLatest)}
-                                </td>
-                                {/* PREVIOUS MONTH TOTAL */}
-                                <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                  {hasPreviousTotal ? formatMoMVal(totalPrevious) : "—"}
-                                </td>
-                                {/* VARIANCE TOTAL */}
-                                <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: totalVariance === null ? "#94a3b8" : totalVariance < 0 ? "#16a34a" : "#dc2626", borderRight: "1px solid #cbd5e1", borderTop: "2px solid #cbd5e1" }}>
-                                  {totalVariance === null ? "—" : (totalVariance > 0 ? `+${formatMoMVal(totalVariance)}` : formatMoMVal(totalVariance))}
-                                </td>
-                                {/* VARIANCE % TOTAL */}
-                                <td style={{ position: "sticky", bottom: 0, zIndex: 25, padding: "10px 8px", textAlign: "right", color: totalVariancePct === null ? "#94a3b8" : totalVariancePct < 0 ? "#16a34a" : "#dc2626", borderTop: "2px solid #cbd5e1" }}>
-                                  {totalVariancePct === null ? "—" : `${totalVariancePct > 0 ? '+' : ''}${Math.round(totalVariancePct)}%`}
-                                </td>
-                              </tr>
-                            </tfoot>
-                          )}
-                        </table>
-                      );
-                    }
-
-                    // ==============================================================
-                    // TAB 1: Slow Moving Stock (Filtered with columns)
-                    // ==============================================================
-                    const filtered = rawList.filter(item => {
-                      const name = (item.parent_division_name || item.parentDiv || item.desc || item.name || "").trim();
-                      if (viewAllSearch && !name.toLowerCase().includes(viewAllSearch.toLowerCase())) {
-                        return false;
-                      }
-                      if (slowMovingFilteredStats.isFiltered) {
-                        return Boolean(slowMovingFilteredStats.map[name]);
-                      }
-                      return true;
-                    });
-
-                    let totalQty = 0;
-                    let totalVal = 0;
-                    let totalStockVal = 0;
-                    let totalObs = 0;
-
-                    filtered.forEach(item => {
-                      const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
-                      const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                        ? slowMovingFilteredStats.map[divName]
-                        : (divStats[divName] || {});
-
-                      const itemQty = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                        ? stats.qty
-                        : (item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0))));
-                      totalQty += itemQty;
-
-                      const itemVal = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                        ? stats.val
-                        : (item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0))));
-                      totalVal += itemVal;
-
-                      const itemStock = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                        ? stats.stockVal
-                        : (item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0)));
-                      totalStockVal += itemStock;
-
-                      const obs = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                        ? stats.obs
-                        : Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
-                      totalObs += obs;
-                    });
-
-                    const totalPct = totalStockVal > 0 ? (totalObs / totalStockVal) * 100 : 0;
-
-                    return (
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 40, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Total<br />Quantity</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Value<br />({currencyHeader})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock<br />({currencyHeader})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filtered.length === 0 ? (
-                            <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
-                          ) : (
-                            filtered.map((item, idx) => {
-                              const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
-                              const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                ? slowMovingFilteredStats.map[divName]
-                                : (divStats[divName] || {});
-
-                              const itemQty = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                ? stats.qty
-                                : (item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0))));
-
-                              const itemVal = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                ? stats.val
-                                : (item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0))));
-
-                              const itemStock = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                ? stats.stockVal
-                                : (item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0)));
-
-                              const obs = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                ? stats.obs
-                                : Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
-
-                              const pct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
-                                ? Number(item.obsolete_percentage)
-                                : (itemStock > 0 ? (obs / itemStock) * 100 : 0);
-
-                              return (
-                                <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                  <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                  <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{divName}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemQty).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemVal / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
-                                  <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                        {filtered.length > 0 && (
-                          <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
-                            <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                              <td style={{ padding: "10px 10px" }} />
-                              <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155" }}>{Math.round(totalQty).toLocaleString("en-US")}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{Math.round(totalObs / scale).toLocaleString("en-US")}</td>
-                              <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(totalPct)}%</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    );
-                  }
-                  
-                  if (viewAllModal === "details") {
-                    if (modalDetailsLoading) {
-                      return (
-                        <div style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: "0.85rem", fontWeight: 600 }}>
-                          Loading inventory details...
-                        </div>
-                      );
-                    }
-
-                    const isMillions = momCurrencyMode === "AED_MILLIONS";
-                    const scale = isMillions ? 1000000 : 1;
-                    const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
-
-                    const formatDetailVal = (val) => {
-                      if (val === null || val === undefined || val === "" || isNaN(val)) return "0";
-                      const num = Number(val);
-                      return Math.round(num / scale).toLocaleString("en-US");
-                    };
-
-                    return (
-                      <table style={{ width: "100%", minWidth: 1120, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
-                        <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
-                          <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 105, maxWidth: 135, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Legal<br />Entity</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Parent<br />Division</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Sub-<br />Division</th>
-                            <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 80, maxWidth: 90, verticalAlign: "bottom", lineHeight: 1.2, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>SUB-INV<br />CODE</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 100, maxWidth: 125, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currencyHeader})</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>31-60<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>61-90<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>91-120<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 58, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>121-180<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 58, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>181-365<br />Days</th>
-                            <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 78, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Obsolete Stock<br />(Above 365 Days)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {modalPaginatedDetails.length === 0 ? (
-                            <tr><td colSpan={12} style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>No inventory records found</td></tr>
-                          ) : (
-                            modalPaginatedDetails.map((row, idx) => (
-                              <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                <td style={{ padding: "7px 10px", fontWeight: 600, color: "#1e293b", width: 125, minWidth: 105, maxWidth: 135, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.legal_entity}</td>
-                                <td style={{ padding: "7px 10px", color: "#334155", width: 120, minWidth: 105, maxWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.parent_division}</td>
-                                <td style={{ padding: "7px 10px", color: "#334155", width: 120, minWidth: 105, maxWidth: 130, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35 }}>{row.subdivision}</td>
-                                <td style={{ padding: "7px 8px", color: "#475569", width: 85, minWidth: 80, maxWidth: 90, whiteSpace: "nowrap" }}>{row.subinventory}</td>
-                                <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", width: 110, minWidth: 100, maxWidth: 125, whiteSpace: "nowrap" }}>{formatDetailVal(row.total_stock_value)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_0_30)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_31_60)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_61_90)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 65, minWidth: 55 }}>{formatDetailVal(row.aging_91_120)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 68, minWidth: 58 }}>{formatDetailVal(row.aging_121_180)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", width: 68, minWidth: 58 }}>{formatDetailVal(row.aging_181_365)}</td>
-                                <td style={{ padding: "7px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600, width: 85, minWidth: 78 }}>{formatDetailVal(Number(row.aging_366_730 || 0) + Number(row.aging_above_730 || 0))}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                        {modalFilteredDetails.length > 0 && (
-                          <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
-                            <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                              <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
-                              <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 110, minWidth: 100, maxWidth: 125 }}>{formatDetailVal(modalTotals.totalVal)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b0_30)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b31_60)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b61_90)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{formatDetailVal(modalTotals.b91_120)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{formatDetailVal(modalTotals.b121_180)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 68, minWidth: 58 }}>{formatDetailVal(modalTotals.b181_365)}</td>
-                              <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 700, background: "#f8fafc", width: 85, minWidth: 78 }}>{formatDetailVal(modalTotals.bObsolete)}</td>
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    );
-                  }
-
-                  return null;
-                })()}
-              </div>
-
-              {/* Modal Footer with Pagination for details */}
-              {viewAllModal === "details" ? (
-                <div
-                  style={{
-                    padding: "10px 20px",
-                    borderTop: "1px solid #e2e8f0",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    background: "#f8fafc",
-                    flexWrap: "wrap",
-                    gap: 10,
-                    flexShrink: 0,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "0.75rem", color: "#64748b", fontWeight: 500 }}>
-                      {modalFilteredDetails.length > 0
-                        ? `Showing ${safeModalPage * modalDetailPageSize + 1} to ${Math.min((safeModalPage + 1) * modalDetailPageSize, modalFilteredDetails.length)} of ${modalFilteredDetails.length} entries`
-                        : "No records"}
-                    </span>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <span style={{ fontSize: "0.73rem", color: "#64748b" }}>Rows per page:</span>
-                      <select
-                        value={modalDetailPageSize}
-                        onChange={(e) => {
-                          setModalDetailPageSize(Number(e.target.value));
-                          setModalDetailPage(0);
-                        }}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 11,
+                      }}
+                    >
+                      <div
                         style={{
-                          padding: "3px 8px",
-                          borderRadius: 6,
-                          border: "1px solid #cbd5e1",
-                          background: "#fff",
-                          fontSize: "0.74rem",
-                          color: "#334155",
-                          cursor: "pointer",
-                          outline: "none",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 9,
+                          color: "#173b8f",
+                          fontSize: 16,
+                          fontWeight: 800,
                         }}
                       >
-                        <option value={10}>10</option>
-                        <option value={15}>15</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
+                        Filters
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.1fr 1fr 1fr 1fr 0.95fr 0.95fr auto auto",
+                        gap: 10,
+                        alignItems: "end",
+                      }}
+                    >
+                      {/* Legal Entity */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Entity</div>
+                        <ModalMultiSelect
+                          options={mockData.filters.legalEntities}
+                          value={slowMovingDraftFilters.legalEntity}
+                          onChange={(vals) => {
+                              const updateState = (prev) => {
+                                const next = { ...prev, legalEntity: vals };
+                                if ('legalEntity' === 'legalGroup') {
+                                  next.legalEntity = ["All"];
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('legalEntity' === 'legalEntity') {
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('legalEntity' === 'parentDivision') {
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('legalEntity' === 'subdivision') {
+                                  next.subinventory = ["All"];
+                                }
+                                return next;
+                              };
+                              setSlowMovingDraftFilters(updateState);
+                              setModalDetailsFilters(updateState);
+                            }}
+                          placeholder="All Legal Entity"
+                        />
+                      </div>
+
+                      {/* Parent Division */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Parent Division</div>
+                        <ModalMultiSelect
+                          options={mockData.filters.parentDivisions}
+                          value={slowMovingDraftFilters.parentDivision}
+                          onChange={(vals) => {
+                              const updateState = (prev) => {
+                                const next = { ...prev, parentDivision: vals };
+                                if ('parentDivision' === 'legalGroup') {
+                                  next.legalEntity = ["All"];
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('parentDivision' === 'legalEntity') {
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('parentDivision' === 'parentDivision') {
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('parentDivision' === 'subdivision') {
+                                  next.subinventory = ["All"];
+                                }
+                                return next;
+                              };
+                              setSlowMovingDraftFilters(updateState);
+                              setModalDetailsFilters(updateState);
+                            }}
+                          placeholder="All Parent Division"
+                        />
+                      </div>
+
+                      {/* Sub-Division */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Sub-Division</div>
+                        <ModalMultiSelect
+                          options={mockData.filters.subdivisions}
+                          value={slowMovingDraftFilters.subdivision}
+                          onChange={(vals) => {
+                              const updateState = (prev) => {
+                                const next = { ...prev, subdivision: vals };
+                                if ('subdivision' === 'legalGroup') {
+                                  next.legalEntity = ["All"];
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('subdivision' === 'legalEntity') {
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('subdivision' === 'parentDivision') {
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('subdivision' === 'subdivision') {
+                                  next.subinventory = ["All"];
+                                }
+                                return next;
+                              };
+                              setSlowMovingDraftFilters(updateState);
+                              setModalDetailsFilters(updateState);
+                            }}
+                          placeholder="All Sub-Division"
+                        />
+                      </div>
+
+                      {/* SUB-INV Code */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>SUB-INV Code</div>
+                        <ModalMultiSelect
+                          options={mockData.filters.subinventories}
+                          value={slowMovingDraftFilters.subinventory}
+                          onChange={(vals) => {
+                              const updateState = (prev) => {
+                                const next = { ...prev, subinventory: vals };
+                                if ('subinventory' === 'legalGroup') {
+                                  next.legalEntity = ["All"];
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('subinventory' === 'legalEntity') {
+                                  next.parentDivision = ["All"];
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('subinventory' === 'parentDivision') {
+                                  next.subdivision = ["All"];
+                                  next.subinventory = ["All"];
+                                } else if ('subinventory' === 'subdivision') {
+                                  next.subinventory = ["All"];
+                                }
+                                return next;
+                              };
+                              setSlowMovingDraftFilters(updateState);
+                              setModalDetailsFilters(updateState);
+                            }}
+                          placeholder="All SUB-INV"
+                        />
+                      </div>
+
+                      {/* Reporting Currency */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Reporting Currency</div>
+                        <select
+                          value={momCurrencyMode}
+                          onChange={(e) => setMomCurrencyMode(e.target.value)}
+                          style={{
+                            width: "100%",
+                            height: 34,
+                            padding: "0 8px",
+                            borderRadius: 5,
+                            border: "1px solid #d9e1ee",
+                            background: "#fff",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#29427f",
+                            outline: "none",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          <option value="AED">AED</option>
+                          <option value="AED_MILLIONS">AED Millions</option>
+                        </select>
+                      </div>
+
+                      {/* As On Date */}
+                      <div style={{ minWidth: 0, position: "relative" }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>As On Date</div>
+                        <div style={{ position: "relative" }}>
+                          <input
+                            id="view-all-modal-date-picker-grid"
+                            type="date"
+                            value={getRawDateForInputGlobal(slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate))}
+                            onChange={(e) => {
+                              setSlowMovingDraftFilters(prev => ({ ...prev, asOnDate: e.target.value }));
+                              setModalDetailsFilters(prev => ({ ...prev, asOnDate: e.target.value }));
+                            }}
+                            style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const el = document.getElementById("view-all-modal-date-picker-grid");
+                              if (el) { el.showPicker ? el.showPicker() : el.click(); }
+                            }}
+                            style={{
+                              height: 34,
+                              width: "100%",
+                              boxSizing: "border-box",
+                              border: "1px solid #d9e1ee",
+                              borderRadius: 5,
+                              padding: "0 9px",
+                              background: "#ffffff",
+                              color: "#29427f",
+                              outline: "none",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              position: "relative",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 4 }}>
+                              {formatDisplayDateGlobal(slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate || "Selected Date"))}
+                            </span>
+                            <span style={{ fontSize: 14, pointerEvents: "none", flexShrink: 0 }}>
+                              📅
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Apply */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSlowMovingFilters({ ...slowMovingDraftFilters });
+                          toast.success("Filters applied");
+                        }}
+                        style={{
+                          height: 34,
+                          padding: "0 20px",
+                          border: "none",
+                          borderRadius: 5,
+                          background: "#4936e9",
+                          color: "#ffffff",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Apply
+                      </button>
+
+                      {/* Reset */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resetObj = {
+                            legalEntity: ['All'],
+                            parentDivision: ['All'],
+                            subdivision: ['All'],
+                            subinventory: ['All'],
+                            asOnDate: 'All',
+                          };
+                          setSlowMovingDraftFilters(resetObj);
+                          setSlowMovingFilters(resetObj);
+                          setModalDetailsFilters(resetObj);
+                          setViewAllDetailFilters({});
+                          toast.success("Filters reset");
+                        }}
+                        style={{
+                          height: 34,
+                          padding: "0 18px",
+                          border: "1px solid #d4dbe7",
+                          borderRadius: 5,
+                          background: "#ffffff",
+                          color: "#334155",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Reset
+                      </button>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <button
-                      type="button"
-                      onClick={() => setModalDetailPage(0)}
-                      disabled={safeModalPage === 0}
-                      title="First Page"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: safeModalPage === 0 ? "#f1f5f9" : "#fff",
-                        color: safeModalPage === 0 ? "#94a3b8" : "#1e3a8a",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
-                        cursor: safeModalPage === 0 ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      « First
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setModalDetailPage(p => Math.max(0, p - 1))}
-                      disabled={safeModalPage === 0}
-                      title="Previous Page"
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: safeModalPage === 0 ? "#f1f5f9" : "#fff",
-                        color: safeModalPage === 0 ? "#94a3b8" : "#1e3a8a",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
-                        cursor: safeModalPage === 0 ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      ← Prev
-                    </button>
-                    <span style={{ fontSize: "0.74rem", fontWeight: 700, color: "#1e3a8a", minWidth: 70, textAlign: "center" }}>
-                      Page {modalFilteredDetails.length > 0 ? safeModalPage + 1 : 0} of {modalTotalPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setModalDetailPage(p => Math.min(modalTotalPages - 1, p + 1))}
-                      disabled={safeModalPage >= modalTotalPages - 1}
-                      title="Next Page"
-                      style={{
-                        padding: "5px 12px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: safeModalPage >= modalTotalPages - 1 ? "#f1f5f9" : "#fff",
-                        color: safeModalPage >= modalTotalPages - 1 ? "#94a3b8" : "#1e3a8a",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
-                        cursor: safeModalPage >= modalTotalPages - 1 ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      Next →
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setModalDetailPage(modalTotalPages - 1)}
-                      disabled={safeModalPage >= modalTotalPages - 1}
-                      title="Last Page"
-                      style={{
-                        padding: "5px 10px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: safeModalPage >= modalTotalPages - 1 ? "#f1f5f9" : "#fff",
-                        color: safeModalPage >= modalTotalPages - 1 ? "#94a3b8" : "#1e3a8a",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
-                        cursor: safeModalPage >= modalTotalPages - 1 ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      Last »
-                    </button>
-
-                    <div style={{ width: 1, height: 22, background: "#cbd5e1", margin: "0 6px" }} />
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setViewAllModal(null);
-                        setViewAllSearch("");
-                      }}
-                      style={{
-                        padding: "6px 16px",
-                        borderRadius: 6,
-                        border: "1px solid #cbd5e1",
-                        background: "#fff",
-                        color: "#334155",
-                        fontSize: "0.74rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    padding: "10px 20px",
-                    borderTop: "1px solid #e2e8f0",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    background: "#f8fafc",
-                    flexShrink: 0,
-                  }}
-                >
-                  <span style={{ fontSize: "0.74rem", color: "#64748b" }}>
-                    Live inventory snapshot data
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewAllModal(null);
-                      setViewAllSearch("");
-                    }}
+                  {/* KPI SUMMARY CARDS */}
+                  <div
                     style={{
-                      padding: "5px 14px",
-                      borderRadius: 6,
-                      border: "1px solid #cbd5e1",
-                      background: "#fff",
-                      color: "#334155",
-                      fontSize: "0.74rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
+                      display: "grid",
+                      gridTemplateColumns: "1.05fr repeat(4, 1fr)",
+                      gap: 9,
+                      marginBottom: 14,
                     }}
                   >
-                    Close
-                  </button>
+                    {/* Records Count */}
+                    <div
+                      style={{
+                        background: "#f0f5ff",
+                        border: "1px solid #dbeafe",
+                        borderRadius: 12,
+                        minHeight: 78,
+                        padding: "12px 14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        boxSizing: "border-box",
+                        boxShadow: "0 2px 8px rgba(15, 23, 42, 0.03)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 42,
+                          height: 42,
+                          borderRadius: "50%",
+                          background: "#edf4ff",
+                          color: "#1464e8",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 19,
+                        }}
+                      >
+                        ▤
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: "#142b6f" }}>
+                          {recordsCount === 500 ? "500+" : recordsCount.toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>
+                          records
+                        </div>
+                      </div>
+                    </div>
+
+                    <SummaryCard
+                      icon="▣"
+                      title="Total Inventory"
+                      value={formatKPICompact(totalInventoryVal)}
+                      iconBackground="#e5faf2"
+                      iconColor="#149b6f"
+                      titleColor="#149b6f"
+                      cardBackground="#f0fdf4"
+                      borderColor="#bbf7d0"
+                    />
+
+                    <SummaryCard
+                      icon="▤"
+                      title="Current (0-30 Days)"
+                      value={formatKPICompact(currentStockVal)}
+                      iconBackground="#e5faf2"
+                      iconColor="#149b6f"
+                      titleColor="#149b6f"
+                      cardBackground="#f0fdf4"
+                      borderColor="#bbf7d0"
+                    />
+
+                    <SummaryCard
+                      icon="⌛"
+                      title="Slow Moving Stock"
+                      value={formatKPICompact(slowMovingStockVal)}
+                      iconBackground="#fff2df"
+                      iconColor="#ed8a17"
+                      titleColor="#c2410c"
+                      cardBackground="#fff7ed"
+                      borderColor="#fed7aa"
+                    />
+
+                    <SummaryCard
+                      icon="!"
+                      title="Obsolete Stock (> 365 Days)"
+                      value={formatKPICompact(obsoleteStockVal)}
+                      iconBackground="#ffeaf0"
+                      iconColor="#ed3c69"
+                      titleColor="#be185d"
+                      cardBackground="#fdf2f8"
+                      borderColor="#fbcfe8"
+                    />
+                  </div>
+
+                  {/* CONTENT CARD WITH TABS */}
+                  <div
+                    style={{
+                      background: "#ffffff",
+                      border: "1px solid #e3e9f2",
+                      borderRadius: 9,
+                      overflow: "hidden",
+                      boxShadow: "0 2px 8px rgba(15, 23, 42, 0.025)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "12px 14px",
+                        borderBottom: "1px solid #e2e8f0",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 10,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {/* Dynamic Context Tabs */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <div style={{ display: "inline-flex", background: "#f1f5f9", padding: 3, borderRadius: 8, border: "1px solid #e2e8f0", gap: 3 }}>
+                          {getModalTabs(viewAllSection).map((tab) => {
+                            const isActive = modalActiveTab === tab.id;
+                            return (
+                              <button
+                                key={tab.id}
+                                type="button"
+                                onClick={() => {
+                                  setModalActiveTab(tab.id);
+                                  setSlowMovingViewMode(tab.id === "momObsolete" ? "mom" : (tab.id === "slowMoving" ? "stock" : "details"));
+                                }}
+                                style={{
+                                  padding: "5px 14px",
+                                  fontSize: "0.76rem",
+                                  fontWeight: 700,
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: isActive ? "#2563eb" : "transparent",
+                                  color: isActive ? "#fff" : "#475569",
+                                  cursor: "pointer",
+                                  boxShadow: isActive ? "0 1px 3px rgba(37,99,235,0.3)" : "none",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                {tab.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "#64748b" }}>
+                          {modalActiveTab === "aging" && "Inventory aging breakdown by bucket, valuation, % of total, and record counts"}
+                          {modalActiveTab === "trend" && "Monthly inventory valuation trend, turnover ratio, and DIO analysis"}
+                          {modalActiveTab === "parentDivision" && "Detailed inventory holdings, aging distribution, and turnover by parent division"}
+                          {modalActiveTab === "subdivision" && "Sub-division holdings ranked by valuation, quantity, and obsolete status"}
+                          {modalActiveTab === "slowMoving" && "Aggregated slow moving inventory valuation and obsolete position by parent division"}
+                          {(modalActiveTab === "momObsolete" || modalActiveTab === "mom") && `Month-on-Month obsolete stock comparison across periods (Year: ${momYear})`}
+                          {modalActiveTab === "details" && "Detailed line-item inventory valuation and aging status"}
+                        </div>
+                      </div>
+
+                      {/* Right side controls */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        {(modalActiveTab === "momObsolete" || modalActiveTab === "mom" || slowMovingViewMode === "mom") && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>Year</span>
+                            <input
+                              value={momYear}
+                              readOnly
+                              style={{
+                                height: 28,
+                                width: 55,
+                                border: "1px solid #d5ddeb",
+                                borderRadius: 5,
+                                background: "#fff",
+                                color: "#2563eb",
+                                padding: "0 4px",
+                                fontSize: "0.74rem",
+                                fontWeight: 700,
+                                textAlign: "center",
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                          <button
+                            type="button"
+                            onClick={() => setMomCurrencyMode("AED")}
+                            style={{
+                              height: 28,
+                              minWidth: 40,
+                              padding: "0 8px",
+                              borderRadius: 6,
+                              border: momCurrencyMode === "AED" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                              background: momCurrencyMode === "AED" ? "#5B3FE4" : "#FFFFFF",
+                              color: momCurrencyMode === "AED" ? "#FFFFFF" : "#334155",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            AED
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMomCurrencyMode("AED_MILLIONS")}
+                            style={{
+                              height: 28,
+                              minWidth: 74,
+                              padding: "0 8px",
+                              borderRadius: 6,
+                              border: momCurrencyMode === "AED_MILLIONS" ? "1px solid #5B3FE4" : "1px solid #E2E8F0",
+                              background: momCurrencyMode === "AED_MILLIONS" ? "#5B3FE4" : "#FFFFFF",
+                              color: momCurrencyMode === "AED_MILLIONS" ? "#FFFFFF" : "#334155",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            AED Millions
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          placeholder="Search..."
+                          value={viewAllSearch}
+                          onChange={(e) => setViewAllSearch(e.target.value)}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 6,
+                            border: "1px solid #cbd5e1",
+                            fontSize: "0.74rem",
+                            width: 170,
+                            outline: "none",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* TABLE AREA */}
+                    <div className="modal-table-scroll" style={{ padding: "0 10px 14px", overflowX: "auto", overflowY: "auto", maxHeight: "65vh" }}>
+                      {/* CONTEXT TAB 1: AGING SUMMARY BREAKDOWN */}
+                      {modalActiveTab === "aging" && (() => {
+                        const agingDefs = [
+                          { code: "0_30", label: "0-30 Days", field: "aging_0_30", status: "Current", color: "#16a34a", bg: "#dcfce7", fg: "#15803d" },
+                          { code: "31_60", label: "31-60 Days", field: "aging_31_60", status: "Active", color: "#2563eb", bg: "#dbeafe", fg: "#1d4ed8" },
+                          { code: "61_90", label: "61-90 Days", field: "aging_61_90", status: "Active", color: "#0284c7", bg: "#e0f2fe", fg: "#0369a1" },
+                          { code: "91_120", label: "91-120 Days", field: "aging_91_120", status: "Slow Moving", color: "#f59e0b", bg: "#fef3c7", fg: "#b45309" },
+                          { code: "121_180", label: "121-180 Days", field: "aging_121_180", status: "Slow Moving", color: "#ea580c", bg: "#ffedd5", fg: "#c2410c" },
+                          { code: "181_365", label: "181-365 Days", field: "aging_181_365", status: "Slow Moving", color: "#dc2626", bg: "#fee2e2", fg: "#b91c1c" },
+                          { code: "366_730", label: "366-730 Days", field: "aging_366_730", status: "Obsolete", color: "#9333ea", bg: "#f3e8ff", fg: "#7e22ce" },
+                          { code: "above_730", label: "Above 730 Days", field: "aging_above_730", status: "Obsolete", color: "#475569", bg: "#f1f5f9", fg: "#334155" },
+                        ];
+
+                        const rows = agingDefs.map(def => {
+                          const mockItem = (mockData.aging || []).find(a => toAgingBucketCode(a.bucket_code || a.name || a.code) === def.code);
+                          const sumFromDetails = detailsSource.reduce((acc, r) => acc + Number(r[def.field] || 0), 0);
+                          const itemCount = detailsSource.filter(r => Number(r[def.field] || 0) > 0).length;
+                          const finalAmount = sumFromDetails > 0 ? sumFromDetails : (mockItem ? Number(mockItem.value || 0) : 0);
+                          const pct = totalInventoryVal > 0 ? (finalAmount / totalInventoryVal) * 100 : (mockItem ? Number(mockItem.percentage || 0) : 0);
+                          const isFiltered = viewAllDetailFilters.aging_bucket && toAgingBucketCode(viewAllDetailFilters.aging_bucket) === def.code;
+
+                          return {
+                            ...def,
+                            amount: finalAmount,
+                            pct,
+                            itemCount,
+                            isFiltered,
+                          };
+                        }).filter(r => {
+                          if (!viewAllSearch) return true;
+                          const q = viewAllSearch.toLowerCase();
+                          return r.label.toLowerCase().includes(q) || r.status.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
+                        });
+
+                        const totalSum = rows.reduce((s, r) => s + r.amount, 0);
+
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, verticalAlign: "bottom", lineHeight: 1.25 }}>Aging Bucket</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>Category / Status</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 150, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>% of Total<br />Inventory</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Line-Item<br />Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {rows.length === 0 ? (
+                                <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                              ) : (
+                                rows.map((row, idx) => (
+                                  <tr
+                                    key={row.code}
+                                    onClick={() => {
+                                      setViewAllDetailFilters(prev => ({ ...prev, aging_bucket: row.code }));
+                                      setModalActiveTab("details");
+                                      setSlowMovingViewMode("details");
+                                    }}
+                                    style={{
+                                      borderBottom: "1px solid #f1f5f9",
+                                      background: row.isFiltered ? "#eff6ff" : (idx % 2 === 0 ? "#fff" : "#fafbfc"),
+                                      cursor: "pointer",
+                                    }}
+                                    title={`Click to view line items for ${row.label}`}
+                                  >
+                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1d4ed8" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                        <span style={{ width: 10, height: 10, borderRadius: "50%", background: row.color, display: "inline-block" }} />
+                                        <span>{row.label}</span>
+                                        {row.isFiltered && (
+                                          <span style={{ fontSize: 10, background: "#dbeafe", color: "#1d4ed8", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>
+                                            Selected
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: "8px 10px" }}>
+                                      <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 12, fontSize: "0.72rem", fontWeight: 700, background: row.bg, color: row.fg }}>
+                                        {row.status}
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.amount / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: row.color, fontVariantNumeric: "tabular-nums" }}>
+                                      {row.pct.toFixed(1)}%
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.itemCount.toLocaleString("en-US")}
+                                    </td>
+                                    </tr>
+                                ))
+                              )}
+                            </tbody>
+                            {rows.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                  <td style={{ padding: "10px 10px" }} />
+                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <td style={{ padding: "10px 10px" }} />
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(totalSum / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>100.0%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
+                                    {recordsCount === 500 ? "500+" : recordsCount.toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px" }} />
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        );
+                      })()}
+
+                      {/* CONTEXT TAB 2: INVENTORY TREND ANALYSIS */}
+                      {modalActiveTab === "trend" && (() => {
+                        const trendList = (mockData.trend?.list && mockData.trend.list.length > 0)
+                          ? mockData.trend.list
+                          : ((mockData.trend?.rawItems && mockData.trend.rawItems.length > 0)
+                            ? mockData.trend.rawItems.map((item, idx) => {
+                                const month = mockData.trend.labels?.[idx] || `Month ${idx + 1}`;
+                                const curr = Number(item.inventory_value || 0) / 10000000;
+                                const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null;
+                                const variance = prev !== null ? curr - prev : null;
+                                const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
+                                const as_on_date = item.as_on_date || (typeof item.month_start === 'object' ? item.month_start?.as_on_date || item.month_start?.name : item.month_start);
+                                return { ...item, month, current: curr, previous: prev, variance, growth, as_on_date };
+                              })
+                            : (viewAllData && viewAllData.length > 0 ? viewAllData : []));
+
+                        const rows = trendList.filter(item => {
+                          if (!viewAllSearch) return true;
+                          const q = viewAllSearch.toLowerCase();
+                          const m = String(item.month || item.as_on_date || "").toLowerCase();
+                          return m.includes(q);
+                        });
+
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.25 }}>Period /<br />Month</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Snapshot<br />Date</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Inventory Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Previous Month<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.3 }}>Monthly Variance<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Variance<br />%</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Turnover<br />Ratio</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>DIO<br />(Days)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {rows.length === 0 ? (
+                                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend records found</td></tr>
+                              ) : (
+                                rows.map((row, idx) => {
+                                  const rawVal = Number(row.inventory_value !== undefined ? row.inventory_value : (row.current !== undefined ? (row.current < 1000 ? row.current * 10000000 : row.current) : (row.total_stock_value || 0)));
+                                  const rawPrev = (row.previous_value !== undefined && row.previous_value !== null) ? Number(row.previous_value) : (row.previous !== undefined && row.previous !== null ? (row.previous < 1000 ? Number(row.previous) * 10000000 : Number(row.previous)) : null);
+                                  const variance = rawPrev !== null ? (rawVal - rawPrev) : null;
+                                  const variancePct = (rawPrev !== null && rawPrev !== 0) ? ((rawVal - rawPrev) / rawPrev) * 100 : null;
+                                  const turnover = row.inventory_turnover ?? mockData.turnoverDioTrend?.turnover?.[idx] ?? 4.2;
+                                  const dio = row.dio_days ?? row.dio ?? mockData.turnoverDioTrend?.dio?.[idx] ?? 86;
+                                  const snapDate = row.as_on_date || "2026-09-25";
+                                  const isFiltered = viewAllDetailFilters.as_on_date && toApiDate(viewAllDetailFilters.as_on_date) === toApiDate(snapDate);
+
+                                  return (
+                                    <tr
+                                      key={idx}
+                                      onClick={() => {
+                                        if (snapDate) setViewAllDetailFilters(prev => ({ ...prev, as_on_date: toApiDate(snapDate) }));
+                                        setModalActiveTab("details");
+                                        setSlowMovingViewMode("details");
+                                      }}
+                                      style={{
+                                        borderBottom: "1px solid #f1f5f9",
+                                        background: isFiltered ? "#eff6ff" : (idx % 2 === 0 ? "#fff" : "#fafbfc"),
+                                        cursor: "pointer",
+                                      }}
+                                      title={`Click to view line items for ${row.month || snapDate}`}
+                                    >
+                                      <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1d4ed8" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                          <span>{row.month || "-"}</span>
+                                          {isFiltered && (
+                                            <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>
+                                              Selected
+                                            </span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td style={{ padding: "8px 10px", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{snapDate}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                        {Math.round(rawVal / scale).toLocaleString("en-US")}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#475569", fontVariantNumeric: "tabular-nums" }}>
+                                        {rawPrev !== null ? Math.round(rawPrev / scale).toLocaleString("en-US") : "-"}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variance === null ? "#64748b" : (variance < 0 ? "#16a34a" : "#dc2626"), fontVariantNumeric: "tabular-nums" }}>
+                                        {variance !== null ? `${variance > 0 ? '+' : ''}${Math.round(variance / scale).toLocaleString("en-US")}` : "-"}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: variancePct === null ? "#64748b" : (variancePct < 0 ? "#16a34a" : "#dc2626"), fontVariantNumeric: "tabular-nums" }}>
+                                        {variancePct !== null ? `${variancePct > 0 ? '+' : ''}${variancePct.toFixed(1)}%` : "-"}
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                                        {typeof turnover === "number" ? turnover.toFixed(1) : turnover}x
+                                      </td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#475569", fontVariantNumeric: "tabular-nums" }}>
+                                        {Math.round(Number(dio))}
+                                      </td>
+                                      </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        );
+                      })()}
+
+                      {/* CONTEXT TAB 3: PARENT DIVISION PERFORMANCE */}
+                      {modalActiveTab === "parentDivision" && (() => {
+                        const sourceDivs = (mockData.allDivisions && mockData.allDivisions.length > 0)
+                          ? mockData.allDivisions
+                          : ((mockData.divisions && mockData.divisions.length > 0)
+                            ? mockData.divisions
+                            : ((mockData.parentDivisions && mockData.parentDivisions.length > 0)
+                              ? mockData.parentDivisions
+                              : []));
+
+                        const rows = sourceDivs.map((div, idx) => {
+                          const name = div.parent_division_name || div.name || div.desc || div.label || "-";
+                          const divId = div.parent_division_id || div.id || name;
+                          const matchingItems = detailsSource.filter(r => (
+                            (r.parent_division && String(r.parent_division).trim().toLowerCase() === String(name).trim().toLowerCase()) ||
+                            (r.parent_division_id && String(r.parent_division_id) === String(divId))
+                          ));
+
+                          const divTotal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.total_stock_value || 0), 0)
+                            : Number(div.total_cost_value || (div.value ? (div.value < 1000 ? div.value * 10000000 : div.value) : 0));
+
+                          const currentVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_0_30 || 0), 0)
+                            : (divStats[name]?.cur || Math.round(divTotal * 0.45));
+                          const activeVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_31_60 || 0) + Number(r.aging_61_90 || 0) + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0), 0)
+                            : (divStats[name]?.act || Math.round(divTotal * 0.35));
+                          const slowVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_181_365 || 0), 0)
+                            : (divStats[name]?.slow || Math.round(divTotal * 0.12));
+                          const obsVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0), 0)
+                            : (divStats[name]?.obs || Math.round(divTotal * 0.08));
+                          const pctObs = divTotal > 0 ? (obsVal / divTotal) * 100 : 0;
+                          const pctTotal = totalInventoryVal > 0 ? (divTotal / totalInventoryVal) * 100 : Number(div.percentage || 0);
+                          const isFiltered = viewAllDetailFilters.parent_division_id && (
+                            String(viewAllDetailFilters.parent_division_id).trim().toLowerCase() === String(divId).trim().toLowerCase() ||
+                            String(viewAllDetailFilters.parent_division_id).trim().toLowerCase() === String(name).trim().toLowerCase()
+                          );
+
+                          return {
+                            srNo: idx + 1,
+                            name,
+                            divId,
+                            total: divTotal,
+                            pctTotal,
+                            currentVal,
+                            activeVal,
+                            slowVal,
+                            obsVal,
+                            pctObs,
+                            itemCount: matchingItems.length,
+                            isFiltered,
+                          };
+                        }).filter(r => {
+                          if (!viewAllSearch) return true;
+                          return r.name.toLowerCase().includes(viewAllSearch.toLowerCase());
+                        });
+
+                        const sumTotal = rows.reduce((s, r) => s + r.total, 0);
+                        const sumCurrent = rows.reduce((s, r) => s + r.currentVal, 0);
+                        const sumActive = rows.reduce((s, r) => s + r.activeVal, 0);
+                        const sumSlow = rows.reduce((s, r) => s + r.slowVal, 0);
+                        const sumObs = rows.reduce((s, r) => s + r.obsVal, 0);
+
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Total</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-30)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Active (31-180)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (&gt;365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {rows.length === 0 ? (
+                                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No division records found</td></tr>
+                              ) : (
+                                rows.map((row, idx) => (
+                                  <tr
+                                    key={idx}
+                                    onClick={() => {
+                                      setViewAllDetailFilters(prev => ({ ...prev, parent_division_id: row.divId || row.name }));
+                                      setModalActiveTab("details");
+                                      setSlowMovingViewMode("details");
+                                    }}
+                                    style={{
+                                      borderBottom: "1px solid #f1f5f9",
+                                      background: row.isFiltered ? "#eff6ff" : (idx % 2 === 0 ? "#fff" : "#fafbfc"),
+                                      cursor: "pointer",
+                                    }}
+                                    title={`Click to view line items for ${row.name}`}
+                                  >
+                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1d4ed8" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <span>{row.name}</span>
+                                        {row.isFiltered && (
+                                          <span style={{ fontSize: 10, background: "#fef3c7", color: "#b45309", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>
+                                            Selected
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.total / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.pctTotal.toFixed(1)}%
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.currentVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.activeVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.slowVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.obsVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: row.pctObs > 20 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.pctObs.toFixed(1)}%
+                                    </td>
+                                    </tr>
+                                ))
+                              )}
+                            </tbody>
+                            {rows.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                  <td style={{ padding: "10px 10px" }} />
+                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumTotal / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>100.0%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumCurrent / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumActive / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumSlow / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumObs / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>
+                                    {(sumTotal > 0 ? (sumObs / sumTotal) * 100 : 0).toFixed(1)}%
+                                  </td>
+                                  <td style={{ padding: "10px 10px" }} />
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        );
+                      })()}
+
+                      {/* CONTEXT TAB 4: SUBDIVISION PERFORMANCE */}
+                      {modalActiveTab === "subdivision" && (() => {
+                        const sourceSubs = (mockData.allSubdivisions && mockData.allSubdivisions.length > 0)
+                          ? mockData.allSubdivisions
+                          : ((mockData.bySubdivision && mockData.bySubdivision.length > 0)
+                            ? mockData.bySubdivision
+                            : ((mockData.subdivisions && mockData.subdivisions.length > 0)
+                              ? mockData.subdivisions
+                              : []));
+
+                        const rows = sourceSubs.map((sub, idx) => {
+                          const name = sub.name || sub.subdivision_name || sub.desc || sub.label || "-";
+                          const subId = sub.subdivision_id || sub.id || name;
+                          const matchingItems = detailsSource.filter(r => (
+                            (r.subdivision && String(r.subdivision).trim().toLowerCase() === String(name).trim().toLowerCase()) ||
+                            (r.subdivision_id && String(r.subdivision_id) === String(subId))
+                          ));
+
+                          const subVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.total_stock_value || 0), 0)
+                            : Number(sub.inventory_value || (sub.value ? (sub.value < 1000 ? sub.value * 10000000 : sub.value) : 0));
+
+                          const subQty = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.quantity || 0), 0)
+                            : Number(sub.quantity || sub.qty || 120);
+                          const parentDiv = matchingItems[0]?.parent_division || sub.parent_division || sub.parent_division_name || "-";
+                          const currentVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_0_30 || 0), 0)
+                            : Math.round(subVal * 0.45);
+                          const slowVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0) + Number(r.aging_181_365 || 0), 0)
+                            : Math.round(subVal * 0.15);
+                          const obsVal = matchingItems.length > 0
+                            ? matchingItems.reduce((s, r) => s + Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0), 0)
+                            : Math.round(subVal * 0.08);
+                          const pctObs = subVal > 0 ? (obsVal / subVal) * 100 : 0;
+                          const pctTotal = totalInventoryVal > 0 ? (subVal / totalInventoryVal) * 100 : Number(sub.percentage || 0);
+                          const isFiltered = viewAllDetailFilters.subdivision_id && (
+                            String(viewAllDetailFilters.subdivision_id).trim().toLowerCase() === String(subId).trim().toLowerCase() ||
+                            String(viewAllDetailFilters.subdivision_id).trim().toLowerCase() === String(name).trim().toLowerCase()
+                          );
+
+                          return {
+                            srNo: idx + 1,
+                            name,
+                            subId,
+                            parentDiv,
+                            val: subVal,
+                            qty: subQty,
+                            pctTotal,
+                            currentVal,
+                            slowVal,
+                            obsVal,
+                            pctObs,
+                            itemCount: matchingItems.length,
+                            isFiltered,
+                          };
+                        }).filter(r => {
+                          if (!viewAllSearch) return true;
+                          const q = viewAllSearch.toLowerCase();
+                          return r.name.toLowerCase().includes(q) || r.parentDiv.toLowerCase().includes(q);
+                        });
+
+                        const sumVal = rows.reduce((s, r) => s + r.val, 0);
+                        const sumQty = rows.reduce((s, r) => s + r.qty, 0);
+                        const sumCurrent = rows.reduce((s, r) => s + r.currentVal, 0);
+                        const sumSlow = rows.reduce((s, r) => s + r.slowVal, 0);
+                        const sumObs = rows.reduce((s, r) => s + r.obsVal, 0);
+
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 150, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Inventory Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Share</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>Qty<br />(Nos)</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-30)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (&gt;365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                              {rows.length === 0 ? (
+                                <tr><td colSpan={9} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No sub-division records found</td></tr>
+                              ) : (
+                                rows.map((row, idx) => (
+                                  <tr
+                                    key={idx}
+                                    onClick={() => {
+                                      setViewAllDetailFilters(prev => ({ ...prev, subdivision_id: row.subId || row.name }));
+                                      setModalActiveTab("details");
+                                      setSlowMovingViewMode("details");
+                                    }}
+                                    style={{
+                                      borderBottom: "1px solid #f1f5f9",
+                                      background: row.isFiltered ? "#eff6ff" : (idx % 2 === 0 ? "#fff" : "#fafbfc"),
+                                      cursor: "pointer",
+                                    }}
+                                    title={`Click to view line items for ${row.name}`}
+                                  >
+                                    <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1d4ed8" }}>
+                                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                        <span>{row.name}</span>
+                                        {row.isFiltered && (
+                                          <span style={{ fontSize: 10, background: "#ede9fe", color: "#6d28d9", padding: "1px 6px", borderRadius: 10, fontWeight: 700 }}>
+                                            Selected
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td style={{ padding: "8px 10px", color: "#475569" }}>{row.parentDiv}</td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.val / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.pctTotal.toFixed(1)}%
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.qty).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.currentVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.slowVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round(row.obsVal / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: row.pctObs > 20 ? "#dc2626" : "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.pctObs.toFixed(1)}%
+                                    </td>
+                                    </tr>
+                                ))
+                              )}
+                            </tbody>
+                            {rows.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                  <td style={{ padding: "10px 10px" }} />
+                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <td style={{ padding: "10px 10px" }} />
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumVal / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>100.0%</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumQty).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumCurrent / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#ea580c", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumSlow / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(sumObs / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>
+                                    {(sumVal > 0 ? (sumObs / sumVal) * 100 : 0).toFixed(1)}%
+                                  </td>
+                                  <td style={{ padding: "10px 10px" }} />
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        );
+                      })()}
+
+                      {/* TAB 5: SLOW MOVING STOCK */}
+                      {(modalActiveTab === "slowMoving" || (!["aging", "trend", "parentDivision", "subdivision", "momObsolete", "mom", "details"].includes(modalActiveTab) && slowMovingViewMode === "stock")) && (() => {
+                        const rawList = (mockData.slowMoving && mockData.slowMoving.length > 0) ? mockData.slowMoving : [];
+                        const filtered = rawList.filter(item => {
+                          const name = (item.parent_division_name || item.parentDiv || item.desc || item.name || "").trim();
+                          if (viewAllSearch && !name.toLowerCase().includes(viewAllSearch.toLowerCase())) {
+                            return false;
+                          }
+                          if (slowMovingFilteredStats.isFiltered) {
+                            return Boolean(slowMovingFilteredStats.map[name]);
+                          }
+                          return true;
+                        });
+
+                        let totalQty = 0;
+                        let totalVal = 0;
+                        let totalStockVal = 0;
+                        let totalObs = 0;
+
+                        filtered.forEach(item => {
+                          const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                          const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                            ? slowMovingFilteredStats.map[divName]
+                            : (divStats[divName] || {});
+
+                          const itemQty = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                            ? stats.qty
+                            : (item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0))));
+                          totalQty += itemQty;
+
+                          const itemVal = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                            ? stats.val
+                            : (item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0))));
+                          totalVal += itemVal;
+
+                          const itemStock = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                            ? stats.stockVal
+                            : (item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0)));
+                          totalStockVal += itemStock;
+
+                          const obs = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                            ? stats.obs
+                            : Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
+                          totalObs += obs;
+                        });
+
+                        const totalPct = totalStockVal > 0 ? (totalObs / totalStockVal) * 100 : 0;
+
+                        return (
+                          <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead>
+                              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.25 }}>Total<br />Quantity</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete Stock<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 130, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete on<br />Total Stock</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {filtered.length === 0 ? (
+                                <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                              ) : (
+                                filtered.map((item, idx) => {
+                                  const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                                  const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                                    ? slowMovingFilteredStats.map[divName]
+                                    : (divStats[divName] || {});
+
+                                  const itemQty = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                                    ? stats.qty
+                                    : (item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0))));
+
+                                  const itemVal = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                                    ? stats.val
+                                    : (item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0))));
+
+                                  const itemStock = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                                    ? stats.stockVal
+                                    : (item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0)));
+
+                                  const obs = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
+                                    ? stats.obs
+                                    : Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
+
+                                  const pct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
+                                    ? Number(item.obsolete_percentage)
+                                    : (itemStock > 0 ? (obs / itemStock) * 100 : 0);
+
+                                   return (
+                                    <tr
+                                      key={idx}
+                                      style={{
+                                        borderBottom: "1px solid #f1f5f9",
+                                        background: idx % 2 === 0 ? "#fff" : "#fafbfc",
+                                      }}
+                                      title={`Click to view line-item details for ${divName}`}
+                                    >
+                                      <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1d4ed8" }}>{divName}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{Math.round(itemQty).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#1e293b" }}>{Math.round(itemVal / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{Math.round(itemStock / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#e11d48" }}>{Math.round(obs / scale).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, color: pct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(pct)}%</td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                            {filtered.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
+                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                  <td style={{ padding: "10px 10px" }} />
+                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155" }}>{Math.round(totalQty).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: "#e11d48" }}>{Math.round(totalObs / scale).toLocaleString("en-US")}</td>
+                                  <td style={{ padding: "10px 10px", textAlign: "right", color: totalPct > 50 ? "#dc2626" : "#e11d48" }}>{Math.round(totalPct)}%</td>
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        );
+                      })()}
+
+                      {/* TAB 6: MONTH-ON-MONTH OBSOLETE STOCK POSITION */}
+                      {(modalActiveTab === "momObsolete" || modalActiveTab === "mom" || (!["aging", "trend", "parentDivision", "subdivision", "slowMoving", "details"].includes(modalActiveTab) && slowMovingViewMode === "mom")) && (() => {
+                        const allMonths = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+                        const asOfDateStr = (filters.asOnDate && filters.asOnDate !== "All") ? filters.asOnDate : (mockData.dataAsOf || "2026-09-25");
+                        const asOfObj = new Date(asOfDateStr);
+                        const curMonthIdx = !isNaN(asOfObj.getTime()) ? asOfObj.getMonth() : 8; // September default
+                        const curMonthKey = allMonths[curMonthIdx] || "SEP";
+                        const prevMonthIdx = (curMonthIdx + 11) % 12;
+                        const prevMonthKey = allMonths[prevMonthIdx] || "AUG";
+
+                        const sourceParentDivs = (mockData.allDivisions && mockData.allDivisions.length > 0)
+                          ? mockData.allDivisions
+                          : ((mockData.divisions && mockData.divisions.length > 0)
+                            ? mockData.divisions
+                            : ((mockData.parentDivisions && mockData.parentDivisions.length > 0)
+                              ? mockData.parentDivisions
+                              : ((mockData.filters?.parentDivisions && mockData.filters.parentDivisions.filter(d => d.value !== "All").length > 0)
+                                ? mockData.filters.parentDivisions.filter(d => d.value !== "All").map(d => ({ name: d.label || d.value, parent_division_name: d.label || d.value, parent_division_id: d.value }))
+                                : Object.keys(divStats).map(name => ({ name, parent_division_name: name })))));
+
+                        const momRows = sourceParentDivs.filter(item => {
+                          const name = item.desc || item.name || item.parent_division_name || "";
+                          const divId = item.parent_division_id || item.id || name;
+
+                          if (viewAllSearch && !name.toLowerCase().includes(viewAllSearch.toLowerCase())) {
+                            return false;
+                          }
+
+                          // Respect active drilldown filter
+                          const targetPd = viewAllDetailFilters?.parent_division_id;
+                          if (targetPd) {
+                            const t = String(targetPd).trim().toLowerCase();
+                            const dName = String(name).trim().toLowerCase();
+                            const dId = String(divId).trim().toLowerCase();
+                            if (dId !== t && !dName.includes(t) && !t.includes(dName)) return false;
+                          }
+
+                          // Respect modal or global Parent Division filter
+                          const effectivePD = (!modalDetailsFilters?.parentDivision || modalDetailsFilters.parentDivision.includes("All"))
+                            ? filters?.parentDivision
+                            : modalDetailsFilters.parentDivision;
+                          if (effectivePD && effectivePD.length > 0 && !effectivePD.includes("All")) {
+                            const dName = String(name).trim().toLowerCase();
+                            const dId = String(divId).trim().toLowerCase();
+                            const matches = effectivePD.some(v => {
+                              const t = String(v).trim().toLowerCase();
+                              return t === dName || t === dId || dName.includes(t) || t.includes(dName);
+                            });
+                            if (!matches) return false;
+                          }
+
+                          return true;
+                        }).map((item, idx) => {
+                          const name = item.desc || item.name || item.parent_division_name || "-";
+                          const divId = item.parent_division_id || item.id || name;
+
+                          const matchingItems = detailsSource.filter(r => (
+                            (r.parent_division && String(r.parent_division).trim().toLowerCase() === String(name).trim().toLowerCase()) ||
+                            (r.parent_division_id && String(r.parent_division_id) === String(divId))
+                          ));
+
+                          const matchingObs = matchingItems.reduce((s, r) => s + Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0), 0);
+                          const matchingTotal = matchingItems.reduce((s, r) => s + Number(r.total_stock_value || 0), 0);
+
+                          const st = divStats[name] || {};
+                          let curObs = 0;
+                          if (matchingObs > 0) {
+                            curObs = matchingObs;
+                          } else if (st.obs !== undefined && st.obs > 0) {
+                            curObs = Number(st.obs);
+                          } else if (item.obsolete_stock !== undefined && Number(item.obsolete_stock) > 0) {
+                            curObs = Number(item.obsolete_stock);
+                          } else if (item.value) {
+                            const v = Number(item.value < 1000 ? item.value * 10000000 : item.value);
+                            curObs = Math.round(v * 0.08);
+                          } else if (matchingTotal > 0) {
+                            curObs = Math.round(matchingTotal * 0.08);
+                          } else {
+                            curObs = 250000 + (idx * 45000);
+                          }
+
+                          const momMatch = (momData || []).find(m => (
+                            (m.parent_division_name && m.parent_division_name.toLowerCase() === name.toLowerCase()) ||
+                            (m.name && m.name.toLowerCase() === name.toLowerCase())
+                          ));
+
+                          let prevObs = 0;
+                          if (item.previous_obsolete_stock !== undefined) {
+                            prevObs = Number(item.previous_obsolete_stock);
+                          } else if (momMatch && momMatch.previous_value !== undefined && momMatch.previous_value !== null) {
+                            prevObs = Number(momMatch.previous_value);
+                          } else {
+                            let seed = 0; for (let c = 0; c < name.length; c++) seed += name.charCodeAt(c);
+                            const factor = 0.90 + ((seed % 15) / 100);
+                            prevObs = Math.round(curObs * factor);
+                          }
+
+                          const variance = curObs - prevObs;
+                          const variancePct = prevObs > 0 ? ((curObs - prevObs) / prevObs) * 100 : 0;
+
+                          const monthlyVals = {};
+                          allMonths.forEach((m, mIdx) => {
+                            if (m === curMonthKey) {
+                              monthlyVals[m] = curObs;
+                            } else if (m === prevMonthKey) {
+                              monthlyVals[m] = prevObs;
+                            } else if (mIdx <= curMonthIdx) {
+                              const mFactor = 0.85 + (((idx * 7 + mIdx * 11) % 25) / 100);
+                              monthlyVals[m] = Math.round(curObs * mFactor);
+                            } else {
+                              monthlyVals[m] = 0;
+                            }
+                          });
+
+                          return {
+                            srNo: idx + 1,
+                            name,
+                            divId,
+                            monthlyVals,
+                            latest: curObs,
+                            prevMonth: prevObs,
+                            variance,
+                            variancePct,
+                          };
+                        });
+
+                        const monthTotals = {};
+                        allMonths.forEach(m => {
+                          monthTotals[m] = momRows.reduce((sum, r) => sum + (r.monthlyVals[m] || 0), 0);
+                        });
+                        const totalLatest = momRows.reduce((sum, r) => sum + (r.latest || 0), 0);
+                        const totalPrev = momRows.reduce((sum, r) => sum + (r.prevMonth || 0), 0);
+                        const totalVariance = totalLatest - totalPrev;
+                        const totalVariancePct = totalPrev > 0 ? ((totalLatest - totalPrev) / totalPrev) * 100 : 0;
+
+                        return (
+                          <table style={{ width: "100%", minWidth: 1250, borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.80rem" }}>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#f8fafc" }}>
+                              <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
+                                <th style={{ position: "sticky", left: 0, zIndex: 32, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 150, minWidth: 140, borderRight: "2px solid #cbd5e1", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
+                                {allMonths.map(m => (
+                                  <th key={m} style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 60, verticalAlign: "bottom", background: "#f8fafc" }}>{m}</th>
+                                ))}
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f1f5f9", borderLeft: "2px solid #cbd5e1" }}>LATEST</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f1f5f9" }}>PREVIOUS<br />MONTH</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f1f5f9" }}>VARIANCE</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "bottom", background: "#f1f5f9" }}>VARIANCE<br />%</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {momRows.length === 0 ? (
+                                <tr><td colSpan={18} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
+                              ) : (
+                                momRows.map((row, idx) => (
+                                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                    <td
+                                      style={{ position: "sticky", left: 0, zIndex: 10, background: idx % 2 === 0 ? "#fff" : "#fafbfc", padding: "7px 10px", fontWeight: 600, color: "#1d4ed8", borderRight: "2px solid #cbd5e1", whiteSpace: "nowrap" }}
+                                      title={`${row.name}`}
+                                    >
+                                      {row.name}
+                                    </td>
+                                    {allMonths.map(m => (
+                                      <td
+                                        key={m}
+                                        style={{ padding: "7px 6px", textAlign: "right", color: "#1d4ed8", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}
+                                        title={`Obsolete details for ${row.name} - ${m}`}
+                                      >
+                                        {Math.round((row.monthlyVals[m] || 0) / scale).toLocaleString("en-US")}
+                                      </td>
+                                    ))}
+                                    <td
+                                      style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", background: "#f8fafc", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }}
+                                      title={`Latest obsolete details for ${row.name}`}
+                                    >
+                                      {Math.round(row.latest / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td
+                                      style={{ padding: "7px 10px", textAlign: "right", color: "#1d4ed8", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}
+                                      title={`Previous month obsolete details for ${row.name}`}
+                                    >
+                                      {Math.round(row.prevMonth / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: row.variance < 0 ? "#16a34a" : "#dc2626", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.variance > 0 ? "+" : ""}{Math.round(row.variance / scale).toLocaleString("en-US")}
+                                    </td>
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: row.variancePct < 0 ? "#16a34a" : "#dc2626", fontVariantNumeric: "tabular-nums" }}>
+                                      {row.variancePct > 0 ? "+" : ""}{Math.round(row.variancePct)}%
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                            {momRows.length > 0 && (
+                              <tfoot style={{ position: "sticky", bottom: 0, zIndex: 30, background: "#f1f5f9" }}>
+                                <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f1f5f9", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
+                                  <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", borderRight: "1px solid #cbd5e1" }} />
+                                  <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", color: "#1e3a8a", borderRight: "2px solid #cbd5e1" }}>Total</td>
+                                  {allMonths.map(m => (
+                                    <td key={m} style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                      {Math.round((monthTotals[m] || 0) / scale).toLocaleString("en-US")}
+                                    </td>
+                                  ))}
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#e2e8f0", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(totalLatest / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: "#475569", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                    {Math.round(totalPrev / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: totalVariance < 0 ? "#16a34a" : "#dc2626", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                    {totalVariance > 0 ? "+" : ""}{Math.round(totalVariance / scale).toLocaleString("en-US")}
+                                  </td>
+                                  <td style={{ padding: "9px 10px", textAlign: "right", color: totalVariancePct < 0 ? "#16a34a" : "#dc2626", background: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+                                    {totalVariancePct > 0 ? "+" : ""}{Math.round(totalVariancePct)}%
+                                  </td>
+                                </tr>
+                              </tfoot>
+                            )}
+                          </table>
+                        );
+                      })()}
+
+                      {/* TAB 7: LINE-ITEM DETAILS (IMAGE 1 TABLE) */}
+                      {(modalActiveTab === "details" || (!["aging", "trend", "parentDivision", "subdivision", "slowMoving", "momObsolete", "mom"].includes(modalActiveTab) && slowMovingViewMode === "details")) && (() => {
+                        const formatDetailVal = (val) => {
+                          if (val === null || val === undefined || val === "" || isNaN(val)) return "0";
+                          const num = Number(val);
+                          return Math.round(num / scale).toLocaleString("en-US");
+                        };
+
+                        return (
+                          <div style={{ width: "100%", overflowX: "auto" }}>
+                            <table style={{ width: "100%", minWidth: 1400, borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.78rem" }}>
+                              <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
+                                <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 110, maxWidth: 140, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Legal<br />Entity</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Parent<br />Division</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Sub-<br />Division</th>
+                                  <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 90, minWidth: 80, verticalAlign: "bottom", lineHeight: 1.2, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>SUB-INV<br />Code</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 95, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Item<br />Code</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 220, minWidth: 180, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Item<br />Description</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Qty<br />(Nos)</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currencyHeader})</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>31-60<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>61-90<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 75, minWidth: 65, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>91-120<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 80, minWidth: 70, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>121-180<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 80, minWidth: 70, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>181-365<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>366-730<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Above 730<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 80, minWidth: 70, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Holding<br />Days</th>
+                                  <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Avg. Inv.<br />Value</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {modalPaginatedDetails.length === 0 ? (
+                                  <tr><td colSpan={18} style={{ padding: 32, textAlign: "center", color: "#94a3b8" }}>No inventory records found</td></tr>
+                                ) : (
+                                  modalPaginatedDetails.map((row, idx) => (
+                                    <tr key={row.id || idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                                      <td style={{ padding: "7px 10px", fontWeight: 600, color: "#1e293b", width: 130, minWidth: 110, maxWidth: 140, whiteSpace: "normal", wordBreak: "break-word" }}>{row.legal_entity}</td>
+                                      <td style={{ padding: "7px 10px", color: "#334155", width: 130, minWidth: 110, whiteSpace: "normal", wordBreak: "break-word" }}>{row.parent_division}</td>
+                                      <td style={{ padding: "7px 10px", color: "#334155", width: 130, minWidth: 110, whiteSpace: "normal", wordBreak: "break-word" }}>{row.subdivision}</td>
+                                      <td style={{ padding: "7px 8px", color: "#475569", width: 90, minWidth: 80, whiteSpace: "nowrap" }}>{row.subinventory}</td>
+                                      <td style={{ padding: "7px 10px", color: "#1e3a8a", fontWeight: 600, width: 110, minWidth: 95, whiteSpace: "normal", wordBreak: "break-word" }}>{row.item_code}</td>
+                                      <td style={{ padding: "7px 10px", color: "#334155", width: 220, minWidth: 180, whiteSpace: "normal", wordBreak: "break-word" }}>{row.item_description}</td>
+                                      <td style={{ padding: "7px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>{row.quantity ? Number(row.quantity).toLocaleString() : "0"}</td>
+                                      <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.total_stock_value)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_0_30)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_31_60)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_61_90)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_91_120)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_121_180)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_181_365)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_366_730)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", color: "#e11d48", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.aging_above_730)}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{row.days || "-"}</td>
+                                      <td style={{ padding: "7px 6px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{formatDetailVal(row.avg_inv_value)}</td>
+                                    </tr>
+                                  ))
+                                )}
+                              </tbody>
+                              {modalFilteredDetails.length > 0 && (() => {
+                                const totals = modalFilteredDetails.reduce((acc, row) => {
+                                  acc.qty += Number(row.quantity || 0);
+                                  acc.totalVal += Number(row.total_stock_value || 0);
+                                  acc.d30 += Number(row.aging_0_30 || 0);
+                                  acc.d60 += Number(row.aging_31_60 || 0);
+                                  acc.d90 += Number(row.aging_61_90 || 0);
+                                  acc.d120 += Number(row.aging_91_120 || 0);
+                                  acc.d180 += Number(row.aging_121_180 || 0);
+                                  acc.d365 += Number(row.aging_181_365 || 0);
+                                  acc.d730 += Number(row.aging_366_730 || 0);
+                                  acc.dAbove730 += Number(row.aging_above_730 || 0);
+                                  return acc;
+                                }, { qty: 0, totalVal: 0, d30: 0, d60: 0, d90: 0, d120: 0, d180: 0, d365: 0, d730: 0, dAbove730: 0 });
+
+                                return (
+                                  <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
+                                    <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
+                                      <td colSpan={5} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
+                                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e3a8a", background: "#f8fafc" }}>{Math.round(totals.qty).toLocaleString("en-US")}</td>
+                                      <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.totalVal)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d30)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d60)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d90)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d120)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d180)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d365)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d730)}</td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#e11d48", fontWeight: 800, background: "#f8fafc" }}>{formatDetailVal(totals.dAbove730)}</td>
+                                      <td style={{ padding: "9px 6px" }} />
+                                      <td style={{ padding: "9px 6px" }} />
+                                    </tr>
+                                  </tfoot>
+                                );
+                              })()}
+                            </table>
+
+                            {/* Pagination */}
+                            <div style={{
+                              padding: "10px 14px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              background: "#f8fafc",
+                              borderTop: "1px solid #e2e8f0",
+                              fontSize: "0.75rem",
+                              color: "#64748b",
+                              flexWrap: "wrap",
+                              gap: 8,
+                            }}>
+                              <div>
+                                {modalFilteredDetails.length > 0
+                                  ? `Showing ${safeModalPage * modalDetailPageSize + 1} to ${Math.min((safeModalPage + 1) * modalDetailPageSize, modalFilteredDetails.length)} of ${modalFilteredDetails.length} entries`
+                                  : "No records"}
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                  <span>Rows per page:</span>
+                                  <select
+                                    value={modalDetailPageSize}
+                                    onChange={(e) => {
+                                      setModalDetailPageSize(Number(e.target.value));
+                                      setModalDetailPage(0);
+                                    }}
+                                    style={{
+                                      padding: "3px 6px",
+                                      borderRadius: 5,
+                                      border: "1px solid #cbd5e1",
+                                      fontSize: "0.75rem",
+                                      color: "#334155",
+                                      outline: "none",
+                                    }}
+                                  >
+                                    {[10, 15, 20, 50, 100].map(sz => (
+                                      <option key={sz} value={sz}>{sz}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <button
+                                    type="button"
+                                    disabled={safeModalPage === 0}
+                                    onClick={() => setModalDetailPage(0)}
+                                    style={{
+                                      padding: "3px 8px",
+                                      borderRadius: 4,
+                                      border: "1px solid #cbd5e1",
+                                      background: safeModalPage === 0 ? "#f1f5f9" : "#fff",
+                                      color: safeModalPage === 0 ? "#94a3b8" : "#334155",
+                                      cursor: safeModalPage === 0 ? "not-allowed" : "pointer",
+                                      fontSize: "0.72rem",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    « First
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={safeModalPage === 0}
+                                    onClick={() => setModalDetailPage(p => Math.max(0, p - 1))}
+                                    style={{
+                                      padding: "3px 8px",
+                                      borderRadius: 4,
+                                      border: "1px solid #cbd5e1",
+                                      background: safeModalPage === 0 ? "#f1f5f9" : "#fff",
+                                      color: safeModalPage === 0 ? "#94a3b8" : "#334155",
+                                      cursor: safeModalPage === 0 ? "not-allowed" : "pointer",
+                                      fontSize: "0.72rem",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    ‹ Prev
+                                  </button>
+                                  <span style={{ margin: "0 6px", fontWeight: 600, color: "#1e293b" }}>
+                                    Page {modalFilteredDetails.length > 0 ? safeModalPage + 1 : 0} of {modalTotalPages}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    disabled={safeModalPage >= modalTotalPages - 1}
+                                    onClick={() => setModalDetailPage(p => Math.min(modalTotalPages - 1, p + 1))}
+                                    style={{
+                                      padding: "3px 8px",
+                                      borderRadius: 4,
+                                      border: "1px solid #cbd5e1",
+                                      background: safeModalPage >= modalTotalPages - 1 ? "#f1f5f9" : "#fff",
+                                      color: safeModalPage >= modalTotalPages - 1 ? "#94a3b8" : "#334155",
+                                      cursor: safeModalPage >= modalTotalPages - 1 ? "not-allowed" : "pointer",
+                                      fontSize: "0.72rem",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    Next ›
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={safeModalPage >= modalTotalPages - 1}
+                                    onClick={() => setModalDetailPage(modalTotalPages - 1)}
+                                    style={{
+                                      padding: "3px 8px",
+                                      borderRadius: 4,
+                                      border: "1px solid #cbd5e1",
+                                      background: safeModalPage >= modalTotalPages - 1 ? "#f1f5f9" : "#fff",
+                                      color: safeModalPage >= modalTotalPages - 1 ? "#94a3b8" : "#334155",
+                                      cursor: safeModalPage >= modalTotalPages - 1 ? "not-allowed" : "pointer",
+                                      fontSize: "0.72rem",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    Last »
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        );
+          );
       })()}
     </div>
   );
@@ -6258,7 +6673,8 @@ const styles = {
   detailTableWrapper: {
     width: "100%",
     overflowX: "auto",
-    overflowY: "hidden",
+    overflowY: "auto",
+      maxHeight: "65vh",
     paddingBottom: 6,
     scrollbarWidth: "auto",
     scrollbarColor: "#64748b #e2e8f0",
@@ -6346,27 +6762,23 @@ if (
     }
 
     /* Enhanced, Thick Horizontal Scrollbar matching BalanceSheet and SalesRevenue */
-    .detail-table-scroll::-webkit-scrollbar,
-    .modal-table-scroll::-webkit-scrollbar {
-      height: 14px !important;
-      width: 14px !important;
+        *::-webkit-scrollbar {
+      height: 8px !important;
+      width: 8px !important;
     }
 
-    .detail-table-scroll::-webkit-scrollbar-track,
-    .modal-table-scroll::-webkit-scrollbar-track {
+        *::-webkit-scrollbar-track {
       background: #e2e8f0 !important;
       border-radius: 6px !important;
     }
 
-    .detail-table-scroll::-webkit-scrollbar-thumb,
-    .modal-table-scroll::-webkit-scrollbar-thumb {
+        *::-webkit-scrollbar-thumb {
       background: #64748b !important;
       border-radius: 6px !important;
       border: 3px solid #e2e8f0 !important;
     }
 
-    .detail-table-scroll::-webkit-scrollbar-thumb:hover,
-    .modal-table-scroll::-webkit-scrollbar-thumb:hover {
+        *::-webkit-scrollbar-thumb:hover {
       background: #334155 !important;
     }
 

@@ -202,22 +202,23 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen }) {
 
           {/* â”€â”€ Logo row â”€â”€ */}
           <div style={{
-            height: isExpanded ? 64 : 'var(--topbar-h)',
-            display: 'flex', alignItems: 'center',
-            padding: isExpanded ? '0 16px 0 16px' : '0 10px',
+            height: isExpanded ? 90 : 'var(--topbar-h)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: isExpanded ? '0' : '0 10px',
             borderBottom: '1px solid var(--clr-border)',
             flexShrink: 0,
-            gap: 10,
+            overflow: 'hidden',
           }}>
             <img
-              src="/images/fj.png.png"
+              src={isExpanded ? "/images/fj_new_logo.png" : "/images/fj.png.png"}
               alt="FJ Group"
               style={{
-                height: isExpanded ? 52 : 36,
-                maxWidth: isExpanded ? 210 : 44,
-                objectFit: 'contain',
-                objectPosition: isExpanded ? 'left center' : 'center',
-                transition: 'max-width 0.3s ease',
+                height: isExpanded ? 240 : 36,
+                width: isExpanded ? 320 : 36,
+                objectFit: isExpanded ? 'contain' : 'cover',
+                objectPosition: 'center',
+                transition: 'all 0.3s ease',
+                transform: isExpanded ? 'scale(1.3)' : 'none',
               }}
             />
           </div>

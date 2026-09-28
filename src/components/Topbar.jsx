@@ -111,21 +111,8 @@ export default function Topbar() {
         height: "40px",
         padding: "0 16px",
       }}>
-      {/* Page title */}
-      {(page.title || page.sub) ? (
-        <div className="topbar-title">
-          {page.title ? (
-            <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--clr-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {page.title}
-            </div>
-          ) : null}
-          {page.sub ? (
-            <div style={{ fontSize: '0.62rem', color: 'var(--clr-text-dim)', fontWeight: 400, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {page.sub}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {/* Page title (Removed text but kept structure to maintain right-side alignment) */}
+      <div className="topbar-title" />
 
       <div className="topbar-actions">
         {/* Search */}
