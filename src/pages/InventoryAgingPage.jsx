@@ -1977,13 +1977,28 @@ const [loading, setLoading] = useState(true);
   // BAR CHART
   // ============================================================
 
+  const SUBDIV_PALETTE = [
+    "#06b6d4", // Cyan
+    "#84cc16", // Lime
+    "#ec4899", // Pink
+    "#a16207", // Ochre / Brown
+    "#f43f5e", // Rose / Red
+    "#0ea5e9", // Sky blue
+    "#8b5cf6", // Violet
+    "#f97316", // Orange
+    "#10b981", // Emerald
+    "#6366f1", // Indigo
+  ];
+
   const SubdivisionChart = () => {
     const [hoveredSubdiv, setHoveredSubdiv] = useState(null);
-    const items = (mockData.bySubdivision || []).map((x) => {
+    const items = (mockData.bySubdivision || []).map((x, idx) => {
       let num = Number(x.value || 0);
       if (num > 0 && num < 10000) num = num * 10000000;
       const inMillions = num / 1_000_000;
-      return { ...x, rawValue: num, inMillions };
+      const isOthers = (x.name || "").trim().toLowerCase() === "others";
+      const color = isOthers ? "#94a3b8" : SUBDIV_PALETTE[idx % SUBDIV_PALETTE.length];
+      return { ...x, rawValue: num, inMillions, color };
     });
 
     const max = Math.max(...(items.length > 0 ? items.map((x) => x.inMillions) : [1]));
@@ -2046,7 +2061,7 @@ const [loading, setLoading] = useState(true);
                   background: "#f1f5f9",
                   borderRadius: 4,
                   overflow: "hidden",
-                  boxShadow: isHovered ? "0 2px 8px rgba(37, 99, 235, 0.35)" : "inset 0 1px 2px rgba(0,0,0,0.06)",
+                  boxShadow: isHovered ? `0 2px 8px ${item.color}55` : "inset 0 1px 2px rgba(0,0,0,0.06)",
                   transform: isHovered ? "scaleY(1.15)" : "scaleY(1)",
                   transition: "all 0.2s ease",
                 }}
@@ -2055,9 +2070,7 @@ const [loading, setLoading] = useState(true);
                   style={{
                     height: "100%",
                     width: `${roundMax > 0 ? (item.inMillions / roundMax) * 100 : 0}%`,
-                    background: isHovered
-                      ? "linear-gradient(90deg, #2563eb, #1d4ed8)"
-                      : "linear-gradient(90deg, #3b82f6, #1d4ed8)",
+                    background: item.color,
                     borderRadius: 4,
                     transition: "width 0.35s ease, background 0.2s ease",
                   }}
@@ -2068,7 +2081,7 @@ const [loading, setLoading] = useState(true);
                 style={{
                   fontSize: "0.72rem",
                   fontWeight: isHovered ? 800 : 700,
-                  color: isHovered ? "#2563eb" : "#1e293b",
+                  color: isHovered ? item.color : "#1e293b",
                   textAlign: "right",
                   whiteSpace: "nowrap",
                   transition: "color 0.15s ease",
@@ -2136,9 +2149,9 @@ const [loading, setLoading] = useState(true);
                   width: 12,
                   height: 12,
                   borderRadius: 3.5,
-                  background: "#2563eb",
+                  background: hoveredSubdiv.color || "#06b6d4",
                   flexShrink: 0,
-                  boxShadow: "0 2px 6px rgba(37, 99, 235, 0.4)",
+                  boxShadow: `0 2px 6px ${hoveredSubdiv.color || "#06b6d4"}66`,
                 }}
               />
               <span style={{ fontSize: "0.86rem", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
@@ -2153,7 +2166,7 @@ const [loading, setLoading] = useState(true);
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18 }}>
               <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>Share</span>
-              <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ fontSize: "0.82rem", fontWeight: 800, color: hoveredSubdiv.color || "#06b6d4", fontVariantNumeric: "tabular-nums" }}>
                 {typeof hoveredSubdiv.percentage === "number" ? `${Math.round(hoveredSubdiv.percentage)}%` : (hoveredSubdiv.percentage || "0%")}
               </span>
             </div>
