@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { useFilters } from '../context/FilterContext';
 import FilterBar from '../components/FilterBar';
-import Card from '../components/ui/DashboardCard';
-import ChartLegend from '../components/ui/ChartLegend';
+import Card from '../components/UI/DashboardCard';
+import ChartLegend from '../components/UI/ChartLegend';
 import {
   MONTHLY_PL, MONTHLY_REVENUE, KPI_SUMMARY, DIVISION_PERFORMANCE, AR_AGING,
 } from '../data/masterData';
