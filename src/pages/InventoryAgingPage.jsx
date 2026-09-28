@@ -353,6 +353,25 @@ const [loading, setLoading] = useState(true);
       return `${prefix}${(number / 1_000_000).toFixed(2)}M`;
   };
 
+  const formatTrendMonthName = (value) => {
+      if (!value) return "—";
+      const text = String(typeof value === "object" && value?.name ? value.name : value).trim();
+      const match = text.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+      if (match) {
+          const year = match[1];
+          const monthIndex = parseInt(match[2], 10) - 1;
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          if (monthIndex >= 0 && monthIndex < 12) {
+              return `${months[monthIndex]} ${year}`;
+          }
+      }
+      const parsed = new Date(text);
+      if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      }
+      return text;
+  };
+
   const loadData = useCallback(async () => {
       setLoading(true);
       try {
@@ -623,11 +642,10 @@ const [loading, setLoading] = useState(true);
               if (dData.trend && Array.isArray(dData.trend)) {
                   trend.labels = dData.trend.map(item => {
                       if (typeof item.month_start === 'object' && item.month_start?.name) {
-                          return item.month_start.name;
+                          return formatTrendMonthName(item.month_start.name);
                       }
                       if (item.month_start) {
-                          const str = String(item.month_start);
-                          return str.substring(0, 7);
+                          return formatTrendMonthName(item.month_start);
                       }
                       return "";
                   });
@@ -654,7 +672,7 @@ const [loading, setLoading] = useState(true);
                           : (item.dio !== undefined && item.dio !== null ? Number(item.dio) : (dData.kpis?.dio_days ? Number(dData.kpis.dio_days) : 0))
                   );
               } else if (momData && Array.isArray(momData) && momData.length > 0) {
-                  turnoverDioTrend.labels = momData.map(item => item.month || item.month_start || "");
+                  turnoverDioTrend.labels = momData.map(item => formatTrendMonthName(item.month || item.month_start || ""));
                   turnoverDioTrend.turnover = momData.map(item => Number(item.inventory_turnover || item.turnover || 0));
                   turnoverDioTrend.dio = momData.map(item => Number(item.dio_days || item.dio || 0));
               }
@@ -1439,17 +1457,10 @@ const [loading, setLoading] = useState(true);
       );
     }
 
-    // Short month labels (extract last part if "2025-01" style)
+    // Month labels matching standard format
     const shortLabels = labels.map(l => {
       if (!l) return "";
-      if (l.length <= 3) return l;
-      const parts = String(l).split("-");
-      if (parts.length >= 2) {
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const mi = parseInt(parts[1], 10);
-        return monthNames[mi - 1] || l;
-      }
-      return l.substring(0, 3);
+      return formatTrendMonthName(l);
     });
 
     // Dynamic axis ranges
@@ -3696,7 +3707,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "Current Year vs Month By Month inventory details",
                 searchPlaceholder: "Search months...",
                 section: "trend",
-                maxWidth: "96vw",
+                width: "92%",
+                maxWidth: "760px",
               };
             case "parentDivision":
               return {
@@ -3704,7 +3716,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "Period: 01 Sept 2026 to 30 Sept 2026",
                 searchPlaceholder: "Search parent divisions...",
                 section: "parent-divisions",
-                maxWidth: "96vw",
+                width: parentDivViewMode === "mom" ? "96vw" : "92%",
+                maxWidth: parentDivViewMode === "mom" ? "96vw" : "880px",
               };
             case "subdivision":
               return {
@@ -3712,7 +3725,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: `Breakdown across all sub-divisions (${currentCurrency})`,
                 searchPlaceholder: "Search sub-divisions...",
                 section: null,
-                maxWidth: "96vw",
+                width: "92%",
+                maxWidth: "720px",
               };
             case "slowMoving":
               return {
@@ -3720,7 +3734,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: `Obsolete inventory vs total stock (${currentCurrency})`,
                 searchPlaceholder: "Search parent divisions...",
                 section: "slow-moving",
-                maxWidth: "96vw",
+                width: "92%",
+                maxWidth: "820px",
               };
             case "details":
               return {
@@ -3728,6 +3743,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: `Line-item inventory breakdown and aging status (${mockData.reporting_currency || "AED"})`,
                 searchPlaceholder: "Search item code, description, legal entity...",
                 section: null,
+                width: "96vw",
                 maxWidth: "96vw",
               };
             default:
@@ -3736,7 +3752,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 subtitle: "",
                 searchPlaceholder: "Search...",
                 section: null,
-                maxWidth: "96vw",
+                width: "92%",
+                maxWidth: "800px",
               };
           }
         })();
@@ -3763,7 +3780,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               style={{
                 background: "#fff",
                 borderRadius: 12,
-                width: "96vw",
+                width: modalConfig.width || "92%",
                 maxWidth: modalConfig.maxWidth || "96vw",
                 height: viewAllModal === "details" ? "92vh" : undefined,
                 maxHeight: "92vh",
@@ -4247,8 +4264,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     const filtered = rawList.filter(item => {
                       if (!viewAllSearch) return true;
                       const q = viewAllSearch.toLowerCase();
-                      const m = String(item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : item.month_start) : (item.month || item.as_on_date || "")).toLowerCase();
-                      return m.includes(q);
+                      const rawM = String(item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : item.month_start) : (item.month || item.as_on_date || ""));
+                      const formattedM = formatTrendMonthName(rawM);
+                      return rawM.toLowerCase().includes(q) || formattedM.toLowerCase().includes(q);
                     });
                     
                     if (viewAllLoading) {
@@ -4260,10 +4278,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                         <thead>
                           <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 45, verticalAlign: "bottom", lineHeight: 1.25 }}>Sr.<br />No.</th>
-                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.25 }}>Month</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currentCurrency})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Obsolete Stock<br />({currentCurrency})</th>
-                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, verticalAlign: "bottom", lineHeight: 1.3 }}>Annual Inventory<br />Turnover Ratio</th>
+                            <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, verticalAlign: "bottom", lineHeight: 1.25 }}>Month</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currentCurrency})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Obsolete Stock<br />({currentCurrency})</th>
+                            <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 160, verticalAlign: "bottom", lineHeight: 1.3 }}>Annual Inventory<br />Turnover Ratio</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -4271,7 +4289,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                             <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend data found</td></tr>
                           ) : (
                             filtered.map((item, idx) => {
-                              const monthLabel = item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : String(item.month_start).substring(0, 7)) : (item.month || item.as_on_date || `M${idx + 1}`);
+                              const rawMonth = item.month_start ? (typeof item.month_start === 'object' ? item.month_start.name : item.month_start) : (item.month || item.as_on_date);
+                              const monthLabel = formatTrendMonthName(rawMonth) || `M${idx + 1}`;
                               const rawVal = item.total_stock_value !== undefined ? item.total_stock_value : (item.inventory_value !== undefined ? item.inventory_value : (item.current !== undefined ? item.current : 0));
                               const numVal = Number(rawVal || 0);
                               const displayStock = numVal > 10000 ? Math.round(numVal / 10000000).toLocaleString() : Math.round(numVal).toLocaleString();
@@ -4291,7 +4310,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                               return (
                                 <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
                                   <td style={{ padding: "8px 10px", color: "#64748b" }}>{idx + 1}</td>
-                                  <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b" }}>{monthLabel}</td>
+                                  <td style={{ padding: "8px 10px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>{monthLabel}</td>
                                   <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#2563eb" }}>{displayStock}</td>
                                   <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 500, color: "#dc2626" }}>{displayObs}</td>
                                   <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 600, color: "#16a34a" }}>{annualTurnover}</td>
