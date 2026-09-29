@@ -4335,7 +4335,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={false}
+        showUnitToggle={true}
         searchPlaceholder="Search legal entities..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4383,7 +4383,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={false}
+        showUnitToggle={true}
         searchPlaceholder="Search sub-divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4408,7 +4408,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={false}
+        showUnitToggle={true}
         searchPlaceholder="Search sub-divisions..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4432,7 +4432,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={false}
+        showUnitToggle={true}
         searchPlaceholder="Search salespeople..."
         periodLabel={appliedPeriodLabel}
       />
@@ -4477,7 +4477,7 @@ export default function SalesRevenueReport() {
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={false}
+        showUnitToggle={true}
         searchPlaceholder="Search customers..."
         periodLabel={appliedPeriodLabel}
       />
