@@ -601,7 +601,7 @@ function DetailApiModal({
           display: 'flex', gap: 4, alignItems: 'center',
           flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
