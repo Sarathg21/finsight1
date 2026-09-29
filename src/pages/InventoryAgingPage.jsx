@@ -4234,17 +4234,17 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       ======================================================== */}
       {(viewAllModal || showViewAll) && (() => {
         const sectionViewAllTitles = {
-          all: ["Inventory View All", "Review complete inventory valuation, aging details, slow moving stock, and obsolete position."],
-          aging: ["Inventory Aging Summary View All", "Detailed breakdown of inventory valuation across aging buckets with status and percentages."],
-          trend: ["Inventory Trend View All", "Monthly trend analysis of inventory valuation, turnover ratio, and DIO days."],
-          parentDivision: ["Inventory by Parent Division View All", "Comprehensive inventory holdings, aging distribution, and turnover across parent divisions."],
-          subdivision: ["Inventory by Sub-Division View All", "Detailed sub-division inventory holdings ranked by valuation, quantity, and obsolete status."],
-          subinventory: ["Inventory by Subinventory View All", "Underlying inventory records for the selected subinventory."],
-          slowMoving: ["Slow Moving Stock View All", "Underlying slow moving and obsolete inventory records by parent division."],
-          details: ["Inventory Detailed View All", "Complete line-item inventory valuation and aging breakdown."],
-          kpi: ["Inventory Valuation View All", "Underlying inventory records for the selected metric."],
-          momObsolete: ["Month-on-Month Obsolete Stock View All", "Period comparison of obsolete stock position across parent divisions."],
-          month_on_month: ["Month-on-Month Obsolete Stock View All", "Period comparison of obsolete stock position across parent divisions."],
+          all: ["Inventory Detailed View", "Review complete inventory valuation, aging details, slow moving stock, and obsolete position."],
+          aging: ["Inventory Aging Summary Detailed View", "Detailed breakdown of inventory valuation across aging buckets with status and percentages."],
+          trend: ["Inventory Trend Detailed View", "Current Year-Vs-Month By Month Inventory Details"],
+          parentDivision: ["Inventory by Parent Division Detailed View", "Comprehensive inventory holdings, aging distribution, and turnover across parent divisions."],
+          subdivision: ["Inventory by Sub-Division Detailed View", "Detailed sub-division inventory holdings ranked by valuation, quantity, and obsolete status."],
+          subinventory: ["Inventory by Subinventory Detailed View", "Underlying inventory records for the selected subinventory."],
+          slowMoving: ["Slow Moving Stock Detailed View", "Underlying slow moving and obsolete inventory records by parent division."],
+          details: ["Inventory Detailed View", "Complete line-item inventory valuation and aging breakdown."],
+          kpi: ["Inventory Valuation Detailed View", "Underlying inventory records for the selected metric."],
+          momObsolete: ["Month-on-Month Obsolete Stock Detailed View", "Period comparison of obsolete stock position across parent divisions."],
+          month_on_month: ["Month-on-Month Obsolete Stock Detailed View", "Period comparison of obsolete stock position across parent divisions."],
         };
 
         const activeTabKey = (modalActiveTab === "mom") ? "momObsolete" : modalActiveTab;
@@ -4409,7 +4409,7 @@ const detailsSource = modalFilteredDetails || [];
               <div
                 className="sales-style-view-all-modal"
                 style={{
-                  width: "min(1450px, 98vw)",
+                  width: "fit-content", minWidth: "75vw", maxWidth: "98vw",
                   maxHeight: "92vh",
                   background: "#f7faff",
                   borderRadius: 10,
