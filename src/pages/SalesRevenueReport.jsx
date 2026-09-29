@@ -4630,7 +4630,14 @@ export default function SalesRevenueReport() {
                   </div>
                 )}
               </div>
-              <ModalCloseButton onClick={() => setOpenModal(null)} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <UnitToggle
+                    unit={inMillions ? 'millions' : 'aed'}
+                    onToggle={(u) => setInMillions(u === 'millions')}
+                    currency={currentCurrency}
+                  />
+                  <ModalCloseButton onClick={() => setOpenModal(null)} />
+                </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
