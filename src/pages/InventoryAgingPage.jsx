@@ -2221,7 +2221,8 @@ const [loading, setLoading] = useState(true);
     return (
       <div style={{ width: size, height: size, flex: `0 0 ${size}px`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
         <style>{`
-          @keyframes plTooltipFadeScale {
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes plTooltipFadeScale {
             from { opacity: 0; transform: scale(0.96) translateY(4px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
           }
@@ -2508,7 +2509,8 @@ const [loading, setLoading] = useState(true);
     return (
       <div style={{ width: "100%", paddingTop: 4, position: "relative" }}>
         <style>{`
-          @keyframes plTooltipFadeScale {
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes plTooltipFadeScale {
             from { opacity: 0; transform: scale(0.96) translateY(4px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
           }
@@ -3461,7 +3463,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
 
   const modalTotalVal = modalTotals.totalVal;
 
-  if (loading) {
+  if (loading && (!mockData || mockData.kpis.length === 0)) {
       return (
         <div style={{ padding: 60, textAlign: "center", fontSize: "0.95rem", color: "#64748b", fontWeight: 600 }}>
           Loading Inventory Data...
@@ -3630,6 +3632,17 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           </button>
         </div>
       </div>
+
+      {/* Global Data Fetching Overlay */}
+      <div style={{ position: 'relative', transition: 'opacity 0.25s ease', opacity: loading ? 0.5 : 1, pointerEvents: loading ? 'none' : 'auto' }}>
+        {loading && mockData.kpis.length > 0 && (
+           <div style={{ position: 'absolute', top: 120, left: '50%', transform: 'translateX(-50%)', zIndex: 999 }}>
+               <div style={{ padding: '8px 16px', background: '#fff', borderRadius: 20, boxShadow: '0 4px 15px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem', fontWeight: 600, color: '#2563eb', border: '1px solid #e2e8f0' }}>
+                   <div style={{ width: 14, height: 14, border: '2px solid #e2e8f0', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                   Updating Data...
+               </div>
+           </div>
+        )}
 
       {/* ========================================================
           KPI CARDS
@@ -4194,6 +4207,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         </span>
         <span>☁ Source: Oracle Fusion Cloud</span>
       </div>
+
+      </div> {/* End Global Overlay Wrapper */}
 
       {/* ========================================================
           VIEW ALL MODAL (All Cards)
