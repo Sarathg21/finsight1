@@ -2617,7 +2617,7 @@ export default function SalesRevenueReport() {
   ];
 
   const customerSummaryCols = [
-    { label: 'Customer Name',       key: 'customer_name',           align: 'left', minWidth: '130px', whiteSpace: 'normal', noTotal: true },
+    { label: 'Customer Name',       key: 'customer_name',           align: 'left', width: '220px', maxWidth: '220px', minWidth: '130px', whiteSpace: 'normal', noTotal: true },
     { label: 'Account No.',         key: 'customer_account_number', align: 'left', minWidth: '95px', fmt: v => v ?? '-', noTotal: true },
     { label: 'Legal Entity',        key: 'legal_entity',            align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.legal_entities || row.legal_entity; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
     { label: 'Parent Division',     key: 'parent_division',         align: 'left', minWidth: '120px', whiteSpace: 'normal', fmt: (v, row) => { const x = row.parent_divisions || row.parent_division; return Array.isArray(x) ? x.join(', ') : (x ?? '—'); }, noTotal: true },
@@ -2637,7 +2637,7 @@ export default function SalesRevenueReport() {
 
   const customerDetailCols = [
     { label: 'Account Number',   key: 'customer_account_number', align: 'left', minWidth: '95px' },
-    { label: 'Customer Name',    key: 'customer_name',           align: 'left', minWidth: '130px', whiteSpace: 'normal' },
+    { label: 'Customer Name',    key: 'customer_name',           align: 'left', width: '220px', maxWidth: '220px', minWidth: '130px', whiteSpace: 'normal' },
     { label: 'Type',             key: 'customer_type',           align: 'center', minWidth: '85px', fmt: v => v ?? '—' },
     { label: 'Sales Category',   key: 'sales_category',          align: 'left',   minWidth: '110px', whiteSpace: 'normal', fmt: v => v ?? '—' },
     { label: 'Legal Entity',     key: 'legal_entity',            align: 'left', minWidth: '120px', whiteSpace: 'normal' },
