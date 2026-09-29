@@ -28,7 +28,7 @@ function getRawDateForInputGlobal(d) {
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import MultiSelectDropdown from "../components/Filters/MultiSelectDropdown";
 import { Coins, BarChart3, RotateCw, Calendar, AlertTriangle, Info, ChevronDown } from "lucide-react";
-import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
+import { getInventoryFilters, getInventoryDashboard, getInventoryDetails, getInventoryExport, getInventoryMonthOnMonth, getInventoryViewAllMonthOnMonth, getInventoryDivisionWise } from "../api/inventoryApi";
 import { toast } from "react-hot-toast";
 import * as XLSX from "xlsx";
 
@@ -321,6 +321,8 @@ const [loading, setLoading] = useState(true);
   const [hoveredAgingSegment, setHoveredAgingSegment] = useState(null);
   const [hoveredParentDivSegment, setHoveredParentDivSegment] = useState(null);
   const [hoveredTrendIdx, setHoveredTrendIdx] = useState(null);
+  const [hoveredValueTrendIdx, setHoveredValueTrendIdx] = useState(null);
+  const [hoveredSeries, setHoveredSeries] = useState(null);
   const [viewAllModal, setViewAllModal] = useState(null); // "details" | "slowMoving" | "aging" | "trend" | "parentDivision" | "subdivision" | null
   const [showViewAll, setShowViewAll] = useState(false);
   const [viewAllSection, setViewAllSection] = useState("all");
@@ -495,7 +497,7 @@ const [loading, setLoading] = useState(true);
     setModalDetailsFilters(currentGlobalFilters);
     setSlowMovingDraftFilters(currentGlobalFilters);
     setSlowMovingFilters(currentGlobalFilters);
-    setViewAllModal("details");
+    setViewAllModal(viewType);
     setShowViewAll(true);
     setModalDetailPage(0);
   };
@@ -826,7 +828,7 @@ const [loading, setLoading] = useState(true);
               getInventoryFilters(apiFilters).catch(() => ({ data: {} })),
               getInventoryDashboard(apiFilters).catch(() => ({ data: {} })),
               getInventoryDetails(detailsApiFilters).catch(() => ({ data: { items: [] } })),
-              getInventoryMonthOnMonth(apiFilters).catch(() => ({ data: { items: [] } })),
+              getInventoryMonthOnMonth({ ...apiFilters, obsolete: true, is_obsolete: true, aging_bucket: '366_and_above' }).catch(() => ({ data: { items: [] } })),
               getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: { items: [] } }))
           ]);
           setMomData(momRes.data?.items || []);
@@ -1027,7 +1029,7 @@ const [loading, setLoading] = useState(true);
                   allSubdivisions = dData.by_subdivision.map((item) => ({
                       ...item,
                       subdivision_id: item.subdivision_id ?? item.id ?? (typeof item.subdivision_name === 'object' ? item.subdivision_name?.id : undefined),
-                      name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : item.subdivision_name,
+                      name: typeof item.subdivision_name === 'object' ? (item.subdivision_name?.name || item.subdivision_name?.code) : (item.subdivision_name || item.sub_division_name),
                       value: Number(item.inventory_value) / 10000000,
                       percentage: Number(item.percentage_of_total || 0),
                   })).sort((a,b) => b.value - a.value);
@@ -1060,7 +1062,7 @@ const [loading, setLoading] = useState(true);
                   trend.list = dData.trend.map((item, idx) => {
                       const month = trend.labels[idx] || `M${idx + 1}`;
                       const curr = Number(item.inventory_value || 0) / 10000000;
-                      const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null;
+                      const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : (idx > 0 ? Number(dData.trend[idx-1].inventory_value || 0) / 10000000 : null);
                       const variance = prev !== null ? curr - prev : null;
                       const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
                       const as_on_date = item.as_on_date || (typeof item.month_start === 'object' ? item.month_start?.as_on_date || item.month_start?.name : item.month_start);
@@ -1415,11 +1417,17 @@ const [loading, setLoading] = useState(true);
         else if (viewAllModal === "parentDivision") section = "parent-divisions";
         else if (viewAllModal === "slowMoving") section = "slow-moving";
 
+        // Determine MoM metric: parentDivision origin always uses total_inventory; slowMoving / momObsolete use slow_moving
+        const momMetric = (viewAllSection === "parentDivision") ? "total_inventory" : "slow_moving";
+        const needsMom = viewAllModal === "parentDivision" || viewAllModal === "slowMoving" ||
+                         viewAllModal === "momObsolete" || viewAllModal === "mom" ||
+                         viewAllSection === "parentDivision" || viewAllSection === "slowMoving";
+
         if (section) {
           const [res, divWiseRes, momRes] = await Promise.all([
-            getInventoryDetails({ ...apiFilters, section }).catch(() => ({ data: {} })),
-            viewAllModal === "parentDivision" ? getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
-            viewAllModal === "parentDivision" ? getInventoryMonthOnMonth(apiFilters).catch(() => ({ data: {} })) : Promise.resolve({ data: {} })
+            getInventoryDetails({ ...apiFilters, section }).catch(e => { console.error('[MoM] details error', e); return { data: {} }; }),
+            viewAllModal === "parentDivision" ? getInventoryDivisionWise({ ...apiFilters, limit: 500 }).catch(e => { console.error('[MoM] divwise error', e); return { data: {} }; }) : Promise.resolve({ data: {} }),
+            needsMom ? getInventoryViewAllMonthOnMonth({ ...apiFilters, metric: momMetric, year: momYear || new Date().getFullYear() }).catch(e => { console.error('[MoM] viewall MoM error', e); return { data: {} }; }) : Promise.resolve({ data: {} })
           ]);
           if (active) {
             const list = res.data?.rows || res.data?.items || (Array.isArray(res.data) ? res.data : []);
@@ -1428,8 +1436,18 @@ const [loading, setLoading] = useState(true);
             if (finalList.length > 0) {
               setViewAllData(finalList);
             }
-            if (momRes.data?.items && momRes.data.items.length > 0) {
-              setMomData(momRes.data.items);
+            const momArr = momRes.data?.rows || momRes.data?.items || momRes.data?.data || momRes.data?.parent_divisions || momRes.data?.results || (Array.isArray(momRes.data) ? momRes.data : []);
+            if (momArr.length > 0) {
+              setMomData(momArr);
+            }
+          }
+        } else if (needsMom) {
+          // MoM-only fetch when section is null (e.g. momObsolete / mom tabs)
+          const momRes = await getInventoryViewAllMonthOnMonth({ ...apiFilters, metric: momMetric, year: momYear || new Date().getFullYear() }).catch(e => { console.error('[MoM] standalone MoM error', e); return { data: {} }; });
+          if (active) {
+            const momArr = momRes.data?.rows || momRes.data?.items || momRes.data?.data || momRes.data?.parent_divisions || momRes.data?.results || (Array.isArray(momRes.data) ? momRes.data : []);
+            if (momArr.length > 0) {
+              setMomData(momArr);
             }
           }
         }
@@ -1441,7 +1459,7 @@ const [loading, setLoading] = useState(true);
     };
     fetchModalSection();
     return () => { active = false; };
-  }, [viewAllModal, appliedFilters]);
+  }, [viewAllModal, viewAllSection, appliedFilters]);
 
 
 
@@ -1754,180 +1772,266 @@ const [loading, setLoading] = useState(true);
     };
 
     return (
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        width="100%"
-        height="100%"
-        style={{ display: "block", overflow: "visible" }}
-      >
-        <defs>
-          <linearGradient id="cyAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#2563eb" stopOpacity="0.01" />
-          </linearGradient>
-        </defs>
-        {/* Y Axis Grid lines and labels */}
-        {yTicks.map((value) => {
-          const y = paddingTop + plotHeight - ((value - minValue) / (maxValue - minValue)) * plotHeight;
-          return (
-            <g key={value}>
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", position: "relative" }}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width="100%"
+          height="100%"
+          style={{ display: "block", overflow: "visible" }}
+          onMouseLeave={() => setHoveredValueTrendIdx(null)}
+        >
+          <defs>
+            <linearGradient id="cyAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#2563eb" stopOpacity="0.01" />
+            </linearGradient>
+          </defs>
+          
+          {/* Y Axis Grid lines and labels */}
+          {yTicks.map((value) => {
+            const y = paddingTop + plotHeight - ((value - minValue) / (maxValue - minValue)) * plotHeight;
+            return (
+              <g key={value}>
+                <line
+                  x1={paddingLeft}
+                  x2={width - paddingRight}
+                  y1={y}
+                  y2={y}
+                  stroke="#eef2f6"
+                  strokeWidth="1"
+                />
+                <text
+                  x={paddingLeft - 7}
+                  y={y + 3.5}
+                  textAnchor="end"
+                  fontSize="9"
+                  fontWeight="500"
+                  fill="#64748b"
+                >
+                  {value}M
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Left Y-axis line */}
+          <line
+            x1={paddingLeft}
+            x2={paddingLeft}
+            y1={paddingTop}
+            y2={paddingTop + plotHeight}
+            stroke="#cbd5e1"
+            strokeWidth="1.5"
+          />
+
+          {/* Invisible hover hit areas */}
+          {labels.map((_, i) => {
+            const x = getCoord(0, i, labels.length).x;
+            const hitW = labels.length > 1 ? plotWidth / (labels.length - 1) : plotWidth;
+            return (
+              <rect
+                key={`hit-${i}`}
+                x={x - hitW / 2}
+                y={paddingTop}
+                width={hitW}
+                height={plotHeight}
+                fill="transparent"
+                onMouseEnter={() => setHoveredValueTrendIdx(i)}
+                onMouseLeave={() => setHoveredValueTrendIdx(null)}
+                style={{ cursor: "pointer" }}
+              />
+            );
+          })}
+
+          {/* CY Area Fill */}
+          {cyValues.length > 1 && (
+            <path d={makeAreaPath(cyValues)} fill="url(#cyAreaGrad)" style={{ animation: "plTooltipFadeScale 0.8s ease forwards" }} />
+          )}
+
+          {/* PY Line (Green) */}
+          {pyValues.length > 1 && (
+            <polyline
+              points={makePolylinePoints(pyValues)}
+              fill="none"
+              stroke="#16a34a"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength="1"
+              style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: "drawLine 1.2s ease-in-out forwards" }}
+            />
+          )}
+
+          {/* Single-point callout badge when only 1 month exists */}
+          {labels.length === 1 && cyValues.length > 0 && (
+            <g>
               <line
-                x1={paddingLeft}
-                x2={width - paddingRight}
-                y1={y}
-                y2={y}
-                stroke="#eef2f6"
-                strokeWidth="1"
+                x1={getCoord(cyValues[0], 0, 1).x}
+                x2={getCoord(cyValues[0], 0, 1).x}
+                y1={paddingTop + 18}
+                y2={getCoord(cyValues[0], 0, 1).y}
+                stroke="#94a3b8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.7"
+              />
+              <rect
+                x={getCoord(cyValues[0], 0, 1).x - 68}
+                y={paddingTop + 6}
+                width={136}
+                height={30}
+                rx={6}
+                fill="#ffffff"
+                stroke="#cbd5e1"
+                strokeWidth="1.2"
+                style={{ filter: "drop-shadow(0 3px 8px rgba(15,23,42,0.10))" }}
               />
               <text
-                x={paddingLeft - 7}
-                y={y + 3.5}
-                textAnchor="end"
-                fontSize="9"
-                fontWeight="500"
-                fill="#64748b"
+                x={getCoord(cyValues[0], 0, 1).x}
+                y={paddingTop + 25}
+                textAnchor="middle"
+                fontSize="9.5"
+                fontWeight="700"
+                fill="#2563eb"
               >
-                {value}M
+                CY: {formatChartValueCompact(cyValues[0], currentCurrency)}
               </text>
             </g>
-          );
-        })}
+          )}
 
-        {/* Left Y-axis line */}
-        <line
-          x1={paddingLeft}
-          x2={paddingLeft}
-          y1={paddingTop}
-          y2={paddingTop + plotHeight}
-          stroke="#cbd5e1"
-          strokeWidth="1.5"
-        />
-
-        {/* PY Line (Green) */}
-        {pyValues.length > 1 && (
-          <polyline
-            points={makePolylinePoints(pyValues)}
-            fill="none"
-            stroke="#16a34a"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-
-        {/* CY Area Fill */}
-        {cyValues.length > 1 && (
-          <path d={makeAreaPath(cyValues)} fill="url(#cyAreaGrad)" />
-        )}
-
-        {/* Single-point callout badge when only 1 month exists */}
-        {labels.length === 1 && cyValues.length > 0 && (
-          <g>
+          {/* Hover vertical guide line */}
+          {hoveredValueTrendIdx !== null && (
             <line
-              x1={getCoord(cyValues[0], 0, 1).x}
-              x2={getCoord(cyValues[0], 0, 1).x}
-              y1={paddingTop + 18}
-              y2={getCoord(cyValues[0], 0, 1).y}
-              stroke="#94a3b8" strokeWidth="1.2" strokeDasharray="3 3" opacity="0.7"
+              x1={getCoord(0, hoveredValueTrendIdx, labels.length).x} x2={getCoord(0, hoveredValueTrendIdx, labels.length).x}
+              y1={paddingTop} y2={paddingTop + plotHeight}
+              stroke="#94a3b8" strokeWidth="1" strokeDasharray="3 3" opacity="0.6"
+              style={{ animation: "crosshairFadeIn 0.2s ease forwards" }}
             />
-            <rect
-              x={getCoord(cyValues[0], 0, 1).x - 68}
-              y={paddingTop + 6}
-              width={136}
-              height={30}
-              rx={6}
-              fill="#ffffff"
-              stroke="#cbd5e1"
-              strokeWidth="1.2"
-              style={{ filter: "drop-shadow(0 3px 8px rgba(15,23,42,0.10))" }}
+          )}
+
+          {/* CY Line (Blue) */}
+          {cyValues.length > 1 && (
+            <polyline
+              points={makePolylinePoints(cyValues)}
+              fill="none"
+              stroke="#2563eb"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength="1"
+              style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: "drawLine 1s ease-in-out forwards" }}
             />
-            <text
-              x={getCoord(cyValues[0], 0, 1).x}
-              y={paddingTop + 25}
-              textAnchor="middle"
-              fontSize="9.5"
-              fontWeight="700"
-              fill="#2563eb"
-            >
-              CY: {formatChartValueCompact(cyValues[0], currentCurrency)}
-            </text>
-          </g>
+          )}
+
+          {/* PY Points (Green circles) */}
+          {pyValues.map((value, index) => {
+            const { x, y } = getCoord(value, index, pyValues.length);
+            const isHov = hoveredValueTrendIdx === index;
+            const delay = (index / Math.max(1, pyValues.length - 1)) * 1.0;
+            return (
+              <circle
+                key={`py-${index}`}
+                cx={x}
+                cy={y}
+                r={isHov ? 5.5 : 4}
+                fill={isHov ? "#fff" : "#16a34a"}
+                stroke="#16a34a"
+                strokeWidth={isHov ? 2.5 : 1.5}
+                style={{ transition: "r 0.15s, fill 0.15s", filter: isHov ? "drop-shadow(0 2px 6px rgba(22,163,74,0.5))" : "none", transformOrigin: `${x}px ${y}px`, opacity: 0, animation: `pointFadeScale 0.4s ease forwards`, animationDelay: `${delay}s` }}
+              />
+            );
+          })}
+
+          {/* CY Points (Blue circles) */}
+          {cyValues.map((value, index) => {
+            const { x, y } = getCoord(value, index, cyValues.length);
+            const isHov = hoveredValueTrendIdx === index;
+            const delay = (index / Math.max(1, cyValues.length - 1)) * 0.8;
+            return (
+              <circle
+                key={`cy-${index}`}
+                cx={x}
+                cy={y}
+                r={isHov ? 6 : 4.5}
+                fill={isHov ? "#fff" : "#2563eb"}
+                stroke="#2563eb"
+                strokeWidth={isHov ? 2.5 : 1.5}
+                style={{ transition: "r 0.15s, fill 0.15s", filter: isHov ? "drop-shadow(0 2px 6px rgba(37,99,235,0.5))" : "none", transformOrigin: `${x}px ${y}px`, opacity: 0, animation: `pointFadeScale 0.4s ease forwards`, animationDelay: `${delay}s` }}
+              />
+            );
+          })}
+
+          
+
+          {/* X Axis Month Labels */}
+          {labels.map((label, index) => {
+            const { x } = getCoord(0, index, labels.length);
+            const isHov = hoveredValueTrendIdx === index;
+            return (
+              <text
+                key={`${label}-${index}`}
+                x={x}
+                y={height - 6}
+                textAnchor="middle"
+                fontSize="9"
+                fontWeight={isHov ? 800 : 600}
+                fill={isHov ? "#0f172a" : "#64748b"}
+                style={{ cursor: "pointer" }}
+              >
+                {label}
+              </text>
+            );
+          })}
+        </svg>
+
+        {/* Glassmorphic Tooltip */}
+        {hoveredValueTrendIdx !== null && (
+          <div
+            style={{
+              position: "absolute",
+              top: 30,
+              left: `${((getCoord(0, hoveredValueTrendIdx, labels.length).x / width) * 100).toFixed(1)}%`,
+              transform: hoveredValueTrendIdx > labels.length / 2 ? "translateX(-100%)" : "translateX(0%)",
+              background: "rgba(255,255,255,0.96)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid rgba(226,232,240,0.9)",
+              borderRadius: 14,
+              padding: "10px 14px",
+              boxShadow: "0 10px 28px rgba(15,23,42,0.15)",
+              pointerEvents: "none",
+              zIndex: 60,
+              minWidth: 155,
+              animation: "plTooltipFadeScale 0.2s ease forwards",
+            }}
+          >
+            <div style={{ fontSize: "0.78rem", fontWeight: 800, color: "#0f172a", marginBottom: 8, borderBottom: "1px solid #f1f5f9", paddingBottom: 5 }}>
+              {labels[hoveredValueTrendIdx]}
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, marginBottom: 5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 3, borderRadius: 2, background: "#2563eb" }} />
+                <span style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 500 }}>CY {trendCY}</span>
+              </div>
+              <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#2563eb", fontVariantNumeric: "tabular-nums" }}>
+                {cyValues[hoveredValueTrendIdx] !== undefined ? formatChartValueCompact(cyValues[hoveredValueTrendIdx], currentCurrency) : "-"}
+              </span>
+            </div>
+
+            {pyValues.length > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 8, height: 3, borderRadius: 2, background: "#16a34a" }} />
+                  <span style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 500 }}>PY {trendPY}</span>
+                </div>
+                <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "#16a34a", fontVariantNumeric: "tabular-nums" }}>
+                  {pyValues[hoveredValueTrendIdx] !== undefined ? formatChartValueCompact(pyValues[hoveredValueTrendIdx], currentCurrency) : "-"}
+                </span>
+              </div>
+            )}
+          </div>
         )}
-
-        {/* CY Line (Blue) */}
-        {cyValues.length > 1 && (
-          <polyline
-            points={makePolylinePoints(cyValues)}
-            fill="none"
-            stroke="#2563eb"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        )}
-
-        {/* PY Points (Green circles) */}
-        {pyValues.map((value, index) => {
-          const { x, y } = getCoord(value, index, pyValues.length);
-          return (
-            <circle
-              key={`py-${index}`}
-              cx={x}
-              cy={y}
-              r="4"
-              fill="#16a34a"
-              stroke="#ffffff"
-              strokeWidth="1.5"
-              style={{ cursor: "pointer" }}
-              /* onClick removed from Trend */
-            />
-          );
-        })}
-
-        {/* CY Points (Blue circles) */}
-        {cyValues.map((value, index) => {
-          const { x, y } = getCoord(value, index, cyValues.length);
-          return (
-            <circle
-              key={`cy-${index}`}
-              cx={x}
-              cy={y}
-              r="4.5"
-              fill="#2563eb"
-              stroke="#ffffff"
-              strokeWidth="1.5"
-              style={{ cursor: "pointer" }}
-              /* onClick removed from Trend */
-            />
-          );
-        })}
-
-        {/* X Axis Month Labels */}
-        {labels.map((label, index) => {
-          const x = labels.length > 1 ? paddingLeft + (index / (labels.length - 1)) * plotWidth : paddingLeft + plotWidth / 2;
-          return (
-            <text
-              key={`${label}-${index}`}
-              x={x}
-              y={height - 6}
-              textAnchor="middle"
-              fontSize="9"
-              fontWeight="600"
-              fill="#64748b"
-              style={{ cursor: "pointer" }}
-              /* onClick removed from Trend */
-            >
-              {label}
-            </text>
-          );
-        })}
-      </svg>
+      </div>
     );
   };
-
-  // ============================================================
-  // TURNOVER & DIO DUAL AXIS TREND CHART
-  // ============================================================
 
   const TurnoverDioChart = () => {
     const width = 540;
@@ -2046,16 +2150,36 @@ const [loading, setLoading] = useState(true);
           <line x1={paddingLeft} x2={paddingLeft} y1={paddingTop} y2={paddingTop + plotHeight} stroke="#fed7aa" strokeWidth="1.5" />
           <line x1={width - paddingRight} x2={width - paddingRight} y1={paddingTop} y2={paddingTop + plotHeight} stroke="#bfdbfe" strokeWidth="1.5" />
 
+          {/* Invisible hover hit areas */}
+          {shortLabels.map((_, i) => {
+            const x = getX(i);
+            const hitW = n > 1 ? plotWidth / (n - 1) : plotWidth;
+            return (
+              <rect
+                key={`hit-${i}`}
+                x={x - hitW / 2}
+                y={paddingTop}
+                width={hitW}
+                height={plotHeight}
+                fill="transparent"
+                onMouseEnter={() => setHoveredTrendIdx(i)}
+                onMouseLeave={() => setHoveredTrendIdx(null)}
+                /* onClick removed from Trend */
+                style={{ cursor: "pointer" }}
+              />
+            );
+          })}
+
           {/* Area fills */}
-          {turnoverValues.length > 0 && <path d={makeAreaPath(turnoverValues, getTY)} fill="url(#turnoverGrad)" />}
-          {dioValues.length > 0 && <path d={makeAreaPath(dioValues, getDY)} fill="url(#dioGrad)" />}
+          {turnoverValues.length > 0 && <path d={makeAreaPath(turnoverValues, getTY)} fill="url(#turnoverGrad)" style={{ animation: "plTooltipFadeScale 0.8s ease forwards" }} />}
+          {dioValues.length > 0 && <path d={makeAreaPath(dioValues, getDY)} fill="url(#dioGrad)" style={{ animation: "plTooltipFadeScale 0.8s ease forwards" }} />}
 
           {/* Lines */}
           {turnoverValues.length > 1 && (
-            <polyline points={turnoverPoints} fill="none" stroke="#ea580c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={turnoverPoints} fill="none" stroke="#ea580c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" pathLength="1" style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: "drawLine 1s ease-in-out forwards", opacity: (hoveredSeries && hoveredSeries !== 'turnover') ? 0.3 : 1, transition: "opacity 0.3s ease" }} />
           )}
           {dioValues.length > 1 && (
-            <polyline points={dioPoints} fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            <polyline points={dioPoints} fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" pathLength="1" style={{ strokeDasharray: 1, strokeDashoffset: 1, animation: "drawLine 1.2s ease-in-out forwards", opacity: (hoveredSeries && hoveredSeries !== 'dio') ? 0.3 : 1, transition: "opacity 0.3s ease" }} />
           )}
 
           {/* Hover vertical guide line */}
@@ -2064,6 +2188,7 @@ const [loading, setLoading] = useState(true);
               x1={getX(hoveredTrendIdx)} x2={getX(hoveredTrendIdx)}
               y1={paddingTop} y2={paddingTop + plotHeight}
               stroke="#94a3b8" strokeWidth="1" strokeDasharray="3 3" opacity="0.6"
+              style={{ animation: "crosshairFadeIn 0.2s ease forwards" }}
             />
           )}
 
@@ -2098,13 +2223,17 @@ const [loading, setLoading] = useState(true);
           {/* Turnover data points */}
           {turnoverValues.map((v, i) => {
             const isHov = hoveredTrendIdx === i;
+            const isSeriesActive = !hoveredSeries || hoveredSeries === 'turnover';
+            const delay = (i / Math.max(1, turnoverValues.length - 1)) * 1.0;
             return (
               <circle key={`t-${i}`} cx={getX(i)} cy={getTY(v)}
-                r={isHov ? 5.5 : 3.2}
+                r={isHov ? 6 : 3.5}
                 fill={isHov ? "#fff" : "#ea580c"}
                 stroke="#ea580c"
                 strokeWidth={isHov ? 2.5 : 1.5}
-                style={{ transition: "r 0.15s, fill 0.15s", filter: isHov ? "drop-shadow(0 2px 6px rgba(234,88,12,0.5))" : "none" }}
+                onMouseEnter={() => { setHoveredTrendIdx(i); setHoveredSeries('turnover'); }}
+                onMouseLeave={() => { setHoveredTrendIdx(null); setHoveredSeries(null); }}
+                style={{ cursor: "pointer", opacity: isSeriesActive ? 1 : 0.3, transition: "r 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), fill 0.15s, opacity 0.3s ease", filter: isHov ? "drop-shadow(0 4px 8px rgba(234,88,12,0.5))" : "none", transformOrigin: `${getX(i)}px ${getTY(v)}px`, animation: `pointFadeScale 0.4s ease forwards`, animationDelay: `${delay}s` }}
               />
             );
           })}
@@ -2112,36 +2241,22 @@ const [loading, setLoading] = useState(true);
           {/* DIO data points */}
           {dioValues.map((v, i) => {
             const isHov = hoveredTrendIdx === i;
+            const isSeriesActive = !hoveredSeries || hoveredSeries === 'dio';
+            const delay = (i / Math.max(1, dioValues.length - 1)) * 1.2;
             return (
               <circle key={`d-${i}`} cx={getX(i)} cy={getDY(v)}
-                r={isHov ? 5.5 : 3.2}
+                r={isHov ? 6 : 3.5}
                 fill={isHov ? "#fff" : "#2563eb"}
                 stroke="#2563eb"
                 strokeWidth={isHov ? 2.5 : 1.5}
-                style={{ transition: "r 0.15s, fill 0.15s", filter: isHov ? "drop-shadow(0 2px 6px rgba(37,99,235,0.5))" : "none" }}
+                onMouseEnter={() => { setHoveredTrendIdx(i); setHoveredSeries('dio'); }}
+                onMouseLeave={() => { setHoveredTrendIdx(null); setHoveredSeries(null); }}
+                style={{ cursor: "pointer", opacity: isSeriesActive ? 1 : 0.3, transition: "r 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), fill 0.15s, opacity 0.3s ease", filter: isHov ? "drop-shadow(0 4px 8px rgba(37,99,235,0.5))" : "none", transformOrigin: `${getX(i)}px ${getDY(v)}px`, animation: `pointFadeScale 0.4s ease forwards`, animationDelay: `${delay}s` }}
               />
             );
           })}
 
-          {/* Invisible hover hit areas */}
-          {shortLabels.map((_, i) => {
-            const x = getX(i);
-            const hitW = n > 1 ? plotWidth / (n - 1) : plotWidth;
-            return (
-              <rect
-                key={`hit-${i}`}
-                x={x - hitW / 2}
-                y={paddingTop}
-                width={hitW}
-                height={plotHeight}
-                fill="transparent"
-                onMouseEnter={() => setHoveredTrendIdx(i)}
-                onMouseLeave={() => setHoveredTrendIdx(null)}
-                /* onClick removed from Trend */
-                style={{ cursor: "pointer" }}
-              />
-            );
-          })}
+          
 
           {/* X axis labels */}
           {shortLabels.map((m, i) => {
@@ -2241,7 +2356,24 @@ const [loading, setLoading] = useState(true);
       <div style={{ width: size, height: size, flex: `0 0 ${size}px`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
         <style>{`
           @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes plTooltipFadeScale {
+        @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @keyframes pointFadeScale {
+      from { opacity: 0; transform: scale(0); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes crosshairFadeIn {
+      from { opacity: 0; }
+      to { opacity: 0.6; }
+    }
+    @keyframes plTooltipFadeScale {
             from { opacity: 0; transform: scale(0.96) translateY(4px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
           }
@@ -2381,49 +2513,60 @@ const [loading, setLoading] = useState(true);
   // ============================================================
 
   const MomBarChart = () => {
+    const [hoveredMom, setHoveredMom] = useState(null);
     const data = momData.slice(0, 5); // top 5
     if (!data || data.length === 0) {
         return <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>No month-on-month data available</div>;
     }
 
     const max = Math.max(
-      ...data.map((x) => Math.max(Number(x.current_value || 0), Number(x.previous_value || 0)))
+      ...data.map((x) => Math.max(Number(x.latest_value ?? x.current_value ?? x.value ?? 0), Number(x.previous_value ?? x.previous ?? 0)))
     );
     const roundMax = max === 0 ? 1 : (max <= 10 ? 10 : Math.ceil(max / 10) * 10);
     const ticks = [
       0,
-      Math.round(roundMax * 0.25),
       Math.round(roundMax * 0.5),
-      Math.round(roundMax * 0.75),
       roundMax,
     ];
 
     return (
-      <div style={{ width: "100%", paddingTop: 10, paddingRight: 20 }}>
+      <div style={{ width: "100%", paddingTop: 10, paddingRight: 20, position: "relative" }}>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 15, marginBottom: 15, fontSize: "0.7rem", fontWeight: 600, color: "#64748b" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: "#2563eb", borderRadius: 2 }}/> Current Month</div>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: "#94a3b8", borderRadius: 2 }}/> Previous Month</div>
         </div>
-        {data.map((item) => (
+        {data.map((item) => {
+          const isHovered = hoveredMom?.parent_division_name === item.parent_division_name;
+          const curVal = Number(item.latest_value ?? item.current_value ?? item.value ?? 0);
+          const prevVal = Number(item.previous_value ?? item.previous ?? 0);
+          
+          return (
           <div
             key={item.parent_division_name}
+            onMouseEnter={() => setHoveredMom(item)}
+            onMouseLeave={() => setHoveredMom(null)}
             style={{
               display: "grid",
-              gridTemplateColumns: "110px 1fr 68px",
+              gridTemplateColumns: "135px 1fr 65px",
               alignItems: "center",
               gap: 8,
               marginBottom: 12,
+              padding: "3px 6px",
+              borderRadius: 6,
+              background: isHovered ? "rgba(241, 245, 249, 0.95)" : "transparent",
+              cursor: "pointer",
+              transition: "all 0.18s ease",
             }}
           >
             <div
               style={{
                 fontSize: "0.75rem",
-                color: "#475569",
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                textAlign: "right"
+                color: isHovered ? "#2563eb" : "#1e3a8a",
+                fontWeight: 700,
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                textAlign: "right",
+                transition: "color 0.18s ease"
               }}
               title={item.parent_division_name}
             >
@@ -2435,7 +2578,7 @@ const [loading, setLoading] = useState(true);
                   <div
                     style={{
                       height: "100%",
-                      width: `${(Number(item.current_value || 0) / roundMax) * 100}%`,
+                      width: `${max > 0 ? (curVal / roundMax) * 100 : 0}%`,
                       background: "#2563eb",
                       borderRadius: 2,
                       transition: "width 0.5s",
@@ -2446,7 +2589,7 @@ const [loading, setLoading] = useState(true);
                   <div
                     style={{
                       height: "100%",
-                      width: `${(Number(item.previous_value || 0) / roundMax) * 100}%`,
+                      width: `${max > 0 ? (prevVal / roundMax) * 100 : 0}%`,
                       background: "#94a3b8",
                       borderRadius: 2,
                       transition: "width 0.5s",
@@ -2456,14 +2599,14 @@ const [loading, setLoading] = useState(true);
             </div>
 
             <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#334155", textAlign: "right" }}>
-                <div style={{ color: "#1e3a8a" }}>{formatChartValueCompact(item.current_value, "")}</div>
-                <div style={{ color: "#64748b" }}>{formatChartValueCompact(item.previous_value, "")}</div>
+                <div style={{ color: "#1e3a8a" }}>{formatChartValueCompact(curVal, "")}</div>
+                <div style={{ color: "#64748b" }}>{formatChartValueCompact(prevVal, "")}</div>
             </div>
           </div>
-        ))}
+        )})}
         
         {/* X-Axis Ticks */}
-        <div style={{ display: "grid", gridTemplateColumns: "110px 1fr 68px", gap: 8, marginTop: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "135px 1fr 65px", gap: 8, marginTop: 8 }}>
           <div />
           <div style={{ position: "relative", height: 15 }}>
             {ticks.map((t, i) => (
@@ -2472,23 +2615,88 @@ const [loading, setLoading] = useState(true);
                 style={{
                   position: "absolute",
                   left: `${(t / roundMax) * 100}%`,
-                  transform: "translateX(-50%)",
+                  transform: i === 0 ? "translateX(0)" : (i === ticks.length - 1 ? "translateX(-100%)" : "translateX(-50%)"),
                   fontSize: "0.6rem",
-                  color: "#94a3b8",
-                  fontWeight: 600,
+                  color: "#64748b",
+                  fontWeight: 700,
                 }}
               >
-                {t}
+                {formatChartValueCompact(t, "")}
               </span>
             ))}
           </div>
           <div />
         </div>
+        
+        {/* Floating detail card matching Sub-division box */}
+        {hoveredMom && (() => {
+          const curVal = Number(hoveredMom.latest_value ?? hoveredMom.current_value ?? hoveredMom.value ?? 0);
+          const prevVal = Number(hoveredMom.previous_value ?? hoveredMom.previous ?? 0);
+          const variance = curVal - prevVal;
+          const variancePct = prevVal > 0 ? (variance / prevVal) * 100 : 0;
+          const isPositive = variance > 0;
+          const isNegative = variance < 0;
+          const varColor = isPositive ? "#dc2626" : (isNegative ? "#16a34a" : "#64748b");
+
+          return (
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 20,
+              zIndex: 60,
+              background: "rgba(255, 255, 255, 0.96)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid rgba(226, 232, 240, 0.95)",
+              borderRadius: 16,
+              padding: "12px 16px",
+              boxShadow: "0 12px 32px rgba(15, 23, 42, 0.16)",
+              pointerEvents: "none",
+              minWidth: 195,
+              animation: "plTooltipFadeScale 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3.5, background: "#2563eb", flexShrink: 0, boxShadow: `0 2px 6px #2563eb66` }} />
+              <span style={{ fontSize: "0.86rem", fontWeight: 700, color: "#0f172a", whiteSpace: "nowrap" }}>
+                {hoveredMom.parent_division_name}
+              </span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, marginBottom: 5 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>
+                <span style={{ width: 8, height: 8, background: "#2563eb", borderRadius: 2 }}/> Current
+              </span>
+              <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                {formatChartValueCompact(curVal, currentCurrency)}
+              </span>
+            </div>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18, marginBottom: 5 }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>
+                <span style={{ width: 8, height: 8, background: "#94a3b8", borderRadius: 2 }}/> Previous
+              </span>
+              <span style={{ fontSize: "0.82rem", fontWeight: 800, color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
+                {formatChartValueCompact(prevVal, currentCurrency)}
+              </span>
+            </div>
+
+            <div style={{ height: 1, background: "#e2e8f0", margin: "6px 0" }} />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 18 }}>
+              <span style={{ fontSize: "0.70rem", color: "#64748b", fontWeight: 500 }}>Variance</span>
+              <span style={{ fontSize: "0.82rem", fontWeight: 800, color: varColor, fontVariantNumeric: "tabular-nums" }}>
+                {isPositive ? "+" : ""}{formatChartValueCompact(variance, currentCurrency)} <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>({isPositive ? "+" : ""}{variancePct.toFixed(1)}%)</span>
+              </span>
+            </div>
+          </div>
+        )})}
       </div>
     );
   };
-
-  // BAR CHART
+  
+    // BAR CHART
   // ============================================================
 
   const SUBDIV_PALETTE = [
@@ -2519,9 +2727,7 @@ const [loading, setLoading] = useState(true);
     const roundMax = max <= 5 ? 5 : Math.ceil(max / 5) * 5;
     const ticks = [
       0,
-      Math.round(roundMax * 0.25),
       Math.round(roundMax * 0.5),
-      Math.round(roundMax * 0.75),
       roundMax,
     ];
 
@@ -2529,7 +2735,24 @@ const [loading, setLoading] = useState(true);
       <div style={{ width: "100%", paddingTop: 4, position: "relative" }}>
         <style>{`
           @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes plTooltipFadeScale {
+        @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @keyframes pointFadeScale {
+      from { opacity: 0; transform: scale(0); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes crosshairFadeIn {
+      from { opacity: 0; }
+      to { opacity: 0.6; }
+    }
+    @keyframes plTooltipFadeScale {
             from { opacity: 0; transform: scale(0.96) translateY(4px); }
             to { opacity: 1; transform: scale(1) translateY(0); }
           }
@@ -2544,7 +2767,7 @@ const [loading, setLoading] = useState(true);
               /* onClick removed from Subdiv Legend */
               style={{
                 display: "grid",
-                gridTemplateColumns: "100px 1fr 78px",
+                gridTemplateColumns: "115px 1fr 78px",
                 alignItems: "center",
                 gap: 8,
                 marginBottom: 8,
@@ -2558,12 +2781,11 @@ const [loading, setLoading] = useState(true);
               <div
                 style={{
                   fontSize: "0.72rem",
-                  color: isHovered ? "#0f172a" : "#475569",
+                  color: isHovered ? item.color : "#475569",
                   textAlign: "right",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  fontWeight: isHovered ? 700 : 500,
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  fontWeight: isHovered ? 800 : 600,
                   transition: "all 0.15s ease",
                 }}
                 title={item.name}
@@ -4056,9 +4278,9 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <table style={{ width: "100%", minWidth: 1050, borderCollapse: "separate", borderSpacing: 0, fontSize: "0.80rem" }}>
             <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
               <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 125, minWidth: 105, maxWidth: 135, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Legal<br />Entity</th>
-                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Parent<br />Division</th>
-                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 120, minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Sub-<br />Division</th>
+                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 105, maxWidth: 135, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Legal<br />Entity</th>
+                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Parent<br />Division</th>
+                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 105, maxWidth: 130, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "normal", wordBreak: "break-word" }}>Sub-<br />Division</th>
                 <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 80, maxWidth: 90, verticalAlign: "bottom", lineHeight: 1.2, background: "#f8fafc", borderBottom: "2px solid #cbd5e1", whiteSpace: "nowrap" }}>SUB-INV<br />CODE</th>
                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 100, maxWidth: 125, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Total Stock<br />Value ({currentCurrency})</th>
                 <th style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 65, minWidth: 55, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>0-30<br />Days</th>
@@ -4243,8 +4465,8 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           slowMoving: ["Slow Moving Stock Detailed View", "Underlying slow moving and obsolete inventory records by parent division."],
           details: ["Inventory Detailed View", "Complete line-item inventory valuation and aging breakdown."],
           kpi: ["Inventory Valuation Detailed View", "Underlying inventory records for the selected metric."],
-          momObsolete: ["Month-on-Month Obsolete Stock Detailed View", "Period comparison of obsolete stock position across parent divisions."],
-          month_on_month: ["Month-on-Month Obsolete Stock Detailed View", "Period comparison of obsolete stock position across parent divisions."],
+          momObsolete: [`Month-on-Month ${viewAllSection === "parentDivision" ? "Inventory Value" : "Obsolete Stock"} Detailed View`, `Period comparison of ${viewAllSection === "parentDivision" ? "inventory value" : "obsolete stock"} position across parent divisions.`],
+          month_on_month: [`Month-on-Month ${viewAllSection === "parentDivision" ? "Inventory Value" : "Obsolete Stock"} Detailed View`, `Period comparison of ${viewAllSection === "parentDivision" ? "inventory value" : "obsolete stock"} position across parent divisions.`],
         };
 
         const activeTabKey = (modalActiveTab === "mom") ? "momObsolete" : modalActiveTab;
@@ -4409,7 +4631,7 @@ const detailsSource = modalFilteredDetails || [];
               <div
                 className="sales-style-view-all-modal"
                 style={{
-                  width: "fit-content", minWidth: "75vw", maxWidth: "98vw",
+                  width: "96vw", maxWidth: "1800px",
                   maxHeight: "92vh",
                   background: "#f7faff",
                   borderRadius: 10,
@@ -5080,7 +5302,16 @@ const detailsSource = modalFilteredDetails || [];
                           {modalActiveTab === "parentDivision" && "Detailed inventory holdings, aging distribution, and turnover by parent division"}
                           {modalActiveTab === "subdivision" && "Sub-division holdings ranked by valuation, quantity, and obsolete status"}
                           {modalActiveTab === "slowMoving" && "Aggregated slow moving inventory valuation and obsolete position by parent division"}
-                          {(modalActiveTab === "momObsolete" || modalActiveTab === "mom") && `Month-on-Month obsolete stock comparison across periods (Year: ${momYear})`}
+                          {(modalActiveTab === "momObsolete" || modalActiveTab === "mom") && (
+                              <>
+                                {`Month-on-Month ${viewAllSection === "parentDivision" ? "total inventory" : "obsolete stock"} comparison across periods (Year: ${momYear})`}
+                                {momData.length > 0 && (
+                                  <span style={{ marginLeft: 10, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "1px 8px", fontSize: "0.72rem", fontWeight: 700, color: "#1d4ed8", verticalAlign: "middle" }}>
+                                    {momData.length} Parent Division{momData.length !== 1 ? "s" : ""}
+                                  </span>
+                                )}
+                              </>
+                            )}
                           {modalActiveTab === "details" && "Detailed line-item inventory valuation and aging status"}
                         </div>
                       </div>
@@ -5263,9 +5494,8 @@ const detailsSource = modalFilteredDetails || [];
                             </tbody>
                             {rows.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
-                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                                  <td style={{ padding: "10px 10px" }} />
-                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                    <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px" }} />
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(totalSum / scale).toLocaleString("en-US")}
@@ -5290,7 +5520,7 @@ const detailsSource = modalFilteredDetails || [];
                             ? mockData.trend.rawItems.map((item, idx) => {
                                 const month = mockData.trend.labels?.[idx] || `Month ${idx + 1}`;
                                 const curr = Number(item.inventory_value || 0) / 10000000;
-                                const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : null;
+                                const prev = (item.previous_value !== undefined && item.previous_value !== null) ? Number(item.previous_value) / 10000000 : (idx > 0 ? Number(mockData.trend.rawItems[idx-1].inventory_value || 0) / 10000000 : null);
                                 const variance = prev !== null ? curr - prev : null;
                                 const growth = (prev !== null && prev !== 0) ? ((curr - prev) / prev) * 100 : null;
                                 const as_on_date = item.as_on_date || (typeof item.month_start === 'object' ? item.month_start?.as_on_date || item.month_start?.name : item.month_start);
@@ -5325,7 +5555,7 @@ const detailsSource = modalFilteredDetails || [];
                               ) : (
                                 rows.map((row, idx) => {
                                   const rawVal = Number(row.inventory_value !== undefined ? row.inventory_value : (row.current !== undefined ? (row.current < 1000 ? row.current * 10000000 : row.current) : (row.total_stock_value || 0)));
-                                  const rawPrev = (row.previous_value !== undefined && row.previous_value !== null) ? Number(row.previous_value) : (row.previous !== undefined && row.previous !== null ? (row.previous < 1000 ? Number(row.previous) * 10000000 : Number(row.previous)) : null);
+                                  const rawPrev = (row.previous_value !== undefined && row.previous_value !== null) ? Number(row.previous_value) : (row.previous !== undefined && row.previous !== null ? (row.previous < 1000 ? Number(row.previous) * 10000000 : Number(row.previous)) : (idx > 0 ? Number(rows[idx-1].inventory_value !== undefined ? rows[idx-1].inventory_value : (rows[idx-1].current !== undefined ? (rows[idx-1].current < 1000 ? rows[idx-1].current * 10000000 : rows[idx-1].current) : 0)) : null));
                                   const variance = rawPrev !== null ? (rawVal - rawPrev) : null;
                                   const variancePct = (rawPrev !== null && rawPrev !== 0) ? ((rawVal - rawPrev) / rawPrev) * 100 : null;
                                   const turnover = row.inventory_turnover ?? mockData.turnoverDioTrend?.turnover?.[idx] ?? 4.2;
@@ -5388,40 +5618,25 @@ const detailsSource = modalFilteredDetails || [];
 
                       {/* CONTEXT TAB 3: PARENT DIVISION PERFORMANCE */}
                       {modalActiveTab === "parentDivision" && (() => {
-                        const sourceDivs = (mockData.allDivisions && mockData.allDivisions.length > 0)
-                          ? mockData.allDivisions
-                          : ((mockData.divisions && mockData.divisions.length > 0)
-                            ? mockData.divisions
-                            : ((mockData.parentDivisions && mockData.parentDivisions.length > 0)
-                              ? mockData.parentDivisions
-                              : []));
+                        const sourceDivs = (viewAllData && viewAllData.length > 0)
+                          ? viewAllData
+                          : ((mockData.allDivisions && mockData.allDivisions.length > 0)
+                            ? mockData.allDivisions
+                            : ((mockData.divisions && mockData.divisions.length > 0) ? mockData.divisions : []));
 
                         const rows = sourceDivs.map((div, idx) => {
                           const name = div.parent_division_name || div.name || div.desc || div.label || "-";
                           const divId = div.parent_division_id || div.id || name;
-                          const matchingItems = detailsSource.filter(r => (
-                            (r.parent_division && String(r.parent_division).trim().toLowerCase() === String(name).trim().toLowerCase()) ||
-                            (r.parent_division_id && String(r.parent_division_id) === String(divId))
-                          ));
-
-                          const divTotal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.total_stock_value || 0), 0)
-                            : Number(div.total_cost_value || (div.value ? (div.value < 1000 ? div.value * 10000000 : div.value) : 0));
-
-                          const currentVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_0_30 || 0), 0)
-                            : (divStats[name]?.cur || Math.round(divTotal * 0.45));
-                          const activeVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_31_60 || 0) + Number(r.aging_61_90 || 0) + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0), 0)
-                            : (divStats[name]?.act || Math.round(divTotal * 0.35));
-                          const slowVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_181_365 || 0), 0)
-                            : (divStats[name]?.slow || Math.round(divTotal * 0.12));
-                          const obsVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0), 0)
-                            : (divStats[name]?.obs || Math.round(divTotal * 0.08));
+                          
+                          // Use explicit backend aggregate values
+                          const divTotal = Number(div.total_stock_value || div.total_cost_value || (div.value ? (div.value < 1000 ? div.value * 10000000 : div.value) : 0));
+                          const currentVal = Number(div.aging_0_30 || divStats[name]?.cur || Math.round(divTotal * 0.45));
+                          const activeVal = Number(div.aging_31_60 || 0) + Number(div.aging_61_90 || 0) + Number(div.aging_91_120 || 0) + Number(div.aging_121_180 || 0) || (divStats[name]?.act || Math.round(divTotal * 0.35));
+                          const slowVal = Number(div.aging_181_365 || divStats[name]?.slow || Math.round(divTotal * 0.12));
+                          const obsVal = Number(div.aging_366_730 || 0) + Number(div.aging_above_730 || 0) || (divStats[name]?.obs || Math.round(divTotal * 0.08));
                           const pctObs = divTotal > 0 ? (obsVal / divTotal) * 100 : 0;
                           const pctTotal = totalInventoryVal > 0 ? (divTotal / totalInventoryVal) * 100 : Number(div.percentage || 0);
+                          
                           const isFiltered = viewAllDetailFilters.parent_division_id && (
                             String(viewAllDetailFilters.parent_division_id).trim().toLowerCase() === String(divId).trim().toLowerCase() ||
                             String(viewAllDetailFilters.parent_division_id).trim().toLowerCase() === String(name).trim().toLowerCase()
@@ -5438,7 +5653,7 @@ const detailsSource = modalFilteredDetails || [];
                             slowVal,
                             obsVal,
                             pctObs,
-                            itemCount: matchingItems.length,
+                            itemCount: 0,
                             isFiltered,
                           };
                         }).filter(r => {
@@ -5456,7 +5671,7 @@ const detailsSource = modalFilteredDetails || [];
                           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Total</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-30)<br />({currencyHeader})</th>
@@ -5522,9 +5737,8 @@ const detailsSource = modalFilteredDetails || [];
                             </tbody>
                             {rows.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
-                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                                  <td style={{ padding: "10px 10px" }} />
-                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                    <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(sumTotal / scale).toLocaleString("en-US")}
                                   </td>
@@ -5554,41 +5768,27 @@ const detailsSource = modalFilteredDetails || [];
 
                       {/* CONTEXT TAB 4: SUBDIVISION PERFORMANCE */}
                       {modalActiveTab === "subdivision" && (() => {
-                        const sourceSubs = (mockData.allSubdivisions && mockData.allSubdivisions.length > 0)
-                          ? mockData.allSubdivisions
-                          : ((mockData.bySubdivision && mockData.bySubdivision.length > 0)
-                            ? mockData.bySubdivision
-                            : ((mockData.subdivisions && mockData.subdivisions.length > 0)
-                              ? mockData.subdivisions
-                              : []));
+                        const sourceSubs = (viewAllData && viewAllData.length > 0)
+                          ? viewAllData
+                          : ((mockData.allSubdivisions && mockData.allSubdivisions.length > 0)
+                            ? mockData.allSubdivisions
+                            : ((mockData.bySubdivision && mockData.bySubdivision.length > 0) ? mockData.bySubdivision : []));
 
                         const rows = sourceSubs.map((sub, idx) => {
-                          const name = sub.name || sub.subdivision_name || sub.desc || sub.label || "-";
+                          const name = sub.name || sub.subdivision_name || sub.sub_division_name || sub.sub_division || sub.desc || sub.label || "-";
                           const subId = sub.subdivision_id || sub.id || name;
-                          const matchingItems = detailsSource.filter(r => (
-                            (r.subdivision && String(r.subdivision).trim().toLowerCase() === String(name).trim().toLowerCase()) ||
-                            (r.subdivision_id && String(r.subdivision_id) === String(subId))
-                          ));
-
-                          const subVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.total_stock_value || 0), 0)
-                            : Number(sub.inventory_value || (sub.value ? (sub.value < 1000 ? sub.value * 10000000 : sub.value) : 0));
-
-                          const subQty = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.quantity || 0), 0)
-                            : Number(sub.quantity || sub.qty || 120);
-                          const parentDiv = matchingItems[0]?.parent_division || sub.parent_division || sub.parent_division_name || "-";
-                          const currentVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_0_30 || 0), 0)
-                            : Math.round(subVal * 0.45);
-                          const slowVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0) + Number(r.aging_181_365 || 0), 0)
-                            : Math.round(subVal * 0.15);
-                          const obsVal = matchingItems.length > 0
-                            ? matchingItems.reduce((s, r) => s + Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0), 0)
-                            : Math.round(subVal * 0.08);
+                          
+                          const subVal = Number(sub.inventory_value || sub.total_stock_value || (sub.value ? (sub.value < 1000 ? sub.value * 10000000 : sub.value) : 0));
+                          const subQty = Number(sub.quantity || sub.qty || 0);
+                          const parentDiv = sub.parent_division || sub.parent_division_name || "-";
+                          
+                          const currentVal = Number(sub.aging_0_30 || Math.round(subVal * 0.45));
+                          const slowVal = Number(sub.aging_91_120 || 0) + Number(sub.aging_121_180 || 0) + Number(sub.aging_181_365 || 0) || Math.round(subVal * 0.15);
+                          const obsVal = Number(sub.aging_366_730 || 0) + Number(sub.aging_above_730 || 0) || Math.round(subVal * 0.08);
+                          
                           const pctObs = subVal > 0 ? (obsVal / subVal) * 100 : 0;
                           const pctTotal = totalInventoryVal > 0 ? (subVal / totalInventoryVal) * 100 : Number(sub.percentage || 0);
+                          
                           const isFiltered = viewAllDetailFilters.subdivision_id && (
                             String(viewAllDetailFilters.subdivision_id).trim().toLowerCase() === String(subId).trim().toLowerCase() ||
                             String(viewAllDetailFilters.subdivision_id).trim().toLowerCase() === String(name).trim().toLowerCase()
@@ -5606,7 +5806,7 @@ const detailsSource = modalFilteredDetails || [];
                             slowVal,
                             obsVal,
                             pctObs,
-                            itemCount: matchingItems.length,
+                            itemCount: 0,
                             isFiltered,
                           };
                         }).filter(r => {
@@ -5625,8 +5825,8 @@ const detailsSource = modalFilteredDetails || [];
                           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
                             <thead>
                               <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 170, verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-Division</th>
-                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 150, verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Sub-Division</th>
+                                <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Inventory Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Share</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>Qty<br />(Nos)</th>
@@ -5693,9 +5893,8 @@ const detailsSource = modalFilteredDetails || [];
                             </tbody>
                             {rows.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
-                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                                  <td style={{ padding: "10px 10px" }} />
-                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                    <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px" }} />
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(sumVal / scale).toLocaleString("en-US")}
@@ -5726,9 +5925,10 @@ const detailsSource = modalFilteredDetails || [];
 
                       {/* TAB 5: SLOW MOVING STOCK */}
                       {(modalActiveTab === "slowMoving" || (!["aging", "trend", "parentDivision", "subdivision", "momObsolete", "mom", "details"].includes(modalActiveTab) && slowMovingViewMode === "stock")) && (() => {
-                        const rawList = (mockData.slowMoving && mockData.slowMoving.length > 0) ? mockData.slowMoving : [];
+                        const rawList = (viewAllData && viewAllData.length > 0) ? viewAllData : ((mockData.allSlowMoving && mockData.allSlowMoving.length > 0) ? mockData.allSlowMoving : (mockData.slowMoving || []));
+                        
                         const filtered = rawList.filter(item => {
-                          const name = (item.parent_division_name || item.parentDiv || item.desc || item.name || "").trim();
+                          const name = (item.parent_division_name || item.parent_division || item.parentDiv || item.name || item.desc || "").trim();
                           if (viewAllSearch && !name.toLowerCase().includes(viewAllSearch.toLowerCase())) {
                             return false;
                           }
@@ -5744,29 +5944,21 @@ const detailsSource = modalFilteredDetails || [];
                         let totalObs = 0;
 
                         filtered.forEach(item => {
-                          const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                          const divName = item.parent_division_name || item.parent_division || item.parentDiv || item.name || item.desc || "-";
                           const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
                             ? slowMovingFilteredStats.map[divName]
                             : (divStats[divName] || {});
 
-                          const itemQty = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                            ? stats.qty
-                            : (item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0))));
+                          const itemQty = Number(item.total_quantity || item.quantity || item.qty || stats.qty || 0);
                           totalQty += itemQty;
 
-                          const itemVal = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                            ? stats.val
-                            : (item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0))));
+                          const itemVal = Number(item.total_stock_value || item.inventory_value || item.total_value || stats.val || 0);
                           totalVal += itemVal;
 
-                          const itemStock = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                            ? stats.stockVal
-                            : (item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0)));
+                          const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || itemVal || 0);
                           totalStockVal += itemStock;
 
-                          const obs = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                            ? stats.obs
-                            : Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
+                          const obs = Number(item.obsolete_stock || item.obsolete || item.value || stats.obs || 0);
                           totalObs += obs;
                         });
 
@@ -5789,26 +5981,16 @@ const detailsSource = modalFilteredDetails || [];
                                 <tr><td colSpan={5} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                               ) : (
                                 filtered.map((item, idx) => {
-                                  const divName = item.parent_division_name || item.parentDiv || item.desc || item.name || "-";
+                                  const divName = item.parent_division_name || item.parent_division || item.parentDiv || item.name || item.desc || "-";
+                                  
                                   const stats = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
                                     ? slowMovingFilteredStats.map[divName]
                                     : (divStats[divName] || {});
 
-                                  const itemQty = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                    ? stats.qty
-                                    : (item.total_quantity !== undefined ? Number(item.total_quantity) : (item.quantity !== undefined ? Number(item.quantity) : (item.qty !== undefined && !isNaN(Number(item.qty)) ? Number(item.qty) : (stats.qty || 0))));
-
-                                  const itemVal = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                    ? stats.val
-                                    : (item.total_value !== undefined ? Number(item.total_value) : (item.inventory_value !== undefined ? Number(item.inventory_value) : (stats.val || Number(item.total_stock_value || item.total || 0))));
-
-                                  const itemStock = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                    ? stats.stockVal
-                                    : (item.total_stock_value !== undefined ? Number(item.total_stock_value) : (item.total !== undefined ? Number(item.total) : (stats.stockVal || itemVal || 0)));
-
-                                  const obs = slowMovingFilteredStats.isFiltered && slowMovingFilteredStats.map[divName]
-                                    ? stats.obs
-                                    : Number(item.obsolete_stock !== undefined ? item.obsolete_stock : (item.obsolete || item.value || 0));
+                                  const itemQty = Number(item.total_quantity || item.quantity || item.qty || stats.qty || 0);
+                                  const itemVal = Number(item.total_stock_value || item.inventory_value || item.total_value || stats.val || 0);
+                                  const itemStock = Number(item.total_stock_value || item.total || stats.stockVal || itemVal || 0);
+                                  const obs = Number(item.obsolete_stock || item.obsolete || item.value || stats.obs || 0);
 
                                   const pct = item.obsolete_percentage !== undefined && item.obsolete_percentage !== null
                                     ? Number(item.obsolete_percentage)
@@ -5836,9 +6018,8 @@ const detailsSource = modalFilteredDetails || [];
                             </tbody>
                             {filtered.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 20, background: "#f8fafc" }}>
-                                <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
-                                  <td style={{ padding: "10px 10px" }} />
-                                  <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
+                                  <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0", fontWeight: 800 }}>
+                                    <td style={{ padding: "10px 10px", color: "#1e3a8a" }}>Total</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155" }}>{Math.round(totalQty).toLocaleString("en-US")}</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>{Math.round(totalVal / scale).toLocaleString("en-US")}</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#2563eb" }}>{Math.round(totalStockVal / scale).toLocaleString("en-US")}</td>
@@ -5871,7 +6052,9 @@ const detailsSource = modalFilteredDetails || [];
                                 ? mockData.filters.parentDivisions.filter(d => d.value !== "All").map(d => ({ name: d.label || d.value, parent_division_name: d.label || d.value, parent_division_id: d.value }))
                                 : Object.keys(divStats).map(name => ({ name, parent_division_name: name })))));
 
-                        const momRows = sourceParentDivs.filter(item => {
+                        const momSource = (momData && momData.length > 0) ? momData : (viewAllData && viewAllData.length > 0 ? viewAllData : sourceParentDivs);
+                        
+                        const momRows = momSource.filter(item => {
                           const name = item.desc || item.name || item.parent_division_name || "";
                           const divId = item.parent_division_id || item.id || name;
 
@@ -5879,7 +6062,6 @@ const detailsSource = modalFilteredDetails || [];
                             return false;
                           }
 
-                          // Respect active drilldown filter
                           const targetPd = viewAllDetailFilters?.parent_division_id;
                           if (targetPd) {
                             const t = String(targetPd).trim().toLowerCase();
@@ -5888,7 +6070,6 @@ const detailsSource = modalFilteredDetails || [];
                             if (dId !== t && !dName.includes(t) && !t.includes(dName)) return false;
                           }
 
-                          // Respect modal or global Parent Division filter
                           const effectivePD = (!modalDetailsFilters?.parentDivision || modalDetailsFilters.parentDivision.includes("All"))
                             ? filters?.parentDivision
                             : modalDetailsFilters.parentDivision;
@@ -5906,64 +6087,83 @@ const detailsSource = modalFilteredDetails || [];
                         }).map((item, idx) => {
                           const name = item.desc || item.name || item.parent_division_name || "-";
                           const divId = item.parent_division_id || item.id || name;
+                          
+                          const curObs = Number(item.latest_value ?? item.latest ?? item.current_value ?? item.obsolete_stock ?? item.total_stock_value ?? item.value ?? 0);
+                          const prevObs = Number(item.previous_value ?? item.previous ?? item.previous_obsolete_stock ?? 0);
+                          
+                          const variance = Number(item.variance ?? (curObs - prevObs));
+                          const variancePct = Number(item.variance_percentage ?? (prevObs > 0 ? ((curObs - prevObs) / prevObs) * 100 : 0));
 
-                          const matchingItems = detailsSource.filter(r => (
-                            (r.parent_division && String(r.parent_division).trim().toLowerCase() === String(name).trim().toLowerCase()) ||
-                            (r.parent_division_id && String(r.parent_division_id) === String(divId))
-                          ));
-
-                          const matchingObs = matchingItems.reduce((s, r) => s + Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0), 0);
-                          const matchingTotal = matchingItems.reduce((s, r) => s + Number(r.total_stock_value || 0), 0);
-
-                          const st = divStats[name] || {};
-                          let curObs = 0;
-                          if (matchingObs > 0) {
-                            curObs = matchingObs;
-                          } else if (st.obs !== undefined && st.obs > 0) {
-                            curObs = Number(st.obs);
-                          } else if (item.obsolete_stock !== undefined && Number(item.obsolete_stock) > 0) {
-                            curObs = Number(item.obsolete_stock);
-                          } else if (item.value) {
-                            const v = Number(item.value < 1000 ? item.value * 10000000 : item.value);
-                            curObs = Math.round(v * 0.08);
-                          } else if (matchingTotal > 0) {
-                            curObs = Math.round(matchingTotal * 0.08);
-                          } else {
-                            curObs = 250000 + (idx * 45000);
+                          // DIAGNOSTIC: log the first item's monthly_values to understand API format
+                          if (idx === 0 && item.monthly_values) {
+                            if (Array.isArray(item.monthly_values)) {
+                            } else {
+                            }
                           }
-
-                          const momMatch = (momData || []).find(m => (
-                            (m.parent_division_name && m.parent_division_name.toLowerCase() === name.toLowerCase()) ||
-                            (m.name && m.name.toLowerCase() === name.toLowerCase())
-                          ));
-
-                          let prevObs = 0;
-                          if (item.previous_obsolete_stock !== undefined) {
-                            prevObs = Number(item.previous_obsolete_stock);
-                          } else if (momMatch && momMatch.previous_value !== undefined && momMatch.previous_value !== null) {
-                            prevObs = Number(momMatch.previous_value);
-                          } else {
-                            let seed = 0; for (let c = 0; c < name.length; c++) seed += name.charCodeAt(c);
-                            const factor = 0.90 + ((seed % 15) / 100);
-                            prevObs = Math.round(curObs * factor);
-                          }
-
-                          const variance = curObs - prevObs;
-                          const variancePct = prevObs > 0 ? ((curObs - prevObs) / prevObs) * 100 : 0;
+                          // Month abbreviation mapping
+                          const MONTH_NUM_MAP = {1:"JAN",2:"FEB",3:"MAR",4:"APR",5:"MAY",6:"JUN",7:"JUL",8:"AUG",9:"SEP",10:"OCT",11:"NOV",12:"DEC"};
+                          const MONTH_NAME_MAP = { JAN:1, FEB:2, MAR:3, APR:4, MAY:5, JUN:6, JUL:7, AUG:8, SEP:9, OCT:10, NOV:11, DEC:12 };
+                          const MONTH_ABBREV_MAP = { JANUARY:"JAN",FEBRUARY:"FEB",MARCH:"MAR",APRIL:"APR",MAY:"MAY",JUNE:"JUN",JULY:"JUL",AUGUST:"AUG",SEPTEMBER:"SEP",OCTOBER:"OCT",NOVEMBER:"NOV",DECEMBER:"DEC" };
 
                           const monthlyVals = {};
-                          allMonths.forEach((m, mIdx) => {
-                            if (m === curMonthKey) {
-                              monthlyVals[m] = curObs;
-                            } else if (m === prevMonthKey) {
-                              monthlyVals[m] = prevObs;
-                            } else if (mIdx <= curMonthIdx) {
-                              const mFactor = 0.85 + (((idx * 7 + mIdx * 11) % 25) / 100);
-                              monthlyVals[m] = Math.round(curObs * mFactor);
+                          if (item.monthly_values && typeof item.monthly_values === 'object') {
+                            if (Array.isArray(item.monthly_values)) {
+                              // Pre-index: extract month number from every possible key format
+                              const mvLookup = {};
+                              item.monthly_values.forEach(x => {
+                                let abbr = null;
+                                // PRIMARY: month_start date string "2026-01-01" → month 1 → "JAN"
+                                if (x.month_start) {
+                                  const mo = parseInt(String(x.month_start).split('-')[1], 10);
+                                  if (mo >= 1 && mo <= 12) abbr = MONTH_NUM_MAP[mo];
+                                }
+                                // as_on_date date string "2026-01-31" → month 1 → "JAN"
+                                else if (x.as_on_date) {
+                                  const mo = parseInt(String(x.as_on_date).split('-')[1], 10);
+                                  if (mo >= 1 && mo <= 12) abbr = MONTH_NUM_MAP[mo];
+                                }
+                                // Numeric month field
+                                else if (x.month != null && !isNaN(Number(x.month))) {
+                                  abbr = MONTH_NUM_MAP[Number(x.month)];
+                                }
+                                // Full month name
+                                else if (x.month_name) {
+                                  abbr = MONTH_ABBREV_MAP[x.month_name.toUpperCase()] || x.month_name.toUpperCase().slice(0,3);
+                                }
+                                // 3-letter abbreviation
+                                else if (x.month && isNaN(Number(x.month))) {
+                                  abbr = String(x.month).toUpperCase().slice(0,3);
+                                }
+                                else if (x.name) {
+                                  abbr = MONTH_ABBREV_MAP[String(x.name).toUpperCase()] || String(x.name).toUpperCase().slice(0,3);
+                                }
+                                if (abbr && MONTH_NAME_MAP[abbr]) mvLookup[abbr] = x;
+                              });
+                              allMonths.forEach((m) => {
+                                const mv = mvLookup[m];
+                                monthlyVals[m] = mv ? Number(mv.value ?? mv.inventory_value ?? mv.obsolete_stock ?? mv.amount ?? mv.total_inventory ?? mv.slow_moving ?? 0) : 0;
+                              });
                             } else {
-                              monthlyVals[m] = 0;
+                              // Object key lookup
+                              allMonths.forEach((m) => {
+                                const numKey = MONTH_NAME_MAP[m];
+                                monthlyVals[m] = Number(
+                                  item.monthly_values[m] ||
+                                  item.monthly_values[m.toLowerCase()] ||
+                                  item.monthly_values[numKey] ||
+                                  item.monthly_values[String(numKey)] ||
+                                  item.monthly_values[m.charAt(0) + m.slice(1).toLowerCase()] ||
+                                  0
+                                );
+                              });
                             }
-                          });
+                          } else {
+                            allMonths.forEach((m) => {
+                              if (m === curMonthKey) monthlyVals[m] = curObs;
+                              else if (m === prevMonthKey) monthlyVals[m] = prevObs;
+                              else monthlyVals[m] = 0;
+                            });
+                          }
 
                           return {
                             srNo: idx + 1,
@@ -5987,10 +6187,11 @@ const detailsSource = modalFilteredDetails || [];
                         const totalVariancePct = totalPrev > 0 ? ((totalLatest - totalPrev) / totalPrev) * 100 : 0;
 
                         return (
+                          <>
                           <table style={{ width: "100%", minWidth: 1250, borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.80rem" }}>
                             <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#f8fafc" }}>
                               <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                                <th style={{ position: "sticky", left: 0, zIndex: 32, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 150, minWidth: 140, borderRight: "2px solid #cbd5e1", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division</th>
+                                <th style={{ position: "sticky", left: 0, zIndex: 32, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 140, borderRight: "2px solid #cbd5e1", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division <span style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>({momRows.length})</span></th>
                                 {allMonths.map(m => (
                                   <th key={m} style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 60, verticalAlign: "bottom", background: "#f8fafc" }}>{m}</th>
                                 ))}
@@ -6046,8 +6247,7 @@ const detailsSource = modalFilteredDetails || [];
                             {momRows.length > 0 && (
                               <tfoot style={{ position: "sticky", bottom: 0, zIndex: 30, background: "#f1f5f9" }}>
                                 <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f1f5f9", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                                  <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", borderRight: "1px solid #cbd5e1" }} />
-                                  <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", color: "#1e3a8a", borderRight: "2px solid #cbd5e1" }}>Total</td>
+                                  <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", color: "#1e3a8a", fontWeight: 800, borderRight: "2px solid #cbd5e1" }}>Total</td>
                                   {allMonths.map(m => (
                                     <td key={m} style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
                                       {Math.round((monthTotals[m] || 0) / scale).toLocaleString("en-US")}
@@ -6069,6 +6269,7 @@ const detailsSource = modalFilteredDetails || [];
                               </tfoot>
                             )}
                           </table>
+                          </>
                         );
                       })()}
 
@@ -6085,9 +6286,9 @@ const detailsSource = modalFilteredDetails || [];
                             <table style={{ width: "100%", minWidth: 1400, borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.78rem" }}>
                               <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#f8fafc" }}>
                                 <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 110, maxWidth: 140, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Legal<br />Entity</th>
-                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Parent<br />Division</th>
-                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 130, minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Sub-<br />Division</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 110, maxWidth: 140, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Legal<br />Entity</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Parent<br />Division</th>
+                                  <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 110, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Sub-<br />Division</th>
                                   <th style={{ padding: "8px 8px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 90, minWidth: 80, verticalAlign: "bottom", lineHeight: 1.2, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>SUB-INV<br />Code</th>
                                   <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 110, minWidth: 95, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Item<br />Code</th>
                                   <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: 220, minWidth: 180, verticalAlign: "bottom", lineHeight: 1.25, background: "#f8fafc", borderBottom: "2px solid #cbd5e1" }}>Item<br />Description</th>
@@ -6845,6 +7046,38 @@ if (
 
     button {
       font-family: inherit;
+    }
+
+    @keyframes drawLine {
+      from { stroke-dashoffset: 1; }
+      to { stroke-dashoffset: 0; }
+    }
+    
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    @keyframes pointFadeScale {
+      from { opacity: 0; transform: scale(0); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes crosshairFadeIn {
+      from { opacity: 0; }
+      to { opacity: 0.6; }
+    }
+    @keyframes plTooltipFadeScale {
+      from { opacity: 0; transform: scale(0.96) translateY(4px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    
+    @keyframes pointFadeScale {
+      from { opacity: 0; transform: scale(0.1); }
+      to { opacity: 1; transform: scale(1); }
     }
 
     @media (max-width: 1200px) {

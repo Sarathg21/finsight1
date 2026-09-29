@@ -47,6 +47,9 @@ export const getInventoryTopItems = (params = {}) =>
 export const getInventoryMonthOnMonth = (params = {}) =>
   api.get("/inventory/month-on-month", { params, paramsSerializer: serializeParams });
 
+export const getInventoryViewAllMonthOnMonth = (params = {}) =>
+  api.get("/inventory/view-all/month-on-month", { params, paramsSerializer: serializeParams });
+
 
 export const getInventoryDetails = (params = {}) => {
   const { limit, page_size, section, slow_moving, ...rest } = params;
