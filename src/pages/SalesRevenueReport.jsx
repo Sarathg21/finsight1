@@ -412,6 +412,7 @@ function DetailApiModal({
   localFiltersConfig = null,
   dateFiltersConfig = null,
   showUnitToggle = false,
+  currencyDecimals = 0,
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -545,7 +546,7 @@ function DetailApiModal({
       const m = raw / 1_000_000;
       return m.toFixed(2) + 'M';
     }
-    return raw.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return raw.toLocaleString('en-US', { minimumFractionDigits: currencyDecimals, maximumFractionDigits: currencyDecimals });
   };
 
   return (
@@ -2658,6 +2659,16 @@ export default function SalesRevenueReport() {
   ];
 
   // Salesman View All — aggregated (13 cols grouped: 5 dims, 3 Achievement, 3 Target, 2 Variance)
+  const fmtC2 = (v) => {
+    if (v == null || isNaN(v) || v === '') return '—';
+    return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const fmtP2 = (v) => {
+    if (v == null || isNaN(v) || v === '') return '—';
+    return `${Number(v).toFixed(2)}%`;
+  };
+  const isTargetApplicable = (row) => row.target_applicable !== false && row.has_salesman_target !== false;
+
   const salesmanSummaryCols = [
     {
       label: 'Salesperson',
@@ -2712,18 +2723,15 @@ export default function SalesRevenueReport() {
       noTotal: true,
       groupEnd: true,
     },
-    // Achievement
+    // Achievement (Actuals)
     {
       label: `Sales (${rc})`,
       key: 'sales_aed',
       align: 'right',
       minWidth: '115px',
       isCurrency: true,
-      fmt: (v, row) => {
-        const val = v ?? row?.sales_ptd_aed ?? row?.sales;
-        return val != null ? fmtCurrency(val) : '—';
-      },
-      totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales_aed ?? r.sales_ptd_aed ?? r.sales) || 0), 0)),
+      fmt: (v, row) => fmtC2(v ?? row.sales_ptd_aed ?? row.sales),
+      totalFn: rows => fmtC2(rows.reduce((s, r) => s + (Number(r.sales_aed ?? r.sales_ptd_aed ?? r.sales) || 0), 0)),
     },
     {
       label: `GM (${rc})`,
@@ -2731,33 +2739,24 @@ export default function SalesRevenueReport() {
       align: 'right',
       minWidth: '115px',
       isCurrency: true,
-      fmt: (v, row) => {
-        const val = v ?? row?.gross_margin_ptd_aed ?? row?.gross_margin;
-        return val != null ? fmtCurrency(val) : '—';
-      },
-      totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.gross_margin_aed ?? r.gross_margin_ptd_aed ?? r.gross_margin) || 0), 0)),
+      fmt: (v, row) => fmtC2(v ?? row.gross_margin_ptd_aed ?? row.gross_margin),
+      totalFn: rows => fmtC2(rows.reduce((s, r) => s + (Number(r.gross_margin_aed ?? r.gross_margin_ptd_aed ?? r.gross_margin) || 0), 0)),
     },
     {
       label: 'GM %',
-      key: 'gross_margin_ptd_pct',
+      key: 'gross_margin_pct',
       align: 'right',
       minWidth: '85px',
       groupEnd: true,
-      fmt: (v, row) => {
-        if (v != null && !isNaN(v)) return fmtPctCol(v, 1);
-        const s = Number(row?.sales_aed ?? row?.sales_ptd_aed ?? row?.sales) || 0;
-        const gm = Number(row?.gross_margin_aed ?? row?.gross_margin_ptd_aed ?? row?.gross_margin) || 0;
-        if (s > 0) return fmtPctCol((gm / s) * 100, 1);
-        return '—';
-      },
+      fmt: (v, row) => fmtP2(v ?? row.gross_margin_ptd_pct),
       totalFn: rows => {
         const totalSales = rows.reduce((s, r) => s + (Number(r.sales_aed ?? r.sales_ptd_aed ?? r.sales) || 0), 0);
         const totalGm = rows.reduce((s, r) => s + (Number(r.gross_margin_aed ?? r.gross_margin_ptd_aed ?? r.gross_margin) || 0), 0);
-        if (totalSales > 0) return fmtPctCol((totalGm / totalSales) * 100, 1);
+        if (totalSales > 0) return fmtP2((totalGm / totalSales) * 100);
         return '—';
       },
     },
-    // Target — not allocated at salesperson level; show — if no source target exists
+    // Target
     {
       label: 'Target Sales',
       key: 'target_sales',
@@ -2765,14 +2764,13 @@ export default function SalesRevenueReport() {
       minWidth: '115px',
       isCurrency: true,
       fmt: (v, row) => {
-        const val = v ?? row?.target_sales_aed ?? row?.target_sales_ptd ?? row?.sales_target;
-        return (val != null && !isNaN(val) && val !== '') ? fmtCurrency(val) : '—';
+        if (!isTargetApplicable(row)) return '—';
+        return fmtC2(v ?? row.target_sales_aed ?? row.target_sales_ptd ?? row.sales_target);
       },
       totalFn: rows => {
-        const withTarget = rows.filter(r => (r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) != null);
-        if (withTarget.length === 0) return '—';
-        const sum = withTarget.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
-        return fmtCurrency(sum);
+        const validRows = rows.filter(isTargetApplicable);
+        if (validRows.length === 0) return '—';
+        return fmtC2(validRows.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0));
       },
     },
     {
@@ -2782,14 +2780,13 @@ export default function SalesRevenueReport() {
       minWidth: '115px',
       isCurrency: true,
       fmt: (v, row) => {
-        const val = v ?? row?.target_gm_aed ?? row?.target_gross_margin ?? row?.gm_target;
-        return (val != null && !isNaN(val) && val !== '') ? fmtCurrency(val) : '—';
+        if (!isTargetApplicable(row)) return '—';
+        return fmtC2(v ?? row.target_gm_aed ?? row.target_gross_margin ?? row.gm_target);
       },
       totalFn: rows => {
-        const withTarget = rows.filter(r => (r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) != null);
-        if (withTarget.length === 0) return '—';
-        const sum = withTarget.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
-        return fmtCurrency(sum);
+        const validRows = rows.filter(isTargetApplicable);
+        if (validRows.length === 0) return '—';
+        return fmtC2(validRows.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0));
       },
     },
     {
@@ -2799,52 +2796,36 @@ export default function SalesRevenueReport() {
       minWidth: '95px',
       groupEnd: true,
       fmt: (v, row) => {
-        const val = v ?? row?.target_gm_pct ?? row?.target_gross_margin_pct;
-        if (val != null && !isNaN(val) && val !== '') return fmtPctCol(val, 1);
-        const tSales = Number(row?.target_sales ?? row?.target_sales_aed ?? row?.target_sales_ptd ?? row?.sales_target);
-        const tGm = Number(row?.target_gm ?? row?.target_gm_aed ?? row?.target_gross_margin ?? row?.gm_target);
-        if (tSales && tGm != null) return fmtPctCol((tGm / tSales) * 100, 1);
-        return '—';
+        if (!isTargetApplicable(row)) return '—';
+        return fmtP2(v ?? row.target_gross_margin_pct);
       },
       totalFn: rows => {
-        const withTarget = rows.filter(r => (r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) != null);
-        if (withTarget.length === 0) return '—';
-        const totalTargetSales = withTarget.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
-        const totalTargetGm = withTarget.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
-        if (totalTargetSales > 0) return fmtPctCol((totalTargetGm / totalTargetSales) * 100, 1);
+        const validRows = rows.filter(isTargetApplicable);
+        if (validRows.length === 0) return '—';
+        const totalSales = validRows.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
+        const totalGm = validRows.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
+        if (totalSales > 0) return fmtP2((totalGm / totalSales) * 100);
         return '—';
       },
     },
-    // Variance — Sales | GM
+    // Variance (rely completely on backend values if possible)
     {
       label: 'Sales',
       key: 'variance_sales',
       align: 'right',
       minWidth: '105px',
       fmt: (v, row) => {
-        if (v != null && !isNaN(v) && v !== '') {
-          const num = Number(v);
-          const color = num < 0 ? '#ef4444' : num > 0 ? '#10b981' : '#64748b';
-          return <span style={{ color, fontWeight: 600 }}>{fmtCurrency(num)}</span>;
-        }
-        const tSales = row?.target_sales ?? row?.target_sales_aed ?? row?.target_sales_ptd ?? row?.sales_target;
-        if (tSales != null && !isNaN(tSales) && tSales !== '') {
-          const act = Number(row?.sales_aed ?? row?.sales_ptd_aed ?? row?.sales) || 0;
-          const tgt = Number(tSales) || 0;
-          const diff = act - tgt;
-          const color = diff < 0 ? '#ef4444' : diff > 0 ? '#10b981' : '#64748b';
-          return <span style={{ color, fontWeight: 600 }}>{fmtCurrency(diff)}</span>;
-        }
-        return '—';
+        if (!isTargetApplicable(row)) return '—';
+        const val = Number(v ?? row.variance_target_sales ?? row.variance_sales_aed ?? 0);
+        const color = val < 0 ? '#ef4444' : val > 0 ? '#10b981' : '#64748b';
+        return <span style={{ color, fontWeight: 600 }}>{fmtC2(val)}</span>;
       },
       totalFn: rows => {
-        const withTarget = rows.filter(r => (r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) != null);
-        if (withTarget.length === 0) return '—';
-        const totalAct = withTarget.reduce((s, r) => s + (Number(r.sales_aed ?? r.sales_ptd_aed ?? r.sales) || 0), 0);
-        const totalTgt = withTarget.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
-        const diff = totalAct - totalTgt;
-        const color = diff < 0 ? '#ef4444' : diff > 0 ? '#10b981' : '#64748b';
-        return <span style={{ color, fontWeight: 600 }}>{fmtCurrency(diff)}</span>;
+        const validRows = rows.filter(isTargetApplicable);
+        if (validRows.length === 0) return '—';
+        const sum = validRows.reduce((s, r) => s + (Number(r.variance_sales ?? r.variance_target_sales ?? r.variance_sales_aed) || 0), 0);
+        const color = sum < 0 ? '#ef4444' : sum > 0 ? '#10b981' : '#64748b';
+        return <span style={{ color, fontWeight: 600 }}>{fmtC2(sum)}</span>;
       },
     },
     {
@@ -2853,29 +2834,17 @@ export default function SalesRevenueReport() {
       align: 'right',
       minWidth: '105px',
       fmt: (v, row) => {
-        if (v != null && !isNaN(v) && v !== '') {
-          const num = Number(v);
-          const color = num < 0 ? '#ef4444' : num > 0 ? '#10b981' : '#64748b';
-          return <span style={{ color, fontWeight: 600 }}>{fmtCurrency(num)}</span>;
-        }
-        const tGm = row?.target_gm ?? row?.target_gm_aed ?? row?.target_gross_margin ?? row?.gm_target;
-        if (tGm != null && !isNaN(tGm) && tGm !== '') {
-          const act = Number(row?.gross_margin_aed ?? row?.gross_margin_ptd_aed ?? row?.gross_margin) || 0;
-          const tgt = Number(tGm) || 0;
-          const diff = act - tgt;
-          const color = diff < 0 ? '#ef4444' : diff > 0 ? '#10b981' : '#64748b';
-          return <span style={{ color, fontWeight: 600 }}>{fmtCurrency(diff)}</span>;
-        }
-        return '—';
+        if (!isTargetApplicable(row)) return '—';
+        const val = Number(v ?? row.variance_target_gm ?? row.variance_gm_aed ?? 0);
+        const color = val < 0 ? '#ef4444' : val > 0 ? '#10b981' : '#64748b';
+        return <span style={{ color, fontWeight: 600 }}>{fmtC2(val)}</span>;
       },
       totalFn: rows => {
-        const withTarget = rows.filter(r => (r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) != null);
-        if (withTarget.length === 0) return '—';
-        const totalAct = withTarget.reduce((s, r) => s + (Number(r.gross_margin_aed ?? r.gross_margin_ptd_aed ?? r.gross_margin) || 0), 0);
-        const totalTgt = withTarget.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
-        const diff = totalAct - totalTgt;
-        const color = diff < 0 ? '#ef4444' : diff > 0 ? '#10b981' : '#64748b';
-        return <span style={{ color, fontWeight: 600 }}>{fmtCurrency(diff)}</span>;
+        const validRows = rows.filter(isTargetApplicable);
+        if (validRows.length === 0) return '—';
+        const sum = validRows.reduce((s, r) => s + (Number(r.variance_gm ?? r.variance_target_gm ?? r.variance_gm_aed) || 0), 0);
+        const color = sum < 0 ? '#ef4444' : sum > 0 ? '#10b981' : '#64748b';
+        return <span style={{ color, fontWeight: 600 }}>{fmtC2(sum)}</span>;
       },
     },
   ];

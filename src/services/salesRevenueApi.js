@@ -1013,7 +1013,9 @@ export async function fetchSubdivisionDetail(filters) {
  * }
  */
 export async function fetchSalesmanDetail(filters) {
-  return apiCall('/api/sales-revenue/salesman-detail', buildParams(filters));
+  const p = buildParams(filters);
+  p.sales_category = ['External Sales', 'RP Cross Sales'];
+  return apiCall('/api/sales-revenue/salesman-detail', p);
 }
 
 /**
@@ -1090,7 +1092,9 @@ export async function fetchGrossMargin(filters) {
  * }
  */
 export async function fetchSalesmanSummary(filters) {
-  return apiCall('/api/sales-revenue/salesman-summary', buildParams(filters));
+  const p = buildParams(filters);
+  p.sales_category = ['External Sales', 'RP Cross Sales'];
+  return apiCall('/api/sales-revenue/salesman-summary', p);
 }
 
 /**
