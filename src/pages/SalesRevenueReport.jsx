@@ -4354,11 +4354,12 @@ export default function SalesRevenueReport() {
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
+          { key: 'customerType',     label: 'Customer Type',   options: filterOptions.customerTypes },
         ]}
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
-        showUnitToggle={false}
+        showUnitToggle={true}
         searchPlaceholder="Search parent divisions..."
         periodLabel={appliedPeriodLabel}
       />
