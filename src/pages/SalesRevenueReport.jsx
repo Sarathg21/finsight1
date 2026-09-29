@@ -601,7 +601,7 @@ function DetailApiModal({
           display: 'flex', gap: 4, alignItems: 'center',
           flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 280, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', overflowX: 'auto' }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
@@ -609,13 +609,13 @@ function DetailApiModal({
               onChange={e => { setSearch(e.target.value); setPage(0); }}
               style={{
                 padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
-                fontSize: '0.78rem', minWidth: 130, flex: '1 1 auto', outline: 'none',
+                fontSize: '0.78rem', width: 160, outline: 'none',
               }}
             />
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
               const selectedValues = pendingLocalFilters[cfg.key] || ['All'];
               return (
-                <div key={idx} style={{ flex: '1 1 120px', minWidth: 110, maxWidth: 180, position: 'relative' }}>
+                <div key={idx} style={{ width: 135, position: 'relative' }}>
                   <MultiSelect
                     options={cfg.options}
                     value={selectedValues}
@@ -694,7 +694,7 @@ function DetailApiModal({
             ))}
             
             {(localFiltersConfig || dateFiltersConfig) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 2 }}>
                 <button onClick={handleApply} style={{
                   background: C.blue, color: '#fff', border: 'none', height: 28, padding: '0 12px',
                   fontWeight: 700, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap'
