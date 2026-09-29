@@ -601,7 +601,7 @@ function DetailApiModal({
           display: 'flex', gap: 4, alignItems: 'center',
           flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 280, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 280, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px' }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
@@ -609,13 +609,13 @@ function DetailApiModal({
               onChange={e => { setSearch(e.target.value); setPage(0); }}
               style={{
                 padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
-                fontSize: '0.78rem', minWidth: 200, outline: 'none',
+                fontSize: '0.78rem', minWidth: 130, flex: '1 1 auto', outline: 'none',
               }}
             />
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
               const selectedValues = pendingLocalFilters[cfg.key] || ['All'];
               return (
-                <div key={idx} style={{ width: 180, position: 'relative' }}>
+                <div key={idx} style={{ flex: '1 1 120px', minWidth: 110, maxWidth: 180, position: 'relative' }}>
                   <MultiSelect
                     options={cfg.options}
                     value={selectedValues}
@@ -648,7 +648,7 @@ function DetailApiModal({
                       if (el) { el.showPicker ? el.showPicker() : el.click(); }
                     }}
                     style={{
-                        width: 95, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        width: 90, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
                         borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
                         fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
@@ -677,7 +677,7 @@ function DetailApiModal({
                       if (el) { el.showPicker ? el.showPicker() : el.click(); }
                     }}
                     style={{
-                        width: 95, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        width: 90, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
                         borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
                         fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
