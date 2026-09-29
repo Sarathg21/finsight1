@@ -4330,7 +4330,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               return (
                 <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
                   <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                    <td colSpan={3} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({filteredDetails.length} items)</td>
+                    <td colSpan={4} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({filteredDetails.length} items)</td>
                     <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 110, minWidth: 100, maxWidth: 125 }}>{Math.round(totals.totalVal).toLocaleString("en-US")}</td>
                     <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d30).toLocaleString("en-US")}</td>
                     <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc", width: 65, minWidth: 55 }}>{Math.round(totals.d60).toLocaleString("en-US")}</td>
@@ -6352,7 +6352,7 @@ const detailsSource = modalFilteredDetails || [];
                                 return (
                                   <tfoot style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#f8fafc" }}>
                                     <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f8fafc", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
-                                      <td colSpan={5} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
+                                      <td colSpan={6} style={{ padding: "9px 10px", color: "#1e3a8a", background: "#f8fafc" }}>Total ({modalFilteredDetails.length} items)</td>
                                       <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e3a8a", background: "#f8fafc" }}>{Math.round(totals.qty).toLocaleString("en-US")}</td>
                                       <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.totalVal)}</td>
                                       <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", background: "#f8fafc" }}>{formatDetailVal(totals.d30)}</td>
