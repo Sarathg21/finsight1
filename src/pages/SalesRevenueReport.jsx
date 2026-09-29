@@ -812,7 +812,7 @@ function DetailApiModal({
                                 // If modal has unit toggle and this is a currency column,
                                 // bypass the parent's fmtCurrency and use modal-local formatter
                                 if (showUnitToggle && col.isCurrency) {
-                                  return modalFmtNum(row[col.key]);
+                                  return fmtCurrency(row[col.key]);
                                 }
                                 return col.fmt ? col.fmt(row[col.key], row) : (row[col.key] ?? '—');
                               } catch (e) {
@@ -866,7 +866,7 @@ function DetailApiModal({
                           if (showUnitToggle && col.isCurrency) {
                             // compute raw numeric total and re-format via modal's unit formatter
                             const rawSum = sorted.reduce((s, r) => s + (Number(r[col.key]) || 0), 0);
-                            totalVal = modalFmtNum(rawSum);
+                            totalVal = fmtCurrency(rawSum);
                           } else {
                             totalVal = col.totalFn(sorted);
                           }
