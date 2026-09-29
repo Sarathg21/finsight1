@@ -128,7 +128,7 @@ export default function InventoryOverview() {
     setIsExporting(true);
     const toastId = toast.loading(`Exporting ${section || 'data'}...`);
     try {
-      const activeF = customFilters || filters;
+      const activeF = customFilters || appliedFilters;
       let formattedDate = null;
       if (activeF.asOnDate && activeF.asOnDate !== "All" && activeF.asOnDate !== "") {
         const raw = String(activeF.asOnDate).trim();
@@ -295,6 +295,15 @@ export default function InventoryOverview() {
     }
   };
 
+  const [appliedFilters, setAppliedFilters] = useState({
+      legalGroup: [],
+      legalEntity: [],
+      parentDivision: [],
+      subdivision: [],
+      subinventory: [],
+      currency: "AED",
+      asOnDate: "All",
+  });
   const [filters, setFilters] = useState({
       legalGroup: [],
       legalEntity: [],
@@ -505,13 +514,13 @@ const [loading, setLoading] = useState(true);
     if (normalizedBucket) {
       openInventoryViewAll({
         viewType: "aging",
-        globalFilters: filters,
+        globalFilters: appliedFilters,
         drilldownFilters: { aging_bucket: normalizedBucket }
       });
     } else {
       openInventoryViewAll({
         viewType: "aging",
-        globalFilters: filters,
+        globalFilters: appliedFilters,
         drilldownFilters: {}
       });
     }
@@ -523,13 +532,13 @@ const [loading, setLoading] = useState(true);
     if (key.includes("obsolete") || key.includes("slow_moving") || key.includes("slow moving")) {
       openInventoryViewAll({
         viewType: "details",
-        globalFilters: filters,
+        globalFilters: appliedFilters,
         drilldownFilters: { slow_moving: true }
       });
     } else {
       openInventoryViewAll({
         viewType: "details",
-        globalFilters: filters,
+        globalFilters: appliedFilters,
         drilldownFilters: {}
       });
     }
@@ -555,7 +564,7 @@ const [loading, setLoading] = useState(true);
     }
     openInventoryViewAll({
       viewType: "trend",
-      globalFilters: filters,
+      globalFilters: appliedFilters,
       drilldownFilters: snapshotDate ? { as_on_date: toApiDate(snapshotDate) } : {}
     });
   };
@@ -565,7 +574,7 @@ const [loading, setLoading] = useState(true);
     const id = resolveDrilldownId(rawId, 'parentDivisions', mockData);
     openInventoryViewAll({
       viewType: "parentDivision",
-      globalFilters: filters,
+      globalFilters: appliedFilters,
       drilldownFilters: (id !== undefined && id !== null && id !== "" && String(id).toLowerCase() !== "others")
         ? { drilldown_parent_division_id: id }
         : {}
@@ -577,7 +586,7 @@ const [loading, setLoading] = useState(true);
     const id = resolveDrilldownId(rawId, 'subdivisions', mockData);
     openInventoryViewAll({
       viewType: "subdivision",
-      globalFilters: filters,
+      globalFilters: appliedFilters,
       drilldownFilters: (id !== undefined && id !== null && id !== "" && String(id).toLowerCase() !== "others")
         ? { drilldown_subdivision_id: id }
         : {}
@@ -589,7 +598,7 @@ const [loading, setLoading] = useState(true);
     const id = resolveDrilldownId(rawId, 'subinventories', mockData);
     openInventoryViewAll({
       viewType: "details",
-      globalFilters: filters,
+      globalFilters: appliedFilters,
       drilldownFilters: (id !== undefined && id !== null && id !== "")
         ? { subinventory_id: id }
         : {}
@@ -602,13 +611,13 @@ const [loading, setLoading] = useState(true);
     if (id !== undefined && id !== null && id !== "" && String(id).toLowerCase() !== "all") {
       openInventoryViewAll({
         viewType: "details",
-        globalFilters: filters,
+        globalFilters: appliedFilters,
         drilldownFilters: { legal_entity_id: id }
       });
     } else {
       openInventoryViewAll({
         viewType: "details",
-        globalFilters: filters,
+        globalFilters: appliedFilters,
         drilldownFilters: {}
       });
     }
@@ -622,7 +631,7 @@ const [loading, setLoading] = useState(true);
     if (pdId) dFilters.drilldown_parent_division_id = pdId;
     openInventoryViewAll({
       viewType: "details",
-      globalFilters: filters,
+      globalFilters: appliedFilters,
       drilldownFilters: dFilters
     });
   };
@@ -658,7 +667,7 @@ const [loading, setLoading] = useState(true);
     };
     openInventoryViewAll({
       viewType: "details",
-      globalFilters: filters,
+      globalFilters: appliedFilters,
       drilldownFilters: detailFilters
     });
   };
@@ -768,8 +777,8 @@ const [loading, setLoading] = useState(true);
       try {
           // Robust date formatting without timezone shifts
           let formattedDate = null;
-          if (filters.asOnDate && filters.asOnDate !== "All" && filters.asOnDate !== "") {
-              const raw = String(filters.asOnDate).trim();
+          if (appliedFilters.asOnDate && appliedFilters.asOnDate !== "All" && appliedFilters.asOnDate !== "") {
+              const raw = String(appliedFilters.asOnDate).trim();
               if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
                   formattedDate = raw;
               } else if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) {
@@ -796,13 +805,13 @@ const [loading, setLoading] = useState(true);
               return [val];
           };
           
-          if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
-          if (getApiVal(filters.legalEntity)) apiFilters.legal_entity_id = getApiVal(filters.legalEntity);
-          if (getApiVal(filters.parentDivision)) apiFilters.parent_division_id = getApiVal(filters.parentDivision);
-          if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
-          if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
+          if (getApiVal(appliedFilters.legalGroup)) apiFilters.legal_group_id = getApiVal(appliedFilters.legalGroup);
+          if (getApiVal(appliedFilters.legalEntity)) apiFilters.legal_entity_id = getApiVal(appliedFilters.legalEntity);
+          if (getApiVal(appliedFilters.parentDivision)) apiFilters.parent_division_id = getApiVal(appliedFilters.parentDivision);
+          if (getApiVal(appliedFilters.subdivision)) apiFilters.subdivision_id = getApiVal(appliedFilters.subdivision);
+          if (getApiVal(appliedFilters.subinventory)) apiFilters.subinventory_id = getApiVal(appliedFilters.subinventory);
           
-          if (filters.currency && filters.currency !== "All") apiFilters.reporting_currency = filters.currency;
+          if (appliedFilters.currency && appliedFilters.currency !== "All") apiFilters.reporting_currency = appliedFilters.currency;
           if (formattedDate) apiFilters.as_on_date = formattedDate;
 
           // Pass all active filters to Inventory Details API request
@@ -1198,7 +1207,7 @@ const [loading, setLoading] = useState(true);
                   details,
                   totalInventory: Number(dData.kpis?.total_inventory || 0),
                   rawKpis: dData.kpis || null,
-                  reporting_currency: dData.reporting_currency || dData.currency || filters.currency || "AED",
+                  reporting_currency: dData.reporting_currency || dData.currency || appliedFilters.currency || "AED",
                   dataAsOf: dData.data_as_of || dData.dataAsOf || fData.data_as_of || null
               });
           } catch (err) {
@@ -1206,7 +1215,7 @@ const [loading, setLoading] = useState(true);
           } finally {
               setLoading(false);
           }
-  }, [filters]);
+  }, [appliedFilters]);
 
   useEffect(() => {
       loadData();
@@ -1216,20 +1225,20 @@ const [loading, setLoading] = useState(true);
     if (viewAllModal === "details" || showViewAll) {
       setModalDetailsFilters({
         legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
-        parentDivision: filters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
-        subdivision: filters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
-        subinventory: filters.subinventory && filters.subinventory.length > 0 ? filters.subinventory : ['All'],
-        asOnDate: filters.asOnDate || 'All',
+        parentDivision: appliedFilters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
+        subdivision: appliedFilters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
+        subinventory: appliedFilters.subinventory && filters.subinventory.length > 0 ? filters.subinventory : ['All'],
+        asOnDate: appliedFilters.asOnDate || 'All',
       });
       setModalDetailPage(0);
       setModalApiItems(null);
     } else if (viewAllModal === "slowMoving") {
       const initSlow = {
         legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
-        parentDivision: filters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
-        subdivision: filters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
-        subinventory: filters.subinventory && filters.subinventory.length > 0 ? filters.subinventory : ['All'],
-        asOnDate: filters.asOnDate || 'All',
+        parentDivision: appliedFilters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
+        subdivision: appliedFilters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
+        subinventory: appliedFilters.subinventory && filters.subinventory.length > 0 ? filters.subinventory : ['All'],
+        asOnDate: appliedFilters.asOnDate || 'All',
       };
       setSlowMovingFilters(initSlow);
       setSlowMovingDraftFilters(initSlow);
@@ -1371,8 +1380,8 @@ const [loading, setLoading] = useState(true);
       setViewAllLoading(true);
       try {
         let formattedDate = null;
-        if (filters.asOnDate && filters.asOnDate !== "All" && filters.asOnDate !== "") {
-          const raw = String(filters.asOnDate).trim();
+        if (appliedFilters.asOnDate && appliedFilters.asOnDate !== "All" && appliedFilters.asOnDate !== "") {
+          const raw = String(appliedFilters.asOnDate).trim();
           if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) formattedDate = raw;
           else if (/^\d{2}-\d{2}-\d{4}$/.test(raw)) {
             const [d, m, y] = raw.split('-');
@@ -1393,12 +1402,12 @@ const [loading, setLoading] = useState(true);
           }
           return [val];
         };
-        if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
-        if (getApiVal(filters.legalEntity)) apiFilters.legal_entity_id = getApiVal(filters.legalEntity);
-        if (getApiVal(filters.parentDivision)) apiFilters.parent_division_id = getApiVal(filters.parentDivision);
-        if (getApiVal(filters.subdivision)) apiFilters.subdivision_id = getApiVal(filters.subdivision);
-        if (getApiVal(filters.subinventory)) apiFilters.subinventory_id = getApiVal(filters.subinventory);
-        if (filters.currency && filters.currency !== "All") apiFilters.reporting_currency = filters.currency;
+        if (getApiVal(appliedFilters.legalGroup)) apiFilters.legal_group_id = getApiVal(appliedFilters.legalGroup);
+        if (getApiVal(appliedFilters.legalEntity)) apiFilters.legal_entity_id = getApiVal(appliedFilters.legalEntity);
+        if (getApiVal(appliedFilters.parentDivision)) apiFilters.parent_division_id = getApiVal(appliedFilters.parentDivision);
+        if (getApiVal(appliedFilters.subdivision)) apiFilters.subdivision_id = getApiVal(appliedFilters.subdivision);
+        if (getApiVal(appliedFilters.subinventory)) apiFilters.subinventory_id = getApiVal(appliedFilters.subinventory);
+        if (appliedFilters.currency && appliedFilters.currency !== "All") apiFilters.reporting_currency = appliedFilters.currency;
         if (formattedDate) apiFilters.as_on_date = formattedDate;
 
         let section = null;
@@ -1432,7 +1441,7 @@ const [loading, setLoading] = useState(true);
     };
     fetchModalSection();
     return () => { active = false; };
-  }, [viewAllModal, filters]);
+  }, [viewAllModal, appliedFilters]);
 
 
 
@@ -1470,6 +1479,16 @@ const [loading, setLoading] = useState(true);
   };
 
   const resetFilters = () => {
+    const def = {
+      legalGroup: [],
+      legalEntity: [],
+      parentDivision: [],
+      subdivision: [],
+      subinventory: [],
+      currency: "AED",
+      asOnDate: "All",
+    };
+    setAppliedFilters(def);
     setDetailPage(0);
     setFilters({
       legalGroup: [],
@@ -3475,7 +3494,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
   // RENDER
   // ============================================================
 
-  const rawDataAsOf = mockData.dataAsOf || filters.asOnDate;
+  const rawDataAsOf = mockData.dataAsOf || appliedFilters.asOnDate;
   const formattedDataAsOf = rawDataAsOf && rawDataAsOf !== "All"
     ? new Date(rawDataAsOf).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : null;
@@ -3623,7 +3642,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end', flexShrink: 0, paddingBottom: 1 }}>
-          <button type="button" style={styles.applyButton} onClick={() => loadData()}>
+          <button type="button" style={styles.applyButton} onClick={() => setAppliedFilters(filters)}>
             Apply
           </button>
 
@@ -3664,7 +3683,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title={`Inventory Value Trend (${currentCurrency})`}
             info="Comparison of inventory value trend"
-            onViewAll={() => openInventoryViewAll({ viewType: "trend", globalFilters: filters, drilldownFilters: {} })}
+            onViewAll={() => openInventoryViewAll({ viewType: "trend", globalFilters: appliedFilters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "trend")}
           />
 
@@ -3731,7 +3750,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 </button>
               </div>
             }
-            onViewAll={() => openInventoryViewAll({ viewType: "parentDivision", globalFilters: filters, drilldownFilters: {} })}
+            onViewAll={() => openInventoryViewAll({ viewType: "parentDivision", globalFilters: appliedFilters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "parent-divisions")}
           />
 
@@ -3818,7 +3837,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title={`Inventory Value by Sub-division (${currentCurrency})`}
             info="Sub-division holdings ranked by value"
-            onViewAll={() => openInventoryViewAll({ viewType: "subdivision", globalFilters: filters, drilldownFilters: {} })}
+            onViewAll={() => openInventoryViewAll({ viewType: "subdivision", globalFilters: appliedFilters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel")}
           />
 
@@ -3838,7 +3857,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title={`Inventory Aging Summary (${currentCurrency})`}
             info="Summary of inventory value by aging bucket"
-            onViewAll={() => openInventoryViewAll({ viewType: "aging", globalFilters: filters, drilldownFilters: {} })}
+            onViewAll={() => openInventoryViewAll({ viewType: "aging", globalFilters: appliedFilters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel")}
           />
 
@@ -3926,7 +3945,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title="Slow Moving Stock (Top 5)"
             info="Top 5 items with highest holding days"
-            onViewAll={() => openInventoryViewAll({ viewType: "slowMoving", globalFilters: filters, drilldownFilters: {} })}
+            onViewAll={() => openInventoryViewAll({ viewType: "slowMoving", globalFilters: appliedFilters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "slow-moving")}
             variant="table"
           />
@@ -4010,7 +4029,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           <CardHeader isExporting={isExporting}
             title="Inventory Turnover & DIO Trend"
             info="Turnover ratio (left axis) vs DIO days (right axis)"
-            onViewAll={() => openInventoryViewAll({ viewType: "trend", globalFilters: filters, drilldownFilters: {} })}
+            onViewAll={() => openInventoryViewAll({ viewType: "trend", globalFilters: appliedFilters, drilldownFilters: {} })}
             onExport={(type) => handleExport(type || "excel", "trend")}
           />
 
@@ -4028,7 +4047,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         <CardHeader isExporting={isExporting}
           title="Inventory Detailed View"
           info="Line-item inventory breakdown and aging status (AED)"
-          onViewAll={() => openInventoryViewAll({ viewType: "details", globalFilters: filters, drilldownFilters: {} })}
+          onViewAll={() => openInventoryViewAll({ viewType: "details", globalFilters: appliedFilters, drilldownFilters: {} })}
           onExport={(type) => handleExport(type || "excel")}
           variant="table"
         />
@@ -4807,7 +4826,7 @@ const detailsSource = modalFilteredDetails || [];
                           <input
                             id="view-all-modal-date-picker-grid"
                             type="date"
-                            value={getRawDateForInputGlobal(slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : (mockData.dataAsOf || filters.asOnDate))}
+                            value={getRawDateForInputGlobal(slowMovingDraftFilters.asOnDate && slowMovingDraftFilters.asOnDate !== "All" ? slowMovingDraftFilters.asOnDate : (mockData.dataAsOf || appliedFilters.asOnDate))}
                             onChange={(e) => {
                               setSlowMovingDraftFilters(prev => ({ ...prev, asOnDate: e.target.value }));
                               setModalDetailsFilters(prev => ({ ...prev, asOnDate: e.target.value }));
@@ -5835,7 +5854,7 @@ const detailsSource = modalFilteredDetails || [];
                       {/* TAB 6: MONTH-ON-MONTH OBSOLETE STOCK POSITION */}
                       {(modalActiveTab === "momObsolete" || modalActiveTab === "mom" || (!["aging", "trend", "parentDivision", "subdivision", "slowMoving", "details"].includes(modalActiveTab) && slowMovingViewMode === "mom")) && (() => {
                         const allMonths = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-                        const asOfDateStr = (filters.asOnDate && filters.asOnDate !== "All") ? filters.asOnDate : (mockData.dataAsOf || "2026-09-25");
+                        const asOfDateStr = (appliedFilters.asOnDate && appliedFilters.asOnDate !== "All") ? appliedFilters.asOnDate : (mockData.dataAsOf || "2026-09-25");
                         const asOfObj = new Date(asOfDateStr);
                         const curMonthIdx = !isNaN(asOfObj.getTime()) ? asOfObj.getMonth() : 8; // September default
                         const curMonthKey = allMonths[curMonthIdx] || "SEP";
