@@ -401,17 +401,17 @@ function DetailApiModal({
   title,
   endpoint,
   fetchFn,
-  columnDefs,    // [{ label, key, align, fmt }]
+  columnDefs,
   filters,
   searchPlaceholder = 'Search...',
-  maxWidth = '96vw',       // override per modal — defaults to near-full width
-  periodLabel = null,      // e.g. "01-Jun-2026 to 30-Jun-2026"
+  maxWidth = '96vw',
+  periodLabel = null,
 
   headerGroups = null,
 
-  localFiltersConfig = null, // e.g. [{ key: 'subdivisionId', label: 'Sub-Divs', options: [...] }]
-  dateFiltersConfig = null,  // e.g. [{ fromKey: 'fromDate', toKey: 'toDate', label: 'Period' }]
-  showUnitToggle = false,    // show AED / AED Millions toggle in modal header
+  localFiltersConfig = null,
+  dateFiltersConfig = null,
+  showUnitToggle = false,
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -423,7 +423,12 @@ function DetailApiModal({
 
   const [localFiltersState, setLocalFiltersState] = useState({});
   const [dateFiltersState, setDateFiltersState]   = useState({});
-  const [modalUnit, setModalUnit]                 = useState('aed');  // 'aed' | 'millions'
+  
+  // Pending unapplied state
+  const [pendingLocalFilters, setPendingLocalFilters] = useState({});
+  const [pendingDateFilters, setPendingDateFilters]   = useState({});
+
+  const [modalUnit, setModalUnit]                 = useState('aed');
 
   useEffect(() => {
     if (isOpen && localFiltersConfig && filters) {
@@ -433,6 +438,7 @@ function DetailApiModal({
         initialState[cfg.key] = Array.isArray(val) ? val : (val && val !== 'All' ? [val] : ['All']);
       });
       setLocalFiltersState(initialState);
+      setPendingLocalFilters(initialState);
     }
     if (isOpen && dateFiltersConfig && filters) {
       const initial = {};
@@ -441,6 +447,7 @@ function DetailApiModal({
         initial[cfg.toKey]   = filters[cfg.toKey]   || '';
       });
       setDateFiltersState(initial);
+      setPendingDateFilters(initial);
     }
   }, [isOpen, filters, localFiltersConfig, dateFiltersConfig]);
 
@@ -471,62 +478,69 @@ function DetailApiModal({
     fetchFn(activeFilters)
       .then(res => {
         setRows(res?.data || []);
-        setPage(0); // reset pagination when filters change
+        setPage(0);
       })
       .catch(err => setError(err?.message || 'Failed to load data'))
       .finally(() => setLoading(false));
   }, [isOpen, activeFilters, fetchFn]);
 
+  const handleApply = () => {
+    setLocalFiltersState(pendingLocalFilters);
+    setDateFiltersState(pendingDateFilters);
+    setPage(0);
+  };
+
+  const handleReset = () => {
+    const defaultLocal = {};
+    const defaultDate = {};
+    if (localFiltersConfig) localFiltersConfig.forEach(cfg => defaultLocal[cfg.key] = ['All']);
+    if (dateFiltersConfig) dateFiltersConfig.forEach(cfg => { defaultDate[cfg.fromKey] = ''; defaultDate[cfg.toKey] = ''; });
+    
+    setPendingLocalFilters(defaultLocal);
+    setPendingDateFilters(defaultDate);
+    setLocalFiltersState(defaultLocal);
+    setDateFiltersState(defaultDate);
+    setPage(0);
+  };
+
   if (!isOpen) return null;
 
-  const handleSearch = (e) => {
-    setSearch(e.target.value);
-    setPage(0); // reset page on search
-  };
+  const filtered = rows.filter(r => {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase();
+    return columnDefs.some(col => String(r[col.key] || '').toLowerCase().includes(q));
+  });
 
-  const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-    setPage(0); // reset page on sort
-  };
-
-  // 1. Search
-  const filtered = rows.filter(row =>
-    columnDefs.some(col =>
-      String(row[col.key] ?? '').toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
-
-  // 2. Sort
   const sorted = [...filtered].sort((a, b) => {
     if (!sortConfig.key) return 0;
     const valA = a[sortConfig.key];
     const valB = b[sortConfig.key];
-    if (valA == null) return 1;
-    if (valB == null) return -1;
-    if (typeof valA === 'number' && typeof valB === 'number') {
-      return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+    const isNum = (v) => v != null && !isNaN(v);
+    if (isNum(valA) && isNum(valB)) {
+      return sortConfig.direction === 'asc' ? Number(valA) - Number(valB) : Number(valB) - Number(valA);
     }
-    const strA = String(valA).toLowerCase();
-    const strB = String(valB).toLowerCase();
-    if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
+    const sA = String(valA || '').toLowerCase();
+    const sB = String(valB || '').toLowerCase();
+    return sortConfig.direction === 'asc' ? sA.localeCompare(sB) : sB.localeCompare(sA);
   });
 
-  // 3. Paginate
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const totalPages = Math.ceil(sorted.length / pageSize);
   const paginated = sorted.slice(page * pageSize, (page + 1) * pageSize);
 
-  // Helper: re-format a raw numeric value per the modal's unit toggle.
-  // Only called for currency columns (col.isCurrency === true).
-  const currency = filters?.reportingCurrency || 'AED';
-  const modalFmtNum = (v) => {
-    if (v === null || v === undefined || isNaN(Number(v))) return '-';
-    const raw = Number(v);
+  const handleSort = (key) => {
+    if (!key) return;
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const sumKey = (arr, key) => arr.reduce((acc, row) => acc + (Number(row[key]) || 0), 0);
+
+  const fmtCurrency = (val) => {
+    if (val === null || val === undefined) return '—';
+    const raw = Number(val);
+    if (isNaN(raw)) return '—';
     if (modalUnit === 'millions') {
       const m = raw / 1_000_000;
       return m.toFixed(2) + 'M';
@@ -585,33 +599,31 @@ function DetailApiModal({
         <div style={{
           padding: '10px 20px', borderBottom: '1px solid #f1f5f9',
           display: 'flex', gap: 4, alignItems: 'center',
-          justifyContent: 'space-between', flexWrap: 'wrap',
-          background: '#fafbfc',
+          flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 280, flexWrap: 'wrap' }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
               value={searchTerm}
-              onChange={handleSearch}
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
               style={{
                 padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
                 fontSize: '0.78rem', minWidth: 200, outline: 'none',
               }}
             />
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
-              const selectedValues = localFiltersState[cfg.key] || ['All'];
+              const selectedValues = pendingLocalFilters[cfg.key] || ['All'];
               return (
                 <div key={idx} style={{ width: 180, position: 'relative' }}>
                   <MultiSelect
                     options={cfg.options}
                     value={selectedValues}
                     onChange={(vals) => {
-                      setLocalFiltersState(prev => ({ 
+                      setPendingLocalFilters(prev => ({ 
                         ...prev, 
                         [cfg.key]: vals
                       }));
-                      setPage(0);
                     }}
                     placeholder={`All ${cfg.label || ''}`}
                   />
@@ -625,8 +637,8 @@ function DetailApiModal({
                 <div style={{ position: 'relative' }}>
                   <input
                     id={`hidden-${cfg.fromKey}`} type="date"
-                    value={dateFiltersState[cfg.fromKey] || ''}
-                    onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.fromKey]: e.target.value }))}
+                    value={pendingDateFilters[cfg.fromKey] || ''}
+                    onChange={e => setPendingDateFilters(prev => ({ ...prev, [cfg.fromKey]: e.target.value }))}
                     style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
                   />
                   <button
@@ -642,7 +654,7 @@ function DetailApiModal({
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                     }}
                   >
-                    {dateFiltersState[cfg.fromKey] ? dateFiltersState[cfg.fromKey].split('-').reverse().join('-') : 'Select'}
+                    {pendingDateFilters[cfg.fromKey] ? pendingDateFilters[cfg.fromKey].split('-').reverse().join('-') : 'Select'}
                     <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                         📅
                     </span>
@@ -650,12 +662,12 @@ function DetailApiModal({
                 </div>
 
                 <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>-</span>
-                
+
                 <div style={{ position: 'relative' }}>
                   <input
                     id={`hidden-${cfg.toKey}`} type="date"
-                    value={dateFiltersState[cfg.toKey] || ''}
-                    onChange={e => setDateFiltersState(prev => ({ ...prev, [cfg.toKey]: e.target.value }))}
+                    value={pendingDateFilters[cfg.toKey] || ''}
+                    onChange={e => setPendingDateFilters(prev => ({ ...prev, [cfg.toKey]: e.target.value }))}
                     style={{ position: "absolute", width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
                   />
                   <button
@@ -671,16 +683,31 @@ function DetailApiModal({
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
                     }}
                   >
-                    {dateFiltersState[cfg.toKey] ? dateFiltersState[cfg.toKey].split('-').reverse().join('-') : 'Select'}
+                    {pendingDateFilters[cfg.toKey] ? pendingDateFilters[cfg.toKey].split('-').reverse().join('-') : 'Select'}
                     <span style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", fontSize: 13, pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                         📅
                     </span>
                   </button>
                 </div>
+
               </div>
             ))}
+            
+            {(localFiltersConfig || dateFiltersConfig) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                <button onClick={handleApply} style={{
+                  background: C.blue, color: '#fff', border: 'none', height: 28, padding: '0 12px',
+                  fontWeight: 700, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap'
+                }}>Apply</button>
+                <button onClick={handleReset} style={{
+                  background: 'none', border: 'none', color: C.slate, height: 28, padding: '0 6px',
+                  fontWeight: 600, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap'
+                }}>Reset</button>
+              </div>
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {!loading && sorted.length > 0 && (
               <span style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 600 }}>
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
