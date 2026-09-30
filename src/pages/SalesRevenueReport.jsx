@@ -2307,9 +2307,12 @@ export default function SalesRevenueReport() {
     ? new Date(rawDataAsOf).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : '—';
 
-  // Top Salesman: directly use the first row from the response as requested
+  // Top Salesman: Find the first valid salesperson (excluding 'Unassigned Salesman')
   const topSalesmanRecord = salesmanSummaryData && salesmanSummaryData.length > 0
-    ? salesmanSummaryData[0]
+    ? salesmanSummaryData.find(row => {
+        const name = row.salesman_name || row.sales_person || row.salesman || '';
+        return !name.toLowerCase().includes('unassigned');
+      }) || salesmanSummaryData[0]
     : null;
   const topSalesmanName  = topSalesmanRecord?.salesman_name || topSalesmanRecord?.sales_person || topSalesmanRecord?.salesman || '—';
   const topSalesmanValue   = topSalesmanRecord ? Number(topSalesmanRecord.sales ?? topSalesmanRecord.sales_ptd ?? 0) : null;
