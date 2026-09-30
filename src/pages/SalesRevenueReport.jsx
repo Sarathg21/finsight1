@@ -4578,8 +4578,7 @@ export default function SalesRevenueReport() {
         }}>
           <style>{`@keyframes scaleUp{from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
           <div style={{
-            background: '#fff', borderRadius: 16, width: '95%', maxWidth: 1100,
-            maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+            background: '#fff', borderRadius: 16, width: '96vw', maxWidth: 1800, maxHeight: '94vh', display: 'flex', flexDirection: 'column',
             boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
             animation: 'scaleUp 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards',
             overflow: 'hidden', border: '1px solid #e2e8f0',
