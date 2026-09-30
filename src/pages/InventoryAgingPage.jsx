@@ -235,7 +235,7 @@ export default function InventoryOverview() {
     const MOM_MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC"];
 
     if (format === "excel") {
-      const currencySuffix = momCurrencyMode === "AED_MILLIONS" ? " (AED Millions)" : " (AED)";
+      const currencySuffix = momCurrencyMode === "AED_MILLIONS" ? ` (${currentCurrency} Millions)` : ` (${currentCurrency})`;
       const headerRow = [
         "Sr. No.",
         "Parent Division",
@@ -281,7 +281,7 @@ export default function InventoryOverview() {
 
       const ws = XLSX.utils.aoa_to_sheet([
         [`Inventory Value by Parent Division - Month-on-Month (${momYear})`],
-        [`Reporting Currency: ${momCurrencyMode === 'AED_MILLIONS' ? 'AED Millions' : 'AED'} | Generated: ${new Date().toLocaleDateString()}`],
+        [`Reporting Currency: ${momCurrencyMode === 'AED_MILLIONS' ? `${currentCurrency} Millions` : currentCurrency} | Generated: ${new Date().toLocaleDateString()}`],
         [],
         headerRow,
         ...dataRows
@@ -729,7 +729,7 @@ const [loading, setLoading] = useState(true);
 
   
 
-  const currentCurrency = (filters.currency && filters.currency !== "All") ? filters.currency : (mockData.reporting_currency || "AED");
+  const currentCurrency = (appliedFilters.currency && appliedFilters.currency !== "All") ? appliedFilters.currency : (mockData.reporting_currency || "AED");
 
   const fmtAED = (v) => {
       if (v === null || v === undefined) return "-";
@@ -1292,7 +1292,7 @@ const [loading, setLoading] = useState(true);
         if (effectiveParentDivision) apiFilters.parent_division_id = effectiveParentDivision;
         if (effectiveSubdivision) apiFilters.subdivision_id = effectiveSubdivision;
         if (effectiveSubinventory) apiFilters.subinventory_id = effectiveSubinventory;
-        if (filters.currency && filters.currency !== "All") apiFilters.reporting_currency = filters.currency;
+        if (appliedFilters.currency && appliedFilters.currency !== "All") apiFilters.reporting_currency = appliedFilters.currency;
         if (formattedDate) apiFilters.as_on_date = formattedDate;
 
         // ── Apply Drilldown Filters to API (per Madam's confirmed parameter spec) ──
@@ -3748,7 +3748,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             <br />
             <span style={{ color: '#475569', display: 'inline-block', marginTop: 4 }}>
               {formattedDataAsOf && `Last Updated On: ${formattedDataAsOf} | `}
-              <span style={{ color: '#16a34a', fontWeight: 700 }}>Currency: {mockData.reporting_currency || "AED"}</span>
+              <span style={{ color: '#16a34a', fontWeight: 700 }}>Currency: {currentCurrency}</span>
             </span>
           </p>
         </div>
@@ -3985,11 +3985,11 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               <DonutChart
                 data={mockData.divisions}
                 total={mockData.totalInventory || parentDivTotal}
-                centerText={formatChartValueCompact(mockData.totalInventory || parentDivTotal, mockData.reporting_currency || currentCurrency)}
+                centerText={formatChartValueCompact(mockData.totalInventory || parentDivTotal, currentCurrency)}
                 centerSubText="Total"
                 size={144}
                 strokeWidth={20}
-                currency={mockData.reporting_currency || currentCurrency}
+                currency={currentCurrency}
                 activeSegment={hoveredParentDivSegment}
                 onSegmentHover={setHoveredParentDivSegment}
                 /* onSegmentClick removed */
@@ -4044,7 +4044,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                           marginLeft: 6,
                         }}
                       >
-                        {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)} ({Math.round(Number(item.percentage || 0))}%)
+                        {formatChartValueCompact(item.value, currentCurrency)} ({Math.round(Number(item.percentage || 0))}%)
                       </div>
                     </div>
                   );
@@ -4087,11 +4087,11 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             <DonutChart
               data={mockData.aging}
               total={mockData.totalInventory || agingTotal}
-              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
+              centerText={formatChartValueCompact(mockData.totalInventory || agingTotal, currentCurrency)}
               centerSubText="Total"
               size={144}
               strokeWidth={20}
-              currency={mockData.reporting_currency || currentCurrency}
+              currency={currentCurrency}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
               /* onSegmentClick removed from Aging Chart */
@@ -4137,7 +4137,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                     </div>
 
                     <div style={{ textAlign: "right", fontWeight: isHovered ? 800 : 600, color: isHovered ? "#0f172a" : "#1e293b" }}>
-                      {formatChartValueCompact(item.value, mockData.reporting_currency || currentCurrency)}
+                      {formatChartValueCompact(item.value, currentCurrency)}
                     </div>
 
                     <div style={{ textAlign: "right", color: isHovered ? item.color : "#64748b", fontWeight: isHovered ? 800 : 500 }}>
@@ -4152,7 +4152,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   Total
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
-                  {formatChartValueCompact(mockData.totalInventory || agingTotal, mockData.reporting_currency || currentCurrency)}
+                  {formatChartValueCompact(mockData.totalInventory || agingTotal, currentCurrency)}
                 </div>
                 <div style={{ textAlign: "right", fontWeight: 800, color: "#1e293b" }}>
                   100%
@@ -4442,7 +4442,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
         paddingTop: 10, paddingBottom: 4, flexWrap: 'wrap', gap: 4,
       }}>
         <span>
-          All values are in <strong>{mockData.reporting_currency || "AED"}</strong>&nbsp;|&nbsp;
+          All values are in <strong>{currentCurrency}</strong>&nbsp;|&nbsp;
           {formattedDataAsOf && `Last Updated On: ${formattedDataAsOf}`}&nbsp;|&nbsp;
           <span style={{ color: '#16a34a', fontWeight: 700 }}>● Live</span>
         </span>
@@ -4530,14 +4530,14 @@ const detailsSource = modalFilteredDetails || [];
             }
 
           const formatKPICompact = (val) => {
-            if (!val || isNaN(val)) return "AED 0.00M";
+            if (!val || isNaN(val)) return `${currentCurrency} 0.00M`;
             const inM = Number(val) / 1000000;
-            return `AED ${inM.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
+            return `${currentCurrency} ${inM.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}M`;
           };
 
           const isMillions = momCurrencyMode === "AED_MILLIONS";
           const scale = isMillions ? 1000000 : 1;
-          const currencyHeader = isMillions ? "AED Millions" : currentCurrency;
+          const currencyHeader = isMillions ? `${currentCurrency} Millions` : currentCurrency;
 
           const SummaryCard = ({
             icon,
@@ -5036,8 +5036,8 @@ const detailsSource = modalFilteredDetails || [];
                             boxSizing: "border-box",
                           }}
                         >
-                          <option value="AED">AED</option>
-                          <option value="AED_MILLIONS">AED Millions</option>
+                          <option value="AED">{currentCurrency}</option>
+                          <option value="AED_MILLIONS">{currentCurrency} Millions</option>
                         </select>
                       </div>
 
@@ -5355,9 +5355,7 @@ const detailsSource = modalFilteredDetails || [];
                               fontWeight: 600,
                               cursor: "pointer",
                             }}
-                          >
-                            AED
-                          </button>
+                          >{currentCurrency}</button>
                           <button
                             type="button"
                             onClick={() => setMomCurrencyMode("AED_MILLIONS")}
@@ -5373,9 +5371,7 @@ const detailsSource = modalFilteredDetails || [];
                               fontWeight: 600,
                               cursor: "pointer",
                             }}
-                          >
-                            AED Millions
-                          </button>
+                          >{currentCurrency} Millions</button>
                         </div>
 
                         <input
