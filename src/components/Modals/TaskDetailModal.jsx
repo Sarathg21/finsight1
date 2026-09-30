@@ -4,7 +4,7 @@ import {
     Plus, Loader2, FileText, Download, User, Building2, CalendarDays, Upload, Trash2
 } from 'lucide-react';
 import api from '../../services/api';
-import Badge from '../UI/Badge';
+import Badge from '../ui/Badge';
 import toast from 'react-hot-toast';
 import { formatUAEDateTime, formatUAEDate, formatUAETime } from '../../utils/timezone';
 

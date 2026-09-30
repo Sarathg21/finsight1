@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import Card from '../components/UI/DashboardCard';
-import KPICard from '../components/UI/KPICard';
-import SparklineKPICard from '../components/UI/SparklineKPICard';
-import ChartLegend from '../components/UI/ChartLegend';
+import Card from '../components/ui/DashboardCard';
+import KPICard from '../components/ui/KPICard';
+import SparklineKPICard from '../components/ui/SparklineKPICard';
+import ChartLegend from '../components/ui/ChartLegend';
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,

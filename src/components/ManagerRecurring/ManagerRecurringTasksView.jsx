@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Edit2, Trash2, Loader2, Eye, X, Info } from 'lucide-react';
-import ConfirmationModal from '../UI/ConfirmationModal';
+import ConfirmationModal from '../ui/ConfirmationModal';
 
 const PriorityBadge = ({ priority, styles }) => {
     const level = String(priority || 'MEDIUM').toUpperCase();

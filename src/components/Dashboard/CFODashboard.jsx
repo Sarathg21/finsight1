@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
-import Badge from '../UI/Badge';
-import StatsCard from '../UI/StatsCard';
+import Badge from '../ui/Badge';
+import StatsCard from '../ui/StatsCard';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell, ComposedChart, Line, Area
@@ -16,7 +16,7 @@ import {
 import EmployeeIssueModal from '../Modals/EmployeeIssueModal';
 import DeptReviewModal from '../Modals/DeptReviewModal';
 import toast from 'react-hot-toast';
-import CustomSelect from '../UI/CustomSelect';
+import CustomSelect from '../ui/CustomSelect';
 
 
 const TERMINAL_STATUSES = new Set(['APPROVED', 'COMPLETED', 'CANCELLED']);

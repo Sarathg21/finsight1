@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Loader2, Clock, Plus, Trash2, FolderOpen, GitBranch, Info, ChevronRight, User2, Users2 } from 'lucide-react';
-import SearchableSelect from '../components/UI/SearchableSelect';
+import SearchableSelect from '../components/ui/SearchableSelect';
 
 const toNonNegativeDayCount = (value) => {
     const parsed = Number(value);

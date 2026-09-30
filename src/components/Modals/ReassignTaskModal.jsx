@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, User, CalendarDays, FileText, Clock, AlertTriangle, RotateCcw, Building2 } from 'lucide-react';
-import Badge from "../UI/Badge";
+import Badge from "../ui/Badge";
 
 /* ── status label map ── */
 const STATUS_LABEL = {

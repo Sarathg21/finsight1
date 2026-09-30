@@ -17,8 +17,8 @@ import {
 
 import EmployeeFormModal from "../components/Modals/EmployeeFormModal";
 import EmployeeDetailModal from "../components/Modals/EmployeeDetailModal";
-import CustomSelect from "../components/UI/CustomSelect";
-import ConfirmationModal from "../components/UI/ConfirmationModal";
+import CustomSelect from "../components/ui/CustomSelect";
+import ConfirmationModal from "../components/ui/ConfirmationModal";
 
 const AdminPage = () => {
   const navigate = useNavigate();

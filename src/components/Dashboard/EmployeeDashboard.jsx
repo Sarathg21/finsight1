@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { calculateEmployeeScore } from '../../utils/performanceEngine';
-import Badge from '../UI/Badge';
+import Badge from '../ui/Badge';
 import ChartPanel from '../Charts/ChartPanel';
 import {
     TrendingUp, CheckCircle, Clock, AlertCircle,

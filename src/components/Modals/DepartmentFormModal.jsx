@@ -3,7 +3,7 @@ import {
   Building2, User, CheckCircle, Loader2, X, ArrowLeft,
   Users
 } from "lucide-react";
-import CustomSelect from "../UI/CustomSelect";
+import CustomSelect from "../ui/CustomSelect";
 
 const DepartmentFormModal = ({ onClose, onSave, employees = [], initialData = null }) => {
   const isEdit = !!initialData;

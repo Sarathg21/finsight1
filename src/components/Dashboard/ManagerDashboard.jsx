@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { calculateManagerScore } from '../../utils/performanceEngine';
-import Badge from '../UI/Badge';
+import Badge from '../ui/Badge';
 import {
     BarChart2, CheckSquare, AlertTriangle, Clock,
     Calendar, Users, TrendingUp, Medal, CalendarCheck, CheckCircle, Loader2,

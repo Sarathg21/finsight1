@@ -3,7 +3,7 @@ import {
   User, Briefcase, Building2, Users, Hash, UserPlus,
   ArrowLeft, CheckCircle, Loader2, Phone, Mail, AlertCircle
 } from "lucide-react";
-import CustomSelect from "../UI/CustomSelect";
+import CustomSelect from "../ui/CustomSelect";
 
 /* ─── Reusable styled field label ─── */
 const FieldLabel = ({ icon: Icon, color = "text-indigo-600", textColor = "text-indigo-700", children }) => (
