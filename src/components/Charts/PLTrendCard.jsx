@@ -1220,7 +1220,7 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
       }
     }
   };
-  
+
   const handleCopyData = () => {
     const text = activeData.map(r =>
       `${r.month}: Rev $${r.revenue}M | GP $${r.grossProfit}M | EBITDA $${r.ebitda}M | NP $${r.netProfit}M`
@@ -1708,7 +1708,7 @@ export default function PLTrendCard({ data: propData, loading: propLoading = fal
 
         {/* ══ AI EXECUTIVE INSIGHT ════════════════════════════════════ */}
         <div style={{ animation: 'plInsightIn 0.4s ease 0.3s both' }}>
-          <AIInsightPanel data={chartData} currency={propCurrency} />
+          {/* <AIInsightPanel data={chartData} currency={propCurrency} /> */}
         </div>
       </div>
     </>

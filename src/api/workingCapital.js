@@ -1,3 +1,5 @@
+
+
 import axios from "axios";
 
 /* ============================================================
@@ -90,10 +92,13 @@ function buildQueryParams(filters = {}) {
 async function getWorkingCapital(endpoint, filters = {}) {
     const params = buildQueryParams(filters);
 
-    const response = await api.get(`/api/working-capital${endpoint}`, {
-        params,
-        headers: getAuthHeaders(),
-    });
+    const response = await api.get(
+        `/api/working-capital${endpoint}`,
+        {
+            params,
+            headers: getAuthHeaders(),
+        }
+    );
 
     return response.data;
 }
@@ -102,7 +107,9 @@ async function getWorkingCapital(endpoint, filters = {}) {
    FILTER OPTIONS
 ============================================================ */
 
-export async function getWorkingCapitalFilterOptions(filters = {}) {
+export async function getWorkingCapitalFilterOptions(
+    filters = {}
+) {
     const params = buildQueryParams(filters);
 
     const response = await api.get(
@@ -118,9 +125,12 @@ export async function getWorkingCapitalFilterOptions(filters = {}) {
 
 /* ============================================================
    DASHBOARD
+   GET /api/working-capital/dashboard
 ============================================================ */
 
-export async function getWorkingCapitalDashboard(filters = {}) {
+export async function getWorkingCapitalDashboard(
+    filters = {}
+) {
     return getWorkingCapital("/dashboard", {
         aging_basis: "DUE_DATE",
         months: 6,
@@ -130,9 +140,12 @@ export async function getWorkingCapitalDashboard(filters = {}) {
 
 /* ============================================================
    KPIs
+   GET /api/working-capital/kpis
 ============================================================ */
 
-export async function getWorkingCapitalKpis(filters = {}) {
+export async function getWorkingCapitalKpis(
+    filters = {}
+) {
     return getWorkingCapital("/kpis", {
         aging_basis: "DUE_DATE",
         ...filters,
@@ -143,7 +156,9 @@ export async function getWorkingCapitalKpis(filters = {}) {
    COMPONENTS
 ============================================================ */
 
-export async function getWorkingCapitalComponents(filters = {}) {
+export async function getWorkingCapitalComponents(
+    filters = {}
+) {
     return getWorkingCapital("/components", {
         aging_basis: "DUE_DATE",
         ...filters,
@@ -154,74 +169,157 @@ export async function getWorkingCapitalComponents(filters = {}) {
    CURRENT ASSETS
 ============================================================ */
 
-export async function getWorkingCapitalCurrentAssets(filters = {}) {
-    return getWorkingCapital("/current-assets", filters);
+export async function getWorkingCapitalCurrentAssets(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/current-assets",
+        filters
+    );
 }
 
 /* ============================================================
    CURRENT LIABILITIES
 ============================================================ */
 
-export async function getWorkingCapitalCurrentLiabilities(filters = {}) {
-    return getWorkingCapital("/current-liabilities", filters);
+export async function getWorkingCapitalCurrentLiabilities(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/current-liabilities",
+        filters
+    );
 }
 
 /* ============================================================
    LIQUIDITY RATIOS
 ============================================================ */
 
-export async function getWorkingCapitalLiquidityRatios(filters = {}) {
-    return getWorkingCapital("/liquidity-ratios", filters);
+export async function getWorkingCapitalLiquidityRatios(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/liquidity-ratios",
+        filters
+    );
 }
 
 /* ============================================================
    ASSETS VS LIABILITIES
 ============================================================ */
 
-export async function getWorkingCapitalAssetsVsLiabilities(filters = {}) {
-    return getWorkingCapital("/assets-vs-liabilities", filters);
+export async function getWorkingCapitalAssetsVsLiabilities(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/assets-vs-liabilities",
+        filters
+    );
 }
 
 /* ============================================================
    CASH CONVERSION CYCLE
 ============================================================ */
 
-export async function getWorkingCapitalCashConversionCycle(filters = {}) {
-    return getWorkingCapital("/cash-conversion-cycle", {
-        aging_basis: "DUE_DATE",
-        ...filters,
-    });
+export async function getWorkingCapitalCashConversionCycle(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/cash-conversion-cycle",
+        {
+            aging_basis: "DUE_DATE",
+            ...filters,
+        }
+    );
 }
 
 /* ============================================================
-   DASHBOARD TRENDS
+   EXISTING / LEGACY TRENDS
+   Kept so existing imports do not break.
 ============================================================ */
 
-export async function getWorkingCapitalTrend(filters = {}) {
+export async function getWorkingCapitalTrend(
+    filters = {}
+) {
     return getWorkingCapital("/trend", {
         months: 6,
         ...filters,
     });
 }
 
-export async function getWorkingCapitalTradeTrend(filters = {}) {
-    return getWorkingCapital("/trade-working-capital-trend", {
-        aging_basis: "DUE_DATE",
-        months: 6,
-        ...filters,
-    });
+export async function getWorkingCapitalTradeTrend(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/trade-working-capital-trend",
+        {
+            aging_basis: "DUE_DATE",
+            months: 6,
+            ...filters,
+        }
+    );
 }
 
-export async function getWorkingCapitalCccTrend(filters = {}) {
-    return getWorkingCapital("/ccc-trend", {
-        aging_basis: "DUE_DATE",
-        months: 6,
-        ...filters,
-    });
+export async function getWorkingCapitalCccTrend(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/ccc-trend",
+        {
+            aging_basis: "DUE_DATE",
+            months: 6,
+            ...filters,
+        }
+    );
 }
 
 /* ============================================================
-   VIEW ALL
+   NEW CFO TREND
+   PARENT DIVISION
+
+   GET /api/working-capital/trend/parent-divisions
+
+   Trade Working Capital:
+   Trade Receivables + Inventory - Trade Payables
+============================================================ */
+
+export async function getWorkingCapitalParentDivisionTrend(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/trend/parent-divisions",
+        {
+            months: 6,
+            ...filters,
+        }
+    );
+}
+
+/* ============================================================
+   NEW CFO TREND
+   SUB-DIVISION
+
+   GET /api/working-capital/trend/subdivisions
+
+   Trade Working Capital:
+   Trade Receivables + Inventory - Trade Payables
+============================================================ */
+
+export async function getWorkingCapitalSubDivisionTrend(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/trend/subdivisions",
+        {
+            months: 6,
+            ...filters,
+        }
+    );
+}
+
+/* ============================================================
+   EXISTING VIEW ALL APIs
+   Kept for compatibility with other existing pages/components.
 ============================================================ */
 
 export async function getWorkingCapitalCurrentAssetsViewAll(
@@ -242,9 +340,24 @@ export async function getWorkingCapitalCurrentLiabilitiesViewAll(
     );
 }
 
-export async function getWorkingCapitalViewAllTrend(filters = {}) {
-    return getWorkingCapital("/view-all/trend", filters);
+export async function getWorkingCapitalViewAllTrend(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/view-all/trend",
+        filters
+    );
 }
+
+/* ============================================================
+   LEGACY TRADE WORKING CAPITAL VIEW ALL
+   Kept only for compatibility with existing imports.
+
+   NEW CFO DASHBOARD MUST NOT USE THIS FUNCTION.
+
+   New CFO View All:
+   getWorkingCapitalViewAll()
+============================================================ */
 
 export async function getWorkingCapitalViewAllTradeWorkingCapital(
     filters = {}
@@ -258,7 +371,13 @@ export async function getWorkingCapitalViewAllTradeWorkingCapital(
     );
 }
 
-export async function getWorkingCapitalViewAllCcc(filters = {}) {
+/* ============================================================
+   LEGACY CCC VIEW ALL
+============================================================ */
+
+export async function getWorkingCapitalViewAllCcc(
+    filters = {}
+) {
     return getWorkingCapital(
         "/view-all/ccc",
         {
@@ -269,7 +388,103 @@ export async function getWorkingCapitalViewAllCcc(filters = {}) {
 }
 
 /* ============================================================
-   EXPORTS
+   NEW CFO COMMON VIEW ALL
+
+   GET /api/working-capital/view-all
+
+   Supported filters:
+   - as_on_date
+   - legal_group_id
+   - legal_entity_id
+   - parent_division_id
+   - subdivision_id
+
+   Hierarchy:
+   Legal Entity
+       ↓
+   Parent Division
+       ↓
+   Sub-Division
+
+   Columns:
+   - Legal Entity
+   - Parent Division
+   - Sub-Division
+   - Trade Receivables
+   - DSO
+   - Trade Payables
+   - DPO
+   - Inventory
+   - DIO
+   - Trade Working Capital
+   - CCC
+
+   Currently backend returns:
+   DSO = null
+   DPO = null
+   DIO = null
+   CCC = null
+============================================================ */
+
+export async function getWorkingCapitalViewAll(
+    filters = {}
+) {
+    return getWorkingCapital(
+        "/view-all",
+        filters
+    );
+}
+
+
+
+/* ============================================================
+   NEW CFO COMMON VIEW ALL EXCEL EXPORT
+
+   GET /api/working-capital/view-all/export/excel
+
+   Uses the same currently selected filters as Common View All.
+============================================================ */
+
+export async function exportWorkingCapitalViewAllExcel(
+    filters = {}
+) {
+    const params = buildQueryParams(filters);
+
+    return api.get(
+        "/api/working-capital/view-all/export/excel",
+        {
+            params,
+            headers: getAuthHeaders(),
+            responseType: "blob",
+        }
+    );
+}
+
+
+/* ============================================================
+   NEW CFO COMMON VIEW ALL PDF EXPORT
+
+   GET /api/working-capital/view-all/export/pdf
+
+   Uses the same currently selected filters as Common View All.
+============================================================ */
+
+export async function exportWorkingCapitalViewAllPdf(
+    filters = {}
+) {
+    const params = buildQueryParams(filters);
+
+    return api.get(
+        "/api/working-capital/view-all/export/pdf",
+        {
+            params,
+            headers: getAuthHeaders(),
+            responseType: "blob",
+        }
+    );
+}
+/* ============================================================
+   CURRENT ASSETS EXPORT
 ============================================================ */
 
 export async function exportWorkingCapitalCurrentAssetsExcel(
@@ -301,6 +516,10 @@ export async function exportWorkingCapitalCurrentAssetsPdf(
         }
     );
 }
+
+/* ============================================================
+   CURRENT LIABILITIES EXPORT
+============================================================ */
 
 export async function exportWorkingCapitalCurrentLiabilitiesExcel(
     filters = {}
@@ -347,6 +566,7 @@ export function downloadWorkingCapitalFile(
     });
 
     const url = window.URL.createObjectURL(blob);
+
     const link = document.createElement("a");
 
     link.href = url;
@@ -372,17 +592,24 @@ export function downloadWorkingCapitalFile(
 
         if (rawName) {
             try {
-                fileName = decodeURIComponent(rawName).trim();
+                fileName = decodeURIComponent(
+                    rawName
+                ).trim();
             } catch {
                 fileName = rawName.trim();
             }
         }
     }
 
-    link.setAttribute("download", fileName);
+    link.setAttribute(
+        "download",
+        fileName
+    );
 
     document.body.appendChild(link);
+
     link.click();
+
     link.remove();
 
     window.URL.revokeObjectURL(url);
