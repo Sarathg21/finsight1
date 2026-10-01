@@ -4329,7 +4329,10 @@ export default function SalesRevenueReport() {
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
           { key: 'customerType',     label: 'Customer Type',   options: filterOptions.customerTypes },
+          { key: 'salesCategories',  label: 'Sales Category',  options: filterOptions.salesCategories },
+          { key: 'salesman',         label: 'Salesperson',     options: filterOptions.salesmen },
         ]}
+
         dateFiltersConfig={[
           { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
         ]}
