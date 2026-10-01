@@ -2356,6 +2356,8 @@ const [loading, setLoading] = useState(true);
       <div style={{ width: size, height: size, flex: `0 0 ${size}px`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
         <style>{`
           @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes fillBar { from { width: 0%; opacity: 0; } to { opacity: 1; } }
+          @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -2735,6 +2737,8 @@ const [loading, setLoading] = useState(true);
       <div style={{ width: "100%", paddingTop: 4, position: "relative" }}>
         <style>{`
           @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes fillBar { from { width: 0%; opacity: 0; } to { opacity: 1; } }
+          @keyframes fadeSlideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -2757,7 +2761,7 @@ const [loading, setLoading] = useState(true);
             to { opacity: 1; transform: scale(1) translateY(0); }
           }
         `}</style>
-        {items.map((item) => {
+        {items.map((item, idx) => {
           const isHovered = hoveredSubdiv?.name === item.name;
           return (
             <div
@@ -2776,6 +2780,8 @@ const [loading, setLoading] = useState(true);
                 background: isHovered ? "rgba(241, 245, 249, 0.95)" : "transparent",
                 cursor: "pointer",
                 transition: "all 0.18s ease",
+                animation: `fadeSlideUp 0.4s ease forwards ${idx * 0.06}s`,
+                opacity: 0,
               }}
             >
               <div
@@ -2811,6 +2817,8 @@ const [loading, setLoading] = useState(true);
                     background: item.color,
                     borderRadius: 4,
                     transition: "width 0.35s ease, background 0.2s ease",
+                    animation: `fillBar 1s cubic-bezier(0.16, 1, 0.3, 1) forwards ${0.2 + idx * 0.06}s`,
+                    opacity: 0,
                   }}
                 />
               </div>
