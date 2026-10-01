@@ -1,3272 +1,4 @@
 
-// import React, { useState, useEffect, useRef } from "react";
-// import { ChevronDown, Search, X } from "lucide-react";
-// import { getOpexFilterOptions } from "../../api/opexApi";
-
-// /* =========================================================
-//    Reusable Filter Field
-// ========================================================= */
-
-// function FilterField({
-//   label,
-//   children,
-//   isOperatingExpenses = false,
-//   isReceivables = false,
-// }) {
-//   return (
-//     <div
-//       style={{
-//         display: "flex",
-//         flexDirection: "column",
-//         gap: 4,
-
-//         minWidth:
-//           isOperatingExpenses || isReceivables
-//             ? 0
-//             : 110,
-
-//         flex:
-//           isOperatingExpenses || isReceivables
-//             ? "1 1 0"
-//             : "1 1 auto",
-
-//         overflow:
-//           isOperatingExpenses || isReceivables
-//             ? "visible"
-//             : "hidden",
-
-//         position: "relative",
-
-//         zIndex:
-//           isOperatingExpenses || isReceivables
-//             ? 20
-//             : "auto",
-
-//         fontWeight: 600,
-//       }}
-//     >
-//       <span
-//         style={{
-//           fontSize: "0.66rem",
-//           color: "#1e3a8a",
-//           fontWeight: 700,
-//           letterSpacing: "-0.02em",
-//           whiteSpace: "nowrap",
-//         }}
-//       >
-//         {label}
-//       </span>
-
-//       {children}
-//     </div>
-//   );
-// }
-
-// /* =========================================================
-//    OPEX / RECEIVABLES Multi Select Dropdown
-// ========================================================= */
-
-// function OpexMultiSelect({
-//   options = [],
-//   value = [],
-//   onChange,
-//   placeholder = "All",
-//   searchable = true,
-// }) {
-//   const [open, setOpen] = useState(false);
-//   const [searchTerm, setSearchTerm] = useState("");
-
-//   const containerRef = useRef(null);
-//   const searchInputRef = useRef(null);
-
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (
-//         containerRef.current &&
-//         !containerRef.current.contains(event.target)
-//       ) {
-//         setOpen(false);
-//         setSearchTerm("");
-//       }
-//     };
-
-//     document.addEventListener(
-//       "mousedown",
-//       handleClickOutside
-//     );
-
-//     return () => {
-//       document.removeEventListener(
-//         "mousedown",
-//         handleClickOutside
-//       );
-//     };
-//   }, []);
-
-//   useEffect(() => {
-//     if (
-//       open &&
-//       searchable &&
-//       searchInputRef.current
-//     ) {
-//       setTimeout(() => {
-//         searchInputRef.current?.focus();
-//       }, 0);
-//     }
-//   }, [open, searchable]);
-
-//   const selectedValues = Array.isArray(value)
-//     ? value.map(String)
-//     : [];
-
-//   const getValue = (item) => {
-//     if (
-//       item === null ||
-//       item === undefined
-//     ) {
-//       return "";
-//     }
-
-//     if (typeof item === "object") {
-//       return (
-//         item.value ??
-//         item.id ??
-//         item.code ??
-//         item.period_name ??
-//         item.name ??
-//         item.currency_code ??
-//         ""
-//       );
-//     }
-
-//     return item;
-//   };
-
-//   const getLabel = (item) => {
-//     if (
-//       item === null ||
-//       item === undefined
-//     ) {
-//       return "";
-//     }
-
-//     if (typeof item === "object") {
-//       return (
-//         item.label ??
-//         item.name ??
-//         item.period_name ??
-//         item.currency_code ??
-//         item.value ??
-//         item.code ??
-//         ""
-//       );
-//     }
-
-//     return item;
-//   };
-
-//   const filteredOptions = options.filter((item) => {
-//     const label = String(
-//       getLabel(item)
-//     ).toLowerCase();
-
-//     const value = String(
-//       getValue(item)
-//     ).toLowerCase();
-
-//     const search =
-//       searchTerm
-//         .trim()
-//         .toLowerCase();
-
-//     if (!search) {
-//       return true;
-//     }
-
-//     return (
-//       label.includes(search) ||
-//       value.includes(search)
-//     );
-//   });
-
-//   const handleOptionToggle = (
-//     optionValue
-//   ) => {
-//     const stringValue =
-//       String(optionValue);
-
-//     const exists =
-//       selectedValues.includes(
-//         stringValue
-//       );
-
-//     const nextValues = exists
-//       ? selectedValues.filter(
-//         (item) =>
-//           item !== stringValue
-//       )
-//       : [
-//         ...selectedValues,
-//         stringValue,
-//       ];
-
-//     onChange(nextValues);
-//   };
-
-//   const handleSelectAll = () => {
-//     const visibleValues =
-//       filteredOptions
-//         .map(getValue)
-//         .filter(
-//           (value) =>
-//             value !== null &&
-//             value !== undefined &&
-//             value !== ""
-//         )
-//         .map(String);
-
-//     const mergedValues = [
-//       ...new Set([
-//         ...selectedValues,
-//         ...visibleValues,
-//       ]),
-//     ];
-
-//     onChange(mergedValues);
-//   };
-
-//   const handleClearAll = () => {
-//     onChange([]);
-//   };
-
-//   const getDisplayText = () => {
-//     if (
-//       selectedValues.length === 0
-//     ) {
-//       return placeholder;
-//     }
-
-//     if (
-//       selectedValues.length === 1
-//     ) {
-//       const selected =
-//         options.find(
-//           (item) =>
-//             String(
-//               getValue(item)
-//             ) ===
-//             selectedValues[0]
-//         );
-
-//       return selected
-//         ? String(
-//           getLabel(selected)
-//         )
-//         : selectedValues[0];
-//     }
-
-//     return `${selectedValues.length} selected`;
-//   };
-
-//   return (
-//     <div
-//       ref={containerRef}
-//       style={{
-//         position: "relative",
-//         width: "100%",
-//         minWidth: 0,
-//         zIndex: open ? 1000 : 1,
-//         fontWeight: 600,
-//       }}
-//     >
-//       <button
-//         type="button"
-//         className="filter-select w-full"
-//         onClick={(event) => {
-//           event.stopPropagation();
-//           setOpen((prev) => !prev);
-
-//           if (open) {
-//             setSearchTerm("");
-//           }
-//         }}
-//         style={{
-//           minWidth: 0,
-//           width: "100%",
-//           height: "32px",
-
-//           display: "flex",
-//           alignItems: "center",
-//           justifyContent:
-//             "space-between",
-
-//           textAlign: "left",
-
-//           paddingLeft: "8px",
-//           paddingRight: "8px",
-
-//           cursor: "pointer",
-
-//           overflow: "hidden",
-
-//           boxSizing: "border-box",
-
-//           position: "relative",
-//           zIndex: 1001,
-
-//           fontWeight: 600,
-//         }}
-//       >
-//         <span
-//           style={{
-//             overflow: "hidden",
-//             textOverflow:
-//               "ellipsis",
-//             whiteSpace:
-//               "nowrap",
-//             minWidth: 0,
-//             fontWeight: 600,
-//           }}
-//         >
-//           {getDisplayText()}
-//         </span>
-
-//         <ChevronDown
-//           size={14}
-//           strokeWidth={2}
-//           style={{
-//             flexShrink: 0,
-//             marginLeft: "6px",
-//           }}
-//         />
-//       </button>
-
-//       {open && (
-//         <div
-//           onClick={(event) =>
-//             event.stopPropagation()
-//           }
-//           style={{
-//             position: "absolute",
-
-//             top: "calc(100% + 4px)",
-//             left: 0,
-
-//             width: "100%",
-//             minWidth: "190px",
-
-//             maxHeight: "280px",
-//             overflowY: "auto",
-
-//             backgroundColor:
-//               "#ffffff",
-
-//             border:
-//               "1px solid #d1d5db",
-//             borderRadius: "6px",
-
-//             boxShadow:
-//               "0 4px 12px rgba(0, 0, 0, 0.12)",
-
-//             zIndex: 99999,
-
-//             boxSizing: "border-box",
-
-//             fontWeight: 600,
-//           }}
-//         >
-//           {searchable && (
-//             <div
-//               style={{
-//                 padding: "7px 8px",
-
-//                 borderBottom:
-//                   "1px solid #e5e7eb",
-
-//                 backgroundColor:
-//                   "#ffffff",
-
-//                 position: "sticky",
-//                 top: 0,
-
-//                 zIndex: 4,
-//               }}
-//             >
-//               <div
-//                 style={{
-//                   position:
-//                     "relative",
-//                   width: "100%",
-//                 }}
-//               >
-//                 <Search
-//                   size={13}
-//                   strokeWidth={2}
-//                   style={{
-//                     position:
-//                       "absolute",
-//                     left: "7px",
-//                     top: "50%",
-//                     transform:
-//                       "translateY(-50%)",
-//                     color:
-//                       "#9ca3af",
-//                     pointerEvents:
-//                       "none",
-//                   }}
-//                 />
-
-//                 <input
-//                   ref={
-//                     searchInputRef
-//                   }
-//                   type="text"
-//                   value={
-//                     searchTerm
-//                   }
-//                   onChange={(
-//                     event
-//                   ) =>
-//                     setSearchTerm(
-//                       event.target
-//                         .value
-//                     )
-//                   }
-//                   onClick={(event) =>
-//                     event.stopPropagation()
-//                   }
-//                   placeholder="Search..."
-//                   style={{
-//                     width:
-//                       "100%",
-//                     height:
-//                       "27px",
-
-//                     boxSizing:
-//                       "border-box",
-
-//                     border:
-//                       "1px solid #d1d5db",
-//                     borderRadius:
-//                       "4px",
-
-//                     paddingLeft:
-//                       "26px",
-//                     paddingRight:
-//                       searchTerm
-//                         ? "24px"
-//                         : "7px",
-
-//                     outline:
-//                       "none",
-
-//                     fontSize:
-//                       "10px",
-//                     color:
-//                       "#374151",
-
-//                     backgroundColor:
-//                       "#ffffff",
-
-//                     fontWeight:
-//                       600,
-//                   }}
-//                 />
-
-//                 {searchTerm && (
-//                   <button
-//                     type="button"
-//                     onClick={() =>
-//                       setSearchTerm(
-//                         ""
-//                       )
-//                     }
-//                     style={{
-//                       position:
-//                         "absolute",
-//                       right: "5px",
-//                       top: "50%",
-//                       transform:
-//                         "translateY(-50%)",
-
-//                       border: "none",
-//                       background:
-//                         "transparent",
-
-//                       padding: 0,
-
-//                       cursor:
-//                         "pointer",
-
-//                       display:
-//                         "flex",
-//                       alignItems:
-//                         "center",
-//                       justifyContent:
-//                         "center",
-//                     }}
-//                   >
-//                     <X
-//                       size={12}
-//                       color="#9ca3af"
-//                     />
-//                   </button>
-//                 )}
-//               </div>
-//             </div>
-//           )}
-
-//           <div
-//             style={{
-//               display: "flex",
-//               justifyContent:
-//                 "space-between",
-//               alignItems: "center",
-
-//               padding: "7px 8px",
-
-//               borderBottom:
-//                 "1px solid #e5e7eb",
-
-//               backgroundColor:
-//                 "#f9fafb",
-
-//               position: "sticky",
-//               top: searchable
-//                 ? "41px"
-//                 : 0,
-
-//               zIndex: 3,
-//             }}
-//           >
-//             <button
-//               type="button"
-//               onClick={
-//                 handleSelectAll
-//               }
-//               style={{
-//                 border: "none",
-//                 background:
-//                   "transparent",
-
-//                 padding: 0,
-
-//                 fontSize: "10px",
-//                 fontWeight: 700,
-
-//                 color: "#1e3a8a",
-
-//                 cursor: "pointer",
-//               }}
-//             >
-//               Select All
-//             </button>
-
-//             <button
-//               type="button"
-//               onClick={
-//                 handleClearAll
-//               }
-//               style={{
-//                 border: "none",
-//                 background:
-//                   "transparent",
-
-//                 padding: 0,
-
-//                 fontSize: "10px",
-//                 fontWeight: 700,
-
-//                 color: "#6b7280",
-
-//                 cursor: "pointer",
-//               }}
-//             >
-//               Clear
-//             </button>
-//           </div>
-
-//           {filteredOptions.length ===
-//             0 ? (
-//             <div
-//               style={{
-//                 padding: "10px 8px",
-//                 fontSize: "10px",
-//                 color: "#6b7280",
-//                 fontWeight: 600,
-//               }}
-//             >
-//               {searchTerm
-//                 ? "No matching options"
-//                 : "No options available"}
-//             </div>
-//           ) : (
-//             filteredOptions.map(
-//               (
-//                 item,
-//                 index
-//               ) => {
-//                 const optionValue =
-//                   getValue(item);
-
-//                 const optionLabel =
-//                   getLabel(item);
-
-//                 if (
-//                   optionValue ===
-//                   "" ||
-//                   optionValue ===
-//                   null ||
-//                   optionValue ===
-//                   undefined
-//                 ) {
-//                   return null;
-//                 }
-
-//                 const stringValue =
-//                   String(
-//                     optionValue
-//                   );
-
-//                 const checked =
-//                   selectedValues.includes(
-//                     stringValue
-//                   );
-
-//                 return (
-//                   <label
-//                     key={`${stringValue}-${index}`}
-//                     style={{
-//                       display:
-//                         "flex",
-//                       alignItems:
-//                         "center",
-
-//                       gap: "7px",
-
-//                       padding:
-//                         "7px 8px",
-
-//                       fontSize:
-//                         "10px",
-//                       color:
-//                         "#374151",
-
-//                       cursor:
-//                         "pointer",
-
-//                       whiteSpace:
-//                         "nowrap",
-
-//                       boxSizing:
-//                         "border-box",
-
-//                       fontWeight:
-//                         600,
-//                     }}
-//                   >
-//                     <input
-//                       type="checkbox"
-//                       checked={
-//                         checked
-//                       }
-//                       onChange={() =>
-//                         handleOptionToggle(
-//                           stringValue
-//                         )
-//                       }
-//                       style={{
-//                         width:
-//                           "12px",
-//                         height:
-//                           "12px",
-
-//                         margin: 0,
-
-//                         flexShrink:
-//                           0,
-
-//                         cursor:
-//                           "pointer",
-//                       }}
-//                     />
-
-//                     <span
-//                       style={{
-//                         overflow:
-//                           "hidden",
-//                         textOverflow:
-//                           "ellipsis",
-//                         fontWeight:
-//                           600,
-//                       }}
-//                     >
-//                       {
-//                         optionLabel
-//                       }
-//                     </span>
-//                   </label>
-//                 );
-//               }
-//             )
-//           )}
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-// /* =========================================================
-//    OPEX Single Select Dropdown
-// ========================================================= */
-
-// function OpexSingleSelect({
-//   options = [],
-//   value = "",
-//   onChange,
-//   placeholder = "Select",
-//   searchable = true,
-//   required = false,
-// }) {
-//   const [open, setOpen] = useState(false);
-//   const [searchTerm, setSearchTerm] =
-//     useState("");
-
-//   const containerRef = useRef(null);
-//   const searchInputRef = useRef(null);
-
-//   useEffect(() => {
-//     const handleClickOutside = (event) => {
-//       if (
-//         containerRef.current &&
-//         !containerRef.current.contains(
-//           event.target
-//         )
-//       ) {
-//         setOpen(false);
-//         setSearchTerm("");
-//       }
-//     };
-
-//     document.addEventListener(
-//       "mousedown",
-//       handleClickOutside
-//     );
-
-//     return () => {
-//       document.removeEventListener(
-//         "mousedown",
-//         handleClickOutside
-//       );
-//     };
-//   }, []);
-
-//   useEffect(() => {
-//     if (
-//       open &&
-//       searchable &&
-//       searchInputRef.current
-//     ) {
-//       setTimeout(() => {
-//         searchInputRef.current?.focus();
-//       }, 0);
-//     }
-//   }, [open, searchable]);
-
-//   const getValue = (item) => {
-//     if (
-//       item === null ||
-//       item === undefined
-//     ) {
-//       return "";
-//     }
-
-//     if (typeof item === "object") {
-//       return (
-//         item.value ??
-//         item.id ??
-//         item.code ??
-//         item.year ??
-//         item.name ??
-//         item.currency_code ??
-//         ""
-//       );
-//     }
-
-//     return item;
-//   };
-
-//   const getLabel = (item) => {
-//     if (
-//       item === null ||
-//       item === undefined
-//     ) {
-//       return "";
-//     }
-
-//     if (typeof item === "object") {
-//       return (
-//         item.label ??
-//         item.name ??
-//         item.year ??
-//         item.currency_code ??
-//         item.value ??
-//         item.code ??
-//         ""
-//       );
-//     }
-
-//     return item;
-//   };
-
-//   const filteredOptions =
-//     options.filter((item) => {
-//       const label = String(
-//         getLabel(item)
-//       ).toLowerCase();
-
-//       const optionValue =
-//         String(
-//           getValue(item)
-//         ).toLowerCase();
-
-//       const search =
-//         searchTerm
-//           .trim()
-//           .toLowerCase();
-
-//       if (!search) {
-//         return true;
-//       }
-
-//       return (
-//         label.includes(search) ||
-//         optionValue.includes(search)
-//       );
-//     });
-
-//   const selectedOption =
-//     options.find(
-//       (item) =>
-//         String(
-//           getValue(item)
-//         ) ===
-//         String(value)
-//     );
-
-//   const displayText =
-//     selectedOption
-//       ? String(
-//         getLabel(
-//           selectedOption
-//         )
-//       )
-//       : value
-//         ? String(value)
-//         : placeholder;
-
-//   const handleChange = (
-//     nextValue
-//   ) => {
-//     onChange(nextValue);
-//     setOpen(false);
-//     setSearchTerm("");
-//   };
-
-//   return (
-//     <div
-//       ref={containerRef}
-//       style={{
-//         position: "relative",
-//         width: "100%",
-//         minWidth: 0,
-//         zIndex: open ? 1000 : 1,
-//         fontWeight: 600,
-//       }}
-//     >
-//       <button
-//         type="button"
-//         className="filter-select w-full"
-//         onClick={(event) => {
-//           event.stopPropagation();
-//           setOpen((prev) => !prev);
-
-//           if (open) {
-//             setSearchTerm("");
-//           }
-//         }}
-//         style={{
-//           minWidth: 0,
-//           width: "100%",
-//           height: "32px",
-
-//           display: "flex",
-//           alignItems: "center",
-//           justifyContent:
-//             "space-between",
-
-//           textAlign: "left",
-
-//           paddingLeft: "8px",
-//           paddingRight: "8px",
-
-//           cursor: "pointer",
-
-//           overflow: "hidden",
-
-//           boxSizing: "border-box",
-
-//           position: "relative",
-//           zIndex: 1001,
-
-//           fontWeight: 600,
-//         }}
-//       >
-//         <span
-//           style={{
-//             overflow: "hidden",
-//             textOverflow:
-//               "ellipsis",
-//             whiteSpace:
-//               "nowrap",
-//             minWidth: 0,
-//             fontWeight: 600,
-//           }}
-//         >
-//           {displayText}
-//         </span>
-
-//         <ChevronDown
-//           size={14}
-//           strokeWidth={2}
-//           style={{
-//             flexShrink: 0,
-//             marginLeft: "6px",
-//           }}
-//         />
-//       </button>
-
-//       {open && (
-//         <div
-//           onClick={(event) =>
-//             event.stopPropagation()
-//           }
-//           style={{
-//             position: "absolute",
-
-//             top: "calc(100% + 4px)",
-//             left: 0,
-
-//             width: "100%",
-//             minWidth: "180px",
-
-//             maxHeight: "280px",
-//             overflowY: "auto",
-
-//             backgroundColor:
-//               "#ffffff",
-
-//             border:
-//               "1px solid #d1d5db",
-//             borderRadius: "6px",
-
-//             boxShadow:
-//               "0 4px 12px rgba(0, 0, 0, 0.12)",
-
-//             zIndex: 99999,
-
-//             boxSizing: "border-box",
-
-//             fontWeight: 600,
-//           }}
-//         >
-//           {searchable && (
-//             <div
-//               style={{
-//                 padding: "7px 8px",
-
-//                 borderBottom:
-//                   "1px solid #e5e7eb",
-
-//                 backgroundColor:
-//                   "#ffffff",
-
-//                 position: "sticky",
-//                 top: 0,
-
-//                 zIndex: 4,
-//               }}
-//             >
-//               <div
-//                 style={{
-//                   position:
-//                     "relative",
-//                   width: "100%",
-//                 }}
-//               >
-//                 <Search
-//                   size={13}
-//                   strokeWidth={2}
-//                   style={{
-//                     position:
-//                       "absolute",
-//                     left: "7px",
-//                     top: "50%",
-//                     transform:
-//                       "translateY(-50%)",
-//                     color:
-//                       "#9ca3af",
-//                     pointerEvents:
-//                       "none",
-//                   }}
-//                 />
-
-//                 <input
-//                   ref={
-//                     searchInputRef
-//                   }
-//                   type="text"
-//                   value={
-//                     searchTerm
-//                   }
-//                   onChange={(
-//                     event
-//                   ) =>
-//                     setSearchTerm(
-//                       event
-//                         .target
-//                         .value
-//                     )
-//                   }
-//                   onClick={(event) =>
-//                     event.stopPropagation()
-//                   }
-//                   placeholder="Search..."
-//                   style={{
-//                     width:
-//                       "100%",
-//                     height:
-//                       "27px",
-
-//                     boxSizing:
-//                       "border-box",
-
-//                     border:
-//                       "1px solid #d1d5db",
-//                     borderRadius:
-//                       "4px",
-
-//                     paddingLeft:
-//                       "26px",
-//                     paddingRight:
-//                       searchTerm
-//                         ? "24px"
-//                         : "7px",
-
-//                     outline:
-//                       "none",
-
-//                     fontSize:
-//                       "10px",
-//                     color:
-//                       "#374151",
-
-//                     backgroundColor:
-//                       "#ffffff",
-
-//                     fontWeight:
-//                       600,
-//                   }}
-//                 />
-
-//                 {searchTerm && (
-//                   <button
-//                     type="button"
-//                     onClick={() =>
-//                       setSearchTerm(
-//                         ""
-//                       )
-//                     }
-//                     style={{
-//                       position:
-//                         "absolute",
-//                       right: "5px",
-//                       top: "50%",
-//                       transform:
-//                         "translateY(-50%)",
-
-//                       border: "none",
-//                       background:
-//                         "transparent",
-
-//                       padding: 0,
-
-//                       cursor:
-//                         "pointer",
-
-//                       display:
-//                         "flex",
-//                       alignItems:
-//                         "center",
-//                       justifyContent:
-//                         "center",
-//                     }}
-//                   >
-//                     <X
-//                       size={12}
-//                       color="#9ca3af"
-//                     />
-//                   </button>
-//                 )}
-//               </div>
-//             </div>
-//           )}
-
-//           {filteredOptions.length ===
-//             0 ? (
-//             <div
-//               style={{
-//                 padding:
-//                   "10px 8px",
-//                 fontSize:
-//                   "10px",
-//                 color:
-//                   "#6b7280",
-//                 fontWeight:
-//                   600,
-//               }}
-//             >
-//               {searchTerm
-//                 ? "No matching options"
-//                 : "No options available"}
-//             </div>
-//           ) : (
-//             filteredOptions.map(
-//               (
-//                 item,
-//                 index
-//               ) => {
-//                 const optionValue =
-//                   getValue(item);
-
-//                 const optionLabel =
-//                   getLabel(item);
-
-//                 if (
-//                   optionValue ===
-//                   "" ||
-//                   optionValue ===
-//                   null ||
-//                   optionValue ===
-//                   undefined
-//                 ) {
-//                   return null;
-//                 }
-
-//                 const isSelected =
-//                   String(
-//                     optionValue
-//                   ) ===
-//                   String(value);
-
-//                 return (
-//                   <button
-//                     key={`${optionValue}-${index}`}
-//                     type="button"
-//                     onClick={() =>
-//                       handleChange(
-//                         String(
-//                           optionValue
-//                         )
-//                       )
-//                     }
-//                     style={{
-//                       display:
-//                         "flex",
-//                       alignItems:
-//                         "center",
-
-//                       width:
-//                         "100%",
-
-//                       padding:
-//                         "7px 8px",
-
-//                       border:
-//                         "none",
-
-//                       backgroundColor:
-//                         isSelected
-//                           ? "#eff6ff"
-//                           : "#ffffff",
-
-//                       fontSize:
-//                         "10px",
-
-//                       color:
-//                         isSelected
-//                           ? "#1e3a8a"
-//                           : "#374151",
-
-//                       fontWeight:
-//                         600,
-
-//                       cursor:
-//                         "pointer",
-
-//                       textAlign:
-//                         "left",
-
-//                       whiteSpace:
-//                         "nowrap",
-
-//                       boxSizing:
-//                         "border-box",
-//                     }}
-//                   >
-//                     <span
-//                       style={{
-//                         overflow:
-//                           "hidden",
-//                         textOverflow:
-//                           "ellipsis",
-//                         fontWeight:
-//                           600,
-//                       }}
-//                     >
-//                       {
-//                         optionLabel
-//                       }
-//                     </span>
-//                   </button>
-//                 );
-//               }
-//             )
-//           )}
-//         </div>
-//       )}
-//     </div>
-//   );
-// }
-
-// /* =========================================================
-//    Common Select Filters
-// ========================================================= */
-
-// const commonSelectFilters = [
-//   {
-//     label: "Legal Group",
-//     optionKey: "legal_groups",
-//     apiKey: "legal_group",
-//   },
-//   {
-//     label: "Legal Entity",
-//     optionKey: "legal_entities",
-//     apiKey: "legal_entity",
-//   },
-//   {
-//     label: "Parent Division",
-//     optionKey: "parent_divisions",
-//     apiKey: "parent_division",
-//   },
-//   {
-//     label: "Sub-Division",
-//     optionKey: "subdivisions",
-//     apiKey: "subdivision",
-//   },
-//   {
-//     label: "Currency",
-//     optionKey: "currencies",
-//     apiKey: "currency",
-//   },
-// ];
-
-// /* =========================================================
-//    Receivables Filters
-
-//    Receivables:
-//    Legal Group      -> Multi Select
-//    Legal Entity     -> Multi Select
-//    Parent Division  -> Multi Select
-//    Sub-Division     -> Multi Select
-//    Currency         -> Multi Select
-// ========================================================= */
-
-// const receivablesSelectFilters = [
-//   {
-//     label: "Legal Group",
-//     optionKey: "legal_groups",
-//     apiKey: "legal_group",
-//     multiSelect: true,
-//   },
-//   {
-//     label: "Legal Entity",
-//     optionKey: "legal_entities",
-//     apiKey: "legal_entity",
-//     multiSelect: true,
-//   },
-//   {
-//     label: "Parent Division",
-//     optionKey: "parent_divisions",
-//     apiKey: "parent_division",
-//     multiSelect: true,
-//   },
-//   {
-//     label: "Sub-Division",
-//     optionKey: "subdivisions",
-//     apiKey: "subdivision",
-//     multiSelect: true,
-//   },
-// ];
-
-// const receivablesAdditionalFilters = [
-//   {
-//     label: "Reporting Currency",
-//     optionKey: "reporting_currencies",
-//     apiKey: "reporting_currency",
-//     multiSelect: false,
-//     type: "reporting_currency",
-//   },
-//   {
-//     label: "Aging Basis",
-//     optionKey: "aging_basis_options",
-//     apiKey: "aging_basis",
-//     multiSelect: false,
-//     type: "aging_basis",
-//     required: true,
-//   },
-//   {
-//     label: "Year",
-//     optionKey: "years",
-//     apiKey: "year",
-//     multiSelect: false,
-//     type: "year",
-//   },
-// ];
-
-// /* =========================================================
-//    Operating Expenses Filters
-// ========================================================= */
-
-// const operatingSelectFilters = [
-//   {
-//     label: "Legal Group",
-//     optionKey: "legal_groups",
-//     apiKey: "legal_group",
-//     multiSelect: true,
-//   },
-//   {
-//     label: "Legal Entity",
-//     optionKey: "legal_entities",
-//     apiKey: "legal_entity",
-//     multiSelect: true,
-//   },
-//   {
-//     label: "Parent Division",
-//     optionKey: "parent_divisions",
-//     apiKey: "parent_division",
-//     multiSelect: true,
-//   },
-//   {
-//     label: "Sub-Division",
-//     optionKey: "subdivisions",
-//     apiKey: "subdivision",
-//     multiSelect: true,
-//   },
-// ];
-
-// const operatingAdditionalFilters = [
-//   {
-//     label: "Year",
-//     optionKey: "years",
-//     apiKey: "year",
-//     multiSelect: false,
-//     type: "year",
-//   },
-//   {
-//     label: "Period",
-//     optionKey: "periods",
-//     apiKey: "period",
-//     multiSelect: true,
-//     type: "period",
-//   },
-//   {
-//     label: "Reporting Currency",
-//     optionKey: "reporting_currencies",
-//     apiKey: "reporting_currency",
-//     multiSelect: false,
-//     type: "reporting_currency",
-//   },
-// ];
-
-// /* =========================================================
-//    Default State
-// ========================================================= */
-
-// const DEFAULT_FILTERS = {
-//   legal_group: "",
-//   legal_entity: "",
-//   parent_division: "",
-//   subdivision: "",
-//   currency: "",
-//   as_on_date: "",
-//   period: "",
-//   compare_with: "",
-//   reporting_currency: "AED",
-//   year: "",
-//   aging_basis: "DUE_DATE",
-// };
-
-// /* =========================================================
-//    Helper
-// ========================================================= */
-
-// function getOptionValue(option) {
-//   if (
-//     option === null ||
-//     option === undefined
-//   ) {
-//     return "";
-//   }
-
-//   if (typeof option === "object") {
-//     return (
-//       option.value ??
-//       option.id ??
-//       option.code ??
-//       option.period_name ??
-//       option.year ??
-//       option.name ??
-//       option.currency_code ??
-//       ""
-//     );
-//   }
-
-//   return option;
-// }
-
-// function getOptionLabel(option) {
-//   if (
-//     option === null ||
-//     option === undefined
-//   ) {
-//     return "";
-//   }
-
-//   if (typeof option === "object") {
-//     return (
-//       option.label ??
-//       option.name ??
-//       option.period_name ??
-//       option.year ??
-//       option.currency_code ??
-//       option.value ??
-//       option.code ??
-//       ""
-//     );
-//   }
-
-//   return option;
-// }
-
-// /* =========================================================
-//    Receivables Canonical Hierarchy Helpers
-
-//    Backend hierarchy values must always be the canonical IDs.
-//    Labels are kept separate so the UI never sends names/codes
-//    when a backend ID is available.
-// ========================================================= */
-
-// function getReceivablesHierarchyValue(option, type) {
-//   if (
-//     option === null ||
-//     option === undefined
-//   ) {
-//     return "";
-//   }
-
-//   if (typeof option !== "object") {
-//     return option;
-//   }
-
-//   const idKeys = {
-//     legal_group: [
-//       "legal_group_id",
-//       "legalGroupId",
-//       "id",
-//       "value",
-//     ],
-//     legal_entity: [
-//       "legal_entity_id",
-//       "legalEntityId",
-//       "id",
-//       "value",
-//     ],
-//     parent_division: [
-//       "parent_division_id",
-//       "parentDivisionId",
-//       "id",
-//       "value",
-//     ],
-//     subdivision: [
-//       "subdivision_id",
-//       "subdivisionId",
-//       "id",
-//       "value",
-//     ],
-//   };
-
-//   return (
-//     idKeys[type]?.reduce(
-//       (result, key) =>
-//         result !== undefined &&
-//         result !== null &&
-//         result !== ""
-//           ? result
-//           : option[key],
-//       undefined
-//     ) ?? ""
-//   );
-// }
-
-// function getReceivablesHierarchyLabel(option, type) {
-//   if (
-//     option === null ||
-//     option === undefined
-//   ) {
-//     return "";
-//   }
-
-//   if (typeof option !== "object") {
-//     return option;
-//   }
-
-//   const nameKeys = {
-//     legal_group: [
-//       "legal_group_name",
-//       "legalGroupName",
-//       "name",
-//       "label",
-//     ],
-//     legal_entity: [
-//       "legal_entity_name",
-//       "legalEntityName",
-//       "name",
-//       "label",
-//     ],
-//     parent_division: [
-//       "parent_division_name",
-//       "parentDivisionName",
-//       "name",
-//       "label",
-//     ],
-//     subdivision: [
-//       "subdivision_name",
-//       "subdivisionName",
-//       "name",
-//       "label",
-//     ],
-//   };
-
-//   return (
-//     nameKeys[type]?.reduce(
-//       (result, key) =>
-//         result !== undefined &&
-//         result !== null &&
-//         result !== ""
-//           ? result
-//           : option[key],
-//       undefined
-//     ) ?? ""
-//   );
-// }
-
-// /* =========================================================
-//    Get Latest Period
-// ========================================================= */
-
-// function getLatestPeriod(periods = []) {
-//   if (
-//     !Array.isArray(periods) ||
-//     periods.length === 0
-//   ) {
-//     return "";
-//   }
-
-//   const latest =
-//     periods[periods.length - 1];
-
-//   return getOptionValue(latest);
-// }
-
-// /* =========================================================
-//    Normalize Year Options
-// ========================================================= */
-
-// function normalizeYears(
-//   payload = {},
-//   periods = []
-// ) {
-//   const rawYears =
-//     payload?.years ||
-//     payload?.fiscal_years ||
-//     payload?.accounting_years ||
-//     [];
-
-//   if (
-//     Array.isArray(rawYears) &&
-//     rawYears.length
-//   ) {
-//     return rawYears;
-//   }
-
-//   if (Array.isArray(periods)) {
-//     const derivedYears = [];
-
-//     periods.forEach((period) => {
-//       if (
-//         period &&
-//         typeof period === "object"
-//       ) {
-//         const year =
-//           period.year ??
-//           period.fiscal_year ??
-//           period.accounting_year ??
-//           null;
-
-//         if (
-//           year !== null &&
-//           year !== undefined &&
-//           year !== ""
-//         ) {
-//           if (
-//             !derivedYears.some(
-//               (item) =>
-//                 String(
-//                   getOptionValue(item)
-//                 ) === String(year)
-//             )
-//           ) {
-//             derivedYears.push({
-//               value: year,
-//               label: year,
-//             });
-//           }
-//         }
-//       }
-//     });
-
-//     return derivedYears;
-//   }
-
-//   return [];
-// }
-
-// /* =========================================================
-//    Normalize OPEX filter-options response
-// ========================================================= */
-
-// function normalizeOpexFilterOptions(
-//   data = {}
-// ) {
-//   const payload =
-//     data?.data &&
-//       typeof data.data === "object" &&
-//       !Array.isArray(data.data)
-//       ? data.data
-//       : data;
-
-//   const reportingCurrencies =
-//     payload?.reporting_currencies ||
-//     payload?.currencies ||
-//     [];
-
-//   const currencies =
-//     Array.isArray(
-//       reportingCurrencies
-//     )
-//       ? reportingCurrencies.map(
-//         (item) => {
-//           if (
-//             typeof item ===
-//             "object" &&
-//             item !== null
-//           ) {
-//             const value =
-//               item.currency_code ??
-//               item.value ??
-//               item.code ??
-//               item.id ??
-//               "";
-
-//             const label =
-//               item.label ??
-//               item.currency_code ??
-//               item.value ??
-//               item.code ??
-//               "";
-
-//             return {
-//               value,
-//               label,
-//             };
-//           }
-
-//           return {
-//             value: item,
-//             label: item,
-//           };
-//         }
-//       )
-//       : [];
-
-//   const periods =
-//     Array.isArray(
-//       payload?.periods
-//     )
-//       ? payload.periods
-//       : [];
-
-//   return {
-//     legal_groups:
-//       Array.isArray(
-//         payload?.legal_groups
-//       )
-//         ? payload.legal_groups
-//         : [],
-
-//     legal_entities:
-//       Array.isArray(
-//         payload?.legal_entities
-//       )
-//         ? payload.legal_entities
-//         : [],
-
-//     parent_divisions:
-//       Array.isArray(
-//         payload?.parent_divisions
-//       )
-//         ? payload.parent_divisions
-//         : [],
-
-//     subdivisions:
-//       Array.isArray(
-//         payload?.subdivisions
-//       )
-//         ? payload.subdivisions
-//         : [],
-
-//     periods,
-
-//     years: normalizeYears(
-//       payload,
-//       periods
-//     ),
-
-//     currencies,
-
-//     ledger_currencies:
-//       Array.isArray(
-//         payload?.ledger_currencies
-//       )
-//         ? payload.ledger_currencies
-//         : [],
-
-//     reporting_currencies:
-//       Array.isArray(
-//         payload?.reporting_currencies
-//       )
-//         ? payload.reporting_currencies
-//         : Array.isArray(
-//           payload?.currencies
-//         )
-//           ? payload.currencies
-//           : [],
-
-//     compare_with:
-//       Array.isArray(
-//         payload?.compare_with
-//       )
-//         ? payload.compare_with
-//         : Array.isArray(
-//           payload?.compare_periods
-//         )
-//           ? payload.compare_periods
-//           : [],
-
-//     data_as_of:
-//       payload?.data_as_of || null,
-
-//     default_reporting_currency:
-//       payload?.default_reporting_currency ||
-//       "AED",
-//   };
-// }
-
-// /* =========================================================
-//    Filters Component
-// ========================================================= */
-
-// export default function Filters({
-//   filterOptions,
-//   onApply,
-//   onReset,
-//   onChange,
-//   isOperatingExpenses = false,
-//   isReceivables = false,
-// }) {
-//   /* =======================================================
-//      Selected Filters
-//   ======================================================= */
-
-//   const [
-//     selectedFilters,
-//     setSelectedFilters,
-//   ] = useState(() => {
-//     if (isOperatingExpenses) {
-//       return {
-//         ...DEFAULT_FILTERS,
-
-//         legal_group: [],
-//         legal_entity: [],
-//         parent_division: [],
-//         subdivision: [],
-
-//         period: [],
-
-//         year: "",
-
-//         reporting_currency:
-//           "AED",
-//       };
-//     }
-
-//     if (isReceivables) {
-//       return {
-//         ...DEFAULT_FILTERS,
-
-//         // Receivables multi-select fields
-//         legal_group: [],
-//         legal_entity: [],
-//         parent_division: [],
-//         subdivision: [],
-//         currency: [],
-
-//         as_on_date: "",
-//         reporting_currency: "AED",
-//         aging_basis: "DUE_DATE",
-//         year: "",
-//       };
-//     }
-
-//     return DEFAULT_FILTERS;
-//   });
-
-//   /* =======================================================
-//      OPEX Filter Options
-//   ======================================================= */
-
-//   const [
-//     opexFilterOptions,
-//     setOpexFilterOptions,
-//   ] = useState({
-//     legal_groups: [],
-//     legal_entities: [],
-//     parent_divisions: [],
-//     subdivisions: [],
-
-//     periods: [],
-//     years: [],
-
-//     currencies: [],
-//     reporting_currencies: [],
-//     ledger_currencies: [],
-//     compare_with: [],
-
-//     data_as_of: null,
-
-//     default_reporting_currency:
-//       "AED",
-//   });
-
-//   /* =======================================================
-//      OPEX Loading
-//   ======================================================= */
-
-//   const [
-//     opexFilterLoading,
-//     setOpexFilterLoading,
-//   ] = useState(false);
-
-//   /* =======================================================
-//      RECEIVABLES Filter Options
-
-//      Aging Basis is frontend-defined because the allowed
-//      backend values are fixed:
-//        DUE_DATE
-//        INVOICE_DATE
-//   ======================================================= */
-
-//   const receivablesAgingBasisOptions = [
-//     {
-//       value: "DUE_DATE",
-//       label: "Due Date Based",
-//     },
-//     {
-//       value: "INVOICE_DATE",
-//       label: "Invoice Date Based",
-//     },
-//   ];
-
-//   /* =======================================================
-//      Load OPEX Filter Options
-//   ======================================================= */
-
-//   const loadOpexFilterOptions = async (
-//     currentFilters = {},
-//     preserveOptionKey = null
-//   ) => {
-//     try {
-//       setOpexFilterLoading(true);
-
-//       const apiFilters = {};
-
-//       if (
-//         Array.isArray(
-//           currentFilters.legal_group
-//         ) &&
-//         currentFilters.legal_group.length
-//       ) {
-//         apiFilters.legal_group_id =
-//           currentFilters.legal_group;
-//       }
-
-//       if (
-//         Array.isArray(
-//           currentFilters.legal_entity
-//         ) &&
-//         currentFilters.legal_entity.length
-//       ) {
-//         apiFilters.legal_entity_id =
-//           currentFilters.legal_entity;
-//       }
-
-//       if (
-//         Array.isArray(
-//           currentFilters.parent_division
-//         ) &&
-//         currentFilters.parent_division.length
-//       ) {
-//         apiFilters.parent_division_id =
-//           currentFilters.parent_division;
-//       }
-
-//       if (
-//         Array.isArray(
-//           currentFilters.subdivision
-//         ) &&
-//         currentFilters.subdivision.length
-//       ) {
-//         apiFilters.subdivision_id =
-//           currentFilters.subdivision;
-//       }
-
-//       const response =
-//         await getOpexFilterOptions(
-//           apiFilters
-//         );
-
-//       const normalized =
-//         normalizeOpexFilterOptions(
-//           response || {}
-//         );
-
-//       if (preserveOptionKey) {
-//         setOpexFilterOptions(
-//           (previous) => ({
-//             ...normalized,
-
-//             [preserveOptionKey]:
-//               Array.isArray(
-//                 previous?.[
-//                 preserveOptionKey
-//                 ]
-//               )
-//                 ? previous[
-//                 preserveOptionKey
-//                 ]
-//                 : normalized[
-//                 preserveOptionKey
-//                 ],
-//           })
-//         );
-
-//         return {
-//           ...normalized,
-
-//           [preserveOptionKey]:
-//             Array.isArray(
-//               opexFilterOptions?.[
-//               preserveOptionKey
-//               ]
-//             )
-//               ? opexFilterOptions[
-//               preserveOptionKey
-//               ]
-//               : normalized[
-//               preserveOptionKey
-//               ],
-//         };
-//       }
-
-//       setOpexFilterOptions(
-//         normalized
-//       );
-
-//       return normalized;
-//     } catch (error) {
-//       console.error(
-//         "Failed to load OPEX filter options:",
-//         error
-//       );
-
-//       return null;
-//     } finally {
-//       setOpexFilterLoading(false);
-//     }
-//   };
-
-//   /* =======================================================
-//      Common + Receivables Date Handling
-//   ======================================================= */
-
-//   useEffect(() => {
-//     if (isOperatingExpenses) {
-//       return;
-//     }
-
-//     const dates =
-//       filterOptions?.available_dates ||
-//       filterOptions?.as_on_dates ||
-//       [];
-
-//     if (isReceivables) {
-//       const reportingCurrencies =
-//         filterOptions?.reporting_currencies ||
-//         filterOptions?.currencies ||
-//         [];
-
-//       const defaultReportingCurrency =
-//         filterOptions?.default_reporting_currency ||
-//         (
-//           reportingCurrencies.length
-//             ? getOptionValue(reportingCurrencies[0])
-//             : "AED"
-//         ) ||
-//         "AED";
-
-//       const years =
-//         filterOptions?.years ||
-//         filterOptions?.fiscal_years ||
-//         filterOptions?.accounting_years ||
-//         [];
-
-//       setSelectedFilters(
-//         (prev) => ({
-//           ...prev,
-//           as_on_date:
-//             prev.as_on_date ||
-//             dates[0] ||
-//             "",
-//           reporting_currency:
-//             prev.reporting_currency ||
-//             defaultReportingCurrency,
-//           aging_basis:
-//             prev.aging_basis ||
-//             "DUE_DATE",
-//           year:
-//             prev.year ||
-//             (
-//               years.length
-//                 ? String(getOptionValue(years[0]))
-//                 : ""
-//             ),
-//         })
-//       );
-
-//       return;
-//     }
-
-//     if (dates.length) {
-//       setSelectedFilters(
-//         (prev) => ({
-//           ...prev,
-//           as_on_date:
-//             dates[0],
-//         })
-//       );
-//     }
-//   }, [
-//     filterOptions,
-//     isOperatingExpenses,
-//     isReceivables,
-//   ]);
-
-//   /* =======================================================
-//      Initial OPEX Options
-//   ======================================================= */
-
-//   useEffect(() => {
-//     if (!isOperatingExpenses) {
-//       return;
-//     }
-
-//     loadOpexFilterOptions({});
-//   }, [
-//     isOperatingExpenses,
-//   ]);
-
-//   /* =======================================================
-//      OPEX Default Values
-//   ======================================================= */
-
-//   useEffect(() => {
-//     if (!isOperatingExpenses) {
-//       return;
-//     }
-
-//     const periods =
-//       opexFilterOptions
-//         ?.periods?.length
-//         ? opexFilterOptions.periods
-//         : filterOptions?.periods ||
-//         [];
-
-//     const latestPeriod =
-//       getLatestPeriod(periods);
-
-//     const years =
-//       opexFilterOptions
-//         ?.years?.length
-//         ? opexFilterOptions.years
-//         : filterOptions?.years ||
-//         [];
-
-//     const firstYear =
-//       years.length
-//         ? getOptionValue(
-//           years[0]
-//         )
-//         : "";
-
-//     const defaultReportingCurrency =
-//       opexFilterOptions
-//         ?.default_reporting_currency ||
-//       filterOptions
-//         ?.default_reporting_currency ||
-//       "AED";
-
-//     setSelectedFilters(
-//       (prev) => ({
-//         ...prev,
-
-//         legal_group:
-//           Array.isArray(
-//             prev.legal_group
-//           )
-//             ? prev.legal_group
-//             : [],
-
-//         legal_entity:
-//           Array.isArray(
-//             prev.legal_entity
-//           )
-//             ? prev.legal_entity
-//             : [],
-
-//         parent_division:
-//           Array.isArray(
-//             prev.parent_division
-//           )
-//             ? prev.parent_division
-//             : [],
-
-//         subdivision:
-//           Array.isArray(
-//             prev.subdivision
-//           )
-//             ? prev.subdivision
-//             : [],
-
-//         period:
-//           Array.isArray(
-//             prev.period
-//           )
-//             ? prev.period.length
-//               ? prev.period
-//               : latestPeriod
-//                 ? [
-//                   String(
-//                     latestPeriod
-//                   ),
-//                 ]
-//                 : []
-//             : prev.period
-//               ? [
-//                 String(
-//                   prev.period
-//                 ),
-//               ]
-//               : latestPeriod
-//                 ? [
-//                   String(
-//                     latestPeriod
-//                   ),
-//                 ]
-//                 : [],
-
-//         year:
-//           prev.year ||
-//           firstYear ||
-//           "",
-
-//         reporting_currency:
-//           prev.reporting_currency ||
-//           defaultReportingCurrency ||
-//           "AED",
-//       })
-//     );
-//   }, [
-//     opexFilterOptions,
-//     filterOptions,
-//     isOperatingExpenses,
-//   ]);
-
-//   /* =======================================================
-//      OPEX Filter Change
-//   ======================================================= */
-
-//   const handleOpexFilterChange =
-//     async (
-//       apiKey,
-//       value
-//     ) => {
-//       let nextFilters = {
-//         ...selectedFilters,
-//         [apiKey]: value,
-//       };
-
-//       if (
-//         apiKey ===
-//         "legal_group"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           legal_group:
-//             Array.isArray(
-//               value
-//             )
-//               ? value
-//               : [],
-
-//           legal_entity: [],
-//           parent_division: [],
-//           subdivision: [],
-//         };
-//       }
-
-//       if (
-//         apiKey ===
-//         "legal_entity"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           legal_entity:
-//             Array.isArray(
-//               value
-//             )
-//               ? value
-//               : [],
-
-//           parent_division: [],
-//           subdivision: [],
-//         };
-//       }
-
-//       if (
-//         apiKey ===
-//         "parent_division"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           parent_division:
-//             Array.isArray(
-//               value
-//             )
-//               ? value
-//               : [],
-
-//           subdivision: [],
-//         };
-//       }
-
-//       if (
-//         apiKey ===
-//         "subdivision"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           subdivision:
-//             Array.isArray(
-//               value
-//             )
-//               ? value
-//               : [],
-//         };
-//       }
-
-//       if (
-//         apiKey === "period"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           period:
-//             Array.isArray(
-//               value
-//             )
-//               ? value
-//               : value
-//                 ? [
-//                   String(
-//                     value
-//                   ),
-//                 ]
-//                 : [],
-//         };
-//       }
-
-//       if (
-//         apiKey === "year"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           year:
-//             value === null ||
-//               value === undefined
-//               ? ""
-//               : String(value),
-//         };
-//       }
-
-//       if (
-//         apiKey ===
-//         "reporting_currency"
-//       ) {
-//         nextFilters = {
-//           ...nextFilters,
-
-//           reporting_currency:
-//             value ||
-//             opexFilterOptions
-//               ?.default_reporting_currency ||
-//             "AED",
-//         };
-//       }
-
-//       setSelectedFilters(
-//         nextFilters
-//       );
-
-//       if (onChange) {
-//         onChange(nextFilters);
-//       }
-
-//       if (
-//         apiKey ===
-//         "legal_group" ||
-//         apiKey ===
-//         "legal_entity" ||
-//         apiKey ===
-//         "parent_division" ||
-//         apiKey ===
-//         "subdivision"
-//       ) {
-//         const optionKeyMap = {
-//           legal_group:
-//             "legal_groups",
-//           legal_entity:
-//             "legal_entities",
-//           parent_division:
-//             "parent_divisions",
-//           subdivision:
-//             "subdivisions",
-//         };
-
-//         await loadOpexFilterOptions(
-//           nextFilters,
-//           optionKeyMap[
-//           apiKey
-//           ]
-//         );
-//       }
-//     };
-
-//   /* =========================================================
-//      RECEIVABLES Filter Change
-
-//      Receivables fields are all multi-select:
-//      Legal Group
-//      Legal Entity
-//      Parent Division
-//      Sub-Division
-//      Currency
-
-//      No OPEX API call is made here.
-//   ========================================================= */
-
-//   const handleReceivablesFilterChange = (
-//     apiKey,
-//     value
-//   ) => {
-//     const normalizedValue =
-//       Array.isArray(value)
-//         ? value.map(String)
-//         : value !== null &&
-//           value !== undefined &&
-//           value !== ""
-//           ? [String(value)]
-//           : [];
-
-//     let nextFilters = {
-//       ...selectedFilters,
-//       [apiKey]:
-//         apiKey === "aging_basis" ||
-//         apiKey === "reporting_currency" ||
-//         apiKey === "year"
-//           ? (
-//             value === null ||
-//             value === undefined
-//               ? ""
-//               : String(value)
-//           )
-//           : normalizedValue,
-//     };
-
-//     /* -----------------------------------------------
-//        Receivables hierarchy dependency chain
-//        Legal Group
-//          -> Legal Entity
-//            -> Parent Division
-//              -> Sub-Division
-//     ----------------------------------------------- */
-
-//     if (apiKey === "legal_group") {
-//       nextFilters = {
-//         ...nextFilters,
-//         legal_group: normalizedValue,
-//         legal_entity: [],
-//         parent_division: [],
-//         subdivision: [],
-//       };
-//     }
-
-//     if (apiKey === "legal_entity") {
-//       nextFilters = {
-//         ...nextFilters,
-//         legal_entity: normalizedValue,
-//         parent_division: [],
-//         subdivision: [],
-//       };
-//     }
-
-//     if (apiKey === "parent_division") {
-//       nextFilters = {
-//         ...nextFilters,
-//         parent_division: normalizedValue,
-//         subdivision: [],
-//       };
-//     }
-
-//     if (apiKey === "subdivision") {
-//       nextFilters = {
-//         ...nextFilters,
-//         subdivision: normalizedValue,
-//       };
-//     }
-
-//     if (apiKey === "aging_basis") {
-//       nextFilters = {
-//         ...nextFilters,
-//         aging_basis:
-//           value === "INVOICE_DATE"
-//             ? "INVOICE_DATE"
-//             : "DUE_DATE",
-//       };
-//     }
-
-//     if (apiKey === "reporting_currency") {
-//       nextFilters = {
-//         ...nextFilters,
-//         reporting_currency:
-//           value || "AED",
-//       };
-//     }
-
-//     if (apiKey === "year") {
-//       nextFilters = {
-//         ...nextFilters,
-//         year:
-//           value === null ||
-//           value === undefined
-//             ? ""
-//             : String(value),
-//       };
-//     }
-
-//     setSelectedFilters(
-//       nextFilters
-//     );
-
-//     /*
-//       The parent Receivables dashboard receives this complete
-//       filter object through the common onChange callback.
-//       It must use this same object for every Receivables API
-//       request, including aging_basis.
-//     */
-//     if (onChange) {
-//       onChange(nextFilters);
-//     }
-//   };
-
-//   /* =========================================================
-//      Reset
-//   ========================================================= */
-
-//   const handleReset =
-//     async () => {
-//       let resetFilters = {
-//         legal_group: "",
-//         legal_entity: "",
-//         parent_division: "",
-//         subdivision: "",
-//         currency: "",
-//         as_on_date: "",
-//         period: "",
-//         compare_with: "",
-//         reporting_currency:
-//           "AED",
-//         year: "",
-//       };
-
-//       /* -----------------------------------------------
-//          RECEIVABLES RESET
-//       ----------------------------------------------- */
-
-//       if (isReceivables) {
-//         resetFilters = {
-//           legal_group: [],
-//           legal_entity: [],
-//           parent_division: [],
-//           subdivision: [],
-
-//           currency: [],
-
-//           as_on_date:
-//             filterOptions
-//               ?.as_on_dates?.[0] ||
-//             filterOptions
-//               ?.available_dates?.[0] ||
-//             "",
-
-//           reporting_currency:
-//             filterOptions
-//               ?.default_reporting_currency ||
-//             "AED",
-
-//           aging_basis:
-//             "DUE_DATE",
-
-//           year:
-//             filterOptions
-//               ?.years?.length
-//               ? String(
-//                 getOptionValue(
-//                   filterOptions.years[0]
-//                 )
-//               )
-//               : "",
-
-//           period: "",
-//           compare_with: "",
-//         };
-//       }
-
-//       /* -----------------------------------------------
-//          COMMON RESET
-//       ----------------------------------------------- */
-
-//       if (
-//         !isOperatingExpenses &&
-//         !isReceivables
-//       ) {
-//         resetFilters = {
-//           legal_group: "",
-//           legal_entity: "",
-//           parent_division:
-//             "",
-//           subdivision: "",
-//           currency: "",
-//           as_on_date:
-//             filterOptions
-//               ?.as_on_dates?.[0] ||
-//             filterOptions
-//               ?.available_dates?.[0] ||
-//             "",
-//           period: "",
-//           compare_with: "",
-//           reporting_currency:
-//             "AED",
-//         };
-//       }
-
-//       /* -----------------------------------------------
-//          OPEX RESET
-//       ----------------------------------------------- */
-
-//       if (
-//         isOperatingExpenses
-//       ) {
-//         const normalized =
-//           await loadOpexFilterOptions(
-//             {}
-//           );
-
-//         const periods =
-//           normalized?.periods ||
-//           opexFilterOptions?.periods ||
-//           filterOptions?.periods ||
-//           [];
-
-//         const years =
-//           normalized?.years ||
-//           opexFilterOptions?.years ||
-//           filterOptions?.years ||
-//           [];
-
-//         const latestPeriod =
-//           getLatestPeriod(
-//             periods
-//           );
-
-//         const firstYear =
-//           years.length
-//             ? getOptionValue(
-//               years[0]
-//             )
-//             : "";
-
-//         resetFilters = {
-//           legal_group: [],
-//           legal_entity: [],
-//           parent_division:
-//             [],
-//           subdivision: [],
-
-//           currency: "",
-//           as_on_date: "",
-
-//           period:
-//             latestPeriod
-//               ? [
-//                 String(
-//                   latestPeriod
-//                 ),
-//               ]
-//               : [],
-
-//           year:
-//             firstYear || "",
-
-//           reporting_currency:
-//             normalized
-//               ?.default_reporting_currency ||
-//             opexFilterOptions
-//               ?.default_reporting_currency ||
-//             "AED",
-//         };
-//       }
-
-//       setSelectedFilters(
-//         resetFilters
-//       );
-
-//       if (onChange) {
-//         onChange(
-//           resetFilters
-//         );
-//       }
-
-//       if (onReset) {
-//         onReset();
-//       }
-//     };
-
-//   /* =========================================================
-//      Filters To Display
-//   ========================================================= */
-
-//   const filtersToDisplay =
-//     isOperatingExpenses
-//       ? [
-//         ...operatingSelectFilters,
-//         ...operatingAdditionalFilters,
-//       ]
-//       : isReceivables
-//         ? [
-//           ...receivablesSelectFilters,
-//           ...receivablesAdditionalFilters,
-//         ]
-//         : commonSelectFilters;
-
-//   /* =========================================================
-//      Active Filter Options
-//   ========================================================= */
-
-//   const activeFilterOptions =
-//     isOperatingExpenses
-//       ? {
-//         ...filterOptions,
-//         ...opexFilterOptions,
-//       }
-//       : filterOptions;
-
-//   /* =========================================================
-//      Render
-//   ========================================================= */
-
-//   return (
-//     <div
-//       className="filter-bar"
-//       style={{
-
-//         display: "flex",
-//         gap: "10px",
-
-//         flexWrap:
-//           isOperatingExpenses ||
-//             isReceivables
-//             ? "nowrap"
-//             : "wrap",
-
-//         alignItems:
-//           "flex-end",
-
-//         width: "100%",
-
-//         minWidth: 0,
-
-//         position: "relative",
-
-//         zIndex: 10,
-
-//         fontWeight: 600,
-//       }}
-//     >
-//       {filtersToDisplay.map(
-//         (f, i) => {
-//           const isPeriod =
-//             isOperatingExpenses &&
-//             f.apiKey ===
-//             "period";
-
-//           const isYear =
-//             isOperatingExpenses &&
-//             f.apiKey ===
-//             "year";
-
-//           const isReportingCurrency =
-//             (
-//               isOperatingExpenses ||
-//               isReceivables
-//             ) &&
-//             f.apiKey ===
-//             "reporting_currency";
-
-//           const isReceivablesAgingBasis =
-//             isReceivables &&
-//             f.apiKey ===
-//             "aging_basis";
-
-//           const isReceivablesYear =
-//             isReceivables &&
-//             f.apiKey ===
-//             "year";
-
-//           /* ---------------------------------------------
-//              OPEX OR RECEIVABLES MULTI SELECT
-//           --------------------------------------------- */
-
-//           const isMultiSelect =
-//             (isOperatingExpenses ||
-//               isReceivables) &&
-//             f.multiSelect ===
-//             true;
-
-//           const options =
-//             activeFilterOptions?.[
-//             f.optionKey
-//             ] || [];
-
-//           return (
-//             <FilterField
-//               key={`${f.apiKey}-${i}`}
-//               label={f.label}
-//               isOperatingExpenses={
-//                 isOperatingExpenses
-//               }
-//               isReceivables={
-//                 isReceivables
-//               }
-//             >
-//               {/* =========================================
-//                   MULTI SELECT
-//               ========================================= */}
-
-//               {isMultiSelect ? (
-//                 <OpexMultiSelect
-//                   options={
-//                     isReceivables &&
-//                     (
-//                       f.apiKey ===
-//                         "legal_group" ||
-//                       f.apiKey ===
-//                         "legal_entity" ||
-//                       f.apiKey ===
-//                         "parent_division" ||
-//                       f.apiKey ===
-//                         "subdivision"
-//                     )
-//                       ? options.map(
-//                         (item) => ({
-//                           value:
-//                             getReceivablesHierarchyValue(
-//                               item,
-//                               f.apiKey
-//                             ),
-//                           label:
-//                             getReceivablesHierarchyLabel(
-//                               item,
-//                               f.apiKey
-//                             ),
-//                         })
-//                       )
-//                       : options
-//                   }
-//                   value={
-//                     Array.isArray(
-//                       selectedFilters[
-//                       f.apiKey
-//                       ]
-//                     )
-//                       ? selectedFilters[
-//                       f.apiKey
-//                       ]
-//                       : []
-//                   }
-//                   onChange={(
-//                     values
-//                   ) => {
-//                     if (
-//                       isReceivables
-//                     ) {
-//                       handleReceivablesFilterChange(
-//                         f.apiKey,
-//                         values
-//                       );
-//                     } else {
-//                       handleOpexFilterChange(
-//                         f.apiKey,
-//                         values
-//                       );
-//                     }
-//                   }}
-//                   placeholder={
-//                     isPeriod
-//                       ? "Select Period"
-//                       : "All"
-//                   }
-//                   searchable={
-//                     true
-//                   }
-//                 />
-
-//                 /* =========================================
-//                    OPEX YEAR
-//                 ========================================= */
-
-//               ) : isYear ? (
-//                 <OpexSingleSelect
-//                   options={
-//                     options
-//                   }
-//                   value={
-//                     selectedFilters
-//                       .year || ""
-//                   }
-//                   onChange={(
-//                     value
-//                   ) =>
-//                     handleOpexFilterChange(
-//                       "year",
-//                       value
-//                     )
-//                   }
-//                   placeholder="Select Year"
-//                   searchable={
-//                     true
-//                   }
-//                 />
-
-//                 /* =========================================
-//                    OPEX REPORTING CURRENCY
-//                 ========================================= */
-
-//               ) : isReportingCurrency ? (
-//                 <OpexSingleSelect
-//                   options={
-//                     options.length
-//                       ? options
-//                       : [
-//                         {
-//                           value:
-//                             "AED",
-//                           label:
-//                             "AED",
-//                         },
-//                       ]
-//                   }
-//                   value={
-//                     selectedFilters
-//                       .reporting_currency ||
-//                     opexFilterOptions
-//                       ?.default_reporting_currency ||
-//                     "AED"
-//                   }
-//                   onChange={(
-//                     value
-//                   ) =>
-//                     isReceivables
-//                       ? handleReceivablesFilterChange(
-//                         "reporting_currency",
-//                         value
-//                       )
-//                       : handleOpexFilterChange(
-//                         "reporting_currency",
-//                         value
-//                       )
-//                   }
-//                   placeholder="Select Currency"
-//                   searchable={
-//                     true
-//                   }
-//                   required={
-//                     true
-//                   }
-//                 />
-
-//               /* =========================================
-//                  RECEIVABLES AGING BASIS
-//               ========================================= */
-
-//               ) : isReceivablesAgingBasis ? (
-//                 <OpexSingleSelect
-//                   options={
-//                     receivablesAgingBasisOptions
-//                   }
-//                   value={
-//                     selectedFilters
-//                       .aging_basis ||
-//                     "DUE_DATE"
-//                   }
-//                   onChange={(
-//                     value
-//                   ) =>
-//                     handleReceivablesFilterChange(
-//                       "aging_basis",
-//                       value
-//                     )
-//                   }
-//                   placeholder="Select Aging Basis"
-//                   searchable={false}
-//                   required={true}
-//                 />
-
-//               /* =========================================
-//                  RECEIVABLES YEAR
-//               ========================================= */
-
-//               ) : isReceivablesYear ? (
-//                 <OpexSingleSelect
-//                   options={
-//                     options
-//                   }
-//                   value={
-//                     selectedFilters
-//                       .year || ""
-//                   }
-//                   onChange={(
-//                     value
-//                   ) =>
-//                     handleReceivablesFilterChange(
-//                       "year",
-//                       value
-//                     )
-//                   }
-//                   placeholder="Select Year"
-//                   searchable={true}
-//                 />
-
-//                 /* =========================================
-//                    NORMAL COMMON SELECT
-//                 ========================================= */
-
-//               ) : (
-//                 <select
-//                   className="filter-select w-full"
-//                   value={
-//                     selectedFilters[
-//                     f.apiKey
-//                     ] || ""
-//                   }
-//                   onChange={(
-//                     e
-//                   ) => {
-//                     const value =
-//                       e.target
-//                         .value;
-
-//                     if (
-//                       isOperatingExpenses
-//                     ) {
-//                       handleOpexFilterChange(
-//                         f.apiKey,
-//                         value
-//                       );
-//                     } else if (
-//                       isReceivables
-//                     ) {
-//                       handleReceivablesFilterChange(
-//                         f.apiKey,
-//                         value
-//                       );
-//                     } else {
-//                       const nextFilters =
-//                       {
-//                         ...selectedFilters,
-//                         [f.apiKey]:
-//                           value,
-//                       };
-
-//                       setSelectedFilters(
-//                         nextFilters
-//                       );
-
-//                       if (
-//                         onChange
-//                       ) {
-//                         onChange(
-//                           nextFilters
-//                         );
-//                       }
-//                     }
-//                   }}
-//                   style={{
-//                     minWidth: 0,
-//                     width:
-//                       "100%",
-//                     fontWeight:
-//                       600,
-//                     boxSizing:
-//                       "border-box",
-
-
-//                   }}
-//                 >
-//                   <option value="">
-//                     All
-//                   </option>
-
-//                   {activeFilterOptions?.[
-//                     f.optionKey
-//                   ]?.map(
-//                     (
-//                       item,
-//                       index
-//                     ) => {
-//                       const value =
-//                         isReceivables &&
-//                         (
-//                           f.apiKey ===
-//                             "legal_group" ||
-//                           f.apiKey ===
-//                             "legal_entity" ||
-//                           f.apiKey ===
-//                             "parent_division" ||
-//                           f.apiKey ===
-//                             "subdivision"
-//                         )
-//                           ? getReceivablesHierarchyValue(
-//                             item,
-//                             f.apiKey
-//                           )
-//                           : getOptionValue(
-//                             item
-//                           );
-
-//                       const label =
-//                         isReceivables &&
-//                         (
-//                           f.apiKey ===
-//                             "legal_group" ||
-//                           f.apiKey ===
-//                             "legal_entity" ||
-//                           f.apiKey ===
-//                             "parent_division" ||
-//                           f.apiKey ===
-//                             "subdivision"
-//                         )
-//                           ? getReceivablesHierarchyLabel(
-//                             item,
-//                             f.apiKey
-//                           )
-//                           : getOptionLabel(
-//                             item
-//                           );
-
-//                       if (
-//                         value ===
-//                         "" ||
-//                         value ===
-//                         null ||
-//                         value ===
-//                         undefined
-//                       ) {
-//                         return null;
-//                       }
-
-//                       return (
-//                         <option
-//                           key={`${value}-${index}`}
-//                           value={
-//                             value
-//                           }
-//                           style={{
-//                             fontWeight:
-//                               600,
-//                           }}
-//                         >
-//                           {
-//                             label
-//                           }
-//                         </option>
-//                       );
-//                     }
-//                   )}
-//                 </select>
-//               )}
-//             </FilterField>
-//           );
-//         }
-//       )}
-
-//       {/* ===================================================
-//           As On Date
-//           Common + Receivables
-//       =================================================== */}
-
-//       {!isOperatingExpenses && (
-//         <FilterField
-//           label="As On Date"
-//           isReceivables={
-//             isReceivables
-//           }
-//         >
-//           <input
-//             type="text"
-//             value={
-//               selectedFilters
-//                 .as_on_date
-//             }
-//             readOnly
-//             className="w-full h-8 text-[10px] font-semibold text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2"
-//             style={{
-//               boxSizing:
-//                 "border-box",
-//             }}
-//           />
-//         </FilterField>
-//       )}
-
-//       {/* ===================================================
-//           Apply / Reset
-//       =================================================== */}
-
-//       <div
-//         style={{
-//           display: "flex",
-//           gap: "8px",
-
-//           marginLeft:
-//             "auto",
-
-//           flexShrink: 0,
-
-//           position:
-//             "relative",
-
-//           zIndex: 1,
-
-//           fontWeight: 600,
-//         }}
-//       >
-//         <button
-//           className="btn btn-primary"
-//           onClick={() =>
-//             onApply &&
-//             onApply(
-//               selectedFilters
-//             )
-//           }
-//           style={{
-//             fontWeight: 700,
-//           }}
-//         >
-//           Apply
-//         </button>
-
-//         <button
-//           className="btn btn-ghost"
-//           onClick={
-//             handleReset
-//           }
-//           style={{
-//             fontWeight: 700,
-//           }}
-//         >
-//           Reset
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
-
-
 
 import React, { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
@@ -3307,8 +39,14 @@ const FIELD_WIDTHS = {
   reporting_currency: 128,
 };
 
+/* =========================================================
+   OPTION HELPERS
+========================================================= */
+
 const getOptionValue = (option) => {
-  if (option === null || option === undefined) return "";
+  if (option === null || option === undefined) {
+    return "";
+  }
 
   if (typeof option === "object") {
     return (
@@ -3327,7 +65,9 @@ const getOptionValue = (option) => {
 };
 
 const getOptionLabel = (option) => {
-  if (option === null || option === undefined) return "";
+  if (option === null || option === undefined) {
+    return "";
+  }
 
   if (typeof option === "object") {
     return (
@@ -3345,11 +85,24 @@ const getOptionLabel = (option) => {
   return option;
 };
 
+/* =========================================================
+   GET LATEST PERIOD
+
+   Operating Analysis uses the last period returned by the API
+   as the default selected Period.
+========================================================= */
+
 function getLatestPeriod(periods = []) {
-  if (!Array.isArray(periods) || periods.length === 0) return "";
+  if (!Array.isArray(periods) || periods.length === 0) {
+    return "";
+  }
 
   return getOptionValue(periods[periods.length - 1]);
 }
+
+/* =========================================================
+   NORMALIZE YEARS
+========================================================= */
 
 function normalizeYears(payload = {}, periods = []) {
   const rawYears =
@@ -3366,7 +119,9 @@ function normalizeYears(payload = {}, periods = []) {
 
   if (Array.isArray(periods)) {
     periods.forEach((period) => {
-      if (!period || typeof period !== "object") return;
+      if (!period || typeof period !== "object") {
+        return;
+      }
 
       const year =
         period.year ??
@@ -3400,6 +155,231 @@ function normalizeYears(payload = {}, periods = []) {
   return derived;
 }
 
+/* =========================================================
+   NORMALIZE REPORTING CURRENCIES
+
+   Supports common API response formats:
+   - reporting_currencies: [...]
+   - currencies: [...]
+   - currency_options: [...]
+   - ledger_currencies: [...]
+   - reporting_currency: "AED"
+   - reporting_currency: { value: "AED", label: "AED" }
+   - object maps such as { AED: "AED", USD: "USD" }
+========================================================= */
+
+function normalizeCurrencyOptions(rawCurrencies) {
+  if (
+    rawCurrencies === null ||
+    rawCurrencies === undefined ||
+    rawCurrencies === ""
+  ) {
+    return [];
+  }
+
+  /* -------------------------------------------------------
+     String / number
+  ------------------------------------------------------- */
+
+  if (
+    typeof rawCurrencies === "string" ||
+    typeof rawCurrencies === "number"
+  ) {
+    const value = String(rawCurrencies);
+
+    return [
+      {
+        value,
+        label: value,
+      },
+    ];
+  }
+
+  /* -------------------------------------------------------
+     Array
+  ------------------------------------------------------- */
+
+  if (Array.isArray(rawCurrencies)) {
+    return rawCurrencies
+      .map((item) => {
+        if (
+          item === null ||
+          item === undefined ||
+          item === ""
+        ) {
+          return null;
+        }
+
+        if (
+          typeof item === "string" ||
+          typeof item === "number"
+        ) {
+          const value = String(item);
+
+          return {
+            value,
+            label: value,
+          };
+        }
+
+        if (typeof item === "object") {
+          const value =
+            item.currency_code ??
+            item.currencyCode ??
+            item.currency ??
+            item.value ??
+            item.code ??
+            item.id ??
+            "";
+
+          const label =
+            item.label ??
+            item.name ??
+            item.currency_name ??
+            item.currency_code ??
+            item.currencyCode ??
+            item.currency ??
+            item.value ??
+            item.code ??
+            value;
+
+          if (
+            value === null ||
+            value === undefined ||
+            value === ""
+          ) {
+            return null;
+          }
+
+          return {
+            value: String(value),
+            label: String(label),
+          };
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  /* -------------------------------------------------------
+     Single object:
+       { value: "AED", label: "AED" }
+       { currency_code: "AED" }
+  ------------------------------------------------------- */
+
+  if (
+    typeof rawCurrencies === "object"
+  ) {
+    const directValue =
+      rawCurrencies.currency_code ??
+      rawCurrencies.currencyCode ??
+      rawCurrencies.currency ??
+      rawCurrencies.value ??
+      rawCurrencies.code ??
+      rawCurrencies.id;
+
+    if (
+      directValue !== null &&
+      directValue !== undefined &&
+      directValue !== ""
+    ) {
+      const value = String(directValue);
+
+      const label =
+        rawCurrencies.label ??
+        rawCurrencies.name ??
+        rawCurrencies.currency_name ??
+        rawCurrencies.currency_code ??
+        rawCurrencies.currencyCode ??
+        rawCurrencies.currency ??
+        rawCurrencies.value ??
+        rawCurrencies.code ??
+        value;
+
+      return [
+        {
+          value,
+          label: String(label),
+        },
+      ];
+    }
+
+    /* -----------------------------------------------------
+       Object map:
+       {
+         AED: "AED",
+         USD: "USD"
+       }
+    ----------------------------------------------------- */
+
+    return Object.entries(rawCurrencies)
+      .map(([key, item]) => {
+        if (
+          item === null ||
+          item === undefined ||
+          item === ""
+        ) {
+          return {
+            value: String(key),
+            label: String(key),
+          };
+        }
+
+        if (
+          typeof item === "string" ||
+          typeof item === "number"
+        ) {
+          return {
+            value: String(item),
+            label: String(item),
+          };
+        }
+
+        if (typeof item === "object") {
+          const value =
+            item.currency_code ??
+            item.currencyCode ??
+            item.currency ??
+            item.value ??
+            item.code ??
+            key;
+
+          const label =
+            item.label ??
+            item.name ??
+            item.currency_name ??
+            item.currency_code ??
+            item.currencyCode ??
+            item.currency ??
+            item.value ??
+            item.code ??
+            value;
+
+          return {
+            value: String(value),
+            label: String(label),
+          };
+        }
+
+        return {
+          value: String(key),
+          label: String(key),
+        };
+      })
+      .filter(
+        (item) =>
+          item.value !== ""
+      );
+  }
+
+  return [];
+}
+
+/* =========================================================
+   NORMALIZE OPEX FILTER OPTIONS
+========================================================= */
+
 function normalizeOpexFilterOptions(data = {}) {
   const payload =
     data?.data &&
@@ -3408,45 +388,41 @@ function normalizeOpexFilterOptions(data = {}) {
       ? data.data
       : data;
 
-  const reportingCurrencies =
-    payload?.reporting_currencies ||
-    payload?.currencies ||
+  /* =======================================================
+     REPORTING CURRENCY
+
+     Try all common API keys so the dropdown does not remain
+     stuck on the fallback AED when the backend returns the
+     currency list under a different supported key.
+  ======================================================= */
+
+  const rawReportingCurrencies =
+    payload?.reporting_currencies ??
+    payload?.currencies ??
+    payload?.currency_options ??
+    payload?.ledger_currencies ??
+    payload?.reporting_currency ??
     [];
 
-  const currencies = Array.isArray(
-    reportingCurrencies
-  )
-    ? reportingCurrencies.map((item) => {
-      if (
-        item &&
-        typeof item === "object"
-      ) {
-        const value =
-          item.currency_code ??
-          item.value ??
-          item.code ??
-          item.id ??
-          "";
+  let currencies =
+    normalizeCurrencyOptions(
+      rawReportingCurrencies
+    );
 
-        const label =
-          item.label ??
-          item.currency_code ??
-          item.value ??
-          item.code ??
-          "";
+  /* =======================================================
+     If no currency list was returned but the backend provides
+     a default reporting currency, expose that as an option.
+  ======================================================= */
 
-        return {
-          value,
-          label,
-        };
-      }
-
-      return {
-        value: item,
-        label: item,
-      };
-    })
-    : [];
+  if (
+    !currencies.length &&
+    payload?.default_reporting_currency
+  ) {
+    currencies =
+      normalizeCurrencyOptions(
+        payload.default_reporting_currency
+      );
+  }
 
   const periods = Array.isArray(
     payload?.periods
@@ -3495,16 +471,14 @@ function normalizeOpexFilterOptions(data = {}) {
         ? payload.ledger_currencies
         : [],
 
+    /*
+     * IMPORTANT:
+     * Use the normalized currency options here.
+     * This fixes the Reporting Currency dropdown when
+     * the API returns currency objects in different formats.
+     */
     reporting_currencies:
-      Array.isArray(
-        payload?.reporting_currencies
-      )
-        ? payload.reporting_currencies
-        : Array.isArray(
-          payload?.currencies
-        )
-          ? payload.currencies
-          : [],
+      currencies,
 
     compare_with: Array.isArray(
       payload?.compare_with
@@ -3526,7 +500,7 @@ function normalizeOpexFilterOptions(data = {}) {
 }
 
 /* =========================================================
-   Select Style
+   SELECT STYLE
 ========================================================= */
 
 const selectStyle = {
@@ -3550,7 +524,7 @@ const selectStyle = {
 };
 
 /* =========================================================
-   Filter Field
+   FILTER FIELD
 ========================================================= */
 
 function FilterField({
@@ -3588,13 +562,7 @@ function FilterField({
 }
 
 /* =========================================================
-   OPEX Multi Select
-
-   Empty [] means:
-   - Display "All"
-   - NO checkbox is selected
-
-   Cascade behavior is preserved.
+   OPEX MULTI SELECT
 ========================================================= */
 
 function OpexMultiSelect({
@@ -3708,7 +676,9 @@ function OpexMultiSelect({
       : [];
 
   const query =
-    searchQuery.trim().toLowerCase();
+    searchQuery
+      .trim()
+      .toLowerCase();
 
   const visibleOptions = query
     ? normalized.filter(
@@ -3722,12 +692,19 @@ function OpexMultiSelect({
     )
     : normalized;
 
-  /*
-   * Empty [] = All / no restriction.
-   * But NO checkboxes are visually selected.
-   */
   const isAll =
     currentValues.length === 0;
+
+  const isAllSelected =
+    normalized.length > 0 &&
+    currentValues.length ===
+    normalized.length &&
+    normalized.every(
+      (option) =>
+        currentValues.includes(
+          option.id
+        )
+    );
 
   const selectedOptions =
     normalized.filter((option) =>
@@ -3738,33 +715,61 @@ function OpexMultiSelect({
 
   const displayText = isAll
     ? placeholder
-    : selectedOptions.length === 1
-      ? selectedOptions[0].name
-      : `${selectedOptions.length} selected`;
+    : isAllSelected
+      ? "All selected"
+      : selectedOptions.length === 1
+        ? selectedOptions[0].name
+        : `${selectedOptions.length} selected`;
 
-  const toggle = (id) => {
+  const toggleValue = (id) => {
     const stringId = String(id);
 
-    if (stringId === "All") {
-      onChange([]);
-      return;
+    let nextValues;
+
+    if (
+      currentValues.includes(
+        stringId
+      )
+    ) {
+      nextValues =
+        currentValues.filter(
+          (item) =>
+            item !== stringId
+        );
+    } else {
+      nextValues = [
+        ...currentValues,
+        stringId,
+      ];
     }
 
-    const base =
-      currentValues.filter(
-        (item) => item !== "All"
-      );
+    onChange?.(nextValues);
+  };
 
-    const next = base.includes(
-      stringId
-    )
-      ? base.filter(
-        (item) =>
-          item !== stringId
+  /* =======================================================
+     SELECT ALL
+
+     Selects every available option.
+  ======================================================= */
+
+  const handleSelectAll = () => {
+    onChange?.(
+      normalized.map(
+        (option) => option.id
       )
-      : [...base, stringId];
+    );
+  };
 
-    onChange(next);
+  /* =======================================================
+     CLEAR
+
+     Clears all selected values.
+     Empty array keeps the existing "All / no filter"
+     behaviour used by this component.
+  ======================================================= */
+
+  const handleClear = () => {
+    onChange?.([]);
   };
 
   return (
@@ -3775,322 +780,263 @@ function OpexMultiSelect({
         width,
       }}
     >
-      <div
+      <button
+        type="button"
         onClick={() =>
-          setOpen(
-            (previous) => !previous
+          setOpen((previous) =>
+            !previous
           )
         }
         style={{
           ...selectStyle,
-          width,
-          backgroundImage: "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent:
-            "space-between",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
+          textAlign: "left",
           overflow: "hidden",
-          textOverflow: "ellipsis",
-          userSelect: "none",
+          textOverflow:
+            "ellipsis",
+          whiteSpace:
+            "nowrap",
         }}
+        title={displayText}
       >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            maxWidth: "84%",
-          }}
-        >
-          {displayText}
-        </span>
-
-        <span
-          style={{
-            fontSize: "0.65rem",
-            color: "#94a3b8",
-            flexShrink: 0,
-          }}
-        >
-          {open ? "▲" : "▼"}
-        </span>
-      </div>
+        {displayText}
+      </button>
 
       {open && (
         <div
           style={{
-            position: "absolute",
-            top: "100%",
+            position:
+              "absolute",
+            top: "calc(100% + 4px)",
             left: 0,
-            minWidth: Math.max(
-              width,
-              240
-            ),
-            background: "#fff",
+            width:
+              Math.max(
+                width,
+                220
+              ),
+            maxHeight: 300,
+            overflowY:
+              "auto",
+            background:
+              "#fff",
             border:
               "1px solid #e2e8f0",
             borderRadius: 8,
             boxShadow:
-              "0 8px 24px rgba(0,0,0,0.12)",
-            zIndex: 500,
-            marginTop: 2,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
+              "0 10px 25px rgba(15,23,42,0.12)",
+            zIndex: 1000,
+            padding: 8,
           }}
         >
           <div
             style={{
-              padding: "6px 8px",
-              borderBottom:
-                "1px solid #e2e8f0",
-              background: "#fff",
+              position:
+                "relative",
+              marginBottom: 6,
             }}
           >
-            <div
+            <Search
+              size={13}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: "#f8fafc",
+                position:
+                  "absolute",
+                left: 8,
+                top: 9,
+                color:
+                  "#94a3b8",
+              }}
+            />
+
+            <input
+              ref={searchRef}
+              type="text"
+              value={
+                searchQuery
+              }
+              onChange={(event) =>
+                setSearchQuery(
+                  event.target.value
+                )
+              }
+              placeholder="Search..."
+              style={{
+                width: "100%",
+                height: 30,
+                boxSizing:
+                  "border-box",
                 border:
                   "1px solid #e2e8f0",
                 borderRadius: 6,
-                padding: "4px 8px",
+                padding:
+                  "0 8px 0 26px",
+                outline: "none",
+                fontSize:
+                  "0.74rem",
+                color:
+                  "#334155",
               }}
-            >
-              <Search
-                size={12}
-                color="#94a3b8"
-              />
-
-              <input
-                ref={searchRef}
-                type="text"
-                value={searchQuery}
-                onChange={(event) =>
-                  setSearchQuery(
-                    event.target.value
-                  )
-                }
-                onClick={(event) =>
-                  event.stopPropagation()
-                }
-                placeholder="Search…"
-                style={{
-                  border: "none",
-                  outline: "none",
-                  background:
-                    "transparent",
-                  fontSize: "0.75rem",
-                  color: "#334155",
-                  width: "100%",
-                  minWidth: 0,
-                }}
-              />
-
-              {searchQuery && (
-                <X
-                  size={12}
-                  color="#94a3b8"
-                  style={{
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSearchQuery("");
-                  }}
-                />
-              )}
-            </div>
+            />
           </div>
 
-          {!query && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                padding: "6px 12px",
-                borderBottom:
-                  "1px solid #e2e8f0",
-                background: "#f8fafc",
-              }}
-            >
-              <span
-                onClick={() =>
-                  onChange([])
-                }
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  color: "#2563eb",
-                  cursor: "pointer",
-                }}
-              >
-                Select All
-              </span>
-
-              <span
-                onClick={() =>
-                  onChange([])
-                }
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  color: "#ef4444",
-                  cursor: "pointer",
-                }}
-              >
-                Clear
-              </span>
-            </div>
-          )}
+          {/* =================================================
+              SELECT ALL / CLEAR
+          ================================================= */}
 
           <div
             style={{
-              maxHeight: 220,
-              overflowY: "auto",
+              display: "flex",
+              gap: 6,
+              marginBottom: 4,
             }}
           >
-            {visibleOptions.map(
-              (option) => {
-                /*
-                 * Only explicitly selected
-                 * IDs are checked.
-                 */
-                const selected =
-                  currentValues.includes(
-                    option.id
-                  );
+            <button
+              type="button"
+              onClick={
+                handleSelectAll
+              }
+              style={{
+                flex: 1,
+                border:
+                  "1px solid #e2e8f0",
+                background:
+                  isAllSelected
+                    ? "#f1f5f9"
+                    : "#fff",
+                textAlign:
+                  "center",
+                padding:
+                  "5px 6px",
+                borderRadius: 5,
+                cursor:
+                  "pointer",
+                fontSize:
+                  "0.72rem",
+                fontWeight:
+                  600,
+                color:
+                  "#334155",
+              }}
+            >
+              Select All
+            </button>
 
-                return (
-                  <div
-                    key={option.id}
-                    onClick={() =>
-                      toggle(
+            <button
+              type="button"
+              onClick={
+                handleClear
+              }
+              style={{
+                flex: 1,
+                border:
+                  "1px solid #e2e8f0",
+                background:
+                  isAll
+                    ? "#f1f5f9"
+                    : "#fff",
+                textAlign:
+                  "center",
+                padding:
+                  "5px 6px",
+                borderRadius: 5,
+                cursor:
+                  "pointer",
+                fontSize:
+                  "0.72rem",
+                fontWeight:
+                  600,
+                color:
+                  "#64748b",
+              }}
+            >
+              Clear
+            </button>
+          </div>
+
+          {visibleOptions.map(
+            (option) => {
+              const checked =
+                currentValues.includes(
+                  option.id
+                );
+
+              return (
+                <label
+                  key={
+                    option.id
+                  }
+                  style={{
+                    display:
+                      "flex",
+                    alignItems:
+                      "center",
+                    gap: 5,
+                    padding:
+                      "2px 8px",
+                    borderRadius: 5,
+                    cursor:
+                      "pointer",
+                    fontSize:
+                      "0.74rem",
+                    color:
+                      "#334155",
+                    background:
+                      checked
+                        ? "#f8fafc"
+                        : "#fff",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={
+                      checked
+                    }
+                    onChange={() =>
+                      toggleValue(
                         option.id
                       )
                     }
                     style={{
-                      display: "flex",
-                      alignItems:
-                        "center",
-                      gap: 6,
-                      padding:
-                        "7px 12px",
-                      cursor:
-                        "pointer",
-                      fontSize:
-                        "0.78rem",
-                      background:
-                        selected
-                          ? "#eff6ff"
-                          : "#fff",
-                      color:
-                        selected
-                          ? "#2563eb"
-                          : "#334155",
-                      fontWeight:
-                        selected
-                          ? 600
-                          : 400,
-                      borderBottom:
-                        "1px solid #f8fafc",
+                      margin: 0,
+                    }}
+                  />
+
+                  <span
+                    style={{
+                      overflow:
+                        "hidden",
+                      textOverflow:
+                        "ellipsis",
                       whiteSpace:
-                        "normal",
-                      lineHeight:
-                        1.25,
+                        "nowrap",
                     }}
-                    onMouseEnter={(
-                      event
-                    ) => {
-                      if (
-                        !selected
-                      ) {
-                        event.currentTarget.style.background =
-                          "#f8fafc";
-                      }
-                    }}
-                    onMouseLeave={(
-                      event
-                    ) => {
-                      if (
-                        !selected
-                      ) {
-                        event.currentTarget.style.background =
-                          "#fff";
-                      }
-                    }}
+                    title={
+                      option.name
+                    }
                   >
-                    <span
-                      style={{
-                        width: 14,
-                        height: 14,
-                        border: `1.5px solid ${selected
-                            ? "#2563eb"
-                            : "#cbd5e1"
-                          }`,
-                        borderRadius: 3,
-                        background:
-                          selected
-                            ? "#2563eb"
-                            : "#fff",
-                        display:
-                          "inline-flex",
-                        alignItems:
-                          "center",
-                        justifyContent:
-                          "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {selected && (
-                        <span
-                          style={{
-                            color:
-                              "#fff",
-                            fontSize:
-                              "0.6rem",
-                            lineHeight:
-                              1,
-                          }}
-                        >
-                          ✓
-                        </span>
-                      )}
-                    </span>
+                    {
+                      option.name
+                    }
+                  </span>
+                </label>
+              );
+            }
+          )}
 
-                    {option.name}
-                  </div>
-                );
-              }
-            )}
-
-            {query &&
-              visibleOptions.length ===
-              0 && (
-                <div
-                  style={{
-                    padding:
-                      "10px 12px",
-                    fontSize:
-                      "0.75rem",
-                    color:
-                      "#94a3b8",
-                    textAlign:
-                      "center",
-                  }}
-                >
-                  No results for “
-                  {searchQuery}”
-                </div>
-              )}
-          </div>
+          {!visibleOptions.length && (
+            <div
+              style={{
+                padding:
+                  "12px 8px",
+                textAlign:
+                  "center",
+                fontSize:
+                  "0.72rem",
+                color:
+                  "#94a3b8",
+              }}
+            >
+              No options found
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4098,7 +1044,7 @@ function OpexMultiSelect({
 }
 
 /* =========================================================
-   OPEX Single Select
+   OPEX SINGLE SELECT
 ========================================================= */
 
 function OpexSingleSelect({
@@ -4106,8 +1052,8 @@ function OpexSingleSelect({
   value = "",
   onChange,
   placeholder = "Select",
-  searchable = true,
   width = 128,
+  searchable = true,
 }) {
   const [open, setOpen] =
     useState(false);
@@ -4165,20 +1111,66 @@ function OpexSingleSelect({
     searchable,
   ]);
 
-  const normalized = (
-    options || []
-  )
-    .map((option) => ({
-      value: String(
-        getOptionValue(option)
-      ),
-      label: String(
-        getOptionLabel(option)
-      ),
-    }))
+  const normalized = (options || [])
+    .map((option) => {
+      if (
+        option === null ||
+        option === undefined
+      ) {
+        return null;
+      }
+
+      if (
+        typeof option === "string" ||
+        typeof option === "number"
+      ) {
+        return {
+          id: String(option),
+          name: String(option),
+        };
+      }
+
+      const id =
+        option.value !== undefined
+          ? option.value
+          : option.id !== undefined
+            ? option.id
+            : option.code !== undefined
+              ? option.code
+              : "";
+
+      const name =
+        option.label !== undefined
+          ? option.label
+          : option.name !== undefined
+            ? option.name
+            : option.period_name !==
+              undefined
+              ? option.period_name
+              : String(id);
+
+      return {
+        id: String(id),
+        name: String(name),
+      };
+    })
+    .filter(Boolean)
     .filter(
       (option) =>
-        option.value !== ""
+        option.id !== ""
+    );
+
+  const currentValue =
+    value === null ||
+      value === undefined
+      ? ""
+      : String(value);
+
+  const currentOption =
+    normalized.find(
+      (option) =>
+        option.id ===
+        currentValue
     );
 
   const query =
@@ -4186,281 +1178,225 @@ function OpexSingleSelect({
       .trim()
       .toLowerCase();
 
-  const visible = query
-    ? normalized.filter(
-      (option) =>
-        option.label
-          .toLowerCase()
-          .includes(query) ||
-        option.value
-          .toLowerCase()
-          .includes(query)
-    )
-    : normalized;
-
-  const selected =
-    normalized.find(
-      (option) =>
-        String(
-          option.value
-        ) === String(value)
-    );
+  const visibleOptions =
+    searchable && query
+      ? normalized.filter(
+        (option) =>
+          option.name
+            .toLowerCase()
+            .includes(query) ||
+          option.id
+            .toLowerCase()
+            .includes(query)
+      )
+      : normalized;
 
   const displayText =
-    selected?.label ||
-    value ||
+    currentOption?.name ||
     placeholder;
+
+  const handleSelect = (
+    option
+  ) => {
+    onChange?.(
+      option.id
+    );
+    setOpen(false);
+    setSearchQuery("");
+  };
 
   return (
     <div
       ref={ref}
       style={{
-        position: "relative",
+        position:
+          "relative",
         width,
       }}
     >
-      <div
+      <button
+        type="button"
         onClick={() =>
-          setOpen(
-            (previous) => !previous
+          setOpen((previous) =>
+            !previous
           )
         }
         style={{
           ...selectStyle,
-          width,
-          backgroundImage: "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent:
-            "space-between",
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          userSelect: "none",
+          textAlign:
+            "left",
+          overflow:
+            "hidden",
+          textOverflow:
+            "ellipsis",
+          whiteSpace:
+            "nowrap",
         }}
+        title={displayText}
       >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow:
-              "ellipsis",
-            whiteSpace:
-              "nowrap",
-            maxWidth: "84%",
-          }}
-        >
-          {displayText}
-        </span>
-
-        <span
-          style={{
-            fontSize:
-              "0.65rem",
-            color:
-              "#94a3b8",
-          }}
-        >
-          {open ? "▲" : "▼"}
-        </span>
-      </div>
+        {displayText}
+      </button>
 
       {open && (
         <div
           style={{
             position:
               "absolute",
-            top: "100%",
+            top: "calc(100% + 4px)",
             left: 0,
-            minWidth:
+            width:
               Math.max(
                 width,
-                200
+                220
               ),
-            background: "#fff",
+            maxHeight: 300,
+            overflowY:
+              "auto",
+            background:
+              "#fff",
             border:
               "1px solid #e2e8f0",
             borderRadius: 8,
             boxShadow:
-              "0 8px 24px rgba(0,0,0,0.12)",
-            zIndex: 500,
-            marginTop: 2,
-            overflow:
-              "hidden",
+              "0 10px 25px rgba(15,23,42,0.12)",
+            zIndex: 1000,
+            padding: 8,
           }}
         >
           {searchable && (
             <div
               style={{
-                padding:
-                  "6px 8px",
-                borderBottom:
-                  "1px solid #e2e8f0",
+                position:
+                  "relative",
+                marginBottom:
+                  6,
               }}
             >
-              <div
+              <Search
+                size={13}
                 style={{
-                  display:
-                    "flex",
-                  alignItems:
-                    "center",
-                  gap: 6,
-                  background:
-                    "#f8fafc",
+                  position:
+                    "absolute",
+                  left: 8,
+                  top: 9,
+                  color:
+                    "#94a3b8",
+                }}
+              />
+
+              <input
+                ref={searchRef}
+                type="text"
+                value={
+                  searchQuery
+                }
+                onChange={(
+                  event
+                ) =>
+                  setSearchQuery(
+                    event.target
+                      .value
+                  )
+                }
+                placeholder="Search..."
+                style={{
+                  width:
+                    "100%",
+                  height: 30,
+                  boxSizing:
+                    "border-box",
                   border:
                     "1px solid #e2e8f0",
                   borderRadius: 6,
                   padding:
-                    "4px 8px",
+                    "0 8px 0 26px",
+                  outline:
+                    "none",
+                  fontSize:
+                    "0.74rem",
+                  color:
+                    "#334155",
                 }}
-              >
-                <Search
-                  size={12}
-                  color="#94a3b8"
-                />
-
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={
-                    searchQuery
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearchQuery(
-                      event.target
-                        .value
-                    )
-                  }
-                  onClick={(
-                    event
-                  ) =>
-                    event.stopPropagation()
-                  }
-                  placeholder="Search…"
-                  style={{
-                    border:
-                      "none",
-                    outline:
-                      "none",
-                    background:
-                      "transparent",
-                    fontSize:
-                      "0.75rem",
-                    color:
-                      "#334155",
-                    width:
-                      "100%",
-                  }}
-                />
-
-                {searchQuery && (
-                  <X
-                    size={12}
-                    color="#94a3b8"
-                    style={{
-                      cursor:
-                        "pointer",
-                    }}
-                    onClick={(
-                      event
-                    ) => {
-                      event.stopPropagation();
-                      setSearchQuery(
-                        ""
-                      );
-                    }}
-                  />
-                )}
-              </div>
+              />
             </div>
           )}
 
-          <div
-            style={{
-              maxHeight: 220,
-              overflowY:
-                "auto",
-            }}
-          >
-            {visible.map(
-              (option) => {
-                const isSelected =
-                  option.value ===
-                  String(value);
+          {visibleOptions.map(
+            (option) => {
+              const selected =
+                option.id ===
+                currentValue;
 
-                return (
-                  <div
-                    key={
-                      option.value
-                    }
-                    onClick={() => {
-                      onChange(
-                        option.value
-                      );
-                      setOpen(
-                        false
-                      );
-                      setSearchQuery(
-                        ""
-                      );
-                    }}
-                    style={{
-                      padding:
-                        "8px 12px",
-                      cursor:
-                        "pointer",
-                      fontSize:
-                        "0.78rem",
-                      background:
-                        isSelected
-                          ? "#eff6ff"
-                          : "#fff",
-                      color:
-                        isSelected
-                          ? "#2563eb"
-                          : "#334155",
-                      fontWeight:
-                        isSelected
-                          ? 600
-                          : 400,
-                      borderBottom:
-                        "1px solid #f8fafc",
-                      whiteSpace:
-                        "normal",
-                      lineHeight:
-                        1.25,
-                    }}
-                  >
-                    {
-                      option.label
-                    }
-                  </div>
-                );
-              }
-            )}
-
-            {query &&
-              visible.length ===
-              0 && (
-                <div
+              return (
+                <button
+                  key={
+                    option.id
+                  }
+                  type="button"
+                  onClick={() =>
+                    handleSelect(
+                      option
+                    )
+                  }
                   style={{
-                    padding:
-                      "10px 12px",
-                    fontSize:
-                      "0.75rem",
-                    color:
-                      "#94a3b8",
+                    width:
+                      "100%",
+                    border:
+                      "none",
+                    background:
+                      selected
+                        ? "#f1f5f9"
+                        : "#fff",
                     textAlign:
-                      "center",
+                      "left",
+                    padding:
+                      "7px 8px",
+                    borderRadius: 5,
+                    cursor:
+                      "pointer",
+                    fontSize:
+                      "0.74rem",
+                    fontWeight:
+                      selected
+                        ? 600
+                        : 500,
+                    color:
+                      "#334155",
+                    overflow:
+                      "hidden",
+                    textOverflow:
+                      "ellipsis",
+                    whiteSpace:
+                      "nowrap",
                   }}
+                  title={
+                    option.name
+                  }
                 >
-                  No results for “
-                  {searchQuery}”
-                </div>
-              )}
-          </div>
+                  {
+                    option.name
+                  }
+                </button>
+              );
+            }
+          )}
+
+          {!visibleOptions.length && (
+            <div
+              style={{
+                padding:
+                  "12px 8px",
+                textAlign:
+                  "center",
+                fontSize:
+                  "0.72rem",
+                color:
+                  "#94a3b8",
+              }}
+            >
+              No options found
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -4472,51 +1408,101 @@ function OpexSingleSelect({
 ========================================================= */
 
 export default function OpexFilters({
-  filterOptions,
+  filterOptions = {},
+  selectedFilters: externalSelectedFilters,
+  onChange,
   onApply,
   onReset,
-  onChange,
 }) {
-  const [
-    selectedFilters,
-    setSelectedFilters,
-  ] = useState({
-    ...DEFAULT_FILTERS,
-  });
-
   const [
     opexFilterOptions,
     setOpexFilterOptions,
-  ] = useState({
-    legal_groups: [],
-    legal_entities: [],
-    parent_divisions: [],
-    subdivisions: [],
-    periods: [],
-    years: [],
-    currencies: [],
-    reporting_currencies: [],
-    ledger_currencies: [],
-    compare_with: [],
-    data_as_of: null,
-    default_reporting_currency:
-      "AED",
+  ] = useState(
+    normalizeOpexFilterOptions(
+      filterOptions
+    )
+  );
+
+  const [
+    selectedFilters,
+    setSelectedFilters,
+  ] = useState(() => {
+    const normalized =
+      normalizeOpexFilterOptions(
+        filterOptions
+      );
+
+    const years =
+      normalized.years || [];
+
+    const periods =
+      normalized.periods || [];
+
+    const firstYear =
+      years.length
+        ? getOptionValue(
+          years[0]
+        )
+        : "";
+
+    const latestPeriod =
+      periods.length
+        ? getLatestPeriod(
+          periods
+        )
+        : "";
+
+    return {
+      ...DEFAULT_FILTERS,
+      ...(externalSelectedFilters ||
+        {}),
+      year:
+        externalSelectedFilters
+          ?.year ||
+        (firstYear
+          ? String(firstYear)
+          : ""),
+      period:
+        externalSelectedFilters
+          ?.period ||
+        (latestPeriod
+          ? [
+            String(
+              latestPeriod
+            ),
+          ]
+          : []),
+      reporting_currency:
+        externalSelectedFilters
+          ?.reporting_currency ||
+        normalized.default_reporting_currency ||
+        "AED",
+    };
   });
 
   const [loading, setLoading] =
     useState(false);
 
   /* =========================================================
-     OPEX Filter API
+     KEEP LOCAL FILTER STATE IN SYNC WITH EXTERNAL FILTERS
+  ========================================================= */
 
-     Cascade behavior preserved:
-       Legal Group
-          ↓
-       Legal Entity
-          ↓
-       Parent Division
-          ↓
-       Sub-Division
+  useEffect(() => {
+    if (
+      !externalSelectedFilters
+    ) {
+      return;
+    }
+
+    setSelectedFilters(
+      externalSelectedFilters
+    );
+  }, [
+    externalSelectedFilters,
+  ]);
+
+  /* =========================================================
+     LOAD OPEX FILTER OPTIONS
   ========================================================= */
 
   const loadOpexFilterOptions =
@@ -4527,103 +1513,41 @@ export default function OpexFilters({
       try {
         setLoading(true);
 
-        const apiFilters = {};
-
-        if (
-          Array.isArray(
-            currentFilters.legal_group
-          ) &&
-          currentFilters
-            .legal_group.length
-        ) {
-          apiFilters.legal_group_id =
-            currentFilters.legal_group;
-        }
-
-        if (
-          Array.isArray(
-            currentFilters.legal_entity
-          ) &&
-          currentFilters
-            .legal_entity.length
-        ) {
-          apiFilters.legal_entity_id =
-            currentFilters.legal_entity;
-        }
-
-        if (
-          Array.isArray(
-            currentFilters.parent_division
-          ) &&
-          currentFilters
-            .parent_division.length
-        ) {
-          apiFilters.parent_division_id =
-            currentFilters.parent_division;
-        }
-
-        if (
-          Array.isArray(
-            currentFilters.subdivision
-          ) &&
-          currentFilters
-            .subdivision.length
-        ) {
-          apiFilters.subdivision_id =
-            currentFilters.subdivision;
-        }
-
         const response =
           await getOpexFilterOptions(
-            apiFilters
+            currentFilters
           );
 
         const normalized =
           normalizeOpexFilterOptions(
-            response || {}
+            response
           );
-
-        if (preserveOptionKey) {
-          let preservedValue =
-            normalized[
-            preserveOptionKey
-            ];
-
-          setOpexFilterOptions(
-            (previous) => {
-              if (
-                Array.isArray(
-                  previous?.[
-                  preserveOptionKey
-                  ]
-                ) &&
-                previous[
-                  preserveOptionKey
-                ].length
-              ) {
-                preservedValue =
-                  previous[
-                  preserveOptionKey
-                  ];
-              }
-
-              return {
-                ...normalized,
-                [preserveOptionKey]:
-                  preservedValue,
-              };
-            }
-          );
-
-          return {
-            ...normalized,
-            [preserveOptionKey]:
-              preservedValue,
-          };
-        }
 
         setOpexFilterOptions(
-          normalized
+          (previous) => {
+            if (
+              preserveOptionKey
+            ) {
+              return {
+                ...previous,
+                ...normalized,
+                [
+                  preserveOptionKey
+                ]:
+                  normalized[
+                  preserveOptionKey
+                  ] ??
+                  previous[
+                  preserveOptionKey
+                  ],
+              };
+            }
+
+            return {
+              ...previous,
+              ...normalized,
+            };
+          }
         );
 
         return normalized;
@@ -4640,313 +1564,181 @@ export default function OpexFilters({
     };
 
   /* =========================================================
-     Initial load
+     INITIAL FILTER OPTIONS
   ========================================================= */
 
   useEffect(() => {
-    loadOpexFilterOptions({});
+    loadOpexFilterOptions(
+      {}
+    );
   }, []);
 
   /* =========================================================
-     Initial values
-
-     Hierarchy filters start with [].
-
-     Therefore:
-       display = All
-       checkbox = unchecked
+     UPDATE DEFAULT VALUES AFTER OPTIONS LOAD
   ========================================================= */
 
-  const initialValuesAppliedRef =
-    useRef(false);
-
   useEffect(() => {
-    const periods =
-      opexFilterOptions
-        .periods?.length
-        ? opexFilterOptions.periods
-        : filterOptions?.periods ||
-        [];
-
-    const years =
-      opexFilterOptions
-        .years?.length
-        ? opexFilterOptions.years
-        : filterOptions?.years ||
-        [];
-
-    const firstYear =
-      years.length
-        ? getOptionValue(
-          years[0]
-        )
-        : "";
-
-    const defaultCurrency =
-      opexFilterOptions
-        .default_reporting_currency ||
-      filterOptions?.default_reporting_currency ||
-      "AED";
-
     if (
-      initialValuesAppliedRef.current
+      !opexFilterOptions
     ) {
       return;
     }
 
-    const hasLoadedFilterOptions =
-      periods.length > 0 ||
-      years.length > 0 ||
-      (opexFilterOptions
-        .reporting_currencies
-        ?.length ||
-        0) > 0 ||
-      (filterOptions
-        ?.reporting_currencies
-        ?.length ||
-        0) > 0;
-
-    if (!hasLoadedFilterOptions) {
-      return;
-    }
-
-    const initialFilters = {
-      ...DEFAULT_FILTERS,
-
-      legal_group: [],
-      legal_entity: [],
-      parent_division: [],
-      subdivision: [],
-
-      period: [],
-
-      year: firstYear
-        ? String(firstYear)
-        : "",
-
-      reporting_currency:
-        String(
-          defaultCurrency ||
-          "AED"
-        ),
-    };
-
-    initialValuesAppliedRef.current =
-      true;
-
     setSelectedFilters(
-      initialFilters
-    );
+      (previous) => {
+        const next = {
+          ...previous,
+        };
 
-    onChange?.(
-      initialFilters
+        if (
+          !next.year &&
+          opexFilterOptions
+            .years?.length
+        ) {
+          next.year =
+            String(
+              getOptionValue(
+                opexFilterOptions
+                  .years[0]
+              )
+            );
+        }
+
+        if (
+          (!Array.isArray(
+            next.period
+          ) ||
+            next.period.length ===
+            0) &&
+          opexFilterOptions
+            .periods?.length
+        ) {
+          const latestPeriod =
+            getLatestPeriod(
+              opexFilterOptions
+                .periods
+            );
+
+          if (
+            latestPeriod
+          ) {
+            next.period = [
+              String(
+                latestPeriod
+              ),
+            ];
+          }
+        }
+
+        if (
+          !next.reporting_currency
+        ) {
+          next.reporting_currency =
+            opexFilterOptions
+              .default_reporting_currency ||
+            "AED";
+        }
+
+        return next;
+      }
     );
   }, [
     opexFilterOptions,
-    filterOptions,
-    onChange,
   ]);
 
   /* =========================================================
-     Filter change
+     FILTER CHANGE
+
+     IMPORTANT:
+     Dropdown changes are LOCAL ONLY.
+
+     The parent page is NOT notified here.
+     Parent components/data update only when Apply is clicked.
   ========================================================= */
 
-  const handleFilterChange =
-    async (
-      apiKey,
-      value
-    ) => {
-      let nextFilters = {
-        ...selectedFilters,
-        [apiKey]: value,
-      };
-
-      /*
-       * Cascade:
-       * Legal Group changes →
-       * clear Entity, Parent Division, Sub-Division
-       */
-      if (
-        apiKey ===
-        "legal_group"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          legal_group:
-            Array.isArray(
-              value
-            )
-              ? value
-              : [],
-          legal_entity: [],
-          parent_division: [],
-          subdivision: [],
-        };
-      }
-
-      /*
-       * Cascade:
-       * Legal Entity changes →
-       * clear Parent Division and Sub-Division
-       */
-      if (
-        apiKey ===
-        "legal_entity"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          legal_entity:
-            Array.isArray(
-              value
-            )
-              ? value
-              : [],
-          parent_division: [],
-          subdivision: [],
-        };
-      }
-
-      /*
-       * Cascade:
-       * Parent Division changes →
-       * clear Sub-Division
-       */
-      if (
-        apiKey ===
-        "parent_division"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          parent_division:
-            Array.isArray(
-              value
-            )
-              ? value
-              : [],
-          subdivision: [],
-        };
-      }
-
-      if (
-        apiKey ===
-        "subdivision"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          subdivision:
-            Array.isArray(
-              value
-            )
-              ? value
-              : [],
-        };
-      }
-
-      if (
-        apiKey === "period"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          period:
-            Array.isArray(
-              value
-            )
-              ? value
-              : value
-                ? [
-                  String(
-                    value
-                  ),
-                ]
-                : [],
-        };
-      }
-
-      if (
-        apiKey === "year"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          year:
-            value ===
-              null ||
-              value ===
-              undefined
-              ? ""
-              : String(
-                value
-              ),
-        };
-      }
-
-      if (
-        apiKey ===
-        "reporting_currency"
-      ) {
-        nextFilters = {
-          ...nextFilters,
-          reporting_currency:
-            value ||
-            opexFilterOptions.default_reporting_currency ||
-            "AED",
-        };
-      }
-
-      setSelectedFilters(
-        nextFilters
-      );
-
-      onChange?.(
-        nextFilters
-      );
-
-      /*
-       * Refresh dependent options
-       */
-      if (
-        [
-          "legal_group",
-          "legal_entity",
-          "parent_division",
-          "subdivision",
-        ].includes(apiKey)
-      ) {
-        const optionKeyMap = {
-          legal_group:
-            "legal_groups",
-          legal_entity:
-            "legal_entities",
-          parent_division:
-            "parent_divisions",
-          subdivision:
-            "subdivisions",
-        };
-
-        await loadOpexFilterOptions(
-          nextFilters,
-          optionKeyMap[
-          apiKey
-          ]
-        );
-      }
+  const handleFilterChange = (
+    key,
+    value
+  ) => {
+    const nextFilters = {
+      ...selectedFilters,
+      [key]: value,
     };
 
+    /*
+     * Keep dropdown changes local.
+     *
+     * DO NOT call onChange here.
+     *
+     * The selected values are only applied to the
+     * parent page when the user clicks Apply.
+     */
+    setSelectedFilters(
+      nextFilters
+    );
+
+    /* =======================================================
+       CASCADING FILTER OPTIONS
+
+       Keep the existing dependent-option API behaviour.
+       This only refreshes dropdown options; it does NOT
+       update the parent page data.
+    ======================================================= */
+
+    const optionKeyMap = {
+      legal_group:
+        "legal_entities",
+
+      legal_entity:
+        "parent_divisions",
+
+      parent_division:
+        "subdivisions",
+    };
+
+    const apiKeyMap = {
+      legal_group:
+        "legal_group_id",
+
+      legal_entity:
+        "legal_entity_id",
+
+      parent_division:
+        "parent_division_id",
+    };
+
+    if (
+      optionKeyMap[key]
+    ) {
+      void loadOpexFilterOptions(
+        nextFilters,
+        optionKeyMap[key]
+      );
+    }
+  };
+
   /* =========================================================
-     Reset
+     RESET
+
+     IMPORTANT:
+     Reset no longer waits for the filter-options API.
+
+     1. Reset UI immediately.
+     2. Notify parent immediately.
+     3. Refresh filter options in the background.
   ========================================================= */
 
   const handleReset =
-    async () => {
-      const normalized =
-        await loadOpexFilterOptions(
-          {}
-        );
-
+    () => {
       const years =
-        normalized?.years ||
-        opexFilterOptions.years ||
-        filterOptions?.years ||
-        [];
+        opexFilterOptions.years?.length
+          ? opexFilterOptions.years
+          : filterOptions?.years || [];
+
+      const periods =
+        opexFilterOptions.periods?.length
+          ? opexFilterOptions.periods
+          : filterOptions?.periods || [];
 
       const firstYear =
         years.length
@@ -4955,38 +1747,69 @@ export default function OpexFilters({
           )
           : "";
 
+      const latestPeriod =
+        periods.length
+          ? getLatestPeriod(
+            periods
+          )
+          : "";
+
       const resetFilters = {
+        ...DEFAULT_FILTERS,
+
         legal_group: [],
         legal_entity: [],
         parent_division: [],
         subdivision: [],
 
-        currency: "",
-
-        as_on_date: "",
-
-        period: [],
-
-        compare_with: "",
-
-        reporting_currency:
-          normalized?.default_reporting_currency ||
-          opexFilterOptions.default_reporting_currency ||
-          "AED",
+        period:
+          latestPeriod
+            ? [
+              String(
+                latestPeriod
+              ),
+            ]
+            : [],
 
         year:
-          firstYear || "",
+          firstYear
+            ? String(
+              firstYear
+            )
+            : "",
+
+        reporting_currency:
+          opexFilterOptions
+            .default_reporting_currency ||
+          filterOptions?.default_reporting_currency ||
+          "AED",
       };
 
+      /*
+       * Reset the local dropdown state immediately.
+       */
       setSelectedFilters(
         resetFilters
       );
 
+      /*
+       * Notify the parent immediately so the applied
+       * components/data reset.
+       */
       onChange?.(
         resetFilters
       );
 
       onReset?.();
+
+      /*
+       * Refresh available filter options in the background.
+       *
+       * Do not await this request.
+       */
+      void loadOpexFilterOptions(
+        {}
+      );
     };
 
   const options = {
@@ -5008,10 +1831,6 @@ export default function OpexFilters({
         alignItems:
           "flex-end",
 
-        /*
-         * Keep the existing spacing
-         * between all filters.
-         */
         gap: 10,
 
         flexWrap: "wrap",
@@ -5026,7 +1845,9 @@ export default function OpexFilters({
           "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
-      {/* Legal Group */}
+      {/* =====================================================
+          Legal Group
+      ===================================================== */}
 
       <FilterField
         label="Legal Group"
@@ -5054,7 +1875,9 @@ export default function OpexFilters({
         />
       </FilterField>
 
-      {/* Legal Entity */}
+      {/* =====================================================
+          Legal Entity
+      ===================================================== */}
 
       <FilterField
         label="Legal Entity"
@@ -5082,7 +1905,9 @@ export default function OpexFilters({
         />
       </FilterField>
 
-      {/* Parent Division */}
+      {/* =====================================================
+          Parent Division
+      ===================================================== */}
 
       <FilterField
         label="Parent Division"
@@ -5110,7 +1935,9 @@ export default function OpexFilters({
         />
       </FilterField>
 
-      {/* Sub-Division */}
+      {/* =====================================================
+          Sub-Division
+      ===================================================== */}
 
       <FilterField
         label="Sub-Division"
@@ -5138,7 +1965,9 @@ export default function OpexFilters({
         />
       </FilterField>
 
-      {/* Year */}
+      {/* =====================================================
+          Year
+      ===================================================== */}
 
       <FilterField
         label="Year"
@@ -5166,7 +1995,12 @@ export default function OpexFilters({
         />
       </FilterField>
 
-      {/* Period */}
+      {/* =====================================================
+          Period
+
+          Multiselect.
+          Latest period is selected initially.
+      ===================================================== */}
 
       <FilterField
         label="Period"
@@ -5194,7 +2028,9 @@ export default function OpexFilters({
         />
       </FilterField>
 
-      {/* Reporting Currency */}
+      {/* =====================================================
+          Reporting Currency
+      ===================================================== */}
 
       <FilterField
         label="Reporting Currency"
@@ -5210,8 +2046,12 @@ export default function OpexFilters({
               ? options.reporting_currencies
               : [
                 {
-                  value: "AED",
-                  label: "AED",
+                  value:
+                    options.default_reporting_currency ||
+                    "AED",
+                  label:
+                    options.default_reporting_currency ||
+                    "AED",
                 },
               ]
           }
@@ -5237,12 +2077,10 @@ export default function OpexFilters({
       {/* =====================================================
           Apply / Reset
 
-          ONLY CHANGE HERE:
-          marginLeft: "-10px"
+          Apply remains clickable even while filter options
+          are loading.
 
-          Parent container has gap: 10px.
-          This cancels that gap only between
-          Reporting Currency and Apply.
+          Dropdown changes are local until Apply is clicked.
       ===================================================== */}
 
       <div
@@ -5253,19 +2091,13 @@ export default function OpexFilters({
           alignSelf: "flex-end",
           flexShrink: 0,
           paddingBottom: 1,
-
-          /*
-           * Remove the gap between Reporting Currency
-           * and Apply without affecting any other
-           * filter-to-filter spacing.
-           */
-          marginLeft: 6
+          marginLeft: 6,
         }}
       >
         <button
           id="btn-apply-opex-filter"
           type="button"
-          disabled={loading}
+          disabled={false}
           onClick={() =>
             onApply?.(
               selectedFilters
@@ -5283,12 +2115,9 @@ export default function OpexFilters({
             fontSize:
               "0.78rem",
             fontWeight: 700,
-            cursor: loading
-              ? "not-allowed"
-              : "pointer",
-            opacity: loading
-              ? 0.7
-              : 1,
+            cursor:
+              "pointer",
+            opacity: 1,
             whiteSpace:
               "nowrap",
             display:
@@ -5307,7 +2136,7 @@ export default function OpexFilters({
         <button
           id="btn-reset-opex-filter"
           type="button"
-          disabled={loading}
+          disabled={false}
           onClick={
             handleReset
           }
@@ -5324,9 +2153,7 @@ export default function OpexFilters({
             fontWeight: 600,
             fontSize:
               "0.78rem",
-            cursor: loading
-              ? "not-allowed"
-              : "pointer",
+            cursor: "pointer",
             whiteSpace:
               "nowrap",
             display:
@@ -5335,9 +2162,7 @@ export default function OpexFilters({
               "center",
             justifyContent:
               "center",
-            opacity: loading
-              ? 0.7
-              : 1,
+            opacity: 1,
           }}
         >
           Reset
