@@ -2852,6 +2852,14 @@ function TrendChart({ data, currency, onPointClick }) {
     const [hoveredIndex, setHoveredIndex] = useState(null);
     const [chartLoaded, setChartLoaded] = useState(false);
     const [tooltipPosition, setTooltipPosition] = useState(null);
+    const [hoveredPoint, setHoveredPoint] = useState(null);
+
+    /* P&L Trend interaction features */
+    const [hiddenSeries, setHiddenSeries] = useState(
+        () => new Set()
+    );
+    const [hoveredSeries, setHoveredSeries] = useState(null);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const chartWrapperRef = useRef(null);
     const chartScrollRef = useRef(null);
@@ -2885,6 +2893,10 @@ function TrendChart({ data, currency, onPointClick }) {
         1
     );
 
+    /*
+     * Keep the existing dual-scale behaviour.
+     * The left axis is Payables and the right axis is DPO.
+     */
     const dpoScaleValues = [
         maxDpo,
         maxDpo * 0.75,
@@ -2893,10 +2905,56 @@ function TrendChart({ data, currency, onPointClick }) {
         0,
     ];
 
-    /* ----------------------------------------------------------
-       TOOLTIP POSITION
-       Tooltip is displayed below the graph
-    ---------------------------------------------------------- */
+    /* ==========================================================
+       SERIES CONTROLS
+       - click legend = hide/show
+       - double click legend = isolate
+       - hover legend = dim the other series
+    ========================================================== */
+
+    const toggleSeries = (key) => {
+        setHiddenSeries((previous) => {
+            const next = new Set(previous);
+
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+
+            return next;
+        });
+    };
+
+    const isolateSeries = (key) => {
+        setHiddenSeries(
+            new Set(
+                ["payables", "dpo"].filter(
+                    (seriesKey) =>
+                        seriesKey !== key
+                )
+            )
+        );
+    };
+
+    const seriesOpacity = (key) => {
+        if (hiddenSeries.has(key)) {
+            return 0;
+        }
+
+        if (!hoveredSeries) {
+            return 1;
+        }
+
+        return hoveredSeries === key
+            ? 1
+            : 0.35;
+    };
+
+    /*
+     * Tooltip + crosshair positioning.
+     * Tooltip remains below the graph.
+     */
     const updateTooltipPosition = (index) => {
         const wrapper =
             chartWrapperRef.current;
@@ -2918,12 +2976,8 @@ function TrendChart({ data, currency, onPointClick }) {
         const barRect =
             bar.getBoundingClientRect();
 
-        const tooltipWidth = 215;
+        const tooltipWidth = 230;
 
-        /*
-         * Keep tooltip centered below
-         * the hovered bar.
-         */
         let left =
             barRect.left -
             wrapperRect.left +
@@ -2935,10 +2989,6 @@ function TrendChart({ data, currency, onPointClick }) {
             wrapperRect.top +
             12;
 
-        /*
-         * Keep tooltip inside chart
-         * horizontally.
-         */
         if (left < 0) {
             left = 0;
         }
@@ -2958,11 +3008,63 @@ function TrendChart({ data, currency, onPointClick }) {
             top,
             left,
         });
+
+        const point =
+            wrapper.querySelector(
+                `[data-payables-point="${index}"]`
+            );
+
+        if (point) {
+            const pointRect =
+                point.getBoundingClientRect();
+
+            setHoveredPoint({
+                x:
+                    pointRect.left -
+                    wrapperRect.left +
+                    pointRect.width / 2,
+                y:
+                    pointRect.top -
+                    wrapperRect.top +
+                    pointRect.height / 2,
+            });
+        } else {
+            setHoveredPoint({
+                x:
+                    barRect.left -
+                    wrapperRect.left +
+                    barRect.width / 2,
+                y:
+                    barRect.top -
+                    wrapperRect.top,
+            });
+        }
     };
 
-    /* ----------------------------------------------------------
-       UPDATE TOOLTIP ON SCROLL / RESIZE
-    ---------------------------------------------------------- */
+    /*
+     * Update tooltip/crosshair on page scroll,
+     * chart scroll and browser resize.
+     */
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setIsFullscreen(false);
+            }
+        };
+
+        document.addEventListener(
+            "keydown",
+            handleKeyDown
+        );
+
+        return () => {
+            document.removeEventListener(
+                "keydown",
+                handleKeyDown
+            );
+        };
+    }, []);
+
     useEffect(() => {
         if (hoveredIndex === null) return;
 
@@ -3015,9 +3117,6 @@ function TrendChart({ data, currency, onPointClick }) {
         };
     }, [hoveredIndex, data]);
 
-    /* ----------------------------------------------------------
-       BAR HOVER
-    ---------------------------------------------------------- */
     const handleBarEnter = (index) => {
         setHoveredIndex(index);
 
@@ -3029,11 +3128,21 @@ function TrendChart({ data, currency, onPointClick }) {
     const handleBarLeave = () => {
         setHoveredIndex(null);
         setTooltipPosition(null);
+        setHoveredPoint(null);
     };
 
-    /* ----------------------------------------------------------
-       NO DATA
-    ---------------------------------------------------------- */
+    /*
+     * Line point hover uses the same tooltip/crosshair
+     * as the bars.
+     */
+    const handlePointEnter = (index) => {
+        setHoveredIndex(index);
+
+        requestAnimationFrame(() => {
+            updateTooltipPosition(index);
+        });
+    };
+
     if (!hasData) {
         return (
             <div
@@ -3053,14 +3162,13 @@ function TrendChart({ data, currency, onPointClick }) {
     }
 
     /*
-     * Keep the same responsive/scrolling
-     * behavior as Receivables.
+     * More than 8 months gets a horizontally scrollable chart.
      */
     const chartWidth =
         data.length > 8
             ? Math.max(
                 100,
-                data.length * 82
+                data.length * 70
             )
             : "100%";
 
@@ -3070,15 +3178,25 @@ function TrendChart({ data, currency, onPointClick }) {
             style={{
                 width: "100%",
                 position: "relative",
-
-                /*
-                 * Extra bottom space for
-                 * tooltip below chart.
-                 */
-                paddingBottom: 125,
-
+                paddingBottom: 65,
                 overflow: "visible",
                 boxSizing: "border-box",
+                ...(isFullscreen
+                    ? {
+                        position: "fixed",
+                        inset: 16,
+                        width: "calc(100vw - 32px)",
+                        height: "calc(100vh - 32px)",
+                        padding: "18px 20px 22px",
+                        background: "#ffffff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 14,
+                        boxShadow:
+                            "0 24px 70px rgba(15,23,42,0.22)",
+                        zIndex: 999998,
+                        overflow: "auto",
+                    }
+                    : {}),
             }}
         >
             {/* ======================================================
@@ -3094,6 +3212,9 @@ function TrendChart({ data, currency, onPointClick }) {
                     paddingBottom: 10,
                     boxSizing: "border-box",
                     position: "relative",
+                    scrollbarWidth: "thin",
+                    scrollbarColor:
+                        "#cbd5e1 transparent",
                 }}
             >
                 <div
@@ -3119,6 +3240,10 @@ function TrendChart({ data, currency, onPointClick }) {
                             top: 15,
                             bottom: 45,
                             pointerEvents: "none",
+                            opacity:
+                                chartLoaded ? 1 : 0,
+                            transition:
+                                "opacity 0.7s ease",
                         }}
                     >
                         {[0, 1, 2, 3, 4].map(
@@ -3154,8 +3279,7 @@ function TrendChart({ data, currency, onPointClick }) {
                                 "column",
                             justifyContent:
                                 "space-between",
-                            alignItems:
-                                "flex-end",
+                            alignItems: "flex-end",
                             paddingRight: 7,
                             boxSizing:
                                 "border-box",
@@ -3192,6 +3316,9 @@ function TrendChart({ data, currency, onPointClick }) {
                     {/* ==================================================
                         RIGHT DPO AXIS
                     ================================================== */}
+                    {/* ==================================================
+    RIGHT DPO AXIS
+================================================== */}
                     <div
                         style={{
                             position: "absolute",
@@ -3200,44 +3327,129 @@ function TrendChart({ data, currency, onPointClick }) {
                             bottom: 45,
                             width: 40,
                             display: "flex",
-                            flexDirection:
-                                "column",
-                            justifyContent:
-                                "space-between",
-                            alignItems:
-                                "flex-start",
+                            flexDirection: "column",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
                             paddingLeft: 5,
-                            boxSizing:
-                                "border-box",
+                            boxSizing: "border-box",
                             fontSize: 10,
                             color: "#0e9f75",
                         }}
                     >
-                        <span>
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: -2,
+                                left: 5,
+                                fontWeight: 600,
+                            }}
+                        >
                             Days
                         </span>
 
-                        {dpoScaleValues
-                            .slice(0, 4)
-                            .map(
-                                (
-                                    value,
-                                    index
-                                ) => (
-                                    <span
-                                        key={index}
-                                    >
-                                        {Number(
-                                            value
-                                        ).toFixed(0)}
-                                    </span>
-                                )
-                            )}
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: 18,
+                                left: 5,
+                            }}
+                        >
+                            {Number(maxDpo).toFixed(0)}
+                        </span>
 
-                        <span>
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: "25%",
+                                left: 5,
+                                transform: "translateY(-50%)",
+                            }}
+                        >
+                            {Number(maxDpo * 0.75).toFixed(0)}
+                        </span>
+
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: "50%",
+                                left: 5,
+                                transform: "translateY(-50%)",
+                            }}
+                        >
+                            {Number(maxDpo * 0.5).toFixed(0)}
+                        </span>
+
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: "75%",
+                                left: 5,
+                                transform: "translateY(-50%)",
+                            }}
+                        >
+                            {Number(maxDpo * 0.25).toFixed(0)}
+                        </span>
+
+                        <span
+                            style={{
+                                position: "absolute",
+                                bottom: -2,
+                                left: 5,
+                            }}
+                        >
                             0
                         </span>
                     </div>
+
+                    {/* ==================================================
+                        CROSSHAIR
+                    ================================================== */}
+                    {hoveredIndex !== null &&
+                        hoveredPoint && (
+                            <>
+                                <div
+                                    style={{
+                                        position:
+                                            "absolute",
+                                        top: 15,
+                                        bottom: 45,
+                                        left:
+                                            hoveredPoint.x,
+                                        width: 1,
+                                        background:
+                                            "rgba(14,159,117,0.22)",
+                                        borderLeft:
+                                            "1px dashed rgba(14,159,117,0.32)",
+                                        pointerEvents:
+                                            "none",
+                                        zIndex: 5,
+                                        transition:
+                                            "left 0.12s ease",
+                                    }}
+                                />
+
+                                <div
+                                    style={{
+                                        position:
+                                            "absolute",
+                                        left: 45,
+                                        right: 10,
+                                        top:
+                                            hoveredPoint.y,
+                                        height: 1,
+                                        background:
+                                            "rgba(14,159,117,0.18)",
+                                        borderTop:
+                                            "1px dashed rgba(14,159,117,0.28)",
+                                        pointerEvents:
+                                            "none",
+                                        zIndex: 5,
+                                        transition:
+                                            "top 0.12s ease",
+                                    }}
+                                />
+                            </>
+                        )}
 
                     {/* ==================================================
                         BAR CHART
@@ -3254,16 +3466,13 @@ function TrendChart({ data, currency, onPointClick }) {
                                 "flex-end",
                             justifyContent:
                                 "space-between",
-                            gap: 6,
+                            gap: 3,
                             overflow:
                                 "visible",
                         }}
                     >
                         {data.map(
-                            (
-                                item,
-                                index
-                            ) => {
+                            (item, index) => {
                                 const value =
                                     Number(
                                         item.total_payables
@@ -3287,7 +3496,7 @@ function TrendChart({ data, currency, onPointClick }) {
                                         style={{
                                             flex:
                                                 "1 1 0",
-                                            minWidth: 38,
+                                            minWidth: 32,
                                             height: 175,
                                             position:
                                                 "relative",
@@ -3307,7 +3516,17 @@ function TrendChart({ data, currency, onPointClick }) {
                                                     : "translateY(0)",
 
                                             transition:
-                                                "transform 0.18s ease",
+                                                "transform 0.18s ease, opacity 0.25s ease",
+
+                                            zIndex:
+                                                isHovered
+                                                    ? 8
+                                                    : 2,
+
+                                            opacity:
+                                                seriesOpacity(
+                                                    "payables"
+                                                ),
                                         }}
                                         onMouseEnter={() =>
                                             handleBarEnter(
@@ -3323,36 +3542,31 @@ function TrendChart({ data, currency, onPointClick }) {
                                             )
                                         }
                                     >
-                                        {/* ==================================================
-                                            VALUE ABOVE BAR
-                                        ================================================== */}
+                                        {/* VALUE */}
                                         <div
                                             style={{
                                                 position:
                                                     "absolute",
-
                                                 bottom:
                                                     barHeight +
                                                     5,
-
-                                                left:
-                                                    "50%",
-
+                                                left: "50%",
                                                 transform:
                                                     "translateX(-50%)",
-
                                                 whiteSpace:
                                                     "nowrap",
-
                                                 fontSize: 10,
-
                                                 fontWeight: 600,
-
                                                 color:
                                                     "#173b8f",
-
                                                 pointerEvents:
                                                     "none",
+                                                opacity:
+                                                    chartLoaded
+                                                        ? 1
+                                                        : 0,
+                                                transition:
+                                                    "opacity 0.45s ease",
                                             }}
                                         >
                                             {(
@@ -3361,69 +3575,54 @@ function TrendChart({ data, currency, onPointClick }) {
                                             ).toFixed(2)}
                                         </div>
 
-                                        {/* ==================================================
-                                            BAR
-                                        ================================================== */}
+                                        {/* BAR */}
                                         <div
                                             style={{
                                                 width:
                                                     isHovered
-                                                        ? "66%"
-                                                        : "58%",
-
+                                                        ? "62%"
+                                                        : "52%",
                                                 maxWidth: 32,
-
                                                 height:
                                                     chartLoaded
                                                         ? `${barHeight}px`
                                                         : "0px",
-
                                                 borderRadius:
                                                     "5px 5px 2px 2px",
-
                                                 background:
                                                     "linear-gradient(180deg, #5A5BE0 0%, #4145B8 100%)",
-
                                                 transition:
-                                                    "height 0.55s ease, width 0.18s ease",
-
+                                                    "height 0.7s cubic-bezier(0.34,1.25,0.64,1), width 0.18s ease, box-shadow 0.18s ease",
                                                 boxShadow:
                                                     isHovered
-                                                        ? "0 5px 12px rgba(23,59,143,0.18)"
+                                                        ? "0 7px 16px rgba(23,59,143,0.22)"
                                                         : "none",
                                             }}
                                         />
 
-                                        {/* ==================================================
-                                            MONTH / YEAR
-                                        ================================================== */}
+                                        {/* MONTH */}
                                         <div
                                             style={{
                                                 position:
                                                     "absolute",
-
                                                 bottom:
                                                     -31,
-
-                                                left:
-                                                    "50%",
-
+                                                left: "50%",
                                                 transform:
-                                                    "translateX(-50%)",
-
+                                                    "translateX(-50%) rotate(-28deg)",
+                                                transformOrigin:
+                                                    "top center",
                                                 textAlign:
                                                     "center",
-
                                                 whiteSpace:
                                                     "nowrap",
-
                                                 fontSize: 10,
-
                                                 color:
                                                     "#475569",
-
                                                 lineHeight:
                                                     1.3,
+                                                pointerEvents:
+                                                    "none",
                                             }}
                                         >
                                             {(() => {
@@ -3494,17 +3693,38 @@ function TrendChart({ data, currency, onPointClick }) {
                                 "none",
                             overflow:
                                 "visible",
+                            zIndex: 9,
                         }}
                         viewBox="0 0 600 125"
                         preserveAspectRatio="none"
                     >
+                        <defs>
+                            <linearGradient
+                                id="payablesTrendLineGradient"
+                                x1="0%"
+                                y1="0%"
+                                x2="100%"
+                                y2="0%"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stopColor="#0e9f75"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stopColor="#0e9f75"
+                                />
+                            </linearGradient>
+                        </defs>
+
                         {data.length > 1 && (
                             <>
-                                {/* DPO LINE */}
                                 <polyline
                                     fill="none"
-                                    stroke="#0e9f75"
+                                    stroke="url(#payablesTrendLineGradient)"
                                     strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
                                     points={data
                                         .map(
                                             (
@@ -3536,9 +3756,20 @@ function TrendChart({ data, currency, onPointClick }) {
                                             }
                                         )
                                         .join(" ")}
+                                    style={{
+                                        filter:
+                                            "drop-shadow(0 2px 5px rgba(14,159,117,0.18))",
+                                        opacity:
+                                            chartLoaded
+                                                ? seriesOpacity(
+                                                    "dpo"
+                                                )
+                                                : 0,
+                                        transition:
+                                            "opacity 0.8s ease",
+                                    }}
                                 />
 
-                                {/* DPO POINTS */}
                                 {data.map(
                                     (
                                         item,
@@ -3565,21 +3796,103 @@ function TrendChart({ data, currency, onPointClick }) {
                                                 maxDpo) *
                                             108;
 
+                                        const isHovered =
+                                            hoveredIndex ===
+                                            index;
+
                                         return (
-                                            <circle
-                                                key={index}
-                                                cx={x}
-                                                cy={y}
-                                                r={
-                                                    hoveredIndex ===
-                                                        index
-                                                        ? 5
-                                                        : 3.5
+                                            <g
+                                                key={
+                                                    index
                                                 }
-                                                fill="#ffffff"
-                                                stroke="#0e9f75"
-                                                strokeWidth="2"
-                                            />
+                                                data-payables-point={
+                                                    index
+                                                }
+                                                style={{
+                                                    pointerEvents:
+                                                        "auto",
+                                                    cursor:
+                                                        "pointer",
+                                                    opacity:
+                                                        seriesOpacity(
+                                                            "dpo"
+                                                        ),
+                                                    transition:
+                                                        "opacity 0.25s ease",
+                                                }}
+                                                onMouseEnter={() =>
+                                                    handlePointEnter(
+                                                        index
+                                                    )
+                                                }
+                                                onMouseLeave={
+                                                    handleBarLeave
+                                                }
+                                                onClick={() =>
+                                                    onPointClick?.(
+                                                        item
+                                                    )
+                                                }
+                                            >
+                                                {index ===
+                                                    data.length -
+                                                    1 && (
+                                                        <circle
+                                                            cx={x}
+                                                            cy={y}
+                                                            r="4"
+                                                            fill="none"
+                                                            stroke="#0e9f75"
+                                                            strokeWidth="2"
+                                                            opacity="0.55"
+                                                            style={{
+                                                                animation:
+                                                                    "payablesTrendLivePulse 2s infinite cubic-bezier(0.2, 0.8, 0.2, 1)",
+                                                            }}
+                                                        />
+                                                    )}
+
+                                                {isHovered && (
+                                                    <circle
+                                                        cx={x}
+                                                        cy={y}
+                                                        r="7"
+                                                        fill="none"
+                                                        stroke="#0e9f75"
+                                                        strokeWidth="2"
+                                                        opacity="0.35"
+                                                        style={{
+                                                            animation:
+                                                                "payablesTrendRipple 1.4s infinite ease-out",
+                                                        }}
+                                                    />
+                                                )}
+
+                                                <circle
+                                                    cx={x}
+                                                    cy={y}
+                                                    r={
+                                                        isHovered
+                                                            ? 5
+                                                            : 3.5
+                                                    }
+                                                    fill="#ffffff"
+                                                    stroke="#0e9f75"
+                                                    strokeWidth={
+                                                        isHovered
+                                                            ? 2.5
+                                                            : 2
+                                                    }
+                                                    style={{
+                                                        filter:
+                                                            isHovered
+                                                                ? "drop-shadow(0 2px 5px rgba(14,159,117,0.30))"
+                                                                : "none",
+                                                        transition:
+                                                            "all 0.15s ease",
+                                                    }}
+                                                />
+                                            </g>
                                         );
                                     }
                                 )}
@@ -3590,8 +3903,8 @@ function TrendChart({ data, currency, onPointClick }) {
             </div>
 
             {/* ======================================================
-                TOOLTIP
-                ALWAYS BELOW GRAPH
+                EXECUTIVE TOOLTIP
+                MoM Change intentionally removed.
             ====================================================== */}
             {hoveredIndex !== null &&
                 tooltipPosition &&
@@ -3599,101 +3912,152 @@ function TrendChart({ data, currency, onPointClick }) {
                     <div
                         ref={tooltipRef}
                         style={{
-                            position:
-                                "absolute",
-
+                            position: "absolute",
                             top:
                                 tooltipPosition.top,
-
                             left:
                                 tooltipPosition.left,
 
-                            width: 215,
-                            minWidth: 215,
-                            maxWidth: 215,
+                            width: 230,
+                            minWidth: 230,
+                            maxWidth: 230,
 
                             background:
-                                "#fff",
+                                "rgba(255,255,255,0.94)",
+                            backdropFilter:
+                                "blur(14px)",
+                            WebkitBackdropFilter:
+                                "blur(14px)",
 
                             border:
-                                "1px solid #dce3ee",
+                                "1px solid rgba(220,227,238,0.95)",
 
-                            borderRadius: 9,
+                            borderRadius: 12,
 
                             padding:
-                                "11px 13px",
+                                "12px 13px",
 
                             boxShadow:
-                                "0 8px 24px rgba(24, 45, 80, 0.18)",
+                                "0 12px 32px rgba(24,45,80,0.16), 0 2px 8px rgba(24,45,80,0.06)",
 
                             zIndex: 999999,
-
                             pointerEvents:
                                 "none",
 
                             boxSizing:
                                 "border-box",
 
-                            whiteSpace:
-                                "normal",
-
-                            overflow:
-                                "visible",
-
                             animation:
-                                "payablesTrendTooltipIn 0.14s ease-out",
+                                "payablesTrendTooltipIn 0.16s ease-out",
                         }}
                     >
-                        {/* ==================================================
-                            MONTH
-                        ================================================== */}
+                        {/* HEADER */}
                         <div
                             style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color:
-                                    "#173b8f",
-                                marginBottom: 8,
-                                borderBottom:
-                                    "1px solid #eef2f7",
-                                paddingBottom: 7,
-                            }}
-                        >
-                            {
-                                data[
-                                    hoveredIndex
-                                ].month
-                            }
-                        </div>
-
-                        {/* ==================================================
-                            TOTAL PAYABLES
-                        ================================================== */}
-                        <div
-                            style={{
-                                display: "flex",
+                                display:
+                                    "flex",
                                 alignItems:
                                     "center",
                                 justifyContent:
                                     "space-between",
                                 gap: 8,
-                                marginBottom: 7,
+                                marginBottom: 9,
+                                paddingBottom:
+                                    8,
+                                borderBottom:
+                                    "1px solid #eef2f7",
                             }}
                         >
                             <span
                                 style={{
-                                    fontSize: 11,
+                                    fontSize: 12,
+                                    fontWeight: 800,
                                     color:
-                                        "#64748b",
+                                        "#173b8f",
                                 }}
                             >
-                                Total Payables
+                                {
+                                    data[
+                                        hoveredIndex
+                                    ].month
+                                }
                             </span>
 
                             <span
                                 style={{
-                                    fontSize: 11,
+                                    fontSize:
+                                        "0.62rem",
                                     fontWeight: 700,
+                                    padding:
+                                        "3px 8px",
+                                    borderRadius:
+                                        999,
+                                    background:
+                                        "#eff6ff",
+                                    color:
+                                        "#2563eb",
+                                    border:
+                                        "1px solid rgba(37,99,235,0.14)",
+                                    whiteSpace:
+                                        "nowrap",
+                                }}
+                            >
+                                Monthly
+                            </span>
+                        </div>
+
+                        {/* TOTAL PAYABLES */}
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+                                alignItems:
+                                    "center",
+                                justifyContent:
+                                    "space-between",
+                                gap: 8,
+                                marginBottom:
+                                    7,
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    gap: 7,
+                                    minWidth: 0,
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: 3,
+                                        background:
+                                            "#4145B8",
+                                        boxShadow:
+                                            "0 2px 5px rgba(65,69,184,0.20)",
+                                        flexShrink: 0,
+                                    }}
+                                />
+
+                                <span
+                                    style={{
+                                        fontSize: 11,
+                                        color:
+                                            "#64748b",
+                                    }}
+                                >
+                                    Total Payables
+                                </span>
+                            </div>
+
+                            <span
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 800,
                                     color:
                                         "#173b8f",
                                     whiteSpace:
@@ -3710,12 +4074,11 @@ function TrendChart({ data, currency, onPointClick }) {
                             </span>
                         </div>
 
-                        {/* ==================================================
-                            DPO DAYS
-                        ================================================== */}
+                        {/* DPO */}
                         <div
                             style={{
-                                display: "flex",
+                                display:
+                                    "flex",
                                 alignItems:
                                     "center",
                                 justifyContent:
@@ -3723,20 +4086,41 @@ function TrendChart({ data, currency, onPointClick }) {
                                 gap: 8,
                             }}
                         >
-                            <span
+                            <div
                                 style={{
-                                    fontSize: 11,
-                                    color:
-                                        "#64748b",
+                                    display:
+                                        "flex",
+                                    alignItems:
+                                        "center",
+                                    gap: 7,
                                 }}
                             >
-                                DPO Days
-                            </span>
+                                <span
+                                    style={{
+                                        width: 10,
+                                        height: 3,
+                                        borderRadius: 999,
+                                        background:
+                                            "#0e9f75",
+                                        flexShrink: 0,
+                                    }}
+                                />
+
+                                <span
+                                    style={{
+                                        fontSize: 11,
+                                        color:
+                                            "#64748b",
+                                    }}
+                                >
+                                    DPO Days
+                                </span>
+                            </div>
 
                             <span
                                 style={{
                                     fontSize: 11,
-                                    fontWeight: 700,
+                                    fontWeight: 800,
                                     color:
                                         "#0e9f75",
                                     whiteSpace:
@@ -3748,7 +4132,8 @@ function TrendChart({ data, currency, onPointClick }) {
                                 ].dpo !== null &&
                                     data[
                                         hoveredIndex
-                                    ].dpo !== undefined &&
+                                    ].dpo !==
+                                    undefined &&
                                     data[
                                         hoveredIndex
                                     ].dpo !== ""
@@ -3766,28 +4151,69 @@ function TrendChart({ data, currency, onPointClick }) {
                 )}
 
             {/* ======================================================
-                LEGEND
+                INTERACTIVE LEGEND
             ====================================================== */}
             <div
                 style={{
                     display: "flex",
-                    justifyContent:
-                        "center",
-                    alignItems:
-                        "center",
-                    gap: 20,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 16,
                     marginTop: 4,
                     fontSize: 11,
                     color: "#64748b",
+                    flexWrap: "wrap",
                 }}
             >
                 {/* Total Payables */}
-                <div
+                <button
+                    type="button"
+                    onMouseEnter={() =>
+                        setHoveredSeries(
+                            "payables"
+                        )
+                    }
+                    onMouseLeave={() =>
+                        setHoveredSeries(null)
+                    }
+                    onClick={() =>
+                        toggleSeries(
+                            "payables"
+                        )
+                    }
+                    onDoubleClick={() =>
+                        isolateSeries(
+                            "payables"
+                        )
+                    }
+                    title="Click to hide/show. Double-click to isolate."
                     style={{
+                        border: 0,
+                        background: "transparent",
+                        padding: "3px 5px",
                         display: "flex",
-                        alignItems:
-                            "center",
+                        alignItems: "center",
                         gap: 6,
+                        cursor: "pointer",
+
+                        /*
+                         * Keep legend text visible in gray
+                         * even when the series is hidden/isolate.
+                         */
+                        color: hiddenSeries.has(
+                            "payables"
+                        )
+                            ? "#94a3b8"
+                            : "#64748b",
+
+                        /*
+                         * Do not apply seriesOpacity to the
+                         * legend text.
+                         */
+                        opacity: 1,
+
+                        transition:
+                            "color 0.2s ease",
                     }}
                 >
                     <span
@@ -3799,54 +4225,135 @@ function TrendChart({ data, currency, onPointClick }) {
                                 "#173b8f",
                             display:
                                 "inline-block",
+                            boxShadow:
+                                "0 2px 5px rgba(23,59,143,0.18)",
+                            opacity:
+                                hiddenSeries.has(
+                                    "payables"
+                                )
+                                    ? 0.45
+                                    : 1,
                         }}
                     />
 
                     <span>
                         Total Payables
                     </span>
-                </div>
+                </button>
 
                 {/* DPO */}
-                <div
+                <button
+                    type="button"
+                    onMouseEnter={() =>
+                        setHoveredSeries("dpo")
+                    }
+                    onMouseLeave={() =>
+                        setHoveredSeries(null)
+                    }
+                    onClick={() =>
+                        toggleSeries("dpo")
+                    }
+                    onDoubleClick={() =>
+                        isolateSeries("dpo")
+                    }
+                    title="Click to hide/show. Double-click to isolate."
                     style={{
+                        border: 0,
+                        background: "transparent",
+                        padding: "3px 5px",
                         display: "flex",
-                        alignItems:
-                            "center",
+                        alignItems: "center",
                         gap: 6,
+                        cursor: "pointer",
+
+                        /*
+                         * Keep legend text readable in gray
+                         * when DPO is isolated/hidden.
+                         */
+                        color: hiddenSeries.has(
+                            "dpo"
+                        )
+                            ? "#94a3b8"
+                            : "#64748b",
+
+                        opacity: 1,
+
+                        transition:
+                            "color 0.2s ease",
                     }}
                 >
                     <span
                         style={{
                             width: 18,
                             height: 2,
+                            borderRadius: 999,
                             background:
                                 "#0e9f75",
                             display:
                                 "inline-block",
+                            opacity:
+                                hiddenSeries.has(
+                                    "dpo"
+                                )
+                                    ? 0.45
+                                    : 1,
                         }}
                     />
 
                     <span>
                         DPO (Days)
                     </span>
-                </div>
+                </button>
             </div>
 
             {/* ======================================================
-                TOOLTIP ANIMATION
+                LOCAL ANIMATIONS
             ====================================================== */}
             <style>
                 {`
                     @keyframes payablesTrendTooltipIn {
                         from {
                             opacity: 0;
-                            transform: translateY(-4px);
+                            transform: translateY(-4px) scale(0.98);
                         }
 
                         to {
                             opacity: 1;
-                            transform: translateY(0);
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+
+                    @keyframes payablesTrendRipple {
+                        0% {
+                            r: 5px;
+                            opacity: 0.45;
+                        }
+
+                        70% {
+                            r: 11px;
+                            opacity: 0;
+                        }
+
+                        100% {
+                            r: 11px;
+                            opacity: 0;
+                        }
+                    }
+
+                    @keyframes payablesTrendLivePulse {
+                        0% {
+                            transform: scale(1);
+                            opacity: 0.55;
+                        }
+
+                        60% {
+                            transform: scale(2.8);
+                            opacity: 0;
+                        }
+
+                        100% {
+                            transform: scale(2.8);
+                            opacity: 0;
                         }
                     }
                 `}

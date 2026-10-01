@@ -1,11 +1,1309 @@
 
-import React, {
-    useMemo,
-    useState,
-    useRef,
-    useEffect,
-} from "react";
+// import React, { useMemo, useState, useRef, useEffect,} from "react";
+// import {   ResponsiveContainer,   BarChart,   Bar,   XAxis,   YAxis,   CartesianGrid,   Tooltip,   Legend,   Cell,} from "recharts";
+// import { MoreVertical, Eye,} from "lucide-react";
+// import ExportButtons from "../Common/ExportButtons";
 
+// /* =========================================================
+//    FORMAT VALUE
+// ========================================================= */
+// const formatValue = (value) => {
+//     if (
+//         value === null ||
+//         value === undefined ||
+//         value === ""
+//     ) {
+//         return "—";
+//     }
+
+//     const number = Number(value);
+
+//     if (Number.isNaN(number)) {
+//         return "—";
+//     }
+
+//     return number.toLocaleString("en-US", {
+//         maximumFractionDigits: 0,
+//     });
+// };
+
+// /* =========================================================
+//    NORMALIZE CHART DATA
+// ========================================================= */
+
+// const normalizeChartData = (data = []) => {
+//     if (!Array.isArray(data)) {
+//         return [];
+//     }
+
+//     return data.map((item) => {
+//         const actual =
+//             item?.actual !== undefined
+//                 ? item.actual
+//                 : item?.actual_ptd_aed;
+
+//         const target =
+//             item?.target !== undefined
+//                 ? item.target
+//                 : item?.target_ptd_aed;
+
+//         const variance =
+//             item?.variance_ptd !== undefined
+//                 ? item.variance_ptd
+//                 : item?.variance_ptd_aed;
+
+//         const variancePct =
+//             item?.variance_ptd_pct !== undefined
+//                 ? item.variance_ptd_pct
+//                 : null;
+
+//         return {
+//             category: item?.category ?? "—",
+
+//             actual:
+//                 actual !== null &&
+//                     actual !== undefined &&
+//                     actual !== ""
+//                     ? Number(actual)
+//                     : null,
+
+//             target:
+//                 target !== null &&
+//                     target !== undefined &&
+//                     target !== ""
+//                     ? Number(target)
+//                     : null,
+
+//             // Preserve backend-returned values for the tooltip/View All.
+//             actualBackend:
+//                 actual !== null &&
+//                     actual !== undefined &&
+//                     actual !== ""
+//                     ? String(actual)
+//                     : null,
+
+//             targetBackend:
+//                 target !== null &&
+//                     target !== undefined &&
+//                     target !== ""
+//                     ? String(target)
+//                     : null,
+
+//             variancePtd:
+//                 variance !== null &&
+//                     variance !== undefined &&
+//                     variance !== ""
+//                     ? Number(variance)
+//                     : null,
+
+//             variancePtdBackend:
+//                 variance !== null &&
+//                     variance !== undefined &&
+//                     variance !== ""
+//                     ? String(variance)
+//                     : null,
+
+//             variancePtdPct:
+//                 variancePct !== null &&
+//                     variancePct !== undefined &&
+//                     variancePct !== ""
+//                     ? Number(variancePct)
+//                     : null,
+
+//             variancePtdPctBackend:
+//                 variancePct !== null &&
+//                     variancePct !== undefined &&
+//                     variancePct !== ""
+//                     ? String(variancePct)
+//                     : null,
+
+//             varianceStatus:
+//                 item?.variance_status ?? null,
+
+//             reportingCurrency:
+//                 item?.reporting_currency ?? null,
+
+//             conversionRateToAed:
+//                 item?.conversion_rate_to_aed ?? null,
+//         };
+//     });
+// };
+
+// /* =========================================================
+//    CUSTOM TOOLTIP
+// ========================================================= */
+
+// function CustomTooltip({
+//     active,
+//     payload,
+//     label,
+//     reportingCurrency = "AED",
+// }) {
+//     if (
+//         !active ||
+//         !payload ||
+//         !payload.length
+//     ) {
+//         return null;
+//     }
+
+//     const row = payload[0]?.payload || {};
+
+//     const getBackendValue = (dataKey) => {
+//         if (dataKey === "actual") {
+//             return row.actualBackend;
+//         }
+
+//         if (dataKey === "target") {
+//             return row.targetBackend;
+//         }
+
+//         return null;
+//     };
+
+//     const formatBackendDisplay = (value) => {
+//         if (
+//             value === null ||
+//             value === undefined ||
+//             value === ""
+//         ) {
+//             return "—";
+//         }
+
+//         const numericValue = Number(value);
+
+//         if (Number.isNaN(numericValue)) {
+//             return "—";
+//         }
+
+//         return `${reportingCurrency} ${numericValue.toLocaleString("en-US", {
+//             maximumFractionDigits: 0,
+//             minimumFractionDigits: 0,
+//         })}`;
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 minWidth: 225,
+//                 background:
+//                     "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))",
+//                 border: "1px solid rgba(148,163,184,0.30)",
+//                 borderRadius: 12,
+//                 padding: "11px 13px",
+//                 boxShadow:
+//                     "0 14px 34px rgba(15,23,42,0.16), 0 2px 8px rgba(79,70,229,0.08)",
+//                 backdropFilter: "blur(12px)",
+//                 WebkitBackdropFilter: "blur(12px)",
+//             }}
+//         >
+//             <div
+//                 style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "space-between",
+//                     gap: 12,
+//                     marginBottom: 9,
+//                 }}
+//             >
+//                 <div
+//                     style={{
+//                         fontSize: 12,
+//                         fontWeight: 800,
+//                         color: "#0F172A",
+//                         lineHeight: 1.25,
+//                     }}
+//                 >
+//                     {label}
+//                 </div>
+
+//             </div>
+
+//             <div
+//                 style={{
+//                     height: 1,
+//                     background: "#E2E8F0",
+//                     marginBottom: 7,
+//                 }}
+//             />
+
+//             {payload.map((item) => {
+//                 const backendValue =
+//                     getBackendValue(item?.dataKey);
+
+//                 return (
+//                     <div
+//                         key={item.dataKey}
+//                         style={{
+//                             display: "flex",
+//                             alignItems: "center",
+//                             justifyContent: "space-between",
+//                             gap: 18,
+//                             marginTop: 7,
+//                         }}
+//                     >
+//                         <div
+//                             style={{
+//                                 display: "flex",
+//                                 alignItems: "center",
+//                                 gap: 7,
+//                                 minWidth: 0,
+//                             }}
+//                         >
+//                             <span
+//                                 style={{
+//                                     width: 8,
+//                                     height: 8,
+//                                     borderRadius: "50%",
+//                                     background:
+//                                         item.color,
+//                                     boxShadow:
+//                                         `0 0 0 3px ${item.color}18`,
+//                                     flex: "0 0 auto",
+//                                 }}
+//                             />
+
+//                             <span
+//                                 style={{
+//                                     fontSize: 11,
+//                                     fontWeight: 700,
+//                                     color:
+//                                         item?.dataKey === "actual"
+//                                             ? "#5B3FE4"
+//                                             : "#64748B",
+//                                     whiteSpace: "nowrap",
+//                                 }}
+//                             >
+//                                 {item.name}
+//                             </span>
+//                         </div>
+
+//                         <span
+//                             style={{
+//                                 fontSize: 12,
+//                                 fontWeight: 800,
+//                                 color:
+//                                     item?.dataKey === "actual"
+//                                         ? "#5B3FE4"
+//                                         : "#64748B",
+//                                 whiteSpace: "nowrap",
+//                                 fontVariantNumeric:
+//                                     "tabular-nums",
+//                             }}
+//                         >
+//                             {formatBackendDisplay(
+//                                 backendValue
+//                             )}
+//                         </span>
+//                     </div>
+//                 );
+//             })}
+//         </div>
+//     );
+// }
+
+// /* =========================================================
+//    CUSTOM Y AXIS LABEL
+// ========================================================= */
+
+// function CustomYAxisTick({
+//     x,
+//     y,
+//     payload,
+//     hoveredCategory = null,
+// }) {
+//     const text = payload.value;
+
+//     return (
+//         <g
+//             transform={`translate(${x},${y})`}
+//         >
+//             <text
+//                 x={-165}
+//                 y={0}
+//                 textAnchor="start"
+//                 dominantBaseline="middle"
+//                 fill={hoveredCategory === text ? "#4F46E5" : "#1E293B"}
+//                 fontSize={12}
+//                 fontWeight={hoveredCategory === text ? 800 : 700}
+//             >
+//                 {text}
+//             </text>
+//         </g>
+//     );
+// }
+
+
+// /* =========================================================
+//    CUSTOM BAR LABEL
+// ========================================================= */
+
+// function formatMillions(value) {
+//     if (
+//         value === null ||
+//         value === undefined ||
+//         value === "" ||
+//         Number.isNaN(Number(value))
+//     ) {
+//         return "—";
+//     }
+
+//     const number = Number(value);
+//     const millions = number / 1000000;
+
+//     if (Math.abs(millions) >= 100) {
+//         return `${millions.toFixed(0)}M`;
+//     }
+
+//     if (Math.abs(millions) >= 10) {
+//         return `${millions.toFixed(1)}M`;
+//     }
+
+//     return `${millions.toFixed(2)}M`;
+// }
+
+
+// function CustomBarLabel({
+//     x,
+//     y,
+//     width,
+//     value,
+// }) {
+//     const formatted = formatMillions(value);
+
+//     if (formatted === "—") {
+//         return null;
+//     }
+
+//     return (
+//         <text
+//             x={x + width + 6}
+//             y={y + 3}
+//             fill="#334155"
+//             fontSize={10}
+//             fontWeight={800}
+//             textAnchor="start"
+//             style={{
+//                 fontVariantNumeric: "tabular-nums",
+//             }}
+//         >
+//             {formatted}
+//         </text>
+//     );
+// }
+
+// /* =========================================================
+//    MAIN COMPONENT
+// ========================================================= */
+
+// export default function ActualVsTargetChart({
+//     data = [],
+
+//     /* Parent page handlers */
+//     total,
+//     activeFilters,
+//     reportingCurrency = "AED",
+//     onDrillDown,
+//     onViewAll,
+//     onExportExcel,
+//     onExportPdf,
+//     exporting = "",
+// }) {
+//     /* =======================================================
+//        MENU STATE
+//     ======================================================= */
+
+//     const [menuOpen, setMenuOpen] = useState(false);
+//     const [hoveredBar, setHoveredBar] = useState(null);
+//     const [hoveredCategory, setHoveredCategory] = useState(null);
+
+//     const menuRef = useRef(null);
+
+
+//     /* =======================================================
+//        CLOSE MENU WHEN CLICKING OUTSIDE
+//     ======================================================= */
+
+//     useEffect(() => {
+//         const handleOutsideClick = (event) => {
+//             if (
+//                 menuRef.current &&
+//                 !menuRef.current.contains(event.target)
+//             ) {
+//                 setMenuOpen(false);
+//             }
+//         };
+
+//         if (menuOpen) {
+//             document.addEventListener(
+//                 "mousedown",
+//                 handleOutsideClick
+//             );
+//         }
+
+//         return () => {
+//             document.removeEventListener(
+//                 "mousedown",
+//                 handleOutsideClick
+//             );
+//         };
+//     }, [menuOpen]);
+
+
+//     /* =======================================================
+//        MENU HANDLERS
+//     ======================================================= */
+
+//     const handleViewAll = async () => {
+//         setMenuOpen(false);
+
+//         if (typeof onViewAll === "function") {
+//             await onViewAll(chartData);
+//         }
+//     };
+
+
+//     const handleExportExcel = async () => {
+//         setMenuOpen(false);
+
+//         if (typeof onExportExcel === "function") {
+//             await onExportExcel();
+//         }
+//     };
+
+
+//     const handleExportPdf = async () => {
+//         setMenuOpen(false);
+
+//         if (typeof onExportPdf === "function") {
+//             await onExportPdf();
+//         }
+//     };
+
+
+//     /* =======================================================
+//        COMMON EXPORT HANDLER
+//     ======================================================= */
+
+//     const handleExport = async (type) => {
+//         if (type === "excel") {
+//             await handleExportExcel();
+//             return;
+//         }
+
+//         if (type === "pdf") {
+//             await handleExportPdf();
+//         }
+//     };
+
+
+//     /* =======================================================
+//        EXPORTING STATE FOR COMMON COMPONENT
+//     ======================================================= */
+
+//     const commonExporting =
+//         exporting === "composition-excel"
+//             ? "excel"
+//             : exporting === "composition-pdf"
+//                 ? "pdf"
+//                 : "";
+
+
+//     /* =======================================================
+//        NORMALIZED DATA
+//     ======================================================= */
+
+//     const chartData = useMemo(
+//         () => normalizeChartData(data),
+//         [data]
+//     );
+
+
+//     /* =======================================================
+//        X AXIS MAXIMUM
+//     ======================================================= */
+
+//     const xAxisMax = useMemo(() => {
+//         const values = chartData
+//             .flatMap((item) => [
+//                 item.actual,
+//                 item.target,
+//             ])
+//             .filter(
+//                 (value) =>
+//                     value !== null &&
+//                     value !== undefined &&
+//                     !Number.isNaN(value)
+//             );
+
+//         if (!values.length) {
+//             return 1000;
+//         }
+
+//         const maxValue = Math.max(...values);
+
+//         const calculatedMax =
+//             maxValue * 1.2;
+
+//         if (calculatedMax <= 1000) {
+//             return 1000;
+//         }
+
+//         if (calculatedMax <= 5000) {
+//             return 5000;
+//         }
+
+//         if (calculatedMax <= 10000) {
+//             return 10000;
+//         }
+
+//         if (calculatedMax <= 25000) {
+//             return 25000;
+//         }
+
+//         if (calculatedMax <= 50000) {
+//             return 50000;
+//         }
+
+//         if (calculatedMax <= 100000) {
+//             return 100000;
+//         }
+
+//         if (calculatedMax <= 250000) {
+//             return 250000;
+//         }
+
+//         if (calculatedMax <= 500000) {
+//             return 500000;
+//         }
+
+//         if (calculatedMax <= 1000000) {
+//             return 1000000;
+//         }
+
+//         return (
+//             Math.ceil(
+//                 calculatedMax / 1000000
+//             ) * 1000000
+//         );
+//     }, [chartData]);
+
+
+//     /* =========================================================
+//        X AXIS TICK FORMAT
+//     ========================================================= */
+
+//     const formatXAxis = (value) => {
+//         if (
+//             value === null ||
+//             value === undefined ||
+//             Number.isNaN(Number(value))
+//         ) {
+//             return "";
+//         }
+
+//         const millions = Number(value) / 1000000;
+
+//         if (millions === 0) {
+//             return "0M";
+//         }
+
+//         if (Math.abs(millions) >= 100) {
+//             return `${millions.toFixed(0)}M`;
+//         }
+
+//         if (Math.abs(millions) >= 10) {
+//             return `${millions.toFixed(1)}M`;
+//         }
+
+//         return `${millions.toFixed(2)}M`;
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 width: "100%",
+//                 height: "100%",
+//                 minHeight: 275,
+//                 background: "#FFFFFF",
+//                 border: "1px solid #E5E7EB",
+//                 borderRadius: 10,
+//                 padding: "12px 12px 8px",
+//                 boxSizing: "border-box",
+//                 display: "flex",
+//                 flexDirection: "column",
+//             }}
+//         >
+
+//             {/* ===================================================
+//                 HEADER
+//             =================================================== */}
+
+//             <div
+//                 style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent:
+//                         "space-between",
+//                     marginBottom: 2,
+//                     position: "relative",
+//                 }}
+//             >
+
+//                 <div
+//                     style={{
+//                         display: "flex",
+//                         flexDirection: "column",
+//                         gap: 2,
+//                         minWidth: 0,
+//                     }}
+//                 >
+//                     <h3
+//                         style={{
+//                             margin: 0,
+//                             fontSize: 13,
+//                             lineHeight: "18px",
+//                             fontWeight: 700,
+//                             color: "#0F172A",
+//                         }}
+//                     >
+//                         Actual vs Target by Expense Category
+//                     </h3>
+
+//                     <div
+//                         style={{
+//                             fontSize: 10,
+//                             lineHeight: "15px",
+//                             fontWeight: 500,
+//                             color: "#64748B",
+//                         }}
+//                     >
+//                         Compare actual PTD costs against target PTD by expense category
+//                     </div>
+//                 </div>
+
+
+//                 {/* =================================================
+//                     THREE DOT MENU
+//                 ================================================= */}
+
+//                 <div
+//                     ref={menuRef}
+//                     style={{
+//                         position: "relative",
+//                     }}
+//                 >
+
+//                     <button
+//                         type="button"
+//                         onClick={() =>
+//                             setMenuOpen(
+//                                 (prev) => !prev
+//                             )
+//                         }
+//                         aria-label="Chart options"
+//                         aria-expanded={menuOpen}
+//                         style={{
+//                             border: "none",
+//                             background:
+//                                 "transparent",
+//                             padding: "4px",
+//                             cursor: "pointer",
+//                             color: "#64748B",
+//                             display: "flex",
+//                             alignItems: "center",
+//                             justifyContent: "center",
+//                             borderRadius: 5,
+//                         }}
+//                     >
+//                         <MoreVertical
+//                             size={17}
+//                             strokeWidth={2}
+//                         />
+//                     </button>
+
+
+//                     {/* =================================================
+//                         ACTION MENU
+//                     ================================================= */}
+
+//                     {menuOpen && (
+//                         <div
+//                             style={{
+//                                 position: "absolute",
+//                                 top: 28,
+//                                 right: 0,
+//                                 minWidth: 165,
+//                                 background: "#FFFFFF",
+//                                 border:
+//                                     "1px solid #E5E7EB",
+//                                 borderRadius: 8,
+//                                 boxShadow:
+//                                     "0 8px 24px rgba(15, 23, 42, 0.12)",
+//                                 padding: "5px 0",
+//                                 zIndex: 100,
+//                             }}
+//                         >
+
+//                             {/* =================================================
+//                                 VIEW ALL
+//                             ================================================= */}
+
+//                             <button
+//                                 type="button"
+//                                 onClick={
+//                                     handleViewAll
+//                                 }
+//                                 disabled={
+//                                     !onViewAll
+//                                 }
+//                                 style={{
+//                                     width: "100%",
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     gap: 9,
+//                                     border:
+//                                         "none",
+//                                     background:
+//                                         "transparent",
+//                                     padding:
+//                                         "9px 12px",
+//                                     cursor:
+//                                         onViewAll
+//                                             ? "pointer"
+//                                             : "not-allowed",
+//                                     textAlign:
+//                                         "left",
+//                                     fontSize: 12,
+//                                     fontWeight: 500,
+//                                     color:
+//                                         "#334155",
+//                                     opacity:
+//                                         onViewAll
+//                                             ? 1
+//                                             : 0.5,
+//                                 }}
+//                                 onMouseEnter={(
+//                                     event
+//                                 ) => {
+//                                     if (onViewAll) {
+//                                         event.currentTarget.style.background =
+//                                             "#F8FAFC";
+//                                     }
+//                                 }}
+//                                 onMouseLeave={(
+//                                     event
+//                                 ) => {
+//                                     event.currentTarget.style.background =
+//                                         "transparent";
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         fontSize: 14,
+//                                     }}
+//                                 >
+//                                     🔍
+//                                 </span>
+
+//                                 <span>
+//                                     View All
+//                                 </span>
+//                             </button>
+
+
+//                             {/* =================================================
+//                                 EXPORT EXCEL
+//                             ================================================= */}
+
+//                             <button
+//                                 type="button"
+//                                 onClick={
+//                                     handleExportExcel
+//                                 }
+//                                 disabled={
+//                                     commonExporting ===
+//                                     "excel"
+//                                 }
+//                                 style={{
+//                                     width: "100%",
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     gap: 9,
+//                                     border:
+//                                         "none",
+//                                     background:
+//                                         "transparent",
+//                                     padding:
+//                                         "9px 12px",
+//                                     cursor:
+//                                         commonExporting ===
+//                                             "excel"
+//                                             ? "not-allowed"
+//                                             : "pointer",
+//                                     textAlign:
+//                                         "left",
+//                                     fontSize: 12,
+//                                     fontWeight: 500,
+//                                     color:
+//                                         "#334155",
+//                                     opacity:
+//                                         commonExporting ===
+//                                             "excel"
+//                                             ? 0.6
+//                                             : 1,
+//                                 }}
+//                                 onMouseEnter={(
+//                                     event
+//                                 ) => {
+//                                     if (
+//                                         commonExporting !==
+//                                         "excel"
+//                                     ) {
+//                                         event.currentTarget.style.background =
+//                                             "#F8FAFC";
+//                                     }
+//                                 }}
+//                                 onMouseLeave={(
+//                                     event
+//                                 ) => {
+//                                     event.currentTarget.style.background =
+//                                         "transparent";
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         fontSize: 14,
+//                                     }}
+//                                 >
+//                                     📊
+//                                 </span>
+
+//                                 <span>
+//                                     Export Excel
+//                                 </span>
+//                             </button>
+
+
+//                             {/* =================================================
+//                                 EXPORT PDF
+//                             ================================================= */}
+
+//                             <button
+//                                 type="button"
+//                                 onClick={
+//                                     handleExportPdf
+//                                 }
+//                                 disabled={
+//                                     commonExporting ===
+//                                     "pdf"
+//                                 }
+//                                 style={{
+//                                     width: "100%",
+//                                     display:
+//                                         "flex",
+//                                     alignItems:
+//                                         "center",
+//                                     gap: 9,
+//                                     border:
+//                                         "none",
+//                                     background:
+//                                         "transparent",
+//                                     padding:
+//                                         "9px 12px",
+//                                     cursor:
+//                                         commonExporting ===
+//                                             "pdf"
+//                                             ? "not-allowed"
+//                                             : "pointer",
+//                                     textAlign:
+//                                         "left",
+//                                     fontSize: 12,
+//                                     fontWeight: 500,
+//                                     color:
+//                                         "#334155",
+//                                     opacity:
+//                                         commonExporting ===
+//                                             "pdf"
+//                                             ? 0.6
+//                                             : 1,
+//                                 }}
+//                                 onMouseEnter={(
+//                                     event
+//                                 ) => {
+//                                     if (
+//                                         commonExporting !==
+//                                         "pdf"
+//                                     ) {
+//                                         event.currentTarget.style.background =
+//                                             "#F8FAFC";
+//                                     }
+//                                 }}
+//                                 onMouseLeave={(
+//                                     event
+//                                 ) => {
+//                                     event.currentTarget.style.background =
+//                                         "transparent";
+//                                 }}
+//                             >
+//                                 <span
+//                                     style={{
+//                                         fontSize: 14,
+//                                     }}
+//                                 >
+//                                     📄
+//                                 </span>
+
+//                                 <span>
+//                                     Export PDF
+//                                 </span>
+//                             </button>
+
+//                         </div>
+//                     )}
+
+//                 </div>
+
+//             </div>
+
+
+//             {/* ===================================================
+//                 CHART
+//             =================================================== */}
+
+//             <div
+//                 style={{
+//                     flex: 1,
+//                     minHeight: 235,
+//                     width: "100%",
+//                 }}
+//             >
+
+//                 <ResponsiveContainer
+//                     width="100%"
+//                     height="100%"
+//                 >
+
+//                     <BarChart
+//                         data={chartData}
+//                         layout="vertical"
+//                         margin={{
+//                             top: 20,
+//                             right: 58,
+//                             left: 25,
+//                             bottom: 20,
+//                         }}
+//                         barGap={3}
+//                         barCategoryGap="24%"
+//                         onMouseLeave={() => {
+//                             setHoveredBar(null);
+//                             setHoveredCategory(null);
+//                         }}
+//                     >
+
+//                         <defs>
+//                             <linearGradient
+//                                 id="actualVsTargetActualGradient"
+//                                 x1="0"
+//                                 y1="0"
+//                                 x2="1"
+//                                 y2="0"
+//                             >
+//                                 <stop
+//                                     offset="0%"
+//                                     stopColor="#4338CA"
+//                                 />
+//                                 <stop
+//                                     offset="55%"
+//                                     stopColor="#6366F1"
+//                                 />
+//                                 <stop
+//                                     offset="100%"
+//                                     stopColor="#818CF8"
+//                                 />
+//                             </linearGradient>
+
+//                             <linearGradient
+//                                 id="actualVsTargetTargetGradient"
+//                                 x1="0"
+//                                 y1="0"
+//                                 x2="1"
+//                                 y2="0"
+//                             >
+//                                 <stop
+//                                     offset="0%"
+//                                     stopColor="#94A3E8"
+//                                 />
+//                                 <stop
+//                                     offset="100%"
+//                                     stopColor="#C4B5FD"
+//                                 />
+//                             </linearGradient>
+
+//                             <filter
+//                                 id="actualVsTargetBarGlow"
+//                                 x="-20%"
+//                                 y="-50%"
+//                                 width="150%"
+//                                 height="200%"
+//                             >
+//                                 <feDropShadow
+//                                     dx="0"
+//                                     dy="2"
+//                                     stdDeviation="2"
+//                                     floodColor="#4F46E5"
+//                                     floodOpacity="0.22"
+//                                 />
+//                             </filter>
+//                         </defs>
+
+//                         <CartesianGrid
+//                             strokeDasharray="3 3"
+//                             horizontal={false}
+//                             stroke="#E5E7EB"
+//                         />
+
+
+//                         {/* =================================================
+//                             X AXIS
+//                         ================================================= */}
+
+//                         <XAxis
+//                             type="number"
+//                             domain={[
+//                                 0,
+//                                 xAxisMax,
+//                             ]}
+//                             axisLine={{
+//                                 stroke: "#CBD5E1",
+//                             }}
+//                             tickLine={false}
+//                             tick={{
+//                                 fill: "#475569",
+//                                 fontSize: 11,
+//                                 fontWeight: 700,
+//                             }}
+//                             tickFormatter={
+//                                 formatXAxis
+//                             }
+//                         />
+
+
+//                         {/* =================================================
+//                             Y AXIS
+//                         ================================================= */}
+
+//                         <YAxis
+//                             type="category"
+//                             dataKey="category"
+//                             width={175}
+//                             axisLine={false}
+//                             tickLine={false}
+//                             interval={0}
+//                             tick={
+//                                 <CustomYAxisTick
+//                                     hoveredCategory={hoveredCategory}
+//                                 />
+//                             }
+//                         />
+
+
+//                         {/* =================================================
+//                             TOOLTIP
+//                         ================================================= */}
+
+//                         <Tooltip
+//                             content={
+//                                 <CustomTooltip
+//                                     reportingCurrency={
+//                                         reportingCurrency
+//                                     }
+//                                 />
+//                             }
+//                             cursor={{
+//                                 fill:
+//                                     "rgba(79,70,229,0.055)",
+//                                 stroke:
+//                                     "rgba(79,70,229,0.20)",
+//                                 strokeWidth: 1,
+//                             }}
+//                         />
+
+
+//                         {/* =================================================
+//                             LEGEND
+//                         ================================================= */}
+
+//                         <Legend
+//                             verticalAlign="top"
+//                             align="center"
+//                             height={27}
+//                             iconType="square"
+//                             iconSize={8}
+//                             wrapperStyle={{
+//                                 fontSize: 12,
+//                                 fontWeight: 700,
+//                                 color: "#334155",
+//                                 paddingLeft: 125,
+//                                 paddingBottom: 2,
+//                             }}
+//                         />
+
+
+//                         {/* =================================================
+//                             ACTUAL
+//                         ================================================= */}
+
+//                         <Bar
+//                             dataKey="actual"
+//                             name={`Actual PTD (${reportingCurrency})`}
+//                             fill="url(#actualVsTargetActualGradient)"
+//                             radius={[
+//                                 0,
+//                                 5,
+//                                 5,
+//                                 0,
+//                             ]}
+//                             maxBarSize={13}
+//                             animationDuration={850}
+//                             animationEasing="ease-out"
+//                             label={
+//                                 <CustomBarLabel />
+//                             }
+//                             onMouseEnter={(
+//                                 data,
+//                                 index
+//                             ) => {
+//                                 setHoveredBar(`${index}-actual`);
+//                                 setHoveredCategory(
+//                                     chartData[index]?.category ?? null
+//                                 );
+//                             }}
+//                             onMouseLeave={() => {
+//                                 setHoveredBar(null);
+//                                 setHoveredCategory(null);
+//                             }}
+//                         >
+//                             {chartData.map(
+//                                 (_, index) => (
+//                                     <Cell
+//                                         key={`actual-cell-${index}`}
+//                                         fill="url(#actualVsTargetActualGradient)"
+//                                         opacity={
+//                                             hoveredBar &&
+//                                                 hoveredBar !==
+//                                                 `${index}-actual` &&
+//                                                 hoveredBar !==
+//                                                 `${index}-target`
+//                                                 ? 0.34
+//                                                 : 1
+//                                         }
+//                                         style={{
+//                                             filter:
+//                                                 hoveredBar ===
+//                                                     `${index}-actual`
+//                                                     ? "url(#actualVsTargetBarGlow)"
+//                                                     : "none",
+//                                             transition:
+//                                                 "opacity 180ms ease, filter 180ms ease",
+//                                         }}
+//                                     />
+//                                 )
+//                             )}
+//                         </Bar>
+
+
+//                         <Bar
+//                             dataKey="target"
+//                             name={`Target PTD (${reportingCurrency})`}
+//                             fill="url(#actualVsTargetTargetGradient)"
+//                             radius={[
+//                                 0,
+//                                 5,
+//                                 5,
+//                                 0,
+//                             ]}
+//                             maxBarSize={13}
+//                             animationDuration={1000}
+//                             animationEasing="ease-out"
+//                             label={
+//                                 <CustomBarLabel />
+//                             }
+//                             onMouseEnter={(
+//                                 data,
+//                                 index
+//                             ) => {
+//                                 setHoveredBar(`${index}-target`);
+//                                 setHoveredCategory(
+//                                     chartData[index]?.category ?? null
+//                                 );
+//                             }}
+//                             onMouseLeave={() => {
+//                                 setHoveredBar(null);
+//                                 setHoveredCategory(null);
+//                             }}
+//                         >
+//                             {chartData.map(
+//                                 (_, index) => (
+//                                     <Cell
+//                                         key={`target-cell-${index}`}
+//                                         fill="url(#actualVsTargetTargetGradient)"
+//                                         opacity={
+//                                             hoveredBar &&
+//                                                 hoveredBar !==
+//                                                 `${index}-actual` &&
+//                                                 hoveredBar !==
+//                                                 `${index}-target`
+//                                                 ? 0.34
+//                                                 : 1
+//                                         }
+//                                         style={{
+//                                             filter:
+//                                                 hoveredBar ===
+//                                                     `${index}-target`
+//                                                     ? "url(#actualVsTargetBarGlow)"
+//                                                     : "none",
+//                                             transition:
+//                                                 "opacity 180ms ease, filter 180ms ease",
+//                                         }}
+//                                     />
+//                                 )
+//                             )}
+//                         </Bar>
+
+//                     </BarChart>
+
+//                 </ResponsiveContainer>
+
+//             </div>
+
+
+//             {/* ===================================================
+//                 X AXIS TITLE
+//             =================================================== */}
+
+//             <div
+//                 style={{
+//                     textAlign: "center",
+//                     fontWeight: 800,
+//                     fontSize: 11,
+//                     color: "#334155",
+//                     marginTop: -2,
+//                 }}
+//             >
+//                 Amount ({reportingCurrency})
+//             </div>
+
+//         </div>
+//     );
+// }
+
+
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import {
     ResponsiveContainer,
     BarChart,
@@ -15,20 +1313,14 @@ import {
     CartesianGrid,
     Tooltip,
     Legend,
+    Cell,
 } from "recharts";
-
-import {
-    MoreVertical,
-    Eye,
-} from "lucide-react";
-
+import { MoreVertical } from "lucide-react";
 import ExportButtons from "../Common/ExportButtons";
-
 
 /* =========================================================
    FORMAT VALUE
 ========================================================= */
-
 const formatValue = (value) => {
     if (
         value === null ||
@@ -48,7 +1340,6 @@ const formatValue = (value) => {
         maximumFractionDigits: 0,
     });
 };
-
 
 /* =========================================================
    NORMALIZE CHART DATA
@@ -70,6 +1361,16 @@ const normalizeChartData = (data = []) => {
                 ? item.target
                 : item?.target_ptd_aed;
 
+        const variance =
+            item?.variance_ptd !== undefined
+                ? item.variance_ptd
+                : item?.variance_ptd_aed;
+
+        const variancePct =
+            item?.variance_ptd_pct !== undefined
+                ? item.variance_ptd_pct
+                : null;
+
         return {
             category: item?.category ?? "—",
 
@@ -86,10 +1387,60 @@ const normalizeChartData = (data = []) => {
                     target !== ""
                     ? Number(target)
                     : null,
+
+            actualBackend:
+                actual !== null &&
+                    actual !== undefined &&
+                    actual !== ""
+                    ? String(actual)
+                    : null,
+
+            targetBackend:
+                target !== null &&
+                    target !== undefined &&
+                    target !== ""
+                    ? String(target)
+                    : null,
+
+            variancePtd:
+                variance !== null &&
+                    variance !== undefined &&
+                    variance !== ""
+                    ? Number(variance)
+                    : null,
+
+            variancePtdBackend:
+                variance !== null &&
+                    variance !== undefined &&
+                    variance !== ""
+                    ? String(variance)
+                    : null,
+
+            variancePtdPct:
+                variancePct !== null &&
+                    variancePct !== undefined &&
+                    variancePct !== ""
+                    ? Number(variancePct)
+                    : null,
+
+            variancePtdPctBackend:
+                variancePct !== null &&
+                    variancePct !== undefined &&
+                    variancePct !== ""
+                    ? String(variancePct)
+                    : null,
+
+            varianceStatus:
+                item?.variance_status ?? null,
+
+            reportingCurrency:
+                item?.reporting_currency ?? null,
+
+            conversionRateToAed:
+                item?.conversion_rate_to_aed ?? null,
         };
     });
 };
-
 
 /* =========================================================
    CUSTOM TOOLTIP
@@ -109,31 +1460,91 @@ function CustomTooltip({
         return null;
     }
 
+    const row = payload[0]?.payload || {};
+
+    const getBackendValue = (dataKey) => {
+        if (dataKey === "actual") {
+            return row.actualBackend;
+        }
+
+        if (dataKey === "target") {
+            return row.targetBackend;
+        }
+
+        return null;
+    };
+
+    const formatBackendDisplay = (value) => {
+        if (
+            value === null ||
+            value === undefined ||
+            value === ""
+        ) {
+            return "—";
+        }
+
+        const numericValue = Number(value);
+
+        if (Number.isNaN(numericValue)) {
+            return "—";
+        }
+
+        return `${reportingCurrency} ${numericValue.toLocaleString(
+            "en-US",
+            {
+                maximumFractionDigits: 0,
+                minimumFractionDigits: 0,
+            }
+        )}`;
+    };
+
     return (
         <div
             style={{
-                background: "#FFFFFF",
-                border: "1px solid #E5E7EB",
-                borderRadius: 7,
-                padding: "9px 11px",
+                minWidth: 225,
+                background:
+                    "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))",
+                border: "1px solid rgba(148,163,184,0.30)",
+                borderRadius: 12,
+                padding: "11px 13px",
                 boxShadow:
-                    "0 4px 12px rgba(15, 23, 42, 0.10)",
-                minWidth: 165,
+                    "0 14px 34px rgba(15,23,42,0.16), 0 2px 8px rgba(79,70,229,0.08)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
             }}
         >
             <div
                 style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: "#334155",
-                    marginBottom: 7,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    marginBottom: 9,
                 }}
             >
-                {label}
+                <div
+                    style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        color: "#0F172A",
+                        lineHeight: 1.25,
+                    }}
+                >
+                    {label}
+                </div>
             </div>
 
+            <div
+                style={{
+                    height: 1,
+                    background: "#E2E8F0",
+                    marginBottom: 7,
+                }}
+            />
+
             {payload.map((item) => {
-                const value = item?.value;
+                const backendValue =
+                    getBackendValue(item?.dataKey);
 
                 return (
                     <div
@@ -141,35 +1552,42 @@ function CustomTooltip({
                         style={{
                             display: "flex",
                             alignItems: "center",
-                            justifyContent:
-                                "space-between",
-                            gap: 15,
-                            marginTop: 5,
+                            justifyContent: "space-between",
+                            gap: 18,
+                            marginTop: 7,
                         }}
                     >
                         <div
                             style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 6,
+                                gap: 7,
+                                minWidth: 0,
                             }}
                         >
                             <span
                                 style={{
-                                    width: 7,
-                                    height: 7,
-                                    borderRadius: "2px",
-                                    backgroundColor:
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: "50%",
+                                    background:
                                         item.color,
-                                    display:
-                                        "inline-block",
+                                    boxShadow:
+                                        `0 0 0 3px ${item.color}18`,
+                                    flex: "0 0 auto",
                                 }}
                             />
 
                             <span
                                 style={{
-                                    fontSize: 12,
-                                    color: "#64748B",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color:
+                                        item?.dataKey ===
+                                            "actual"
+                                            ? "#5B3FE4"
+                                            : "#64748B",
+                                    whiteSpace: "nowrap",
                                 }}
                             >
                                 {item.name}
@@ -178,14 +1596,21 @@ function CustomTooltip({
 
                         <span
                             style={{
-                                fontSize: 13,
-                                fontWeight: 700,
-                                color: "#0F172A",
+                                fontSize: 12,
+                                fontWeight: 800,
+                                color:
+                                    item?.dataKey ===
+                                        "actual"
+                                        ? "#5B3FE4"
+                                        : "#64748B",
+                                whiteSpace: "nowrap",
+                                fontVariantNumeric:
+                                    "tabular-nums",
                             }}
                         >
-                            {formatValue(value) === "—"
-                                ? "—"
-                                : `${reportingCurrency} ${formatValue(value)}`}
+                            {formatBackendDisplay(
+                                backendValue
+                            )}
                         </span>
                     </div>
                 );
@@ -193,7 +1618,6 @@ function CustomTooltip({
         </div>
     );
 }
-
 
 /* =========================================================
    CUSTOM Y AXIS LABEL
@@ -203,6 +1627,7 @@ function CustomYAxisTick({
     x,
     y,
     payload,
+    hoveredCategory = null,
 }) {
     const text = payload.value;
 
@@ -215,9 +1640,17 @@ function CustomYAxisTick({
                 y={0}
                 textAnchor="start"
                 dominantBaseline="middle"
-                fill="#1E293B"
+                fill={
+                    hoveredCategory === text
+                        ? "#4F46E5"
+                        : "#1E293B"
+                }
                 fontSize={12}
-                fontWeight={700}
+                fontWeight={
+                    hoveredCategory === text
+                        ? 800
+                        : 700
+                }
             >
                 {text}
             </text>
@@ -225,19 +1658,45 @@ function CustomYAxisTick({
     );
 }
 
-
 /* =========================================================
    CUSTOM BAR LABEL
 ========================================================= */
 
-function CustomBarLabel({
+function formatMillions(value) {
+    if (
+        value === null ||
+        value === undefined ||
+        value === "" ||
+        Number.isNaN(Number(value))
+    ) {
+        return "—";
+    }
+
+    const number = Number(value);
+    const millions = number / 1000000;
+
+    if (Math.abs(millions) >= 100) {
+        return `${millions.toFixed(0)}M`;
+    }
+
+    if (Math.abs(millions) >= 10) {
+        return `${millions.toFixed(1)}M`;
+    }
+
+    return `${millions.toFixed(2)}M`;
+}
+
+/* =========================================================
+   ACTUAL BAR LABEL
+========================================================= */
+
+function ActualBarLabel({
     x,
     y,
     width,
     value,
 }) {
-    const formatted =
-        formatValue(value);
+    const formatted = formatMillions(value);
 
     if (formatted === "—") {
         return null;
@@ -245,18 +1704,56 @@ function CustomBarLabel({
 
     return (
         <text
-            x={x + width + 5}
-            y={y + 3}
-            fill="#475569"
-            fontSize={12}
-            fontWeight={700}
+            x={x + width + 6}
+            y={y - 4}
+            fill="#334155"
+            fontSize={10}
+            fontWeight={800}
             textAnchor="start"
+            dominantBaseline="middle"
+            style={{
+                fontVariantNumeric: "tabular-nums",
+            }}
         >
             {formatted}
         </text>
     );
 }
 
+/* =========================================================
+   TARGET BAR LABEL
+   - Positioned exactly at the Target bar end
+========================================================= */
+
+function TargetBarLabel({
+    x,
+    y,
+    width,
+    value,
+}) {
+    const formatted = formatMillions(value);
+
+    if (formatted === "—") {
+        return null;
+    }
+
+    return (
+        <text
+            x={x + width + 6}
+            y={y}
+            fill="#334155"
+            fontSize={10}
+            fontWeight={800}
+            textAnchor="start"
+            dominantBaseline="middle"
+            style={{
+                fontVariantNumeric: "tabular-nums",
+            }}
+        >
+            {formatted}
+        </text>
+    );
+}
 
 /* =========================================================
    MAIN COMPONENT
@@ -265,7 +1762,6 @@ function CustomBarLabel({
 export default function ActualVsTargetChart({
     data = [],
 
-    /* Parent page handlers */
     total,
     activeFilters,
     reportingCurrency = "AED",
@@ -280,9 +1776,11 @@ export default function ActualVsTargetChart({
     ======================================================= */
 
     const [menuOpen, setMenuOpen] = useState(false);
+    const [hoveredBar, setHoveredBar] = useState(null);
+    const [hoveredCategory, setHoveredCategory] =
+        useState(null);
 
     const menuRef = useRef(null);
-
 
     /* =======================================================
        CLOSE MENU WHEN CLICKING OUTSIDE
@@ -313,7 +1811,6 @@ export default function ActualVsTargetChart({
         };
     }, [menuOpen]);
 
-
     /* =======================================================
        MENU HANDLERS
     ======================================================= */
@@ -322,10 +1819,9 @@ export default function ActualVsTargetChart({
         setMenuOpen(false);
 
         if (typeof onViewAll === "function") {
-            await onViewAll();
+            await onViewAll(chartData);
         }
     };
-
 
     const handleExportExcel = async () => {
         setMenuOpen(false);
@@ -335,7 +1831,6 @@ export default function ActualVsTargetChart({
         }
     };
 
-
     const handleExportPdf = async () => {
         setMenuOpen(false);
 
@@ -343,7 +1838,6 @@ export default function ActualVsTargetChart({
             await onExportPdf();
         }
     };
-
 
     /* =======================================================
        COMMON EXPORT HANDLER
@@ -360,7 +1854,6 @@ export default function ActualVsTargetChart({
         }
     };
 
-
     /* =======================================================
        EXPORTING STATE FOR COMMON COMPONENT
     ======================================================= */
@@ -372,7 +1865,6 @@ export default function ActualVsTargetChart({
                 ? "pdf"
                 : "";
 
-
     /* =======================================================
        NORMALIZED DATA
     ======================================================= */
@@ -381,7 +1873,6 @@ export default function ActualVsTargetChart({
         () => normalizeChartData(data),
         [data]
     );
-
 
     /* =======================================================
        X AXIS MAXIMUM
@@ -452,33 +1943,35 @@ export default function ActualVsTargetChart({
         );
     }, [chartData]);
 
-
     /* =========================================================
        X AXIS TICK FORMAT
     ========================================================= */
 
     const formatXAxis = (value) => {
-        if (value === 0) {
-            return "0";
+        if (
+            value === null ||
+            value === undefined ||
+            Number.isNaN(Number(value))
+        ) {
+            return "";
         }
 
-        if (value >= 1000000) {
-            return `${(
-                value / 1000000
-            ).toFixed(
-                value % 1000000 === 0 ? 0 : 1
-            )}M`;
+        const millions = Number(value) / 1000000;
+
+        if (millions === 0) {
+            return "0M";
         }
 
-        if (value >= 1000) {
-            return `${Math.round(
-                value / 1000
-            )}K`;
+        if (Math.abs(millions) >= 100) {
+            return `${millions.toFixed(0)}M`;
         }
 
-        return `${Math.round(value)}`;
+        if (Math.abs(millions) >= 10) {
+            return `${millions.toFixed(1)}M`;
+        }
+
+        return `${millions.toFixed(2)}M`;
     };
-
 
     return (
         <div
@@ -495,11 +1988,7 @@ export default function ActualVsTargetChart({
                 flexDirection: "column",
             }}
         >
-
-            {/* ===================================================
-                HEADER
-            =================================================== */}
-
+            {/* HEADER */}
             <div
                 style={{
                     display: "flex",
@@ -510,31 +1999,45 @@ export default function ActualVsTargetChart({
                     position: "relative",
                 }}
             >
-
-                <h3
+                <div
                     style={{
-                        margin: 0,
-                        fontSize: 13,
-                        lineHeight: "18px",
-                        fontWeight: 700,
-                        color: "#0F172A",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        minWidth: 0,
                     }}
                 >
-                    Actual vs Target by Expense Category
-                </h3>
+                    <h3
+                        style={{
+                            margin: 0,
+                            fontSize: 13,
+                            lineHeight: "18px",
+                            fontWeight: 700,
+                            color: "#0F172A",
+                        }}
+                    >
+                        Actual vs Target by Expense Category
+                    </h3>
 
+                    <div
+                        style={{
+                            fontSize: 10,
+                            lineHeight: "15px",
+                            fontWeight: 500,
+                            color: "#64748B",
+                        }}
+                    >
+                        Compare actual PTD costs against target PTD by expense category
+                    </div>
+                </div>
 
-                {/* =================================================
-                    THREE DOT MENU
-                ================================================= */}
-
+                {/* THREE DOT MENU */}
                 <div
                     ref={menuRef}
                     style={{
                         position: "relative",
                     }}
                 >
-
                     <button
                         type="button"
                         onClick={() =>
@@ -563,11 +2066,7 @@ export default function ActualVsTargetChart({
                         />
                     </button>
 
-
-                    {/* =================================================
-                        ACTION MENU
-                    ================================================= */}
-
+                    {/* ACTION MENU */}
                     {menuOpen && (
                         <div
                             style={{
@@ -585,11 +2084,7 @@ export default function ActualVsTargetChart({
                                 zIndex: 100,
                             }}
                         >
-
-                            {/* =================================================
-                                VIEW ALL
-                            ================================================= */}
-
+                            {/* VIEW ALL */}
                             <button
                                 type="button"
                                 onClick={
@@ -654,11 +2149,7 @@ export default function ActualVsTargetChart({
                                 </span>
                             </button>
 
-
-                            {/* =================================================
-                                EXPORT EXCEL
-                            ================================================= */}
-
+                            {/* EXPORT EXCEL */}
                             <button
                                 type="button"
                                 onClick={
@@ -729,11 +2220,7 @@ export default function ActualVsTargetChart({
                                 </span>
                             </button>
 
-
-                            {/* =================================================
-                                EXPORT PDF
-                            ================================================= */}
-
+                            {/* EXPORT PDF */}
                             <button
                                 type="button"
                                 onClick={
@@ -803,44 +2290,97 @@ export default function ActualVsTargetChart({
                                     Export PDF
                                 </span>
                             </button>
-
                         </div>
                     )}
-
                 </div>
-
             </div>
 
-
-            {/* ===================================================
-                CHART
-            =================================================== */}
-
+            {/* CHART */}
             <div
                 style={{
                     flex: 1,
-                    minHeight: 235,
+                    minHeight: Math.max(
+                        235,
+                        chartData.length * 55
+                    ),
                     width: "100%",
                 }}
             >
-
                 <ResponsiveContainer
                     width="100%"
                     height="100%"
                 >
-
                     <BarChart
                         data={chartData}
                         layout="vertical"
                         margin={{
                             top: 20,
-                            right: 50,
+                            right: 58,
                             left: 25,
                             bottom: 20,
                         }}
-                        barGap={2}
-                        barCategoryGap="25%"
+                        barGap={3}
+                        barCategoryGap="38%"
+                        onMouseLeave={() => {
+                            setHoveredBar(null);
+                            setHoveredCategory(null);
+                        }}
                     >
+                        <defs>
+                            <linearGradient
+                                id="actualVsTargetActualGradient"
+                                x1="0"
+                                y1="0"
+                                x2="1"
+                                y2="0"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stopColor="#4338CA"
+                                />
+                                <stop
+                                    offset="55%"
+                                    stopColor="#6366F1"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stopColor="#818CF8"
+                                />
+                            </linearGradient>
+
+                            <linearGradient
+                                id="actualVsTargetTargetGradient"
+                                x1="0"
+                                y1="0"
+                                x2="1"
+                                y2="0"
+                            >
+                                <stop
+                                    offset="0%"
+                                    stopColor="#94A3E8"
+                                />
+                                <stop
+                                    offset="100%"
+                                    stopColor="#C4B5FD"
+                                />
+                            </linearGradient>
+
+                            <filter
+                                id="actualVsTargetBarGlow"
+                                x="-20%"
+                                y="-50%"
+                                width="150%"
+                                height="200%"
+                            >
+                                <feDropShadow
+                                    dx="0"
+                                    dy="2"
+                                    stdDeviation="2"
+                                    floodColor="#4F46E5"
+                                    floodOpacity="0.22"
+                                />
+                            </filter>
+                        </defs>
 
                         <CartesianGrid
                             strokeDasharray="3 3"
@@ -848,11 +2388,7 @@ export default function ActualVsTargetChart({
                             stroke="#E5E7EB"
                         />
 
-
-                        {/* =================================================
-                            X AXIS
-                        ================================================= */}
-
+                        {/* X AXIS */}
                         <XAxis
                             type="number"
                             domain={[
@@ -873,11 +2409,7 @@ export default function ActualVsTargetChart({
                             }
                         />
 
-
-                        {/* =================================================
-                            Y AXIS
-                        ================================================= */}
-
+                        {/* Y AXIS */}
                         <YAxis
                             type="category"
                             dataKey="category"
@@ -886,15 +2418,15 @@ export default function ActualVsTargetChart({
                             tickLine={false}
                             interval={0}
                             tick={
-                                <CustomYAxisTick />
+                                <CustomYAxisTick
+                                    hoveredCategory={
+                                        hoveredCategory
+                                    }
+                                />
                             }
                         />
 
-
-                        {/* =================================================
-                            TOOLTIP
-                        ================================================= */}
-
+                        {/* TOOLTIP */}
                         <Tooltip
                             content={
                                 <CustomTooltip
@@ -905,15 +2437,14 @@ export default function ActualVsTargetChart({
                             }
                             cursor={{
                                 fill:
-                                    "rgba(148, 163, 184, 0.08)",
+                                    "rgba(79,70,229,0.055)",
+                                stroke:
+                                    "rgba(79,70,229,0.20)",
+                                strokeWidth: 1,
                             }}
                         />
 
-
-                        {/* =================================================
-                            LEGEND
-                        ================================================= */}
-
+                        {/* LEGEND */}
                         <Legend
                             verticalAlign="top"
                             align="center"
@@ -929,72 +2460,147 @@ export default function ActualVsTargetChart({
                             }}
                         />
 
-
-                        {/* =================================================
-                            ACTUAL
-                        ================================================= */}
-
+                        {/* ACTUAL */}
                         <Bar
                             dataKey="actual"
                             name={`Actual PTD (${reportingCurrency})`}
-                            fill="#5B3FE4"
+                            fill="url(#actualVsTargetActualGradient)"
                             radius={[
                                 0,
-                                3,
-                                3,
+                                5,
+                                5,
                                 0,
                             ]}
-                            maxBarSize={9}
+                            maxBarSize={13}
+                            animationDuration={850}
+                            animationEasing="ease-out"
                             label={
-                                <CustomBarLabel />
+                                <ActualBarLabel />
                             }
-                        />
+                            onMouseEnter={(
+                                data,
+                                index
+                            ) => {
+                                setHoveredBar(
+                                    `${index}-actual`
+                                );
+                                setHoveredCategory(
+                                    chartData[index]
+                                        ?.category ??
+                                    null
+                                );
+                            }}
+                            onMouseLeave={() => {
+                                setHoveredBar(null);
+                                setHoveredCategory(null);
+                            }}
+                        >
+                            {chartData.map(
+                                (_, index) => (
+                                    <Cell
+                                        key={`actual-cell-${index}`}
+                                        fill="url(#actualVsTargetActualGradient)"
+                                        opacity={
+                                            hoveredBar &&
+                                                hoveredBar !==
+                                                `${index}-actual` &&
+                                                hoveredBar !==
+                                                `${index}-target`
+                                                ? 0.34
+                                                : 1
+                                        }
+                                        style={{
+                                            filter:
+                                                hoveredBar ===
+                                                    `${index}-actual`
+                                                    ? "url(#actualVsTargetBarGlow)"
+                                                    : "none",
+                                            transition:
+                                                "opacity 180ms ease, filter 180ms ease",
+                                        }}
+                                    />
+                                )
+                            )}
+                        </Bar>
 
-
-                        {/* =================================================
-                            TARGET
-                        ================================================= */}
-
+                        {/* TARGET */}
                         <Bar
                             dataKey="target"
                             name={`Target PTD (${reportingCurrency})`}
-                            fill="#B8AEEC"
+                            fill="url(#actualVsTargetTargetGradient)"
                             radius={[
                                 0,
-                                3,
-                                3,
+                                5,
+                                5,
                                 0,
                             ]}
-                            maxBarSize={9}
+                            maxBarSize={13}
+                            animationDuration={1000}
+                            animationEasing="ease-out"
                             label={
-                                <CustomBarLabel />
+                                <TargetBarLabel />
                             }
-                        />
-
+                            onMouseEnter={(
+                                data,
+                                index
+                            ) => {
+                                setHoveredBar(
+                                    `${index}-target`
+                                );
+                                setHoveredCategory(
+                                    chartData[index]
+                                        ?.category ??
+                                    null
+                                );
+                            }}
+                            onMouseLeave={() => {
+                                setHoveredBar(null);
+                                setHoveredCategory(null);
+                            }}
+                        >
+                            {chartData.map(
+                                (_, index) => (
+                                    <Cell
+                                        key={`target-cell-${index}`}
+                                        fill="url(#actualVsTargetTargetGradient)"
+                                        opacity={
+                                            hoveredBar &&
+                                                hoveredBar !==
+                                                `${index}-actual` &&
+                                                hoveredBar !==
+                                                `${index}-target`
+                                                ? 0.34
+                                                : 1
+                                        }
+                                        style={{
+                                            filter:
+                                                hoveredBar ===
+                                                    `${index}-target`
+                                                    ? "url(#actualVsTargetBarGlow)"
+                                                    : "none",
+                                            transition:
+                                                "opacity 180ms ease, filter 180ms ease",
+                                        }}
+                                    />
+                                )
+                            )}
+                        </Bar>
                     </BarChart>
-
                 </ResponsiveContainer>
-
             </div>
 
-
-            {/* ===================================================
-                X AXIS TITLE
-            =================================================== */}
-
+            {/* X AXIS TITLE */}
             <div
                 style={{
                     textAlign: "center",
                     fontWeight: 800,
-                    fontSize: 13,
+                    fontSize: 11,
                     color: "#334155",
                     marginTop: -2,
                 }}
             >
                 Amount ({reportingCurrency})
             </div>
-
         </div>
     );
 }
-

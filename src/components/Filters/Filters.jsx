@@ -1,1433 +1,3314 @@
 
-import React, { useState, useEffect, useRef } from "react";
-import { ChevronDown, Search, X } from "lucide-react";
+// import React, { useState, useEffect, useRef } from "react";
+// import { ChevronDown, Search, X } from "lucide-react";
+// import { getOpexFilterOptions } from "../../api/opexApi";
+
+// /* =========================================================
+//    Reusable Filter Field
+// ========================================================= */
+
+// function FilterField({
+//   label,
+//   children,
+//   isOperatingExpenses = false,
+//   isReceivables = false,
+// }) {
+//   return (
+//     <div
+//       style={{
+//         display: "flex",
+//         flexDirection: "column",
+//         gap: 4,
+
+//         minWidth:
+//           isOperatingExpenses || isReceivables
+//             ? 0
+//             : 110,
+
+//         flex:
+//           isOperatingExpenses || isReceivables
+//             ? "1 1 0"
+//             : "1 1 auto",
+
+//         overflow:
+//           isOperatingExpenses || isReceivables
+//             ? "visible"
+//             : "hidden",
+
+//         position: "relative",
+
+//         zIndex:
+//           isOperatingExpenses || isReceivables
+//             ? 20
+//             : "auto",
+
+//         fontWeight: 600,
+//       }}
+//     >
+//       <span
+//         style={{
+//           fontSize: "0.66rem",
+//           color: "#1e3a8a",
+//           fontWeight: 700,
+//           letterSpacing: "-0.02em",
+//           whiteSpace: "nowrap",
+//         }}
+//       >
+//         {label}
+//       </span>
+
+//       {children}
+//     </div>
+//   );
+// }
+
+// /* =========================================================
+//    OPEX / RECEIVABLES Multi Select Dropdown
+// ========================================================= */
+
+// function OpexMultiSelect({
+//   options = [],
+//   value = [],
+//   onChange,
+//   placeholder = "All",
+//   searchable = true,
+// }) {
+//   const [open, setOpen] = useState(false);
+//   const [searchTerm, setSearchTerm] = useState("");
+
+//   const containerRef = useRef(null);
+//   const searchInputRef = useRef(null);
+
+//   useEffect(() => {
+//     const handleClickOutside = (event) => {
+//       if (
+//         containerRef.current &&
+//         !containerRef.current.contains(event.target)
+//       ) {
+//         setOpen(false);
+//         setSearchTerm("");
+//       }
+//     };
+
+//     document.addEventListener(
+//       "mousedown",
+//       handleClickOutside
+//     );
+
+//     return () => {
+//       document.removeEventListener(
+//         "mousedown",
+//         handleClickOutside
+//       );
+//     };
+//   }, []);
+
+//   useEffect(() => {
+//     if (
+//       open &&
+//       searchable &&
+//       searchInputRef.current
+//     ) {
+//       setTimeout(() => {
+//         searchInputRef.current?.focus();
+//       }, 0);
+//     }
+//   }, [open, searchable]);
+
+//   const selectedValues = Array.isArray(value)
+//     ? value.map(String)
+//     : [];
+
+//   const getValue = (item) => {
+//     if (
+//       item === null ||
+//       item === undefined
+//     ) {
+//       return "";
+//     }
+
+//     if (typeof item === "object") {
+//       return (
+//         item.value ??
+//         item.id ??
+//         item.code ??
+//         item.period_name ??
+//         item.name ??
+//         item.currency_code ??
+//         ""
+//       );
+//     }
+
+//     return item;
+//   };
+
+//   const getLabel = (item) => {
+//     if (
+//       item === null ||
+//       item === undefined
+//     ) {
+//       return "";
+//     }
+
+//     if (typeof item === "object") {
+//       return (
+//         item.label ??
+//         item.name ??
+//         item.period_name ??
+//         item.currency_code ??
+//         item.value ??
+//         item.code ??
+//         ""
+//       );
+//     }
+
+//     return item;
+//   };
+
+//   const filteredOptions = options.filter((item) => {
+//     const label = String(
+//       getLabel(item)
+//     ).toLowerCase();
+
+//     const value = String(
+//       getValue(item)
+//     ).toLowerCase();
+
+//     const search =
+//       searchTerm
+//         .trim()
+//         .toLowerCase();
+
+//     if (!search) {
+//       return true;
+//     }
+
+//     return (
+//       label.includes(search) ||
+//       value.includes(search)
+//     );
+//   });
+
+//   const handleOptionToggle = (
+//     optionValue
+//   ) => {
+//     const stringValue =
+//       String(optionValue);
+
+//     const exists =
+//       selectedValues.includes(
+//         stringValue
+//       );
+
+//     const nextValues = exists
+//       ? selectedValues.filter(
+//         (item) =>
+//           item !== stringValue
+//       )
+//       : [
+//         ...selectedValues,
+//         stringValue,
+//       ];
+
+//     onChange(nextValues);
+//   };
+
+//   const handleSelectAll = () => {
+//     const visibleValues =
+//       filteredOptions
+//         .map(getValue)
+//         .filter(
+//           (value) =>
+//             value !== null &&
+//             value !== undefined &&
+//             value !== ""
+//         )
+//         .map(String);
+
+//     const mergedValues = [
+//       ...new Set([
+//         ...selectedValues,
+//         ...visibleValues,
+//       ]),
+//     ];
+
+//     onChange(mergedValues);
+//   };
+
+//   const handleClearAll = () => {
+//     onChange([]);
+//   };
+
+//   const getDisplayText = () => {
+//     if (
+//       selectedValues.length === 0
+//     ) {
+//       return placeholder;
+//     }
+
+//     if (
+//       selectedValues.length === 1
+//     ) {
+//       const selected =
+//         options.find(
+//           (item) =>
+//             String(
+//               getValue(item)
+//             ) ===
+//             selectedValues[0]
+//         );
+
+//       return selected
+//         ? String(
+//           getLabel(selected)
+//         )
+//         : selectedValues[0];
+//     }
+
+//     return `${selectedValues.length} selected`;
+//   };
+
+//   return (
+//     <div
+//       ref={containerRef}
+//       style={{
+//         position: "relative",
+//         width: "100%",
+//         minWidth: 0,
+//         zIndex: open ? 1000 : 1,
+//         fontWeight: 600,
+//       }}
+//     >
+//       <button
+//         type="button"
+//         className="filter-select w-full"
+//         onClick={(event) => {
+//           event.stopPropagation();
+//           setOpen((prev) => !prev);
+
+//           if (open) {
+//             setSearchTerm("");
+//           }
+//         }}
+//         style={{
+//           minWidth: 0,
+//           width: "100%",
+//           height: "32px",
+
+//           display: "flex",
+//           alignItems: "center",
+//           justifyContent:
+//             "space-between",
+
+//           textAlign: "left",
+
+//           paddingLeft: "8px",
+//           paddingRight: "8px",
+
+//           cursor: "pointer",
+
+//           overflow: "hidden",
+
+//           boxSizing: "border-box",
+
+//           position: "relative",
+//           zIndex: 1001,
+
+//           fontWeight: 600,
+//         }}
+//       >
+//         <span
+//           style={{
+//             overflow: "hidden",
+//             textOverflow:
+//               "ellipsis",
+//             whiteSpace:
+//               "nowrap",
+//             minWidth: 0,
+//             fontWeight: 600,
+//           }}
+//         >
+//           {getDisplayText()}
+//         </span>
+
+//         <ChevronDown
+//           size={14}
+//           strokeWidth={2}
+//           style={{
+//             flexShrink: 0,
+//             marginLeft: "6px",
+//           }}
+//         />
+//       </button>
+
+//       {open && (
+//         <div
+//           onClick={(event) =>
+//             event.stopPropagation()
+//           }
+//           style={{
+//             position: "absolute",
+
+//             top: "calc(100% + 4px)",
+//             left: 0,
+
+//             width: "100%",
+//             minWidth: "190px",
+
+//             maxHeight: "280px",
+//             overflowY: "auto",
+
+//             backgroundColor:
+//               "#ffffff",
+
+//             border:
+//               "1px solid #d1d5db",
+//             borderRadius: "6px",
+
+//             boxShadow:
+//               "0 4px 12px rgba(0, 0, 0, 0.12)",
+
+//             zIndex: 99999,
+
+//             boxSizing: "border-box",
+
+//             fontWeight: 600,
+//           }}
+//         >
+//           {searchable && (
+//             <div
+//               style={{
+//                 padding: "7px 8px",
+
+//                 borderBottom:
+//                   "1px solid #e5e7eb",
+
+//                 backgroundColor:
+//                   "#ffffff",
+
+//                 position: "sticky",
+//                 top: 0,
+
+//                 zIndex: 4,
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   position:
+//                     "relative",
+//                   width: "100%",
+//                 }}
+//               >
+//                 <Search
+//                   size={13}
+//                   strokeWidth={2}
+//                   style={{
+//                     position:
+//                       "absolute",
+//                     left: "7px",
+//                     top: "50%",
+//                     transform:
+//                       "translateY(-50%)",
+//                     color:
+//                       "#9ca3af",
+//                     pointerEvents:
+//                       "none",
+//                   }}
+//                 />
+
+//                 <input
+//                   ref={
+//                     searchInputRef
+//                   }
+//                   type="text"
+//                   value={
+//                     searchTerm
+//                   }
+//                   onChange={(
+//                     event
+//                   ) =>
+//                     setSearchTerm(
+//                       event.target
+//                         .value
+//                     )
+//                   }
+//                   onClick={(event) =>
+//                     event.stopPropagation()
+//                   }
+//                   placeholder="Search..."
+//                   style={{
+//                     width:
+//                       "100%",
+//                     height:
+//                       "27px",
+
+//                     boxSizing:
+//                       "border-box",
+
+//                     border:
+//                       "1px solid #d1d5db",
+//                     borderRadius:
+//                       "4px",
+
+//                     paddingLeft:
+//                       "26px",
+//                     paddingRight:
+//                       searchTerm
+//                         ? "24px"
+//                         : "7px",
+
+//                     outline:
+//                       "none",
+
+//                     fontSize:
+//                       "10px",
+//                     color:
+//                       "#374151",
+
+//                     backgroundColor:
+//                       "#ffffff",
+
+//                     fontWeight:
+//                       600,
+//                   }}
+//                 />
+
+//                 {searchTerm && (
+//                   <button
+//                     type="button"
+//                     onClick={() =>
+//                       setSearchTerm(
+//                         ""
+//                       )
+//                     }
+//                     style={{
+//                       position:
+//                         "absolute",
+//                       right: "5px",
+//                       top: "50%",
+//                       transform:
+//                         "translateY(-50%)",
+
+//                       border: "none",
+//                       background:
+//                         "transparent",
+
+//                       padding: 0,
+
+//                       cursor:
+//                         "pointer",
+
+//                       display:
+//                         "flex",
+//                       alignItems:
+//                         "center",
+//                       justifyContent:
+//                         "center",
+//                     }}
+//                   >
+//                     <X
+//                       size={12}
+//                       color="#9ca3af"
+//                     />
+//                   </button>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+
+//           <div
+//             style={{
+//               display: "flex",
+//               justifyContent:
+//                 "space-between",
+//               alignItems: "center",
+
+//               padding: "7px 8px",
+
+//               borderBottom:
+//                 "1px solid #e5e7eb",
+
+//               backgroundColor:
+//                 "#f9fafb",
+
+//               position: "sticky",
+//               top: searchable
+//                 ? "41px"
+//                 : 0,
+
+//               zIndex: 3,
+//             }}
+//           >
+//             <button
+//               type="button"
+//               onClick={
+//                 handleSelectAll
+//               }
+//               style={{
+//                 border: "none",
+//                 background:
+//                   "transparent",
+
+//                 padding: 0,
+
+//                 fontSize: "10px",
+//                 fontWeight: 700,
+
+//                 color: "#1e3a8a",
+
+//                 cursor: "pointer",
+//               }}
+//             >
+//               Select All
+//             </button>
+
+//             <button
+//               type="button"
+//               onClick={
+//                 handleClearAll
+//               }
+//               style={{
+//                 border: "none",
+//                 background:
+//                   "transparent",
+
+//                 padding: 0,
+
+//                 fontSize: "10px",
+//                 fontWeight: 700,
+
+//                 color: "#6b7280",
+
+//                 cursor: "pointer",
+//               }}
+//             >
+//               Clear
+//             </button>
+//           </div>
+
+//           {filteredOptions.length ===
+//             0 ? (
+//             <div
+//               style={{
+//                 padding: "10px 8px",
+//                 fontSize: "10px",
+//                 color: "#6b7280",
+//                 fontWeight: 600,
+//               }}
+//             >
+//               {searchTerm
+//                 ? "No matching options"
+//                 : "No options available"}
+//             </div>
+//           ) : (
+//             filteredOptions.map(
+//               (
+//                 item,
+//                 index
+//               ) => {
+//                 const optionValue =
+//                   getValue(item);
+
+//                 const optionLabel =
+//                   getLabel(item);
+
+//                 if (
+//                   optionValue ===
+//                   "" ||
+//                   optionValue ===
+//                   null ||
+//                   optionValue ===
+//                   undefined
+//                 ) {
+//                   return null;
+//                 }
+
+//                 const stringValue =
+//                   String(
+//                     optionValue
+//                   );
+
+//                 const checked =
+//                   selectedValues.includes(
+//                     stringValue
+//                   );
+
+//                 return (
+//                   <label
+//                     key={`${stringValue}-${index}`}
+//                     style={{
+//                       display:
+//                         "flex",
+//                       alignItems:
+//                         "center",
+
+//                       gap: "7px",
+
+//                       padding:
+//                         "7px 8px",
+
+//                       fontSize:
+//                         "10px",
+//                       color:
+//                         "#374151",
+
+//                       cursor:
+//                         "pointer",
+
+//                       whiteSpace:
+//                         "nowrap",
+
+//                       boxSizing:
+//                         "border-box",
+
+//                       fontWeight:
+//                         600,
+//                     }}
+//                   >
+//                     <input
+//                       type="checkbox"
+//                       checked={
+//                         checked
+//                       }
+//                       onChange={() =>
+//                         handleOptionToggle(
+//                           stringValue
+//                         )
+//                       }
+//                       style={{
+//                         width:
+//                           "12px",
+//                         height:
+//                           "12px",
+
+//                         margin: 0,
+
+//                         flexShrink:
+//                           0,
+
+//                         cursor:
+//                           "pointer",
+//                       }}
+//                     />
+
+//                     <span
+//                       style={{
+//                         overflow:
+//                           "hidden",
+//                         textOverflow:
+//                           "ellipsis",
+//                         fontWeight:
+//                           600,
+//                       }}
+//                     >
+//                       {
+//                         optionLabel
+//                       }
+//                     </span>
+//                   </label>
+//                 );
+//               }
+//             )
+//           )}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// /* =========================================================
+//    OPEX Single Select Dropdown
+// ========================================================= */
+
+// function OpexSingleSelect({
+//   options = [],
+//   value = "",
+//   onChange,
+//   placeholder = "Select",
+//   searchable = true,
+//   required = false,
+// }) {
+//   const [open, setOpen] = useState(false);
+//   const [searchTerm, setSearchTerm] =
+//     useState("");
+
+//   const containerRef = useRef(null);
+//   const searchInputRef = useRef(null);
+
+//   useEffect(() => {
+//     const handleClickOutside = (event) => {
+//       if (
+//         containerRef.current &&
+//         !containerRef.current.contains(
+//           event.target
+//         )
+//       ) {
+//         setOpen(false);
+//         setSearchTerm("");
+//       }
+//     };
+
+//     document.addEventListener(
+//       "mousedown",
+//       handleClickOutside
+//     );
+
+//     return () => {
+//       document.removeEventListener(
+//         "mousedown",
+//         handleClickOutside
+//       );
+//     };
+//   }, []);
+
+//   useEffect(() => {
+//     if (
+//       open &&
+//       searchable &&
+//       searchInputRef.current
+//     ) {
+//       setTimeout(() => {
+//         searchInputRef.current?.focus();
+//       }, 0);
+//     }
+//   }, [open, searchable]);
+
+//   const getValue = (item) => {
+//     if (
+//       item === null ||
+//       item === undefined
+//     ) {
+//       return "";
+//     }
+
+//     if (typeof item === "object") {
+//       return (
+//         item.value ??
+//         item.id ??
+//         item.code ??
+//         item.year ??
+//         item.name ??
+//         item.currency_code ??
+//         ""
+//       );
+//     }
+
+//     return item;
+//   };
+
+//   const getLabel = (item) => {
+//     if (
+//       item === null ||
+//       item === undefined
+//     ) {
+//       return "";
+//     }
+
+//     if (typeof item === "object") {
+//       return (
+//         item.label ??
+//         item.name ??
+//         item.year ??
+//         item.currency_code ??
+//         item.value ??
+//         item.code ??
+//         ""
+//       );
+//     }
+
+//     return item;
+//   };
+
+//   const filteredOptions =
+//     options.filter((item) => {
+//       const label = String(
+//         getLabel(item)
+//       ).toLowerCase();
+
+//       const optionValue =
+//         String(
+//           getValue(item)
+//         ).toLowerCase();
+
+//       const search =
+//         searchTerm
+//           .trim()
+//           .toLowerCase();
+
+//       if (!search) {
+//         return true;
+//       }
+
+//       return (
+//         label.includes(search) ||
+//         optionValue.includes(search)
+//       );
+//     });
+
+//   const selectedOption =
+//     options.find(
+//       (item) =>
+//         String(
+//           getValue(item)
+//         ) ===
+//         String(value)
+//     );
+
+//   const displayText =
+//     selectedOption
+//       ? String(
+//         getLabel(
+//           selectedOption
+//         )
+//       )
+//       : value
+//         ? String(value)
+//         : placeholder;
+
+//   const handleChange = (
+//     nextValue
+//   ) => {
+//     onChange(nextValue);
+//     setOpen(false);
+//     setSearchTerm("");
+//   };
+
+//   return (
+//     <div
+//       ref={containerRef}
+//       style={{
+//         position: "relative",
+//         width: "100%",
+//         minWidth: 0,
+//         zIndex: open ? 1000 : 1,
+//         fontWeight: 600,
+//       }}
+//     >
+//       <button
+//         type="button"
+//         className="filter-select w-full"
+//         onClick={(event) => {
+//           event.stopPropagation();
+//           setOpen((prev) => !prev);
+
+//           if (open) {
+//             setSearchTerm("");
+//           }
+//         }}
+//         style={{
+//           minWidth: 0,
+//           width: "100%",
+//           height: "32px",
+
+//           display: "flex",
+//           alignItems: "center",
+//           justifyContent:
+//             "space-between",
+
+//           textAlign: "left",
+
+//           paddingLeft: "8px",
+//           paddingRight: "8px",
+
+//           cursor: "pointer",
+
+//           overflow: "hidden",
+
+//           boxSizing: "border-box",
+
+//           position: "relative",
+//           zIndex: 1001,
+
+//           fontWeight: 600,
+//         }}
+//       >
+//         <span
+//           style={{
+//             overflow: "hidden",
+//             textOverflow:
+//               "ellipsis",
+//             whiteSpace:
+//               "nowrap",
+//             minWidth: 0,
+//             fontWeight: 600,
+//           }}
+//         >
+//           {displayText}
+//         </span>
+
+//         <ChevronDown
+//           size={14}
+//           strokeWidth={2}
+//           style={{
+//             flexShrink: 0,
+//             marginLeft: "6px",
+//           }}
+//         />
+//       </button>
+
+//       {open && (
+//         <div
+//           onClick={(event) =>
+//             event.stopPropagation()
+//           }
+//           style={{
+//             position: "absolute",
+
+//             top: "calc(100% + 4px)",
+//             left: 0,
+
+//             width: "100%",
+//             minWidth: "180px",
+
+//             maxHeight: "280px",
+//             overflowY: "auto",
+
+//             backgroundColor:
+//               "#ffffff",
+
+//             border:
+//               "1px solid #d1d5db",
+//             borderRadius: "6px",
+
+//             boxShadow:
+//               "0 4px 12px rgba(0, 0, 0, 0.12)",
+
+//             zIndex: 99999,
+
+//             boxSizing: "border-box",
+
+//             fontWeight: 600,
+//           }}
+//         >
+//           {searchable && (
+//             <div
+//               style={{
+//                 padding: "7px 8px",
+
+//                 borderBottom:
+//                   "1px solid #e5e7eb",
+
+//                 backgroundColor:
+//                   "#ffffff",
+
+//                 position: "sticky",
+//                 top: 0,
+
+//                 zIndex: 4,
+//               }}
+//             >
+//               <div
+//                 style={{
+//                   position:
+//                     "relative",
+//                   width: "100%",
+//                 }}
+//               >
+//                 <Search
+//                   size={13}
+//                   strokeWidth={2}
+//                   style={{
+//                     position:
+//                       "absolute",
+//                     left: "7px",
+//                     top: "50%",
+//                     transform:
+//                       "translateY(-50%)",
+//                     color:
+//                       "#9ca3af",
+//                     pointerEvents:
+//                       "none",
+//                   }}
+//                 />
+
+//                 <input
+//                   ref={
+//                     searchInputRef
+//                   }
+//                   type="text"
+//                   value={
+//                     searchTerm
+//                   }
+//                   onChange={(
+//                     event
+//                   ) =>
+//                     setSearchTerm(
+//                       event
+//                         .target
+//                         .value
+//                     )
+//                   }
+//                   onClick={(event) =>
+//                     event.stopPropagation()
+//                   }
+//                   placeholder="Search..."
+//                   style={{
+//                     width:
+//                       "100%",
+//                     height:
+//                       "27px",
+
+//                     boxSizing:
+//                       "border-box",
+
+//                     border:
+//                       "1px solid #d1d5db",
+//                     borderRadius:
+//                       "4px",
+
+//                     paddingLeft:
+//                       "26px",
+//                     paddingRight:
+//                       searchTerm
+//                         ? "24px"
+//                         : "7px",
+
+//                     outline:
+//                       "none",
+
+//                     fontSize:
+//                       "10px",
+//                     color:
+//                       "#374151",
+
+//                     backgroundColor:
+//                       "#ffffff",
+
+//                     fontWeight:
+//                       600,
+//                   }}
+//                 />
+
+//                 {searchTerm && (
+//                   <button
+//                     type="button"
+//                     onClick={() =>
+//                       setSearchTerm(
+//                         ""
+//                       )
+//                     }
+//                     style={{
+//                       position:
+//                         "absolute",
+//                       right: "5px",
+//                       top: "50%",
+//                       transform:
+//                         "translateY(-50%)",
+
+//                       border: "none",
+//                       background:
+//                         "transparent",
+
+//                       padding: 0,
+
+//                       cursor:
+//                         "pointer",
+
+//                       display:
+//                         "flex",
+//                       alignItems:
+//                         "center",
+//                       justifyContent:
+//                         "center",
+//                     }}
+//                   >
+//                     <X
+//                       size={12}
+//                       color="#9ca3af"
+//                     />
+//                   </button>
+//                 )}
+//               </div>
+//             </div>
+//           )}
+
+//           {filteredOptions.length ===
+//             0 ? (
+//             <div
+//               style={{
+//                 padding:
+//                   "10px 8px",
+//                 fontSize:
+//                   "10px",
+//                 color:
+//                   "#6b7280",
+//                 fontWeight:
+//                   600,
+//               }}
+//             >
+//               {searchTerm
+//                 ? "No matching options"
+//                 : "No options available"}
+//             </div>
+//           ) : (
+//             filteredOptions.map(
+//               (
+//                 item,
+//                 index
+//               ) => {
+//                 const optionValue =
+//                   getValue(item);
+
+//                 const optionLabel =
+//                   getLabel(item);
+
+//                 if (
+//                   optionValue ===
+//                   "" ||
+//                   optionValue ===
+//                   null ||
+//                   optionValue ===
+//                   undefined
+//                 ) {
+//                   return null;
+//                 }
+
+//                 const isSelected =
+//                   String(
+//                     optionValue
+//                   ) ===
+//                   String(value);
+
+//                 return (
+//                   <button
+//                     key={`${optionValue}-${index}`}
+//                     type="button"
+//                     onClick={() =>
+//                       handleChange(
+//                         String(
+//                           optionValue
+//                         )
+//                       )
+//                     }
+//                     style={{
+//                       display:
+//                         "flex",
+//                       alignItems:
+//                         "center",
+
+//                       width:
+//                         "100%",
+
+//                       padding:
+//                         "7px 8px",
+
+//                       border:
+//                         "none",
+
+//                       backgroundColor:
+//                         isSelected
+//                           ? "#eff6ff"
+//                           : "#ffffff",
+
+//                       fontSize:
+//                         "10px",
+
+//                       color:
+//                         isSelected
+//                           ? "#1e3a8a"
+//                           : "#374151",
+
+//                       fontWeight:
+//                         600,
+
+//                       cursor:
+//                         "pointer",
+
+//                       textAlign:
+//                         "left",
+
+//                       whiteSpace:
+//                         "nowrap",
+
+//                       boxSizing:
+//                         "border-box",
+//                     }}
+//                   >
+//                     <span
+//                       style={{
+//                         overflow:
+//                           "hidden",
+//                         textOverflow:
+//                           "ellipsis",
+//                         fontWeight:
+//                           600,
+//                       }}
+//                     >
+//                       {
+//                         optionLabel
+//                       }
+//                     </span>
+//                   </button>
+//                 );
+//               }
+//             )
+//           )}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// /* =========================================================
+//    Common Select Filters
+// ========================================================= */
+
+// const commonSelectFilters = [
+//   {
+//     label: "Legal Group",
+//     optionKey: "legal_groups",
+//     apiKey: "legal_group",
+//   },
+//   {
+//     label: "Legal Entity",
+//     optionKey: "legal_entities",
+//     apiKey: "legal_entity",
+//   },
+//   {
+//     label: "Parent Division",
+//     optionKey: "parent_divisions",
+//     apiKey: "parent_division",
+//   },
+//   {
+//     label: "Sub-Division",
+//     optionKey: "subdivisions",
+//     apiKey: "subdivision",
+//   },
+//   {
+//     label: "Currency",
+//     optionKey: "currencies",
+//     apiKey: "currency",
+//   },
+// ];
+
+// /* =========================================================
+//    Receivables Filters
+
+//    Receivables:
+//    Legal Group      -> Multi Select
+//    Legal Entity     -> Multi Select
+//    Parent Division  -> Multi Select
+//    Sub-Division     -> Multi Select
+//    Currency         -> Multi Select
+// ========================================================= */
+
+// const receivablesSelectFilters = [
+//   {
+//     label: "Legal Group",
+//     optionKey: "legal_groups",
+//     apiKey: "legal_group",
+//     multiSelect: true,
+//   },
+//   {
+//     label: "Legal Entity",
+//     optionKey: "legal_entities",
+//     apiKey: "legal_entity",
+//     multiSelect: true,
+//   },
+//   {
+//     label: "Parent Division",
+//     optionKey: "parent_divisions",
+//     apiKey: "parent_division",
+//     multiSelect: true,
+//   },
+//   {
+//     label: "Sub-Division",
+//     optionKey: "subdivisions",
+//     apiKey: "subdivision",
+//     multiSelect: true,
+//   },
+// ];
+
+// const receivablesAdditionalFilters = [
+//   {
+//     label: "Reporting Currency",
+//     optionKey: "reporting_currencies",
+//     apiKey: "reporting_currency",
+//     multiSelect: false,
+//     type: "reporting_currency",
+//   },
+//   {
+//     label: "Aging Basis",
+//     optionKey: "aging_basis_options",
+//     apiKey: "aging_basis",
+//     multiSelect: false,
+//     type: "aging_basis",
+//     required: true,
+//   },
+//   {
+//     label: "Year",
+//     optionKey: "years",
+//     apiKey: "year",
+//     multiSelect: false,
+//     type: "year",
+//   },
+// ];
+
+// /* =========================================================
+//    Operating Expenses Filters
+// ========================================================= */
+
+// const operatingSelectFilters = [
+//   {
+//     label: "Legal Group",
+//     optionKey: "legal_groups",
+//     apiKey: "legal_group",
+//     multiSelect: true,
+//   },
+//   {
+//     label: "Legal Entity",
+//     optionKey: "legal_entities",
+//     apiKey: "legal_entity",
+//     multiSelect: true,
+//   },
+//   {
+//     label: "Parent Division",
+//     optionKey: "parent_divisions",
+//     apiKey: "parent_division",
+//     multiSelect: true,
+//   },
+//   {
+//     label: "Sub-Division",
+//     optionKey: "subdivisions",
+//     apiKey: "subdivision",
+//     multiSelect: true,
+//   },
+// ];
+
+// const operatingAdditionalFilters = [
+//   {
+//     label: "Year",
+//     optionKey: "years",
+//     apiKey: "year",
+//     multiSelect: false,
+//     type: "year",
+//   },
+//   {
+//     label: "Period",
+//     optionKey: "periods",
+//     apiKey: "period",
+//     multiSelect: true,
+//     type: "period",
+//   },
+//   {
+//     label: "Reporting Currency",
+//     optionKey: "reporting_currencies",
+//     apiKey: "reporting_currency",
+//     multiSelect: false,
+//     type: "reporting_currency",
+//   },
+// ];
+
+// /* =========================================================
+//    Default State
+// ========================================================= */
+
+// const DEFAULT_FILTERS = {
+//   legal_group: "",
+//   legal_entity: "",
+//   parent_division: "",
+//   subdivision: "",
+//   currency: "",
+//   as_on_date: "",
+//   period: "",
+//   compare_with: "",
+//   reporting_currency: "AED",
+//   year: "",
+//   aging_basis: "DUE_DATE",
+// };
+
+// /* =========================================================
+//    Helper
+// ========================================================= */
+
+// function getOptionValue(option) {
+//   if (
+//     option === null ||
+//     option === undefined
+//   ) {
+//     return "";
+//   }
+
+//   if (typeof option === "object") {
+//     return (
+//       option.value ??
+//       option.id ??
+//       option.code ??
+//       option.period_name ??
+//       option.year ??
+//       option.name ??
+//       option.currency_code ??
+//       ""
+//     );
+//   }
+
+//   return option;
+// }
+
+// function getOptionLabel(option) {
+//   if (
+//     option === null ||
+//     option === undefined
+//   ) {
+//     return "";
+//   }
+
+//   if (typeof option === "object") {
+//     return (
+//       option.label ??
+//       option.name ??
+//       option.period_name ??
+//       option.year ??
+//       option.currency_code ??
+//       option.value ??
+//       option.code ??
+//       ""
+//     );
+//   }
+
+//   return option;
+// }
+
+// /* =========================================================
+//    Receivables Canonical Hierarchy Helpers
+
+//    Backend hierarchy values must always be the canonical IDs.
+//    Labels are kept separate so the UI never sends names/codes
+//    when a backend ID is available.
+// ========================================================= */
+
+// function getReceivablesHierarchyValue(option, type) {
+//   if (
+//     option === null ||
+//     option === undefined
+//   ) {
+//     return "";
+//   }
+
+//   if (typeof option !== "object") {
+//     return option;
+//   }
+
+//   const idKeys = {
+//     legal_group: [
+//       "legal_group_id",
+//       "legalGroupId",
+//       "id",
+//       "value",
+//     ],
+//     legal_entity: [
+//       "legal_entity_id",
+//       "legalEntityId",
+//       "id",
+//       "value",
+//     ],
+//     parent_division: [
+//       "parent_division_id",
+//       "parentDivisionId",
+//       "id",
+//       "value",
+//     ],
+//     subdivision: [
+//       "subdivision_id",
+//       "subdivisionId",
+//       "id",
+//       "value",
+//     ],
+//   };
+
+//   return (
+//     idKeys[type]?.reduce(
+//       (result, key) =>
+//         result !== undefined &&
+//         result !== null &&
+//         result !== ""
+//           ? result
+//           : option[key],
+//       undefined
+//     ) ?? ""
+//   );
+// }
+
+// function getReceivablesHierarchyLabel(option, type) {
+//   if (
+//     option === null ||
+//     option === undefined
+//   ) {
+//     return "";
+//   }
+
+//   if (typeof option !== "object") {
+//     return option;
+//   }
+
+//   const nameKeys = {
+//     legal_group: [
+//       "legal_group_name",
+//       "legalGroupName",
+//       "name",
+//       "label",
+//     ],
+//     legal_entity: [
+//       "legal_entity_name",
+//       "legalEntityName",
+//       "name",
+//       "label",
+//     ],
+//     parent_division: [
+//       "parent_division_name",
+//       "parentDivisionName",
+//       "name",
+//       "label",
+//     ],
+//     subdivision: [
+//       "subdivision_name",
+//       "subdivisionName",
+//       "name",
+//       "label",
+//     ],
+//   };
+
+//   return (
+//     nameKeys[type]?.reduce(
+//       (result, key) =>
+//         result !== undefined &&
+//         result !== null &&
+//         result !== ""
+//           ? result
+//           : option[key],
+//       undefined
+//     ) ?? ""
+//   );
+// }
+
+// /* =========================================================
+//    Get Latest Period
+// ========================================================= */
+
+// function getLatestPeriod(periods = []) {
+//   if (
+//     !Array.isArray(periods) ||
+//     periods.length === 0
+//   ) {
+//     return "";
+//   }
+
+//   const latest =
+//     periods[periods.length - 1];
+
+//   return getOptionValue(latest);
+// }
+
+// /* =========================================================
+//    Normalize Year Options
+// ========================================================= */
+
+// function normalizeYears(
+//   payload = {},
+//   periods = []
+// ) {
+//   const rawYears =
+//     payload?.years ||
+//     payload?.fiscal_years ||
+//     payload?.accounting_years ||
+//     [];
+
+//   if (
+//     Array.isArray(rawYears) &&
+//     rawYears.length
+//   ) {
+//     return rawYears;
+//   }
+
+//   if (Array.isArray(periods)) {
+//     const derivedYears = [];
+
+//     periods.forEach((period) => {
+//       if (
+//         period &&
+//         typeof period === "object"
+//       ) {
+//         const year =
+//           period.year ??
+//           period.fiscal_year ??
+//           period.accounting_year ??
+//           null;
+
+//         if (
+//           year !== null &&
+//           year !== undefined &&
+//           year !== ""
+//         ) {
+//           if (
+//             !derivedYears.some(
+//               (item) =>
+//                 String(
+//                   getOptionValue(item)
+//                 ) === String(year)
+//             )
+//           ) {
+//             derivedYears.push({
+//               value: year,
+//               label: year,
+//             });
+//           }
+//         }
+//       }
+//     });
+
+//     return derivedYears;
+//   }
+
+//   return [];
+// }
+
+// /* =========================================================
+//    Normalize OPEX filter-options response
+// ========================================================= */
+
+// function normalizeOpexFilterOptions(
+//   data = {}
+// ) {
+//   const payload =
+//     data?.data &&
+//       typeof data.data === "object" &&
+//       !Array.isArray(data.data)
+//       ? data.data
+//       : data;
+
+//   const reportingCurrencies =
+//     payload?.reporting_currencies ||
+//     payload?.currencies ||
+//     [];
+
+//   const currencies =
+//     Array.isArray(
+//       reportingCurrencies
+//     )
+//       ? reportingCurrencies.map(
+//         (item) => {
+//           if (
+//             typeof item ===
+//             "object" &&
+//             item !== null
+//           ) {
+//             const value =
+//               item.currency_code ??
+//               item.value ??
+//               item.code ??
+//               item.id ??
+//               "";
+
+//             const label =
+//               item.label ??
+//               item.currency_code ??
+//               item.value ??
+//               item.code ??
+//               "";
+
+//             return {
+//               value,
+//               label,
+//             };
+//           }
+
+//           return {
+//             value: item,
+//             label: item,
+//           };
+//         }
+//       )
+//       : [];
+
+//   const periods =
+//     Array.isArray(
+//       payload?.periods
+//     )
+//       ? payload.periods
+//       : [];
+
+//   return {
+//     legal_groups:
+//       Array.isArray(
+//         payload?.legal_groups
+//       )
+//         ? payload.legal_groups
+//         : [],
+
+//     legal_entities:
+//       Array.isArray(
+//         payload?.legal_entities
+//       )
+//         ? payload.legal_entities
+//         : [],
+
+//     parent_divisions:
+//       Array.isArray(
+//         payload?.parent_divisions
+//       )
+//         ? payload.parent_divisions
+//         : [],
+
+//     subdivisions:
+//       Array.isArray(
+//         payload?.subdivisions
+//       )
+//         ? payload.subdivisions
+//         : [],
+
+//     periods,
+
+//     years: normalizeYears(
+//       payload,
+//       periods
+//     ),
+
+//     currencies,
+
+//     ledger_currencies:
+//       Array.isArray(
+//         payload?.ledger_currencies
+//       )
+//         ? payload.ledger_currencies
+//         : [],
+
+//     reporting_currencies:
+//       Array.isArray(
+//         payload?.reporting_currencies
+//       )
+//         ? payload.reporting_currencies
+//         : Array.isArray(
+//           payload?.currencies
+//         )
+//           ? payload.currencies
+//           : [],
+
+//     compare_with:
+//       Array.isArray(
+//         payload?.compare_with
+//       )
+//         ? payload.compare_with
+//         : Array.isArray(
+//           payload?.compare_periods
+//         )
+//           ? payload.compare_periods
+//           : [],
+
+//     data_as_of:
+//       payload?.data_as_of || null,
+
+//     default_reporting_currency:
+//       payload?.default_reporting_currency ||
+//       "AED",
+//   };
+// }
+
+// /* =========================================================
+//    Filters Component
+// ========================================================= */
+
+// export default function Filters({
+//   filterOptions,
+//   onApply,
+//   onReset,
+//   onChange,
+//   isOperatingExpenses = false,
+//   isReceivables = false,
+// }) {
+//   /* =======================================================
+//      Selected Filters
+//   ======================================================= */
+
+//   const [
+//     selectedFilters,
+//     setSelectedFilters,
+//   ] = useState(() => {
+//     if (isOperatingExpenses) {
+//       return {
+//         ...DEFAULT_FILTERS,
+
+//         legal_group: [],
+//         legal_entity: [],
+//         parent_division: [],
+//         subdivision: [],
+
+//         period: [],
+
+//         year: "",
+
+//         reporting_currency:
+//           "AED",
+//       };
+//     }
+
+//     if (isReceivables) {
+//       return {
+//         ...DEFAULT_FILTERS,
+
+//         // Receivables multi-select fields
+//         legal_group: [],
+//         legal_entity: [],
+//         parent_division: [],
+//         subdivision: [],
+//         currency: [],
+
+//         as_on_date: "",
+//         reporting_currency: "AED",
+//         aging_basis: "DUE_DATE",
+//         year: "",
+//       };
+//     }
+
+//     return DEFAULT_FILTERS;
+//   });
+
+//   /* =======================================================
+//      OPEX Filter Options
+//   ======================================================= */
+
+//   const [
+//     opexFilterOptions,
+//     setOpexFilterOptions,
+//   ] = useState({
+//     legal_groups: [],
+//     legal_entities: [],
+//     parent_divisions: [],
+//     subdivisions: [],
+
+//     periods: [],
+//     years: [],
+
+//     currencies: [],
+//     reporting_currencies: [],
+//     ledger_currencies: [],
+//     compare_with: [],
+
+//     data_as_of: null,
+
+//     default_reporting_currency:
+//       "AED",
+//   });
+
+//   /* =======================================================
+//      OPEX Loading
+//   ======================================================= */
+
+//   const [
+//     opexFilterLoading,
+//     setOpexFilterLoading,
+//   ] = useState(false);
+
+//   /* =======================================================
+//      RECEIVABLES Filter Options
+
+//      Aging Basis is frontend-defined because the allowed
+//      backend values are fixed:
+//        DUE_DATE
+//        INVOICE_DATE
+//   ======================================================= */
+
+//   const receivablesAgingBasisOptions = [
+//     {
+//       value: "DUE_DATE",
+//       label: "Due Date Based",
+//     },
+//     {
+//       value: "INVOICE_DATE",
+//       label: "Invoice Date Based",
+//     },
+//   ];
+
+//   /* =======================================================
+//      Load OPEX Filter Options
+//   ======================================================= */
+
+//   const loadOpexFilterOptions = async (
+//     currentFilters = {},
+//     preserveOptionKey = null
+//   ) => {
+//     try {
+//       setOpexFilterLoading(true);
+
+//       const apiFilters = {};
+
+//       if (
+//         Array.isArray(
+//           currentFilters.legal_group
+//         ) &&
+//         currentFilters.legal_group.length
+//       ) {
+//         apiFilters.legal_group_id =
+//           currentFilters.legal_group;
+//       }
+
+//       if (
+//         Array.isArray(
+//           currentFilters.legal_entity
+//         ) &&
+//         currentFilters.legal_entity.length
+//       ) {
+//         apiFilters.legal_entity_id =
+//           currentFilters.legal_entity;
+//       }
+
+//       if (
+//         Array.isArray(
+//           currentFilters.parent_division
+//         ) &&
+//         currentFilters.parent_division.length
+//       ) {
+//         apiFilters.parent_division_id =
+//           currentFilters.parent_division;
+//       }
+
+//       if (
+//         Array.isArray(
+//           currentFilters.subdivision
+//         ) &&
+//         currentFilters.subdivision.length
+//       ) {
+//         apiFilters.subdivision_id =
+//           currentFilters.subdivision;
+//       }
+
+//       const response =
+//         await getOpexFilterOptions(
+//           apiFilters
+//         );
+
+//       const normalized =
+//         normalizeOpexFilterOptions(
+//           response || {}
+//         );
+
+//       if (preserveOptionKey) {
+//         setOpexFilterOptions(
+//           (previous) => ({
+//             ...normalized,
+
+//             [preserveOptionKey]:
+//               Array.isArray(
+//                 previous?.[
+//                 preserveOptionKey
+//                 ]
+//               )
+//                 ? previous[
+//                 preserveOptionKey
+//                 ]
+//                 : normalized[
+//                 preserveOptionKey
+//                 ],
+//           })
+//         );
+
+//         return {
+//           ...normalized,
+
+//           [preserveOptionKey]:
+//             Array.isArray(
+//               opexFilterOptions?.[
+//               preserveOptionKey
+//               ]
+//             )
+//               ? opexFilterOptions[
+//               preserveOptionKey
+//               ]
+//               : normalized[
+//               preserveOptionKey
+//               ],
+//         };
+//       }
+
+//       setOpexFilterOptions(
+//         normalized
+//       );
+
+//       return normalized;
+//     } catch (error) {
+//       console.error(
+//         "Failed to load OPEX filter options:",
+//         error
+//       );
+
+//       return null;
+//     } finally {
+//       setOpexFilterLoading(false);
+//     }
+//   };
+
+//   /* =======================================================
+//      Common + Receivables Date Handling
+//   ======================================================= */
+
+//   useEffect(() => {
+//     if (isOperatingExpenses) {
+//       return;
+//     }
+
+//     const dates =
+//       filterOptions?.available_dates ||
+//       filterOptions?.as_on_dates ||
+//       [];
+
+//     if (isReceivables) {
+//       const reportingCurrencies =
+//         filterOptions?.reporting_currencies ||
+//         filterOptions?.currencies ||
+//         [];
+
+//       const defaultReportingCurrency =
+//         filterOptions?.default_reporting_currency ||
+//         (
+//           reportingCurrencies.length
+//             ? getOptionValue(reportingCurrencies[0])
+//             : "AED"
+//         ) ||
+//         "AED";
+
+//       const years =
+//         filterOptions?.years ||
+//         filterOptions?.fiscal_years ||
+//         filterOptions?.accounting_years ||
+//         [];
+
+//       setSelectedFilters(
+//         (prev) => ({
+//           ...prev,
+//           as_on_date:
+//             prev.as_on_date ||
+//             dates[0] ||
+//             "",
+//           reporting_currency:
+//             prev.reporting_currency ||
+//             defaultReportingCurrency,
+//           aging_basis:
+//             prev.aging_basis ||
+//             "DUE_DATE",
+//           year:
+//             prev.year ||
+//             (
+//               years.length
+//                 ? String(getOptionValue(years[0]))
+//                 : ""
+//             ),
+//         })
+//       );
+
+//       return;
+//     }
+
+//     if (dates.length) {
+//       setSelectedFilters(
+//         (prev) => ({
+//           ...prev,
+//           as_on_date:
+//             dates[0],
+//         })
+//       );
+//     }
+//   }, [
+//     filterOptions,
+//     isOperatingExpenses,
+//     isReceivables,
+//   ]);
+
+//   /* =======================================================
+//      Initial OPEX Options
+//   ======================================================= */
+
+//   useEffect(() => {
+//     if (!isOperatingExpenses) {
+//       return;
+//     }
+
+//     loadOpexFilterOptions({});
+//   }, [
+//     isOperatingExpenses,
+//   ]);
+
+//   /* =======================================================
+//      OPEX Default Values
+//   ======================================================= */
+
+//   useEffect(() => {
+//     if (!isOperatingExpenses) {
+//       return;
+//     }
+
+//     const periods =
+//       opexFilterOptions
+//         ?.periods?.length
+//         ? opexFilterOptions.periods
+//         : filterOptions?.periods ||
+//         [];
+
+//     const latestPeriod =
+//       getLatestPeriod(periods);
+
+//     const years =
+//       opexFilterOptions
+//         ?.years?.length
+//         ? opexFilterOptions.years
+//         : filterOptions?.years ||
+//         [];
+
+//     const firstYear =
+//       years.length
+//         ? getOptionValue(
+//           years[0]
+//         )
+//         : "";
+
+//     const defaultReportingCurrency =
+//       opexFilterOptions
+//         ?.default_reporting_currency ||
+//       filterOptions
+//         ?.default_reporting_currency ||
+//       "AED";
+
+//     setSelectedFilters(
+//       (prev) => ({
+//         ...prev,
+
+//         legal_group:
+//           Array.isArray(
+//             prev.legal_group
+//           )
+//             ? prev.legal_group
+//             : [],
+
+//         legal_entity:
+//           Array.isArray(
+//             prev.legal_entity
+//           )
+//             ? prev.legal_entity
+//             : [],
+
+//         parent_division:
+//           Array.isArray(
+//             prev.parent_division
+//           )
+//             ? prev.parent_division
+//             : [],
+
+//         subdivision:
+//           Array.isArray(
+//             prev.subdivision
+//           )
+//             ? prev.subdivision
+//             : [],
+
+//         period:
+//           Array.isArray(
+//             prev.period
+//           )
+//             ? prev.period.length
+//               ? prev.period
+//               : latestPeriod
+//                 ? [
+//                   String(
+//                     latestPeriod
+//                   ),
+//                 ]
+//                 : []
+//             : prev.period
+//               ? [
+//                 String(
+//                   prev.period
+//                 ),
+//               ]
+//               : latestPeriod
+//                 ? [
+//                   String(
+//                     latestPeriod
+//                   ),
+//                 ]
+//                 : [],
+
+//         year:
+//           prev.year ||
+//           firstYear ||
+//           "",
+
+//         reporting_currency:
+//           prev.reporting_currency ||
+//           defaultReportingCurrency ||
+//           "AED",
+//       })
+//     );
+//   }, [
+//     opexFilterOptions,
+//     filterOptions,
+//     isOperatingExpenses,
+//   ]);
+
+//   /* =======================================================
+//      OPEX Filter Change
+//   ======================================================= */
+
+//   const handleOpexFilterChange =
+//     async (
+//       apiKey,
+//       value
+//     ) => {
+//       let nextFilters = {
+//         ...selectedFilters,
+//         [apiKey]: value,
+//       };
+
+//       if (
+//         apiKey ===
+//         "legal_group"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           legal_group:
+//             Array.isArray(
+//               value
+//             )
+//               ? value
+//               : [],
+
+//           legal_entity: [],
+//           parent_division: [],
+//           subdivision: [],
+//         };
+//       }
+
+//       if (
+//         apiKey ===
+//         "legal_entity"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           legal_entity:
+//             Array.isArray(
+//               value
+//             )
+//               ? value
+//               : [],
+
+//           parent_division: [],
+//           subdivision: [],
+//         };
+//       }
+
+//       if (
+//         apiKey ===
+//         "parent_division"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           parent_division:
+//             Array.isArray(
+//               value
+//             )
+//               ? value
+//               : [],
+
+//           subdivision: [],
+//         };
+//       }
+
+//       if (
+//         apiKey ===
+//         "subdivision"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           subdivision:
+//             Array.isArray(
+//               value
+//             )
+//               ? value
+//               : [],
+//         };
+//       }
+
+//       if (
+//         apiKey === "period"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           period:
+//             Array.isArray(
+//               value
+//             )
+//               ? value
+//               : value
+//                 ? [
+//                   String(
+//                     value
+//                   ),
+//                 ]
+//                 : [],
+//         };
+//       }
+
+//       if (
+//         apiKey === "year"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           year:
+//             value === null ||
+//               value === undefined
+//               ? ""
+//               : String(value),
+//         };
+//       }
+
+//       if (
+//         apiKey ===
+//         "reporting_currency"
+//       ) {
+//         nextFilters = {
+//           ...nextFilters,
+
+//           reporting_currency:
+//             value ||
+//             opexFilterOptions
+//               ?.default_reporting_currency ||
+//             "AED",
+//         };
+//       }
+
+//       setSelectedFilters(
+//         nextFilters
+//       );
+
+//       if (onChange) {
+//         onChange(nextFilters);
+//       }
+
+//       if (
+//         apiKey ===
+//         "legal_group" ||
+//         apiKey ===
+//         "legal_entity" ||
+//         apiKey ===
+//         "parent_division" ||
+//         apiKey ===
+//         "subdivision"
+//       ) {
+//         const optionKeyMap = {
+//           legal_group:
+//             "legal_groups",
+//           legal_entity:
+//             "legal_entities",
+//           parent_division:
+//             "parent_divisions",
+//           subdivision:
+//             "subdivisions",
+//         };
+
+//         await loadOpexFilterOptions(
+//           nextFilters,
+//           optionKeyMap[
+//           apiKey
+//           ]
+//         );
+//       }
+//     };
+
+//   /* =========================================================
+//      RECEIVABLES Filter Change
+
+//      Receivables fields are all multi-select:
+//      Legal Group
+//      Legal Entity
+//      Parent Division
+//      Sub-Division
+//      Currency
+
+//      No OPEX API call is made here.
+//   ========================================================= */
+
+//   const handleReceivablesFilterChange = (
+//     apiKey,
+//     value
+//   ) => {
+//     const normalizedValue =
+//       Array.isArray(value)
+//         ? value.map(String)
+//         : value !== null &&
+//           value !== undefined &&
+//           value !== ""
+//           ? [String(value)]
+//           : [];
+
+//     let nextFilters = {
+//       ...selectedFilters,
+//       [apiKey]:
+//         apiKey === "aging_basis" ||
+//         apiKey === "reporting_currency" ||
+//         apiKey === "year"
+//           ? (
+//             value === null ||
+//             value === undefined
+//               ? ""
+//               : String(value)
+//           )
+//           : normalizedValue,
+//     };
+
+//     /* -----------------------------------------------
+//        Receivables hierarchy dependency chain
+//        Legal Group
+//          -> Legal Entity
+//            -> Parent Division
+//              -> Sub-Division
+//     ----------------------------------------------- */
+
+//     if (apiKey === "legal_group") {
+//       nextFilters = {
+//         ...nextFilters,
+//         legal_group: normalizedValue,
+//         legal_entity: [],
+//         parent_division: [],
+//         subdivision: [],
+//       };
+//     }
+
+//     if (apiKey === "legal_entity") {
+//       nextFilters = {
+//         ...nextFilters,
+//         legal_entity: normalizedValue,
+//         parent_division: [],
+//         subdivision: [],
+//       };
+//     }
+
+//     if (apiKey === "parent_division") {
+//       nextFilters = {
+//         ...nextFilters,
+//         parent_division: normalizedValue,
+//         subdivision: [],
+//       };
+//     }
+
+//     if (apiKey === "subdivision") {
+//       nextFilters = {
+//         ...nextFilters,
+//         subdivision: normalizedValue,
+//       };
+//     }
+
+//     if (apiKey === "aging_basis") {
+//       nextFilters = {
+//         ...nextFilters,
+//         aging_basis:
+//           value === "INVOICE_DATE"
+//             ? "INVOICE_DATE"
+//             : "DUE_DATE",
+//       };
+//     }
+
+//     if (apiKey === "reporting_currency") {
+//       nextFilters = {
+//         ...nextFilters,
+//         reporting_currency:
+//           value || "AED",
+//       };
+//     }
+
+//     if (apiKey === "year") {
+//       nextFilters = {
+//         ...nextFilters,
+//         year:
+//           value === null ||
+//           value === undefined
+//             ? ""
+//             : String(value),
+//       };
+//     }
+
+//     setSelectedFilters(
+//       nextFilters
+//     );
+
+//     /*
+//       The parent Receivables dashboard receives this complete
+//       filter object through the common onChange callback.
+//       It must use this same object for every Receivables API
+//       request, including aging_basis.
+//     */
+//     if (onChange) {
+//       onChange(nextFilters);
+//     }
+//   };
+
+//   /* =========================================================
+//      Reset
+//   ========================================================= */
+
+//   const handleReset =
+//     async () => {
+//       let resetFilters = {
+//         legal_group: "",
+//         legal_entity: "",
+//         parent_division: "",
+//         subdivision: "",
+//         currency: "",
+//         as_on_date: "",
+//         period: "",
+//         compare_with: "",
+//         reporting_currency:
+//           "AED",
+//         year: "",
+//       };
+
+//       /* -----------------------------------------------
+//          RECEIVABLES RESET
+//       ----------------------------------------------- */
+
+//       if (isReceivables) {
+//         resetFilters = {
+//           legal_group: [],
+//           legal_entity: [],
+//           parent_division: [],
+//           subdivision: [],
+
+//           currency: [],
+
+//           as_on_date:
+//             filterOptions
+//               ?.as_on_dates?.[0] ||
+//             filterOptions
+//               ?.available_dates?.[0] ||
+//             "",
+
+//           reporting_currency:
+//             filterOptions
+//               ?.default_reporting_currency ||
+//             "AED",
+
+//           aging_basis:
+//             "DUE_DATE",
+
+//           year:
+//             filterOptions
+//               ?.years?.length
+//               ? String(
+//                 getOptionValue(
+//                   filterOptions.years[0]
+//                 )
+//               )
+//               : "",
+
+//           period: "",
+//           compare_with: "",
+//         };
+//       }
+
+//       /* -----------------------------------------------
+//          COMMON RESET
+//       ----------------------------------------------- */
+
+//       if (
+//         !isOperatingExpenses &&
+//         !isReceivables
+//       ) {
+//         resetFilters = {
+//           legal_group: "",
+//           legal_entity: "",
+//           parent_division:
+//             "",
+//           subdivision: "",
+//           currency: "",
+//           as_on_date:
+//             filterOptions
+//               ?.as_on_dates?.[0] ||
+//             filterOptions
+//               ?.available_dates?.[0] ||
+//             "",
+//           period: "",
+//           compare_with: "",
+//           reporting_currency:
+//             "AED",
+//         };
+//       }
+
+//       /* -----------------------------------------------
+//          OPEX RESET
+//       ----------------------------------------------- */
+
+//       if (
+//         isOperatingExpenses
+//       ) {
+//         const normalized =
+//           await loadOpexFilterOptions(
+//             {}
+//           );
+
+//         const periods =
+//           normalized?.periods ||
+//           opexFilterOptions?.periods ||
+//           filterOptions?.periods ||
+//           [];
+
+//         const years =
+//           normalized?.years ||
+//           opexFilterOptions?.years ||
+//           filterOptions?.years ||
+//           [];
+
+//         const latestPeriod =
+//           getLatestPeriod(
+//             periods
+//           );
+
+//         const firstYear =
+//           years.length
+//             ? getOptionValue(
+//               years[0]
+//             )
+//             : "";
+
+//         resetFilters = {
+//           legal_group: [],
+//           legal_entity: [],
+//           parent_division:
+//             [],
+//           subdivision: [],
+
+//           currency: "",
+//           as_on_date: "",
+
+//           period:
+//             latestPeriod
+//               ? [
+//                 String(
+//                   latestPeriod
+//                 ),
+//               ]
+//               : [],
+
+//           year:
+//             firstYear || "",
+
+//           reporting_currency:
+//             normalized
+//               ?.default_reporting_currency ||
+//             opexFilterOptions
+//               ?.default_reporting_currency ||
+//             "AED",
+//         };
+//       }
+
+//       setSelectedFilters(
+//         resetFilters
+//       );
+
+//       if (onChange) {
+//         onChange(
+//           resetFilters
+//         );
+//       }
+
+//       if (onReset) {
+//         onReset();
+//       }
+//     };
+
+//   /* =========================================================
+//      Filters To Display
+//   ========================================================= */
+
+//   const filtersToDisplay =
+//     isOperatingExpenses
+//       ? [
+//         ...operatingSelectFilters,
+//         ...operatingAdditionalFilters,
+//       ]
+//       : isReceivables
+//         ? [
+//           ...receivablesSelectFilters,
+//           ...receivablesAdditionalFilters,
+//         ]
+//         : commonSelectFilters;
+
+//   /* =========================================================
+//      Active Filter Options
+//   ========================================================= */
+
+//   const activeFilterOptions =
+//     isOperatingExpenses
+//       ? {
+//         ...filterOptions,
+//         ...opexFilterOptions,
+//       }
+//       : filterOptions;
+
+//   /* =========================================================
+//      Render
+//   ========================================================= */
+
+//   return (
+//     <div
+//       className="filter-bar"
+//       style={{
+
+//         display: "flex",
+//         gap: "10px",
+
+//         flexWrap:
+//           isOperatingExpenses ||
+//             isReceivables
+//             ? "nowrap"
+//             : "wrap",
+
+//         alignItems:
+//           "flex-end",
+
+//         width: "100%",
+
+//         minWidth: 0,
+
+//         position: "relative",
+
+//         zIndex: 10,
+
+//         fontWeight: 600,
+//       }}
+//     >
+//       {filtersToDisplay.map(
+//         (f, i) => {
+//           const isPeriod =
+//             isOperatingExpenses &&
+//             f.apiKey ===
+//             "period";
+
+//           const isYear =
+//             isOperatingExpenses &&
+//             f.apiKey ===
+//             "year";
+
+//           const isReportingCurrency =
+//             (
+//               isOperatingExpenses ||
+//               isReceivables
+//             ) &&
+//             f.apiKey ===
+//             "reporting_currency";
+
+//           const isReceivablesAgingBasis =
+//             isReceivables &&
+//             f.apiKey ===
+//             "aging_basis";
+
+//           const isReceivablesYear =
+//             isReceivables &&
+//             f.apiKey ===
+//             "year";
+
+//           /* ---------------------------------------------
+//              OPEX OR RECEIVABLES MULTI SELECT
+//           --------------------------------------------- */
+
+//           const isMultiSelect =
+//             (isOperatingExpenses ||
+//               isReceivables) &&
+//             f.multiSelect ===
+//             true;
+
+//           const options =
+//             activeFilterOptions?.[
+//             f.optionKey
+//             ] || [];
+
+//           return (
+//             <FilterField
+//               key={`${f.apiKey}-${i}`}
+//               label={f.label}
+//               isOperatingExpenses={
+//                 isOperatingExpenses
+//               }
+//               isReceivables={
+//                 isReceivables
+//               }
+//             >
+//               {/* =========================================
+//                   MULTI SELECT
+//               ========================================= */}
+
+//               {isMultiSelect ? (
+//                 <OpexMultiSelect
+//                   options={
+//                     isReceivables &&
+//                     (
+//                       f.apiKey ===
+//                         "legal_group" ||
+//                       f.apiKey ===
+//                         "legal_entity" ||
+//                       f.apiKey ===
+//                         "parent_division" ||
+//                       f.apiKey ===
+//                         "subdivision"
+//                     )
+//                       ? options.map(
+//                         (item) => ({
+//                           value:
+//                             getReceivablesHierarchyValue(
+//                               item,
+//                               f.apiKey
+//                             ),
+//                           label:
+//                             getReceivablesHierarchyLabel(
+//                               item,
+//                               f.apiKey
+//                             ),
+//                         })
+//                       )
+//                       : options
+//                   }
+//                   value={
+//                     Array.isArray(
+//                       selectedFilters[
+//                       f.apiKey
+//                       ]
+//                     )
+//                       ? selectedFilters[
+//                       f.apiKey
+//                       ]
+//                       : []
+//                   }
+//                   onChange={(
+//                     values
+//                   ) => {
+//                     if (
+//                       isReceivables
+//                     ) {
+//                       handleReceivablesFilterChange(
+//                         f.apiKey,
+//                         values
+//                       );
+//                     } else {
+//                       handleOpexFilterChange(
+//                         f.apiKey,
+//                         values
+//                       );
+//                     }
+//                   }}
+//                   placeholder={
+//                     isPeriod
+//                       ? "Select Period"
+//                       : "All"
+//                   }
+//                   searchable={
+//                     true
+//                   }
+//                 />
+
+//                 /* =========================================
+//                    OPEX YEAR
+//                 ========================================= */
+
+//               ) : isYear ? (
+//                 <OpexSingleSelect
+//                   options={
+//                     options
+//                   }
+//                   value={
+//                     selectedFilters
+//                       .year || ""
+//                   }
+//                   onChange={(
+//                     value
+//                   ) =>
+//                     handleOpexFilterChange(
+//                       "year",
+//                       value
+//                     )
+//                   }
+//                   placeholder="Select Year"
+//                   searchable={
+//                     true
+//                   }
+//                 />
+
+//                 /* =========================================
+//                    OPEX REPORTING CURRENCY
+//                 ========================================= */
+
+//               ) : isReportingCurrency ? (
+//                 <OpexSingleSelect
+//                   options={
+//                     options.length
+//                       ? options
+//                       : [
+//                         {
+//                           value:
+//                             "AED",
+//                           label:
+//                             "AED",
+//                         },
+//                       ]
+//                   }
+//                   value={
+//                     selectedFilters
+//                       .reporting_currency ||
+//                     opexFilterOptions
+//                       ?.default_reporting_currency ||
+//                     "AED"
+//                   }
+//                   onChange={(
+//                     value
+//                   ) =>
+//                     isReceivables
+//                       ? handleReceivablesFilterChange(
+//                         "reporting_currency",
+//                         value
+//                       )
+//                       : handleOpexFilterChange(
+//                         "reporting_currency",
+//                         value
+//                       )
+//                   }
+//                   placeholder="Select Currency"
+//                   searchable={
+//                     true
+//                   }
+//                   required={
+//                     true
+//                   }
+//                 />
+
+//               /* =========================================
+//                  RECEIVABLES AGING BASIS
+//               ========================================= */
+
+//               ) : isReceivablesAgingBasis ? (
+//                 <OpexSingleSelect
+//                   options={
+//                     receivablesAgingBasisOptions
+//                   }
+//                   value={
+//                     selectedFilters
+//                       .aging_basis ||
+//                     "DUE_DATE"
+//                   }
+//                   onChange={(
+//                     value
+//                   ) =>
+//                     handleReceivablesFilterChange(
+//                       "aging_basis",
+//                       value
+//                     )
+//                   }
+//                   placeholder="Select Aging Basis"
+//                   searchable={false}
+//                   required={true}
+//                 />
+
+//               /* =========================================
+//                  RECEIVABLES YEAR
+//               ========================================= */
+
+//               ) : isReceivablesYear ? (
+//                 <OpexSingleSelect
+//                   options={
+//                     options
+//                   }
+//                   value={
+//                     selectedFilters
+//                       .year || ""
+//                   }
+//                   onChange={(
+//                     value
+//                   ) =>
+//                     handleReceivablesFilterChange(
+//                       "year",
+//                       value
+//                     )
+//                   }
+//                   placeholder="Select Year"
+//                   searchable={true}
+//                 />
+
+//                 /* =========================================
+//                    NORMAL COMMON SELECT
+//                 ========================================= */
+
+//               ) : (
+//                 <select
+//                   className="filter-select w-full"
+//                   value={
+//                     selectedFilters[
+//                     f.apiKey
+//                     ] || ""
+//                   }
+//                   onChange={(
+//                     e
+//                   ) => {
+//                     const value =
+//                       e.target
+//                         .value;
+
+//                     if (
+//                       isOperatingExpenses
+//                     ) {
+//                       handleOpexFilterChange(
+//                         f.apiKey,
+//                         value
+//                       );
+//                     } else if (
+//                       isReceivables
+//                     ) {
+//                       handleReceivablesFilterChange(
+//                         f.apiKey,
+//                         value
+//                       );
+//                     } else {
+//                       const nextFilters =
+//                       {
+//                         ...selectedFilters,
+//                         [f.apiKey]:
+//                           value,
+//                       };
+
+//                       setSelectedFilters(
+//                         nextFilters
+//                       );
+
+//                       if (
+//                         onChange
+//                       ) {
+//                         onChange(
+//                           nextFilters
+//                         );
+//                       }
+//                     }
+//                   }}
+//                   style={{
+//                     minWidth: 0,
+//                     width:
+//                       "100%",
+//                     fontWeight:
+//                       600,
+//                     boxSizing:
+//                       "border-box",
+
+
+//                   }}
+//                 >
+//                   <option value="">
+//                     All
+//                   </option>
+
+//                   {activeFilterOptions?.[
+//                     f.optionKey
+//                   ]?.map(
+//                     (
+//                       item,
+//                       index
+//                     ) => {
+//                       const value =
+//                         isReceivables &&
+//                         (
+//                           f.apiKey ===
+//                             "legal_group" ||
+//                           f.apiKey ===
+//                             "legal_entity" ||
+//                           f.apiKey ===
+//                             "parent_division" ||
+//                           f.apiKey ===
+//                             "subdivision"
+//                         )
+//                           ? getReceivablesHierarchyValue(
+//                             item,
+//                             f.apiKey
+//                           )
+//                           : getOptionValue(
+//                             item
+//                           );
+
+//                       const label =
+//                         isReceivables &&
+//                         (
+//                           f.apiKey ===
+//                             "legal_group" ||
+//                           f.apiKey ===
+//                             "legal_entity" ||
+//                           f.apiKey ===
+//                             "parent_division" ||
+//                           f.apiKey ===
+//                             "subdivision"
+//                         )
+//                           ? getReceivablesHierarchyLabel(
+//                             item,
+//                             f.apiKey
+//                           )
+//                           : getOptionLabel(
+//                             item
+//                           );
+
+//                       if (
+//                         value ===
+//                         "" ||
+//                         value ===
+//                         null ||
+//                         value ===
+//                         undefined
+//                       ) {
+//                         return null;
+//                       }
+
+//                       return (
+//                         <option
+//                           key={`${value}-${index}`}
+//                           value={
+//                             value
+//                           }
+//                           style={{
+//                             fontWeight:
+//                               600,
+//                           }}
+//                         >
+//                           {
+//                             label
+//                           }
+//                         </option>
+//                       );
+//                     }
+//                   )}
+//                 </select>
+//               )}
+//             </FilterField>
+//           );
+//         }
+//       )}
+
+//       {/* ===================================================
+//           As On Date
+//           Common + Receivables
+//       =================================================== */}
+
+//       {!isOperatingExpenses && (
+//         <FilterField
+//           label="As On Date"
+//           isReceivables={
+//             isReceivables
+//           }
+//         >
+//           <input
+//             type="text"
+//             value={
+//               selectedFilters
+//                 .as_on_date
+//             }
+//             readOnly
+//             className="w-full h-8 text-[10px] font-semibold text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2"
+//             style={{
+//               boxSizing:
+//                 "border-box",
+//             }}
+//           />
+//         </FilterField>
+//       )}
+
+//       {/* ===================================================
+//           Apply / Reset
+//       =================================================== */}
+
+//       <div
+//         style={{
+//           display: "flex",
+//           gap: "8px",
+
+//           marginLeft:
+//             "auto",
+
+//           flexShrink: 0,
+
+//           position:
+//             "relative",
+
+//           zIndex: 1,
+
+//           fontWeight: 600,
+//         }}
+//       >
+//         <button
+//           className="btn btn-primary"
+//           onClick={() =>
+//             onApply &&
+//             onApply(
+//               selectedFilters
+//             )
+//           }
+//           style={{
+//             fontWeight: 700,
+//           }}
+//         >
+//           Apply
+//         </button>
+
+//         <button
+//           className="btn btn-ghost"
+//           onClick={
+//             handleReset
+//           }
+//           style={{
+//             fontWeight: 700,
+//           }}
+//         >
+//           Reset
+//         </button>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+import React, { useEffect, useRef, useState } from "react";
+import { Search, X } from "lucide-react";
 import { getOpexFilterOptions } from "../../api/opexApi";
 
 /* =========================================================
-   Reusable Filter Field
-========================================================= */
-
-function FilterField({
-  label,
-  children,
-  isOperatingExpenses = false,
-  isReceivables = false,
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 4,
-
-        minWidth:
-          isOperatingExpenses || isReceivables
-            ? 0
-            : 110,
-
-        flex:
-          isOperatingExpenses || isReceivables
-            ? "1 1 0"
-            : "1 1 auto",
-
-        overflow:
-          isOperatingExpenses || isReceivables
-            ? "visible"
-            : "hidden",
-
-        position: "relative",
-
-        zIndex:
-          isOperatingExpenses || isReceivables
-            ? 20
-            : "auto",
-
-        fontWeight: 600,
-      }}
-    >
-      <span
-        style={{
-          fontSize: "0.66rem",
-          color: "#1e3a8a",
-          fontWeight: 700,
-          letterSpacing: "-0.02em",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {label}
-      </span>
-
-      {children}
-    </div>
-  );
-}
-
-/* =========================================================
-   OPEX / RECEIVABLES Multi Select Dropdown
-========================================================= */
-
-function OpexMultiSelect({
-  options = [],
-  value = [],
-  onChange,
-  placeholder = "All",
-  searchable = true,
-}) {
-  const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const containerRef = useRef(null);
-  const searchInputRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
-        setOpen(false);
-        setSearchTerm("");
-      }
-    };
-
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      open &&
-      searchable &&
-      searchInputRef.current
-    ) {
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 0);
-    }
-  }, [open, searchable]);
-
-  const selectedValues = Array.isArray(value)
-    ? value.map(String)
-    : [];
-
-  const getValue = (item) => {
-    if (
-      item === null ||
-      item === undefined
-    ) {
-      return "";
-    }
-
-    if (typeof item === "object") {
-      return (
-        item.value ??
-        item.id ??
-        item.code ??
-        item.period_name ??
-        item.name ??
-        item.currency_code ??
-        ""
-      );
-    }
-
-    return item;
-  };
-
-  const getLabel = (item) => {
-    if (
-      item === null ||
-      item === undefined
-    ) {
-      return "";
-    }
-
-    if (typeof item === "object") {
-      return (
-        item.label ??
-        item.name ??
-        item.period_name ??
-        item.currency_code ??
-        item.value ??
-        item.code ??
-        ""
-      );
-    }
-
-    return item;
-  };
-
-  const filteredOptions = options.filter((item) => {
-    const label = String(
-      getLabel(item)
-    ).toLowerCase();
-
-    const value = String(
-      getValue(item)
-    ).toLowerCase();
-
-    const search =
-      searchTerm
-        .trim()
-        .toLowerCase();
-
-    if (!search) {
-      return true;
-    }
-
-    return (
-      label.includes(search) ||
-      value.includes(search)
-    );
-  });
-
-  const handleOptionToggle = (
-    optionValue
-  ) => {
-    const stringValue =
-      String(optionValue);
-
-    const exists =
-      selectedValues.includes(
-        stringValue
-      );
-
-    const nextValues = exists
-      ? selectedValues.filter(
-        (item) =>
-          item !== stringValue
-      )
-      : [
-        ...selectedValues,
-        stringValue,
-      ];
-
-    onChange(nextValues);
-  };
-
-  const handleSelectAll = () => {
-    const visibleValues =
-      filteredOptions
-        .map(getValue)
-        .filter(
-          (value) =>
-            value !== null &&
-            value !== undefined &&
-            value !== ""
-        )
-        .map(String);
-
-    const mergedValues = [
-      ...new Set([
-        ...selectedValues,
-        ...visibleValues,
-      ]),
-    ];
-
-    onChange(mergedValues);
-  };
-
-  const handleClearAll = () => {
-    onChange([]);
-  };
-
-  const getDisplayText = () => {
-    if (
-      selectedValues.length === 0
-    ) {
-      return placeholder;
-    }
-
-    if (
-      selectedValues.length === 1
-    ) {
-      const selected =
-        options.find(
-          (item) =>
-            String(
-              getValue(item)
-            ) ===
-            selectedValues[0]
-        );
-
-      return selected
-        ? String(
-          getLabel(selected)
-        )
-        : selectedValues[0];
-    }
-
-    return `${selectedValues.length} selected`;
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "relative",
-        width: "100%",
-        minWidth: 0,
-        zIndex: open ? 1000 : 1,
-        fontWeight: 600,
-      }}
-    >
-      <button
-        type="button"
-        className="filter-select w-full"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((prev) => !prev);
-
-          if (open) {
-            setSearchTerm("");
-          }
-        }}
-        style={{
-          minWidth: 0,
-          width: "100%",
-          height: "32px",
-
-          display: "flex",
-          alignItems: "center",
-          justifyContent:
-            "space-between",
-
-          textAlign: "left",
-
-          paddingLeft: "8px",
-          paddingRight: "8px",
-
-          cursor: "pointer",
-
-          overflow: "hidden",
-
-          boxSizing: "border-box",
-
-          position: "relative",
-          zIndex: 1001,
-
-          fontWeight: 600,
-        }}
-      >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow:
-              "ellipsis",
-            whiteSpace:
-              "nowrap",
-            minWidth: 0,
-            fontWeight: 600,
-          }}
-        >
-          {getDisplayText()}
-        </span>
-
-        <ChevronDown
-          size={14}
-          strokeWidth={2}
-          style={{
-            flexShrink: 0,
-            marginLeft: "6px",
-          }}
-        />
-      </button>
-
-      {open && (
-        <div
-          onClick={(event) =>
-            event.stopPropagation()
-          }
-          style={{
-            position: "absolute",
-
-            top: "calc(100% + 4px)",
-            left: 0,
-
-            width: "100%",
-            minWidth: "190px",
-
-            maxHeight: "280px",
-            overflowY: "auto",
-
-            backgroundColor:
-              "#ffffff",
-
-            border:
-              "1px solid #d1d5db",
-            borderRadius: "6px",
-
-            boxShadow:
-              "0 4px 12px rgba(0, 0, 0, 0.12)",
-
-            zIndex: 99999,
-
-            boxSizing: "border-box",
-
-            fontWeight: 600,
-          }}
-        >
-          {searchable && (
-            <div
-              style={{
-                padding: "7px 8px",
-
-                borderBottom:
-                  "1px solid #e5e7eb",
-
-                backgroundColor:
-                  "#ffffff",
-
-                position: "sticky",
-                top: 0,
-
-                zIndex: 4,
-              }}
-            >
-              <div
-                style={{
-                  position:
-                    "relative",
-                  width: "100%",
-                }}
-              >
-                <Search
-                  size={13}
-                  strokeWidth={2}
-                  style={{
-                    position:
-                      "absolute",
-                    left: "7px",
-                    top: "50%",
-                    transform:
-                      "translateY(-50%)",
-                    color:
-                      "#9ca3af",
-                    pointerEvents:
-                      "none",
-                  }}
-                />
-
-                <input
-                  ref={
-                    searchInputRef
-                  }
-                  type="text"
-                  value={
-                    searchTerm
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearchTerm(
-                      event.target
-                        .value
-                    )
-                  }
-                  onClick={(event) =>
-                    event.stopPropagation()
-                  }
-                  placeholder="Search..."
-                  style={{
-                    width:
-                      "100%",
-                    height:
-                      "27px",
-
-                    boxSizing:
-                      "border-box",
-
-                    border:
-                      "1px solid #d1d5db",
-                    borderRadius:
-                      "4px",
-
-                    paddingLeft:
-                      "26px",
-                    paddingRight:
-                      searchTerm
-                        ? "24px"
-                        : "7px",
-
-                    outline:
-                      "none",
-
-                    fontSize:
-                      "10px",
-                    color:
-                      "#374151",
-
-                    backgroundColor:
-                      "#ffffff",
-
-                    fontWeight:
-                      600,
-                  }}
-                />
-
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSearchTerm(
-                        ""
-                      )
-                    }
-                    style={{
-                      position:
-                        "absolute",
-                      right: "5px",
-                      top: "50%",
-                      transform:
-                        "translateY(-50%)",
-
-                      border: "none",
-                      background:
-                        "transparent",
-
-                      padding: 0,
-
-                      cursor:
-                        "pointer",
-
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                    }}
-                  >
-                    <X
-                      size={12}
-                      color="#9ca3af"
-                    />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              alignItems: "center",
-
-              padding: "7px 8px",
-
-              borderBottom:
-                "1px solid #e5e7eb",
-
-              backgroundColor:
-                "#f9fafb",
-
-              position: "sticky",
-              top: searchable
-                ? "41px"
-                : 0,
-
-              zIndex: 3,
-            }}
-          >
-            <button
-              type="button"
-              onClick={
-                handleSelectAll
-              }
-              style={{
-                border: "none",
-                background:
-                  "transparent",
-
-                padding: 0,
-
-                fontSize: "10px",
-                fontWeight: 700,
-
-                color: "#1e3a8a",
-
-                cursor: "pointer",
-              }}
-            >
-              Select All
-            </button>
-
-            <button
-              type="button"
-              onClick={
-                handleClearAll
-              }
-              style={{
-                border: "none",
-                background:
-                  "transparent",
-
-                padding: 0,
-
-                fontSize: "10px",
-                fontWeight: 700,
-
-                color: "#6b7280",
-
-                cursor: "pointer",
-              }}
-            >
-              Clear
-            </button>
-          </div>
-
-          {filteredOptions.length ===
-            0 ? (
-            <div
-              style={{
-                padding: "10px 8px",
-                fontSize: "10px",
-                color: "#6b7280",
-                fontWeight: 600,
-              }}
-            >
-              {searchTerm
-                ? "No matching options"
-                : "No options available"}
-            </div>
-          ) : (
-            filteredOptions.map(
-              (
-                item,
-                index
-              ) => {
-                const optionValue =
-                  getValue(item);
-
-                const optionLabel =
-                  getLabel(item);
-
-                if (
-                  optionValue ===
-                  "" ||
-                  optionValue ===
-                  null ||
-                  optionValue ===
-                  undefined
-                ) {
-                  return null;
-                }
-
-                const stringValue =
-                  String(
-                    optionValue
-                  );
-
-                const checked =
-                  selectedValues.includes(
-                    stringValue
-                  );
-
-                return (
-                  <label
-                    key={`${stringValue}-${index}`}
-                    style={{
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-
-                      gap: "7px",
-
-                      padding:
-                        "7px 8px",
-
-                      fontSize:
-                        "10px",
-                      color:
-                        "#374151",
-
-                      cursor:
-                        "pointer",
-
-                      whiteSpace:
-                        "nowrap",
-
-                      boxSizing:
-                        "border-box",
-
-                      fontWeight:
-                        600,
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={
-                        checked
-                      }
-                      onChange={() =>
-                        handleOptionToggle(
-                          stringValue
-                        )
-                      }
-                      style={{
-                        width:
-                          "12px",
-                        height:
-                          "12px",
-
-                        margin: 0,
-
-                        flexShrink:
-                          0,
-
-                        cursor:
-                          "pointer",
-                      }}
-                    />
-
-                    <span
-                      style={{
-                        overflow:
-                          "hidden",
-                        textOverflow:
-                          "ellipsis",
-                        fontWeight:
-                          600,
-                      }}
-                    >
-                      {
-                        optionLabel
-                      }
-                    </span>
-                  </label>
-                );
-              }
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* =========================================================
-   OPEX Single Select Dropdown
-========================================================= */
-
-function OpexSingleSelect({
-  options = [],
-  value = "",
-  onChange,
-  placeholder = "Select",
-  searchable = true,
-  required = false,
-}) {
-  const [open, setOpen] = useState(false);
-  const [searchTerm, setSearchTerm] =
-    useState("");
-
-  const containerRef = useRef(null);
-  const searchInputRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(
-          event.target
-        )
-      ) {
-        setOpen(false);
-        setSearchTerm("");
-      }
-    };
-
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
-    };
-  }, []);
-
-  useEffect(() => {
-    if (
-      open &&
-      searchable &&
-      searchInputRef.current
-    ) {
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 0);
-    }
-  }, [open, searchable]);
-
-  const getValue = (item) => {
-    if (
-      item === null ||
-      item === undefined
-    ) {
-      return "";
-    }
-
-    if (typeof item === "object") {
-      return (
-        item.value ??
-        item.id ??
-        item.code ??
-        item.year ??
-        item.name ??
-        item.currency_code ??
-        ""
-      );
-    }
-
-    return item;
-  };
-
-  const getLabel = (item) => {
-    if (
-      item === null ||
-      item === undefined
-    ) {
-      return "";
-    }
-
-    if (typeof item === "object") {
-      return (
-        item.label ??
-        item.name ??
-        item.year ??
-        item.currency_code ??
-        item.value ??
-        item.code ??
-        ""
-      );
-    }
-
-    return item;
-  };
-
-  const filteredOptions =
-    options.filter((item) => {
-      const label = String(
-        getLabel(item)
-      ).toLowerCase();
-
-      const optionValue =
-        String(
-          getValue(item)
-        ).toLowerCase();
-
-      const search =
-        searchTerm
-          .trim()
-          .toLowerCase();
-
-      if (!search) {
-        return true;
-      }
-
-      return (
-        label.includes(search) ||
-        optionValue.includes(search)
-      );
-    });
-
-  const selectedOption =
-    options.find(
-      (item) =>
-        String(
-          getValue(item)
-        ) ===
-        String(value)
-    );
-
-  const displayText =
-    selectedOption
-      ? String(
-        getLabel(
-          selectedOption
-        )
-      )
-      : value
-        ? String(value)
-        : placeholder;
-
-  const handleChange = (
-    nextValue
-  ) => {
-    onChange(nextValue);
-    setOpen(false);
-    setSearchTerm("");
-  };
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        position: "relative",
-        width: "100%",
-        minWidth: 0,
-        zIndex: open ? 1000 : 1,
-        fontWeight: 600,
-      }}
-    >
-      <button
-        type="button"
-        className="filter-select w-full"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((prev) => !prev);
-
-          if (open) {
-            setSearchTerm("");
-          }
-        }}
-        style={{
-          minWidth: 0,
-          width: "100%",
-          height: "32px",
-
-          display: "flex",
-          alignItems: "center",
-          justifyContent:
-            "space-between",
-
-          textAlign: "left",
-
-          paddingLeft: "8px",
-          paddingRight: "8px",
-
-          cursor: "pointer",
-
-          overflow: "hidden",
-
-          boxSizing: "border-box",
-
-          position: "relative",
-          zIndex: 1001,
-
-          fontWeight: 600,
-        }}
-      >
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow:
-              "ellipsis",
-            whiteSpace:
-              "nowrap",
-            minWidth: 0,
-            fontWeight: 600,
-          }}
-        >
-          {displayText}
-        </span>
-
-        <ChevronDown
-          size={14}
-          strokeWidth={2}
-          style={{
-            flexShrink: 0,
-            marginLeft: "6px",
-          }}
-        />
-      </button>
-
-      {open && (
-        <div
-          onClick={(event) =>
-            event.stopPropagation()
-          }
-          style={{
-            position: "absolute",
-
-            top: "calc(100% + 4px)",
-            left: 0,
-
-            width: "100%",
-            minWidth: "180px",
-
-            maxHeight: "280px",
-            overflowY: "auto",
-
-            backgroundColor:
-              "#ffffff",
-
-            border:
-              "1px solid #d1d5db",
-            borderRadius: "6px",
-
-            boxShadow:
-              "0 4px 12px rgba(0, 0, 0, 0.12)",
-
-            zIndex: 99999,
-
-            boxSizing: "border-box",
-
-            fontWeight: 600,
-          }}
-        >
-          {searchable && (
-            <div
-              style={{
-                padding: "7px 8px",
-
-                borderBottom:
-                  "1px solid #e5e7eb",
-
-                backgroundColor:
-                  "#ffffff",
-
-                position: "sticky",
-                top: 0,
-
-                zIndex: 4,
-              }}
-            >
-              <div
-                style={{
-                  position:
-                    "relative",
-                  width: "100%",
-                }}
-              >
-                <Search
-                  size={13}
-                  strokeWidth={2}
-                  style={{
-                    position:
-                      "absolute",
-                    left: "7px",
-                    top: "50%",
-                    transform:
-                      "translateY(-50%)",
-                    color:
-                      "#9ca3af",
-                    pointerEvents:
-                      "none",
-                  }}
-                />
-
-                <input
-                  ref={
-                    searchInputRef
-                  }
-                  type="text"
-                  value={
-                    searchTerm
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setSearchTerm(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  onClick={(event) =>
-                    event.stopPropagation()
-                  }
-                  placeholder="Search..."
-                  style={{
-                    width:
-                      "100%",
-                    height:
-                      "27px",
-
-                    boxSizing:
-                      "border-box",
-
-                    border:
-                      "1px solid #d1d5db",
-                    borderRadius:
-                      "4px",
-
-                    paddingLeft:
-                      "26px",
-                    paddingRight:
-                      searchTerm
-                        ? "24px"
-                        : "7px",
-
-                    outline:
-                      "none",
-
-                    fontSize:
-                      "10px",
-                    color:
-                      "#374151",
-
-                    backgroundColor:
-                      "#ffffff",
-
-                    fontWeight:
-                      600,
-                  }}
-                />
-
-                {searchTerm && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSearchTerm(
-                        ""
-                      )
-                    }
-                    style={{
-                      position:
-                        "absolute",
-                      right: "5px",
-                      top: "50%",
-                      transform:
-                        "translateY(-50%)",
-
-                      border: "none",
-                      background:
-                        "transparent",
-
-                      padding: 0,
-
-                      cursor:
-                        "pointer",
-
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-                      justifyContent:
-                        "center",
-                    }}
-                  >
-                    <X
-                      size={12}
-                      color="#9ca3af"
-                    />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {filteredOptions.length ===
-            0 ? (
-            <div
-              style={{
-                padding:
-                  "10px 8px",
-                fontSize:
-                  "10px",
-                color:
-                  "#6b7280",
-                fontWeight:
-                  600,
-              }}
-            >
-              {searchTerm
-                ? "No matching options"
-                : "No options available"}
-            </div>
-          ) : (
-            filteredOptions.map(
-              (
-                item,
-                index
-              ) => {
-                const optionValue =
-                  getValue(item);
-
-                const optionLabel =
-                  getLabel(item);
-
-                if (
-                  optionValue ===
-                  "" ||
-                  optionValue ===
-                  null ||
-                  optionValue ===
-                  undefined
-                ) {
-                  return null;
-                }
-
-                const isSelected =
-                  String(
-                    optionValue
-                  ) ===
-                  String(value);
-
-                return (
-                  <button
-                    key={`${optionValue}-${index}`}
-                    type="button"
-                    onClick={() =>
-                      handleChange(
-                        String(
-                          optionValue
-                        )
-                      )
-                    }
-                    style={{
-                      display:
-                        "flex",
-                      alignItems:
-                        "center",
-
-                      width:
-                        "100%",
-
-                      padding:
-                        "7px 8px",
-
-                      border:
-                        "none",
-
-                      backgroundColor:
-                        isSelected
-                          ? "#eff6ff"
-                          : "#ffffff",
-
-                      fontSize:
-                        "10px",
-
-                      color:
-                        isSelected
-                          ? "#1e3a8a"
-                          : "#374151",
-
-                      fontWeight:
-                        600,
-
-                      cursor:
-                        "pointer",
-
-                      textAlign:
-                        "left",
-
-                      whiteSpace:
-                        "nowrap",
-
-                      boxSizing:
-                        "border-box",
-                    }}
-                  >
-                    <span
-                      style={{
-                        overflow:
-                          "hidden",
-                        textOverflow:
-                          "ellipsis",
-                        fontWeight:
-                          600,
-                      }}
-                    >
-                      {
-                        optionLabel
-                      }
-                    </span>
-                  </button>
-                );
-              }
-            )
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* =========================================================
-   Common Select Filters
-========================================================= */
-
-const commonSelectFilters = [
-  {
-    label: "Legal Group",
-    optionKey: "legal_groups",
-    apiKey: "legal_group",
-  },
-  {
-    label: "Legal Entity",
-    optionKey: "legal_entities",
-    apiKey: "legal_entity",
-  },
-  {
-    label: "Parent Division",
-    optionKey: "parent_divisions",
-    apiKey: "parent_division",
-  },
-  {
-    label: "Sub-Division",
-    optionKey: "subdivisions",
-    apiKey: "subdivision",
-  },
-  {
-    label: "Currency",
-    optionKey: "currencies",
-    apiKey: "currency",
-  },
-];
-
-/* =========================================================
-   Receivables Filters
-
-   Receivables:
-   Legal Group      -> Multi Select
-   Legal Entity     -> Multi Select
-   Parent Division  -> Multi Select
-   Sub-Division     -> Multi Select
-   Currency         -> Multi Select
-========================================================= */
-
-const receivablesSelectFilters = [
-  {
-    label: "Legal Group",
-    optionKey: "legal_groups",
-    apiKey: "legal_group",
-    multiSelect: true,
-  },
-  {
-    label: "Legal Entity",
-    optionKey: "legal_entities",
-    apiKey: "legal_entity",
-    multiSelect: true,
-  },
-  {
-    label: "Parent Division",
-    optionKey: "parent_divisions",
-    apiKey: "parent_division",
-    multiSelect: true,
-  },
-  {
-    label: "Sub-Division",
-    optionKey: "subdivisions",
-    apiKey: "subdivision",
-    multiSelect: true,
-  },
-];
-
-const receivablesAdditionalFilters = [
-  {
-    label: "Reporting Currency",
-    optionKey: "reporting_currencies",
-    apiKey: "reporting_currency",
-    multiSelect: false,
-    type: "reporting_currency",
-  },
-  {
-    label: "Aging Basis",
-    optionKey: "aging_basis_options",
-    apiKey: "aging_basis",
-    multiSelect: false,
-    type: "aging_basis",
-    required: true,
-  },
-  {
-    label: "Year",
-    optionKey: "years",
-    apiKey: "year",
-    multiSelect: false,
-    type: "year",
-  },
-];
-
-/* =========================================================
-   Operating Expenses Filters
-========================================================= */
-
-const operatingSelectFilters = [
-  {
-    label: "Legal Group",
-    optionKey: "legal_groups",
-    apiKey: "legal_group",
-    multiSelect: true,
-  },
-  {
-    label: "Legal Entity",
-    optionKey: "legal_entities",
-    apiKey: "legal_entity",
-    multiSelect: true,
-  },
-  {
-    label: "Parent Division",
-    optionKey: "parent_divisions",
-    apiKey: "parent_division",
-    multiSelect: true,
-  },
-  {
-    label: "Sub-Division",
-    optionKey: "subdivisions",
-    apiKey: "subdivision",
-    multiSelect: true,
-  },
-];
-
-const operatingAdditionalFilters = [
-  {
-    label: "Year",
-    optionKey: "years",
-    apiKey: "year",
-    multiSelect: false,
-    type: "year",
-  },
-  {
-    label: "Period",
-    optionKey: "periods",
-    apiKey: "period",
-    multiSelect: true,
-    type: "period",
-  },
-  {
-    label: "Reporting Currency",
-    optionKey: "reporting_currencies",
-    apiKey: "reporting_currency",
-    multiSelect: false,
-    type: "reporting_currency",
-  },
-];
-
-/* =========================================================
-   Default State
+   SALES REVENUE STYLE — OPEX FILTERS ONLY
+
+   This component intentionally contains only OPEX behaviour.
+   It does not modify the existing Common / Receivables filter
+   component or its handlers.
 ========================================================= */
 
 const DEFAULT_FILTERS = {
-  legal_group: "",
-  legal_entity: "",
-  parent_division: "",
-  subdivision: "",
+  legal_group: [],
+  legal_entity: [],
+  parent_division: [],
+  subdivision: [],
   currency: "",
   as_on_date: "",
-  period: "",
+  period: [],
   compare_with: "",
   reporting_currency: "AED",
   year: "",
-  aging_basis: "DUE_DATE",
 };
 
 /* =========================================================
-   Helper
+   Filter widths
 ========================================================= */
 
-function getOptionValue(option) {
-  if (
-    option === null ||
-    option === undefined
-  ) {
-    return "";
-  }
+const FIELD_WIDTHS = {
+  legal_group: 128,
+  legal_entity: 128,
+  parent_division: 128,
+  subdivision: 128,
+  year: 128,
+  period: 128,
+  reporting_currency: 128,
+};
+
+const getOptionValue = (option) => {
+  if (option === null || option === undefined) return "";
 
   if (typeof option === "object") {
     return (
@@ -1443,15 +3324,10 @@ function getOptionValue(option) {
   }
 
   return option;
-}
+};
 
-function getOptionLabel(option) {
-  if (
-    option === null ||
-    option === undefined
-  ) {
-    return "";
-  }
+const getOptionLabel = (option) => {
+  if (option === null || option === undefined) return "";
 
   if (typeof option === "object") {
     return (
@@ -1467,208 +3343,64 @@ function getOptionLabel(option) {
   }
 
   return option;
-}
-
-/* =========================================================
-   Receivables Canonical Hierarchy Helpers
-
-   Backend hierarchy values must always be the canonical IDs.
-   Labels are kept separate so the UI never sends names/codes
-   when a backend ID is available.
-========================================================= */
-
-function getReceivablesHierarchyValue(option, type) {
-  if (
-    option === null ||
-    option === undefined
-  ) {
-    return "";
-  }
-
-  if (typeof option !== "object") {
-    return option;
-  }
-
-  const idKeys = {
-    legal_group: [
-      "legal_group_id",
-      "legalGroupId",
-      "id",
-      "value",
-    ],
-    legal_entity: [
-      "legal_entity_id",
-      "legalEntityId",
-      "id",
-      "value",
-    ],
-    parent_division: [
-      "parent_division_id",
-      "parentDivisionId",
-      "id",
-      "value",
-    ],
-    subdivision: [
-      "subdivision_id",
-      "subdivisionId",
-      "id",
-      "value",
-    ],
-  };
-
-  return (
-    idKeys[type]?.reduce(
-      (result, key) =>
-        result !== undefined &&
-        result !== null &&
-        result !== ""
-          ? result
-          : option[key],
-      undefined
-    ) ?? ""
-  );
-}
-
-function getReceivablesHierarchyLabel(option, type) {
-  if (
-    option === null ||
-    option === undefined
-  ) {
-    return "";
-  }
-
-  if (typeof option !== "object") {
-    return option;
-  }
-
-  const nameKeys = {
-    legal_group: [
-      "legal_group_name",
-      "legalGroupName",
-      "name",
-      "label",
-    ],
-    legal_entity: [
-      "legal_entity_name",
-      "legalEntityName",
-      "name",
-      "label",
-    ],
-    parent_division: [
-      "parent_division_name",
-      "parentDivisionName",
-      "name",
-      "label",
-    ],
-    subdivision: [
-      "subdivision_name",
-      "subdivisionName",
-      "name",
-      "label",
-    ],
-  };
-
-  return (
-    nameKeys[type]?.reduce(
-      (result, key) =>
-        result !== undefined &&
-        result !== null &&
-        result !== ""
-          ? result
-          : option[key],
-      undefined
-    ) ?? ""
-  );
-}
-
-/* =========================================================
-   Get Latest Period
-========================================================= */
+};
 
 function getLatestPeriod(periods = []) {
-  if (
-    !Array.isArray(periods) ||
-    periods.length === 0
-  ) {
-    return "";
-  }
+  if (!Array.isArray(periods) || periods.length === 0) return "";
 
-  const latest =
-    periods[periods.length - 1];
-
-  return getOptionValue(latest);
+  return getOptionValue(periods[periods.length - 1]);
 }
 
-/* =========================================================
-   Normalize Year Options
-========================================================= */
-
-function normalizeYears(
-  payload = {},
-  periods = []
-) {
+function normalizeYears(payload = {}, periods = []) {
   const rawYears =
     payload?.years ||
     payload?.fiscal_years ||
     payload?.accounting_years ||
     [];
 
-  if (
-    Array.isArray(rawYears) &&
-    rawYears.length
-  ) {
+  if (Array.isArray(rawYears) && rawYears.length) {
     return rawYears;
   }
 
+  const derived = [];
+
   if (Array.isArray(periods)) {
-    const derivedYears = [];
-
     periods.forEach((period) => {
-      if (
-        period &&
-        typeof period === "object"
-      ) {
-        const year =
-          period.year ??
-          period.fiscal_year ??
-          period.accounting_year ??
-          null;
+      if (!period || typeof period !== "object") return;
 
-        if (
-          year !== null &&
-          year !== undefined &&
-          year !== ""
-        ) {
-          if (
-            !derivedYears.some(
-              (item) =>
-                String(
-                  getOptionValue(item)
-                ) === String(year)
-            )
-          ) {
-            derivedYears.push({
-              value: year,
-              label: year,
-            });
-          }
-        }
+      const year =
+        period.year ??
+        period.fiscal_year ??
+        period.accounting_year ??
+        null;
+
+      if (
+        year === null ||
+        year === undefined ||
+        year === ""
+      ) {
+        return;
+      }
+
+      if (
+        !derived.some(
+          (item) =>
+            String(getOptionValue(item)) ===
+            String(year)
+        )
+      ) {
+        derived.push({
+          value: year,
+          label: year,
+        });
       }
     });
-
-    return derivedYears;
   }
 
-  return [];
+  return derived;
 }
 
-/* =========================================================
-   Normalize OPEX filter-options response
-========================================================= */
-
-function normalizeOpexFilterOptions(
-  data = {}
-) {
+function normalizeOpexFilterOptions(data = {}) {
   const payload =
     data?.data &&
       typeof data.data === "object" &&
@@ -1681,80 +3413,71 @@ function normalizeOpexFilterOptions(
     payload?.currencies ||
     [];
 
-  const currencies =
-    Array.isArray(
-      reportingCurrencies
-    )
-      ? reportingCurrencies.map(
-        (item) => {
-          if (
-            typeof item ===
-            "object" &&
-            item !== null
-          ) {
-            const value =
-              item.currency_code ??
-              item.value ??
-              item.code ??
-              item.id ??
-              "";
+  const currencies = Array.isArray(
+    reportingCurrencies
+  )
+    ? reportingCurrencies.map((item) => {
+      if (
+        item &&
+        typeof item === "object"
+      ) {
+        const value =
+          item.currency_code ??
+          item.value ??
+          item.code ??
+          item.id ??
+          "";
 
-            const label =
-              item.label ??
-              item.currency_code ??
-              item.value ??
-              item.code ??
-              "";
+        const label =
+          item.label ??
+          item.currency_code ??
+          item.value ??
+          item.code ??
+          "";
 
-            return {
-              value,
-              label,
-            };
-          }
+        return {
+          value,
+          label,
+        };
+      }
 
-          return {
-            value: item,
-            label: item,
-          };
-        }
-      )
-      : [];
+      return {
+        value: item,
+        label: item,
+      };
+    })
+    : [];
 
-  const periods =
-    Array.isArray(
-      payload?.periods
-    )
-      ? payload.periods
-      : [];
+  const periods = Array.isArray(
+    payload?.periods
+  )
+    ? payload.periods
+    : [];
 
   return {
-    legal_groups:
-      Array.isArray(
-        payload?.legal_groups
-      )
-        ? payload.legal_groups
-        : [],
+    legal_groups: Array.isArray(
+      payload?.legal_groups
+    )
+      ? payload.legal_groups
+      : [],
 
-    legal_entities:
-      Array.isArray(
-        payload?.legal_entities
-      )
-        ? payload.legal_entities
-        : [],
+    legal_entities: Array.isArray(
+      payload?.legal_entities
+    )
+      ? payload.legal_entities
+      : [],
 
-    parent_divisions:
-      Array.isArray(
-        payload?.parent_divisions
-      )
-        ? payload.parent_divisions
-        : [],
+    parent_divisions: Array.isArray(
+      payload?.parent_divisions
+    )
+      ? payload.parent_divisions
+      : [],
 
-    subdivisions:
-      Array.isArray(
-        payload?.subdivisions
-      )
-        ? payload.subdivisions
-        : [],
+    subdivisions: Array.isArray(
+      payload?.subdivisions
+    )
+      ? payload.subdivisions
+      : [],
 
     periods,
 
@@ -1783,16 +3506,15 @@ function normalizeOpexFilterOptions(
           ? payload.currencies
           : [],
 
-    compare_with:
-      Array.isArray(
-        payload?.compare_with
+    compare_with: Array.isArray(
+      payload?.compare_with
+    )
+      ? payload.compare_with
+      : Array.isArray(
+        payload?.compare_periods
       )
-        ? payload.compare_with
-        : Array.isArray(
-          payload?.compare_periods
-        )
-          ? payload.compare_periods
-          : [],
+        ? payload.compare_periods
+        : [],
 
     data_as_of:
       payload?.data_as_of || null,
@@ -1804,67 +3526,963 @@ function normalizeOpexFilterOptions(
 }
 
 /* =========================================================
-   Filters Component
+   Select Style
 ========================================================= */
 
-export default function Filters({
+const selectStyle = {
+  appearance: "none",
+  padding: "6px 28px 6px 10px",
+  fontSize: "0.78rem",
+  fontWeight: 500,
+  color: "#334155",
+  background: "#fff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 7,
+  cursor: "pointer",
+  outline: "none",
+  width: "100%",
+  height: 34,
+  boxSizing: "border-box",
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 8px center",
+};
+
+/* =========================================================
+   Filter Field
+========================================================= */
+
+function FilterField({
+  label,
+  children,
+  width,
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+        minWidth: width,
+        width,
+        flex: "0 0 auto",
+      }}
+    >
+      <span
+        style={{
+          fontSize: "0.66rem",
+          color: "#1e3a8a",
+          fontWeight: 700,
+          letterSpacing: "-0.02em",
+          whiteSpace: "nowrap",
+          lineHeight: 1.2,
+        }}
+      >
+        {label}
+      </span>
+
+      {children}
+    </div>
+  );
+}
+
+/* =========================================================
+   OPEX Multi Select
+
+   Empty [] means:
+   - Display "All"
+   - NO checkbox is selected
+
+   Cascade behavior is preserved.
+========================================================= */
+
+function OpexMultiSelect({
+  options = [],
+  value = [],
+  onChange,
+  placeholder = "All",
+  width = 128,
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] =
+    useState("");
+
+  const ref = useRef(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutside = (event) => {
+      if (
+        ref.current &&
+        !ref.current.contains(event.target)
+      ) {
+        setOpen(false);
+        setSearchQuery("");
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutside
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      open &&
+      searchRef.current
+    ) {
+      setTimeout(
+        () =>
+          searchRef.current?.focus(),
+        0
+      );
+    }
+
+    if (!open) {
+      setSearchQuery("");
+    }
+  }, [open]);
+
+  const normalized = (options || [])
+    .map((option) => {
+      if (
+        option === null ||
+        option === undefined
+      ) {
+        return {
+          id: "",
+          name: "",
+        };
+      }
+
+      if (
+        typeof option === "string" ||
+        typeof option === "number"
+      ) {
+        return {
+          id: String(option),
+          name: String(option),
+        };
+      }
+
+      const id =
+        option.value !== undefined
+          ? option.value
+          : option.id !== undefined
+            ? option.id
+            : option.code !== undefined
+              ? option.code
+              : "";
+
+      const name =
+        option.label !== undefined
+          ? option.label
+          : option.name !== undefined
+            ? option.name
+            : option.period_name !==
+              undefined
+              ? option.period_name
+              : String(id);
+
+      return {
+        id: String(id),
+        name: String(name),
+      };
+    })
+    .filter(
+      (option) => option.id !== ""
+    );
+
+  const currentValues =
+    Array.isArray(value)
+      ? value.map(String)
+      : [];
+
+  const query =
+    searchQuery.trim().toLowerCase();
+
+  const visibleOptions = query
+    ? normalized.filter(
+      (option) =>
+        option.name
+          .toLowerCase()
+          .includes(query) ||
+        option.id
+          .toLowerCase()
+          .includes(query)
+    )
+    : normalized;
+
+  /*
+   * Empty [] = All / no restriction.
+   * But NO checkboxes are visually selected.
+   */
+  const isAll =
+    currentValues.length === 0;
+
+  const selectedOptions =
+    normalized.filter((option) =>
+      currentValues.includes(
+        option.id
+      )
+    );
+
+  const displayText = isAll
+    ? placeholder
+    : selectedOptions.length === 1
+      ? selectedOptions[0].name
+      : `${selectedOptions.length} selected`;
+
+  const toggle = (id) => {
+    const stringId = String(id);
+
+    if (stringId === "All") {
+      onChange([]);
+      return;
+    }
+
+    const base =
+      currentValues.filter(
+        (item) => item !== "All"
+      );
+
+    const next = base.includes(
+      stringId
+    )
+      ? base.filter(
+        (item) =>
+          item !== stringId
+      )
+      : [...base, stringId];
+
+    onChange(next);
+  };
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "relative",
+        width,
+      }}
+    >
+      <div
+        onClick={() =>
+          setOpen(
+            (previous) => !previous
+          )
+        }
+        style={{
+          ...selectStyle,
+          width,
+          backgroundImage: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            "space-between",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          userSelect: "none",
+        }}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            maxWidth: "84%",
+          }}
+        >
+          {displayText}
+        </span>
+
+        <span
+          style={{
+            fontSize: "0.65rem",
+            color: "#94a3b8",
+            flexShrink: 0,
+          }}
+        >
+          {open ? "▲" : "▼"}
+        </span>
+      </div>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            minWidth: Math.max(
+              width,
+              240
+            ),
+            background: "#fff",
+            border:
+              "1px solid #e2e8f0",
+            borderRadius: 8,
+            boxShadow:
+              "0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 500,
+            marginTop: 2,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "6px 8px",
+              borderBottom:
+                "1px solid #e2e8f0",
+              background: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#f8fafc",
+                border:
+                  "1px solid #e2e8f0",
+                borderRadius: 6,
+                padding: "4px 8px",
+              }}
+            >
+              <Search
+                size={12}
+                color="#94a3b8"
+              />
+
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(event) =>
+                  setSearchQuery(
+                    event.target.value
+                  )
+                }
+                onClick={(event) =>
+                  event.stopPropagation()
+                }
+                placeholder="Search…"
+                style={{
+                  border: "none",
+                  outline: "none",
+                  background:
+                    "transparent",
+                  fontSize: "0.75rem",
+                  color: "#334155",
+                  width: "100%",
+                  minWidth: 0,
+                }}
+              />
+
+              {searchQuery && (
+                <X
+                  size={12}
+                  color="#94a3b8"
+                  style={{
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setSearchQuery("");
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          {!query && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "center",
+                padding: "6px 12px",
+                borderBottom:
+                  "1px solid #e2e8f0",
+                background: "#f8fafc",
+              }}
+            >
+              <span
+                onClick={() =>
+                  onChange([])
+                }
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color: "#2563eb",
+                  cursor: "pointer",
+                }}
+              >
+                Select All
+              </span>
+
+              <span
+                onClick={() =>
+                  onChange([])
+                }
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color: "#ef4444",
+                  cursor: "pointer",
+                }}
+              >
+                Clear
+              </span>
+            </div>
+          )}
+
+          <div
+            style={{
+              maxHeight: 220,
+              overflowY: "auto",
+            }}
+          >
+            {visibleOptions.map(
+              (option) => {
+                /*
+                 * Only explicitly selected
+                 * IDs are checked.
+                 */
+                const selected =
+                  currentValues.includes(
+                    option.id
+                  );
+
+                return (
+                  <div
+                    key={option.id}
+                    onClick={() =>
+                      toggle(
+                        option.id
+                      )
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      gap: 6,
+                      padding:
+                        "7px 12px",
+                      cursor:
+                        "pointer",
+                      fontSize:
+                        "0.78rem",
+                      background:
+                        selected
+                          ? "#eff6ff"
+                          : "#fff",
+                      color:
+                        selected
+                          ? "#2563eb"
+                          : "#334155",
+                      fontWeight:
+                        selected
+                          ? 600
+                          : 400,
+                      borderBottom:
+                        "1px solid #f8fafc",
+                      whiteSpace:
+                        "normal",
+                      lineHeight:
+                        1.25,
+                    }}
+                    onMouseEnter={(
+                      event
+                    ) => {
+                      if (
+                        !selected
+                      ) {
+                        event.currentTarget.style.background =
+                          "#f8fafc";
+                      }
+                    }}
+                    onMouseLeave={(
+                      event
+                    ) => {
+                      if (
+                        !selected
+                      ) {
+                        event.currentTarget.style.background =
+                          "#fff";
+                      }
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 14,
+                        height: 14,
+                        border: `1.5px solid ${selected
+                            ? "#2563eb"
+                            : "#cbd5e1"
+                          }`,
+                        borderRadius: 3,
+                        background:
+                          selected
+                            ? "#2563eb"
+                            : "#fff",
+                        display:
+                          "inline-flex",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {selected && (
+                        <span
+                          style={{
+                            color:
+                              "#fff",
+                            fontSize:
+                              "0.6rem",
+                            lineHeight:
+                              1,
+                          }}
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </span>
+
+                    {option.name}
+                  </div>
+                );
+              }
+            )}
+
+            {query &&
+              visibleOptions.length ===
+              0 && (
+                <div
+                  style={{
+                    padding:
+                      "10px 12px",
+                    fontSize:
+                      "0.75rem",
+                    color:
+                      "#94a3b8",
+                    textAlign:
+                      "center",
+                  }}
+                >
+                  No results for “
+                  {searchQuery}”
+                </div>
+              )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   OPEX Single Select
+========================================================= */
+
+function OpexSingleSelect({
+  options = [],
+  value = "",
+  onChange,
+  placeholder = "Select",
+  searchable = true,
+  width = 128,
+}) {
+  const [open, setOpen] =
+    useState(false);
+
+  const [searchQuery, setSearchQuery] =
+    useState("");
+
+  const ref = useRef(null);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutside = (event) => {
+      if (
+        ref.current &&
+        !ref.current.contains(
+          event.target
+        )
+      ) {
+        setOpen(false);
+        setSearchQuery("");
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutside
+      );
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      open &&
+      searchable &&
+      searchRef.current
+    ) {
+      setTimeout(
+        () =>
+          searchRef.current?.focus(),
+        0
+      );
+    }
+
+    if (!open) {
+      setSearchQuery("");
+    }
+  }, [
+    open,
+    searchable,
+  ]);
+
+  const normalized = (
+    options || []
+  )
+    .map((option) => ({
+      value: String(
+        getOptionValue(option)
+      ),
+      label: String(
+        getOptionLabel(option)
+      ),
+    }))
+    .filter(
+      (option) =>
+        option.value !== ""
+    );
+
+  const query =
+    searchQuery
+      .trim()
+      .toLowerCase();
+
+  const visible = query
+    ? normalized.filter(
+      (option) =>
+        option.label
+          .toLowerCase()
+          .includes(query) ||
+        option.value
+          .toLowerCase()
+          .includes(query)
+    )
+    : normalized;
+
+  const selected =
+    normalized.find(
+      (option) =>
+        String(
+          option.value
+        ) === String(value)
+    );
+
+  const displayText =
+    selected?.label ||
+    value ||
+    placeholder;
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "relative",
+        width,
+      }}
+    >
+      <div
+        onClick={() =>
+          setOpen(
+            (previous) => !previous
+          )
+        }
+        style={{
+          ...selectStyle,
+          width,
+          backgroundImage: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            "space-between",
+          cursor: "pointer",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          userSelect: "none",
+        }}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow:
+              "ellipsis",
+            whiteSpace:
+              "nowrap",
+            maxWidth: "84%",
+          }}
+        >
+          {displayText}
+        </span>
+
+        <span
+          style={{
+            fontSize:
+              "0.65rem",
+            color:
+              "#94a3b8",
+          }}
+        >
+          {open ? "▲" : "▼"}
+        </span>
+      </div>
+
+      {open && (
+        <div
+          style={{
+            position:
+              "absolute",
+            top: "100%",
+            left: 0,
+            minWidth:
+              Math.max(
+                width,
+                200
+              ),
+            background: "#fff",
+            border:
+              "1px solid #e2e8f0",
+            borderRadius: 8,
+            boxShadow:
+              "0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 500,
+            marginTop: 2,
+            overflow:
+              "hidden",
+          }}
+        >
+          {searchable && (
+            <div
+              style={{
+                padding:
+                  "6px 8px",
+                borderBottom:
+                  "1px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  display:
+                    "flex",
+                  alignItems:
+                    "center",
+                  gap: 6,
+                  background:
+                    "#f8fafc",
+                  border:
+                    "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  padding:
+                    "4px 8px",
+                }}
+              >
+                <Search
+                  size={12}
+                  color="#94a3b8"
+                />
+
+                <input
+                  ref={searchRef}
+                  type="text"
+                  value={
+                    searchQuery
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setSearchQuery(
+                      event.target
+                        .value
+                    )
+                  }
+                  onClick={(
+                    event
+                  ) =>
+                    event.stopPropagation()
+                  }
+                  placeholder="Search…"
+                  style={{
+                    border:
+                      "none",
+                    outline:
+                      "none",
+                    background:
+                      "transparent",
+                    fontSize:
+                      "0.75rem",
+                    color:
+                      "#334155",
+                    width:
+                      "100%",
+                  }}
+                />
+
+                {searchQuery && (
+                  <X
+                    size={12}
+                    color="#94a3b8"
+                    style={{
+                      cursor:
+                        "pointer",
+                    }}
+                    onClick={(
+                      event
+                    ) => {
+                      event.stopPropagation();
+                      setSearchQuery(
+                        ""
+                      );
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          <div
+            style={{
+              maxHeight: 220,
+              overflowY:
+                "auto",
+            }}
+          >
+            {visible.map(
+              (option) => {
+                const isSelected =
+                  option.value ===
+                  String(value);
+
+                return (
+                  <div
+                    key={
+                      option.value
+                    }
+                    onClick={() => {
+                      onChange(
+                        option.value
+                      );
+                      setOpen(
+                        false
+                      );
+                      setSearchQuery(
+                        ""
+                      );
+                    }}
+                    style={{
+                      padding:
+                        "8px 12px",
+                      cursor:
+                        "pointer",
+                      fontSize:
+                        "0.78rem",
+                      background:
+                        isSelected
+                          ? "#eff6ff"
+                          : "#fff",
+                      color:
+                        isSelected
+                          ? "#2563eb"
+                          : "#334155",
+                      fontWeight:
+                        isSelected
+                          ? 600
+                          : 400,
+                      borderBottom:
+                        "1px solid #f8fafc",
+                      whiteSpace:
+                        "normal",
+                      lineHeight:
+                        1.25,
+                    }}
+                  >
+                    {
+                      option.label
+                    }
+                  </div>
+                );
+              }
+            )}
+
+            {query &&
+              visible.length ===
+              0 && (
+                <div
+                  style={{
+                    padding:
+                      "10px 12px",
+                    fontSize:
+                      "0.75rem",
+                    color:
+                      "#94a3b8",
+                    textAlign:
+                      "center",
+                  }}
+                >
+                  No results for “
+                  {searchQuery}”
+                </div>
+              )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   OPEX FILTERS
+========================================================= */
+
+export default function OpexFilters({
   filterOptions,
   onApply,
   onReset,
   onChange,
-  isOperatingExpenses = false,
-  isReceivables = false,
 }) {
-  /* =======================================================
-     Selected Filters
-  ======================================================= */
-
   const [
     selectedFilters,
     setSelectedFilters,
-  ] = useState(() => {
-    if (isOperatingExpenses) {
-      return {
-        ...DEFAULT_FILTERS,
-
-        legal_group: [],
-        legal_entity: [],
-        parent_division: [],
-        subdivision: [],
-
-        period: [],
-
-        year: "",
-
-        reporting_currency:
-          "AED",
-      };
-    }
-
-    if (isReceivables) {
-      return {
-        ...DEFAULT_FILTERS,
-
-        // Receivables multi-select fields
-        legal_group: [],
-        legal_entity: [],
-        parent_division: [],
-        subdivision: [],
-        currency: [],
-
-        as_on_date: "",
-        reporting_currency: "AED",
-        aging_basis: "DUE_DATE",
-        year: "",
-      };
-    }
-
-    return DEFAULT_FILTERS;
+  ] = useState({
+    ...DEFAULT_FILTERS,
   });
-
-  /* =======================================================
-     OPEX Filter Options
-  ======================================================= */
 
   const [
     opexFilterOptions,
@@ -1874,280 +4492,185 @@ export default function Filters({
     legal_entities: [],
     parent_divisions: [],
     subdivisions: [],
-
     periods: [],
     years: [],
-
     currencies: [],
     reporting_currencies: [],
     ledger_currencies: [],
     compare_with: [],
-
     data_as_of: null,
-
     default_reporting_currency:
       "AED",
   });
 
-  /* =======================================================
-     OPEX Loading
-  ======================================================= */
+  const [loading, setLoading] =
+    useState(false);
 
-  const [
-    opexFilterLoading,
-    setOpexFilterLoading,
-  ] = useState(false);
+  /* =========================================================
+     OPEX Filter API
 
-  /* =======================================================
-     RECEIVABLES Filter Options
+     Cascade behavior preserved:
+       Legal Group
+          ↓
+       Legal Entity
+          ↓
+       Parent Division
+          ↓
+       Sub-Division
+  ========================================================= */
 
-     Aging Basis is frontend-defined because the allowed
-     backend values are fixed:
-       DUE_DATE
-       INVOICE_DATE
-  ======================================================= */
+  const loadOpexFilterOptions =
+    async (
+      currentFilters = {},
+      preserveOptionKey = null
+    ) => {
+      try {
+        setLoading(true);
 
-  const receivablesAgingBasisOptions = [
-    {
-      value: "DUE_DATE",
-      label: "Due Date Based",
-    },
-    {
-      value: "INVOICE_DATE",
-      label: "Invoice Date Based",
-    },
-  ];
+        const apiFilters = {};
 
-  /* =======================================================
-     Load OPEX Filter Options
-  ======================================================= */
+        if (
+          Array.isArray(
+            currentFilters.legal_group
+          ) &&
+          currentFilters
+            .legal_group.length
+        ) {
+          apiFilters.legal_group_id =
+            currentFilters.legal_group;
+        }
 
-  const loadOpexFilterOptions = async (
-    currentFilters = {},
-    preserveOptionKey = null
-  ) => {
-    try {
-      setOpexFilterLoading(true);
+        if (
+          Array.isArray(
+            currentFilters.legal_entity
+          ) &&
+          currentFilters
+            .legal_entity.length
+        ) {
+          apiFilters.legal_entity_id =
+            currentFilters.legal_entity;
+        }
 
-      const apiFilters = {};
+        if (
+          Array.isArray(
+            currentFilters.parent_division
+          ) &&
+          currentFilters
+            .parent_division.length
+        ) {
+          apiFilters.parent_division_id =
+            currentFilters.parent_division;
+        }
 
-      if (
-        Array.isArray(
-          currentFilters.legal_group
-        ) &&
-        currentFilters.legal_group.length
-      ) {
-        apiFilters.legal_group_id =
-          currentFilters.legal_group;
-      }
+        if (
+          Array.isArray(
+            currentFilters.subdivision
+          ) &&
+          currentFilters
+            .subdivision.length
+        ) {
+          apiFilters.subdivision_id =
+            currentFilters.subdivision;
+        }
 
-      if (
-        Array.isArray(
-          currentFilters.legal_entity
-        ) &&
-        currentFilters.legal_entity.length
-      ) {
-        apiFilters.legal_entity_id =
-          currentFilters.legal_entity;
-      }
+        const response =
+          await getOpexFilterOptions(
+            apiFilters
+          );
 
-      if (
-        Array.isArray(
-          currentFilters.parent_division
-        ) &&
-        currentFilters.parent_division.length
-      ) {
-        apiFilters.parent_division_id =
-          currentFilters.parent_division;
-      }
+        const normalized =
+          normalizeOpexFilterOptions(
+            response || {}
+          );
 
-      if (
-        Array.isArray(
-          currentFilters.subdivision
-        ) &&
-        currentFilters.subdivision.length
-      ) {
-        apiFilters.subdivision_id =
-          currentFilters.subdivision;
-      }
+        if (preserveOptionKey) {
+          let preservedValue =
+            normalized[
+            preserveOptionKey
+            ];
 
-      const response =
-        await getOpexFilterOptions(
-          apiFilters
-        );
+          setOpexFilterOptions(
+            (previous) => {
+              if (
+                Array.isArray(
+                  previous?.[
+                  preserveOptionKey
+                  ]
+                ) &&
+                previous[
+                  preserveOptionKey
+                ].length
+              ) {
+                preservedValue =
+                  previous[
+                  preserveOptionKey
+                  ];
+              }
 
-      const normalized =
-        normalizeOpexFilterOptions(
-          response || {}
-        );
+              return {
+                ...normalized,
+                [preserveOptionKey]:
+                  preservedValue,
+              };
+            }
+          );
 
-      if (preserveOptionKey) {
-        setOpexFilterOptions(
-          (previous) => ({
+          return {
             ...normalized,
-
             [preserveOptionKey]:
-              Array.isArray(
-                previous?.[
-                preserveOptionKey
-                ]
-              )
-                ? previous[
-                preserveOptionKey
-                ]
-                : normalized[
-                preserveOptionKey
-                ],
-          })
+              preservedValue,
+          };
+        }
+
+        setOpexFilterOptions(
+          normalized
         );
 
-        return {
-          ...normalized,
+        return normalized;
+      } catch (error) {
+        console.error(
+          "Failed to load OPEX filter options:",
+          error
+        );
 
-          [preserveOptionKey]:
-            Array.isArray(
-              opexFilterOptions?.[
-              preserveOptionKey
-              ]
-            )
-              ? opexFilterOptions[
-              preserveOptionKey
-              ]
-              : normalized[
-              preserveOptionKey
-              ],
-        };
+        return null;
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setOpexFilterOptions(
-        normalized
-      );
-
-      return normalized;
-    } catch (error) {
-      console.error(
-        "Failed to load OPEX filter options:",
-        error
-      );
-
-      return null;
-    } finally {
-      setOpexFilterLoading(false);
-    }
-  };
-
-  /* =======================================================
-     Common + Receivables Date Handling
-  ======================================================= */
+  /* =========================================================
+     Initial load
+  ========================================================= */
 
   useEffect(() => {
-    if (isOperatingExpenses) {
-      return;
-    }
-
-    const dates =
-      filterOptions?.available_dates ||
-      filterOptions?.as_on_dates ||
-      [];
-
-    if (isReceivables) {
-      const reportingCurrencies =
-        filterOptions?.reporting_currencies ||
-        filterOptions?.currencies ||
-        [];
-
-      const defaultReportingCurrency =
-        filterOptions?.default_reporting_currency ||
-        (
-          reportingCurrencies.length
-            ? getOptionValue(reportingCurrencies[0])
-            : "AED"
-        ) ||
-        "AED";
-
-      const years =
-        filterOptions?.years ||
-        filterOptions?.fiscal_years ||
-        filterOptions?.accounting_years ||
-        [];
-
-      setSelectedFilters(
-        (prev) => ({
-          ...prev,
-          as_on_date:
-            prev.as_on_date ||
-            dates[0] ||
-            "",
-          reporting_currency:
-            prev.reporting_currency ||
-            defaultReportingCurrency,
-          aging_basis:
-            prev.aging_basis ||
-            "DUE_DATE",
-          year:
-            prev.year ||
-            (
-              years.length
-                ? String(getOptionValue(years[0]))
-                : ""
-            ),
-        })
-      );
-
-      return;
-    }
-
-    if (dates.length) {
-      setSelectedFilters(
-        (prev) => ({
-          ...prev,
-          as_on_date:
-            dates[0],
-        })
-      );
-    }
-  }, [
-    filterOptions,
-    isOperatingExpenses,
-    isReceivables,
-  ]);
-
-  /* =======================================================
-     Initial OPEX Options
-  ======================================================= */
-
-  useEffect(() => {
-    if (!isOperatingExpenses) {
-      return;
-    }
-
     loadOpexFilterOptions({});
-  }, [
-    isOperatingExpenses,
-  ]);
+  }, []);
 
-  /* =======================================================
-     OPEX Default Values
-  ======================================================= */
+  /* =========================================================
+     Initial values
+
+     Hierarchy filters start with [].
+
+     Therefore:
+       display = All
+       checkbox = unchecked
+  ========================================================= */
+
+  const initialValuesAppliedRef =
+    useRef(false);
 
   useEffect(() => {
-    if (!isOperatingExpenses) {
-      return;
-    }
-
     const periods =
       opexFilterOptions
-        ?.periods?.length
+        .periods?.length
         ? opexFilterOptions.periods
         : filterOptions?.periods ||
         [];
 
-    const latestPeriod =
-      getLatestPeriod(periods);
-
     const years =
       opexFilterOptions
-        ?.years?.length
+        .years?.length
         ? opexFilterOptions.years
         : filterOptions?.years ||
         [];
@@ -2159,94 +4682,76 @@ export default function Filters({
         )
         : "";
 
-    const defaultReportingCurrency =
+    const defaultCurrency =
       opexFilterOptions
-        ?.default_reporting_currency ||
-      filterOptions
-        ?.default_reporting_currency ||
+        .default_reporting_currency ||
+      filterOptions?.default_reporting_currency ||
       "AED";
 
+    if (
+      initialValuesAppliedRef.current
+    ) {
+      return;
+    }
+
+    const hasLoadedFilterOptions =
+      periods.length > 0 ||
+      years.length > 0 ||
+      (opexFilterOptions
+        .reporting_currencies
+        ?.length ||
+        0) > 0 ||
+      (filterOptions
+        ?.reporting_currencies
+        ?.length ||
+        0) > 0;
+
+    if (!hasLoadedFilterOptions) {
+      return;
+    }
+
+    const initialFilters = {
+      ...DEFAULT_FILTERS,
+
+      legal_group: [],
+      legal_entity: [],
+      parent_division: [],
+      subdivision: [],
+
+      period: [],
+
+      year: firstYear
+        ? String(firstYear)
+        : "",
+
+      reporting_currency:
+        String(
+          defaultCurrency ||
+          "AED"
+        ),
+    };
+
+    initialValuesAppliedRef.current =
+      true;
+
     setSelectedFilters(
-      (prev) => ({
-        ...prev,
+      initialFilters
+    );
 
-        legal_group:
-          Array.isArray(
-            prev.legal_group
-          )
-            ? prev.legal_group
-            : [],
-
-        legal_entity:
-          Array.isArray(
-            prev.legal_entity
-          )
-            ? prev.legal_entity
-            : [],
-
-        parent_division:
-          Array.isArray(
-            prev.parent_division
-          )
-            ? prev.parent_division
-            : [],
-
-        subdivision:
-          Array.isArray(
-            prev.subdivision
-          )
-            ? prev.subdivision
-            : [],
-
-        period:
-          Array.isArray(
-            prev.period
-          )
-            ? prev.period.length
-              ? prev.period
-              : latestPeriod
-                ? [
-                  String(
-                    latestPeriod
-                  ),
-                ]
-                : []
-            : prev.period
-              ? [
-                String(
-                  prev.period
-                ),
-              ]
-              : latestPeriod
-                ? [
-                  String(
-                    latestPeriod
-                  ),
-                ]
-                : [],
-
-        year:
-          prev.year ||
-          firstYear ||
-          "",
-
-        reporting_currency:
-          prev.reporting_currency ||
-          defaultReportingCurrency ||
-          "AED",
-      })
+    onChange?.(
+      initialFilters
     );
   }, [
     opexFilterOptions,
     filterOptions,
-    isOperatingExpenses,
+    onChange,
   ]);
 
-  /* =======================================================
-     OPEX Filter Change
-  ======================================================= */
+  /* =========================================================
+     Filter change
+  ========================================================= */
 
-  const handleOpexFilterChange =
+  const handleFilterChange =
     async (
       apiKey,
       value
@@ -2256,59 +4761,68 @@ export default function Filters({
         [apiKey]: value,
       };
 
+      /*
+       * Cascade:
+       * Legal Group changes →
+       * clear Entity, Parent Division, Sub-Division
+       */
       if (
         apiKey ===
         "legal_group"
       ) {
         nextFilters = {
           ...nextFilters,
-
           legal_group:
             Array.isArray(
               value
             )
               ? value
               : [],
-
           legal_entity: [],
           parent_division: [],
           subdivision: [],
         };
       }
 
+      /*
+       * Cascade:
+       * Legal Entity changes →
+       * clear Parent Division and Sub-Division
+       */
       if (
         apiKey ===
         "legal_entity"
       ) {
         nextFilters = {
           ...nextFilters,
-
           legal_entity:
             Array.isArray(
               value
             )
               ? value
               : [],
-
           parent_division: [],
           subdivision: [],
         };
       }
 
+      /*
+       * Cascade:
+       * Parent Division changes →
+       * clear Sub-Division
+       */
       if (
         apiKey ===
         "parent_division"
       ) {
         nextFilters = {
           ...nextFilters,
-
           parent_division:
             Array.isArray(
               value
             )
               ? value
               : [],
-
           subdivision: [],
         };
       }
@@ -2319,7 +4833,6 @@ export default function Filters({
       ) {
         nextFilters = {
           ...nextFilters,
-
           subdivision:
             Array.isArray(
               value
@@ -2334,7 +4847,6 @@ export default function Filters({
       ) {
         nextFilters = {
           ...nextFilters,
-
           period:
             Array.isArray(
               value
@@ -2355,12 +4867,15 @@ export default function Filters({
       ) {
         nextFilters = {
           ...nextFilters,
-
           year:
-            value === null ||
-              value === undefined
+            value ===
+              null ||
+              value ===
+              undefined
               ? ""
-              : String(value),
+              : String(
+                value
+              ),
         };
       }
 
@@ -2370,11 +4885,9 @@ export default function Filters({
       ) {
         nextFilters = {
           ...nextFilters,
-
           reporting_currency:
             value ||
-            opexFilterOptions
-              ?.default_reporting_currency ||
+            opexFilterOptions.default_reporting_currency ||
             "AED",
         };
       }
@@ -2383,19 +4896,20 @@ export default function Filters({
         nextFilters
       );
 
-      if (onChange) {
-        onChange(nextFilters);
-      }
+      onChange?.(
+        nextFilters
+      );
 
+      /*
+       * Refresh dependent options
+       */
       if (
-        apiKey ===
-        "legal_group" ||
-        apiKey ===
-        "legal_entity" ||
-        apiKey ===
-        "parent_division" ||
-        apiKey ===
-        "subdivision"
+        [
+          "legal_group",
+          "legal_entity",
+          "parent_division",
+          "subdivision",
+        ].includes(apiKey)
       ) {
         const optionKeyMap = {
           legal_group:
@@ -2418,845 +4932,412 @@ export default function Filters({
     };
 
   /* =========================================================
-     RECEIVABLES Filter Change
-  
-     Receivables fields are all multi-select:
-     Legal Group
-     Legal Entity
-     Parent Division
-     Sub-Division
-     Currency
-  
-     No OPEX API call is made here.
-  ========================================================= */
-
-  const handleReceivablesFilterChange = (
-    apiKey,
-    value
-  ) => {
-    const normalizedValue =
-      Array.isArray(value)
-        ? value.map(String)
-        : value !== null &&
-          value !== undefined &&
-          value !== ""
-          ? [String(value)]
-          : [];
-
-    let nextFilters = {
-      ...selectedFilters,
-      [apiKey]:
-        apiKey === "aging_basis" ||
-        apiKey === "reporting_currency" ||
-        apiKey === "year"
-          ? (
-            value === null ||
-            value === undefined
-              ? ""
-              : String(value)
-          )
-          : normalizedValue,
-    };
-
-    /* -----------------------------------------------
-       Receivables hierarchy dependency chain
-       Legal Group
-         -> Legal Entity
-           -> Parent Division
-             -> Sub-Division
-    ----------------------------------------------- */
-
-    if (apiKey === "legal_group") {
-      nextFilters = {
-        ...nextFilters,
-        legal_group: normalizedValue,
-        legal_entity: [],
-        parent_division: [],
-        subdivision: [],
-      };
-    }
-
-    if (apiKey === "legal_entity") {
-      nextFilters = {
-        ...nextFilters,
-        legal_entity: normalizedValue,
-        parent_division: [],
-        subdivision: [],
-      };
-    }
-
-    if (apiKey === "parent_division") {
-      nextFilters = {
-        ...nextFilters,
-        parent_division: normalizedValue,
-        subdivision: [],
-      };
-    }
-
-    if (apiKey === "subdivision") {
-      nextFilters = {
-        ...nextFilters,
-        subdivision: normalizedValue,
-      };
-    }
-
-    if (apiKey === "aging_basis") {
-      nextFilters = {
-        ...nextFilters,
-        aging_basis:
-          value === "INVOICE_DATE"
-            ? "INVOICE_DATE"
-            : "DUE_DATE",
-      };
-    }
-
-    if (apiKey === "reporting_currency") {
-      nextFilters = {
-        ...nextFilters,
-        reporting_currency:
-          value || "AED",
-      };
-    }
-
-    if (apiKey === "year") {
-      nextFilters = {
-        ...nextFilters,
-        year:
-          value === null ||
-          value === undefined
-            ? ""
-            : String(value),
-      };
-    }
-
-    setSelectedFilters(
-      nextFilters
-    );
-
-    /*
-      The parent Receivables dashboard receives this complete
-      filter object through the common onChange callback.
-      It must use this same object for every Receivables API
-      request, including aging_basis.
-    */
-    if (onChange) {
-      onChange(nextFilters);
-    }
-  };
-
-  /* =========================================================
      Reset
   ========================================================= */
 
   const handleReset =
     async () => {
-      let resetFilters = {
-        legal_group: "",
-        legal_entity: "",
-        parent_division: "",
-        subdivision: "",
+      const normalized =
+        await loadOpexFilterOptions(
+          {}
+        );
+
+      const years =
+        normalized?.years ||
+        opexFilterOptions.years ||
+        filterOptions?.years ||
+        [];
+
+      const firstYear =
+        years.length
+          ? getOptionValue(
+            years[0]
+          )
+          : "";
+
+      const resetFilters = {
+        legal_group: [],
+        legal_entity: [],
+        parent_division: [],
+        subdivision: [],
+
         currency: "",
+
         as_on_date: "",
-        period: "",
+
+        period: [],
+
         compare_with: "",
+
         reporting_currency:
+          normalized?.default_reporting_currency ||
+          opexFilterOptions.default_reporting_currency ||
           "AED",
-        year: "",
+
+        year:
+          firstYear || "",
       };
-
-      /* -----------------------------------------------
-         RECEIVABLES RESET
-      ----------------------------------------------- */
-
-      if (isReceivables) {
-        resetFilters = {
-          legal_group: [],
-          legal_entity: [],
-          parent_division: [],
-          subdivision: [],
-
-          currency: [],
-
-          as_on_date:
-            filterOptions
-              ?.as_on_dates?.[0] ||
-            filterOptions
-              ?.available_dates?.[0] ||
-            "",
-
-          reporting_currency:
-            filterOptions
-              ?.default_reporting_currency ||
-            "AED",
-
-          aging_basis:
-            "DUE_DATE",
-
-          year:
-            filterOptions
-              ?.years?.length
-              ? String(
-                getOptionValue(
-                  filterOptions.years[0]
-                )
-              )
-              : "",
-
-          period: "",
-          compare_with: "",
-        };
-      }
-
-      /* -----------------------------------------------
-         COMMON RESET
-      ----------------------------------------------- */
-
-      if (
-        !isOperatingExpenses &&
-        !isReceivables
-      ) {
-        resetFilters = {
-          legal_group: "",
-          legal_entity: "",
-          parent_division:
-            "",
-          subdivision: "",
-          currency: "",
-          as_on_date:
-            filterOptions
-              ?.as_on_dates?.[0] ||
-            filterOptions
-              ?.available_dates?.[0] ||
-            "",
-          period: "",
-          compare_with: "",
-          reporting_currency:
-            "AED",
-        };
-      }
-
-      /* -----------------------------------------------
-         OPEX RESET
-      ----------------------------------------------- */
-
-      if (
-        isOperatingExpenses
-      ) {
-        const normalized =
-          await loadOpexFilterOptions(
-            {}
-          );
-
-        const periods =
-          normalized?.periods ||
-          opexFilterOptions?.periods ||
-          filterOptions?.periods ||
-          [];
-
-        const years =
-          normalized?.years ||
-          opexFilterOptions?.years ||
-          filterOptions?.years ||
-          [];
-
-        const latestPeriod =
-          getLatestPeriod(
-            periods
-          );
-
-        const firstYear =
-          years.length
-            ? getOptionValue(
-              years[0]
-            )
-            : "";
-
-        resetFilters = {
-          legal_group: [],
-          legal_entity: [],
-          parent_division:
-            [],
-          subdivision: [],
-
-          currency: "",
-          as_on_date: "",
-
-          period:
-            latestPeriod
-              ? [
-                String(
-                  latestPeriod
-                ),
-              ]
-              : [],
-
-          year:
-            firstYear || "",
-
-          reporting_currency:
-            normalized
-              ?.default_reporting_currency ||
-            opexFilterOptions
-              ?.default_reporting_currency ||
-            "AED",
-        };
-      }
 
       setSelectedFilters(
         resetFilters
       );
 
-      if (onChange) {
-        onChange(
-          resetFilters
-        );
-      }
+      onChange?.(
+        resetFilters
+      );
 
-      if (onReset) {
-        onReset();
-      }
+      onReset?.();
     };
 
-  /* =========================================================
-     Filters To Display
-  ========================================================= */
-
-  const filtersToDisplay =
-    isOperatingExpenses
-      ? [
-        ...operatingSelectFilters,
-        ...operatingAdditionalFilters,
-      ]
-      : isReceivables
-        ? [
-          ...receivablesSelectFilters,
-          ...receivablesAdditionalFilters,
-        ]
-        : commonSelectFilters;
-
-  /* =========================================================
-     Active Filter Options
-  ========================================================= */
-
-  const activeFilterOptions =
-    isOperatingExpenses
-      ? {
-        ...filterOptions,
-        ...opexFilterOptions,
-      }
-      : filterOptions;
-
-  /* =========================================================
-     Render
-  ========================================================= */
+  const options = {
+    ...filterOptions,
+    ...opexFilterOptions,
+  };
 
   return (
     <div
-      className="filter-bar"
+      className="card"
       style={{
+        width: "100%",
+        maxWidth: "100%",
+        padding:
+          "10px 16px",
+        marginBottom: 16,
 
         display: "flex",
-        gap: "10px",
-
-        flexWrap:
-          isOperatingExpenses ||
-            isReceivables
-            ? "nowrap"
-            : "wrap",
-
         alignItems:
           "flex-end",
 
-        width: "100%",
+        /*
+         * Keep the existing spacing
+         * between all filters.
+         */
+        gap: 10,
 
-        minWidth: 0,
+        flexWrap: "wrap",
 
+        boxSizing:
+          "border-box",
+        overflow: "visible",
         position: "relative",
+        zIndex: 20,
 
-        zIndex: 10,
-
-        fontWeight: 600,
+        fontFamily:
+          "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}
     >
-      {filtersToDisplay.map(
-        (f, i) => {
-          const isPeriod =
-            isOperatingExpenses &&
-            f.apiKey ===
-            "period";
+      {/* Legal Group */}
 
-          const isYear =
-            isOperatingExpenses &&
-            f.apiKey ===
-            "year";
-
-          const isReportingCurrency =
-            (
-              isOperatingExpenses ||
-              isReceivables
-            ) &&
-            f.apiKey ===
-            "reporting_currency";
-
-          const isReceivablesAgingBasis =
-            isReceivables &&
-            f.apiKey ===
-            "aging_basis";
-
-          const isReceivablesYear =
-            isReceivables &&
-            f.apiKey ===
-            "year";
-
-          /* ---------------------------------------------
-             OPEX OR RECEIVABLES MULTI SELECT
-          --------------------------------------------- */
-
-          const isMultiSelect =
-            (isOperatingExpenses ||
-              isReceivables) &&
-            f.multiSelect ===
-            true;
-
-          const options =
-            activeFilterOptions?.[
-            f.optionKey
-            ] || [];
-
-          return (
-            <FilterField
-              key={`${f.apiKey}-${i}`}
-              label={f.label}
-              isOperatingExpenses={
-                isOperatingExpenses
-              }
-              isReceivables={
-                isReceivables
-              }
-            >
-              {/* =========================================
-                  MULTI SELECT
-              ========================================= */}
-
-              {isMultiSelect ? (
-                <OpexMultiSelect
-                  options={
-                    isReceivables &&
-                    (
-                      f.apiKey ===
-                        "legal_group" ||
-                      f.apiKey ===
-                        "legal_entity" ||
-                      f.apiKey ===
-                        "parent_division" ||
-                      f.apiKey ===
-                        "subdivision"
-                    )
-                      ? options.map(
-                        (item) => ({
-                          value:
-                            getReceivablesHierarchyValue(
-                              item,
-                              f.apiKey
-                            ),
-                          label:
-                            getReceivablesHierarchyLabel(
-                              item,
-                              f.apiKey
-                            ),
-                        })
-                      )
-                      : options
-                  }
-                  value={
-                    Array.isArray(
-                      selectedFilters[
-                      f.apiKey
-                      ]
-                    )
-                      ? selectedFilters[
-                      f.apiKey
-                      ]
-                      : []
-                  }
-                  onChange={(
-                    values
-                  ) => {
-                    if (
-                      isReceivables
-                    ) {
-                      handleReceivablesFilterChange(
-                        f.apiKey,
-                        values
-                      );
-                    } else {
-                      handleOpexFilterChange(
-                        f.apiKey,
-                        values
-                      );
-                    }
-                  }}
-                  placeholder={
-                    isPeriod
-                      ? "Select Period"
-                      : "All"
-                  }
-                  searchable={
-                    true
-                  }
-                />
-
-                /* =========================================
-                   OPEX YEAR
-                ========================================= */
-
-              ) : isYear ? (
-                <OpexSingleSelect
-                  options={
-                    options
-                  }
-                  value={
-                    selectedFilters
-                      .year || ""
-                  }
-                  onChange={(
-                    value
-                  ) =>
-                    handleOpexFilterChange(
-                      "year",
-                      value
-                    )
-                  }
-                  placeholder="Select Year"
-                  searchable={
-                    true
-                  }
-                />
-
-                /* =========================================
-                   OPEX REPORTING CURRENCY
-                ========================================= */
-
-              ) : isReportingCurrency ? (
-                <OpexSingleSelect
-                  options={
-                    options.length
-                      ? options
-                      : [
-                        {
-                          value:
-                            "AED",
-                          label:
-                            "AED",
-                        },
-                      ]
-                  }
-                  value={
-                    selectedFilters
-                      .reporting_currency ||
-                    opexFilterOptions
-                      ?.default_reporting_currency ||
-                    "AED"
-                  }
-                  onChange={(
-                    value
-                  ) =>
-                    isReceivables
-                      ? handleReceivablesFilterChange(
-                        "reporting_currency",
-                        value
-                      )
-                      : handleOpexFilterChange(
-                        "reporting_currency",
-                        value
-                      )
-                  }
-                  placeholder="Select Currency"
-                  searchable={
-                    true
-                  }
-                  required={
-                    true
-                  }
-                />
-
-              /* =========================================
-                 RECEIVABLES AGING BASIS
-              ========================================= */
-
-              ) : isReceivablesAgingBasis ? (
-                <OpexSingleSelect
-                  options={
-                    receivablesAgingBasisOptions
-                  }
-                  value={
-                    selectedFilters
-                      .aging_basis ||
-                    "DUE_DATE"
-                  }
-                  onChange={(
-                    value
-                  ) =>
-                    handleReceivablesFilterChange(
-                      "aging_basis",
-                      value
-                    )
-                  }
-                  placeholder="Select Aging Basis"
-                  searchable={false}
-                  required={true}
-                />
-
-              /* =========================================
-                 RECEIVABLES YEAR
-              ========================================= */
-
-              ) : isReceivablesYear ? (
-                <OpexSingleSelect
-                  options={
-                    options
-                  }
-                  value={
-                    selectedFilters
-                      .year || ""
-                  }
-                  onChange={(
-                    value
-                  ) =>
-                    handleReceivablesFilterChange(
-                      "year",
-                      value
-                    )
-                  }
-                  placeholder="Select Year"
-                  searchable={true}
-                />
-
-                /* =========================================
-                   NORMAL COMMON SELECT
-                ========================================= */
-
-              ) : (
-                <select
-                  className="filter-select w-full"
-                  value={
-                    selectedFilters[
-                    f.apiKey
-                    ] || ""
-                  }
-                  onChange={(
-                    e
-                  ) => {
-                    const value =
-                      e.target
-                        .value;
-
-                    if (
-                      isOperatingExpenses
-                    ) {
-                      handleOpexFilterChange(
-                        f.apiKey,
-                        value
-                      );
-                    } else if (
-                      isReceivables
-                    ) {
-                      handleReceivablesFilterChange(
-                        f.apiKey,
-                        value
-                      );
-                    } else {
-                      const nextFilters =
-                      {
-                        ...selectedFilters,
-                        [f.apiKey]:
-                          value,
-                      };
-
-                      setSelectedFilters(
-                        nextFilters
-                      );
-
-                      if (
-                        onChange
-                      ) {
-                        onChange(
-                          nextFilters
-                        );
-                      }
-                    }
-                  }}
-                  style={{
-                    minWidth: 0,
-                    width:
-                      "100%",
-                    fontWeight:
-                      600,
-                    boxSizing:
-                      "border-box",
-                      
-
-                  }}
-                >
-                  <option value="">
-                    All
-                  </option>
-
-                  {activeFilterOptions?.[
-                    f.optionKey
-                  ]?.map(
-                    (
-                      item,
-                      index
-                    ) => {
-                      const value =
-                        isReceivables &&
-                        (
-                          f.apiKey ===
-                            "legal_group" ||
-                          f.apiKey ===
-                            "legal_entity" ||
-                          f.apiKey ===
-                            "parent_division" ||
-                          f.apiKey ===
-                            "subdivision"
-                        )
-                          ? getReceivablesHierarchyValue(
-                            item,
-                            f.apiKey
-                          )
-                          : getOptionValue(
-                            item
-                          );
-
-                      const label =
-                        isReceivables &&
-                        (
-                          f.apiKey ===
-                            "legal_group" ||
-                          f.apiKey ===
-                            "legal_entity" ||
-                          f.apiKey ===
-                            "parent_division" ||
-                          f.apiKey ===
-                            "subdivision"
-                        )
-                          ? getReceivablesHierarchyLabel(
-                            item,
-                            f.apiKey
-                          )
-                          : getOptionLabel(
-                            item
-                          );
-
-                      if (
-                        value ===
-                        "" ||
-                        value ===
-                        null ||
-                        value ===
-                        undefined
-                      ) {
-                        return null;
-                      }
-
-                      return (
-                        <option
-                          key={`${value}-${index}`}
-                          value={
-                            value
-                          }
-                          style={{
-                            fontWeight:
-                              600,
-                          }}
-                        >
-                          {
-                            label
-                          }
-                        </option>
-                      );
-                    }
-                  )}
-                </select>
-              )}
-            </FilterField>
-          );
+      <FilterField
+        label="Legal Group"
+        width={
+          FIELD_WIDTHS.legal_group
         }
-      )}
-
-      {/* ===================================================
-          As On Date
-          Common + Receivables
-      =================================================== */}
-
-      {!isOperatingExpenses && (
-        <FilterField
-          label="As On Date"
-          isReceivables={
-            isReceivables
+      >
+        <OpexMultiSelect
+          options={
+            options.legal_groups ||
+            []
           }
-        >
-          <input
-            type="text"
-            value={
-              selectedFilters
-                .as_on_date
-            }
-            readOnly
-            className="w-full h-8 text-[10px] font-semibold text-gray-700 bg-gray-50 border border-gray-300 rounded-md px-2"
-            style={{
-              boxSizing:
-                "border-box",
-            }}
-          />
-        </FilterField>
-      )}
+          value={
+            selectedFilters.legal_group
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "legal_group",
+              value
+            )
+          }
+          width={
+            FIELD_WIDTHS.legal_group
+          }
+        />
+      </FilterField>
 
-      {/* ===================================================
+      {/* Legal Entity */}
+
+      <FilterField
+        label="Legal Entity"
+        width={
+          FIELD_WIDTHS.legal_entity
+        }
+      >
+        <OpexMultiSelect
+          options={
+            options.legal_entities ||
+            []
+          }
+          value={
+            selectedFilters.legal_entity
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "legal_entity",
+              value
+            )
+          }
+          width={
+            FIELD_WIDTHS.legal_entity
+          }
+        />
+      </FilterField>
+
+      {/* Parent Division */}
+
+      <FilterField
+        label="Parent Division"
+        width={
+          FIELD_WIDTHS.parent_division
+        }
+      >
+        <OpexMultiSelect
+          options={
+            options.parent_divisions ||
+            []
+          }
+          value={
+            selectedFilters.parent_division
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "parent_division",
+              value
+            )
+          }
+          width={
+            FIELD_WIDTHS.parent_division
+          }
+        />
+      </FilterField>
+
+      {/* Sub-Division */}
+
+      <FilterField
+        label="Sub-Division"
+        width={
+          FIELD_WIDTHS.subdivision
+        }
+      >
+        <OpexMultiSelect
+          options={
+            options.subdivisions ||
+            []
+          }
+          value={
+            selectedFilters.subdivision
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "subdivision",
+              value
+            )
+          }
+          width={
+            FIELD_WIDTHS.subdivision
+          }
+        />
+      </FilterField>
+
+      {/* Year */}
+
+      <FilterField
+        label="Year"
+        width={
+          FIELD_WIDTHS.year
+        }
+      >
+        <OpexSingleSelect
+          options={
+            options.years || []
+          }
+          value={
+            selectedFilters.year
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "year",
+              value
+            )
+          }
+          placeholder="Select Year"
+          width={
+            FIELD_WIDTHS.year
+          }
+        />
+      </FilterField>
+
+      {/* Period */}
+
+      <FilterField
+        label="Period"
+        width={
+          FIELD_WIDTHS.period
+        }
+      >
+        <OpexMultiSelect
+          options={
+            options.periods || []
+          }
+          value={
+            selectedFilters.period
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "period",
+              value
+            )
+          }
+          placeholder="All"
+          width={
+            FIELD_WIDTHS.period
+          }
+        />
+      </FilterField>
+
+      {/* Reporting Currency */}
+
+      <FilterField
+        label="Reporting Currency"
+        width={
+          FIELD_WIDTHS.reporting_currency
+        }
+      >
+        <OpexSingleSelect
+          options={
+            options
+              .reporting_currencies
+              ?.length
+              ? options.reporting_currencies
+              : [
+                {
+                  value: "AED",
+                  label: "AED",
+                },
+              ]
+          }
+          value={
+            selectedFilters.reporting_currency ||
+            options.default_reporting_currency ||
+            "AED"
+          }
+          onChange={(value) =>
+            handleFilterChange(
+              "reporting_currency",
+              value
+            )
+          }
+          placeholder="AED"
+          searchable={false}
+          width={
+            FIELD_WIDTHS.reporting_currency
+          }
+        />
+      </FilterField>
+
+      {/* =====================================================
           Apply / Reset
-      =================================================== */}
+
+          ONLY CHANGE HERE:
+          marginLeft: "-10px"
+
+          Parent container has gap: 10px.
+          This cancels that gap only between
+          Reporting Currency and Apply.
+      ===================================================== */}
 
       <div
         style={{
           display: "flex",
-          gap: "8px",
-
-          marginLeft:
-            "auto",
-
+          alignItems: "center",
+          gap: 8,
+          alignSelf: "flex-end",
           flexShrink: 0,
+          paddingBottom: 1,
 
-          position:
-            "relative",
-
-          zIndex: 1,
-
-          fontWeight: 600,
+          /*
+           * Remove the gap between Reporting Currency
+           * and Apply without affecting any other
+           * filter-to-filter spacing.
+           */
+          marginLeft: 6
         }}
       >
         <button
-          className="btn btn-primary"
+          id="btn-apply-opex-filter"
+          type="button"
+          disabled={loading}
           onClick={() =>
-            onApply &&
-            onApply(
+            onApply?.(
               selectedFilters
             )
           }
           style={{
+            height: 34,
+            padding:
+              "0 16px",
+            background:
+              "#6366f1",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            fontSize:
+              "0.78rem",
             fontWeight: 700,
+            cursor: loading
+              ? "not-allowed"
+              : "pointer",
+            opacity: loading
+              ? 0.7
+              : 1,
+            whiteSpace:
+              "nowrap",
+            display:
+              "inline-flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
+            transition:
+              "all 0.18s",
           }}
         >
           Apply
         </button>
 
         <button
-          className="btn btn-ghost"
+          id="btn-reset-opex-filter"
+          type="button"
+          disabled={loading}
           onClick={
             handleReset
           }
           style={{
-            fontWeight: 700,
+            height: 34,
+            padding:
+              "0 10px",
+            background: "#fff",
+            border:
+              "1px solid #e2e8f0",
+            color:
+              "#64748b",
+            borderRadius: 8,
+            fontWeight: 600,
+            fontSize:
+              "0.78rem",
+            cursor: loading
+              ? "not-allowed"
+              : "pointer",
+            whiteSpace:
+              "nowrap",
+            display:
+              "inline-flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
+            opacity: loading
+              ? 0.7
+              : 1,
           }}
         >
           Reset
@@ -3265,6 +5346,3 @@ export default function Filters({
     </div>
   );
 }
-
-
-
