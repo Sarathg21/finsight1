@@ -534,6 +534,7 @@ export async function fetchBSDrilldown(filters) {
   };
   const res = await apiCall('/api/bs/drilldown', params);
   const raw = res?.data ?? res;
+  if (import.meta.env.DEV) console.log('[bsApi] fetchBSDrilldown raw response:', JSON.stringify(raw, null, 2)?.slice(0, 2000));
   if (!raw || typeof raw !== 'object') return raw;
 
   // Normalise live-backend field names → frontend-expected names.
@@ -551,10 +552,19 @@ export async function fetchBSDrilldown(filters) {
 
   const normRows = sourceRows.map((row) => ({
     ...row,
+    // Normalise subdivision name variations
+    sub_division_name: row.sub_division_name || row.subdivision_name || row.subdiv_name || row.name || row.subdivision || '',
+    sub_division_code: row.sub_division_code || row.subdivision_code || row.subdiv_code || row.code || '',
+    sub_division_id:   row.sub_division_id   || row.subdivision_id   || row.subdiv_id   || row.id   || '',
+    // DR/CR indicator
+    dr_cr: row.dr_cr || row.debit_credit || row.dc_indicator || (row.balance_amount < 0 ? 'CR' : 'DR'),
+    // Parent division / ledger
+    parent_division: row.parent_division || row.parent_div || row.division || '',
+    ledger_code: row.ledger_code || row.ledger || row.parent_division || row.parent_div || row.business_unit || '\u2014',
+    // Percentage bar
     abs_pct_of_total: totalAmt !== 0
       ? Math.round((Math.abs(row.balance_amount) / Math.abs(totalAmt)) * 100 * 10) / 10
       : 0,
-    ledger_code: row.ledger_code || row.parent_division || '\u2014',
   }));
 
   return {
