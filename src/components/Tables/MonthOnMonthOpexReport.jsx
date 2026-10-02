@@ -1147,7 +1147,7 @@ const MultiSelectDropdown = ({
                             display: "flex",
                             flexDirection:
                                 "column",
-                            gap: "6px",
+                            gap: "0px",
                         }}
                     >
                         {filteredOptions.length ===
