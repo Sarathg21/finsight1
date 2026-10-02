@@ -2862,55 +2862,94 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
   const account = data?.account_name || (rows[0] && rows[0].account_name) || '—';
   const total   = data?.consolidated_balance ?? rows.reduce((sum, r) => sum + (r.balance_amount || 0), 0);
 
+  // Detect what columns are available in the data
+  const hasSubDivision = rows.some(r => r.sub_division_name);
+  const hasDrCr = rows.some(r => r.dr_cr);
+  const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '\u2014');
+
   return (
-    <ViewAllModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Drilldown: ${account}`}
-      subtitle={`Period: ${data?.period_name || data?.period || (rows[0] && rows[0].period_code) || '—'} | Currency: ${currency} | Total: ${fmtNum(Math.abs(total), currency)}`}
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '20px 16px 28px',
+        overflowY: 'auto',
+        zIndex: 999999,
+      }}
     >
-      {!rows.length ? (
-        <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={MTH_L}>Sub-Division</th>
-              <th style={{ ...MTH, width: 80 }}>Code</th>
-              <th style={MTH}>Ledger</th>
-              <th style={{ ...MTH, width: 56 }}>DR/CR</th>
-              <th style={MTH}>Balance Amount</th>
-              <th style={MTH}>% of Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={`${row.sub_division_id ?? row.sub_division_code ?? 'subdiv'}-${i}`}
-                onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-              >
-                <td style={{ ...MTD_L, fontWeight: 600 }}>{row.sub_division_name}</td>
-                <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.sub_division_code}</td>
-                <td style={{ ...MTD, fontSize: '0.68rem', color: C.muted }}>{row.ledger_code || '—'}</td>
-                <td style={{ ...MTD, color: row.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700 }}>{row.dr_cr}</td>
-                <td style={{ ...MTD, fontWeight: 700 }}>{fmtNum(Math.abs(row.balance_amount), currency)}</td>
-                <td style={{ ...MTD }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                    <div style={{ width: 60, height: 5, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(row.abs_pct_of_total || 0, 100)}%`, height: '100%', background: C.primary, borderRadius: 3 }} />
-                    </div>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.navy, minWidth: 36, textAlign: 'right' }}>
-                      {fmtPct(row.abs_pct_of_total)}
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </ViewAllModal>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 16,
+          width: '90vw', maxWidth: 900,
+          maxHeight: 'calc(100vh - 40px)', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.22)',
+          overflow: 'hidden', border: '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{
+          padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
+          background: 'linear-gradient(90deg,#f8fafc,#fff)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: C.navy }}>{`Drilldown: ${account}`}</div>
+            <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 2 }}>
+              {`Period: ${data?.period_name || '\u2014'} | Currency: ${currency} | Total: ${fmtNum(Math.abs(total), currency)}`}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: C.slate, padding: '4px 8px' }}>{'\u2715'}</button>
+        </div>
+        <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
+          {!rows.length ? (
+            <div style={{ padding: 32, textAlign: 'center', color: C.muted, fontSize: '0.8rem' }}>No data available</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={MTH_L}>Account</th>
+                  <th style={{ ...MTH, width: 100 }}>Code</th>
+                  {hasSubDivision && <th style={MTH}>Sub-Division</th>}
+                  {hasLedger && <th style={MTH}>Ledger</th>}
+                  {hasDrCr && <th style={{ ...MTH, width: 56 }}>DR/CR</th>}
+                  <th style={MTH}>Balance Amount</th>
+                  <th style={MTH}>% of Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr
+                    key={`${row.account_code || row.sub_division_code || 'row'}-${i}`}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8faff'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ ...MTD_L, fontWeight: 600 }}>{row.account_name || row.sub_division_name || '\u2014'}</td>
+                    <td style={{ ...MTD, fontFamily: 'monospace', fontSize: '0.68rem', color: C.slate }}>{row.account_code || row.sub_division_code || '\u2014'}</td>
+                    {hasSubDivision && <td style={{ ...MTD, fontSize: '0.72rem' }}>{row.sub_division_name || '\u2014'}</td>}
+                    {hasLedger && <td style={{ ...MTD, fontSize: '0.68rem', color: C.muted }}>{row.ledger_code || '\u2014'}</td>}
+                    {hasDrCr && <td style={{ ...MTD, color: row.dr_cr === 'CR' ? C.rose : C.green, fontWeight: 700 }}>{row.dr_cr}</td>}
+                    <td style={{ ...MTD, fontWeight: 700 }}>{fmtNum(Math.abs(row.balance_amount), currency)}</td>
+                    <td style={{ ...MTD }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                        <div style={{ width: 60, height: 5, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(row.abs_pct_of_total || 0, 100)}%`, height: '100%', background: C.primary, borderRadius: 3 }} />
+                        </div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 600, color: C.navy, minWidth: 36, textAlign: 'right' }}>
+                          {fmtPct(row.abs_pct_of_total)}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3488,27 +3527,6 @@ export default function BalanceSheet() {
       <DemoModeBanner />
       {toast && <ExportToast message={toast.msg} type={toast.type} />}
 
-      {/* ══ DRILLDOWN MODAL ══ */}
-      {drilldownOpen && (
-        drilldownLoading ? (
-          <ViewAllModal isOpen onClose={() => setDrilldownOpen(false)} title="Loading drilldown…" subtitle="">
-            <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[...Array(6)].map((_, i) => <Skeleton key={i} h={28} w={`${55 + (i % 3) * 15}%`} />)}
-            </div>
-          </ViewAllModal>
-        ) : drilldownError ? (
-          <ViewAllModal isOpen onClose={() => setDrilldownOpen(false)} title="Drilldown Error" subtitle="">
-            <div style={{ padding: 24 }}><ErrorBanner message={drilldownError} onRetry={() => setDrilldownOpen(false)} /></div>
-          </ViewAllModal>
-        ) : (
-          <DrilldownModal
-            isOpen
-            onClose={() => setDrilldownOpen(false)}
-            data={drilldownData}
-            currency={currency}
-          />
-        )
-      )}
 
       {/* ══ VIEW ALL MODALS ══ */}
       <ViewAllModal isOpen={openModal === 'statement'} onClose={closeModal}
@@ -4115,6 +4133,28 @@ export default function BalanceSheet() {
         </span>
         <span>☁️ Source: Oracle Fusion Cloud</span>
       </div>
+
+      {/* ══ DRILLDOWN MODAL (Rendered last to ensure top z-index) ══ */}
+      {drilldownOpen && (
+        drilldownLoading ? (
+          <ViewAllModal isOpen onClose={() => setDrilldownOpen(false)} title="Loading drilldown…" subtitle="">
+            <div style={{ padding: 32, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[...Array(6)].map((_, i) => <Skeleton key={i} h={28} w={`${55 + (i % 3) * 15}%`} />)}
+            </div>
+          </ViewAllModal>
+        ) : drilldownError ? (
+          <ViewAllModal isOpen onClose={() => setDrilldownOpen(false)} title="Drilldown Error" subtitle="">
+            <div style={{ padding: 24 }}><ErrorBanner message={drilldownError} onRetry={() => setDrilldownOpen(false)} /></div>
+          </ViewAllModal>
+        ) : (
+          <DrilldownModal
+            isOpen
+            onClose={() => setDrilldownOpen(false)}
+            data={drilldownData}
+            currency={currency}
+          />
+        )
+      )}
 
     </div>
   );
