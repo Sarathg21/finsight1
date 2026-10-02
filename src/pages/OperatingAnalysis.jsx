@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, } from "react";
 
-import ExportButtons from "../components/Common/ExportButtons";
-import PageHeader from "../components/Common/PageHeader";
+import ExportButtons from "../components/common/ExportButtons";
+import PageHeader from "../components/common/PageHeader";
 import FooterNote from "../components/FooterNote";
 import Filters from "../components/Filters/Filters";
 

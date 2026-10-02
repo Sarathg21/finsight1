@@ -4,13 +4,13 @@
 // //     UserPlus, Users, UserCheck, UserX, ShieldAlert, UserCog, Edit, Shield,
 // //     Building2, Building, Layers, GitBranch, Briefcase, BarChart3,
 // // } from "lucide-react";
-// // import ConfirmationModel from "../components/Common/ConfirmationModel";
+// // import ConfirmationModel from "../components/common/ConfirmationModel";
 
 // // import HierarchyTree from "../components/userAccess/HierarchyTree";
 // // import toast from "react-hot-toast";
 // // import AdminLayout from "../components/Layout/AdminLayout";
-// // import PageHeader from "../components/Common/PageHeader";
-// // import FilterBar from "../components/Common/FilterBar";
+// // import PageHeader from "../components/common/PageHeader";
+// // import FilterBar from "../components/common/FilterBar";
 // // import StatCard from "../components/StatCard";
 // // import UserTable from "../components/users/UserTable";
 // // import UserDetails from "../components/users/UserDetails";
@@ -20,7 +20,7 @@
 // // import { stats, departments, } from "../data/dummyData";
 // // import { getUserAccessSummary } from "../api/userAccessApi";
 // // import { getUsers, getRoles, getLegalGroups, updateUserStatus } from "../api/userApi";
-// // import PageSkeleton from "../components/Common/PageSkeleton";
+// // import PageSkeleton from "../components/common/PageSkeleton";
 // // import {
 // //     getUserAccess,
 // //     saveUserAccess,
@@ -854,13 +854,13 @@
 //     UserPlus, Users, UserCheck, UserX, ShieldAlert, UserCog, Edit, Shield,
 //     Building2, Building, Layers, GitBranch, Briefcase, BarChart3,
 // } from "lucide-react";
-// import ConfirmationModel from "../components/Common/ConfirmationModel";
+// import ConfirmationModel from "../components/common/ConfirmationModel";
 
 // import HierarchyTree from "../components/userAccess/HierarchyTree";
 // import toast from "react-hot-toast";
 // import AdminLayout from "../components/Layout/AdminLayout";
-// import PageHeader from "../components/Common/PageHeader";
-// import FilterBar from "../components/Common/FilterBar";
+// import PageHeader from "../components/common/PageHeader";
+// import FilterBar from "../components/common/FilterBar";
 // import StatCard from "../components/StatCard";
 // import UserTable from "../components/users/UserTable";
 // import UserDetails from "../components/users/UserDetails";
@@ -870,7 +870,7 @@
 // import { stats, departments, } from "../data/dummyData";
 // import { getUserAccessSummary } from "../api/userAccessApi";
 // import { getUsers, getRoles, getLegalGroups, updateUserStatus } from "../api/userApi";
-// import PageSkeleton from "../components/Common/PageSkeleton";
+// import PageSkeleton from "../components/common/PageSkeleton";
 // import {
 //     getUserAccess,
 //     saveUserAccess,
@@ -1895,13 +1895,13 @@ import {
     UserPlus, Users, UserCheck, UserX, ShieldAlert, UserCog, Edit, Shield,
     Building2, Building, Layers, GitBranch, Briefcase, BarChart3,
 } from "lucide-react";
-import ConfirmationModel from "../components/Common/ConfirmationModel";
+import ConfirmationModel from "../components/common/ConfirmationModel";
 
 import HierarchyTree from "../components/userAccess/HierarchyTree";
 import toast from "react-hot-toast";
 import AdminLayout from "../components/Layout/AdminLayout";
-import PageHeader from "../components/Common/PageHeader";
-import FilterBar from "../components/Common/FilterBar";
+import PageHeader from "../components/common/PageHeader";
+import FilterBar from "../components/common/FilterBar";
 import StatCard from "../components/StatCard";
 import UserTable from "../components/users/UserTable";
 import UserDetails from "../components/users/UserDetails";
@@ -1911,7 +1911,7 @@ import SelectedUserCard from "../components/userAccess/SelectUserCard";
 import { stats, departments, } from "../data/dummyData";
 import { getUserAccessSummary } from "../api/userAccessApi";
 import { getUsers, getRoles, getLegalGroups, updateUserStatus } from "../api/userApi";
-import PageSkeleton from "../components/Common/PageSkeleton";
+import PageSkeleton from "../components/common/PageSkeleton";
 
 import {
     getUserAccess,

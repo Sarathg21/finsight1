@@ -3,15 +3,15 @@
 // import { UserPlus, Users, UserCheck, UserX, ShieldAlert, UserCog, Edit, } from "lucide-react";
 // import toast from "react-hot-toast";
 // import AdminLayout from "../components/Layout/AdminLayout";
-// import PageHeader from "../components/Common/PageHeader";
-// import FilterBar from "../components/Common/FilterBar";
+// import PageHeader from "../components/common/PageHeader";
+// import FilterBar from "../components/common/FilterBar";
 // import StatCard from "../components/StatCard";
 // import UserTable from "../components/users/UserTable";
 // import UserDetails from "../components/users/UserDetails";
 // import FooterNote from "../components/FooterNote";
 // import AddUserModal from "../components/users/AddUserModal";
-// import ConfirmationModel from "../components/Common/ConfirmationModel";
-// import PageSkeleton from "../components/Common/PageSkeleton";
+// import ConfirmationModel from "../components/common/ConfirmationModel";
+// import PageSkeleton from "../components/common/PageSkeleton";
 // import {
 //   getUsers, getRoles, getLegalGroups, updateUserStatus, getAdminSummary,
 // } from "../api/userApi";
@@ -660,15 +660,15 @@ import {
 import toast from "react-hot-toast";
 
 import AdminLayout from "../components/Layout/AdminLayout";
-import PageHeader from "../components/Common/PageHeader";
-import FilterBar from "../components/Common/FilterBar";
+import PageHeader from "../components/common/PageHeader";
+import FilterBar from "../components/common/FilterBar";
 import StatCard from "../components/StatCard";
 import UserTable from "../components/users/UserTable";
 import UserDetails from "../components/users/UserDetails";
 import FooterNote from "../components/FooterNote";
 import AddUserModal from "../components/users/AddUserModal";
-import ConfirmationModel from "../components/Common/ConfirmationModel";
-import PageSkeleton from "../components/Common/PageSkeleton";
+import ConfirmationModel from "../components/common/ConfirmationModel";
+import PageSkeleton from "../components/common/PageSkeleton";
 
 import {
   getUsers,

@@ -3,15 +3,15 @@
 // import React, { useEffect, useState } from "react";
 // import { UserPlus } from "lucide-react";
 // import toast from "react-hot-toast";
-// import PageSkeleton from "../components/Common/PageSkeleton";
-// import PageHeader from "../components/Common/PageHeader";
+// import PageSkeleton from "../components/common/PageSkeleton";
+// import PageHeader from "../components/common/PageHeader";
 // import StatCard from "../components/StatCard";
-// import FilterBar from "../components/Common/FilterBar";
+// import FilterBar from "../components/common/FilterBar";
 // import RolesTable from "../components/roles/RolesTable";
 // import RoleDetailsPanel from "../components/roles/RoleDetailsPanel";
 // import FooterNote from "../components/FooterNote";
 // import AddRoleModal from "../components/roles/AddRoleModal";
-// import ConfirmationModel from "../components/Common/ConfirmationModel";
+// import ConfirmationModel from "../components/common/ConfirmationModel";
 // import { statuses } from "../data/dummyData";
 // import { addRole, getRole, updateRole } from "../api/rolesApi"
 
@@ -419,15 +419,15 @@
 import React, { useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
 import toast from "react-hot-toast";
-import PageSkeleton from "../components/Common/PageSkeleton";
-import PageHeader from "../components/Common/PageHeader";
+import PageSkeleton from "../components/common/PageSkeleton";
+import PageHeader from "../components/common/PageHeader";
 import StatCard from "../components/StatCard";
-import FilterBar from "../components/Common/FilterBar";
+import FilterBar from "../components/common/FilterBar";
 import RolesTable from "../components/roles/RolesTable";
 import RoleDetailsPanel from "../components/roles/RoleDetailsPanel";
 import FooterNote from "../components/FooterNote";
 import AddRoleModal from "../components/roles/AddRoleModal";
-import ConfirmationModel from "../components/Common/ConfirmationModel";
+import ConfirmationModel from "../components/common/ConfirmationModel";
 import { statuses } from "../data/dummyData";
 import { getRole, updateRole } from "../api/rolesApi";
 

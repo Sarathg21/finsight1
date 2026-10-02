@@ -6,7 +6,7 @@
 // } from "lucide-react";
 
 // import DetailedViewTable from "./Tables/DetailedViewTable";
-// import ExportButtons from "../components/Common/ExportButtons";
+// import ExportButtons from "../components/common/ExportButtons";
 // import {
 //     getReceivableDetails,
 //     getReceivableExport,
