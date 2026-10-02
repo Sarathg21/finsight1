@@ -2867,7 +2867,7 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
   const hasDrCr = rows.some(r => r.dr_cr);
   const hasLedger = rows.some(r => r.ledger_code && r.ledger_code !== '\u2014');
 
-  return (
+  const modalContent = (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
@@ -2951,6 +2951,7 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
       </div>
     </div>
   );
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 /* Reconciliation View All */
