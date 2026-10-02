@@ -413,6 +413,8 @@ function DetailApiModal({
   dateFiltersConfig = null,
   showUnitToggle = false,
   currencyDecimals = 0,
+  tabs = null,
+  activeTabId = null,
 }) {
   const [rows, setRows]         = useState([]);
   const [loading, setLoading]   = useState(false);
@@ -718,6 +720,31 @@ function DetailApiModal({
           </div>
         </div>
 
+        {tabs && tabs.length > 0 && (
+          <div style={{ padding: '12px 20px 0' }}>
+            <div style={{ display: 'flex', background: '#f1f5f9', borderRadius: 8, padding: 4, width: 'fit-content' }}>
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={tab.onClick}
+                  style={{
+                    background: activeTabId === tab.id ? '#2563eb' : 'transparent',
+                    color: activeTabId === tab.id ? '#fff' : '#64748b',
+                    border: 'none',
+                    padding: '6px 16px',
+                    borderRadius: 6,
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Table */}
         <div className="modal-table-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 16px 0' }}>
           <ErrorBoundary name="DetailApiModalTable">
@@ -1727,6 +1754,7 @@ export default function SalesRevenueReport() {
 
   /* ── View-All modal state ─────────────────────────────────────── */
   const [openModal, setOpenModal] = useState(null); // 'legalEntity' | 'parentDiv' | 'subDiv' | 'salesman'
+  const [consolidatedTab, setConsolidatedTab] = useState('consolidated');
 
   /* ── Display unit toggle: AED full vs AED in Millions ─────────── */
   const [inMillions, setInMillions] = useState(false);
@@ -2547,6 +2575,29 @@ export default function SalesRevenueReport() {
     { label: '% Share',         key: 'percentage',            align: 'right', minWidth: '85px', fmt: v => fmtPctCol(v, 2),
       totalFn: () => '100.00%'
     },
+  ];
+
+  const parentDivisionMoMCols = [
+    { label: 'Parent Division', key: 'parent_division', align: 'left', minWidth: '140px', whiteSpace: 'normal', fmt: (v, row) => v ?? row.division_name ?? '-', groupEnd: true },
+    { label: 'Jan', key: 'jan', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.jan) || 0), 0)) },
+    { label: 'Feb', key: 'feb', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.feb) || 0), 0)) },
+    { label: 'Mar', key: 'mar', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.mar) || 0), 0)) },
+    { label: 'Apr', key: 'apr', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.apr) || 0), 0)) },
+    { label: 'May', key: 'may', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.may) || 0), 0)) },
+    { label: 'Jun', key: 'jun', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.jun) || 0), 0)) },
+    { label: 'Jul', key: 'jul', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.jul) || 0), 0)) },
+    { label: 'Aug', key: 'aug', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.aug) || 0), 0)) },
+    { label: 'Sep', key: 'sep', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sep) || 0), 0)) },
+    { label: 'Oct', key: 'oct', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.oct) || 0), 0)) },
+    { label: 'Nov', key: 'nov', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.nov) || 0), 0)) },
+    { label: 'Dec', key: 'dec', align: 'right', minWidth: '95px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', groupEnd: true, totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.dec) || 0), 0)) },
+    { label: 'Total', key: 'total_revenue', align: 'right', minWidth: '120px', isCurrency: true, fmt: v => (v != null) ? fmtCurrency(v) : '-', totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.total_revenue) || 0), 0)) },
+  ];
+
+  const parentDivisionMoMHeaderGroups = [
+    { label: '', colSpan: 1 },
+    { label: 'Monthly Sales Revenue', colSpan: 12 },
+    { label: '', colSpan: 1 },
   ];
 
   // Consolidated View (Full details per sub-division)
@@ -4371,12 +4422,42 @@ export default function SalesRevenueReport() {
         canExport={canExport}
         isOpen={openModal === 'consolidatedView'}
         onClose={() => setOpenModal(null)}
-        title="Sales Revenue Consolidated View"
-        endpoint="subdivision-detail"
-        fetchFn={(f) => fetchSubdivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }))}
-
-        columnDefs={subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
-        headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
+        title={
+          consolidatedTab === 'consolidated' ? "Sales Revenue Consolidated View" :
+          consolidatedTab === 'parent' ? "Sales Revenue by Parent Division Detailed View" :
+          "Sales Revenue by Parent Division - MoM"
+        }
+        endpoint={
+          consolidatedTab === 'consolidated' ? "subdivision-detail" :
+          consolidatedTab === 'parent' ? "parent-division-detail" :
+          "parent-division-mom"
+        }
+        fetchFn={(f) => {
+          if (consolidatedTab === 'consolidated') {
+            return fetchSubdivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }));
+          } else if (consolidatedTab === 'parent') {
+            return fetchParentDivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }));
+          } else {
+            console.warn('Backend endpoint /api/sales-revenue/parent-division-mom is not yet implemented.');
+            return Promise.resolve({ data: [], total: 0, count: 0 });
+          }
+        }}
+        columnDefs={
+          consolidatedTab === 'consolidated' ? subdivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance'))) :
+          consolidatedTab === 'parent' ? parentDivisionCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance'))) :
+          parentDivisionMoMCols
+        }
+        headerGroups={
+          consolidatedTab === 'consolidated' ? subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance'))) :
+          consolidatedTab === 'parent' ? parentDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance'))) :
+          parentDivisionMoMHeaderGroups
+        }
+        tabs={[
+          { id: 'consolidated', label: 'Consolidated', onClick: () => setConsolidatedTab('consolidated') },
+          { id: 'parent', label: 'Parent-wise', onClick: () => setConsolidatedTab('parent') },
+          { id: 'mom', label: 'Month-on-Month', onClick: () => setConsolidatedTab('mom') }
+        ]}
+        activeTabId={consolidatedTab}
         filters={appliedFilters}
         localFiltersConfig={[
           { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
