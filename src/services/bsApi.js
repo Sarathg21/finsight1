@@ -545,26 +545,25 @@ export async function fetchBSDrilldown(filters) {
   //   data.data (rows), data.consolidated_balance, data.period_name,
   //   row.ledger_code, row.abs_pct_of_total
 
-  const totalAmt = raw.consolidated_balance ?? raw.total_amount ?? 0;
-  const sourceRows = raw.data ?? raw.rows ?? [];
+  const isArr = Array.isArray(raw);
+  const sourceRows = isArr ? raw : (raw.data ?? raw.rows ?? []);
+  const totalAmt = raw.consolidated_balance ?? raw.total_amount ?? (isArr ? sourceRows.reduce((sum, r) => sum + (r.balance_amount || 0), 0) : 0);
 
   const normRows = sourceRows.map((row) => ({
     ...row,
-    // abs_pct_of_total: derive from balance_amount / total for the progress bar
     abs_pct_of_total: totalAmt !== 0
       ? Math.round((Math.abs(row.balance_amount) / Math.abs(totalAmt)) * 100 * 10) / 10
       : 0,
-    // ledger_code: not returned per-row from backend; show parent_division as context
-    ledger_code: row.ledger_code || row.parent_division || '—',
+    ledger_code: row.ledger_code || row.parent_division || '\u2014',
   }));
 
   return {
-    ...raw,
-    // Bridge field names
+    ...(isArr ? {} : raw),
+    account_code:         filters.accountCode,
+    account_name:         raw.account_name || filters.accountName || 'Unknown Account',
     consolidated_balance: totalAmt,
     data:                 normRows,
-    // period_name may not be in drilldown response; fall back to period
-    period_name:          raw.period_name || raw.period,
+    period_name:          raw.period_name || raw.period || filters.period,
   };
 }
 
@@ -604,3 +603,4 @@ export async function fetchBSReconciliation(filters = {}) {
     net_variance:   row.net_variance   ?? row.absolute_variance,
   }));
 }
+

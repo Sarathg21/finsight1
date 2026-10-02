@@ -1915,7 +1915,7 @@ function StatementViewAll({
               value={modalFilters.currency}
               onChange={e => setModalFilters(f => ({ ...f, currency: e.target.value }))}
             >
-              {(filterOptions?.currencies || ['AED', 'USD', 'SAR', 'EUR', 'GBP']).map(c => (
+              {(filterOptions?.currencies || ['AED', 'USD', 'SAR', 'QAR', 'OMR', 'INR']).map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -2335,7 +2335,7 @@ function TrendViewAll({
               value={modalFilters.currency}
               onChange={e => setModalFilters(f => ({ ...f, currency: e.target.value }))}
             >
-              {['AED', 'USD', 'SAR', 'QAR', 'OMR'].map(c => <option key={c} value={c}>{c}</option>)}
+              {(filterOptions?.currencies || ['AED', 'USD', 'SAR', 'QAR', 'OMR', 'INR']).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -2637,7 +2637,7 @@ function CompositionViewAll({
               value={modalFilters.currency}
               onChange={e => setModalFilters(f => ({ ...f, currency: e.target.value }))}
             >
-              {['AED', 'USD', 'SAR', 'QAR', 'OMR'].map(c => <option key={c} value={c}>{c}</option>)}
+              {(filterOptions?.currencies || ['AED', 'USD', 'SAR', 'QAR', 'OMR', 'INR']).map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -3058,7 +3058,7 @@ export default function BalanceSheet() {
   /* ── Dropdown options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
     periods:        [],
-    currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
+    currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR', 'INR'],
     legalGroups:    ['All'],
     legalEntities:  ['All'],
     parentDivisions:['All'],
@@ -3140,10 +3140,20 @@ export default function BalanceSheet() {
     try {
       const data = await fetchBSFilters(currentFilters);
       const periods = data?.periods || [];
+      const apiCurrencies = (
+        data?.reporting_currencies ||
+        data?.currencies ||
+        []
+      ).filter(c => c && c !== 'All');
+      const DEFAULT_CURRENCIES = ['AED', 'USD', 'SAR', 'QAR', 'OMR', 'INR'];
+      const mergedCurrencies = apiCurrencies.length > 0
+        ? Array.from(new Set([...apiCurrencies, ...DEFAULT_CURRENCIES]))
+        : DEFAULT_CURRENCIES;
+
       setFilterOptions(prev => ({
         ...prev,
         periods: periods.length ? periods : prev.periods,
-        currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR'],
+        currencies:     mergedCurrencies,
         legalGroups:    data?.legal_groups || prev.legalGroups || [],
         legalEntities:  data?.legal_entities || [],
         parentDivisions:data?.parent_divisions || [],
@@ -3258,6 +3268,7 @@ export default function BalanceSheet() {
         period:      appliedFilters.period,
         currency:    appliedFilters.currency,
         accountCode: account.account_code,
+        accountName: account.account_name,
         ledger:      appliedFilters.ledger,
       });
       setDrilldownData(data);
