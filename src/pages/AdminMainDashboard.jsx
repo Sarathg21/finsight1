@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 
-import PageHeader from "../components/common/PageHeader";
+import PageHeader from "../components/Common/PageHeader";
 
 import {
   Users,
