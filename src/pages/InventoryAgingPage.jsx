@@ -314,6 +314,7 @@ export default function InventoryOverview() {
       asOnDate: "All",
   });
 const [loading, setLoading] = useState(true);
+  const [lastFetchedAt, setLastFetchedAt] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [detailPage, setDetailPage] = useState(0);
   const [detailPageSize, setDetailPageSize] = useState(15);
@@ -1215,6 +1216,7 @@ const [loading, setLoading] = useState(true);
           } catch (err) {
               console.error(err);
           } finally {
+              setLastFetchedAt(new Date());
               setLoading(false);
           }
   }, [appliedFilters]);
@@ -3755,7 +3757,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
             Track inventory position, movement and aging across all dimensions
             <br />
             <span style={{ color: '#475569', display: 'inline-block', marginTop: 4 }}>
-              {formattedDataAsOf && `Last Updated On: ${formattedDataAsOf} | `}
+              {lastFetchedAt ? `Last Updated On: ${lastFetchedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${lastFetchedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} | ` : ''}
               <span style={{ color: '#16a34a', fontWeight: 700 }}>Currency: {currentCurrency}</span>
             </span>
           </p>
@@ -4451,7 +4453,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
       }}>
         <span>
           All values are in <strong>{currentCurrency}</strong>&nbsp;|&nbsp;
-          {formattedDataAsOf && `Last Updated On: ${formattedDataAsOf}`}&nbsp;|&nbsp;
+          {lastFetchedAt ? `Last Updated On: ${lastFetchedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at ${lastFetchedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}&nbsp;|&nbsp;
           <span style={{ color: '#16a34a', fontWeight: 700 }}>● Live</span>
         </span>
         <span>☁ Source: Oracle Fusion Cloud</span>
