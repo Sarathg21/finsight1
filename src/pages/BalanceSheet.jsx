@@ -40,10 +40,10 @@ const DEFAULT_FILTERS = {
   comparePeriod: '',
   compareDate:   '',
   currency:      'AED',
-  legalGroup:    [],
-  legalEntity:   [],
-  parentDivision:[],
-  subdivision:   [],
+  legalGroup:    ['All'],
+  legalEntity:   ['All'],
+  parentDivision:['All'],
+  subdivision:   ['All'],
   ledger:        '',
 };
 
@@ -3634,7 +3634,7 @@ export default function BalanceSheet() {
           <MultiSelect
             options={filterOptions.legalGroups}
             value={filters.legalGroup}
-            onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: [], parentDivision: [], subdivision: [] })); }}
+            onChange={v => { setFilters(prev => ({ ...prev, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] })); }}
             style={{ width: 110, minWidth: 110 }}
           />
         </FilterField>
@@ -3644,7 +3644,7 @@ export default function BalanceSheet() {
           <MultiSelect
             options={filterOptions.legalEntities}
             value={filters.legalEntity}
-            onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: [], subdivision: [] }))}
+            onChange={v => setFilters(prev => ({ ...prev, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
             style={{ width: 120, minWidth: 120 }}
           />
         </FilterField>
@@ -3654,7 +3654,7 @@ export default function BalanceSheet() {
           <MultiSelect
             options={filterOptions.parentDivisions}
             value={filters.parentDivision}
-            onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: [] }))}
+            onChange={v => setFilters(prev => ({ ...prev, parentDivision: v, subdivision: ['All'] }))}
             style={{ width: 120, minWidth: 120 }}
           />
         </FilterField>
