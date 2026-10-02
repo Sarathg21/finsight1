@@ -15,6 +15,7 @@ import {
   fetchDetails,
   fetchLegalEntityDetail,
   fetchParentDivisionDetail,
+  fetchParentDivisionMonthly,
   fetchSubdivisionDetail,
   fetchSalesmanDetail,
   fetchSalesmanSummary,
@@ -4433,7 +4434,7 @@ export default function SalesRevenueReport() {
         endpoint={
           consolidatedTab === 'consolidated' ? "subdivision-detail" :
           consolidatedTab === 'parent' ? "parent-division-detail" :
-          "parent-division-mom"
+          "parent-division-monthly"
         }
         fetchFn={(f) => {
           if (consolidatedTab === 'consolidated') {
@@ -4441,8 +4442,7 @@ export default function SalesRevenueReport() {
           } else if (consolidatedTab === 'parent') {
             return fetchParentDivisionDetail(f).then(res => ({ ...res, data: applyLargestRemainder(res.data, 'percentage', 2) }));
           } else {
-            console.warn('Backend endpoint /api/sales-revenue/parent-division-mom is not yet implemented.');
-            return Promise.resolve({ data: [], total: 0, count: 0 });
+            return fetchParentDivisionMonthly(f);
           }
         }}
         columnDefs={

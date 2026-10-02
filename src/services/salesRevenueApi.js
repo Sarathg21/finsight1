@@ -983,6 +983,14 @@ export async function fetchParentDivisionDetail(filters) {
 }
 
 /**
+ * GET /api/sales-revenue/parent-division-monthly
+ * Month-on-Month revenue table for Parent Divisions.
+ */
+export async function fetchParentDivisionMonthly(filters) {
+  return apiCall('/api/sales-revenue/parent-division-monthly', buildParams(filters));
+}
+
+/**
  * GET /api/sales-revenue/subdivision-detail
  * Returns full detail table for all sub-divisions.
  *
