@@ -1077,27 +1077,51 @@ function buildStatementData(summaryData, compareSummaryData) {
     const cmpMap = new Map();
 
     (curSub?.accounts || []).forEach(a => {
-      const code = String(a.account_code || a.account_name);
-      if (!curMap.has(code)) curMap.set(code, { code, name: a.account_name || code, current: 0 });
-      curMap.get(code).current += sign * Number(a.balance_amount || 0);
+      const name = a.account_name || a.account_code || 'Unknown';
+      const key = String(name).trim();
+      if (!curMap.has(key)) {
+        curMap.set(key, { code: String(a.account_code || ''), name, current: 0 });
+      } else {
+        const item = curMap.get(key);
+        if (a.account_code && !item.code.split(',').includes(String(a.account_code))) {
+          item.code += ',' + a.account_code;
+        }
+      }
+      curMap.get(key).current += sign * Number(a.balance_amount || 0);
     });
 
     (cmpSub?.accounts || []).forEach(a => {
-      const code = String(a.account_code || a.account_name);
-      if (!cmpMap.has(code)) cmpMap.set(code, { code, name: a.account_name || code, compare: 0 });
-      cmpMap.get(code).compare += sign * Number(a.balance_amount || 0);
+      const name = a.account_name || a.account_code || 'Unknown';
+      const key = String(name).trim();
+      if (!cmpMap.has(key)) {
+        cmpMap.set(key, { code: String(a.account_code || ''), name, compare: 0 });
+      } else {
+        const item = cmpMap.get(key);
+        if (a.account_code && !item.code.split(',').includes(String(a.account_code))) {
+          item.code += ',' + a.account_code;
+        }
+      }
+      cmpMap.get(key).compare += sign * Number(a.balance_amount || 0);
     });
 
-    const allCodes = Array.from(new Set([...curMap.keys(), ...cmpMap.keys()]));
-    const rows = allCodes.map(code => {
-      const curItem = curMap.get(code);
-      const cmpItem = cmpMap.get(code);
-      const name = curItem?.name || cmpItem?.name || code;
+    const allNames = Array.from(new Set([...curMap.keys(), ...cmpMap.keys()]));
+    const rows = allNames.map(key => {
+      const curItem = curMap.get(key);
+      const cmpItem = cmpMap.get(key);
+      
+      // Merge codes if present in both
+      let mergedCode = curItem?.code || cmpItem?.code || key;
+      if (curItem?.code && cmpItem?.code && curItem.code !== cmpItem.code) {
+         const codeSet = new Set([...curItem.code.split(','), ...cmpItem.code.split(',')]);
+         mergedCode = Array.from(codeSet).filter(Boolean).join(',');
+      }
+
+      const name = curItem?.name || cmpItem?.name || key;
       const current = curItem?.current ?? 0;
       const compare = cmpItem?.compare ?? 0;
       const variance = current - compare;
       const variancePct = compare !== 0 ? (variance / Math.abs(compare)) * 100 : null;
-      return { code, name, current, compare, variance, variancePct };
+      return { code: mergedCode, name, current, compare, variance, variancePct };
     });
 
     const totalCurrent = rows.reduce((s, r) => s + r.current, 0);
