@@ -4354,7 +4354,8 @@ export default function SalesRevenueReport() {
         headerGroups={legalEntityHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4378,7 +4379,8 @@ export default function SalesRevenueReport() {
         headerGroups={parentDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
           { key: 'customerType',     label: 'Customer Type',   options: filterOptions.customerTypes },
           { key: 'salesCategories',  label: 'Sales Category',  options: filterOptions.salesCategories },
@@ -4405,7 +4407,8 @@ export default function SalesRevenueReport() {
         headerGroups={subDivisionHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4460,7 +4463,8 @@ export default function SalesRevenueReport() {
         activeTabId={consolidatedTab}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4484,7 +4488,8 @@ export default function SalesRevenueReport() {
         headerGroups={salesmanSummaryHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4508,7 +4513,8 @@ export default function SalesRevenueReport() {
         headerGroups={salesmanSummaryHeaderGroups.filter(g => !hideTargetUI || (!(g.label || '').includes('Target') && !(g.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4528,7 +4534,8 @@ export default function SalesRevenueReport() {
         columnDefs={customerSummaryCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId', label: 'Entities', options: filterOptions.legalEntities },
+          { key: 'legalGroupId', label: 'Groups', options: filterOptions.legalGroups },
+            { key: 'legalEntityId', label: 'Entities', options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Divisions', options: filterOptions.parentDivs },
           { key: 'subdivisionId', label: 'Sub-Divs', options: filterOptions.subDivs },
           { key: 'customerType', label: 'Type', options: filterOptions.customerTypes }
@@ -4552,7 +4559,8 @@ export default function SalesRevenueReport() {
         columnDefs={customerDetailCols.filter(c => !hideTargetUI || (!(c.key || '').includes('target') && !(c.key || '').includes('variance') && !(c.label || '').includes('Target') && !(c.label || '').includes('Change %') && !(c.label || '').includes('Variance')))}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4570,7 +4578,8 @@ export default function SalesRevenueReport() {
         fetchFn={fetchSummaryDetail}
         filters={appliedFilters}
         localFiltersConfig={[
-          { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+            { key: 'legalEntityId',    label: 'Legal Entity',    options: filterOptions.legalEntities },
           { key: 'parentDivisionId', label: 'Parent Division', options: filterOptions.parentDivs },
           { key: 'subdivisionId',    label: 'Sub-Division',    options: filterOptions.subDivs },
         ]}
@@ -4835,6 +4844,7 @@ export default function SalesRevenueReport() {
     </ErrorBoundary>
   );
 }
+
 
 
 
