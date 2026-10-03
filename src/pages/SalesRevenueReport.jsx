@@ -587,7 +587,8 @@ function DetailApiModal({
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {canExport && <ExportButtons endpoint={endpoint} filters={activeFilters} />}
             {showUnitToggle && (
               <UnitToggle
                 unit={modalUnit}
@@ -601,15 +602,15 @@ function DetailApiModal({
 
         {/* Search & Export Bar */}
         <div style={{
-          padding: '10px 20px', borderBottom: '1px solid #f1f5f9',
-          display: 'flex', gap: 8, alignItems: 'center',
+          padding: '8px 20px', borderBottom: '1px solid #f1f5f9',
+          display: 'flex', gap: 6, alignItems: 'center',
           justifyContent: 'space-between',
-          flexWrap: 'nowrap',
+          flexWrap: 'wrap',
           overflow: 'visible',
           position: 'relative',
           zIndex: 100,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', minWidth: 0 }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 8, pointerEvents: 'none' }}>
                 <circle cx="11" cy="11" r="8"/>
@@ -622,16 +623,16 @@ function DetailApiModal({
                 onChange={e => { setSearch(e.target.value); setPage(0); }}
                 style={{
                   padding: '5px 8px 5px 26px', borderRadius: 7, border: '1px solid #cbd5e1',
-                  fontSize: '0.74rem', width: 150, outline: 'none', height: 28, boxSizing: 'border-box'
+                  fontSize: '0.74rem', width: 135, outline: 'none', height: 28, boxSizing: 'border-box'
                 }}
               />
             </div>
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
               const selectedValues = pendingLocalFilters[cfg.key] || ['All'];
               const autoWidth = cfg.width || (
-                (cfg.label || '').length > 14 ? 168 :
-                (cfg.label || '').length > 11 ? 152 :
-                142
+                (cfg.label || '').length > 14 ? 132 :
+                (cfg.label || '').length > 11 ? 120 :
+                114
               );
               return (
                 <div key={idx} style={{ width: autoWidth, minWidth: autoWidth, position: 'relative', flexShrink: 0 }}>
@@ -667,7 +668,7 @@ function DetailApiModal({
                       if (el) { el.showPicker ? el.showPicker() : el.click(); }
                     }}
                     style={{
-                        width: 108, minWidth: 108, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        width: 98, minWidth: 98, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
                         borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
                         fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
@@ -696,7 +697,7 @@ function DetailApiModal({
                       if (el) { el.showPicker ? el.showPicker() : el.click(); }
                     }}
                     style={{
-                        width: 108, minWidth: 108, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        width: 98, minWidth: 98, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
                         borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
                         fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
@@ -719,14 +720,17 @@ function DetailApiModal({
                   fontWeight: 700, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap'
                 }}>Apply</button>
                 <button onClick={handleReset} style={{
-                  background: 'none', border: 'none', color: C.slate, height: 28, padding: '0 6px',
-                  fontWeight: 600, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap'
-                }}>Reset</button>
+                  background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', height: 28, padding: '0 10px',
+                  fontWeight: 600, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                  display: 'inline-flex', alignItems: 'center', gap: 3
+                }}>
+                  <span>↺</span> Reset
+                </button>
               </div>
             )}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 'auto' }}>
             {!loading && sorted.length > 0 && (
               <span style={{ fontSize: '0.70rem', color: C.muted, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
