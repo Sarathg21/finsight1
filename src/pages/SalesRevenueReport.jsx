@@ -602,12 +602,14 @@ function DetailApiModal({
         {/* Search & Export Bar */}
         <div style={{
           padding: '10px 20px', borderBottom: '1px solid #f1f5f9',
-          display: 'flex', gap: 10, alignItems: 'center',
+          display: 'flex', gap: 8, alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'nowrap',
-          overflowX: 'auto',
+          overflow: 'visible',
+          position: 'relative',
+          zIndex: 100,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', flexShrink: 0 }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
@@ -1617,13 +1619,27 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
   return (
     <div ref={ref} style={{ position: 'relative', ...style }}>
       {/* Trigger button — unchanged */}
-      <div onClick={() => setOpen(o => !o)} style={{ ...selStyle, backgroundImage: 'none', appearance: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, paddingRight: 4 }}>{label}</span>
-        <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '\u25B2' : '\u25BC'}</span>
+      <div onClick={() => setOpen(o => !o)} style={{
+        ...selStyle,
+        padding: '4px 6px',
+        height: 28,
+        boxSizing: 'border-box',
+        fontSize: '0.73rem',
+        backgroundImage: 'none',
+        appearance: 'none',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+        userSelect: 'none'
+      }}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, paddingRight: 2 }}>{label}</span>
+        <span style={{ fontSize: '0.62rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '\u25B2' : '\u25BC'}</span>
       </div>
 
       {open && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 500, marginTop: 2, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ position: 'absolute', top: '100%', left: 0, minWidth: '220px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', zIndex: 9999, marginTop: 4, display: 'flex', flexDirection: 'column' }}>
 
           {/* ── Search input (only addition) ── */}
           <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
