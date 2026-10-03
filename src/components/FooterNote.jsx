@@ -36,6 +36,9 @@ export default function FooterNote({
 
         </div>
       )}
+      <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap ml-auto">
+        Source: Oracle Fusion Cloud
+      </span>
     </div>
   );
 }

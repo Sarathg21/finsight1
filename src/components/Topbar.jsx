@@ -117,7 +117,7 @@ export default function Topbar() {
       <div className="topbar-actions">
         {/* Search */}
         <div className="search-wrap hide-on-tablet" ref={searchRef} style={{ position: 'relative' }}>
-          <Search size={14} className="search-icon" />
+          <Search size={14} className="search-icon" style={{ color: '#16a34a' }} />
           <input
             type="text"
             placeholder="Search page..."

@@ -519,7 +519,10 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
           {/* ── Search input (only addition) ── */}
           <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
-              <span style={{ fontSize: '0.7rem', color: '#94a3b8', flexShrink: 0 }}>🔍</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
               <input
                 ref={searchRef}
                 type="text"
@@ -762,6 +765,14 @@ function ViewAllModal({ isOpen, onClose, title, subtitle, children }) {
         {/* Body */}
         <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
           {children}
+        </div>
+        {/* Footer */}
+        <div style={{
+          padding: '8px 20px', borderTop: '1px solid #f1f5f9',
+          background: '#f8fafc', display: 'flex', justifyContent: 'flex-end',
+          fontSize: '0.65rem', color: C.muted, fontWeight: 500, flexShrink: 0
+        }}>
+          <span>Source: Oracle Fusion Cloud</span>
         </div>
       </div>
     </div>
@@ -1639,6 +1650,7 @@ function StatementViewAll({
   loading,
 }) {
   const [modalFilters, setModalFilters] = useState({
+    legalGroup: appliedFilters?.legalGroup || ['All'],
     legalEntity: appliedFilters?.legalEntity || [],
     parentDivision: appliedFilters?.parentDivision || [],
     subdivision: appliedFilters?.subdivision || [],
@@ -1839,6 +1851,19 @@ function StatementViewAll({
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', flex: 1 }}>
+          {/* Legal Group */}
+          <div style={{ minWidth: 140, maxWidth: 190, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Legal Group
+            </label>
+            <MultiSelect
+              options={filterOptions?.legalGroups || []}
+              value={modalFilters.legalGroup}
+              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v }))}
+              placeholder="All Groups"
+            />
+          </div>
+
           {/* Legal Entity */}
           <div style={{ minWidth: 140, maxWidth: 190, flex: 1 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
@@ -1945,14 +1970,18 @@ function StatementViewAll({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 260 }}>
           <div style={{ position: 'relative', width: 260 }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="🔍 Search account name or code..."
+              placeholder="Search account name or code..."
               style={{
                 width: '100%',
-                padding: '6px 10px',
+                padding: '6px 10px 6px 26px',
                 fontSize: '0.72rem',
                 borderRadius: 6,
                 border: '1px solid #cbd5e1',
@@ -2237,6 +2266,7 @@ function TrendViewAll({
   loading,
 }) {
   const [modalFilters, setModalFilters] = useState({
+    legalGroup: appliedFilters?.legalGroup || ['All'],
     legalEntity: appliedFilters?.legalEntity || [],
     parentDivision: appliedFilters?.parentDivision || [],
     subdivision: appliedFilters?.subdivision || [],
@@ -2273,6 +2303,19 @@ function TrendViewAll({
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', flex: 1 }}>
+          {/* Legal Group */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Legal Group
+            </label>
+            <MultiSelect
+              options={filterOptions?.legalGroups || []}
+              value={modalFilters.legalGroup}
+              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v }))}
+              placeholder="All Groups"
+            />
+          </div>
+
           {/* Legal Entity */}
           <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
@@ -2491,6 +2534,7 @@ function CompositionViewAll({
   loading,
 }) {
   const [modalFilters, setModalFilters] = useState({
+    legalGroup: appliedFilters?.legalGroup || ['All'],
     legalEntity: appliedFilters?.legalEntity || [],
     parentDivision: appliedFilters?.parentDivision || [],
     subdivision: appliedFilters?.subdivision || [],
@@ -2575,6 +2619,19 @@ function CompositionViewAll({
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', flex: 1 }}>
+          {/* Legal Group */}
+          <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
+            <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
+              Legal Group
+            </label>
+            <MultiSelect
+              options={filterOptions?.legalGroups || []}
+              value={modalFilters.legalGroup}
+              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v }))}
+              placeholder="All Groups"
+            />
+          </div>
+
           {/* Legal Entity */}
           <div style={{ minWidth: 150, maxWidth: 200, flex: 1 }}>
             <label style={{ fontSize: '0.66rem', fontWeight: 700, color: C.slate, display: 'block', marginBottom: 3 }}>
@@ -2947,6 +3004,14 @@ function DrilldownModal({ isOpen, onClose, data, currency }) {
               </tbody>
             </table>
           )}
+        </div>
+        {/* Footer */}
+        <div style={{
+          padding: '8px 20px', borderTop: '1px solid #f1f5f9',
+          background: '#f8fafc', display: 'flex', justifyContent: 'flex-end',
+          fontSize: '0.65rem', color: C.muted, fontWeight: 500, flexShrink: 0
+        }}>
+          <span>Source: Oracle Fusion Cloud</span>
         </div>
       </div>
     </div>
@@ -3455,6 +3520,7 @@ export default function BalanceSheet() {
     },
     {
       id: 'total-liabilities',
+      lowerIsBetter: true,
       label: 'Total Liabilities',
       value: loading.summary ? '—' : fmtKPI(currentMetrics.totalLiabilities, currency),
       subValue: periodLabel,

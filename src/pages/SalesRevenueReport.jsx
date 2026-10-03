@@ -610,16 +610,22 @@ function DetailApiModal({
           zIndex: 100,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap', flexShrink: 0 }}>
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchTerm}
-              onChange={e => { setSearch(e.target.value); setPage(0); }}
-              style={{
-                padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1',
-                fontSize: '0.76rem', width: 155, minWidth: 140, outline: 'none', flexShrink: 0,
-              }}
-            />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 8, pointerEvents: 'none' }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchTerm}
+                onChange={e => { setSearch(e.target.value); setPage(0); }}
+                style={{
+                  padding: '5px 8px 5px 26px', borderRadius: 7, border: '1px solid #cbd5e1',
+                  fontSize: '0.74rem', width: 150, outline: 'none', height: 28, boxSizing: 'border-box'
+                }}
+              />
+            </div>
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
               const selectedValues = pendingLocalFilters[cfg.key] || ['All'];
               const autoWidth = cfg.width || (
@@ -961,6 +967,9 @@ function DetailApiModal({
             {sorted.length > 0
               ? `Showing ${page * pageSize + 1}–${Math.min((page + 1) * pageSize, sorted.length)} of ${sorted.length} records`
               : 'No records'}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 500 }}>
+            Source: Oracle Fusion Cloud
           </div>
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             <button
@@ -1644,7 +1653,10 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
           {/* ── Search input (only addition) ── */}
           <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
-              <span style={{ fontSize: '0.7rem', color: '#94a3b8', flexShrink: 0 }}>🔍</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
               <input
                 ref={searchRef}
                 type="text"
