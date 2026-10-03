@@ -602,24 +602,31 @@ function DetailApiModal({
         {/* Search & Export Bar */}
         <div style={{
           padding: '10px 20px', borderBottom: '1px solid #f1f5f9',
-          display: 'flex', gap: 4, alignItems: 'center',
-          flexWrap: 'wrap',
+          display: 'flex', gap: 10, alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap', flexShrink: 0 }}>
             <input
               type="text"
               placeholder={searchPlaceholder}
               value={searchTerm}
               onChange={e => { setSearch(e.target.value); setPage(0); }}
               style={{
-                padding: '6px 12px', borderRadius: 8, border: '1px solid #cbd5e1',
-                fontSize: '0.78rem', width: 160, outline: 'none',
+                padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1',
+                fontSize: '0.76rem', width: 155, minWidth: 140, outline: 'none', flexShrink: 0,
               }}
             />
             {localFiltersConfig && localFiltersConfig.map((cfg, idx) => {
               const selectedValues = pendingLocalFilters[cfg.key] || ['All'];
+              const autoWidth = cfg.width || (
+                (cfg.label || '').length > 14 ? 168 :
+                (cfg.label || '').length > 11 ? 152 :
+                142
+              );
               return (
-                <div key={idx} style={{ width: 135, position: 'relative' }}>
+                <div key={idx} style={{ width: autoWidth, minWidth: autoWidth, position: 'relative', flexShrink: 0 }}>
                   <MultiSelect
                     options={cfg.options}
                     value={selectedValues}
@@ -635,10 +642,10 @@ function DetailApiModal({
               );
             })}
             {dateFiltersConfig && dateFiltersConfig.map((cfg, idx) => (
-              <div key={`df-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div key={`df-${idx}`} style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                 <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, whiteSpace: 'nowrap' }}>Period:</span>
                 
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
                   <input
                     id={`hidden-${cfg.fromKey}`} type="date"
                     value={pendingDateFilters[cfg.fromKey] || ''}
@@ -652,7 +659,7 @@ function DetailApiModal({
                       if (el) { el.showPicker ? el.showPicker() : el.click(); }
                     }}
                     style={{
-                        width: 90, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        width: 108, minWidth: 108, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
                         borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
                         fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
@@ -667,7 +674,7 @@ function DetailApiModal({
 
                 <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>-</span>
 
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
                   <input
                     id={`hidden-${cfg.toKey}`} type="date"
                     value={pendingDateFilters[cfg.toKey] || ''}
@@ -681,7 +688,7 @@ function DetailApiModal({
                       if (el) { el.showPicker ? el.showPicker() : el.click(); }
                     }}
                     style={{
-                        width: 90, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
+                        width: 108, minWidth: 108, height: 28, boxSizing: "border-box", border: "1px solid #cbd5e1",
                         borderRadius: 6, padding: "0 22px 0 8px", background: "#f8fafc", color: "#334155",
                         fontSize: '0.74rem', fontWeight: 500, outline: "none", cursor: "pointer", textAlign: "left", position: "relative",
                         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
@@ -698,7 +705,7 @@ function DetailApiModal({
             ))}
             
             {(localFiltersConfig || dateFiltersConfig) && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 2, flexShrink: 0 }}>
                 <button onClick={handleApply} style={{
                   background: C.blue, color: '#fff', border: 'none', height: 28, padding: '0 12px',
                   fontWeight: 700, borderRadius: 6, fontSize: '0.74rem', cursor: 'pointer', whiteSpace: 'nowrap'
@@ -711,9 +718,9 @@ function DetailApiModal({
             )}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             {!loading && sorted.length > 0 && (
-              <span style={{ fontSize: '0.68rem', color: C.muted, fontWeight: 600 }}>
+              <span style={{ fontSize: '0.70rem', color: C.muted, fontWeight: 600, whiteSpace: 'nowrap' }}>
                 {sorted.length} {searchTerm ? 'matches' : 'records'}
               </span>
             )}
@@ -1611,7 +1618,7 @@ function MultiSelect({ options = [], value, onChange, placeholder = 'All', style
     <div ref={ref} style={{ position: 'relative', ...style }}>
       {/* Trigger button — unchanged */}
       <div onClick={() => setOpen(o => !o)} style={{ ...selStyle, backgroundImage: 'none', appearance: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '85%' }}>{label}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, paddingRight: 4 }}>{label}</span>
         <span style={{ fontSize: '0.65rem', color: '#94a3b8', flexShrink: 0 }}>{open ? '\u25B2' : '\u25BC'}</span>
       </div>
 
