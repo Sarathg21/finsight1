@@ -2233,7 +2233,12 @@ export default function SalesRevenueReport() {
 
       const rows = Array.isArray(d) ? d : (d?.data ?? []);
       if (!rows.length) return;
-      setSalesmanSummaryData(rows);
+      // Filter out "Unassigned Salesman" rows — they inflate totals and have no target
+      const filteredRows = rows.filter(row => {
+        const name = (row.salesman_name || row.sales_person || row.salesman || '').toLowerCase();
+        return !name.includes('unassigned');
+      });
+      setSalesmanSummaryData(filteredRows);
       // Populate bySalesmanData chart
       const chartData = rows
         .filter(row => {
