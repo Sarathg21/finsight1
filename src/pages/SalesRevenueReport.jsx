@@ -2822,7 +2822,7 @@ export default function SalesRevenueReport() {
     // Target
     {
       label: 'Target Sales',
-      key: 'target_sales',
+      key: 'target_sales_ptd_aed',
       align: 'right',
       minWidth: '115px',
       isCurrency: true,
@@ -2833,12 +2833,12 @@ export default function SalesRevenueReport() {
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        return fmtC2(validRows.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0));
+        return fmtC2(validRows.reduce((s, r) => s + (Number(r.target_sales_ptd_aed ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0));
       },
     },
     {
       label: 'Target GM',
-      key: 'target_gm',
+      key: 'target_gross_margin_ptd_aed',
       align: 'right',
       minWidth: '115px',
       isCurrency: true,
@@ -2849,24 +2849,24 @@ export default function SalesRevenueReport() {
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        return fmtC2(validRows.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0));
+        return fmtC2(validRows.reduce((s, r) => s + (Number(r.target_gross_margin_ptd_aed ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0));
       },
     },
     {
       label: 'Target GM %',
-      key: 'target_gm_pct',
+      key: 'target_gross_margin_ptd',
       align: 'right',
       minWidth: '95px',
       groupEnd: true,
       fmt: (v, row) => {
         if (!isTargetApplicable(row)) return '—';
-        return fmtP2(v ?? row.target_gross_margin_pct);
+        return fmtP2(v ?? row.target_gross_margin_pct ?? row.target_gm_pct);
       },
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        const totalSales = validRows.reduce((s, r) => s + (Number(r.target_sales ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
-        const totalGm = validRows.reduce((s, r) => s + (Number(r.target_gm ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
+        const totalSales = validRows.reduce((s, r) => s + (Number(r.target_sales_ptd_aed ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
+        const totalGm = validRows.reduce((s, r) => s + (Number(r.target_gross_margin_ptd_aed ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
         if (totalSales > 0) return fmtP2((totalGm / totalSales) * 100);
         return '—';
       },
@@ -2874,7 +2874,7 @@ export default function SalesRevenueReport() {
     // Variance (rely completely on backend values if possible)
     {
       label: 'Sales',
-      key: 'variance_sales',
+      key: 'variance_target_ptd_aed',
       align: 'right',
       minWidth: '105px',
       fmt: (v, row) => {
@@ -2886,14 +2886,14 @@ export default function SalesRevenueReport() {
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        const sum = validRows.reduce((s, r) => s + (Number(r.variance_sales ?? r.variance_target_sales ?? r.variance_sales_aed) || 0), 0);
+        const sum = validRows.reduce((s, r) => s + (Number(r.variance_target_ptd_aed ?? r.variance_sales ?? r.variance_target_sales ?? r.variance_sales_aed) || 0), 0);
         const color = sum < 0 ? '#ef4444' : sum > 0 ? '#10b981' : '#64748b';
         return <span style={{ color, fontWeight: 600 }}>{fmtC2(sum)}</span>;
       },
     },
     {
       label: 'GM',
-      key: 'variance_gm',
+      key: 'variance_target_gross_margin_ptd_aed',
       align: 'right',
       minWidth: '105px',
       fmt: (v, row) => {
@@ -2905,7 +2905,7 @@ export default function SalesRevenueReport() {
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        const sum = validRows.reduce((s, r) => s + (Number(r.variance_gm ?? r.variance_target_gm ?? r.variance_gm_aed) || 0), 0);
+        const sum = validRows.reduce((s, r) => s + (Number(r.variance_target_gross_margin_ptd_aed ?? r.variance_gm ?? r.variance_target_gm ?? r.variance_gm_aed) || 0), 0);
         const color = sum < 0 ? '#ef4444' : sum > 0 ? '#10b981' : '#64748b';
         return <span style={{ color, fontWeight: 600 }}>{fmtC2(sum)}</span>;
       },
