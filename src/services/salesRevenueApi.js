@@ -1023,7 +1023,14 @@ export async function fetchSubdivisionDetail(filters) {
 export async function fetchSalesmanDetail(filters) {
   const p = buildParams(filters);
   p.sales_category = ['External Sales', 'RP Cross Sales'];
-  return apiCall('/api/sales-revenue/salesman-detail', p);
+  const res = await apiCall('/api/sales-revenue/salesman-detail', p);
+  const filterOut = (r) => !(r.salesman_name || r.sales_person || r.salesman || '').toLowerCase().includes('unassigned');
+  if (res && Array.isArray(res.data)) {
+    return { ...res, data: res.data.filter(filterOut) };
+  } else if (Array.isArray(res)) {
+    return res.filter(filterOut);
+  }
+  return res;
 }
 
 /**
@@ -1102,7 +1109,14 @@ export async function fetchGrossMargin(filters) {
 export async function fetchSalesmanSummary(filters) {
   const p = buildParams(filters);
   p.sales_category = ['External Sales', 'RP Cross Sales'];
-  return apiCall('/api/sales-revenue/salesman-summary', p);
+  const res = await apiCall('/api/sales-revenue/salesman-summary', p);
+  const filterOut = (r) => !(r.salesman_name || r.sales_person || r.salesman || '').toLowerCase().includes('unassigned');
+  if (res && Array.isArray(res.data)) {
+    return { ...res, data: res.data.filter(filterOut) };
+  } else if (Array.isArray(res)) {
+    return res.filter(filterOut);
+  }
+  return res;
 }
 
 /**

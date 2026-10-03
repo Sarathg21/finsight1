@@ -2854,7 +2854,7 @@ export default function SalesRevenueReport() {
     },
     {
       label: 'Target GM %',
-      key: 'target_gross_margin_ptd',
+      key: 'target_gross_margin_pct',
       align: 'right',
       minWidth: '95px',
       groupEnd: true,
