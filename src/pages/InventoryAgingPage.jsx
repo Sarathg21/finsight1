@@ -489,6 +489,7 @@ const [loading, setLoading] = useState(true);
 
     const sourceGlobal = passedGlobalFilters || filters;
     const currentGlobalFilters = {
+      legalGroup: sourceGlobal.legalGroup && sourceGlobal.legalGroup.length > 0 ? sourceGlobal.legalGroup : ['All'],
       legalEntity: sourceGlobal.legalEntity && sourceGlobal.legalEntity.length > 0 ? sourceGlobal.legalEntity : ['All'],
       parentDivision: sourceGlobal.parentDivision && sourceGlobal.parentDivision.length > 0 ? sourceGlobal.parentDivision : ['All'],
       subdivision: sourceGlobal.subdivision && sourceGlobal.subdivision.length > 0 ? sourceGlobal.subdivision : ['All'],
@@ -688,6 +689,7 @@ const [loading, setLoading] = useState(true);
   });
   const [slowMovingViewMode, setSlowMovingViewMode] = useState("stock"); // "stock" | "mom"
   const [slowMovingFilters, setSlowMovingFilters] = useState({
+    legalGroup: ['All'],
     legalEntity: ['All'],
     parentDivision: ['All'],
     subdivision: ['All'],
@@ -695,6 +697,7 @@ const [loading, setLoading] = useState(true);
     asOnDate: 'All',
   });
   const [slowMovingDraftFilters, setSlowMovingDraftFilters] = useState({
+    legalGroup: ['All'],
     legalEntity: ['All'],
     parentDivision: ['All'],
     subdivision: ['All'],
@@ -853,9 +856,9 @@ const [loading, setLoading] = useState(true);
                             value: fmtAED(dData.kpis.total_inventory),
                             icon: Coins,
                             iconBg: "#dbeafe",
-                            variance: dData.kpis.total_inventory_variance || null,
+                            variance: dData.kpis.total_inventory_variance ?? dData.kpis.total_change_percentage ?? null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            direction: "up",
+                            lowerIsBetter: false,
                         },
                         {
                             key: "avg_inv",
@@ -868,7 +871,7 @@ const [loading, setLoading] = useState(true);
                             iconBg: "#ede9fe",
                             variance: dData.kpis.average_inventory_variance || null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            direction: "up",
+                            lowerIsBetter: false,
                         },
                         {
                             key: "turnover",
@@ -883,7 +886,7 @@ const [loading, setLoading] = useState(true);
                             iconBg: "#ffedd5",
                             variance: dData.kpis.turnover_variance || null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            direction: "down",
+                            lowerIsBetter: false,
                         },
                         {
                             key: "dio",
@@ -895,7 +898,7 @@ const [loading, setLoading] = useState(true);
                             iconBg: "#dcfce7",
                             variance: dData.kpis.dio_days_variance || null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            direction: "down",
+                            lowerIsBetter: true,
                         },
                         {
                             key: "obsolete",
@@ -906,10 +909,9 @@ const [loading, setLoading] = useState(true);
                             value: fmtAED(dData.kpis.inventory_above_365),
                             icon: AlertTriangle,
                             iconBg: "#fee2e2",
-                            variance: dData.kpis.obsolete_variance || null,
+                            variance: dData.kpis.obsolete_variance ?? dData.kpis.above_365_change_percentage ?? null,
                             varianceLabel: dData.kpis.variance_label || null,
-                            direction: "up",
-                            arrowColor: "#dc2626",
+                            lowerIsBetter: true,
                         }
                     ];
               }
@@ -1228,6 +1230,7 @@ const [loading, setLoading] = useState(true);
   useEffect(() => {
     if (viewAllModal === "details" || showViewAll) {
       setModalDetailsFilters({
+        legalGroup: filters.legalGroup && filters.legalGroup.length > 0 ? filters.legalGroup : ['All'],
         legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
         parentDivision: appliedFilters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
         subdivision: appliedFilters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
@@ -1238,6 +1241,7 @@ const [loading, setLoading] = useState(true);
       setModalApiItems(null);
     } else if (viewAllModal === "slowMoving") {
       const initSlow = {
+        legalGroup: filters.legalGroup && filters.legalGroup.length > 0 ? filters.legalGroup : ['All'],
         legalEntity: filters.legalEntity && filters.legalEntity.length > 0 ? filters.legalEntity : ['All'],
         parentDivision: appliedFilters.parentDivision && filters.parentDivision.length > 0 ? filters.parentDivision : ['All'],
         subdivision: appliedFilters.subdivision && filters.subdivision.length > 0 ? filters.subdivision : ['All'],
@@ -1284,12 +1288,13 @@ const [loading, setLoading] = useState(true);
           }
           return [val];
         };
+        const effectiveLegalGroup = getApiVal(modalDetailsFilters.legalGroup) || getApiVal(filters.legalGroup);
         const effectiveLegalEntity = getApiVal(modalDetailsFilters.legalEntity) || getApiVal(filters.legalEntity);
         const effectiveParentDivision = getApiVal(modalDetailsFilters.parentDivision) || getApiVal(filters.parentDivision);
         const effectiveSubdivision = getApiVal(modalDetailsFilters.subdivision) || getApiVal(filters.subdivision);
         const effectiveSubinventory = getApiVal(modalDetailsFilters.subinventory) || getApiVal(filters.subinventory);
 
-        if (getApiVal(filters.legalGroup)) apiFilters.legal_group_id = getApiVal(filters.legalGroup);
+        if (effectiveLegalGroup) apiFilters.legal_group_id = effectiveLegalGroup;
         if (effectiveLegalEntity) apiFilters.legal_entity_id = effectiveLegalEntity;
         if (effectiveParentDivision) apiFilters.parent_division_id = effectiveParentDivision;
         if (effectiveSubdivision) apiFilters.subdivision_id = effectiveSubdivision;
@@ -1585,8 +1590,40 @@ const [loading, setLoading] = useState(true);
   // ============================================================
 
   const KpiCard = ({ item }) => {
-    const isPositive = item.direction === "up";
     const hasVariance = item.variance !== null && item.variance !== undefined && item.variance !== "";
+    
+    // Parse numeric value from variance
+    let numVariance = null;
+    if (typeof item.variance === 'number') {
+      numVariance = item.variance;
+    } else if (typeof item.variance === 'string') {
+      const match = item.variance.match(/[-+]?[0-9]*\.?[0-9]+/);
+      if (match) {
+        numVariance = parseFloat(match[0]);
+        if (item.variance.includes('-')) numVariance = -Math.abs(numVariance);
+      }
+    }
+
+    // Direction: up (true) if >= 0, down (false) if < 0. Fallback to explicit direction if provided
+    const isUp = numVariance !== null ? numVariance >= 0 : (item.direction === "up");
+
+    // Behavior of figure:
+    // If lowerIsBetter is true (e.g. Obsolete Stock, DIO / Holding Days):
+    //   Up (increase) is UNFAVORABLE (RED: #dc2626)
+    //   Down (decrease) is FAVORABLE (GREEN: #16a34a)
+    // If lowerIsBetter is false (e.g. Turnover, Total Inventory, etc.):
+    //   Up (increase) is FAVORABLE (GREEN: #16a34a)
+    //   Down (decrease) is UNFAVORABLE (RED: #dc2626)
+    const lowerIsBetter = item.lowerIsBetter ?? (item.key === 'obsolete' || item.key === 'dio');
+    const arrowColor = item.arrowColor || (lowerIsBetter
+      ? (isUp ? "#dc2626" : "#16a34a")
+      : (isUp ? "#16a34a" : "#dc2626"));
+
+    // Clean variance display to avoid double "+ " or "- " with arrow
+    const displayVariance = typeof item.variance === 'number'
+      ? `${Math.abs(item.variance).toFixed(1)}%`
+      : String(item.variance).replace(/^[+-]/, '').trim();
+
     const [hover, setHover] = useState(false);
     const accent = item.titleColor || "#2563eb";
 
@@ -1663,7 +1700,7 @@ const [loading, setLoading] = useState(true);
               textOverflow: "ellipsis",
             }}
           >
-            {item.value || "-"}
+            {item.value || "- "}
           </div>
 
           {(hasVariance || item.subtitle) && (
@@ -1687,14 +1724,14 @@ const [loading, setLoading] = useState(true);
               {hasVariance && (
                 <span
                   style={{
-                    color: isPositive ? "#16a34a" : (item.arrowColor || "#dc2626"),
+                    color: arrowColor,
                     fontWeight: 700,
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 1,
+                    gap: 2,
                   }}
                 >
-                  {isPositive ? "▲" : "▼"} {item.variance}
+                  {isUp ? "▲" : "▼"} {displayVariance}
                 </span>
               )}
               {item.varianceLabel && <span>{item.varianceLabel}</span>}
@@ -3250,7 +3287,10 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
           {/* Search box with clear button */}
           <div style={{ padding: '6px 8px', borderBottom: '1px solid #e2e8f0', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 8px' }}>
-              <span style={{ fontSize: '0.70rem', color: '#94a3b8' }}>🔍</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.3-4.3"/>
+              </svg>
               <input
                 ref={searchRef}
                 type="text"
@@ -4889,11 +4929,33 @@ const detailsSource = modalFilteredDetails || [];
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1.1fr 1fr 1fr 1fr 0.95fr 0.95fr auto auto",
+                        gridTemplateColumns: "1fr 1.1fr 1fr 1fr 1fr 0.95fr 0.95fr auto auto",
                         gap: 10,
                         alignItems: "end",
                       }}
                     >
+                      {/* Legal Group */}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Group</div>
+                        <ModalMultiSelect
+                          options={mockData.filters.legalGroups}
+                          value={slowMovingDraftFilters.legalGroup}
+                          onChange={(vals) => {
+                            const updateState = (prev) => {
+                              const next = { ...prev, legalGroup: vals };
+                              next.legalEntity = ["All"];
+                              next.parentDivision = ["All"];
+                              next.subdivision = ["All"];
+                              next.subinventory = ["All"];
+                              return next;
+                            };
+                            setSlowMovingDraftFilters(updateState);
+                            setModalDetailsFilters(updateState);
+                          }}
+                          placeholder="All Legal Group"
+                        />
+                      </div>
+
                       {/* Legal Entity */}
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: "#173b8f", marginBottom: 5 }}>Legal Entity</div>
@@ -5130,6 +5192,7 @@ const detailsSource = modalFilteredDetails || [];
                         type="button"
                         onClick={() => {
                           const resetObj = {
+                            legalGroup: ['All'],
                             legalEntity: ['All'],
                             parentDivision: ['All'],
                             subdivision: ['All'],
@@ -5384,20 +5447,26 @@ const detailsSource = modalFilteredDetails || [];
                           >{currentCurrency} Millions</button>
                         </div>
 
-                        <input
-                          type="text"
-                          placeholder="Search..."
-                          value={viewAllSearch}
-                          onChange={(e) => setViewAllSearch(e.target.value)}
-                          style={{
-                            padding: "5px 10px",
-                            borderRadius: 6,
-                            border: "1px solid #cbd5e1",
-                            fontSize: "0.74rem",
-                            width: 170,
-                            outline: "none",
-                          }}
-                        />
+                        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 8, pointerEvents: "none" }}>
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.3-4.3"/>
+                          </svg>
+                          <input
+                            type="text"
+                            placeholder="Search..."
+                            value={viewAllSearch}
+                            onChange={(e) => setViewAllSearch(e.target.value)}
+                            style={{
+                              padding: "5px 10px 5px 28px",
+                              borderRadius: 6,
+                              border: "1px solid #cbd5e1",
+                              fontSize: "0.74rem",
+                              width: 170,
+                              outline: "none",
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -6395,6 +6464,9 @@ const detailsSource = modalFilteredDetails || [];
                                   ? `Showing ${safeModalPage * modalDetailPageSize + 1} to ${Math.min((safeModalPage + 1) * modalDetailPageSize, modalFilteredDetails.length)} of ${modalFilteredDetails.length} entries`
                                   : "No records"}
                               </div>
+                              <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 500 }}>
+                                Source: Oracle Fusion Cloud
+                              </div>
                               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                                   <span>Rows per page:</span>
@@ -6498,6 +6570,23 @@ const detailsSource = modalFilteredDetails || [];
                       })()}
                     </div>
                   </div>
+                </div>
+                {/* Modal Footer info bar */}
+                <div style={{
+                  padding: "8px 20px",
+                  borderTop: "1px solid #e2e8f0",
+                  background: "#f8fafc",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  fontSize: "0.68rem",
+                  color: "#64748b",
+                  fontWeight: 500,
+                  flexShrink: 0,
+                  borderRadius: "0 0 10px 10px",
+                }}>
+                  <span>All values are in <strong>{currentCurrency}</strong></span>
+                  <span>Source: Oracle Fusion Cloud</span>
                 </div>
               </div>
             </div>

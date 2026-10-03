@@ -227,7 +227,8 @@ export default function InventoryDetailsModal({ open, onClose, filters = {}, dri
 
                         <Search
                             size={16}
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                            color="#16a34a"
+                            className="absolute left-3 top-1/2 -translate-y-1/2"
                         />
                         <input
                             type="text"
@@ -367,6 +368,10 @@ export default function InventoryDetailsModal({ open, onClose, filters = {}, dri
                         className="text-[12px] text-slate-900"
                     >
                         Page {page} of {Math.max(totalPages, 1)}
+                    </span>
+
+                    <span className="text-[11px] text-slate-500 font-medium">
+                        Source: Oracle Fusion Cloud
                     </span>
 
                     <div className="flex items-center gap-2">

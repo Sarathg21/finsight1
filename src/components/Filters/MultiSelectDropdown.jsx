@@ -166,7 +166,7 @@ export default function MultiSelectDropdown({
               boxSizing: "border-box",
             }}
           >
-            <Search size={15} color="#8b5cf6" style={{ flexShrink: 0 }} />
+            <Search size={15} color="#16a34a" style={{ flexShrink: 0 }} />
             <input
               type="text"
               placeholder={searchPlaceholder}
