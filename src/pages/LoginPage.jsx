@@ -52,7 +52,7 @@ export default function LoginPage() {
     navigate(
       from ||
       user.defaultPage ||
-      "/dashboard",
+      "/exec-dashboard",
       {
         replace: true,
       }
@@ -202,7 +202,7 @@ export default function LoginPage() {
           payablesWindow;
 
         navigate(
-          from || "/dashboard",
+          from || "/exec-dashboard",
           {
             replace: true,
           }
@@ -214,7 +214,7 @@ export default function LoginPage() {
       navigate(
         from ||
         session?.defaultPage ||
-        "/dashboard",
+        "/exec-dashboard",
         {
           replace: true,
         }

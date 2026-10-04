@@ -34,7 +34,7 @@ export default function Topbar() {
 
   const handleProfileClick = () => {
     if (pathname === '/profile') {
-      navigate('/dashboard');
+      navigate('/exec-dashboard');
     } else {
       navigate('/profile');
     }

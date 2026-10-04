@@ -60,7 +60,7 @@ function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             <Route element={<FilterProvider><Layout /></FilterProvider>}>
-              <Route path="/" element={<Navigate to="/revenue" replace />} />
+              <Route path="/" element={<Navigate to="/exec-dashboard" replace />} />
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
               {/* <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} /> */}
               <Route path="/profile" element={<MyProfile />} />

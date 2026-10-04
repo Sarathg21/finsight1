@@ -175,7 +175,7 @@ const allowed = adminOnly
           </p>
 
           <Navigate
-            to={user?.defaultPage || '/dashboard'}
+            to={user?.defaultPage || '/exec-dashboard'}
             replace
           />
         </div>
@@ -248,7 +248,7 @@ const allowed = adminOnly
           </p>
 
           <Navigate
-            to={user?.defaultPage || '/dashboard'}
+            to={user?.defaultPage || '/exec-dashboard'}
             replace
           />
         </div>

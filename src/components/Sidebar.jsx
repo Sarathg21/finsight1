@@ -41,7 +41,7 @@ const ROUTE_ICON = {
 /* â”€â”€ Nav item definitions per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const NAV_BY_ROLE = {
   board: [
-    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
+    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
     { to: '/exec-dashboard', label: 'Executive Dashboard', group: 'Board View' },
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
@@ -58,7 +58,7 @@ const NAV_BY_ROLE = {
     { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
   ],
   cfo: [
-    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
+    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
     { to: '/exec-dashboard', label: 'Executive Dashboard', group: 'Overview' },
     { to: '/pl', label: 'P&L Report', group: 'Financials' },
@@ -84,7 +84,7 @@ const NAV_BY_ROLE = {
     { to: '/admin/master-data', label: 'Master Data', group: 'Admin' },
   ],
   executive: [
-    // { to: '/finsight-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
+    { to: '/exec-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
     { to: '/exec-dashboard', label: 'Executive Dashboard', group: 'Overview' },
     // { to: '/dashboard',           label: 'CFO Dashboard',                      group: 'Overview'         },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
@@ -94,7 +94,7 @@ const NAV_BY_ROLE = {
     // { to: '/excel-consolidator',  label: 'Excel Consolidator',                 group: 'Utilities'        },
   ],
   gm: [
-    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
+    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
     // { to: '/division',           label: 'Division Reports',                    group: 'Reports'          },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
@@ -104,7 +104,7 @@ const NAV_BY_ROLE = {
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   bu_manager: [
-    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
+    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'Dashboard',                           group: 'Overview'         },
     // { to: '/bu-pack',            label: 'BU Financial Pack',                   group: 'BU Reports'       },
     { to: '/pl', label: 'P&L Report', group: 'BU Reports' },
@@ -116,7 +116,7 @@ const NAV_BY_ROLE = {
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   accountant: [
-    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
+    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Finance'          },
     { to: '/pl', label: 'P&L Report', group: 'Finance' },
     { to: '/balance-sheet', label: 'Balance Sheet Analysis', group: 'Finance' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Finance' },
@@ -128,7 +128,7 @@ const NAV_BY_ROLE = {
     // { to: '/excel-consolidator', label: 'Excel Consolidator',                  group: 'Utilities'        },
   ],
   sales: [
-    // { to: '/finsight-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
+    { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Sales'            },
     // { to: '/salesman',           label: 'Salesman Dashboard',                  group: 'Sales'            },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Sales' },
   ],

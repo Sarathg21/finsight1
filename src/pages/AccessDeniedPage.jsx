@@ -27,7 +27,7 @@ const AccessDeniedPage = () => {
                         Go Back
                     </button>
                     <button
-                        onClick={() => navigate('/dashboard')}
+                        onClick={() => navigate('/exec-dashboard')}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-violet-600 text-white rounded-xl font-medium hover:bg-violet-700 transition-shadow hover:shadow-lg shadow-violet-200 transition-colors"
                     >
                         <Home size={18} />
