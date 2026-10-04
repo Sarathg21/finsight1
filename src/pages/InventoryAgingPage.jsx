@@ -296,7 +296,7 @@ export default function InventoryOverview() {
   };
 
   const [appliedFilters, setAppliedFilters] = useState({
-      legalGroup: [],
+      legalGroup: [1],
       legalEntity: [],
       parentDivision: [],
       subdivision: [],
@@ -305,7 +305,7 @@ export default function InventoryOverview() {
       asOnDate: "All",
   });
   const [filters, setFilters] = useState({
-      legalGroup: [],
+      legalGroup: [1],
       legalEntity: [],
       parentDivision: [],
       subdivision: [],
@@ -689,7 +689,7 @@ const [loading, setLoading] = useState(true);
   });
   const [slowMovingViewMode, setSlowMovingViewMode] = useState("stock"); // "stock" | "mom"
   const [slowMovingFilters, setSlowMovingFilters] = useState({
-    legalGroup: ['All'],
+    legalGroup: [1],
     legalEntity: ['All'],
     parentDivision: ['All'],
     subdivision: ['All'],
@@ -697,7 +697,7 @@ const [loading, setLoading] = useState(true);
     asOnDate: 'All',
   });
   const [slowMovingDraftFilters, setSlowMovingDraftFilters] = useState({
-    legalGroup: ['All'],
+    legalGroup: [1],
     legalEntity: ['All'],
     parentDivision: ['All'],
     subdivision: ['All'],
@@ -709,7 +709,7 @@ const [loading, setLoading] = useState(true);
   const [modalDetailsLoading, setModalDetailsLoading] = useState(false);
   const [mockData, setMockData] = useState({
     filters: {
-      legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
+      legalGroups: [{ value: 1, label: 'FJ Group' }], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
     },
     kpis: [],
     totalInventory: 0,
@@ -1505,7 +1505,7 @@ const [loading, setLoading] = useState(true);
 
   const resetFilters = () => {
     const def = {
-      legalGroup: [],
+      legalGroup: [1],
       legalEntity: [],
       parentDivision: [],
       subdivision: [],
@@ -1515,15 +1515,7 @@ const [loading, setLoading] = useState(true);
     };
     setAppliedFilters(def);
     setDetailPage(0);
-    setFilters({
-      legalGroup: [],
-      legalEntity: [],
-      parentDivision: [],
-      subdivision: [],
-      subinventory: [],
-      currency: "AED",
-      asOnDate: "All",
-    });
+    setFilters(def);
   };
 
   // ============================================================
@@ -5192,7 +5184,7 @@ const detailsSource = modalFilteredDetails || [];
                         type="button"
                         onClick={() => {
                           const resetObj = {
-                            legalGroup: ['All'],
+                            legalGroup: filters.legalGroup?.length ? filters.legalGroup : [1],
                             legalEntity: ['All'],
                             parentDivision: ['All'],
                             subdivision: ['All'],

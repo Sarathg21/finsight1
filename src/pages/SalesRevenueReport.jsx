@@ -47,7 +47,7 @@ const LAST_DAY  = `${_y}-${pad(_m + 1)}-${pad(new Date(_y, _m + 1, 0).getDate())
 
 const DEFAULT_FILTERS = {
   // Hierarchy filters - ID-based (preferred per CFO UAT handoff document)
-  legalGroupId:       ['All'],
+  legalGroupId:       [1], // FJ Group by default
   legalEntityId:      ['All'],
   parentDivisionId:   ['All'],
   subdivisionId:      ['All'],
@@ -55,7 +55,7 @@ const DEFAULT_FILTERS = {
   // People / currency filters
   salesman:           'All',
   customerType:       'All',
-  salesCategories:    ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],
+  salesCategories:    ['External Sales', 'RP Cross Sales'], // RP Duplicate Sales unchecked by default
   invoiceCurrency:    'All',
   reportingCurrency:  'AED', // will be overridden by default_reporting_currency from API on first load
   fromDate:           FIRST_DAY,
@@ -433,6 +433,33 @@ function DetailApiModal({
   const [pendingDateFilters, setPendingDateFilters]   = useState({});
 
   const [modalUnit, setModalUnit]                 = useState('aed');
+  const [modalFilterOptions, setModalFilterOptions] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setModalFilterOptions(null);
+      return;
+    }
+    const gId = pendingLocalFilters.legalGroupId;
+    const eId = pendingLocalFilters.legalEntityId;
+    const pId = pendingLocalFilters.parentDivisionId;
+
+    if (gId || eId || pId) {
+      fetchFilterOptions({
+        legalGroupId: gId,
+        legalEntityId: eId,
+        parentDivisionId: pId,
+      }).then(data => {
+        if (data) {
+          setModalFilterOptions({
+            legalEntities: data.legal_entities || [],
+            parentDivs: data.parent_divisions || [],
+            subDivs: data.subdivisions || [],
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [isOpen, pendingLocalFilters.legalGroupId, pendingLocalFilters.legalEntityId, pendingLocalFilters.parentDivisionId]);
 
   useEffect(() => {
     if (isOpen && localFiltersConfig && filters) {
@@ -497,8 +524,18 @@ function DetailApiModal({
   const handleReset = () => {
     const defaultLocal = {};
     const defaultDate = {};
-    if (localFiltersConfig) localFiltersConfig.forEach(cfg => defaultLocal[cfg.key] = ['All']);
-    if (dateFiltersConfig) dateFiltersConfig.forEach(cfg => { defaultDate[cfg.fromKey] = ''; defaultDate[cfg.toKey] = ''; });
+    if (localFiltersConfig) {
+      localFiltersConfig.forEach(cfg => {
+        const val = filters[cfg.key];
+        defaultLocal[cfg.key] = Array.isArray(val) ? val : (val && val !== 'All' ? [val] : ['All']);
+      });
+    }
+    if (dateFiltersConfig) {
+      dateFiltersConfig.forEach(cfg => {
+        defaultDate[cfg.fromKey] = filters[cfg.fromKey] || '';
+        defaultDate[cfg.toKey]   = filters[cfg.toKey]   || '';
+      });
+    }
     
     setPendingLocalFilters(defaultLocal);
     setPendingDateFilters(defaultDate);
@@ -634,16 +671,32 @@ function DetailApiModal({
                 (cfg.label || '').length > 11 ? 120 :
                 114
               );
+              const options = (
+                cfg.key === 'legalEntityId' ? (modalFilterOptions?.legalEntities || cfg.options) :
+                cfg.key === 'parentDivisionId' ? (modalFilterOptions?.parentDivs || cfg.options) :
+                cfg.key === 'subdivisionId' ? (modalFilterOptions?.subDivs || cfg.options) :
+                cfg.options
+              );
               return (
                 <div key={idx} style={{ width: autoWidth, minWidth: autoWidth, position: 'relative', flexShrink: 0 }}>
                   <MultiSelect
-                    options={cfg.options}
+                    options={options}
                     value={selectedValues}
                     onChange={(vals) => {
-                      setPendingLocalFilters(prev => ({ 
-                        ...prev, 
-                        [cfg.key]: vals
-                      }));
+                      setPendingLocalFilters(prev => {
+                        const next = { ...prev, [cfg.key]: vals };
+                        if (cfg.key === 'legalGroupId') {
+                          next.legalEntityId = ['All'];
+                          next.parentDivisionId = ['All'];
+                          next.subdivisionId = ['All'];
+                        } else if (cfg.key === 'legalEntityId') {
+                          next.parentDivisionId = ['All'];
+                          next.subdivisionId = ['All'];
+                        } else if (cfg.key === 'parentDivisionId') {
+                          next.subdivisionId = ['All'];
+                        }
+                        return next;
+                      });
                     }}
                     placeholder={`All ${cfg.label || ''}`}
                   />
@@ -840,7 +893,7 @@ function DetailApiModal({
                       >
                         {columnDefs.map((col, ci) => (
                           <td key={ci}
-                            title={row[col.key] != null ? String(row[col.key]) : undefined}
+                            title={(typeof row[col.key] === 'string' && isNaN(Number(row[col.key]))) ? row[col.key] : undefined}
                             style={{
                               ...TD, padding: '8px 10px',
                               textAlign: col.align || 'left',
@@ -1754,14 +1807,14 @@ export default function SalesRevenueReport() {
 
   /* ── Filter options ──────────────────────────────────────────── */
   const [filterOptions, setFilterOptions] = useState({
-    legalGroups:             [],   // [{id, name}]
+    legalGroups:             [{ id: 1, name: 'FJ Group' }],   // [{id, name}] - default FJ Group
     legalEntities:           [],   // [{id, name}]
     parentDivs:              [],   // [{id, name}]
     subDivs:                 [],   // [{id, name}]
     analysisCodes:           [],   // [{id, name}]
     salesmen:                [],   // strings or {employee_id, salesman_name}
     customerTypes:           ['All'], // strings
-    salesCategories:         [],   // strings
+    salesCategories:         ['External Sales', 'RP Cross Sales', 'RP Duplicate Sales'],   // strings
     invoiceCurrencies:       ['All'],
     reportingCurrencies:     ['AED'],
     defaultReportingCurrency:'AED',
@@ -1924,6 +1977,7 @@ export default function SalesRevenueReport() {
 
   /* ── Load filter options (Cascading) ─────────────────────────── */
   const isFirstFilterLoad = useRef(true);
+  const defaultLegalGroupId = useRef([1]);
   useEffect(() => {
     setLoading(prev => ({ ...prev, filters: true }));
     fetchFilterOptions({
@@ -1946,10 +2000,22 @@ export default function SalesRevenueReport() {
         // Backend-provided default reporting currency (currently AED)
         const backendDefault = data.default_reporting_currency || 'AED';
 
+        const legalGroupsList = data.legal_groups && data.legal_groups.length > 0
+          ? data.legal_groups
+          : [{ id: 1, name: 'FJ Group' }];
+
+        const fjGroup = legalGroupsList.find(g =>
+          String(g.name || g.label || '').toLowerCase().includes('fj') ||
+          String(g.id || '').toLowerCase().includes('fj')
+        );
+        if (fjGroup) {
+          defaultLegalGroupId.current = [fjGroup.id];
+        }
+
         setFilterOptions(prev => ({
           ...prev,
           // {id, name} arrays — already normalized in fetchFilterOptions
-          legalGroups:   data.legal_groups     || [],
+          legalGroups:   legalGroupsList,
           legalEntities: data.legal_entities   || [],
           parentDivs:    data.parent_divisions  || [],
           subDivs:       data.subdivisions      || [],
@@ -1963,28 +2029,30 @@ export default function SalesRevenueReport() {
           dataAsOf: data.data_as_of || null,
         }));
 
-        // Apply backend default currency only on the very first load,
-        // not on cascade refreshes (to preserve user-selected currency).
+        // Apply backend defaults on the very first load:
         if (isFirstFilterLoad.current) {
-            isFirstFilterLoad.current = false;
-            setFilters(prev => {
-              const newCur = prev.reportingCurrency || backendDefault;
-              if (prev.reportingCurrency === newCur) return prev;
-              return { ...prev, reportingCurrency: newCur };
-            });
-            setAppliedFilters(prev => {
-              const newCur = prev.reportingCurrency || backendDefault;
-              if (prev.reportingCurrency === newCur) return prev;
-              return { ...prev, reportingCurrency: newCur };
-            });
-          }
+          isFirstFilterLoad.current = false;
+          const targetGroupId = fjGroup ? [fjGroup.id] : (filters.legalGroupId || [1]);
+          setFilters(prev => ({
+            ...prev,
+            reportingCurrency: prev.reportingCurrency || backendDefault,
+            legalGroupId: targetGroupId,
+            salesCategories: prev.salesCategories?.length ? prev.salesCategories : ['External Sales', 'RP Cross Sales'],
+          }));
+          setAppliedFilters(prev => ({
+            ...prev,
+            reportingCurrency: prev.reportingCurrency || backendDefault,
+            legalGroupId: targetGroupId,
+            salesCategories: prev.salesCategories?.length ? prev.salesCategories : ['External Sales', 'RP Cross Sales'],
+          }));
+        }
       })
       .catch(err => {
         handle401(err);
         setErrors(prev => ({ ...prev, filters: err.message || 'Failed to load filter options' }));
       })
       .finally(() => setLoading(prev => ({ ...prev, filters: false })));
-  }, [filters.legalEntityId, filters.parentDivisionId, handle401]); // subdivisionId excluded — leaf level, not a cascade trigger
+  }, [filters.legalGroupId, filters.legalEntityId, filters.parentDivisionId, handle401]); // legalGroupId cascades to entities, divisions, subdivisions
 
   /* ── Fetch details page ───────────────────────────────────────── */
   const fetchDetailsPage = useCallback((f, page) => {
@@ -2334,8 +2402,13 @@ export default function SalesRevenueReport() {
   /* ── Filter handlers ──────────────────────────────────────────── */
   const handleApply = () => setAppliedFilters({ ...filters });
   const handleReset = () => {
-    setFilters(DEFAULT_FILTERS);
-    setAppliedFilters(DEFAULT_FILTERS);
+    const resetFilters = {
+      ...DEFAULT_FILTERS,
+      legalGroupId: defaultLegalGroupId.current || [1],
+      salesCategories: ['External Sales', 'RP Cross Sales'],
+    };
+    setFilters(resetFilters);
+    setAppliedFilters(resetFilters);
   };
     const updateFilter = (key, val) => {
     setFilters(prev => {
@@ -2719,6 +2792,106 @@ export default function SalesRevenueReport() {
     },
   ];
 
+  const trendCols = [
+    {
+      label: 'Period',
+      key: 'period',
+      align: 'left',
+      minWidth: '95px',
+      fmt: (v, r) => v || r.period_name || '—',
+      noTotal: false,
+    },
+    {
+      label: 'SALES (PTD)',
+      key: 'sales',
+      align: 'right',
+      minWidth: '130px',
+      isCurrency: true,
+      fmt: v => v != null ? fmtCurrency(v) : '—',
+      totalFn: rows => fmtCurrency(rows.reduce((s, r) => s + (Number(r.sales) || 0), 0)),
+    },
+    {
+      label: 'TARGET SALES (PTD)',
+      key: 'target_sales',
+      align: 'right',
+      minWidth: '140px',
+      isCurrency: true,
+      fmt: v => (v != null && Number(v) > 0) ? fmtCurrency(v) : '—',
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.target_sales) || 0), 0);
+        return s > 0 ? fmtCurrency(s) : '—';
+      },
+    },
+    {
+      label: 'PREVIOUS YEAR SALES (PTD)',
+      key: 'sales_py',
+      align: 'right',
+      minWidth: '150px',
+      isCurrency: true,
+      fmt: v => (v != null && Number(v) > 0) ? fmtCurrency(v) : '—',
+      totalFn: rows => {
+        const s = rows.reduce((acc, r) => acc + (Number(r.sales_py) || 0), 0);
+        return s > 0 ? fmtCurrency(s) : '—';
+      },
+    },
+    {
+      label: 'VARIANCE % (VS PY)',
+      key: 'variance_py_pct',
+      align: 'right',
+      minWidth: '130px',
+      fmt: (v, row) => {
+        if (v == null || !row.sales_py || Number(row.sales_py) === 0) return '—';
+        const num = Number(v);
+        const isPos = num >= 0;
+        return (
+          <span style={{ color: isPos ? '#16a34a' : '#ef4444', fontWeight: 600 }}>
+            {isPos ? '▲ +' : '▼ '}{Math.abs(num).toFixed(1)}%
+          </span>
+        );
+      },
+      totalFn: rows => {
+        const cy = rows.reduce((s, r) => s + (Number(r.sales) || 0), 0);
+        const py = rows.reduce((s, r) => s + (Number(r.sales_py) || 0), 0);
+        if (!py) return '—';
+        const pct = ((cy - py) / Math.abs(py)) * 100;
+        const isPos = pct >= 0;
+        return (
+          <span style={{ color: isPos ? '#16a34a' : '#ef4444', fontWeight: 700 }}>
+            {isPos ? '▲ +' : '▼ '}{Math.abs(pct).toFixed(1)}%
+          </span>
+        );
+      }
+    },
+    {
+      label: 'VARIANCE % (VS TARGET)',
+      key: 'variance_target_pct',
+      align: 'right',
+      minWidth: '140px',
+      fmt: (v, row) => {
+        if (v == null || !row.target_sales || Number(row.target_sales) === 0) return '—';
+        const num = Number(v);
+        const isPos = num >= 0;
+        return (
+          <span style={{ color: isPos ? '#16a34a' : '#ef4444', fontWeight: 600 }}>
+            {isPos ? '▲ +' : '▼ '}{Math.abs(num).toFixed(1)}%
+          </span>
+        );
+      },
+      totalFn: rows => {
+        const cy = rows.reduce((s, r) => s + (Number(r.sales) || 0), 0);
+        const tgt = rows.reduce((s, r) => s + (Number(r.target_sales) || 0), 0);
+        if (!tgt) return '—';
+        const pct = ((cy - tgt) / Math.abs(tgt)) * 100;
+        const isPos = pct >= 0;
+        return (
+          <span style={{ color: isPos ? '#16a34a' : '#ef4444', fontWeight: 700 }}>
+            {isPos ? '▲ +' : '▼ '}{Math.abs(pct).toFixed(1)}%
+          </span>
+        );
+      }
+    },
+  ];
+
   const customerSummaryCols = [
     { label: 'Customer Name',       key: 'customer_name',           align: 'left', width: '220px', maxWidth: '220px', minWidth: '130px', whiteSpace: 'normal', noTotal: true },
     { label: 'Account No.',         key: 'customer_account_number', align: 'left', minWidth: '95px', fmt: v => v ?? '-', noTotal: true },
@@ -2910,43 +3083,137 @@ export default function SalesRevenueReport() {
         return '—';
       },
     },
-    // Variance (rely completely on backend values if possible)
+    // Variance (rely completely on backend values if possible, with % variance against target in brackets)
     {
       label: 'Sales',
       key: 'variance_target_ptd_aed',
       align: 'right',
-      minWidth: '105px',
+      minWidth: '140px',
       fmt: (v, row) => {
         if (!isTargetApplicable(row)) return '—';
-        const val = Number(v ?? row.variance_target_sales ?? row.variance_sales_aed ?? 0);
+        let val = v ?? row.variance_target_sales ?? row.variance_sales_aed;
+        const targetSales = Number(row.target_sales_ptd_aed ?? row.target_sales_aed ?? row.target_sales_ptd ?? row.sales_target ?? 0);
+        if (val == null) {
+          const actualSales = Number(row.sales_aed ?? row.sales_ptd_aed ?? row.sales ?? 0);
+          val = actualSales - targetSales;
+        } else {
+          val = Number(val);
+        }
         const color = val < 0 ? '#ef4444' : val > 0 ? '#10b981' : '#64748b';
-        return <span style={{ color, fontWeight: 600 }}>{fmtC2(val)}</span>;
+        let pct = null;
+        if (row.variance_target_ptd_pct != null && !isNaN(row.variance_target_ptd_pct) && row.variance_target_ptd_pct !== '') {
+          pct = Number(row.variance_target_ptd_pct);
+        } else if (row.variance_target_sales_pct != null && !isNaN(row.variance_target_sales_pct) && row.variance_target_sales_pct !== '') {
+          pct = Number(row.variance_target_sales_pct);
+        } else if (row.variance_target_pct != null && !isNaN(row.variance_target_pct) && row.variance_target_pct !== '') {
+          pct = Number(row.variance_target_pct);
+        } else if (targetSales !== 0) {
+          pct = (val / Math.abs(targetSales)) * 100;
+        }
+
+        const pctSign = pct != null && pct > 0 ? '+' : '';
+        const pctText = (pct != null && isFinite(pct)) ? ` (${pctSign}${pct.toFixed(1)}%)` : '';
+
+        return (
+          <span style={{ color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {fmtC2(val)}
+            {pctText && <span style={{ fontSize: '0.82em', fontWeight: 500, marginLeft: 4, opacity: 0.9 }}>{pctText}</span>}
+          </span>
+        );
       },
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        const sum = validRows.reduce((s, r) => s + (Number(r.variance_target_ptd_aed ?? r.variance_sales ?? r.variance_target_sales ?? r.variance_sales_aed) || 0), 0);
-        const color = sum < 0 ? '#ef4444' : sum > 0 ? '#10b981' : '#64748b';
-        return <span style={{ color, fontWeight: 600 }}>{fmtC2(sum)}</span>;
+        const sumVar = validRows.reduce((s, r) => {
+          let v = r.variance_target_ptd_aed ?? r.variance_sales ?? r.variance_target_sales ?? r.variance_sales_aed;
+          if (v == null) {
+            const actualSales = Number(r.sales_aed ?? r.sales_ptd_aed ?? r.sales ?? 0);
+            const targetSales = Number(r.target_sales_ptd_aed ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target ?? 0);
+            v = actualSales - targetSales;
+          }
+          return s + (Number(v) || 0);
+        }, 0);
+        const sumTarget = validRows.reduce((s, r) => s + (Number(r.target_sales_ptd_aed ?? r.target_sales_aed ?? r.target_sales_ptd ?? r.sales_target) || 0), 0);
+        const color = sumVar < 0 ? '#ef4444' : sumVar > 0 ? '#10b981' : '#64748b';
+        let pctText = '';
+        if (sumTarget !== 0) {
+          const totalPct = (sumVar / Math.abs(sumTarget)) * 100;
+          if (isFinite(totalPct)) {
+            const sign = totalPct > 0 ? '+' : '';
+            pctText = ` (${sign}${totalPct.toFixed(1)}%)`;
+          }
+        }
+        return (
+          <span style={{ color, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            {fmtC2(sumVar)}
+            {pctText && <span style={{ fontSize: '0.82em', fontWeight: 600, marginLeft: 4, opacity: 0.9 }}>{pctText}</span>}
+          </span>
+        );
       },
     },
     {
       label: 'GM',
       key: 'variance_target_gross_margin_ptd_aed',
       align: 'right',
-      minWidth: '105px',
+      minWidth: '140px',
       fmt: (v, row) => {
         if (!isTargetApplicable(row)) return '—';
-        const val = Number(v ?? row.variance_target_gm ?? row.variance_gm_aed ?? 0);
+        let val = v ?? row.variance_target_gm ?? row.variance_gm_aed;
+        const targetGm = Number(row.target_gross_margin_ptd_aed ?? row.target_gm_aed ?? row.target_gross_margin ?? row.gm_target ?? 0);
+        if (val == null) {
+          const actualGm = Number(row.gross_margin_aed ?? row.gross_margin_ptd_aed ?? row.gross_margin ?? 0);
+          val = actualGm - targetGm;
+        } else {
+          val = Number(val);
+        }
         const color = val < 0 ? '#ef4444' : val > 0 ? '#10b981' : '#64748b';
-        return <span style={{ color, fontWeight: 600 }}>{fmtC2(val)}</span>;
+        let pct = null;
+        if (row.variance_target_gross_margin_ptd_pct != null && !isNaN(row.variance_target_gross_margin_ptd_pct) && row.variance_target_gross_margin_ptd_pct !== '') {
+          pct = Number(row.variance_target_gross_margin_ptd_pct);
+        } else if (row.variance_target_gm_pct != null && !isNaN(row.variance_target_gm_pct) && row.variance_target_gm_pct !== '') {
+          pct = Number(row.variance_target_gm_pct);
+        } else if (targetGm !== 0) {
+          pct = (val / Math.abs(targetGm)) * 100;
+        }
+
+        const pctSign = pct != null && pct > 0 ? '+' : '';
+        const pctText = (pct != null && isFinite(pct)) ? ` (${pctSign}${pct.toFixed(1)}%)` : '';
+
+        return (
+          <span style={{ color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {fmtC2(val)}
+            {pctText && <span style={{ fontSize: '0.82em', fontWeight: 500, marginLeft: 4, opacity: 0.9 }}>{pctText}</span>}
+          </span>
+        );
       },
       totalFn: rows => {
         const validRows = rows.filter(isTargetApplicable);
         if (validRows.length === 0) return '—';
-        const sum = validRows.reduce((s, r) => s + (Number(r.variance_target_gross_margin_ptd_aed ?? r.variance_gm ?? r.variance_target_gm ?? r.variance_gm_aed) || 0), 0);
-        const color = sum < 0 ? '#ef4444' : sum > 0 ? '#10b981' : '#64748b';
-        return <span style={{ color, fontWeight: 600 }}>{fmtC2(sum)}</span>;
+        const sumVar = validRows.reduce((s, r) => {
+          let v = r.variance_target_gross_margin_ptd_aed ?? r.variance_gm ?? r.variance_target_gm ?? r.variance_gm_aed;
+          if (v == null) {
+            const actualGm = Number(r.gross_margin_aed ?? r.gross_margin_ptd_aed ?? r.gross_margin ?? 0);
+            const targetGm = Number(r.target_gross_margin_ptd_aed ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0;
+            v = actualGm - targetGm;
+          }
+          return s + (Number(v) || 0);
+        }, 0);
+        const sumTarget = validRows.reduce((s, r) => s + (Number(r.target_gross_margin_ptd_aed ?? r.target_gm_aed ?? r.target_gross_margin ?? r.gm_target) || 0), 0);
+        const color = sumVar < 0 ? '#ef4444' : sumVar > 0 ? '#10b981' : '#64748b';
+        let pctText = '';
+        if (sumTarget !== 0) {
+          const totalPct = (sumVar / Math.abs(sumTarget)) * 100;
+          if (isFinite(totalPct)) {
+            const sign = totalPct > 0 ? '+' : '';
+            pctText = ` (${sign}${totalPct.toFixed(1)}%)`;
+          }
+        }
+        return (
+          <span style={{ color, fontWeight: 800, whiteSpace: 'nowrap' }}>
+            {fmtC2(sumVar)}
+            {pctText && <span style={{ fontSize: '0.82em', fontWeight: 600, marginLeft: 4, opacity: 0.9 }}>{pctText}</span>}
+          </span>
+        );
       },
     },
   ];
@@ -2993,7 +3260,7 @@ export default function SalesRevenueReport() {
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 4 }}>
           <div>
             <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: C.navy, margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span style={{ fontSize: '1.3rem' }}>💹</span> Sales Revenue Report
+              <span style={{ fontSize: '1.3rem' }}>💹</span> Sales Revenue Dashboard
             </h1>
             <p style={{ fontSize: '0.78rem', color: C.slate, margin: '3px 0 0' }}>
               Track and analyze sales performance across all dimensions
@@ -4222,7 +4489,7 @@ export default function SalesRevenueReport() {
             const rc = appliedFilters.reportingCurrency || 'AED';
 
             const fmtAED = v => (v !== null && v !== undefined && !isNaN(v))
-              ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+              ? (inMillions ? (Number(v) / 1000000).toFixed(2) + 'M' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }))
               : '—';
             // Only prepend currency if it is a real ISO code (not null / '—' / 'AED')
             const fmtLedger = (v, currency) => { if (v === null || v === undefined || isNaN(v)) return '-'; return inMillions ? (Number(v) / 1000000).toFixed(2) + 'M' : Number(v).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); };
@@ -4230,9 +4497,9 @@ export default function SalesRevenueReport() {
             // Map subdivisionRawData rows — field names from /subdivision-detail endpoint
             const detailRows2 = [...subdivisionRawData].map(r => {
               const salesPtdAed = n(r, 'sales_ptd_aed', 'sales_aed');
-              const targetSalesPtd = n(r, 'target_sales_ptd', 'target_sales');
+              const targetSalesPtd = n(r, 'target_sales_ptd', 'target_sales_ptd_aed', 'target_sales', 'sales_target', 'target');
               const salesYtdAed = n(r, 'sales_ytd_aed');
-              const targetSalesYtd = n(r, 'target_sales_ytd');
+              const targetSalesYtd = n(r, 'target_sales_ytd', 'target_sales_ytd_aed');
               const vPtd = n(r, 'variance_target_ptd_pct') ?? (
                 (salesPtdAed != null && targetSalesPtd)
                   ? ((salesPtdAed - targetSalesPtd) / Math.abs(targetSalesPtd)) * 100
@@ -4270,29 +4537,30 @@ export default function SalesRevenueReport() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle' }}>Legal Entity</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle' }}>Sub-Division</th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle' }}>Parent Division</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle', width: '180px', maxWidth: '200px' }}>Legal Entity</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle', width: '130px' }}>Sub-Division</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'left', verticalAlign: 'middle', width: '120px' }}>Parent Division</th>
                       <th colSpan={2} style={{ ...TH_S, textAlign: 'center', background: '#f8fafc', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
                         Sales in Ledger Currency
                       </th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle' }}>Sales in {currentCurrency}</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle', width: '110px' }}>Sales in {currentCurrency}</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle', width: '110px' }}>Target in {currentCurrency}</th>
                       <th colSpan={2} style={{ ...TH_S, textAlign: 'center', background: '#f1f5f9', borderBottom: '1px solid #cbd5e1', borderLeft: '1px solid #cbd5e1', borderRight: '1px solid #cbd5e1', color: C.navy }}>
                         Variance
                       </th>
-                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle' }}>% Share</th>
+                      <th rowSpan={2} style={{ ...TH_S, textAlign: 'right', verticalAlign: 'middle', width: '80px' }}>% Share</th>
                     </tr>
                     <tr>
-                      <th style={{ ...TH_S, textAlign: 'center', fontSize: '0.7rem', padding: '6px 10px', borderLeft: '1px solid #cbd5e1' }}>Currency</th>
-                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', borderRight: '1px solid #cbd5e1' }}>Amount</th>
-                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', borderLeft: '1px solid #cbd5e1' }}>PTD %</th>
-                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', borderRight: '1px solid #cbd5e1' }}>YTD %</th>
+                      <th style={{ ...TH_S, textAlign: 'center', fontSize: '0.7rem', padding: '6px 10px', width: '65px', borderLeft: '1px solid #cbd5e1' }}>Currency</th>
+                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', width: '95px', borderRight: '1px solid #cbd5e1' }}>Amount</th>
+                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', width: '75px', borderLeft: '1px solid #cbd5e1' }}>PTD %</th>
+                      <th style={{ ...TH_S, textAlign: 'right', fontSize: '0.7rem', padding: '6px 10px', width: '75px', borderRight: '1px solid #cbd5e1' }}>YTD %</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detailRows2.length === 0 ? (
                       <tr>
-                        <td colSpan={9} style={{ ...TD_S, textAlign: 'center', color: C.muted, padding: '40px 14px' }}>
+                        <td colSpan={10} style={{ ...TD_S, textAlign: 'center', color: C.muted, padding: '40px 14px' }}>
                           No data available for the selected filters
                         </td>
                       </tr>
@@ -4304,22 +4572,27 @@ export default function SalesRevenueReport() {
                           onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = bgBase; }}
                         >
-                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b', whiteSpace: 'normal', minWidth: 100 }}
+                          <td style={{ ...TD_S, textAlign: 'left', fontWeight: 600, color: '#1e1b4b', width: '180px', maxWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.35 }}
                               title={row.legalEntity}>{row.legalEntity}</td>
-                          <td style={{ ...TD_S, textAlign: 'left', whiteSpace: 'normal', minWidth: 100 }}>{row.subDiv}</td>
-                          <td style={{ ...TD_S, textAlign: 'left', whiteSpace: 'normal', minWidth: 100 }}>{row.parentDiv}</td>
-                          <td style={{ ...TD_S, textAlign: 'center', fontWeight: 600 }}>
+                          <td style={{ ...TD_S, textAlign: 'left', width: '130px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.subDiv}</td>
+                          <td style={{ ...TD_S, textAlign: 'left', width: '120px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.parentDiv}</td>
+                          <td style={{ ...TD_S, textAlign: 'center', fontWeight: 600, width: '65px' }}>
                             {row.ledgerCurrency || '—'}
                           </td>
-                          <td style={{ ...TD_S, textAlign: 'right' }}>{fmtLedger(row.salesLedger, row.ledgerCurrency)}</td>
-                          <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#2563eb' }}>{fmtAED(row.salesRC)}</td>
-                          <td style={{ ...TD_S, textAlign: 'right', borderLeft: '1px solid #f1f5f9' }}>
+                          <td style={{ ...TD_S, textAlign: 'right', width: '95px' }}>{fmtLedger(row.salesLedger, row.ledgerCurrency)}</td>
+                          <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#2563eb', width: '110px' }}>{fmtAED(row.salesRC)}</td>
+                          <td style={{ ...TD_S, textAlign: 'right', fontWeight: 600, color: '#475569', width: '110px' }}>
+                            {row.targetSalesPtd != null && !isNaN(row.targetSalesPtd) && Number(row.targetSalesPtd) > 0
+                              ? fmtAED(row.targetSalesPtd)
+                              : '—'}
+                          </td>
+                          <td style={{ ...TD_S, textAlign: 'right', width: '75px', borderLeft: '1px solid #f1f5f9' }}>
                             {row.variancePtdPct != null && !isNaN(row.variancePtdPct) ? fmtPctCol(row.variancePtdPct, 1) : '—'}
                           </td>
-                          <td style={{ ...TD_S, textAlign: 'right', borderRight: '1px solid #f1f5f9' }}>
+                          <td style={{ ...TD_S, textAlign: 'right', width: '75px', borderRight: '1px solid #f1f5f9' }}>
                             {row.varianceYtdPct != null && !isNaN(row.varianceYtdPct) ? fmtPctCol(row.varianceYtdPct, 1) : '—'}
                           </td>
-                          <td style={{ ...TD_S, textAlign: 'right' }}>
+                          <td style={{ ...TD_S, textAlign: 'right', width: '80px' }}>
                             {row.pct !== null && row.pct !== undefined ? `${Number(row.pct).toFixed(2)}%` : '—'}
                           </td>
                         </tr>
@@ -4328,15 +4601,21 @@ export default function SalesRevenueReport() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td style={{ ...TD_FOOT, textAlign: 'left' }}>Total</td>
-                      <td style={{ ...TD_FOOT, textAlign: 'left' }}>—</td>
-                      <td style={{ ...TD_FOOT, textAlign: 'left' }}>—</td>
-                      <td style={{ ...TD_FOOT, textAlign: 'center' }}>—</td>
-                      <td style={{ ...TD_FOOT, textAlign: 'right' }}>—</td>
-                      <td style={{ ...TD_FOOT, textAlign: 'right', color: '#1e3a8a' }}>
+                      <td style={{ ...TD_FOOT, textAlign: 'left', width: '180px', maxWidth: '200px' }}>Total</td>
+                      <td style={{ ...TD_FOOT, textAlign: 'left', width: '130px' }}>—</td>
+                      <td style={{ ...TD_FOOT, textAlign: 'left', width: '120px' }}>—</td>
+                      <td style={{ ...TD_FOOT, textAlign: 'center', width: '65px' }}>—</td>
+                      <td style={{ ...TD_FOOT, textAlign: 'right', width: '95px' }}>—</td>
+                      <td style={{ ...TD_FOOT, textAlign: 'right', color: '#1e3a8a', width: '110px' }}>
                         {fmtAED(detailRows2.reduce((s, r) => s + (Number(r.salesRC) || 0), 0))}
                       </td>
-                      <td style={{ ...TD_FOOT, textAlign: 'right', borderLeft: '1px solid #e2e8f0' }}>
+                      <td style={{ ...TD_FOOT, textAlign: 'right', color: '#1e3a8a', width: '110px' }}>
+                        {(() => {
+                          const totalTgt = detailRows2.reduce((s, r) => s + (Number(r.targetSalesPtd) || 0), 0);
+                          return totalTgt > 0 ? fmtAED(totalTgt) : '—';
+                        })()}
+                      </td>
+                      <td style={{ ...TD_FOOT, textAlign: 'right', width: '75px', borderLeft: '1px solid #e2e8f0' }}>
                         {(() => {
                           const totalSales = detailRows2.reduce((s, r) => s + (Number(r.salesRC) || 0), 0);
                           const totalTgt = detailRows2.reduce((s, r) => s + (Number(r.targetSalesPtd) || 0), 0);
@@ -4344,7 +4623,7 @@ export default function SalesRevenueReport() {
                           return fmtPctCol(((totalSales - totalTgt) / Math.abs(totalTgt)) * 100, 1);
                         })()}
                       </td>
-                      <td style={{ ...TD_FOOT, textAlign: 'right', borderRight: '1px solid #e2e8f0' }}>
+                      <td style={{ ...TD_FOOT, textAlign: 'right', width: '75px', borderRight: '1px solid #e2e8f0' }}>
                         {(() => {
                           const totalYtd = detailRows2.reduce((s, r) => s + (Number(r.salesYtdAed) || 0), 0);
                           const totalTgtYtd = detailRows2.reduce((s, r) => s + (Number(r.targetSalesYtd) || 0), 0);
@@ -4352,7 +4631,7 @@ export default function SalesRevenueReport() {
                           return fmtPctCol(((totalYtd - totalTgtYtd) / Math.abs(totalTgtYtd)) * 100, 1);
                         })()}
                       </td>
-                      <td style={{ ...TD_FOOT, textAlign: 'right' }}>
+                      <td style={{ ...TD_FOOT, textAlign: 'right', width: '80px' }}>
                         100.00%
                       </td>
                     </tr>
@@ -4711,179 +4990,58 @@ export default function SalesRevenueReport() {
 
 
 
-      {/* Trend View-All — inline modal reusing old table logic */}
-      {openModal === 'trend' && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(15,23,42,0.35)', backdropFilter: 'blur(6px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <style>{`@keyframes scaleUp{from{transform:scale(0.95);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
-          <div style={{
-            background: '#fff', borderRadius: 16, width: '96vw', maxWidth: 1800, maxHeight: '94vh', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-            animation: 'scaleUp 0.18s cubic-bezier(0.34,1.56,0.64,1) forwards',
-            overflow: 'hidden', border: '1px solid #e2e8f0',
-          }}>
-            <div style={{
-              padding: '14px 20px', borderBottom: '1px solid #f1f5f9',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'linear-gradient(90deg,#f8fafc,#fff)',
-            }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: C.navy }}>
-                  Revenue Trend Detailed View
-                </h3>
-                {appliedPeriodLabel && (
-                  <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2, fontWeight: 500 }}>
-                    Period: {appliedPeriodLabel}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <UnitToggle
-                    unit={inMillions ? 'millions' : 'aed'}
-                    onToggle={(u) => setInMillions(u === 'millions')}
-                    currency={currentCurrency}
-                  />
-                  <ModalCloseButton onClick={() => setOpenModal(null)} />
-                </div>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px 0' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    {[
-                      { label: 'Period',                            align: 'left'  },
-                      { label: 'SALES (PTD)',                       align: 'right' },
-                      { label: 'TARGET SALES (PTD)',                align: 'right' },
-                      { label: 'PREVIOUS YEAR SALES (PTD)',         align: 'right' },
-                      { label: 'VARIANCE % (VS PY)',                align: 'right' },
-                      { label: 'VARIANCE % (VS TARGET)',            align: 'right' },
-                    ].map(col => (
-                      <th key={col.label} style={{
-                        ...TH,
-                        textAlign: col.align,
-                        position: 'sticky', top: 0,
-                        background: '#fff', zIndex: 2,
-                        borderBottom: '2px solid #e2e8f0',
-                        whiteSpace: 'nowrap',
-                      }}>{col.label}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {trendData.map((row, idx) => {
-                    const pyIsZeroOrNull = !row.previousYear || row.previousYear === 0;
-                    const fmtPct = (val) => {
-                      if (val == null) return '—';
-                      const sign = val > 0 ? '+' : '';
-                      return `${sign}${val.toFixed(1)}%`;
-                    };
-                    const pctColor = (val) => {
-                      if (val == null) return C.slate;
-                      return val >= 0 ? C.green : '#ef4444';
-                    };
-                    return (
-                      <tr key={idx}
-                        style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#eff6ff'}
-                        onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
-                      >
-                        {/* Period */}
-                        <td style={{ ...TD, fontWeight: 600, color: C.navy }}>{row.period}</td>
-                        {/* Current Year Sales */}
-                        <td style={{ ...TD, textAlign: 'right', fontWeight: 700, color: C.green }}>
-                          {row.currentYear != null ? fmtCurrency(row.currentYear) : '—'}
-                        </td>
-                        {/* Target Sales */}
-                        <td style={{ ...TD, textAlign: 'right', fontWeight: 500 }}>
-                          {row.target_sales != null ? fmtCurrency(row.target_sales) : '—'}
-                        </td>
-                        {/* Previous Year Sales */}
-                        <td style={{ ...TD, textAlign: 'right', fontWeight: 500 }}>
-                          {pyIsZeroOrNull ? '—' : fmtCurrency(row.previousYear)}
-                        </td>
-                        {/* Variance % CY vs PY */}
-                        <td style={{ ...TD, textAlign: 'right', fontWeight: 600, color: pctColor(pyIsZeroOrNull ? null : row.variance_py_pct) }}>
-                          {pyIsZeroOrNull ? '—' : fmtPct(row.variance_py_pct)}
-                        </td>
-                        {/* Variance % CY vs Target */}
-                        <td style={{ ...TD, textAlign: 'right', fontWeight: 600, color: pctColor(row.variance_target_pct) }}>
-                          {fmtPct(row.variance_target_pct)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  </tbody>
-                  <tfoot>
-                    {(() => {
-                      if (trendData.length === 0) return null;
-                      const sumCY = trendData.reduce((s, r) => s + (r.currentYear || 0), 0);
-                      const sumTarget = trendData.reduce((s, r) => s + (r.target_sales || 0), 0);
-                      const sumPY = trendData.reduce((s, r) => s + (r.previousYear || 0), 0);
-                      
-                      const pyIsZero = sumPY === 0;
-                      const targetIsZero = sumTarget === 0;
-                      
-                      const varPY = pyIsZero ? null : ((sumCY - sumPY) / Math.abs(sumPY)) * 100;
-                      const varTarget = targetIsZero ? null : ((sumCY - sumTarget) / Math.abs(sumTarget)) * 100;
-                      
-                      const fmtPct = (val) => {
-                        if (val == null) return '—';
-                        const sign = val > 0 ? '+' : '';
-                        return `${sign}${val.toFixed(1)}%`;
-                      };
-                      const pctColor = (val) => {
-                        if (val == null) return C.slate;
-                        return val >= 0 ? C.green : '#ef4444';
-                      };
-
-                      const stickyFootTd = {
-                        ...TD,
-                        position: 'sticky',
-                        bottom: 0,
-                        background: '#f8fafc',
-                        zIndex: 10,
-                        borderTop: '2px solid #cbd5e1',
-                        boxShadow: '0 -3px 8px rgba(0,0,0,0.08)',
-                        padding: '10px 16px',
-                      };
-
-                      return (
-                        <tr>
-                          <td style={{ ...stickyFootTd, fontWeight: 800, color: C.navy }}>Total</td>
-                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: C.green }}>
-                            {fmtCurrency(sumCY)}
-                          </td>
-                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: C.navy }}>
-                            {targetIsZero ? '—' : fmtCurrency(sumTarget)}
-                          </td>
-                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800 }}>
-                            {pyIsZero ? '—' : fmtCurrency(sumPY)}
-                          </td>
-                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: pctColor(varPY) }}>
-                            {fmtPct(varPY)}
-                          </td>
-                          <td style={{ ...stickyFootTd, textAlign: 'right', fontWeight: 800, color: pctColor(varTarget) }}>
-                            {fmtPct(varTarget)}
-                          </td>
-                        </tr>
-                      );
-                    })()}
-                  </tfoot>
-                </table>
-            </div>
-            <div style={{ padding: '10px 20px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', background: '#f8fafc' }}>
-              <button onClick={() => setOpenModal(null)} style={{
-                padding: '6px 18px', background: '#e2e8f0', color: C.slate,
-                border: 'none', borderRadius: 8, fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer',
-              }}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Revenue Trend Detailed View Modal */}
+      <DetailApiModal
+        canExport={canExport}
+        isOpen={openModal === 'trend'}
+        onClose={() => setOpenModal(null)}
+        title="Revenue Trend Detailed View"
+        endpoint="trend"
+        fetchFn={async (f) => {
+          let trendFilters = { ...f };
+          if (trendFilters.toDate) {
+            const yr = new Date(trendFilters.toDate).getFullYear();
+            const mo = String(new Date(trendFilters.toDate).getMonth() + 1).padStart(2, '0');
+            // If fromDate matches the single month of toDate (e.g. 2026-10-01 to 2026-10-31),
+            // or is absent, expand to 01-Jan of that year so the full trend from start of year loads
+            if (!trendFilters.fromDate || trendFilters.fromDate === `${yr}-${mo}-01`) {
+              trendFilters.fromDate = `${yr}-01-01`;
+            }
+          }
+          const res = await fetchTrend(trendFilters);
+          const list = Array.isArray(res) ? res : (res?.data || []);
+          const enriched = list.map(item => ({
+            ...item,
+            period: item.period_name || item.period || '',
+            sales: item.sales != null ? Number(item.sales) : null,
+            target_sales: item.target_sales != null ? Number(item.target_sales) : null,
+            sales_py: (item.sales_py != null && Number(item.sales_py) !== 0) ? Number(item.sales_py) : null,
+            variance_py_pct: item.variance_py_pct != null ? Number(item.variance_py_pct) : null,
+            variance_target_pct: item.variance_target_pct != null ? Number(item.variance_target_pct) : null,
+          }));
+          return { data: enriched };
+        }}
+        columnDefs={trendCols}
+        filters={{
+          ...appliedFilters,
+          fromDate: appliedFilters.toDate ? `${new Date(appliedFilters.toDate).getFullYear()}-01-01` : appliedFilters.fromDate
+        }}
+        localFiltersConfig={[
+          { key: 'legalGroupId',       label: 'Legal Group',      options: filterOptions.legalGroups },
+          { key: 'legalEntityId',      label: 'Legal Entity',     options: filterOptions.legalEntities },
+          { key: 'parentDivisionId',   label: 'Parent Division',  options: filterOptions.parentDivs },
+          { key: 'subdivisionId',      label: 'Sub-Division',     options: filterOptions.subDivs },
+          { key: 'customerType',       label: 'Customer Type',    options: filterOptions.customerTypes },
+          { key: 'salesCategories',    label: 'Sales Category',   options: filterOptions.salesCategories },
+          { key: 'salesman',           label: 'Salesperson',      options: filterOptions.salesmen },
+        ]}
+        dateFiltersConfig={[
+          { fromKey: 'fromDate', toKey: 'toDate', label: 'Period' },
+        ]}
+        showUnitToggle={true}
+        searchPlaceholder="Search periods..."
+        periodLabel={appliedPeriodLabel}
+      />
       </>
     </ErrorBoundary>
   );

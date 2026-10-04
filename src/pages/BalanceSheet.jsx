@@ -1859,7 +1859,7 @@ function StatementViewAll({
             <MultiSelect
               options={filterOptions?.legalGroups || []}
               value={modalFilters.legalGroup}
-              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Groups"
             />
           </div>
@@ -1872,7 +1872,7 @@ function StatementViewAll({
             <MultiSelect
               options={filterOptions?.legalEntities || []}
               value={modalFilters.legalEntity}
-              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Entities"
             />
           </div>
@@ -1885,7 +1885,7 @@ function StatementViewAll({
             <MultiSelect
               options={filterOptions?.parentDivisions || []}
               value={modalFilters.parentDivision}
-              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v, subdivision: ['All'] }))}
               placeholder="All Divisions"
             />
           </div>
@@ -2311,7 +2311,7 @@ function TrendViewAll({
             <MultiSelect
               options={filterOptions?.legalGroups || []}
               value={modalFilters.legalGroup}
-              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Groups"
             />
           </div>
@@ -2324,7 +2324,7 @@ function TrendViewAll({
             <MultiSelect
               options={filterOptions?.legalEntities || []}
               value={modalFilters.legalEntity}
-              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Entities"
             />
           </div>
@@ -2337,7 +2337,7 @@ function TrendViewAll({
             <MultiSelect
               options={filterOptions?.parentDivisions || []}
               value={modalFilters.parentDivision}
-              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v, subdivision: ['All'] }))}
               placeholder="All Divisions"
             />
           </div>
@@ -2627,7 +2627,7 @@ function CompositionViewAll({
             <MultiSelect
               options={filterOptions?.legalGroups || []}
               value={modalFilters.legalGroup}
-              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, legalGroup: v, legalEntity: ['All'], parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Groups"
             />
           </div>
@@ -2640,7 +2640,7 @@ function CompositionViewAll({
             <MultiSelect
               options={filterOptions?.legalEntities || []}
               value={modalFilters.legalEntity}
-              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, legalEntity: v, parentDivision: ['All'], subdivision: ['All'] }))}
               placeholder="All Entities"
             />
           </div>
@@ -2653,7 +2653,7 @@ function CompositionViewAll({
             <MultiSelect
               options={filterOptions?.parentDivisions || []}
               value={modalFilters.parentDivision}
-              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v }))}
+              onChange={v => setModalFilters(f => ({ ...f, parentDivision: v, subdivision: ['All'] }))}
               placeholder="All Divisions"
             />
           </div>
@@ -3164,10 +3164,10 @@ export default function BalanceSheet() {
   const [filterOptions, setFilterOptions] = useState({
     periods:        [],
     currencies:     ['AED', 'USD', 'SAR', 'QAR', 'OMR', 'INR'],
-    legalGroups:    ['All'],
-    legalEntities:  ['All'],
-    parentDivisions:['All'],
-    subdivisions:   ['All'],
+    legalGroups:    [],
+    legalEntities:  [],
+    parentDivisions:[],
+    subdivisions:   [],
     ledgers:        ['All'],
   });
 
@@ -3239,6 +3239,9 @@ export default function BalanceSheet() {
   /* ── Export ────────────────────────────────────────────────────── */
   const [exporting, setExporting] = useState(null);
 
+  const isFirstFilterLoad = useRef(true);
+  const defaultLegalGroupId = useRef(['All']);
+
   /* ── Load filter options (supports cascading) ─────────────────── */
   const loadFilterOptions = useCallback(async (currentFilters = {}) => {
     setLoading(prev => ({ ...prev, filters: true }));
@@ -3255,23 +3258,37 @@ export default function BalanceSheet() {
         ? Array.from(new Set([...apiCurrencies, ...DEFAULT_CURRENCIES]))
         : DEFAULT_CURRENCIES;
 
+      const legalGroupsList = data?.legal_groups || [];
+      const fjGroup = legalGroupsList.find(g =>
+        String(g.name || g.label || '').toUpperCase().includes('FJ') ||
+        String(g.id || g.value || '').toUpperCase().includes('FJ')
+      );
+      if (fjGroup) {
+        const fjId = fjGroup.id !== undefined ? fjGroup.id : fjGroup.value;
+        defaultLegalGroupId.current = [fjId];
+      }
+
       setFilterOptions(prev => ({
         ...prev,
         periods: periods.length ? periods : prev.periods,
         currencies:     mergedCurrencies,
-        legalGroups:    data?.legal_groups || prev.legalGroups || [],
+        legalGroups:    legalGroupsList.length ? legalGroupsList : prev.legalGroups,
         legalEntities:  data?.legal_entities || [],
         parentDivisions:data?.parent_divisions || [],
         subdivisions:   data?.subdivisions || [],
         ledgers:        ['All', ...(data?.ledgers || []).filter(l => l && l !== 'All')],
       }));
-      // Auto-select first period on initial load
-      if (periods.length && !currentFilters.isCascade) {
+
+      // Auto-select first period & default Legal Group on initial load
+      if (isFirstFilterLoad.current) {
+        isFirstFilterLoad.current = false;
         const first  = (periods[0] && typeof periods[0] === 'object' ? periods[0].period : periods[0]) || '';
         const second = (periods[1] && typeof periods[1] === 'object' ? periods[1].period : periods[1]) || '';
+        const targetLegalGroup = fjGroup ? [fjGroup.id !== undefined ? fjGroup.id : fjGroup.value] : (currentFilters.legalGroup || ['All']);
+
         // Use period code directly -- no calendar date conversion needed (supports Period 13)
-        setFilters(f        => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second }));
-        setAppliedFilters(f => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second }));
+        setFilters(f        => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second, legalGroup: targetLegalGroup }));
+        setAppliedFilters(f => ({ ...f, period: f.period || first, asOnDate: f.period || first, comparePeriod: f.comparePeriod || second, compareDate: f.comparePeriod || second, legalGroup: targetLegalGroup }));
       }
     } catch (err) {
       console.error('[BalanceSheet] loadFilterOptions error:', err);
@@ -3400,6 +3417,7 @@ export default function BalanceSheet() {
       comparePeriod: second,
       compareDate: second,      // period code directly
       currency: 'AED',
+      legalGroup: defaultLegalGroupId.current || ['All'],
     };
     setFilters(reset); setAppliedFilters(reset);
   }, [filterOptions.periods]);
@@ -3512,7 +3530,7 @@ export default function BalanceSheet() {
       id: 'total-assets',
       label: 'Total Assets',
       value: loading.summary ? '—' : fmtKPI(currentMetrics.totalAssets, currency),
-      subValue: periodLabel,
+      subValue: `${periodLabel} • ${currency}`,
       changePct: movements.assets,
       compareLabel: compareLbl,
       color: '#2563eb', iconBg: '#eff6ff',
@@ -3523,7 +3541,7 @@ export default function BalanceSheet() {
       lowerIsBetter: true,
       label: 'Total Liabilities',
       value: loading.summary ? '—' : fmtKPI(currentMetrics.totalLiabilities, currency),
-      subValue: periodLabel,
+      subValue: `${periodLabel} • ${currency}`,
       changePct: movements.liabilities,
       compareLabel: compareLbl,
       color: '#ea580c', iconBg: '#fff7ed',
@@ -3533,7 +3551,7 @@ export default function BalanceSheet() {
       id: 'total-equity',
       label: 'Total Equity',
       value: loading.summary ? '—' : fmtKPI(currentMetrics.totalEquity, currency),
-      subValue: periodLabel,
+      subValue: `${periodLabel} • ${currency}`,
       changePct: movements.equity,
       compareLabel: compareLbl,
       color: '#9333ea', iconBg: '#faf5ff',
@@ -3673,7 +3691,7 @@ export default function BalanceSheet() {
       {/* ══ PAGE HEADER ══ */}
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.navy, margin: 0 }}>Balance Sheet</h1>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.navy, margin: 0 }}>Balance Sheet Analysis</h1>
           <p style={{ fontSize: '0.76rem', color: C.slate, margin: '3px 0 0' }}>
             View the financial position of the company across different dimensions.
           </p>

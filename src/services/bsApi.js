@@ -134,7 +134,7 @@ function buildBSParams(filters = {}) {
     compare_period:      comparePeriodVal,
     compare_period_name: comparePeriodVal,
     as_on_date:          active(filters.asOnDate || filters.period),
-    reporting_currency:  active(filters.currency),
+    currency:            active(filters.currency),
     legal_group_id:      active(filters.legalGroup),
     legal_entity_id:     active(filters.legalEntity),
     parent_division_id:  active(filters.parentDivision),
@@ -286,6 +286,37 @@ export async function fetchBSFilters(params = {}) {
 
   res.legal_entities = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
 
+  let lgList = res.legal_groups || [];
+  if (Array.isArray(lgList)) {
+    res.legal_groups = lgList.map(g => {
+      if (typeof g === 'string') return { id: g, name: g };
+      const rawId = g.id !== undefined ? g.id : g.value;
+      const rawName = g.name !== undefined ? g.name : g.label;
+      const displayName = rawName === 'FJ_GROUP' ? 'FJ Group' : (rawName === 'RKME_GROUP' ? 'RKME Group' : rawName);
+      return { id: rawId, name: displayName };
+    });
+  }
+
+  if (Array.isArray(res.parent_divisions)) {
+    res.parent_divisions = res.parent_divisions.map(d => {
+      if (typeof d === 'string') return { id: d, name: d };
+      return {
+        id: d.id !== undefined ? d.id : d.value,
+        name: d.name !== undefined ? d.name : d.label,
+      };
+    });
+  }
+
+  if (Array.isArray(res.subdivisions)) {
+    res.subdivisions = res.subdivisions.map(s => {
+      if (typeof s === 'string') return { id: s, name: s };
+      return {
+        id: s.id !== undefined ? s.id : s.value,
+        name: s.name !== undefined ? s.name : s.label,
+      };
+    });
+  }
+
   return res;
 }
 
@@ -341,8 +372,8 @@ export async function fetchBSTrend(filters) {
   }
 
   const params = {
-    reporting_currency: base.reporting_currency,
-    section:     base.section,
+    currency:     base.currency,
+    section:      base.section,
     account_code: base.account_code,
     sub_section:  base.sub_section,
     ledger:       base.ledger,
@@ -526,7 +557,7 @@ export async function fetchBSDrilldown(filters) {
   const params = {
     period:       periodVal,
     period_name:  periodVal,
-    reporting_currency: filters.currency,
+    currency:     filters.currency,
     account_code: filters.accountCode,
     ledger:       filters.ledger || undefined,
     sort_by:      filters.sortBy  || 'balance_amount',
@@ -587,7 +618,7 @@ export async function fetchBSDrilldown(filters) {
  */
 export async function fetchBSReconciliation(filters = {}) {
   const params = {
-    reporting_currency: filters.currency || undefined,
+    currency:    filters.currency || undefined,
     from_period: filters.fromPeriod  || undefined,
     to_period:   filters.toPeriod    || undefined,
   };

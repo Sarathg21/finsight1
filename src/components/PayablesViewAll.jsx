@@ -450,7 +450,7 @@ function Sidebar() {
         </div>
 
         {menuItem(<FaHome />, "Dashboard")}
-        {menuItem(<FaChartLine />, "Sales Revenue Report")}
+        {menuItem(<FaChartLine />, "Sales Revenue Dashboard")}
         {menuItem(<FaBalanceScale />, "Profit & Loss Account")}
         {menuItem(<FaReceipt />, "Balance Sheet")}
         {menuItem(<FaReceipt />, "Receivables Report")}
