@@ -121,7 +121,7 @@ export default function ExecutiveDashboard() {
                     font-size: 0.78rem; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;
                 }
                 .filter-select {
-                    padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; color: #334155; background: #fff; outline: none; font-weight: 600; min-width: 140px; cursor: pointer; transition: border-color 0.2s;
+                    padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.75rem; color: #334155; background: #fff; outline: none; font-weight: 600; cursor: pointer; transition: border-color 0.2s;
                 }
                 .filter-select:hover {
                     border-color: #cbd5e1;
@@ -156,34 +156,34 @@ export default function ExecutiveDashboard() {
             `}</style>
             
             {/* 1. FILTER BAR */}
-            <div className="card" style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20, padding: '12px 20px', flexWrap: 'nowrap', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="card" style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, padding: '10px 14px', flexWrap: 'nowrap', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><Calendar size={16} strokeWidth={2.5}/> Period</div>
                     <select className="filter-select" defaultValue="Mar 2025"><option>Mar 2025</option></select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><MapPin size={16} strokeWidth={2.5}/> Region</div>
                     <select className="filter-select" defaultValue="All Regions"><option>All Regions</option></select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><Building size={16} strokeWidth={2.5}/> Legal Entity</div>
                     <select className="filter-select" defaultValue="All Entities"><option>All Entities</option></select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><Coins size={16} strokeWidth={2.5}/> Currency</div>
                     <select className="filter-select" defaultValue="AED"><option>AED (UAE Dirham)</option></select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div className="filter-label"><BarChart3 size={16} strokeWidth={2.5}/> View</div>
                     <select className="filter-select" defaultValue="Executive View"><option>Executive View</option></select>
                 </div>
                 
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-                    <button style={{ background: '#273e6b', color: '#fff', border: 'none', padding: '0 24px', borderRadius: 6, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer', height: 36, display: 'flex', alignItems: 'center', transition: 'background 0.2s', letterSpacing: '0.02em' }} onMouseEnter={e => e.currentTarget.style.background='#1e3054'} onMouseLeave={e => e.currentTarget.style.background='#273e6b'}>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
+                    <button style={{ background: '#273e6b', color: '#fff', border: 'none', padding: '0 16px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', transition: 'background 0.2s', letterSpacing: '0.02em' }} onMouseEnter={e => e.currentTarget.style.background='#1e3054'} onMouseLeave={e => e.currentTarget.style.background='#273e6b'}>
                         Apply Filters
                     </button>
-                    <button style={{ background: 'transparent', color: '#475569', border: 'none', padding: '0 8px', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', height: 36, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color='#1e293b'} onMouseLeave={e => e.currentTarget.style.color='#475569'}>
-                        <RefreshCcw size={15} strokeWidth={2.5} /> Reset
+                    <button style={{ background: 'transparent', color: '#475569', border: 'none', padding: '0 8px', fontWeight: 600, fontSize: '0.7rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', gap: 4, transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color='#1e293b'} onMouseLeave={e => e.currentTarget.style.color='#475569'}>
+                        <RefreshCcw size={14} strokeWidth={2.5} /> Reset
                     </button>
                 </div>
             </div>
