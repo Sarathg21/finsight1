@@ -19,7 +19,7 @@ const KPIData = [
     { title: "Slow Moving & Obsolete Stock", value: "AED 95M", change: "-8.7%", isPositive: false, isRed: false, icon: Layers, iconColor: "green", colorClass: "green", sparklineData: [15,14,16,13,12,10,11,9] },
     { title: "Cash Collection", value: "AED 980M", change: "+18.1%", isPositive: true, isRed: false, icon: Wallet, iconColor: "blue", colorClass: "blue", sparklineData: [20,22,25,24,28,30,29,32] },
     { title: "Collection Efficiency", value: "92%", change: "+6.2 pp", isPositive: true, isRed: false, icon: Target, iconColor: "blue", colorClass: "blue", sparklineData: [80,82,81,85,84,88,87,92] },
-    { title: "Total Short Term Borrowing from Banks", value: "AED 360M", change: "+5.9%", isPositive: true, isRed: true, icon: Landmark, iconColor: "blue", colorClass: "red", sparklineData: [20,21,20,22,23,24,25,26] },
+    { title: "Total Short Term Borrowing", value: "AED 360M", change: "+5.9%", isPositive: true, isRed: true, icon: Landmark, iconColor: "blue", colorClass: "red", sparklineData: [20,21,20,22,23,24,25,26] },
     { title: "ROI %", value: "14.8%", change: "+2.3 pp", isPositive: true, isRed: false, icon: BarChart3, iconColor: "blue", colorClass: "green", sparklineData: [10,11,12,11,13,12,14,15] }
 ];
 
@@ -115,37 +115,37 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function ExecutiveDashboard() {
     return (
-        <div style={{ padding: '24px', background: 'var(--clr-bg)', minHeight: '100vh' }}>
+        <div style={{ padding: '20px 24px', background: 'var(--clr-bg)', minHeight: '100vh' }}>
             <style>{`
                 .filter-label {
-                    font-size: 0.72rem; font-weight: 600; color: var(--clr-text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;
+                    font-size: 0.72rem; font-weight: 700; color: var(--clr-text); display: flex; align-items: center; gap: 4px;
                 }
                 .filter-select {
-                    padding: 8px 12px; border: 1px solid var(--clr-border-strong); border-radius: 6px; font-size: 0.8rem; color: var(--clr-text); background: var(--clr-surface); outline: none; font-weight: 500; min-width: 140px; cursor: pointer; transition: border-color 0.2s;
+                    padding: 6px 10px; border: 1px solid var(--clr-border-strong); border-radius: 4px; font-size: 0.75rem; color: var(--clr-text-muted); background: var(--clr-surface); outline: none; font-weight: 600; min-width: 120px; cursor: pointer; transition: border-color 0.2s;
                 }
                 .filter-select:hover {
                     border-color: var(--clr-primary);
                 }
                 .card {
-                    background: var(--clr-surface); border-radius: 12px; padding: 18px; border: 1px solid var(--clr-border); box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                    background: var(--clr-surface); border-radius: 10px; border: 1px solid var(--clr-border); box-shadow: 0 1px 2px rgba(0,0,0,0.02);
                 }
                 .kpi-title {
-                    font-size: 0.75rem; font-weight: 700; color: var(--clr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    font-size: 0.72rem; font-weight: 800; color: var(--clr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em;
                 }
                 .kpi-val {
-                    font-size: 1.3rem; font-weight: 800; color: var(--clr-text); margin-bottom: 4px; font-family: var(--font-mono); margin-top: 10px;
+                    font-size: 1.25rem; font-weight: 800; color: var(--clr-text); font-family: var(--font-sans); margin-bottom: 2px; letter-spacing: -0.02em;
                 }
                 .kpi-change {
-                    font-size: 0.75rem; font-weight: 700;
+                    font-size: 0.7rem; font-weight: 800;
                 }
                 .th-cell {
-                    padding: 14px 16px; text-align: left; color: var(--clr-text-muted); font-weight: 700; font-size: 0.75rem; border-bottom: 2px solid var(--clr-border); white-space: nowrap;
+                    padding: 12px 16px; text-align: left; color: var(--clr-text-muted); font-weight: 700; font-size: 0.75rem; border-bottom: 2px solid var(--clr-border); white-space: nowrap;
                 }
                 .td-cell {
-                    padding: 14px 16px; color: var(--clr-text); font-weight: 600; font-size: 0.78rem; border-bottom: 1px solid var(--clr-border);
+                    padding: 12px 16px; color: var(--clr-text); font-weight: 600; font-size: 0.78rem; border-bottom: 1px solid var(--clr-border);
                 }
                 .icon-box {
-                    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                    width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
                 }
                 .icon-box.blue {
                     background: var(--clr-primary-dim); color: var(--clr-primary);
@@ -156,62 +156,62 @@ export default function ExecutiveDashboard() {
             `}</style>
             
             {/* 1. FILTER BAR */}
-            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', marginBottom: 24, background: 'var(--clr-surface)', padding: 16, borderRadius: 12, border: '1px solid var(--clr-border)', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div className="filter-label"><Calendar size={13}/> Period</div>
+            <div className="card" style={{ display: 'flex', gap: 20, alignItems: 'center', marginBottom: 20, padding: '10px 16px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="filter-label"><Calendar size={14}/> Period</div>
                     <select className="filter-select" defaultValue="Mar 2025"><option>Mar 2025</option></select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div className="filter-label"><MapPin size={13}/> Region</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="filter-label"><MapPin size={14}/> Region</div>
                     <select className="filter-select" defaultValue="All Regions"><option>All Regions</option></select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div className="filter-label"><Building size={13}/> Legal Entity</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="filter-label"><Building size={14}/> Legal Entity</div>
                     <select className="filter-select" defaultValue="All Entities"><option>All Entities</option></select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div className="filter-label"><Globe size={13}/> Currency</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="filter-label"><Coins size={14}/> Currency</div>
                     <select className="filter-select" defaultValue="AED"><option>AED (UAE Dirham)</option></select>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div className="filter-label"><BarChart3 size={13}/> View</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="filter-label"><BarChart3 size={14}/> View</div>
                     <select className="filter-select" defaultValue="Executive View"><option>Executive View</option></select>
                 </div>
                 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-                    <button style={{ background: 'var(--clr-primary)', color: '#fff', border: 'none', padding: '0 24px', borderRadius: 6, fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', height: 38, display: 'flex', alignItems: 'center', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='var(--clr-accent)'} onMouseLeave={e => e.currentTarget.style.background='var(--clr-primary)'}>
+                    <button style={{ background: 'var(--clr-primary)', color: '#fff', border: 'none', padding: '0 20px', borderRadius: 6, fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='var(--clr-accent)'} onMouseLeave={e => e.currentTarget.style.background='var(--clr-primary)'}>
                         Apply Filters
                     </button>
-                    <button style={{ background: 'transparent', color: 'var(--clr-text-muted)', border: 'none', padding: '0 12px', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer', height: 38, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color='var(--clr-primary)'} onMouseLeave={e => e.currentTarget.style.color='var(--clr-text-muted)'}>
-                        <RefreshCcw size={15} /> Reset
+                    <button style={{ background: 'transparent', color: 'var(--clr-text-muted)', border: 'none', padding: '0 8px', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', gap: 6, transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color='var(--clr-primary)'} onMouseLeave={e => e.currentTarget.style.color='var(--clr-text-muted)'}>
+                        <RefreshCcw size={14} /> Reset
                     </button>
                 </div>
             </div>
 
             {/* 2. KPI CARDS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>
                 {KPIData.map((kpi, idx) => (
-                    <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', padding: '16px', overflow: 'hidden' }}>
+                    <div key={idx} className="card" style={{ padding: '14px 14px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         {/* Title Row */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <div className={`icon-box ${kpi.iconColor}`}>
-                                <kpi.icon size={16} />
+                                <kpi.icon size={14} strokeWidth={2.5} />
                             </div>
                             <div className="kpi-title">{kpi.title}</div>
                         </div>
                         
                         {/* Value & Change */}
-                        <div style={{ flex: 1, minWidth: 0, zIndex: 1, marginTop: 'auto' }}>
+                        <div style={{ zIndex: 1 }}>
                             <div className="kpi-val">{kpi.value}</div>
                             <div className="kpi-change" style={{ color: kpi.isRed ? 'var(--clr-danger)' : 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ fontSize: '0.8rem' }}>{kpi.isPositive ? '?' : '?'}</span> 
+                                <span style={{ fontSize: '0.65rem' }}>{kpi.isPositive ? '?' : '?'}</span> 
                                 <span>{kpi.change}</span> 
-                                <span style={{ color: 'var(--clr-text-dim)', fontWeight: 500, fontSize: '0.65rem', marginLeft: 2 }}>vs. Feb 2025</span>
+                                <span style={{ color: 'var(--clr-text-dim)', fontWeight: 500, fontSize: '0.6rem', marginLeft: 2 }}>vs. Feb 2025</span>
                             </div>
                         </div>
                         
                         {/* Sparkline overlay right-bottom */}
-                        <div style={{ position: 'absolute', bottom: 10, right: -5, width: 85, height: 45, opacity: 0.85 }}>
+                        <div style={{ position: 'absolute', bottom: 8, right: 0, width: '45%', height: 35, opacity: 0.9 }}>
                             <Sparkline data={kpi.sparklineData} colorClass={kpi.colorClass} />
                         </div>
                     </div>
@@ -219,21 +219,21 @@ export default function ExecutiveDashboard() {
             </div>
 
             {/* 3. CHARTS ROW */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
                 {/* Trade Working Capital Trend */}
-                <div className="card" style={{ flex: 2 }}>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <BarChart3 size={18} color="var(--clr-primary)" /> Trade Working Capital Trend
+                <div className="card" style={{ flex: 2, padding: 18 }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <BarChart3 size={16} color="var(--clr-primary)" /> Trade Working Capital Trend
                     </div>
-                    <div style={{ height: 280 }}>
+                    <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart data={twcTrendData} margin={{ top: 20, right: 20, bottom: 0, left: -10 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
-                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--clr-text-muted)' }} dy={10} />
-                                <YAxis label={{ value: 'AED Million', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fill: 'var(--clr-text-muted)', fontSize: 11} }} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--clr-text-muted)' }} />
+                                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} dy={10} />
+                                <YAxis label={{ value: 'AED Million', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fill: 'var(--clr-text-muted)', fontSize: 10} }} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
                                 <Tooltip content={<CustomTooltip />} />
-                                <Legend wrapperStyle={{ fontSize: 11, fontWeight: 600, color: 'var(--clr-text-muted)', paddingTop: 10 }} iconType="square" iconSize={8} />
-                                <Bar name="Trade Receivables" dataKey="tr" stackId="a" fill="var(--clr-primary)" barSize={24} />
+                                <Legend wrapperStyle={{ fontSize: 10, fontWeight: 600, color: 'var(--clr-text-muted)', paddingTop: 10 }} iconType="square" iconSize={8} />
+                                <Bar name="Trade Receivables" dataKey="tr" stackId="a" fill="var(--clr-primary)" barSize={20} />
                                 <Bar name="Inventories" dataKey="inv" stackId="a" fill="var(--clr-cyan)" />
                                 <Bar name="Trade Payables" dataKey="tp" stackId="a" fill="var(--clr-success)" radius={[3, 3, 0, 0]} />
                                 <Line name="Trade Working Capital" type="monotone" dataKey="twc" stroke="var(--clr-text)" strokeWidth={2} dot={{ r: 4, fill: 'var(--clr-text)' }} />
@@ -243,21 +243,21 @@ export default function ExecutiveDashboard() {
                 </div>
 
                 {/* Revenue by Region */}
-                <div className="card" style={{ flex: 1.2 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Globe size={18} color="var(--clr-primary)" /> Revenue by Region
+                <div className="card" style={{ flex: 1.2, padding: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Globe size={16} color="var(--clr-primary)" /> Revenue by Region
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</div>
                     </div>
-                    <div style={{ height: 280 }}>
+                    <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart layout="vertical" data={revenueRegionData} margin={{ top: 0, right: 30, bottom: 0, left: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--clr-border-strong)" />
-                                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--clr-text-muted)' }} />
-                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--clr-text-muted)', fontWeight: 600 }} width={50} />
+                                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
+                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)', fontWeight: 600 }} width={50} />
                                 <Tooltip content={<CustomTooltip />} cursor={{fill: 'var(--clr-surface-2)'}} />
-                                <Bar dataKey="value" fill="var(--clr-primary)" barSize={18} radius={[0, 4, 4, 0]}>
+                                <Bar dataKey="value" fill="var(--clr-primary)" barSize={16} radius={[0, 4, 4, 0]}>
                                     {revenueRegionData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill="var(--clr-primary)" />
                                     ))}
@@ -268,23 +268,23 @@ export default function ExecutiveDashboard() {
                 </div>
 
                 {/* Profitability by Region */}
-                <div className="card" style={{ flex: 1.2 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <div style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <BarChart3 size={18} color="var(--clr-primary)" /> Profitability by Region
+                <div className="card" style={{ flex: 1.2, padding: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <BarChart3 size={16} color="var(--clr-primary)" /> Profitability by Region
                         </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</div>
                     </div>
-                    <div style={{ height: 280 }}>
+                    <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={profitRegionData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--clr-text-muted)', fontWeight: 600 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--clr-text-muted)' }} />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)', fontWeight: 600 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
                                 <Tooltip content={<CustomTooltip />} cursor={{fill: 'var(--clr-surface-2)'}} />
-                                <Legend wrapperStyle={{ fontSize: 11, fontWeight: 600, color: 'var(--clr-text-muted)', paddingTop: 10 }} iconType="square" iconSize={8} />
-                                <Bar name="Gross Profit" dataKey="gp" fill="var(--clr-primary)" barSize={16} radius={[3, 3, 0, 0]} />
-                                <Bar name="Net Profit" dataKey="np" fill="var(--clr-success)" barSize={16} radius={[3, 3, 0, 0]} />
+                                <Legend wrapperStyle={{ fontSize: 10, fontWeight: 600, color: 'var(--clr-text-muted)', paddingTop: 10 }} iconType="square" iconSize={8} />
+                                <Bar name="Gross Profit" dataKey="gp" fill="var(--clr-primary)" barSize={14} radius={[3, 3, 0, 0]} />
+                                <Bar name="Net Profit" dataKey="np" fill="var(--clr-success)" barSize={14} radius={[3, 3, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -292,14 +292,14 @@ export default function ExecutiveDashboard() {
             </div>
 
             {/* 4. TABLE */}
-            <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <FileText size={20} color="var(--clr-primary)" /> Key Financial Parameters
+            <div className="card" style={{ padding: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <FileText size={18} color="var(--clr-primary)" /> Key Financial Parameters
                     </div>
-                    <div style={{ display: 'flex', background: 'var(--clr-surface-2)', borderRadius: 8, padding: 3, border: '1px solid var(--clr-border)' }}>
-                        <button style={{ background: 'var(--clr-primary)', color: '#fff', border: 'none', padding: '6px 20px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>Values</button>
-                        <button style={{ background: 'transparent', color: 'var(--clr-text-muted)', border: 'none', padding: '6px 20px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Ratios / Days</button>
+                    <div style={{ display: 'flex', background: 'var(--clr-surface-2)', borderRadius: 6, padding: 3, border: '1px solid var(--clr-border)' }}>
+                        <button style={{ background: 'var(--clr-primary)', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>Values</button>
+                        <button style={{ background: 'transparent', color: 'var(--clr-text-muted)', border: 'none', padding: '6px 16px', borderRadius: 4, fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Ratios / Days</button>
                     </div>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
@@ -312,7 +312,7 @@ export default function ExecutiveDashboard() {
                                 <th className="th-cell">MoM Change</th>
                                 <th className="th-cell">Mar 2024</th>
                                 <th className="th-cell">YoY Change</th>
-                                <th className="th-cell" style={{ width: 120, textAlign: 'center' }}>Trend (12M)</th>
+                                <th className="th-cell" style={{ width: 100, textAlign: 'center' }}>Trend (12M)</th>
                                 <th className="th-cell">Comments</th>
                             </tr>
                         </thead>
@@ -329,7 +329,7 @@ export default function ExecutiveDashboard() {
                                     <td className="td-cell" style={{ color: row.yoyRed ? 'var(--clr-danger)' : 'var(--clr-success)', fontFamily: 'var(--font-mono)' }}>
                                         {row.yoyPos ? '?' : '?'} {row.yoy}
                                     </td>
-                                    <td className="td-cell" style={{ width: 120, height: 44, padding: '4px 16px' }}>
+                                    <td className="td-cell" style={{ width: 100, height: 40, padding: '4px 16px' }}>
                                         <Sparkline data={[10, 15, 12, 18, 16, 22, 20, 25, 23, 28, 26, 30]} colorClass="blue" />
                                     </td>
                                     <td className="td-cell" style={{ color: 'var(--clr-text-muted)', fontWeight: 500 }}>{row.comment}</td>
