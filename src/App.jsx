@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import CFODashboard from './pages/CFODashboard';
+import ExecutiveDashboard from './pages/ExecutiveDashboard';
 import ExecDashboard from './pages/ExecDashboard';
 import PLAnalytics from './pages/PLAnalytics';
 import ARDashboard from './pages/ARDashboard';
@@ -63,7 +64,7 @@ function App() {
               {/* Each route is guarded by ProtectedRoute with its pageKey */}
               {/* <Route path="/dashboard"          element={<ProtectedRoute pageKey="dashboard"          element={<CFODashboard />} />} /> */}
               <Route path="/profile" element={<MyProfile />} />
-              {/* <Route path="/exec-dashboard"     element={<ProtectedRoute pageKey="exec-dashboard"     element={<ExecDashboard />} />} /> */}
+              <Route path="/exec-dashboard" element={<ExecutiveDashboard />} />
               {/* <Route path="/finsight-dashboard" element={<FinSightDashboard />} /> */}
               {/* <Route path="/country-performance"element={<ProtectedRoute pageKey="country-performance"element={<PlaceholderPage title="Country Performance" />} />} /> */}
               {/* <Route path="/working-capital"    element={<ProtectedRoute pageKey="working-capital"    element={<WCDashboard />} />} /> */}
