@@ -69,7 +69,7 @@ const NAV_BY_ROLE = {
     { to: '/receivables', label: 'Receivables Report', group: 'Reports' },
     { to: '/payables', label: 'Payables Report', group: 'Reports' },
     { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
-    { to: '/WorkingCapital', label: 'WorkingCapital Report', group: 'Reports' },
+    { to: '/WorkingCapital', label: 'Working Capital Report', group: 'Reports' },
     { to: '/FinancialPosition', label: 'Financial Position ', group: 'Reports' },
 
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },

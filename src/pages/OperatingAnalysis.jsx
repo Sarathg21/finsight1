@@ -729,6 +729,10 @@ const operatingAnalysisUniformStyles = `
 
     .operating-analysis-page .oa-footer {
         position: relative;
+
+          display: flex;
+         align-items: center;
+         width: 100%;
         left: auto;
         right: auto;
         bottom: auto;
@@ -2929,6 +2933,20 @@ Only the View All API is refreshed.
         );
     };
 
+
+    const formatDateDDMMYYYY = (date) => {
+        if (!date) return "—";
+
+        const d = new Date(date);
+
+        if (Number.isNaN(d.getTime())) return "—";
+
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+
+        return `${day}-${month}-${year}`;
+    };
     /* =====================================================
        LOAD FILTER OPTIONS
     ===================================================== */
@@ -3935,18 +3953,24 @@ Only the View All API is refreshed.
                 FOOTER
             ===================================================== */}
 
-            <div
-                className="oa-footer"
-            >
-
+            <div className="oa-footer">
                 <FooterNote
                     title="Note:"
-                    message={`All values are in ${reportingCurrency}, | Last Updated On ${formatDataAsOf(dataAsOf)}`}
+                    message={`All values are in ${reportingCurrency}, | Last Updated On ${formatDateDDMMYYYY(dataAsOf)}`}
                     showRefresh={false}
                 />
 
+                <span
+                    style={{
+                        marginLeft: "auto",
+                        whiteSpace: "nowrap",
+                        fontSize: 12,
+                        color: "#64748B",
+                    }}
+                >
+                    ☁️ Source: Oracle Fusion Cloud
+                </span>
             </div>
-
         </div>
     );
 }

@@ -1,4 +1,5 @@
 
+
 // import React, { useEffect, useMemo, useRef, useState } from "react";
 // import { createPortal } from "react-dom";
 // import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
@@ -89,17 +90,18 @@
 // function formatDate(value) {
 //     if (!value) return "—";
 
-//     const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+//     const raw = String(value).slice(0, 10);
+//     const match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
 
-//     if (Number.isNaN(date.getTime())) {
-//         return value;
+//     if (match) {
+//         const [, year, month, day] = match;
+//         return `${String(day).padStart(2, "0")}-${String(month).padStart(2, "0")}-${year}`;
 //     }
 
-//     return date.toLocaleDateString("en-GB", {
-//         day: "2-digit",
-//         month: "short",
-//         year: "numeric",
-//     });
+//     const date = new Date(`${raw}T00:00:00`);
+//     if (Number.isNaN(date.getTime())) return value;
+
+//     return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
 // }
 
 // function formatMonthLabel(value) {
@@ -412,6 +414,7 @@
 //             options.subDivisions,
 //             source.subDivisions
 //         ),
+//         aging_basis: source.agingBasis || "DUE_DATE",
 //         as_on_date: source.asOnDate || undefined,
 //     };
 // }
@@ -541,6 +544,15 @@
 //                     "working_capital",
 //                     "value",
 //                     "amount"
+//                 )
+//             ),
+//             ccc: toNumber(
+//                 getValue(
+//                     row,
+//                     "cash_conversion_cycle_days",
+//                     "ccc_days",
+//                     "ccc",
+//                     "cash_conversion_cycle"
 //                 )
 //             ),
 //         }))
@@ -801,7 +813,7 @@
 //         borderRadius: "var(--radius-md)",
 //         padding: "10px 14px",
 //         display: "grid",
-//         gridTemplateColumns: "118px 118px 118px 118px 130px 92px 70px 60px",
+//         gridTemplateColumns: "118px 118px 118px 118px 118px 112px 130px 70px 60px",
 //         gap: "10px 6px",
 //         alignItems: "end",
 //         marginBottom: "16px",
@@ -880,7 +892,7 @@
 // }
 
 // .wc-sales-page .wc-filter-grid {
-//     grid-template-columns: 118px 118px 118px 118px 130px 92px 70px 60px !important;
+//     grid-template-columns: 118px 118px 118px 118px 118px 112px 130px 70px 60px !important;
 //     gap: 10px 6px !important;
 //     align-items: end !important;
 // }
@@ -1136,6 +1148,11 @@
 //             bg: "#FDF2F8",
 //             iconBg: "#FCE0EE",
 //             accent: "#DB2777",
+//         },
+//         "Target CCC": {
+//             bg: "#F0F9FF",
+//             iconBg: "#DDF3FF",
+//             accent: "#0284C7",
 //         },
 //     };
 
@@ -1464,16 +1481,20 @@
 //                                 label: "🔎 View All",
 //                                 onClick: onViewAll,
 //                             },
-//                             {
-//                                 key: "excel",
-//                                 label: "📊 Export Excel",
-//                                 onClick: onExportExcel,
-//                             },
-//                             {
-//                                 key: "pdf",
-//                                 label: "📄 Export PDF",
-//                                 onClick: onExportPdf,
-//                             },
+//                             ...(typeof onExportExcel === "function"
+//                                 ? [{
+//                                     key: "excel",
+//                                     label: "📊 Export Excel",
+//                                     onClick: onExportExcel,
+//                                 }]
+//                                 : []),
+//                             ...(typeof onExportPdf === "function"
+//                                 ? [{
+//                                     key: "pdf",
+//                                     label: "📄 Export PDF",
+//                                     onClick: onExportPdf,
+//                                 }]
+//                                 : []),
 //                         ]}
 //                     />
 //                 </div>
@@ -1564,16 +1585,20 @@
 //             label: "🔎 View All",
 //             onClick: onViewAll,
 //         },
-//         {
-//             key: "excel",
-//             label: "📊 Export Excel",
-//             onClick: onExportExcel,
-//         },
-//         {
-//             key: "pdf",
-//             label: "📄 Export PDF",
-//             onClick: onExportPdf,
-//         },
+//         ...(typeof onExportExcel === "function"
+//             ? [{
+//                 key: "excel",
+//                 label: "📊 Export Excel",
+//                 onClick: onExportExcel,
+//             }]
+//             : []),
+//         ...(typeof onExportPdf === "function"
+//             ? [{
+//                 key: "pdf",
+//                 label: "📄 Export PDF",
+//                 onClick: onExportPdf,
+//             }]
+//             : []),
 //     ];
 
 //     return (
@@ -1990,103 +2015,7 @@
 //     popup.document.close(); popup.focus(); setTimeout(() => popup.print(), 300);
 // }
 
-// function exportCccTrendToExcel(data) {
-//     const rows = Array.isArray(data) ? data : [];
-//     const xmlRows = rows.map((row) => `
-//         <Row>
-//             <Cell><Data ss:Type="String">${escapeSpreadsheetXml(row.period)}</Data></Cell>
-//             <Cell><Data ss:Type="String">${row.dso === null ? "—" : Number(row.dso)}</Data></Cell>
-//             <Cell><Data ss:Type="String">${row.dio === null ? "—" : Number(row.dio)}</Data></Cell>
-//             <Cell><Data ss:Type="String">${row.dpo === null ? "—" : Number(row.dpo)}</Data></Cell>
-//             <Cell><Data ss:Type="String">${row.ccc === null ? "—" : Number(row.ccc)}</Data></Cell>
-//             <Cell><Data ss:Type="String">${escapeSpreadsheetXml(row.status || "")}</Data></Cell>
-//         </Row>
-//     `).join("");
 
-//     const xml = `<?xml version="1.0"?>
-// <?mso-application progid="Excel.Sheet"?>
-// <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
-//     xmlns:o="urn:schemas-microsoft-com:office:office"
-//     xmlns:x="urn:schemas-microsoft-com:office:excel"
-//     xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-//     <Worksheet ss:Name="CCC Trend">
-//         <Table>
-//             <Row>
-//                 <Cell><Data ss:Type="String">Period</Data></Cell>
-//                 <Cell><Data ss:Type="String">DSO (Days)</Data></Cell>
-//                 <Cell><Data ss:Type="String">DIO (Days)</Data></Cell>
-//                 <Cell><Data ss:Type="String">DPO (Days)</Data></Cell>
-//                 <Cell><Data ss:Type="String">CCC (Days)</Data></Cell>
-//                 <Cell><Data ss:Type="String">Status</Data></Cell>
-//             </Row>
-//             ${xmlRows}
-//         </Table>
-//     </Worksheet>
-// </Workbook>`;
-
-//     const blob = new Blob([xml], { type: "application/vnd.ms-excel" });
-//     const url = URL.createObjectURL(blob);
-//     const anchor = document.createElement("a");
-//     anchor.href = url;
-//     anchor.download = "working-capital-cash-conversion-cycle-trend.xls";
-//     document.body.appendChild(anchor);
-//     anchor.click();
-//     anchor.remove();
-//     URL.revokeObjectURL(url);
-// }
-
-// function exportCccTrendToPdf(data) {
-//     const rows = Array.isArray(data) ? data : [];
-//     const popup = window.open("", "_blank", "width=1000,height=750");
-
-//     if (!popup) {
-//         window.alert("Please allow pop-ups to export the Cash Conversion Cycle Trend as PDF.");
-//         return;
-//     }
-
-//     const tableRows = rows.map((row) => `
-//         <tr>
-//             <td>${escapeSpreadsheetXml(row.period)}</td>
-//             <td>${row.dso === null ? "—" : Number(row.dso).toFixed(2)}</td>
-//             <td>${row.dio === null ? "—" : Number(row.dio).toFixed(2)}</td>
-//             <td>${row.dpo === null ? "—" : Number(row.dpo).toFixed(2)}</td>
-//             <td>${row.ccc === null ? "—" : Number(row.ccc).toFixed(2)}</td>
-//             <td>${escapeSpreadsheetXml(row.status === "INSUFFICIENT_INVENTORY_HISTORY" ? "Insufficient inventory history" : row.status || "")}</td>
-//         </tr>
-//     `).join("");
-
-//     popup.document.write(`
-//         <!doctype html>
-//         <html>
-//         <head>
-//             <title>Cash Conversion Cycle Trend (Days)</title>
-//             <style>
-//                 body { font-family: Arial, sans-serif; color: #0F172A; padding: 32px; }
-//                 h1 { margin: 0 0 6px; font-size: 20px; }
-//                 p { margin: 0 0 18px; color: #64748B; font-size: 12px; }
-//                 table { width: 100%; border-collapse: collapse; font-size: 12px; }
-//                 th { background: #EEF2FF; color: #1E3A8A; text-align: left; padding: 9px 10px; border-bottom: 2px solid #CBD5E1; }
-//                 td { padding: 9px 10px; border-bottom: 1px solid #E2E8F0; }
-//                 .note { margin-top: 18px; color: #64748B; font-size: 10px; }
-//             </style>
-//         </head>
-//         <body>
-//             <h1>Cash Conversion Cycle Trend (Days)</h1>
-//             <p>Backend values · CCC is not calculated in the frontend</p>
-//             <table>
-//                 <thead>
-//                     <tr><th>Period</th><th>DSO (Days)</th><th>DIO (Days)</th><th>DPO (Days)</th><th>CCC (Days)</th><th>Status</th></tr>
-//                 </thead>
-//                 <tbody>${tableRows}</tbody>
-//             </table>
-//             <div class="note">DIO and CCC require sufficient inventory history when the backend returns insufficient history.</div>
-//         </body>
-//         </html>
-//     `);
-//     popup.document.close();
-//     popup.focus();
-//     setTimeout(() => popup.print(), 250);
-// }
 
 // function exportLiquidityRatioToExcel(value, period) {
 //     const xml = `<?xml version="1.0"?>
@@ -2685,21 +2614,7 @@
 //     setTimeout(() => popup.print(), 250);
 // }
 
-// function exportComponentsToExcel(rows, currency) {
-//     exportRowsToExcelFile(rows, [
-//         { key: "label", label: "Component" },
-//         { key: "value", label: `Amount (${currency})` },
-//         { key: "type", label: "Type" },
-//     ], "working-capital-components.xls", "Working Capital Components");
-// }
 
-// function exportComponentsToPdf(rows, currency) {
-//     exportRowsToPdfFile("Working Capital Components", rows, [
-//         { key: "label", label: "Component" },
-//         { key: "value", label: `Amount (${currency})` },
-//         { key: "type", label: "Type" },
-//     ], `${currency} — Receivables + Inventory − Payables = Trade Working Capital`);
-// }
 
 // function exportAssetsVsLiabilitiesToExcel(rows, currency) {
 //     exportRowsToExcelFile(rows, [
@@ -2850,16 +2765,6 @@
 //                             key: "view-all",
 //                             label: "🔎 View All",
 //                             onClick: onViewAll,
-//                         },
-//                         {
-//                             key: "excel",
-//                             label: "📊 Export Excel",
-//                             onClick: () => exportComponentsToExcel(rows, currency),
-//                         },
-//                         {
-//                             key: "pdf",
-//                             label: "📄 Export PDF",
-//                             onClick: () => exportComponentsToPdf(rows, currency),
 //                         },
 //                     ]}
 //                 />
@@ -3368,7 +3273,7 @@
 //                     : `${selected.length} selected`;
 
 //     return (
-//         <div ref={ref} style={{ position: "relative", minWidth: 0 }}>
+//         <div ref={ref} style={{ position: "relative", minWidth: 0, zIndex: open ? 1500 : 1 }}>
 //             <label style={styles.filterLabel}>{label}</label>
 
 //             <button
@@ -3422,21 +3327,24 @@
 //                     }}
 //                 >
 //                     <div style={{ padding: "7px", borderBottom: "1px solid #E2E8F0" }}>
-//                         <input
-//                             value={query}
-//                             onChange={(event) => setQuery(event.target.value)}
-//                             placeholder={`Search ${label}`}
-//                             style={{
-//                                 width: "100%",
-//                                 height: "30px",
-//                                 border: "1px solid #CBD5E1",
-//                                 borderRadius: "6px",
-//                                 padding: "0 9px",
-//                                 fontSize: "0.70rem",
-//                                 outline: "none",
-//                                 boxSizing: "border-box",
-//                             }}
-//                         />
+//                         <div style={{ position: "relative", width: "100%" }}>
+//                             <span aria-hidden="true" style={{ position: "absolute", left: 9, top: 7, fontSize: "0.72rem", lineHeight: 1, pointerEvents: "none" }}>🔍</span>
+//                             <input
+//                                 value={query}
+//                                 onChange={(event) => setQuery(event.target.value)}
+//                                 placeholder={`Search ${label}`}
+//                                 style={{
+//                                     width: "100%",
+//                                     height: "30px",
+//                                     border: "1px solid #CBD5E1",
+//                                     borderRadius: "6px",
+//                                     padding: "0 9px 0 28px",
+//                                     fontSize: "0.70rem",
+//                                     outline: "none",
+//                                     boxSizing: "border-box",
+//                                 }}
+//                             />
+//                         </div>
 //                     </div>
 
 //                     <div
@@ -3887,7 +3795,7 @@
 //     options = [],
 //     value = [],
 //     onChange,
-//     width = 150,
+//     width = 118,
 // }) {
 //     const [open, setOpen] = useState(false);
 //     const [query, setQuery] = useState("");
@@ -3970,22 +3878,25 @@
 //                     }}
 //                 >
 //                     <div style={{ padding: 7, borderBottom: "1px solid #F1F5F9" }}>
-//                         <input
-//                             autoFocus
-//                             value={query}
-//                             onChange={(e) => setQuery(e.target.value)}
-//                             placeholder={`Search ${label}`}
-//                             style={{
-//                                 width: "100%",
-//                                 height: 29,
-//                                 border: "1px solid #CBD5E1",
-//                                 borderRadius: 6,
-//                                 padding: "0 8px",
-//                                 fontSize: "0.70rem",
-//                                 outline: "none",
-//                                 boxSizing: "border-box",
-//                             }}
-//                         />
+//                         <div style={{ position: "relative", width: "100%" }}>
+//                             <span aria-hidden="true" style={{ position: "absolute", left: 8, top: 6, fontSize: "0.70rem", lineHeight: 1, pointerEvents: "none" }}>🔍</span>
+//                             <input
+//                                 autoFocus
+//                                 value={query}
+//                                 onChange={(e) => setQuery(e.target.value)}
+//                                 placeholder={`Search ${label}`}
+//                                 style={{
+//                                     width: "100%",
+//                                     height: 29,
+//                                     border: "1px solid #CBD5E1",
+//                                     borderRadius: 6,
+//                                     padding: "0 8px 0 27px",
+//                                     fontSize: "0.70rem",
+//                                     outline: "none",
+//                                     boxSizing: "border-box",
+//                                 }}
+//                             />
+//                         </div>
 //                     </div>
 //                     <div style={{ display: "flex", gap: 5, padding: "6px 8px", borderBottom: "1px solid #F1F5F9" }}>
 //                         <button
@@ -4109,9 +4020,9 @@
 //                     transition: "all 0.15s ease",
 //                     outline: "none",
 //                 }}
-//                 title={`Display in ${currency} Millions`}
+//                 title={`Display in ${currency} Million`}
 //             >
-//                 {currency} Millions
+//                 {currency} Million
 //             </button>
 //         </div>
 //     );
@@ -4141,6 +4052,462 @@
 //     };
 // }
 
+// function TradeWorkingCapitalViewAllChart({
+//     rows = [],
+//     currency = "",
+//     unit = "aed",
+// }) {
+//     const [hoveredIndex, setHoveredIndex] = useState(null);
+
+//     const data = (Array.isArray(rows) ? rows : [])
+//         .map((row) => ({
+//             period: String(row?.period ?? "—"),
+//             value: toNumber(row?.value),
+//         }))
+//         .filter((row) => row.value !== null);
+
+//     const displayValue = (value) => {
+//         const n = toNumber(value);
+//         if (n === null) return "—";
+//         if (unit === "millions") return `${(n / 1000000).toFixed(2)}M`;
+//         return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+//     };
+
+//     const axisValue = (value) => {
+//         const n = toNumber(value);
+//         if (n === null) return "—";
+//         if (unit === "millions") return `${(n / 1000000).toFixed(1)}M`;
+//         const abs = Math.abs(n);
+//         if (abs >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+//         if (abs >= 1000) return `${(n / 1000).toFixed(1)}K`;
+//         return Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+//     };
+
+//     const values = data.map((item) => item.value);
+//     const rawMin = values.length ? Math.min(...values) : 0;
+//     const rawMax = values.length ? Math.max(...values) : 1;
+//     const rawRange = rawMax - rawMin;
+//     const padding = rawRange > 0
+//         ? rawRange * 0.12
+//         : Math.max(Math.abs(rawMax) * 0.12, 1);
+//     const minValue = Math.min(0, rawMin) - padding;
+//     const maxValue = Math.max(0, rawMax) + padding;
+
+//     const CustomTooltip = ({ active, payload, label }) => {
+//         if (!active || !payload?.length) return null;
+
+//         const value = payload[0]?.value;
+
+//         return (
+//             <div
+//                 style={{
+//                     background: "#FFFFFF",
+//                     border: "1px solid #D8DEE8",
+//                     borderRadius: 9,
+//                     padding: "10px 13px",
+//                     boxShadow: "0 8px 20px rgba(15,23,42,0.12)",
+//                     minWidth: 185,
+//                     fontFamily: "Inter, system-ui, sans-serif",
+//                 }}
+//             >
+//                 <div
+//                     style={{
+//                         color: "#1E293B",
+//                         fontSize: "0.68rem",
+//                         fontWeight: 800,
+//                         marginBottom: 8,
+//                     }}
+//                 >
+//                     {label}
+//                 </div>
+//                 <div
+//                     style={{
+//                         display: "flex",
+//                         alignItems: "center",
+//                         justifyContent: "space-between",
+//                         gap: 22,
+//                     }}
+//                 >
+//                     <span
+//                         style={{
+//                             color: "#64748B",
+//                             fontSize: "0.64rem",
+//                             fontWeight: 600,
+//                             whiteSpace: "nowrap",
+//                         }}
+//                     >
+//                         Trade Working Capital
+//                     </span>
+//                     <span
+//                         style={{
+//                             color: "#1E3A8A",
+//                             fontSize: "0.70rem",
+//                             fontWeight: 800,
+//                             whiteSpace: "nowrap",
+//                         }}
+//                     >
+//                         {displayValue(value)}
+//                     </span>
+//                 </div>
+//             </div>
+//         );
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 height: "100%",
+//                 minHeight: 300,
+//                 border: "1px solid #E2E8F0",
+//                 borderRadius: 10,
+//                 background: "#FFFFFF",
+//                 padding: "12px 12px 10px",
+//                 boxSizing: "border-box",
+//                 display: "flex",
+//                 flexDirection: "column",
+//                 overflow: "hidden",
+//             }}
+//         >
+//             <div
+//                 style={{
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "space-between",
+//                     gap: 8,
+//                     paddingBottom: 8,
+//                     borderBottom: "1px solid #F1F5F9",
+//                 }}
+//             >
+//                 <div>
+//                     <div style={{ color: "#173575", fontSize: "0.76rem", fontWeight: 800 }}>
+//                         Trade Working Capital Trend
+//                     </div>
+//                     <div style={{ marginTop: 2, color: "#94A3B8", fontSize: "0.60rem", fontWeight: 600 }}>
+//                         {unit === "millions" ? `${currency || "AED"} Million` : currency || "AED"}
+//                     </div>
+//                 </div>
+//                 <div
+//                     style={{
+//                         width: 9,
+//                         height: 9,
+//                         borderRadius: "50%",
+//                         background: "#4F46E5",
+//                         boxShadow: "0 0 0 3px #EEF2FF",
+//                     }}
+//                     title="Trade Working Capital"
+//                 />
+//             </div>
+
+//             {data.length ? (
+//                 <div
+//                     style={{
+//                         flex: 1,
+//                         minHeight: 255,
+//                         marginTop: 8,
+//                         position: "relative",
+//                         overflow: "hidden",
+//                     }}
+//                     onMouseLeave={() => setHoveredIndex(null)}
+//                 >
+//                     <ResponsiveContainer width="100%" height="100%">
+//                         <AreaChart
+//                             data={data}
+//                             margin={{ top: 24, right: 20, left: 8, bottom: 8 }}
+//                             onMouseMove={(state) => {
+//                                 if (state?.activeTooltipIndex !== undefined && state?.activeTooltipIndex !== null) {
+//                                     setHoveredIndex(state.activeTooltipIndex);
+//                                 }
+//                             }}
+//                             onMouseLeave={() => setHoveredIndex(null)}
+//                         >
+//                             <defs>
+//                                 <linearGradient id="wcTradeViewAllArea" x1="0" y1="0" x2="0" y2="1">
+//                                     <stop offset="0%" stopColor="#6366F1" stopOpacity={0.24} />
+//                                     <stop offset="100%" stopColor="#6366F1" stopOpacity={0.03} />
+//                                 </linearGradient>
+//                             </defs>
+//                             <CartesianGrid stroke="#E2E8F0" strokeDasharray="4 4" vertical={false} />
+//                             <XAxis
+//                                 dataKey="period"
+//                                 tick={{ fill: "#64748B", fontSize: 10, fontWeight: 600 }}
+//                                 axisLine={{ stroke: "#CBD5E1" }}
+//                                 tickLine={{ stroke: "#CBD5E1" }}
+//                             />
+//                             <YAxis
+//                                 domain={[minValue, maxValue]}
+//                                 tickFormatter={axisValue}
+//                                 width={52}
+//                                 tick={{ fill: "#64748B", fontSize: 9, fontWeight: 600 }}
+//                                 axisLine={false}
+//                                 tickLine={false}
+//                             />
+//                             <Tooltip
+//                                 cursor={{ stroke: "#94A3B8", strokeDasharray: "4 4", strokeWidth: 1 }}
+//                                 content={<CustomTooltip />}
+//                             />
+//                             <Area
+//                                 type="monotone"
+//                                 dataKey="value"
+//                                 name="Trade Working Capital"
+//                                 stroke="#4F46E5"
+//                                 strokeWidth={3}
+//                                 fill="url(#wcTradeViewAllArea)"
+//                                 dot={{ r: 3.5, fill: "#FFFFFF", stroke: "#4F46E5", strokeWidth: 2 }}
+//                                 activeDot={{
+//                                     r: 7,
+//                                     fill: "#FFFFFF",
+//                                     stroke: "#4F46E5",
+//                                     strokeWidth: 3,
+//                                 }}
+//                                 isAnimationActive={true}
+//                                 animationDuration={900}
+//                             />
+//                         </AreaChart>
+//                     </ResponsiveContainer>
+//                 </div>
+//             ) : (
+//                 <div
+//                     style={{
+//                         flex: 1,
+//                         display: "flex",
+//                         alignItems: "center",
+//                         justifyContent: "center",
+//                         color: "#94A3B8",
+//                         fontSize: "0.72rem",
+//                     }}
+//                 >
+//                     No Trade Working Capital history for the selected filters.
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+// function modalNumber(value, currency, unit = "aed") {
+//     const n = toNumber(value);
+//     if (n === null) return "—";
+//     if (unit === "millions") return `${(n / 1000000).toFixed(2)}M`;
+//     return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+// }
+
+// function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
+//     const safeRows = Array.isArray(rows) ? rows : [];
+
+//     const periods = Array.from(
+//         new Set(
+//             safeRows
+//                 .map((row) => String(row?.period ?? ""))
+//                 .filter(Boolean)
+//         )
+//     );
+
+//     const divisions = Array.from(
+//         new Set(
+//             safeRows
+//                 .map((row) => String(row?.name ?? "—"))
+//                 .filter((name) => name && name !== "—")
+//         )
+//     );
+
+//     const lookup = new Map();
+//     safeRows.forEach((row) => {
+//         const name = String(row?.name ?? "—");
+//         const period = String(row?.period ?? "");
+//         if (!name || name === "—" || !period) return;
+//         lookup.set(`${name}__${period}`, row);
+//     });
+
+//     const formatValue = (value) => {
+//         const n = toNumber(value);
+//         if (n === null) return "—";
+//         if (unit === "millions") return `${(n / 1000000).toFixed(2)}M`;
+//         return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+//     };
+
+//     if (!divisions.length || !periods.length) {
+//         return (
+//             <div
+//                 style={{
+//                     width: "100%",
+//                     flex: 1,
+//                     minHeight: 0,
+//                     overflow: "auto",
+//                     display: "flex",
+//                     alignItems: "center",
+//                     justifyContent: "center",
+//                     color: "#94A3B8",
+//                     fontSize: "0.72rem",
+//                 }}
+//             >
+//                 No available month-on-month history.
+//             </div>
+//         );
+//     }
+
+//     return (
+//         <div
+//             style={{
+//                 width: "100%",
+//                 flex: 1,
+//                 minHeight: 0,
+//                 overflow: "auto",
+//                 borderTop: "1px solid #E2E8F0",
+//             }}
+//         >
+//             <table
+//                 style={{
+//                     width: "100%",
+//                     minWidth: Math.max(620, 190 + periods.length * 188),
+//                     borderCollapse: "collapse",
+//                     tableLayout: "fixed",
+//                     fontFamily: "Inter, system-ui, sans-serif",
+//                 }}
+//             >
+//                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+//                     <tr>
+//                         <th
+//                             rowSpan={2}
+//                             style={{
+//                                 ...th,
+//                                 width: 190,
+//                                 minWidth: 190,
+//                                 background: "#F8FAFC",
+//                                 borderBottom: "1px solid #E2E8F0",
+//                                 borderRight: "1px solid #E2E8F0",
+//                                 padding: "8px 10px",
+//                                 fontSize: "0.61rem",
+//                                 whiteSpace: "nowrap",
+//                             }}
+//                         >
+//                             PARENT DIVISION
+//                         </th>
+//                         {periods.map((period) => (
+//                             <th
+//                                 key={`${period}-group`}
+//                                 colSpan={2}
+//                                 style={{
+//                                     ...th,
+//                                     textAlign: "center",
+//                                     background: "#F8FAFC",
+//                                     borderLeft: "1px solid #E2E8F0",
+//                                     borderBottom: "1px solid #E2E8F0",
+//                                     padding: "7px 4px",
+//                                     fontSize: "0.61rem",
+//                                     whiteSpace: "nowrap",
+//                                 }}
+//                             >
+//                                 {period}
+//                             </th>
+//                         ))}
+//                     </tr>
+//                     <tr>
+//                         {periods.map((period) => (
+//                             <React.Fragment key={`${period}-subheader`}>
+//                                 <th
+//                                     style={{
+//                                         ...thRight,
+//                                         minWidth: 94,
+//                                         width: 94,
+//                                         textAlign: "center",
+//                                         background: "#FBFCFE",
+//                                         borderLeft: "1px solid #E2E8F0",
+//                                         borderBottom: "1px solid #E2E8F0",
+//                                         padding: "7px 3px",
+//                                         fontSize: "0.56rem",
+//                                         lineHeight: 1.15,
+//                                         whiteSpace: "normal",
+//                                         wordBreak: "normal",
+//                                     }}
+//                                 >
+//                                     <span style={{ display: "block" }}>TRADE </span>
+//                                     <span style={{ display: "block" }}> WORKING</span>
+//                                     <span style={{ display: "block" }}>CAPITAL</span>
+//                                 </th>
+//                                 <th
+//                                     style={{
+//                                         ...thRight,
+//                                         minWidth: 64,
+//                                         width: 64,
+//                                         textAlign: "center",
+//                                         background: "#FBFCFE",
+//                                         borderLeft: "1px solid #E2E8F0",
+//                                         borderBottom: "1px solid #E2E8F0",
+//                                         padding: "7px 3px",
+//                                         fontSize: "0.58rem",
+//                                         whiteSpace: "nowrap",
+//                                     }}
+//                                 >
+//                                     CCC
+//                                 </th>
+//                             </React.Fragment>
+//                         ))}
+//                     </tr>
+//                 </thead>
+//                 <tbody>
+//                     {divisions.map((division, divisionIndex) => (
+//                         <tr key={`${division}-${divisionIndex}`}>
+//                             <td
+//                                 style={{
+//                                     ...td,
+//                                     padding: "8px 10px",
+//                                     fontSize: "0.68rem",
+//                                     fontWeight: 700,
+//                                     color: "#334155",
+//                                     background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
+//                                     borderRight: "1px solid #E2E8F0",
+//                                     whiteSpace: "nowrap",
+//                                     overflow: "hidden",
+//                                     textOverflow: "ellipsis",
+//                                 }}
+//                                 title={division}
+//                             >
+//                                 {division}
+//                             </td>
+//                             {periods.map((period) => {
+//                                 const row = lookup.get(`${division}__${period}`);
+//                                 const value = row?.value;
+//                                 const ccc = row?.ccc;
+//                                 return (
+//                                     <React.Fragment key={`${division}-${period}`}>
+//                                         <td
+//                                             style={{
+//                                                 ...tdRight,
+//                                                 minWidth: 94,
+//                                                 padding: "8px 5px",
+//                                                 fontSize: "0.67rem",
+//                                                 whiteSpace: "nowrap",
+//                                                 color: toNumber(value) !== null && toNumber(value) < 0 ? "#DC2626" : "#334155",
+//                                                 fontWeight: 600,
+//                                                 background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
+//                                             }}
+//                                         >
+//                                             {formatValue(value)}
+//                                         </td>
+//                                         <td
+//                                             style={{
+//                                                 ...tdRight,
+//                                                 minWidth: 64,
+//                                                 padding: "8px 5px",
+//                                                 fontSize: "0.67rem",
+//                                                 whiteSpace: "nowrap",
+//                                                 color: "#475569",
+//                                                 fontWeight: 600,
+//                                                 background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
+//                                             }}
+//                                         >
+//                                             {toNumber(ccc) === null ? "—" : `${Number(ccc).toFixed(2)}`}
+//                                         </td>
+//                                     </React.Fragment>
+//                                 );
+//                             })}
+//                         </tr>
+//                     ))}
+//                 </tbody>
+//             </table>
+//         </div>
+//     );
+// }
+
 // function ViewAllModal({
 //     title,
 //     rows,
@@ -4152,11 +4519,14 @@
 //     onApplyFilters,
 //     onExport,
 //     loading = false,
+//     monthOnMonthRows = [],
 // }) {
 //     const isCfo = type === "cfo";
 //     const isCcc = type === "ccc";
 //     const isTrade = type === "trade";
+//     const isComponents = type === "components";
 //     const isTrend = type === "trend";
+//     const showModalExports = !isCcc && !isTrade && !isComponents;
 //     const cfoTh = {
 //         ...th,
 //         padding: "7px 6px",
@@ -4193,6 +4563,7 @@
 //     const [search, setSearch] = useState("");
 //     const [modalUnit, setModalUnit] = useState("aed");
 //     const [page, setPage] = useState(0);
+//     const [cfoViewMode, setCfoViewMode] = useState("detailed");
 //     const pageSize = 15;
 
 //     const [localFilters, setLocalFilters] = useState(() => ({
@@ -4200,6 +4571,7 @@
 //         legalEntities: baseFilters?.legalEntities || [],
 //         parentDivisions: baseFilters?.parentDivisions || [],
 //         subDivisions: baseFilters?.subDivisions || [],
+//         agingBasis: baseFilters?.agingBasis || "DUE_DATE",
 //         asOnDate: baseFilters?.asOnDate || "",
 //     }));
 
@@ -4212,6 +4584,7 @@
 //             asOnDate: baseFilters?.asOnDate || "",
 //         });
 //         setPage(0);
+//         setCfoViewMode("detailed");
 //     }, [baseFilters, type]);
 
 //     const cascaded = useMemo(
@@ -4245,7 +4618,28 @@
 //         return Object.values(row || {}).some((value) => String(value ?? "").toLowerCase().includes(q));
 //     });
 
-//     const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+//     const filteredMonthRows = (Array.isArray(monthOnMonthRows) ? monthOnMonthRows : []).filter((row) => {
+//         if (!search.trim()) return true;
+//         const q = search.toLowerCase();
+//         return Object.values(row || {}).some((value) => String(value ?? "").toLowerCase().includes(q));
+//     });
+
+//     const monthDivisionNames = Array.from(
+//         new Set(
+//             filteredMonthRows
+//                 .map((row) => String(row?.name ?? "—"))
+//                 .filter((name) => name && name !== "—")
+//         )
+//     );
+
+//     const totalPages = Math.max(
+//         1,
+//         Math.ceil(
+//             (isCfo && cfoViewMode === "month-on-month"
+//                 ? monthDivisionNames.length
+//                 : filtered.length) / pageSize
+//         )
+//     );
 //     const safePage = Math.min(page, totalPages - 1);
 //     const pageRows = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
 
@@ -4262,6 +4656,7 @@
 //         <div
 //             role="dialog"
 //             aria-modal="true"
+//             className="wc-sales-view-all-overlay"
 //             style={{
 //                 position: "fixed",
 //                 inset: 0,
@@ -4275,6 +4670,7 @@
 //             }}
 //         >
 //             <div
+//                 className="wc-sales-view-all-modal"
 //                 style={{
 //                     width: "96vw",
 //                     maxWidth: "1500px",
@@ -4314,9 +4710,61 @@
 //                         </div>
 //                     </div>
 //                     <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+//                         {isCfo && (
+//                             <div
+//                                 style={{
+//                                     display: "inline-flex",
+//                                     alignItems: "center",
+//                                     gap: 2,
+//                                     padding: 2,
+//                                     border: "1px solid #D8DEE8",
+//                                     borderRadius: 7,
+//                                     background: "#F8FAFC",
+//                                 }}
+//                             >
+//                                 <button
+//                                     type="button"
+//                                     onClick={() => { setCfoViewMode("detailed"); setPage(0); }}
+//                                     style={{
+//                                         height: 27,
+//                                         padding: "0 9px",
+//                                         border: "none",
+//                                         borderRadius: 5,
+//                                         background: cfoViewMode === "detailed" ? "#1E3A8A" : "transparent",
+//                                         color: cfoViewMode === "detailed" ? "#FFFFFF" : "#475569",
+//                                         fontSize: "0.62rem",
+//                                         fontWeight: 700,
+//                                         cursor: "pointer",
+//                                     }}
+//                                 >
+//                                     Detailed View
+//                                 </button>
+//                                 <button
+//                                     type="button"
+//                                     onClick={() => { setCfoViewMode("month-on-month"); setPage(0); }}
+//                                     style={{
+//                                         height: 27,
+//                                         padding: "0 9px",
+//                                         border: "none",
+//                                         borderRadius: 5,
+//                                         background: cfoViewMode === "month-on-month" ? "#4F46E5" : "transparent",
+//                                         color: cfoViewMode === "month-on-month" ? "#FFFFFF" : "#475569",
+//                                         fontSize: "0.62rem",
+//                                         fontWeight: 700,
+//                                         cursor: "pointer",
+//                                     }}
+//                                 >
+//                                     Month-on-Month by Parent Division
+//                                 </button>
+//                             </div>
+//                         )}
 //                         <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
-//                         <button type="button" onClick={() => onExport?.("excel", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #A7D8BF", background: "#F8FFFC", color: "#168052", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>Excel</button>
-//                         <button type="button" onClick={() => onExport?.("pdf", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #F2B8B8", background: "#FFF8F8", color: "#C23B3B", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>PDF</button>
+//                         {showModalExports && (
+//                             <>
+//                                 <button type="button" onClick={() => onExport?.("excel", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #A7D8BF", background: "#F8FFFC", color: "#168052", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>Excel</button>
+//                                 <button type="button" onClick={() => onExport?.("pdf", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #F2B8B8", background: "#FFF8F8", color: "#C23B3B", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>PDF</button>
+//                             </>
+//                         )}
 //                         <ModalCloseButton onClick={onClose} />
 //                     </div>
 //                 </div>
@@ -4340,11 +4788,58 @@
 //                     <ViewAllMultiSelect label="Sub-Division" options={cascaded.subDivisions} value={localFilters.subDivisions} onChange={(v) => updateCascade("subDivisions", v)} />
 
 //                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+//                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Reporting Currency</span>
+//                         <div
+//                             style={{
+//                                 width: 112,
+//                                 height: 32,
+//                                 border: "1px solid #CBD5E1",
+//                                 borderRadius: 7,
+//                                 background: "#FFFFFF",
+//                                 color: "#334155",
+//                                 padding: "0 9px",
+//                                 display: "flex",
+//                                 alignItems: "center",
+//                                 boxSizing: "border-box",
+//                                 fontSize: "0.72rem",
+//                                 fontWeight: 700,
+//                             }}
+//                         >
+//                             {currency || "AED"}
+//                         </div>
+//                     </div>
+
+//                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+//                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Aging Basis</span>
+//                         <select
+//                             value={localFilters.agingBasis || "DUE_DATE"}
+//                             onChange={(event) => setLocalFilters((p) => ({ ...p, agingBasis: event.target.value }))}
+//                             style={{
+//                                 width: 120,
+//                                 height: 32,
+//                                 border: "1px solid #CBD5E1",
+//                                 borderRadius: 7,
+//                                 background: "#FFFFFF",
+//                                 color: "#334155",
+//                                 padding: "0 8px",
+//                                 fontSize: "0.72rem",
+//                                 cursor: "pointer",
+//                             }}
+//                         >
+//                             {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
+//                                 <option key={basis} value={basis}>
+//                                     {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
+//                                 </option>
+//                             ))}
+//                         </select>
+//                     </div>
+
+//                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
 //                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>As On Date</span>
 //                         <CalendarDateField
 //                             value={localFilters.asOnDate || ""}
 //                             onChange={(value) => setLocalFilters((p) => ({ ...p, asOnDate: value }))}
-//                             width={135}
+//                             width={130}
 //                         />
 //                     </div>
 
@@ -4357,6 +4852,7 @@
 //                             legalEntities: baseFilters?.legalEntities || [],
 //                             parentDivisions: baseFilters?.parentDivisions || [],
 //                             subDivisions: baseFilters?.subDivisions || [],
+//                             agingBasis: baseFilters?.agingBasis || "DUE_DATE",
 //                             asOnDate: baseFilters?.asOnDate || "",
 //                         };
 //                         setLocalFilters(reset);
@@ -4373,145 +4869,262 @@
 //                         <input
 //                             value={search}
 //                             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-//                             placeholder={isCcc ? "Search periods..." : "Search..."}
+//                             placeholder={isCfo && cfoViewMode === "month-on-month" ? "Search Parent Divisions..." : isCcc ? "Search periods..." : "Search..."}
 //                             style={{ height: 32, width: 220, border: "1px solid #CBD5E1", borderRadius: 7, padding: "0 10px", fontSize: "0.72rem", color: "#334155", outline: "none", fontFamily: "Inter, system-ui, sans-serif" }}
 //                         />
-//                         <span style={{ color: C.muted, fontSize: "0.70rem", fontWeight: 600 }}>{filtered.length} records</span>
+//                         <span style={{ color: C.muted, fontSize: "0.70rem", fontWeight: 600 }}>
+//                             {isCfo && cfoViewMode === "month-on-month" ? `${monthDivisionNames.length} Parent Divisions` : `${filtered.length} records`}
+//                         </span>
 //                     </div>
-//                     <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}>
-//                         <table
-//                             style={{
-//                                 width: "100%",
-//                                 borderCollapse: "collapse",
-//                                 tableLayout: isCfo ? "fixed" : "auto",
-//                                 minWidth: isCfo
-//                                     ? 980
-//                                     : isCcc
-//                                         ? 650
-//                                         : isTrade || isTrend
-//                                             ? 520
-//                                             : 760,
-//                             }}
-//                         >
-//                             <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-//                                 <tr>
-//                                     {isCfo ? (
-//                                         <>
-//                                             <th style={cfoTh}>LEGAL ENTITY</th>
-//                                             <th style={cfoTh}>PARENT DIVISION</th>
-//                                             <th style={cfoTh}>SUB-DIVISION</th>
-//                                             <th style={cfoThRight}>TRADE RECEIVABLES ({currency})</th>
-//                                             <th style={cfoThRight}>DSO</th>
-//                                             <th style={cfoThRight}>TRADE PAYABLES ({currency})</th>
-//                                             <th style={cfoThRight}>DPO</th>
-//                                             <th style={cfoThRight}>INVENTORY ({currency})</th>
-//                                             <th style={cfoThRight}>DIO</th>
-//                                             <th style={cfoThRight}>
-//                                                 TRADE WORKING CAPITAL
-//                                                 <br />
-//                                                 ({currency})
-//                                             </th>
-//                                             <th style={cfoThRight}>CCC</th>
-//                                         </>
-//                                     ) : isCcc ? (
-//                                         <>
-//                                             <th style={th}>PERIOD</th>
-//                                             <th style={thRight}>DSO</th>
-//                                             <th style={thRight}>DIO</th>
-//                                             <th style={thRight}>DPO</th>
-//                                             <th style={thRight}>CCC</th>
-//                                         </>
-//                                     ) : isTrade || isTrend ? (
-//                                         <>
-//                                             <th style={th}>PERIOD</th>
-//                                             <th style={thRight}>
-//                                                 {isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}
-//                                                 {currency ? ` (${currency})` : ""}
-//                                             </th>
-//                                         </>
-//                                     ) : (
-//                                         <>
-//                                             <th style={th}>PERIOD</th>
-//                                             <th style={th}>CATEGORY</th>
-//                                             <th style={thRight}>AMOUNT ({currency})</th>
-//                                             <th style={thRight}>% OF TOTAL</th>
-//                                         </>
-//                                     )}
-//                                 </tr>
-//                             </thead>
-//                             <tbody>
-//                                 {pageRows.length ? pageRows.map((row, index) => {
-//                                     if (isCfo) {
-//                                         return (
-//                                             <tr
-//                                                 key={`${row.legalEntity}-${row.parentDivision}-${row.subDivision}-${index}`}
-//                                             >
-//                                                 <td style={cfoTd} title={row.legalEntity}>{row.legalEntity}</td>
-//                                                 <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
-//                                                 <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
-//                                                 <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
-//                                                 <td style={cfoTdRight}>—</td>
-//                                                 <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
-//                                                 <td style={cfoTdRight}>—</td>
-//                                                 <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
-//                                                 <td style={cfoTdRight}>—</td>
-//                                                 <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
-//                                                 <td style={cfoTdRight}>—</td>
+
+//                     {isTrade ? (
+//                         <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(220px, 0.58fr) minmax(560px, 1.42fr)", gap: 10, overflow: "hidden" }}>
+//                             <div className="wc-trade-view-all-table" style={{ minWidth: 0, minHeight: 0, overflow: "auto" }}>
+//                                 <table
+//                                     style={{
+//                                         width: "100%",
+//                                         borderCollapse: "collapse",
+//                                         tableLayout: isCfo ? "fixed" : isTrade ? "fixed" : "auto",
+//                                         minWidth: isCfo
+//                                             ? 980
+//                                             : isCcc
+//                                                 ? 650
+//                                                 : isTrade
+//                                                     ? 0
+//                                                     : isTrend
+//                                                         ? 520
+//                                                         : 760,
+//                                     }}
+//                                 >
+//                                     <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+//                                         <tr>
+//                                             {isCfo ? (
+//                                                 <>
+//                                                     <th style={cfoTh}>LEGAL ENTITY</th>
+//                                                     <th style={cfoTh}>PARENT DIVISION</th>
+//                                                     <th style={cfoTh}>SUB-DIVISION</th>
+//                                                     <th style={cfoThRight}>TRADE RECEIVABLES</th>
+//                                                     <th style={cfoThRight}>DSO</th>
+//                                                     <th style={cfoThRight}>TRADE PAYABLES</th>
+//                                                     <th style={cfoThRight}>DPO</th>
+//                                                     <th style={cfoThRight}>INVENTORY</th>
+//                                                     <th style={cfoThRight}>DIO</th>
+//                                                     <th style={{ ...cfoThRight, whiteSpace: "nowrap" }}>
+//                                                         TRADE WORKING CAPITAL ({currency})
+//                                                     </th>
+//                                                     <th style={cfoThRight}>CCC</th>
+//                                                 </>
+//                                             ) : isCcc ? (
+//                                                 <>
+//                                                     <th style={th}>PERIOD</th>
+//                                                     <th style={thRight}>DSO</th>
+//                                                     <th style={thRight}>DIO</th>
+//                                                     <th style={thRight}>DPO</th>
+//                                                     <th style={thRight}>CCC</th>
+//                                                 </>
+//                                             ) : isTrade || isTrend ? (
+//                                                 <>
+//                                                     <th style={th}>PERIOD</th>
+//                                                     <th style={thRight}>
+//                                                         {isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}
+//                                                         {currency ? ` (${currency})` : ""}
+//                                                     </th>
+//                                                 </>
+//                                             ) : (
+//                                                 <>
+//                                                     <th style={th}>PERIOD</th>
+//                                                     <th style={th}>CATEGORY</th>
+//                                                     <th style={thRight}>AMOUNT</th>
+//                                                     <th style={thRight}>% OF TOTAL</th>
+//                                                 </>
+//                                             )}
+//                                         </tr>
+//                                     </thead>
+//                                     <tbody>
+//                                         {pageRows.length ? pageRows.map((row, index) => {
+//                                             if (isCfo) {
+//                                                 return (
+//                                                     <tr
+//                                                         key={`${row.legalEntity}-${row.parentDivision}-${row.subDivision}-${index}`}
+//                                                     >
+//                                                         <td style={cfoTd} title={row.legalEntity}>{row.legalEntity}</td>
+//                                                         <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
+//                                                         <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
+//                                                         <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
+//                                                         <td style={cfoTdRight}>—</td>
+//                                                         <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
+//                                                         <td style={cfoTdRight}>—</td>
+//                                                         <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
+//                                                         <td style={cfoTdRight}>—</td>
+//                                                         <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
+//                                                         <td style={cfoTdRight}>—</td>
+//                                                     </tr>
+//                                                 );
+//                                             }
+
+//                                             if (isCcc) return (
+//                                                 <tr key={`${row.period}-${index}`}>
+//                                                     <td style={td}>{row.period}</td>
+//                                                     <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
+//                                                     <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
+//                                                     <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
+//                                                     <td style={tdRight}>{row.ccc == null ? "—" : Number(row.ccc).toFixed(2)}</td>
+//                                                 </tr>
+//                                             );
+
+//                                             if (isTrade || isTrend) return (
+//                                                 <tr key={`${row.period}-${index}`}>
+//                                                     <td style={td}>{row.period}</td>
+//                                                     <td style={tdRight}>{modalFmt(row.value)}</td>
+//                                                 </tr>
+//                                             );
+
+//                                             return (
+//                                                 <tr key={`${row.period}-${row.particular}-${index}`}>
+//                                                     <td style={td}>{row.period}</td>
+//                                                     <td style={td}>{row.particular}</td>
+//                                                     <td style={tdRight}>{modalFmt(row.amount)}</td>
+//                                                     <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
+//                                                 </tr>
+//                                             );
+//                                         }) : (
+//                                             <tr>
+//                                                 <td
+//                                                     colSpan={
+//                                                         isCfo
+//                                                             ? 11
+//                                                             : isCcc
+//                                                                 ? 5
+//                                                                 : isTrade || isTrend
+//                                                                     ? 2
+//                                                                     : 4
+//                                                     }
+//                                                     style={{
+//                                                         padding: 30,
+//                                                         textAlign: "center",
+//                                                         color: "#94A3B8",
+//                                                         fontSize: "0.72rem",
+//                                                     }}
+//                                                 >
+//                                                     {loading ? "Loading..." : "No available history."}
+//                                                 </td>
+//                                             </tr>
+//                                         )}
+//                                     </tbody>
+//                                 </table>
+//                             </div>
+//                             <TradeWorkingCapitalViewAllChart rows={filtered} currency={currency} unit={modalUnit} />
+//                         </div>
+//                     ) : isCfo && cfoViewMode === "month-on-month" ? (
+//                         <ParentDivisionMonthOnMonthTable rows={filteredMonthRows} currency={currency} unit={modalUnit} />
+//                     ) : (
+//                         <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}>
+//                             <table
+//                                 style={{
+//                                     width: "100%",
+//                                     borderCollapse: "collapse",
+//                                     tableLayout: isCfo ? "fixed" : "auto",
+//                                     minWidth: isCfo
+//                                         ? 980
+//                                         : isCcc
+//                                             ? 650
+//                                             : isTrade || isTrend
+//                                                 ? 520
+//                                                 : 760,
+//                                 }}
+//                             >
+//                                 <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+//                                     <tr>
+//                                         {isCfo ? (
+//                                             <>
+//                                                 <th style={cfoTh}>LEGAL ENTITY</th>
+//                                                 <th style={cfoTh}>PARENT DIVISION</th>
+//                                                 <th style={cfoTh}>SUB-DIVISION</th>
+//                                                 <th style={cfoThRight}>TRADE RECEIVABLES</th>
+//                                                 <th style={cfoThRight}>DSO</th>
+//                                                 <th style={cfoThRight}>TRADE PAYABLES</th>
+//                                                 <th style={cfoThRight}>DPO</th>
+//                                                 <th style={cfoThRight}>INVENTORY</th>
+//                                                 <th style={cfoThRight}>DIO</th>
+//                                                 <th style={cfoThRight}>TRADE WORKING CAPITAL</th>
+//                                                 <th style={cfoThRight}>CCC</th>
+//                                             </>
+//                                         ) : isCcc ? (
+//                                             <>
+//                                                 <th style={th}>PERIOD</th>
+//                                                 <th style={thRight}>DSO</th>
+//                                                 <th style={thRight}>DIO</th>
+//                                                 <th style={thRight}>DPO</th>
+//                                                 <th style={thRight}>CCC</th>
+//                                             </>
+//                                         ) : isTrade || isTrend ? (
+//                                             <>
+//                                                 <th style={th}>PERIOD</th>
+//                                                 <th style={thRight}>{isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}</th>
+//                                             </>
+//                                         ) : (
+//                                             <>
+//                                                 <th style={th}>PERIOD</th>
+//                                                 <th style={th}>CATEGORY</th>
+//                                                 <th style={thRight}>AMOUNT</th>
+//                                                 <th style={thRight}>% OF TOTAL</th>
+//                                             </>
+//                                         )}
+//                                     </tr>
+//                                 </thead>
+//                                 <tbody>
+//                                     {pageRows.length ? pageRows.map((row, index) => {
+//                                         if (isCfo) {
+//                                             return (
+//                                                 <tr key={`${row.legalEntity}-${row.parentDivision}-${row.subDivision}-${index}`}>
+//                                                     <td style={cfoTd} title={row.legalEntity}>{row.legalEntity}</td>
+//                                                     <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
+//                                                     <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
+//                                                     <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
+//                                                     <td style={cfoTdRight}>—</td>
+//                                                     <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
+//                                                     <td style={cfoTdRight}>—</td>
+//                                                     <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
+//                                                     <td style={cfoTdRight}>—</td>
+//                                                     <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
+//                                                     <td style={cfoTdRight}>—</td>
+//                                                 </tr>
+//                                             );
+//                                         }
+//                                         if (isCcc) return (
+//                                             <tr key={`${row.period}-${index}`}>
+//                                                 <td style={td}>{row.period}</td>
+//                                                 <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
+//                                                 <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
+//                                                 <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
+//                                                 <td style={tdRight}>{row.ccc == null ? "—" : Number(row.ccc).toFixed(2)}</td>
 //                                             </tr>
 //                                         );
-//                                     }
-
-//                                     if (isCcc) return (
-//                                         <tr key={`${row.period}-${index}`}>
-//                                             <td style={td}>{row.period}</td>
-//                                             <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
-//                                             <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
-//                                             <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
-//                                             <td style={tdRight}>{row.ccc == null ? "—" : Number(row.ccc).toFixed(2)}</td>
+//                                         if (isTrade || isTrend) return (
+//                                             <tr key={`${row.period}-${index}`}>
+//                                                 <td style={td}>{row.period}</td>
+//                                                 <td style={tdRight}>{modalFmt(row.value)}</td>
+//                                             </tr>
+//                                         );
+//                                         return (
+//                                             <tr key={`${row.period}-${row.particular}-${index}`}>
+//                                                 <td style={td}>{row.period}</td>
+//                                                 <td style={td}>{row.particular}</td>
+//                                                 <td style={tdRight}>{modalFmt(row.amount)}</td>
+//                                                 <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
+//                                             </tr>
+//                                         );
+//                                     }) : (
+//                                         <tr>
+//                                             <td colSpan={isCfo ? 11 : isCcc ? 5 : isTrade || isTrend ? 2 : 4} style={{ padding: 30, textAlign: "center", color: "#94A3B8", fontSize: "0.72rem" }}>
+//                                                 {loading ? "Loading..." : "No available history."}
+//                                             </td>
 //                                         </tr>
-//                                     );
-
-//                                     if (isTrade || isTrend) return (
-//                                         <tr key={`${row.period}-${index}`}>
-//                                             <td style={td}>{row.period}</td>
-//                                             <td style={tdRight}>{modalFmt(row.value)}</td>
-//                                         </tr>
-//                                     );
-
-//                                     return (
-//                                         <tr key={`${row.period}-${row.particular}-${index}`}>
-//                                             <td style={td}>{row.period}</td>
-//                                             <td style={td}>{row.particular}</td>
-//                                             <td style={tdRight}>{modalFmt(row.amount)}</td>
-//                                             <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
-//                                         </tr>
-//                                     );
-//                                 }) : (
-//                                     <tr>
-//                                         <td
-//                                             colSpan={
-//                                                 isCfo
-//                                                     ? 11
-//                                                     : isCcc
-//                                                         ? 5
-//                                                         : isTrade || isTrend
-//                                                             ? 2
-//                                                             : 4
-//                                             }
-//                                             style={{
-//                                                 padding: 30,
-//                                                 textAlign: "center",
-//                                                 color: "#94A3B8",
-//                                                 fontSize: "0.72rem",
-//                                             }}
-//                                         >
-//                                             {loading ? "Loading..." : "No available history."}
-//                                         </td>
-//                                     </tr>
-//                                 )}
-//                             </tbody>
-//                         </table>
-//                     </div>
+//                                     )}
+//                                 </tbody>
+//                             </table>
+//                         </div>
+//                     )}
 //                 </div>
 
 //                 <div style={{
@@ -4579,6 +5192,7 @@
 //         legalEntities: [],
 //         parentDivisions: [],
 //         subDivisions: [],
+//         agingBasis: "DUE_DATE",
 //         asOnDate: "",
 //     });
 
@@ -5116,6 +5730,7 @@
 //             legalEntities: [],
 //             parentDivisions: [],
 //             subDivisions: [],
+//             agingBasis: filterOptions.agingBases?.[0] || "DUE_DATE",
 //             asOnDate:
 //                 filterOptions.operationalAsOnDate ||
 //                 filterOptions.asOnDates[0] ||
@@ -5198,19 +5813,6 @@
 //                     response,
 //                     fallback
 //                 );
-//             } else if (section === "components") {
-//                 const rows = (overrideRows || [
-//                     { label: "Receivables", value: getValue(componentData, "receivables", "total_receivables"), type: "positive" },
-//                     { label: "Inventory", value: getValue(componentData, "inventory", "total_inventory"), type: "positive" },
-//                     { label: "(-) Payables", value: getValue(componentData, "payables", "total_payables"), type: "negative" },
-//                     { label: "Trade Working Capital", value: getValue(componentData, "trade_working_capital", "trade_working_capital_value", "working_capital"), type: "total" },
-//                 ]).map((row) => ({ ...row, value: row?.value ?? row?.amount ?? null }));
-
-//                 if (type === "excel") {
-//                     exportComponentsToExcel(rows, currency);
-//                 } else {
-//                     exportComponentsToPdf(rows, currency);
-//                 }
 //             } else if (section === "trend") {
 //                 if (type === "excel") {
 //                     exportTrendToExcel(
@@ -5226,28 +5828,6 @@
 //                         currency,
 //                         "Net Working Capital"
 //                     );
-//                 }
-//             } else if (section === "trade") {
-//                 if (type === "excel") {
-//                     exportTrendToExcel(
-//                         overrideRows || tradeTrend,
-//                         "Trade Working Capital",
-//                         currency,
-//                         "Trade Working Capital"
-//                     );
-//                 } else {
-//                     exportTrendToPdf(
-//                         overrideRows || tradeTrend,
-//                         "Trade Working Capital",
-//                         currency,
-//                         "Trade Working Capital"
-//                     );
-//                 }
-//             } else if (section === "ccc") {
-//                 if (type === "excel") {
-//                     exportCccTrendToExcel(overrideRows || cccTrend);
-//                 } else {
-//                     exportCccTrendToPdf(overrideRows || cccTrend);
 //                 }
 //             } else if (section === "liquidity") {
 //                 if (type === "excel") {
@@ -5404,6 +5984,7 @@
 //                 cfoViewLabel,
 //                 title: "Working Capital Components Detailed View",
 //                 rows: componentRows,
+//                 monthOnMonthRows: [],
 //                 filters: { ...activeFilters },
 //             });
 //             setViewAllLoading(false);
@@ -5491,6 +6072,8 @@
 //                  *
 //                  * Only the selected hierarchy/date filters are forwarded.
 //                  */
+//                 let monthOnMonthRows = [];
+
 //                 if (type === "cfo") {
 //                     const cfoViewAllFilters =
 //                         buildCfoViewAllApiFilters(
@@ -5498,15 +6081,21 @@
 //                             filterOptions
 //                         );
 
-//                     response =
-//                         await getWorkingCapitalViewAll(
-//                             cfoViewAllFilters
-//                         );
+//                     const [cfoResponse, parentTrendResponse] =
+//                         await Promise.all([
+//                             getWorkingCapitalViewAll(cfoViewAllFilters),
+//                             getWorkingCapitalParentDivisionTrend({
+//                                 ...cfoViewAllFilters,
+//                                 months: 12,
+//                             }),
+//                         ]);
 
-//                     rows =
-//                         normalizeCfoViewAllRows(
-//                             response
-//                         );
+//                     response = cfoResponse;
+//                     rows = normalizeCfoViewAllRows(response);
+//                     monthOnMonthRows = normalizeHierarchyTrendRows(
+//                         parentTrendResponse,
+//                         "parent"
+//                     );
 
 //                     title =
 //                         `Working Capital - ${cfoViewLabel || "Detailed"} - Detailed View`;
@@ -5572,6 +6161,7 @@
 //                     cfoViewLabel,
 //                     title,
 //                     rows,
+//                     monthOnMonthRows,
 //                     filters: { ...activeFilters },
 //                 });
 
@@ -5613,6 +6203,22 @@
 //         <>
 //             <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
 //             <style>{workingCapitalFilterResponsiveCss}</style>
+//             <style>{`
+//                 .wc-trade-view-all-table table th,
+//                 .wc-trade-view-all-table table td {
+//                     padding: 5px 6px !important;
+//                     font-size: 0.62rem !important;
+//                 }
+//                 .wc-trade-view-all-table table th {
+//                     white-space: nowrap;
+//                 }
+//                 @media (max-width: 1050px) {
+//                     .wc-trade-view-all-grid {
+//                         grid-template-columns: 1fr !important;
+//                         grid-template-rows: minmax(300px, 1fr) minmax(300px, 0.9fr) !important;
+//                     }
+//                 }
+//             `}</style>
 //             <style>{`
 //                 .wc-sales-page, .wc-sales-page * {
 //                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -6128,6 +6734,88 @@
 //             `}</style>
 
 
+//             <style>{`
+//                 /* ==========================================================
+//                    WORKING CAPITAL — SALES-UNIFORM VIEW ALL LAYER
+//                    Visual-only. No API/state/handler/animation changes.
+//                 ========================================================== */
+//                 .wc-sales-page .wc-sales-view-all-overlay,
+//                 .wc-sales-view-all-overlay {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay .wc-sales-view-all-modal {
+//                     color: #0F172A !important;
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     border-radius: 14px !important;
+//                     border: 1px solid #E2E8F0 !important;
+//                     box-shadow: 0 18px 48px rgba(15,23,42,.14) !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay h2 {
+//                     color: #1E1B4B !important;
+//                     font-size: .96rem !important;
+//                     font-weight: 800 !important;
+//                     letter-spacing: -.015em !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay input,
+//                 .wc-sales-view-all-overlay button,
+//                 .wc-sales-view-all-overlay select {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay input {
+//                     color: #334155 !important;
+//                     border-color: #CBD5E1 !important;
+//                     border-radius: 7px !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay input:focus,
+//                 .wc-sales-view-all-overlay select:focus {
+//                     border-color: #818CF8 !important;
+//                     box-shadow: 0 0 0 3px rgba(99,102,241,.10) !important;
+//                     outline: none !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay table {
+//                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay table thead th {
+//                     background: #F8FAFC !important;
+//                     color: #1E3A8A !important;
+//                     border-bottom: 2px solid #E2E8F0 !important;
+//                     font-size: .72rem !important;
+//                     font-weight: 700 !important;
+//                     padding: 9px 10px !important;
+//                     line-height: 1.25 !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay table tbody td {
+//                     color: #334155 !important;
+//                     border-bottom: 1px solid #F1F5F9 !important;
+//                     font-size: .72rem !important;
+//                     font-weight: 500 !important;
+//                     padding: 8px 10px !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay table tbody tr:hover td {
+//                     background: #F8FAFC !important;
+//                 }
+
+//                 .wc-sales-view-all-overlay .wc-view-all-toolbar {
+//                     background: #FAFBFC !important;
+//                     border-bottom-color: #E2E8F0 !important;
+//                 }
+
+//                 @media (max-width: 900px) {
+//                     .wc-sales-view-all-overlay .wc-sales-view-all-modal {
+//                         width: 98vw !important;
+//                     }
+//                 }
+//             `}</style>
+
 //             <div className="wc-sales-page animate-in" style={{ paddingTop: "16px", paddingBottom: "8px" }}>
 //                 <div className="page-header" style={{ marginBottom: "16px", paddingTop: "0", gap: "16px" }}>
 //                     <div>
@@ -6222,55 +6910,32 @@
 //                         label="Legal Group"
 //                         values={filters.legalGroups}
 //                         options={cascadingFilterOptions.legalGroups}
-//                         onChange={(value) =>
-//                             updateFilter("legalGroups", value)
-//                         }
+//                         onChange={(value) => updateFilter("legalGroups", value)}
 //                     />
 
 //                     <MultiSelectField
 //                         label="Legal Entity"
 //                         values={filters.legalEntities}
 //                         options={cascadingFilterOptions.legalEntities}
-//                         onChange={(value) =>
-//                             updateFilter("legalEntities", value)
-//                         }
+//                         onChange={(value) => updateFilter("legalEntities", value)}
 //                     />
 
 //                     <MultiSelectField
 //                         label="Parent Division"
 //                         values={filters.parentDivisions}
 //                         options={cascadingFilterOptions.parentDivisions}
-//                         onChange={(value) =>
-//                             updateFilter("parentDivisions", value)
-//                         }
+//                         onChange={(value) => updateFilter("parentDivisions", value)}
 //                     />
 
 //                     <MultiSelectField
 //                         label="Sub-Division"
 //                         values={filters.subDivisions}
 //                         options={cascadingFilterOptions.subDivisions}
-//                         onChange={(value) =>
-//                             updateFilter("subDivisions", value)
-//                         }
+//                         onChange={(value) => updateFilter("subDivisions", value)}
 //                     />
 
 //                     <div style={{ minWidth: 0 }}>
-//                         <label style={styles.filterLabel}>
-//                             As On Date
-//                         </label>
-//                         <CalendarDateField
-//                             value={filters.asOnDate || ""}
-//                             onChange={(value) =>
-//                                 updateFilter("asOnDate", value)
-//                             }
-//                             width="100%"
-//                         />
-//                     </div>
-
-//                     <div style={{ minWidth: 0 }}>
-//                         <label style={styles.filterLabel}>
-//                             Reporting Currency
-//                         </label>
+//                         <label style={styles.filterLabel}>Reporting Currency</label>
 //                         <div
 //                             style={{
 //                                 ...styles.filterInput,
@@ -6279,11 +6944,40 @@
 //                                 alignItems: "center",
 //                                 color: "#334155",
 //                                 fontWeight: 700,
-//                                 background: "#F8FAFC",
+//                                 background: "#FFFFFF",
+//                                 cursor: "default",
 //                             }}
 //                         >
-//                             {filterOptions.reportingCurrency || "—"}
+//                             {filterOptions.reportingCurrency || "AED"}
 //                         </div>
+//                     </div>
+
+//                     <div style={{ minWidth: 0 }}>
+//                         <label style={styles.filterLabel}>Aging Basis</label>
+//                         <select
+//                             value={filters.agingBasis || "DUE_DATE"}
+//                             onChange={(event) => updateFilter("agingBasis", event.target.value)}
+//                             style={{
+//                                 ...styles.filterInput,
+//                                 height: "32px",
+//                                 cursor: "pointer",
+//                             }}
+//                         >
+//                             {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
+//                                 <option key={basis} value={basis}>
+//                                     {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
+//                                 </option>
+//                             ))}
+//                         </select>
+//                     </div>
+
+//                     <div style={{ minWidth: 0 }}>
+//                         <label style={styles.filterLabel}>As On Date</label>
+//                         <CalendarDateField
+//                             value={filters.asOnDate || ""}
+//                             onChange={(value) => updateFilter("asOnDate", value)}
+//                             width="100%"
+//                         />
 //                     </div>
 
 //                     <button
@@ -6306,14 +7000,11 @@
 
 //                     <button
 //                         type="button"
-//                         onClick={
-//                             resetFilters
-//                         }
+//                         onClick={resetFilters}
 //                         style={{
 //                             height: "32px",
 //                             border: "none",
-//                             background:
-//                                 "transparent",
+//                             background: "transparent",
 //                             color: "#263BD4",
 //                             fontSize: "11px",
 //                             fontWeight: 600,
@@ -6367,7 +7058,7 @@
 //                                 icon="↗"
 //                             />
 //                             <KpiCard
-//                                 title="Receivables Trade"
+//                                 title="Trade Receivables"
 //                                 value={formatAmount(kpis?.total_receivables, currency)}
 //                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
 //                                 icon="◔"
@@ -6414,6 +7105,25 @@
 //                                 subtitle={toNumber(kpis?.cash_conversion_cycle_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
 //                                 icon="◴"
 //                             />
+//                             <KpiCard
+//                                 title="Target CCC"
+//                                 value={(() => {
+//                                     const target = toNumber(
+//                                         getValue(
+//                                             kpis,
+//                                             "target_ccc_days",
+//                                             "target_cash_conversion_cycle_days",
+//                                             "target_cash_conversion_cycle",
+//                                             "ccc_target_days",
+//                                             "ccc_target",
+//                                             "target_ccc"
+//                                         )
+//                                     );
+//                                     return target === null ? "—" : `${target.toFixed(2)} Days`;
+//                                 })()}
+//                                 subtitle="Backend target"
+//                                 icon="◎"
+//                             />
 //                         </div>
 
 //                         {/* ==================================================
@@ -6433,22 +7143,6 @@
 //                                 data={tradeTrend}
 //                                 currency={currency}
 //                                 onViewAll={() => openViewAll("trade")}
-//                                 onExportExcel={() =>
-//                                     exportTrendToExcel(
-//                                         tradeTrend,
-//                                         "Trade Working Capital Trend",
-//                                         currency,
-//                                         "Trade Working Capital"
-//                                     )
-//                                 }
-//                                 onExportPdf={() =>
-//                                     exportTrendToPdf(
-//                                         tradeTrend,
-//                                         "Trade Working Capital Trend",
-//                                         currency,
-//                                         "Trade Working Capital"
-//                                     )
-//                                 }
 //                             />
 
 //                             <TradeWorkingCapitalComponents
@@ -6575,16 +7269,6 @@
 //                                                 label: "🔎 View All",
 //                                                 onClick: () => openViewAll("ccc"),
 //                                             },
-//                                             {
-//                                                 key: "excel",
-//                                                 label: "📊 Export Excel",
-//                                                 onClick: () => handleExport("excel", "ccc"),
-//                                             },
-//                                             {
-//                                                 key: "pdf",
-//                                                 label: "📄 Export PDF",
-//                                                 onClick: () => handleExport("pdf", "ccc"),
-//                                             },
 //                                         ]}
 //                                     />
 //                                 </div>
@@ -6631,6 +7315,7 @@
 //                         rows={viewAll.rows}
 //                         currency={currency}
 //                         type={viewAll.type}
+//                         monthOnMonthRows={viewAll.monthOnMonthRows || []}
 //                         onClose={() => setViewAll(null)}
 //                         filterOptions={filterOptions}
 //                         baseFilters={viewAll.filters || appliedFilters || filters}
@@ -6914,13 +7599,11 @@
 //                             <BarChart
 //                                 data={chartData}
 //                                 margin={{
-//                                     top: 24,
-//                                     right: 10,
+//                                     top: 28,
+//                                     right: 14,
 //                                     left: 10,
 //                                     bottom: 58,
 //                                 }}
-//                                 maxBarSize={58}
-//                                 barCategoryGap="18%"
 //                                 onMouseMove={(state) => {
 //                                     const index = state?.activeTooltipIndex;
 //                                     setHoveredIndex(
@@ -6931,33 +7614,6 @@
 //                                 }}
 //                                 onMouseLeave={() => setHoveredIndex(null)}
 //                             >
-//                                 <defs>
-//                                     {chartData.map((entry, index) => {
-//                                         const color = colors[index % colors.length];
-//                                         return (
-//                                             <linearGradient
-//                                                 key={`${chartKey}-grad-${index}`}
-//                                                 id={`${chartKey}-grad-${index}`}
-//                                                 x1="0"
-//                                                 y1="0"
-//                                                 x2="0"
-//                                                 y2="1"
-//                                             >
-//                                                 <stop
-//                                                     offset="0%"
-//                                                     stopColor={color}
-//                                                     stopOpacity={1}
-//                                                 />
-//                                                 <stop
-//                                                     offset="100%"
-//                                                     stopColor={color}
-//                                                     stopOpacity={0.42}
-//                                                 />
-//                                             </linearGradient>
-//                                         );
-//                                     })}
-//                                 </defs>
-
 //                                 <CartesianGrid
 //                                     vertical={false}
 //                                     stroke="#F1F5F9"
@@ -7013,16 +7669,16 @@
 //                                     }}
 //                                     tickFormatter={formatAxisValue}
 //                                     width={44}
-//                                     domain={[0, Math.ceil(maxValue * 1.08)]}
+//                                     domain={[0, Math.ceil(maxValue * 1.12)]}
 //                                 />
 
 //                                 <Tooltip
 //                                     cursor={{
-//                                         fill: "rgba(226, 232, 240, 0.5)",
-//                                         rx: 8,
-//                                         ry: 8,
+//                                         stroke: "#CBD5E1",
+//                                         strokeWidth: 1,
+//                                         strokeDasharray: "4 4",
 //                                     }}
-//                                     offset={24}
+//                                     offset={18}
 //                                     wrapperStyle={{
 //                                         zIndex: 100,
 //                                         pointerEvents: "none",
@@ -7038,25 +7694,7 @@
 //                                         const index = chartData.findIndex(
 //                                             (entry) => entry.name === item?.name
 //                                         );
-//                                         const color =
-//                                             colors[
-//                                             Math.max(index, 0) % colors.length
-//                                             ];
-
-//                                         const total = chartData.reduce(
-//                                             (sum, entry) =>
-//                                                 sum + (toNumber(entry.value) ?? 0),
-//                                             0
-//                                         );
-
-//                                         const share =
-//                                             total > 0
-//                                                 ? (
-//                                                     ((toNumber(item?.value) ?? 0) /
-//                                                         total) *
-//                                                     100
-//                                                 ).toFixed(1)
-//                                                 : "0.0";
+//                                         const color = colors[Math.max(index, 0) % colors.length];
 
 //                                         return (
 //                                             <div
@@ -7065,8 +7703,7 @@
 //                                                     border: `1px solid ${C.border}`,
 //                                                     borderRadius: 10,
 //                                                     padding: "12px 16px",
-//                                                     boxShadow:
-//                                                         "0 8px 24px rgba(0,0,0,0.12)",
+//                                                     boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
 //                                                     minWidth: 190,
 //                                                     fontFamily:
 //                                                         "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -7084,12 +7721,10 @@
 //                                                 >
 //                                                     {item?.name}
 //                                                 </div>
-
 //                                                 <div
 //                                                     style={{
 //                                                         display: "grid",
-//                                                         gridTemplateColumns:
-//                                                             "auto 1fr",
+//                                                         gridTemplateColumns: "auto 1fr",
 //                                                         gap: "6px 16px",
 //                                                         alignItems: "center",
 //                                                     }}
@@ -7113,7 +7748,6 @@
 //                                                         />
 //                                                         Working Capital:
 //                                                     </span>
-
 //                                                     <span
 //                                                         style={{
 //                                                             fontWeight: 800,
@@ -7123,31 +7757,7 @@
 //                                                             whiteSpace: "nowrap",
 //                                                         }}
 //                                                     >
-//                                                         {currency || "AED"} {Number(
-//                                                             item?.value || 0
-//                                                         ).toLocaleString()}
-//                                                     </span>
-
-//                                                     <span
-//                                                         style={{
-//                                                             color: "#64748B",
-//                                                             fontSize: "0.75rem",
-//                                                             fontWeight: 500,
-//                                                             paddingLeft: 14,
-//                                                         }}
-//                                                     >
-//                                                         Share:
-//                                                     </span>
-
-//                                                     <span
-//                                                         style={{
-//                                                             fontWeight: 800,
-//                                                             color: "#1E293B",
-//                                                             fontSize: "0.85rem",
-//                                                             textAlign: "right",
-//                                                         }}
-//                                                     >
-//                                                         {share}%
+//                                                         {currency || "AED"} {Number(item?.value || 0).toLocaleString()}
 //                                                     </span>
 //                                                 </div>
 //                                             </div>
@@ -7157,63 +7767,30 @@
 
 //                                 <Bar
 //                                     dataKey="value"
-//                                     radius={[8, 8, 0, 0]}
+//                                     name="Working Capital"
+//                                     radius={[6, 6, 0, 0]}
+//                                     maxBarSize={54}
 //                                     isAnimationActive={true}
 //                                     animationDuration={800}
 //                                     animationEasing="ease-in-out"
+//                                     fill="#4338CA"
 //                                 >
 //                                     {chartData.map((entry, index) => (
-//                                         <React.Fragment
-//                                             key={`sub-bar-${index}`}
-//                                         >
-//                                             <Cell
-//                                                 fill={`url(#${chartKey}-grad-${index})`}
-//                                                 style={{
-//                                                     opacity:
-//                                                         hoveredIndex === null ||
-//                                                             hoveredIndex === index
-//                                                             ? 1
-//                                                             : 0.72,
-//                                                     transition:
-//                                                         "opacity .18s ease, filter .18s ease",
-//                                                     filter:
-//                                                         hoveredIndex === index
-//                                                             ? "drop-shadow(0 5px 10px rgba(15,23,42,.20))"
-//                                                             : "none",
-//                                                     transform:
-//                                                         hoveredIndex === index
-//                                                             ? "translateY(-2px)"
-//                                                             : "translateY(0)",
-//                                                 }}
-//                                             />
-//                                         </React.Fragment>
+//                                         <Cell
+//                                             key={`wc-subdivision-cell-${index}`}
+//                                             fill={colors[index % colors.length]}
+//                                             opacity={hoveredIndex === null || hoveredIndex === index ? 1 : 0.72}
+//                                         />
 //                                     ))}
-
 //                                     <LabelList
 //                                         dataKey="value"
 //                                         position="top"
-//                                         content={(props) => {
-//                                             const {
-//                                                 x,
-//                                                 y,
-//                                                 width,
-//                                                 value,
-//                                                 index,
-//                                             } = props;
-
-//                                             return (
-//                                                 <text
-//                                                     x={x + width / 2}
-//                                                     y={y - 10}
-//                                                     fill="#1E293B"
-//                                                     fontSize="11"
-//                                                     fontWeight="700"
-//                                                     textAnchor="middle"
-//                                                     dominantBaseline="middle"
-//                                                 >
-//                                                     {formatAxisValue(value)}
-//                                                 </text>
-//                                             );
+//                                         offset={8}
+//                                         formatter={formatAxisValue}
+//                                         style={{
+//                                             fill: "#1E293B",
+//                                             fontSize: 11,
+//                                             fontWeight: 700,
 //                                         }}
 //                                     />
 //                                 </Bar>
@@ -7665,8 +8242,6 @@
 //     data,
 //     currency,
 //     onViewAll,
-//     onExportExcel,
-//     onExportPdf,
 // }) {
 //     return (
 //         <SimpleTrendChart
@@ -7677,8 +8252,6 @@
 //             metricLabel="Trade Working Capital"
 //             nullText="No aligned Receivables / Inventory / Payables observations are available."
 //             onViewAll={onViewAll}
-//             onExportExcel={onExportExcel}
-//             onExportPdf={onExportPdf}
 //         />
 //     );
 // }
@@ -8830,6 +9403,7 @@
 
 
 
+
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, CartesianGrid, Tooltip, ResponsiveContainer, XAxis, YAxis, Legend, Cell, LabelList } from "recharts";
@@ -8920,17 +9494,18 @@ function formatAmount(value, currency = "", compact = true) {
 function formatDate(value) {
     if (!value) return "—";
 
-    const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+    const raw = String(value).slice(0, 10);
+    const match = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
 
-    if (Number.isNaN(date.getTime())) {
-        return value;
+    if (match) {
+        const [, year, month, day] = match;
+        return `${String(day).padStart(2, "0")}-${String(month).padStart(2, "0")}-${year}`;
     }
 
-    return date.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-    });
+    const date = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return `${String(date.getDate()).padStart(2, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${date.getFullYear()}`;
 }
 
 function formatMonthLabel(value) {
@@ -9212,6 +9787,24 @@ function buildApiFilters(filters, options) {
     return apiFilters;
 }
 
+/*
+ * Always build Reset from the current backend filter options.
+ * This keeps Reset consistent across the dashboard and every View All modal.
+ */
+function getWorkingCapitalDefaultFilters(filterOptions) {
+    const options = filterOptions || {};
+    return {
+        legalGroups: [],
+        legalEntities: [],
+        parentDivisions: [],
+        subDivisions: [],
+        agingBasis: options.agingBases?.[0] || "DUE_DATE",
+        asOnDate:
+            options.operationalAsOnDate ||
+            options.asOnDates?.[0] ||
+            "",
+    };
+}
 
 
 /*
@@ -9243,6 +9836,7 @@ function buildCfoViewAllApiFilters(filters, options) {
             options.subDivisions,
             source.subDivisions
         ),
+        aging_basis: source.agingBasis || "DUE_DATE",
         as_on_date: source.asOnDate || undefined,
     };
 }
@@ -9372,6 +9966,15 @@ function normalizeHierarchyTrendRows(payload, level = "parent") {
                     "working_capital",
                     "value",
                     "amount"
+                )
+            ),
+            ccc: toNumber(
+                getValue(
+                    row,
+                    "cash_conversion_cycle_days",
+                    "ccc_days",
+                    "ccc",
+                    "cash_conversion_cycle"
                 )
             ),
         }))
@@ -9632,7 +10235,7 @@ const styles = {
         borderRadius: "var(--radius-md)",
         padding: "10px 14px",
         display: "grid",
-        gridTemplateColumns: "118px 118px 118px 118px 130px 92px 70px 60px",
+        gridTemplateColumns: "118px 118px 118px 118px 118px 112px 130px 70px 60px",
         gap: "10px 6px",
         alignItems: "end",
         marginBottom: "16px",
@@ -9711,7 +10314,7 @@ const workingCapitalFilterResponsiveCss = `.wc-sales-page .wc-sales-kpis {
 }
 
 .wc-sales-page .wc-filter-grid {
-    grid-template-columns: 118px 118px 118px 118px 130px 92px 70px 60px !important;
+    grid-template-columns: 118px 118px 118px 118px 118px 112px 130px 70px 60px !important;
     gap: 10px 6px !important;
     align-items: end !important;
 }
@@ -9967,6 +10570,11 @@ function KpiCard({ title, value, subtitle, icon }) {
             bg: "#FDF2F8",
             iconBg: "#FCE0EE",
             accent: "#DB2777",
+        },
+        "Target CCC": {
+            bg: "#F0F9FF",
+            iconBg: "#DDF3FF",
+            accent: "#0284C7",
         },
     };
 
@@ -12087,7 +12695,7 @@ function MultiSelectField({
                     : `${selected.length} selected`;
 
     return (
-        <div ref={ref} style={{ position: "relative", minWidth: 0 }}>
+        <div ref={ref} style={{ position: "relative", minWidth: 0, zIndex: open ? 1500 : 1 }}>
             <label style={styles.filterLabel}>{label}</label>
 
             <button
@@ -12141,21 +12749,24 @@ function MultiSelectField({
                     }}
                 >
                     <div style={{ padding: "7px", borderBottom: "1px solid #E2E8F0" }}>
-                        <input
-                            value={query}
-                            onChange={(event) => setQuery(event.target.value)}
-                            placeholder={`Search ${label}`}
-                            style={{
-                                width: "100%",
-                                height: "30px",
-                                border: "1px solid #CBD5E1",
-                                borderRadius: "6px",
-                                padding: "0 9px",
-                                fontSize: "0.70rem",
-                                outline: "none",
-                                boxSizing: "border-box",
-                            }}
-                        />
+                        <div style={{ position: "relative", width: "100%" }}>
+                            <span aria-hidden="true" style={{ position: "absolute", left: 9, top: 7, fontSize: "0.72rem", lineHeight: 1, pointerEvents: "none" }}>🔍</span>
+                            <input
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder={`Search ${label}`}
+                                style={{
+                                    width: "100%",
+                                    height: "30px",
+                                    border: "1px solid #CBD5E1",
+                                    borderRadius: "6px",
+                                    padding: "0 9px 0 28px",
+                                    fontSize: "0.70rem",
+                                    outline: "none",
+                                    boxSizing: "border-box",
+                                }}
+                            />
+                        </div>
                     </div>
 
                     <div
@@ -12606,7 +13217,7 @@ function ViewAllMultiSelect({
     options = [],
     value = [],
     onChange,
-    width = 150,
+    width = 118,
 }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
@@ -12689,22 +13300,25 @@ function ViewAllMultiSelect({
                     }}
                 >
                     <div style={{ padding: 7, borderBottom: "1px solid #F1F5F9" }}>
-                        <input
-                            autoFocus
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder={`Search ${label}`}
-                            style={{
-                                width: "100%",
-                                height: 29,
-                                border: "1px solid #CBD5E1",
-                                borderRadius: 6,
-                                padding: "0 8px",
-                                fontSize: "0.70rem",
-                                outline: "none",
-                                boxSizing: "border-box",
-                            }}
-                        />
+                        <div style={{ position: "relative", width: "100%" }}>
+                            <span aria-hidden="true" style={{ position: "absolute", left: 8, top: 6, fontSize: "0.70rem", lineHeight: 1, pointerEvents: "none" }}>🔍</span>
+                            <input
+                                autoFocus
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder={`Search ${label}`}
+                                style={{
+                                    width: "100%",
+                                    height: 29,
+                                    border: "1px solid #CBD5E1",
+                                    borderRadius: 6,
+                                    padding: "0 8px 0 27px",
+                                    fontSize: "0.70rem",
+                                    outline: "none",
+                                    boxSizing: "border-box",
+                                }}
+                            />
+                        </div>
                     </div>
                     <div style={{ display: "flex", gap: 5, padding: "6px 8px", borderBottom: "1px solid #F1F5F9" }}>
                         <button
@@ -12828,9 +13442,9 @@ function UnitToggle({ unit, onToggle, currency = "AED" }) {
                     transition: "all 0.15s ease",
                     outline: "none",
                 }}
-                title={`Display in ${currency} Millions`}
+                title={`Display in ${currency} Million`}
             >
-                {currency} Millions
+                {currency} Million
             </button>
         </div>
     );
@@ -12860,6 +13474,483 @@ function cascadeViewAllOptions(filterOptions, localFilters) {
     };
 }
 
+function TradeWorkingCapitalViewAllChart({
+    rows = [],
+    currency = "",
+    unit = "aed",
+}) {
+    const [hoveredIndex, setHoveredIndex] = useState(null);
+
+    const data = (Array.isArray(rows) ? rows : [])
+        .map((row) => ({
+            period: String(row?.period ?? "—"),
+            value: toNumber(row?.value),
+        }))
+        .filter((row) => row.value !== null);
+
+    const displayValue = (value) => {
+        const n = toNumber(value);
+        if (n === null) return "—";
+        if (unit === "millions") return `${(n / 1000000).toFixed(2)}M`;
+        return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    };
+
+    const axisValue = (value) => {
+        const n = toNumber(value);
+        if (n === null) return "—";
+        if (unit === "millions") return `${(n / 1000000).toFixed(1)}M`;
+        const abs = Math.abs(n);
+        if (abs >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+        if (abs >= 1000) return `${(n / 1000).toFixed(1)}K`;
+        return Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+    };
+
+    const values = data.map((item) => item.value);
+    const rawMin = values.length ? Math.min(...values) : 0;
+    const rawMax = values.length ? Math.max(...values) : 1;
+    const rawRange = rawMax - rawMin;
+    const padding = rawRange > 0
+        ? rawRange * 0.12
+        : Math.max(Math.abs(rawMax) * 0.12, 1);
+    const minValue = Math.min(0, rawMin) - padding;
+    const maxValue = Math.max(0, rawMax) + padding;
+
+    const CustomTooltip = ({ active, payload, label }) => {
+        if (!active || !payload?.length) return null;
+
+        const value = payload[0]?.value;
+
+        return (
+            <div
+                style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #D8DEE8",
+                    borderRadius: 9,
+                    padding: "10px 13px",
+                    boxShadow: "0 8px 20px rgba(15,23,42,0.12)",
+                    minWidth: 185,
+                    fontFamily: "Inter, system-ui, sans-serif",
+                }}
+            >
+                <div
+                    style={{
+                        color: "#1E293B",
+                        fontSize: "0.68rem",
+                        fontWeight: 800,
+                        marginBottom: 8,
+                    }}
+                >
+                    {label}
+                </div>
+                <div
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 22,
+                    }}
+                >
+                    <span
+                        style={{
+                            color: "#64748B",
+                            fontSize: "0.64rem",
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        Trade Working Capital
+                    </span>
+                    <span
+                        style={{
+                            color: "#1E3A8A",
+                            fontSize: "0.70rem",
+                            fontWeight: 800,
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        {displayValue(value)}
+                    </span>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <div
+            style={{
+                height: "100%",
+                minHeight: 300,
+                border: "1px solid #E2E8F0",
+                borderRadius: 10,
+                background: "#FFFFFF",
+                padding: "12px 12px 10px",
+                boxSizing: "border-box",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+            }}
+        >
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    paddingBottom: 8,
+                    borderBottom: "1px solid #F1F5F9",
+                }}
+            >
+                <div>
+                    <div style={{ color: "#173575", fontSize: "0.76rem", fontWeight: 800 }}>
+                        Trade Working Capital Trend
+                    </div>
+                    <div style={{ marginTop: 2, color: "#94A3B8", fontSize: "0.60rem", fontWeight: 600 }}>
+                        {unit === "millions" ? `${currency || "AED"} Million` : currency || "AED"}
+                    </div>
+                </div>
+                <div
+                    style={{
+                        width: 9,
+                        height: 9,
+                        borderRadius: "50%",
+                        background: "#4F46E5",
+                        boxShadow: "0 0 0 3px #EEF2FF",
+                    }}
+                    title="Trade Working Capital"
+                />
+            </div>
+
+            {data.length ? (
+                <div
+                    style={{
+                        flex: 1,
+                        minHeight: 255,
+                        marginTop: 8,
+                        position: "relative",
+                        overflow: "hidden",
+                    }}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                >
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart
+                            data={data}
+                            margin={{ top: 24, right: 20, left: 8, bottom: 8 }}
+                            onMouseMove={(state) => {
+                                if (state?.activeTooltipIndex !== undefined && state?.activeTooltipIndex !== null) {
+                                    setHoveredIndex(state.activeTooltipIndex);
+                                }
+                            }}
+                            onMouseLeave={() => setHoveredIndex(null)}
+                        >
+                            <defs>
+                                <linearGradient id="wcTradeViewAllArea" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#6366F1" stopOpacity={0.24} />
+                                    <stop offset="100%" stopColor="#6366F1" stopOpacity={0.03} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid stroke="#E2E8F0" strokeDasharray="4 4" vertical={false} />
+                            <XAxis
+                                dataKey="period"
+                                tick={{ fill: "#64748B", fontSize: 10, fontWeight: 600 }}
+                                axisLine={{ stroke: "#CBD5E1" }}
+                                tickLine={{ stroke: "#CBD5E1" }}
+                            />
+                            <YAxis
+                                domain={[minValue, maxValue]}
+                                tickFormatter={axisValue}
+                                width={52}
+                                tick={{ fill: "#64748B", fontSize: 9, fontWeight: 600 }}
+                                axisLine={false}
+                                tickLine={false}
+                            />
+                            <Tooltip
+                                cursor={{ stroke: "#94A3B8", strokeDasharray: "4 4", strokeWidth: 1 }}
+                                content={<CustomTooltip />}
+                            />
+                            <Area
+                                type="monotone"
+                                dataKey="value"
+                                name="Trade Working Capital"
+                                stroke="#4F46E5"
+                                strokeWidth={3}
+                                fill="url(#wcTradeViewAllArea)"
+                                dot={{ r: 3.5, fill: "#FFFFFF", stroke: "#4F46E5", strokeWidth: 2 }}
+                                activeDot={{
+                                    r: 7,
+                                    fill: "#FFFFFF",
+                                    stroke: "#4F46E5",
+                                    strokeWidth: 3,
+                                }}
+                                isAnimationActive={true}
+                                animationDuration={900}
+                            />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <div
+                    style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#94A3B8",
+                        fontSize: "0.72rem",
+                    }}
+                >
+                    No Trade Working Capital history for the selected filters.
+                </div>
+            )}
+        </div>
+    );
+}
+
+function modalNumber(value, currency, unit = "aed") {
+    const n = toNumber(value);
+    if (n === null) return "—";
+    if (unit === "millions") return `${(n / 1000000).toFixed(2)}M`;
+    return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+}
+
+function ParentDivisionMonthOnMonthTable({ rows, currency, unit = "aed" }) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+
+    const periods = Array.from(
+        new Set(
+            safeRows
+                .map((row) => String(row?.period ?? ""))
+                .filter(Boolean)
+        )
+    );
+
+    const divisions = Array.from(
+        new Set(
+            safeRows
+                .map((row) => String(row?.name ?? "—"))
+                .filter((name) => name && name !== "—")
+        )
+    );
+
+    const lookup = new Map();
+    safeRows.forEach((row) => {
+        const name = String(row?.name ?? "—");
+        const period = String(row?.period ?? "");
+        if (!name || name === "—" || !period) return;
+        lookup.set(`${name}__${period}`, row);
+    });
+
+    const formatValue = (value) => {
+        const n = toNumber(value);
+        if (n === null) return "—";
+        if (unit === "millions") return `${(n / 1000000).toFixed(2)}M`;
+        return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+    };
+
+    if (!divisions.length || !periods.length) {
+        return (
+            <div
+                style={{
+                    width: "100%",
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#94A3B8",
+                    fontSize: "0.72rem",
+                }}
+            >
+                No available month-on-month history.
+            </div>
+        );
+    }
+
+    return (
+        <div
+            style={{
+                width: "100%",
+                flex: 1,
+                minHeight: 0,
+                overflow: "auto",
+                borderTop: "1px solid #E2E8F0",
+            }}
+        >
+            <table
+                style={{
+                    width: "100%",
+                    minWidth: Math.max(620, 190 + periods.length * 188),
+                    borderCollapse: "collapse",
+                    tableLayout: "fixed",
+                    fontFamily: "Inter, system-ui, sans-serif",
+                }}
+            >
+                <colgroup>
+                    <col style={{ width: 190 }} />
+                    {periods.map((period) => (
+                        <React.Fragment key={`col-${period}`}>
+                            <col style={{ width: 94 }} />
+                            <col style={{ width: 94 }} />
+                        </React.Fragment>
+                    ))}
+                </colgroup>
+                <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+                    <tr>
+                        <th
+                            rowSpan={2}
+                            style={{
+                                ...th,
+                                width: 190,
+                                minWidth: 190,
+                                background: "#F8FAFC",
+                                borderBottom: "1px solid #E2E8F0",
+                                borderRight: "1px solid #E2E8F0",
+                                position: "sticky",
+                                left: 0,
+                                zIndex: 7,
+                                padding: "8px 10px",
+                                fontSize: "0.61rem",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            PARENT DIVISION
+                        </th>
+                        {periods.map((period) => (
+                            <th
+                                key={`${period}-group`}
+                                colSpan={2}
+                                style={{
+                                    ...th,
+                                    textAlign: "center",
+                                    background: "#F8FAFC",
+                                    borderLeft: "1px solid #E2E8F0",
+                                    borderBottom: "1px solid #E2E8F0",
+                                    padding: "7px 4px",
+                                    fontSize: "0.61rem",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {period}
+                            </th>
+                        ))}
+                    </tr>
+                    <tr>
+                        {periods.map((period) => (
+                            <React.Fragment key={`${period}-subheader`}>
+                                <th
+                                    style={{
+                                        ...thRight,
+                                        width: 94,
+                                        minWidth: 94,
+                                        maxWidth: 94,
+                                        textAlign: "center",
+                                        background: "#FBFCFE",
+                                        borderLeft: "1px solid #E2E8F0",
+                                        borderBottom: "1px solid #E2E8F0",
+                                        padding: "7px 3px",
+                                        fontSize: "0.56rem",
+                                        lineHeight: 1.15,
+                                        whiteSpace: "normal",
+                                        wordBreak: "normal",
+                                    }}
+                                >
+                                    <span style={{ display: "block" }}>TRADE </span>
+                                    <span style={{ display: "block" }}> WORKING</span>
+                                    <span style={{ display: "block" }}>CAPITAL</span>
+                                </th>
+                                <th
+                                    style={{
+                                        ...thRight,
+                                        width: 94,
+                                        minWidth: 94,
+                                        maxWidth: 94,
+                                        textAlign: "center",
+                                        background: "#FBFCFE",
+                                        borderLeft: "1px solid #E2E8F0",
+                                        borderBottom: "1px solid #E2E8F0",
+                                        padding: "7px 3px",
+                                        fontSize: "0.58rem",
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    CCC
+                                </th>
+                            </React.Fragment>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {divisions.map((division, divisionIndex) => (
+                        <tr key={`${division}-${divisionIndex}`}>
+                            <td
+                                style={{
+                                    ...td,
+                                    padding: "8px 10px",
+                                    fontSize: "0.68rem",
+                                    fontWeight: 700,
+                                    color: "#334155",
+                                    background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
+                                    borderRight: "1px solid #E2E8F0",
+                                    position: "sticky",
+                                    left: 0,
+                                    zIndex: 2,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                }}
+                                title={division}
+                            >
+                                {division}
+                            </td>
+                            {periods.map((period) => {
+                                const row = lookup.get(`${division}__${period}`);
+                                const value = row?.value;
+                                const ccc = row?.ccc;
+                                return (
+                                    <React.Fragment key={`${division}-${period}`}>
+                                        <td
+                                            style={{
+                                                ...tdRight,
+                                                width: 94,
+                                                minWidth: 94,
+                                                maxWidth: 94,
+                                                padding: "8px 5px",
+                                                fontSize: "0.67rem",
+                                                whiteSpace: "nowrap",
+                                                color: toNumber(value) !== null && toNumber(value) < 0 ? "#DC2626" : "#334155",
+                                                fontWeight: 600,
+                                                background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
+                                            }}
+                                        >
+                                            {formatValue(value)}
+                                        </td>
+                                        <td
+                                            style={{
+                                                ...tdRight,
+                                                width: 94,
+                                                minWidth: 94,
+                                                maxWidth: 94,
+                                                padding: "8px 5px",
+                                                fontSize: "0.67rem",
+                                                whiteSpace: "nowrap",
+                                                color: "#475569",
+                                                fontWeight: 600,
+                                                background: divisionIndex % 2 ? "#FCFDFE" : "#FFFFFF",
+                                            }}
+                                        >
+                                            {toNumber(ccc) === null ? "—" : `${Number(ccc).toFixed(2)}`}
+                                        </td>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    );
+}
+
 function ViewAllModal({
     title,
     rows,
@@ -12871,6 +13962,7 @@ function ViewAllModal({
     onApplyFilters,
     onExport,
     loading = false,
+    monthOnMonthRows = [],
 }) {
     const isCfo = type === "cfo";
     const isCcc = type === "ccc";
@@ -12914,6 +14006,7 @@ function ViewAllModal({
     const [search, setSearch] = useState("");
     const [modalUnit, setModalUnit] = useState("aed");
     const [page, setPage] = useState(0);
+    const [cfoViewMode, setCfoViewMode] = useState("detailed");
     const pageSize = 15;
 
     const [localFilters, setLocalFilters] = useState(() => ({
@@ -12921,6 +14014,7 @@ function ViewAllModal({
         legalEntities: baseFilters?.legalEntities || [],
         parentDivisions: baseFilters?.parentDivisions || [],
         subDivisions: baseFilters?.subDivisions || [],
+        agingBasis: baseFilters?.agingBasis || "DUE_DATE",
         asOnDate: baseFilters?.asOnDate || "",
     }));
 
@@ -12930,10 +14024,22 @@ function ViewAllModal({
             legalEntities: baseFilters?.legalEntities || [],
             parentDivisions: baseFilters?.parentDivisions || [],
             subDivisions: baseFilters?.subDivisions || [],
+            agingBasis: baseFilters?.agingBasis || "DUE_DATE",
             asOnDate: baseFilters?.asOnDate || "",
         });
+        setSearch("");
         setPage(0);
+        setCfoViewMode("detailed");
     }, [baseFilters, type]);
+
+    const resetModalFilters = () => {
+        const reset = getWorkingCapitalDefaultFilters(filterOptions);
+        setLocalFilters(reset);
+        setSearch("");
+        setPage(0);
+        setCfoViewMode("detailed");
+        onApplyFilters?.(reset);
+    };
 
     const cascaded = useMemo(
         () => cascadeViewAllOptions(filterOptions, localFilters),
@@ -12966,7 +14072,28 @@ function ViewAllModal({
         return Object.values(row || {}).some((value) => String(value ?? "").toLowerCase().includes(q));
     });
 
-    const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    const filteredMonthRows = (Array.isArray(monthOnMonthRows) ? monthOnMonthRows : []).filter((row) => {
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return Object.values(row || {}).some((value) => String(value ?? "").toLowerCase().includes(q));
+    });
+
+    const monthDivisionNames = Array.from(
+        new Set(
+            filteredMonthRows
+                .map((row) => String(row?.name ?? "—"))
+                .filter((name) => name && name !== "—")
+        )
+    );
+
+    const totalPages = Math.max(
+        1,
+        Math.ceil(
+            (isCfo && cfoViewMode === "month-on-month"
+                ? monthDivisionNames.length
+                : filtered.length) / pageSize
+        )
+    );
     const safePage = Math.min(page, totalPages - 1);
     const pageRows = filtered.slice(safePage * pageSize, (safePage + 1) * pageSize);
 
@@ -13037,7 +14164,57 @@ function ViewAllModal({
                         </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
+                        {isCfo && (
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 2,
+                                    padding: 2,
+                                    border: "1px solid #D8DEE8",
+                                    borderRadius: 7,
+                                    background: "#F8FAFC",
+                                }}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => { setCfoViewMode("detailed"); setPage(0); }}
+                                    style={{
+                                        height: 27,
+                                        padding: "0 9px",
+                                        border: "none",
+                                        borderRadius: 5,
+                                        background: cfoViewMode === "detailed" ? "#1E3A8A" : "transparent",
+                                        color: cfoViewMode === "detailed" ? "#FFFFFF" : "#475569",
+                                        fontSize: "0.62rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    Detailed View
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setCfoViewMode("month-on-month"); setPage(0); }}
+                                    style={{
+                                        height: 27,
+                                        padding: "0 9px",
+                                        border: "none",
+                                        borderRadius: 5,
+                                        background: cfoViewMode === "month-on-month" ? "#4F46E5" : "transparent",
+                                        color: cfoViewMode === "month-on-month" ? "#FFFFFF" : "#475569",
+                                        fontSize: "0.62rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    Month-on-Month by Parent Division
+                                </button>
+                            </div>
+                        )}
+                        {!isCcc && (
+                            <UnitToggle unit={modalUnit} onToggle={setModalUnit} currency={currency} />
+                        )}
                         {showModalExports && (
                             <>
                                 <button type="button" onClick={() => onExport?.("excel", type, localFilters, rows)} disabled={loading} style={{ height: 30, padding: "0 10px", borderRadius: 7, border: "1px solid #A7D8BF", background: "#F8FFFC", color: "#168052", fontSize: "0.68rem", fontWeight: 700, cursor: "pointer" }}>Excel</button>
@@ -13067,29 +14244,65 @@ function ViewAllModal({
                     <ViewAllMultiSelect label="Sub-Division" options={cascaded.subDivisions} value={localFilters.subDivisions} onChange={(v) => updateCascade("subDivisions", v)} />
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                        <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Reporting Currency</span>
+                        <div
+                            style={{
+                                width: 112,
+                                height: 32,
+                                border: "1px solid #CBD5E1",
+                                borderRadius: 7,
+                                background: "#FFFFFF",
+                                color: "#334155",
+                                padding: "0 9px",
+                                display: "flex",
+                                alignItems: "center",
+                                boxSizing: "border-box",
+                                fontSize: "0.72rem",
+                                fontWeight: 700,
+                            }}
+                        >
+                            {currency || "AED"}
+                        </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                        <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>Aging Basis</span>
+                        <select
+                            value={localFilters.agingBasis || "DUE_DATE"}
+                            onChange={(event) => setLocalFilters((p) => ({ ...p, agingBasis: event.target.value }))}
+                            style={{
+                                width: 120,
+                                height: 32,
+                                border: "1px solid #CBD5E1",
+                                borderRadius: 7,
+                                background: "#FFFFFF",
+                                color: "#334155",
+                                padding: "0 8px",
+                                fontSize: "0.72rem",
+                                cursor: "pointer",
+                            }}
+                        >
+                            {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
+                                <option key={basis} value={basis}>
+                                    {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
                         <span style={{ color: "#1E3A8A", fontSize: "0.68rem", fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" }}>As On Date</span>
                         <CalendarDateField
                             value={localFilters.asOnDate || ""}
                             onChange={(value) => setLocalFilters((p) => ({ ...p, asOnDate: value }))}
-                            width={135}
+                            width={130}
                         />
                     </div>
 
                     <button type="button" onClick={() => { setPage(0); onApplyFilters?.(localFilters); }} disabled={loading} style={{ height: 32, padding: "0 14px", border: "none", borderRadius: 7, background: "#2563EB", color: "#FFFFFF", fontSize: "0.70rem", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
                         {loading ? "Loading..." : "Apply"}
                     </button>
-                    <button type="button" onClick={() => {
-                        const reset = {
-                            legalGroups: baseFilters?.legalGroups || [],
-                            legalEntities: baseFilters?.legalEntities || [],
-                            parentDivisions: baseFilters?.parentDivisions || [],
-                            subDivisions: baseFilters?.subDivisions || [],
-                            asOnDate: baseFilters?.asOnDate || "",
-                        };
-                        setLocalFilters(reset);
-                        setPage(0);
-                        onApplyFilters?.(reset);
-                    }} disabled={loading} style={{ height: 32, padding: "0 9px", border: "none", background: "transparent", color: "#475569", fontSize: "0.70rem", fontWeight: 600, cursor: "pointer" }}>
+                    <button type="button" onClick={resetModalFilters} disabled={loading} style={{ height: 32, padding: "0 9px", border: "none", background: "transparent", color: "#475569", fontSize: "0.70rem", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
                         Reset
                     </button>
 
@@ -13100,145 +14313,262 @@ function ViewAllModal({
                         <input
                             value={search}
                             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-                            placeholder={isCcc ? "Search periods..." : "Search..."}
+                            placeholder={isCfo && cfoViewMode === "month-on-month" ? "Search Parent Divisions..." : isCcc ? "Search periods..." : "Search..."}
                             style={{ height: 32, width: 220, border: "1px solid #CBD5E1", borderRadius: 7, padding: "0 10px", fontSize: "0.72rem", color: "#334155", outline: "none", fontFamily: "Inter, system-ui, sans-serif" }}
                         />
-                        <span style={{ color: C.muted, fontSize: "0.70rem", fontWeight: 600 }}>{filtered.length} records</span>
+                        <span style={{ color: C.muted, fontSize: "0.70rem", fontWeight: 600 }}>
+                            {isCfo && cfoViewMode === "month-on-month" ? `${monthDivisionNames.length} Parent Divisions` : `${filtered.length} records`}
+                        </span>
                     </div>
-                    <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}>
-                        <table
-                            style={{
-                                width: "100%",
-                                borderCollapse: "collapse",
-                                tableLayout: isCfo ? "fixed" : "auto",
-                                minWidth: isCfo
-                                    ? 980
-                                    : isCcc
-                                        ? 650
-                                        : isTrade || isTrend
-                                            ? 520
-                                            : 760,
-                            }}
-                        >
-                            <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
-                                <tr>
-                                    {isCfo ? (
-                                        <>
-                                            <th style={cfoTh}>LEGAL ENTITY</th>
-                                            <th style={cfoTh}>PARENT DIVISION</th>
-                                            <th style={cfoTh}>SUB-DIVISION</th>
-                                            <th style={cfoThRight}>TRADE RECEIVABLES ({currency})</th>
-                                            <th style={cfoThRight}>DSO</th>
-                                            <th style={cfoThRight}>TRADE PAYABLES ({currency})</th>
-                                            <th style={cfoThRight}>DPO</th>
-                                            <th style={cfoThRight}>INVENTORY ({currency})</th>
-                                            <th style={cfoThRight}>DIO</th>
-                                            <th style={cfoThRight}>
-                                                TRADE WORKING CAPITAL
-                                                <br />
-                                                ({currency})
-                                            </th>
-                                            <th style={cfoThRight}>CCC</th>
-                                        </>
-                                    ) : isCcc ? (
-                                        <>
-                                            <th style={th}>PERIOD</th>
-                                            <th style={thRight}>DSO</th>
-                                            <th style={thRight}>DIO</th>
-                                            <th style={thRight}>DPO</th>
-                                            <th style={thRight}>CCC</th>
-                                        </>
-                                    ) : isTrade || isTrend ? (
-                                        <>
-                                            <th style={th}>PERIOD</th>
-                                            <th style={thRight}>
-                                                {isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}
-                                                {currency ? ` (${currency})` : ""}
-                                            </th>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <th style={th}>PERIOD</th>
-                                            <th style={th}>CATEGORY</th>
-                                            <th style={thRight}>AMOUNT ({currency})</th>
-                                            <th style={thRight}>% OF TOTAL</th>
-                                        </>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {pageRows.length ? pageRows.map((row, index) => {
-                                    if (isCfo) {
-                                        return (
-                                            <tr
-                                                key={`${row.legalEntity}-${row.parentDivision}-${row.subDivision}-${index}`}
-                                            >
-                                                <td style={cfoTd} title={row.legalEntity}>{row.legalEntity}</td>
-                                                <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
-                                                <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
-                                                <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
-                                                <td style={cfoTdRight}>—</td>
-                                                <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
-                                                <td style={cfoTdRight}>—</td>
-                                                <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
-                                                <td style={cfoTdRight}>—</td>
-                                                <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
-                                                <td style={cfoTdRight}>—</td>
+
+                    {isTrade ? (
+                        <div className="wc-trade-view-all-grid" style={{ width: "100%", flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(220px, 0.58fr) minmax(560px, 1.42fr)", gap: 10, overflow: "hidden" }}>
+                            <div className="wc-trade-view-all-table" style={{ minWidth: 0, minHeight: 0, overflow: "auto" }}>
+                                <table
+                                    style={{
+                                        width: "100%",
+                                        borderCollapse: "collapse",
+                                        tableLayout: isCfo ? "fixed" : isTrade ? "fixed" : "auto",
+                                        minWidth: isCfo
+                                            ? 980
+                                            : isCcc
+                                                ? 650
+                                                : isTrade
+                                                    ? 0
+                                                    : isTrend
+                                                        ? 520
+                                                        : 760,
+                                    }}
+                                >
+                                    <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+                                        <tr>
+                                            {isCfo ? (
+                                                <>
+                                                    <th style={cfoTh}>LEGAL ENTITY</th>
+                                                    <th style={cfoTh}>PARENT DIVISION</th>
+                                                    <th style={cfoTh}>SUB-DIVISION</th>
+                                                    <th style={cfoThRight}>TRADE RECEIVABLES</th>
+                                                    <th style={cfoThRight}>DSO</th>
+                                                    <th style={cfoThRight}>TRADE PAYABLES</th>
+                                                    <th style={cfoThRight}>DPO</th>
+                                                    <th style={cfoThRight}>INVENTORY</th>
+                                                    <th style={cfoThRight}>DIO</th>
+                                                    <th style={{ ...cfoThRight, whiteSpace: "nowrap" }}>
+                                                        TRADE WORKING CAPITAL ({currency})
+                                                    </th>
+                                                    <th style={cfoThRight}>CCC</th>
+                                                </>
+                                            ) : isCcc ? (
+                                                <>
+                                                    <th style={th}>PERIOD</th>
+                                                    <th style={thRight}>DSO</th>
+                                                    <th style={thRight}>DIO</th>
+                                                    <th style={thRight}>DPO</th>
+                                                    <th style={thRight}>CCC</th>
+                                                </>
+                                            ) : isTrade || isTrend ? (
+                                                <>
+                                                    <th style={th}>PERIOD</th>
+                                                    <th style={thRight}>
+                                                        {isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}
+                                                        {currency ? ` (${currency})` : ""}
+                                                    </th>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <th style={th}>PERIOD</th>
+                                                    <th style={th}>CATEGORY</th>
+                                                    <th style={thRight}>AMOUNT</th>
+                                                    <th style={thRight}>% OF TOTAL</th>
+                                                </>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pageRows.length ? pageRows.map((row, index) => {
+                                            if (isCfo) {
+                                                return (
+                                                    <tr
+                                                        key={`${row.legalEntity}-${row.parentDivision}-${row.subDivision}-${index}`}
+                                                    >
+                                                        <td style={cfoTd} title={row.legalEntity}>{row.legalEntity}</td>
+                                                        <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
+                                                        <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
+                                                        <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
+                                                        <td style={cfoTdRight}>—</td>
+                                                        <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
+                                                        <td style={cfoTdRight}>—</td>
+                                                        <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
+                                                        <td style={cfoTdRight}>—</td>
+                                                        <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
+                                                        <td style={cfoTdRight}>—</td>
+                                                    </tr>
+                                                );
+                                            }
+
+                                            if (isCcc) return (
+                                                <tr key={`${row.period}-${index}`}>
+                                                    <td style={td}>{row.period}</td>
+                                                    <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
+                                                    <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
+                                                    <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
+                                                    <td style={tdRight}>{row.ccc == null ? "—" : Number(row.ccc).toFixed(2)}</td>
+                                                </tr>
+                                            );
+
+                                            if (isTrade || isTrend) return (
+                                                <tr key={`${row.period}-${index}`}>
+                                                    <td style={td}>{row.period}</td>
+                                                    <td style={tdRight}>{modalFmt(row.value)}</td>
+                                                </tr>
+                                            );
+
+                                            return (
+                                                <tr key={`${row.period}-${row.particular}-${index}`}>
+                                                    <td style={td}>{row.period}</td>
+                                                    <td style={td}>{row.particular}</td>
+                                                    <td style={tdRight}>{modalFmt(row.amount)}</td>
+                                                    <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
+                                                </tr>
+                                            );
+                                        }) : (
+                                            <tr>
+                                                <td
+                                                    colSpan={
+                                                        isCfo
+                                                            ? 11
+                                                            : isCcc
+                                                                ? 5
+                                                                : isTrade || isTrend
+                                                                    ? 2
+                                                                    : 4
+                                                    }
+                                                    style={{
+                                                        padding: 30,
+                                                        textAlign: "center",
+                                                        color: "#94A3B8",
+                                                        fontSize: "0.72rem",
+                                                    }}
+                                                >
+                                                    {loading ? "Loading..." : "No available history."}
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <TradeWorkingCapitalViewAllChart rows={filtered} currency={currency} unit={modalUnit} />
+                        </div>
+                    ) : isCfo && cfoViewMode === "month-on-month" ? (
+                        <ParentDivisionMonthOnMonthTable rows={filteredMonthRows} currency={currency} unit={modalUnit} />
+                    ) : (
+                        <div style={{ width: "100%", flex: 1, minHeight: 0, overflow: "auto" }}>
+                            <table
+                                style={{
+                                    width: "100%",
+                                    borderCollapse: "collapse",
+                                    tableLayout: isCfo ? "fixed" : "auto",
+                                    minWidth: isCfo
+                                        ? 980
+                                        : isCcc
+                                            ? 650
+                                            : isTrade || isTrend
+                                                ? 520
+                                                : 760,
+                                }}
+                            >
+                                <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
+                                    <tr>
+                                        {isCfo ? (
+                                            <>
+                                                <th style={cfoTh}>LEGAL ENTITY</th>
+                                                <th style={cfoTh}>PARENT DIVISION</th>
+                                                <th style={cfoTh}>SUB-DIVISION</th>
+                                                <th style={cfoThRight}>TRADE RECEIVABLES</th>
+                                                <th style={cfoThRight}>DSO</th>
+                                                <th style={cfoThRight}>TRADE PAYABLES</th>
+                                                <th style={cfoThRight}>DPO</th>
+                                                <th style={cfoThRight}>INVENTORY</th>
+                                                <th style={cfoThRight}>DIO</th>
+                                                <th style={cfoThRight}>TRADE WORKING CAPITAL</th>
+                                                <th style={cfoThRight}>CCC</th>
+                                            </>
+                                        ) : isCcc ? (
+                                            <>
+                                                <th style={th}>PERIOD</th>
+                                                <th style={thRight}>DSO</th>
+                                                <th style={thRight}>DIO</th>
+                                                <th style={thRight}>DPO</th>
+                                                <th style={thRight}>CCC</th>
+                                            </>
+                                        ) : isTrade || isTrend ? (
+                                            <>
+                                                <th style={th}>PERIOD</th>
+                                                <th style={thRight}>{isTrade ? "TRADE WORKING CAPITAL" : "NET WORKING CAPITAL"}</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th style={th}>PERIOD</th>
+                                                <th style={th}>CATEGORY</th>
+                                                <th style={thRight}>AMOUNT</th>
+                                                <th style={thRight}>% OF TOTAL</th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pageRows.length ? pageRows.map((row, index) => {
+                                        if (isCfo) {
+                                            return (
+                                                <tr key={`${row.legalEntity}-${row.parentDivision}-${row.subDivision}-${index}`}>
+                                                    <td style={cfoTd} title={row.legalEntity}>{row.legalEntity}</td>
+                                                    <td style={cfoTd} title={row.parentDivision}>{row.parentDivision}</td>
+                                                    <td style={cfoTd} title={row.subDivision}>{row.subDivision}</td>
+                                                    <td style={cfoNumberStyle(row.tradeReceivables)}>{modalFmt(row.tradeReceivables)}</td>
+                                                    <td style={cfoTdRight}>—</td>
+                                                    <td style={cfoNumberStyle(row.tradePayables)}>{modalFmt(row.tradePayables)}</td>
+                                                    <td style={cfoTdRight}>—</td>
+                                                    <td style={cfoNumberStyle(row.inventory)}>{modalFmt(row.inventory)}</td>
+                                                    <td style={cfoTdRight}>—</td>
+                                                    <td style={cfoNumberStyle(row.tradeWorkingCapital)}>{modalFmt(row.tradeWorkingCapital)}</td>
+                                                    <td style={cfoTdRight}>—</td>
+                                                </tr>
+                                            );
+                                        }
+                                        if (isCcc) return (
+                                            <tr key={`${row.period}-${index}`}>
+                                                <td style={td}>{row.period}</td>
+                                                <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
+                                                <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
+                                                <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
+                                                <td style={tdRight}>{row.ccc == null ? "—" : Number(row.ccc).toFixed(2)}</td>
                                             </tr>
                                         );
-                                    }
-
-                                    if (isCcc) return (
-                                        <tr key={`${row.period}-${index}`}>
-                                            <td style={td}>{row.period}</td>
-                                            <td style={tdRight}>{row.dso == null ? "—" : Number(row.dso).toFixed(2)}</td>
-                                            <td style={tdRight}>{row.dio == null ? "—" : Number(row.dio).toFixed(2)}</td>
-                                            <td style={tdRight}>{row.dpo == null ? "—" : Number(row.dpo).toFixed(2)}</td>
-                                            <td style={tdRight}>{row.ccc == null ? "—" : Number(row.ccc).toFixed(2)}</td>
+                                        if (isTrade || isTrend) return (
+                                            <tr key={`${row.period}-${index}`}>
+                                                <td style={td}>{row.period}</td>
+                                                <td style={tdRight}>{modalFmt(row.value)}</td>
+                                            </tr>
+                                        );
+                                        return (
+                                            <tr key={`${row.period}-${row.particular}-${index}`}>
+                                                <td style={td}>{isComponents ? formatDate(row.period) : row.period}</td>
+                                                <td style={td}>{row.particular}</td>
+                                                <td style={tdRight}>{modalFmt(row.amount)}</td>
+                                                <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
+                                            </tr>
+                                        );
+                                    }) : (
+                                        <tr>
+                                            <td colSpan={isCfo ? 11 : isCcc ? 5 : isTrade || isTrend ? 2 : 4} style={{ padding: 30, textAlign: "center", color: "#94A3B8", fontSize: "0.72rem" }}>
+                                                {loading ? "Loading..." : "No available history."}
+                                            </td>
                                         </tr>
-                                    );
-
-                                    if (isTrade || isTrend) return (
-                                        <tr key={`${row.period}-${index}`}>
-                                            <td style={td}>{row.period}</td>
-                                            <td style={tdRight}>{modalFmt(row.value)}</td>
-                                        </tr>
-                                    );
-
-                                    return (
-                                        <tr key={`${row.period}-${row.particular}-${index}`}>
-                                            <td style={td}>{row.period}</td>
-                                            <td style={td}>{row.particular}</td>
-                                            <td style={tdRight}>{modalFmt(row.amount)}</td>
-                                            <td style={tdRight}>{row.percentage == null ? "—" : `${Number(row.percentage).toFixed(2)}%`}</td>
-                                        </tr>
-                                    );
-                                }) : (
-                                    <tr>
-                                        <td
-                                            colSpan={
-                                                isCfo
-                                                    ? 11
-                                                    : isCcc
-                                                        ? 5
-                                                        : isTrade || isTrend
-                                                            ? 2
-                                                            : 4
-                                            }
-                                            style={{
-                                                padding: 30,
-                                                textAlign: "center",
-                                                color: "#94A3B8",
-                                                fontSize: "0.72rem",
-                                            }}
-                                        >
-                                            {loading ? "Loading..." : "No available history."}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
 
                 <div style={{
@@ -13306,6 +14636,7 @@ export default function WorkingCapitalReport() {
         legalEntities: [],
         parentDivisions: [],
         subDivisions: [],
+        agingBasis: "DUE_DATE",
         asOnDate: "",
     });
 
@@ -13838,19 +15169,14 @@ export default function WorkingCapitalReport() {
     }
 
     function resetFilters() {
-        const next = {
-            legalGroups: [],
-            legalEntities: [],
-            parentDivisions: [],
-            subDivisions: [],
-            asOnDate:
-                filterOptions.operationalAsOnDate ||
-                filterOptions.asOnDates[0] ||
-                "",
-        };
+        const next = getWorkingCapitalDefaultFilters(filterOptions);
 
-        setFilters(next);
-        setAppliedFilters(next);
+        // Update both the visible controls and the committed API scope.
+        // A fresh object is used for each state so React always sees the reset.
+        setFilters({ ...next });
+        setAppliedFilters({ ...next });
+        setViewAll(null);
+        setError("");
     }
 
     function handleRefresh() {
@@ -14059,47 +15385,73 @@ export default function WorkingCapitalReport() {
         const activeFilters = overrideFilters || appliedFilters || filters;
 
         /*
-         * Working Capital Components View All is built from the already-loaded
-         * Components response. No new View-All request is needed, so Apply
-         * remains an immediate action and never switches to "Loading...".
+         * Working Capital Components View All must use the currently selected
+         * View-All filters. The previous implementation reused componentData
+         * from the dashboard, so Apply changed the filter state but left the
+         * displayed component values unchanged. Fetch the components again
+         * for the explicit View-All Apply action.
          */
         if (type === "components") {
-            const componentRows = [
-                {
-                    period: activeFilters?.asOnDate || operationalDate || "—",
-                    particular: "Receivables",
-                    amount: toNumber(getValue(componentData, "receivables", "total_receivables")),
-                    percentage: null,
-                },
-                {
-                    period: activeFilters?.asOnDate || operationalDate || "—",
-                    particular: "Inventory",
-                    amount: toNumber(getValue(componentData, "inventory", "total_inventory")),
-                    percentage: null,
-                },
-                {
-                    period: activeFilters?.asOnDate || operationalDate || "—",
-                    particular: "(-) Payables",
-                    amount: toNumber(getValue(componentData, "payables", "total_payables")),
-                    percentage: null,
-                },
-                {
-                    period: activeFilters?.asOnDate || operationalDate || "—",
-                    particular: "Trade Working Capital",
-                    amount: toNumber(getValue(componentData, "trade_working_capital", "trade_working_capital_value", "working_capital")),
-                    percentage: null,
-                },
-            ];
+            setViewAllLoading(true);
+            setError("");
 
-            setViewAll({
-                type,
-                cfoViewLabel,
-                title: "Working Capital Components Detailed View",
-                rows: componentRows,
-                filters: { ...activeFilters },
-            });
-            setViewAllLoading(false);
-            return componentRows;
+            try {
+                const componentApiFilters = buildApiFilters(
+                    activeFilters,
+                    filterOptions
+                );
+                const componentResponse = await getWorkingCapitalComponents(
+                    componentApiFilters
+                );
+                const componentSource =
+                    unwrapApiResponse(componentResponse) ?? {};
+
+                const componentRows = [
+                    {
+                        period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+                        particular: "Receivables",
+                        amount: toNumber(getValue(componentSource, "receivables", "total_receivables")),
+                        percentage: null,
+                    },
+                    {
+                        period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+                        particular: "Inventory",
+                        amount: toNumber(getValue(componentSource, "inventory", "total_inventory")),
+                        percentage: null,
+                    },
+                    {
+                        period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+                        particular: "(-) Payables",
+                        amount: toNumber(getValue(componentSource, "payables", "total_payables")),
+                        percentage: null,
+                    },
+                    {
+                        period: formatDate(activeFilters?.asOnDate || operationalDate || "—"),
+                        particular: "Trade Working Capital",
+                        amount: toNumber(getValue(componentSource, "trade_working_capital", "trade_working_capital_value", "working_capital")),
+                        percentage: null,
+                    },
+                ];
+
+                setViewAll({
+                    type,
+                    cfoViewLabel,
+                    title: "Working Capital Components Detailed View",
+                    rows: componentRows,
+                    monthOnMonthRows: [],
+                    filters: { ...activeFilters },
+                });
+                return componentRows;
+            } catch (err) {
+                setError(
+                    err?.response?.data?.detail ||
+                    err?.message ||
+                    "Unable to load Working Capital Components."
+                );
+                return [];
+            } finally {
+                setViewAllLoading(false);
+            }
         }
 
         const apiFilters = buildApiFilters(
@@ -14183,6 +15535,8 @@ export default function WorkingCapitalReport() {
                  *
                  * Only the selected hierarchy/date filters are forwarded.
                  */
+                let monthOnMonthRows = [];
+
                 if (type === "cfo") {
                     const cfoViewAllFilters =
                         buildCfoViewAllApiFilters(
@@ -14190,15 +15544,21 @@ export default function WorkingCapitalReport() {
                             filterOptions
                         );
 
-                    response =
-                        await getWorkingCapitalViewAll(
-                            cfoViewAllFilters
-                        );
+                    const [cfoResponse, parentTrendResponse] =
+                        await Promise.all([
+                            getWorkingCapitalViewAll(cfoViewAllFilters),
+                            getWorkingCapitalParentDivisionTrend({
+                                ...cfoViewAllFilters,
+                                months: 12,
+                            }),
+                        ]);
 
-                    rows =
-                        normalizeCfoViewAllRows(
-                            response
-                        );
+                    response = cfoResponse;
+                    rows = normalizeCfoViewAllRows(response);
+                    monthOnMonthRows = normalizeHierarchyTrendRows(
+                        parentTrendResponse,
+                        "parent"
+                    );
 
                     title =
                         `Working Capital - ${cfoViewLabel || "Detailed"} - Detailed View`;
@@ -14264,6 +15624,7 @@ export default function WorkingCapitalReport() {
                     cfoViewLabel,
                     title,
                     rows,
+                    monthOnMonthRows,
                     filters: { ...activeFilters },
                 });
 
@@ -14305,6 +15666,22 @@ export default function WorkingCapitalReport() {
         <>
             <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');`}</style>
             <style>{workingCapitalFilterResponsiveCss}</style>
+            <style>{`
+                .wc-trade-view-all-table table th,
+                .wc-trade-view-all-table table td {
+                    padding: 5px 6px !important;
+                    font-size: 0.62rem !important;
+                }
+                .wc-trade-view-all-table table th {
+                    white-space: nowrap;
+                }
+                @media (max-width: 1050px) {
+                    .wc-trade-view-all-grid {
+                        grid-template-columns: 1fr !important;
+                        grid-template-rows: minmax(300px, 1fr) minmax(300px, 0.9fr) !important;
+                    }
+                }
+            `}</style>
             <style>{`
                 .wc-sales-page, .wc-sales-page * {
                     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -14996,55 +16373,32 @@ export default function WorkingCapitalReport() {
                         label="Legal Group"
                         values={filters.legalGroups}
                         options={cascadingFilterOptions.legalGroups}
-                        onChange={(value) =>
-                            updateFilter("legalGroups", value)
-                        }
+                        onChange={(value) => updateFilter("legalGroups", value)}
                     />
 
                     <MultiSelectField
                         label="Legal Entity"
                         values={filters.legalEntities}
                         options={cascadingFilterOptions.legalEntities}
-                        onChange={(value) =>
-                            updateFilter("legalEntities", value)
-                        }
+                        onChange={(value) => updateFilter("legalEntities", value)}
                     />
 
                     <MultiSelectField
                         label="Parent Division"
                         values={filters.parentDivisions}
                         options={cascadingFilterOptions.parentDivisions}
-                        onChange={(value) =>
-                            updateFilter("parentDivisions", value)
-                        }
+                        onChange={(value) => updateFilter("parentDivisions", value)}
                     />
 
                     <MultiSelectField
                         label="Sub-Division"
                         values={filters.subDivisions}
                         options={cascadingFilterOptions.subDivisions}
-                        onChange={(value) =>
-                            updateFilter("subDivisions", value)
-                        }
+                        onChange={(value) => updateFilter("subDivisions", value)}
                     />
 
                     <div style={{ minWidth: 0 }}>
-                        <label style={styles.filterLabel}>
-                            As On Date
-                        </label>
-                        <CalendarDateField
-                            value={filters.asOnDate || ""}
-                            onChange={(value) =>
-                                updateFilter("asOnDate", value)
-                            }
-                            width="100%"
-                        />
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                        <label style={styles.filterLabel}>
-                            Reporting Currency
-                        </label>
+                        <label style={styles.filterLabel}>Reporting Currency</label>
                         <div
                             style={{
                                 ...styles.filterInput,
@@ -15053,11 +16407,40 @@ export default function WorkingCapitalReport() {
                                 alignItems: "center",
                                 color: "#334155",
                                 fontWeight: 700,
-                                background: "#F8FAFC",
+                                background: "#FFFFFF",
+                                cursor: "default",
                             }}
                         >
-                            {filterOptions.reportingCurrency || "—"}
+                            {filterOptions.reportingCurrency || "AED"}
                         </div>
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                        <label style={styles.filterLabel}>Aging Basis</label>
+                        <select
+                            value={filters.agingBasis || "DUE_DATE"}
+                            onChange={(event) => updateFilter("agingBasis", event.target.value)}
+                            style={{
+                                ...styles.filterInput,
+                                height: "32px",
+                                cursor: "pointer",
+                            }}
+                        >
+                            {(filterOptions.agingBases || ["DUE_DATE"]).map((basis) => (
+                                <option key={basis} value={basis}>
+                                    {basis === "DUE_DATE" ? "Due Date Basis" : String(basis).replaceAll("_", " ")}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div style={{ minWidth: 0 }}>
+                        <label style={styles.filterLabel}>As On Date</label>
+                        <CalendarDateField
+                            value={filters.asOnDate || ""}
+                            onChange={(value) => updateFilter("asOnDate", value)}
+                            width="100%"
+                        />
                     </div>
 
                     <button
@@ -15080,14 +16463,11 @@ export default function WorkingCapitalReport() {
 
                     <button
                         type="button"
-                        onClick={
-                            resetFilters
-                        }
+                        onClick={resetFilters}
                         style={{
                             height: "32px",
                             border: "none",
-                            background:
-                                "transparent",
+                            background: "transparent",
                             color: "#263BD4",
                             fontSize: "11px",
                             fontWeight: 600,
@@ -15141,7 +16521,7 @@ export default function WorkingCapitalReport() {
                                 icon="↗"
                             />
                             <KpiCard
-                                title="Receivables Trade"
+                                title="Trade Receivables"
                                 value={formatAmount(kpis?.total_receivables, currency)}
                                 subtitle={operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
                                 icon="◔"
@@ -15187,6 +16567,25 @@ export default function WorkingCapitalReport() {
                                 value={toNumber(kpis?.cash_conversion_cycle_days) === null ? "—" : `${toNumber(kpis.cash_conversion_cycle_days).toFixed(2)} Days`}
                                 subtitle={toNumber(kpis?.cash_conversion_cycle_days) === null ? "Insufficient history" : operationalDate !== "—" ? `As of ${formatDate(operationalDate)}` : undefined}
                                 icon="◴"
+                            />
+                            <KpiCard
+                                title="Target CCC"
+                                value={(() => {
+                                    const target = toNumber(
+                                        getValue(
+                                            kpis,
+                                            "target_ccc_days",
+                                            "target_cash_conversion_cycle_days",
+                                            "target_cash_conversion_cycle",
+                                            "ccc_target_days",
+                                            "ccc_target",
+                                            "target_ccc"
+                                        )
+                                    );
+                                    return target === null ? "—" : `${target.toFixed(2)} Days`;
+                                })()}
+                                subtitle="Backend target"
+                                icon="◎"
                             />
                         </div>
 
@@ -15379,6 +16778,7 @@ export default function WorkingCapitalReport() {
                         rows={viewAll.rows}
                         currency={currency}
                         type={viewAll.type}
+                        monthOnMonthRows={viewAll.monthOnMonthRows || []}
                         onClose={() => setViewAll(null)}
                         filterOptions={filterOptions}
                         baseFilters={viewAll.filters || appliedFilters || filters}
@@ -15662,13 +17062,11 @@ function HierarchyTrendChart({
                             <BarChart
                                 data={chartData}
                                 margin={{
-                                    top: 24,
-                                    right: 10,
+                                    top: 28,
+                                    right: 14,
                                     left: 10,
                                     bottom: 58,
                                 }}
-                                maxBarSize={58}
-                                barCategoryGap="18%"
                                 onMouseMove={(state) => {
                                     const index = state?.activeTooltipIndex;
                                     setHoveredIndex(
@@ -15679,33 +17077,6 @@ function HierarchyTrendChart({
                                 }}
                                 onMouseLeave={() => setHoveredIndex(null)}
                             >
-                                <defs>
-                                    {chartData.map((entry, index) => {
-                                        const color = colors[index % colors.length];
-                                        return (
-                                            <linearGradient
-                                                key={`${chartKey}-grad-${index}`}
-                                                id={`${chartKey}-grad-${index}`}
-                                                x1="0"
-                                                y1="0"
-                                                x2="0"
-                                                y2="1"
-                                            >
-                                                <stop
-                                                    offset="0%"
-                                                    stopColor={color}
-                                                    stopOpacity={1}
-                                                />
-                                                <stop
-                                                    offset="100%"
-                                                    stopColor={color}
-                                                    stopOpacity={0.42}
-                                                />
-                                            </linearGradient>
-                                        );
-                                    })}
-                                </defs>
-
                                 <CartesianGrid
                                     vertical={false}
                                     stroke="#F1F5F9"
@@ -15761,16 +17132,16 @@ function HierarchyTrendChart({
                                     }}
                                     tickFormatter={formatAxisValue}
                                     width={44}
-                                    domain={[0, Math.ceil(maxValue * 1.08)]}
+                                    domain={[0, Math.ceil(maxValue * 1.12)]}
                                 />
 
                                 <Tooltip
                                     cursor={{
-                                        fill: "rgba(226, 232, 240, 0.5)",
-                                        rx: 8,
-                                        ry: 8,
+                                        stroke: "#CBD5E1",
+                                        strokeWidth: 1,
+                                        strokeDasharray: "4 4",
                                     }}
-                                    offset={24}
+                                    offset={18}
                                     wrapperStyle={{
                                         zIndex: 100,
                                         pointerEvents: "none",
@@ -15786,10 +17157,7 @@ function HierarchyTrendChart({
                                         const index = chartData.findIndex(
                                             (entry) => entry.name === item?.name
                                         );
-                                        const color =
-                                            colors[
-                                            Math.max(index, 0) % colors.length
-                                            ];
+                                        const color = colors[Math.max(index, 0) % colors.length];
 
                                         return (
                                             <div
@@ -15798,8 +17166,7 @@ function HierarchyTrendChart({
                                                     border: `1px solid ${C.border}`,
                                                     borderRadius: 10,
                                                     padding: "12px 16px",
-                                                    boxShadow:
-                                                        "0 8px 24px rgba(0,0,0,0.12)",
+                                                    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
                                                     minWidth: 190,
                                                     fontFamily:
                                                         "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -15817,12 +17184,10 @@ function HierarchyTrendChart({
                                                 >
                                                     {item?.name}
                                                 </div>
-
                                                 <div
                                                     style={{
                                                         display: "grid",
-                                                        gridTemplateColumns:
-                                                            "auto 1fr",
+                                                        gridTemplateColumns: "auto 1fr",
                                                         gap: "6px 16px",
                                                         alignItems: "center",
                                                     }}
@@ -15846,7 +17211,6 @@ function HierarchyTrendChart({
                                                         />
                                                         Working Capital:
                                                     </span>
-
                                                     <span
                                                         style={{
                                                             fontWeight: 800,
@@ -15856,11 +17220,8 @@ function HierarchyTrendChart({
                                                             whiteSpace: "nowrap",
                                                         }}
                                                     >
-                                                        {currency || "AED"} {Number(
-                                                            item?.value || 0
-                                                        ).toLocaleString()}
+                                                        {currency || "AED"} {Number(item?.value || 0).toLocaleString()}
                                                     </span>
-
                                                 </div>
                                             </div>
                                         );
@@ -15869,63 +17230,30 @@ function HierarchyTrendChart({
 
                                 <Bar
                                     dataKey="value"
-                                    radius={[8, 8, 0, 0]}
+                                    name="Working Capital"
+                                    radius={[6, 6, 0, 0]}
+                                    maxBarSize={54}
                                     isAnimationActive={true}
                                     animationDuration={800}
                                     animationEasing="ease-in-out"
+                                    fill="#4338CA"
                                 >
                                     {chartData.map((entry, index) => (
-                                        <React.Fragment
-                                            key={`sub-bar-${index}`}
-                                        >
-                                            <Cell
-                                                fill={`url(#${chartKey}-grad-${index})`}
-                                                style={{
-                                                    opacity:
-                                                        hoveredIndex === null ||
-                                                            hoveredIndex === index
-                                                            ? 1
-                                                            : 0.72,
-                                                    transition:
-                                                        "opacity .18s ease, filter .18s ease",
-                                                    filter:
-                                                        hoveredIndex === index
-                                                            ? "drop-shadow(0 5px 10px rgba(15,23,42,.20))"
-                                                            : "none",
-                                                    transform:
-                                                        hoveredIndex === index
-                                                            ? "translateY(-2px)"
-                                                            : "translateY(0)",
-                                                }}
-                                            />
-                                        </React.Fragment>
+                                        <Cell
+                                            key={`wc-subdivision-cell-${index}`}
+                                            fill={colors[index % colors.length]}
+                                            opacity={hoveredIndex === null || hoveredIndex === index ? 1 : 0.72}
+                                        />
                                     ))}
-
                                     <LabelList
                                         dataKey="value"
                                         position="top"
-                                        content={(props) => {
-                                            const {
-                                                x,
-                                                y,
-                                                width,
-                                                value,
-                                                index,
-                                            } = props;
-
-                                            return (
-                                                <text
-                                                    x={x + width / 2}
-                                                    y={y - 10}
-                                                    fill="#1E293B"
-                                                    fontSize="11"
-                                                    fontWeight="700"
-                                                    textAnchor="middle"
-                                                    dominantBaseline="middle"
-                                                >
-                                                    {formatAxisValue(value)}
-                                                </text>
-                                            );
+                                        offset={8}
+                                        formatter={formatAxisValue}
+                                        style={{
+                                            fill: "#1E293B",
+                                            fontSize: 11,
+                                            fontWeight: 700,
                                         }}
                                     />
                                 </Bar>
