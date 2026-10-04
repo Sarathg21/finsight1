@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-    LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+    LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart
 } from 'recharts';
 import { 
     BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText
@@ -9,18 +9,18 @@ import {
 /* ----------------- MOCK DATA ----------------- */
 
 const KPIData = [
-    { title: "Total Revenue", value: "AED 1,250M", change: "+12.4%", isPositive: true, isRed: false, icon: BarChart3, colorClass: "blue", sparklineData: [10,12,15,14,18,22,20,25] },
-    { title: "Cost of Material", value: "AED 780M", change: "+6.8%", isPositive: true, isRed: true, icon: Coins, colorClass: "red", sparklineData: [20,22,21,24,23,26,25,28] },
-    { title: "Gross Profit", value: "AED 470M", change: "+23.1%", isPositive: true, isRed: false, icon: BarChart3, colorClass: "green", sparklineData: [10,11,13,15,14,17,16,20] },
-    { title: "EBITDA", value: "AED 320M", change: "+18.7%", isPositive: true, isRed: false, icon: Briefcase, colorClass: "blue", sparklineData: [8,9,11,10,13,15,14,18] },
-    { title: "Net Profit", value: "AED 210M", change: "+20.0%", isPositive: true, isRed: false, icon: Coins, colorClass: "green", sparklineData: [5,6,5,7,8,7,9,11] },
-    { title: "Trade Working Capital", value: "AED 540M", change: "+4.2%", isPositive: true, isRed: true, icon: RefreshCw, colorClass: "red", sparklineData: [10,12,11,13,12,14,13,15] },
-    { title: "Overdue Receivables", value: "AED 180M", change: "+15.3%", isPositive: true, isRed: true, icon: Wallet, colorClass: "red", sparklineData: [5,6,8,7,9,10,12,14] },
-    { title: "Slow Moving & Obsolete Stock", value: "AED 95M", change: "-8.7%", isPositive: false, isRed: false, icon: Layers, colorClass: "green", sparklineData: [15,14,16,13,12,10,11,9] },
-    { title: "Cash Collection", value: "AED 980M", change: "+18.1%", isPositive: true, isRed: false, icon: Wallet, colorClass: "blue", sparklineData: [20,22,25,24,28,30,29,32] },
-    { title: "Collection Efficiency", value: "92%", change: "+6.2 pp", isPositive: true, isRed: false, icon: Target, colorClass: "blue", sparklineData: [80,82,81,85,84,88,87,92] },
-    { title: "Total Short Term Borrowing", value: "AED 360M", change: "+5.9%", isPositive: true, isRed: true, icon: Landmark, colorClass: "red", sparklineData: [20,21,20,22,23,24,25,26] },
-    { title: "ROI %", value: "14.8%", change: "+2.3 pp", isPositive: true, isRed: false, icon: Percent, colorClass: "green", sparklineData: [10,11,12,11,13,12,14,15] }
+    { title: "Total Revenue", value: "AED 1,250M", change: "+12.4%", isPositive: true, isRed: false, icon: BarChart3, iconColor: "blue", colorClass: "blue", sparklineData: [10,12,15,14,18,22,20,25] },
+    { title: "Cost of Material", value: "AED 780M", change: "+6.8%", isPositive: true, isRed: true, icon: Coins, iconColor: "blue", colorClass: "red", sparklineData: [20,22,21,24,23,26,25,28] },
+    { title: "Gross Profit", value: "AED 470M", change: "+23.1%", isPositive: true, isRed: false, icon: BarChart3, iconColor: "green", colorClass: "green", sparklineData: [10,11,13,15,14,17,16,20] },
+    { title: "EBITDA", value: "AED 320M", change: "+18.7%", isPositive: true, isRed: false, icon: Briefcase, iconColor: "blue", colorClass: "blue", sparklineData: [8,9,11,10,13,15,14,18] },
+    { title: "Net Profit", value: "AED 210M", change: "+20.0%", isPositive: true, isRed: false, icon: Coins, iconColor: "green", colorClass: "green", sparklineData: [5,6,5,7,8,7,9,11] },
+    { title: "Trade Working Capital", value: "AED 540M", change: "+4.2%", isPositive: true, isRed: true, icon: RefreshCw, iconColor: "blue", colorClass: "red", sparklineData: [10,12,11,13,12,14,13,15] },
+    { title: "Overdue Receivables", value: "AED 180M", change: "+15.3%", isPositive: true, isRed: true, icon: Wallet, iconColor: "blue", colorClass: "red", sparklineData: [5,6,8,7,9,10,12,14] },
+    { title: "Slow Moving & Obsolete Stock", value: "AED 95M", change: "-8.7%", isPositive: false, isRed: false, icon: Layers, iconColor: "green", colorClass: "green", sparklineData: [15,14,16,13,12,10,11,9] },
+    { title: "Cash Collection", value: "AED 980M", change: "+18.1%", isPositive: true, isRed: false, icon: Wallet, iconColor: "blue", colorClass: "blue", sparklineData: [20,22,25,24,28,30,29,32] },
+    { title: "Collection Efficiency", value: "92%", change: "+6.2 pp", isPositive: true, isRed: false, icon: Target, iconColor: "blue", colorClass: "blue", sparklineData: [80,82,81,85,84,88,87,92] },
+    { title: "Total Short Term Borrowing from Banks", value: "AED 360M", change: "+5.9%", isPositive: true, isRed: true, icon: Landmark, iconColor: "blue", colorClass: "red", sparklineData: [20,21,20,22,23,24,25,26] },
+    { title: "ROI %", value: "14.8%", change: "+2.3 pp", isPositive: true, isRed: false, icon: BarChart3, iconColor: "blue", colorClass: "green", sparklineData: [10,11,12,11,13,12,14,15] }
 ];
 
 const twcTrendData = [
@@ -83,9 +83,15 @@ const Sparkline = ({ data, colorClass }) => {
 
     return (
         <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={formattedData}>
-                <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
-            </LineChart>
+            <AreaChart data={formattedData}>
+                <defs>
+                    <linearGradient id={`color-${colorClass}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={color} stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor={color} stopOpacity={0}/>
+                    </linearGradient>
+                </defs>
+                <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fillOpacity={1} fill={`url(#color-${colorClass})`} isAnimationActive={false} />
+            </AreaChart>
         </ResponsiveContainer>
     );
 };
@@ -124,10 +130,10 @@ export default function ExecutiveDashboard() {
                     background: var(--clr-surface); border-radius: 12px; padding: 18px; border: 1px solid var(--clr-border); box-shadow: 0 1px 3px rgba(0,0,0,0.02);
                 }
                 .kpi-title {
-                    font-size: 0.75rem; font-weight: 700; color: var(--clr-text-muted); margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    font-size: 0.75rem; font-weight: 700; color: var(--clr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                 }
                 .kpi-val {
-                    font-size: 1.3rem; font-weight: 800; color: var(--clr-text); margin-bottom: 8px; font-family: var(--font-mono);
+                    font-size: 1.3rem; font-weight: 800; color: var(--clr-text); margin-bottom: 4px; font-family: var(--font-mono); margin-top: 10px;
                 }
                 .kpi-change {
                     font-size: 0.75rem; font-weight: 700;
@@ -139,8 +145,13 @@ export default function ExecutiveDashboard() {
                     padding: 14px 16px; color: var(--clr-text); font-weight: 600; font-size: 0.78rem; border-bottom: 1px solid var(--clr-border);
                 }
                 .icon-box {
-                    width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 14px; flex-shrink: 0;
+                    width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                }
+                .icon-box.blue {
                     background: var(--clr-primary-dim); color: var(--clr-primary);
+                }
+                .icon-box.green {
+                    background: rgba(16, 185, 129, 0.1); color: var(--clr-success);
                 }
             `}</style>
             
@@ -180,23 +191,27 @@ export default function ExecutiveDashboard() {
             {/* 2. KPI CARDS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 16, marginBottom: 24 }}>
                 {KPIData.map((kpi, idx) => (
-                    <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', padding: '20px 16px', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                            <div className="icon-box">
-                                <kpi.icon size={18} />
+                    <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', padding: '16px', overflow: 'hidden' }}>
+                        {/* Title Row */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div className={`icon-box ${kpi.iconColor}`}>
+                                <kpi.icon size={16} />
                             </div>
-                            <div style={{ flex: 1, minWidth: 0, zIndex: 1 }}>
-                                <div className="kpi-title">{kpi.title}</div>
-                                <div className="kpi-val">{kpi.value}</div>
-                                <div className="kpi-change" style={{ color: kpi.isRed ? 'var(--clr-danger)' : 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <span style={{ fontSize: '0.8rem' }}>{kpi.isPositive ? '?' : '?'}</span> 
-                                    <span>{kpi.change}</span> 
-                                    <span style={{ color: 'var(--clr-text-dim)', fontWeight: 500 }}>vs. Feb 25</span>
-                                </div>
+                            <div className="kpi-title">{kpi.title}</div>
+                        </div>
+                        
+                        {/* Value & Change */}
+                        <div style={{ flex: 1, minWidth: 0, zIndex: 1, marginTop: 'auto' }}>
+                            <div className="kpi-val">{kpi.value}</div>
+                            <div className="kpi-change" style={{ color: kpi.isRed ? 'var(--clr-danger)' : 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: '0.8rem' }}>{kpi.isPositive ? '?' : '?'}</span> 
+                                <span>{kpi.change}</span> 
+                                <span style={{ color: 'var(--clr-text-dim)', fontWeight: 500, fontSize: '0.65rem', marginLeft: 2 }}>vs. Feb 2025</span>
                             </div>
                         </div>
+                        
                         {/* Sparkline overlay right-bottom */}
-                        <div style={{ position: 'absolute', bottom: 12, right: 12, width: 70, height: 35, opacity: 0.8 }}>
+                        <div style={{ position: 'absolute', bottom: 10, right: -5, width: 85, height: 45, opacity: 0.85 }}>
                             <Sparkline data={kpi.sparklineData} colorClass={kpi.colorClass} />
                         </div>
                     </div>
