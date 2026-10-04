@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
     LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart
 } from 'recharts';
 import { 
-    BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText
+    BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye
 } from 'lucide-react';
+import ExecDashboardViewAll from '../components/ExecDashboardViewAll';
 
 /* ----------------- MOCK DATA ----------------- */
 
@@ -113,7 +114,83 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
+/* ─── Chart Menu (3-dot kebab) ─── */
+function ChartMenu({ menuItems }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e) => {
+            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+
+    return (
+        <div ref={ref} style={{ position: 'relative' }}>
+            <button
+                onClick={() => setOpen(v => !v)}
+                title="Options"
+                style={{
+                    background: open ? 'var(--clr-surface-2)' : 'none',
+                    border: 'none', cursor: 'pointer',
+                    padding: '4px', borderRadius: 6,
+                    color: 'var(--clr-text-muted)',
+                    lineHeight: 1, transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center',
+                    outline: 'none',
+                }}
+            >
+                <MoreVertical size={16} />
+            </button>
+
+            {open && (
+                <div style={{
+                    position: 'absolute', right: 0, top: 'calc(100% + 4px)',
+                    background: 'var(--clr-surface)', borderRadius: 10,
+                    boxShadow: 'var(--shadow-lg)',
+                    border: '1px solid var(--clr-border)',
+                    minWidth: 170, zIndex: 100,
+                    overflow: 'hidden',
+                    animation: 'scaleUp 0.14s cubic-bezier(0.34,1.56,0.64,1) forwards',
+                }}>
+                    <style>{`@keyframes scaleUp { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }`}</style>
+                    {menuItems.map((item, i) => (
+                        <button
+                            key={i}
+                            onClick={() => { item.action(); setOpen(false); }}
+                            style={{
+                                display: 'flex', width: '100%', alignItems: 'center', gap: 8,
+                                textAlign: 'left', padding: '10px 14px',
+                                background: 'none', border: 'none',
+                                fontSize: '0.75rem', fontWeight: 600,
+                                color: 'var(--clr-text)', cursor: 'pointer',
+                                transition: 'background 0.12s',
+                                borderTop: i > 0 ? '1px solid var(--clr-border)' : 'none',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'var(--clr-surface-2)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                        >
+                            {item.icon && <item.icon size={13} color="var(--clr-text-muted)" />}
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function ExecutiveDashboard() {
+    const [viewAll, setViewAll] = useState({ open: false, section: 'twc_parent' });
+    const [appliedFilters] = useState({ period: 'Mar 2025' });
+    const currency = 'AED';
+
+    const openViewAll = (section) => setViewAll({ open: true, section });
+    const closeViewAll = () => setViewAll(v => ({ ...v, open: false }));
+
     return (
         <div style={{ padding: '20px 24px', background: 'var(--clr-bg)', minHeight: '100vh' }}>
             <style>{`
@@ -222,8 +299,16 @@ export default function ExecutiveDashboard() {
             <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
                 {/* Trade Working Capital Trend */}
                 <div className="card" style={{ flex: 2, padding: 18 }}>
-                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <BarChart3 size={16} color="var(--clr-primary)" /> Trade Working Capital Trend
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <BarChart3 size={16} color="var(--clr-primary)" /> Trade Working Capital Trend
+                        </div>
+                        <ChartMenu menuItems={[
+                            { icon: Eye, label: 'View All (Parent Wise)', action: () => openViewAll('twc_parent') },
+                            { icon: Eye, label: 'View All (MoM)', action: () => openViewAll('twc_mom') },
+                            { icon: FileText, label: 'Export Excel', action: () => console.log('Exporting TWC Excel...') },
+                            { icon: Download, label: 'Export PDF', action: () => console.log('Exporting TWC PDF...') }
+                        ]} />
                     </div>
                     <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -248,7 +333,14 @@ export default function ExecutiveDashboard() {
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Globe size={16} color="var(--clr-primary)" /> Revenue by Region
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</span>
+                            <ChartMenu menuItems={[
+                                { icon: Eye, label: 'View All', action: () => openViewAll('rev_region') },
+                                { icon: FileText, label: 'Export Excel', action: () => console.log('Exporting Revenue Excel...') },
+                                { icon: Download, label: 'Export PDF', action: () => console.log('Exporting Revenue PDF...') }
+                            ]} />
+                        </div>
                     </div>
                     <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -273,7 +365,14 @@ export default function ExecutiveDashboard() {
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <BarChart3 size={16} color="var(--clr-primary)" /> Profitability by Region
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.7rem', color: 'var(--clr-text-dim)', fontWeight: 600 }}>AED Million</span>
+                            <ChartMenu menuItems={[
+                                { icon: Eye, label: 'View All', action: () => openViewAll('profit_region') },
+                                { icon: FileText, label: 'Export Excel', action: () => console.log('Exporting Profitability Excel...') },
+                                { icon: Download, label: 'Export PDF', action: () => console.log('Exporting Profitability PDF...') }
+                            ]} />
+                        </div>
                     </div>
                     <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -339,6 +438,15 @@ export default function ExecutiveDashboard() {
                     </table>
                 </div>
             </div>
+
+            {/* View All Modal */}
+            <ExecDashboardViewAll 
+                isOpen={viewAll.open} 
+                onClose={closeViewAll} 
+                initialSection={viewAll.section}
+                filters={appliedFilters}
+                currency={currency}
+            />
         </div>
     );
 }
