@@ -42,7 +42,7 @@ const ROUTE_ICON = {
 const NAV_BY_ROLE = {
   board: [
     { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Board View'       },
-    { to: '/exec-dashboard', label: 'Executive Dashboard', group: 'Board View' },
+
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Board View'       },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Reports' },
@@ -60,7 +60,7 @@ const NAV_BY_ROLE = {
   cfo: [
     { to: '/exec-dashboard', label: 'Executive Dashboard',  pinned: true, group: 'Overview'         },
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
-    { to: '/exec-dashboard', label: 'Executive Dashboard', group: 'Overview' },
+
     { to: '/pl', label: 'P&L Report', group: 'Financials' },
     { to: '/balance-sheet', label: 'Balance Sheet Analysis', group: 'Financials' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
@@ -85,7 +85,7 @@ const NAV_BY_ROLE = {
   ],
   executive: [
     { to: '/exec-dashboard',  label: 'Executive Dashboard',  pinned: true, group: 'Overview'        },
-    { to: '/exec-dashboard', label: 'Executive Dashboard', group: 'Overview' },
+
     // { to: '/dashboard',           label: 'CFO Dashboard',                      group: 'Overview'         },
     { to: '/pl', label: 'P&L Report', group: 'Reports' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Reports' },

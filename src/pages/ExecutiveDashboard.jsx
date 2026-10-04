@@ -130,7 +130,7 @@ export default function ExecutiveDashboard() {
                     background: var(--clr-surface); border-radius: 10px; border: 1px solid var(--clr-border); box-shadow: 0 1px 2px rgba(0,0,0,0.02);
                 }
                 .kpi-title {
-                    font-size: 0.72rem; font-weight: 800; color: var(--clr-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em;
+                    font-size: 0.72rem; font-weight: 800; color: var(--clr-text); letter-spacing: -0.01em;
                 }
                 .kpi-val {
                     font-size: 1.25rem; font-weight: 800; color: var(--clr-text); font-family: var(--font-sans); margin-bottom: 2px; letter-spacing: -0.02em;
