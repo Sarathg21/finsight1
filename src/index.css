@@ -2434,3 +2434,15 @@ tbody tr:hover {
     }
   }
 }
+/* Scrollbar overrides for the Detailed View Modal Tables */
+.modal-table-scroll::-webkit-scrollbar {
+  height: 10px; /* Thicker horizontal scrollbar */
+  width: 8px;   /* Slightly thicker vertical scrollbar */
+}
+.modal-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 5px;
+}
+.modal-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.4);
+}

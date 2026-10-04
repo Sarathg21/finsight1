@@ -386,6 +386,16 @@ export async function fetchBSTrend(filters) {
   return res?.data ?? res;
 }
 
+function formatPeriod(periodStr) {
+  if (!periodStr) return '';
+  const parts = periodStr.split('-');
+  if (parts.length !== 2) return periodStr;
+  const year = parts[0].slice(-2);
+  const m = parseInt(parts[1], 10);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+  return `${months[m - 1]} ${year}`;
+}
+
 /**
  * Fetch 6 consecutive monthly balance sheet summaries ending at filters.period
  * and compute multi-series metrics: Total Assets, Total Liabilities, Total Equity.
@@ -479,7 +489,7 @@ export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
       const liabilityToEquity = totalEquity > 0 ? (totalLiabilities / totalEquity) : null;
 
       return {
-        period: p,
+        period: formatPeriod(p),
         period_code: p,
         totalAssets,
         totalLiabilities,
@@ -493,7 +503,7 @@ export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
     }
 
     return {
-      period: p,
+      period: formatPeriod(p),
       period_code: p,
       totalAssets: 0,
       totalLiabilities: 0,
@@ -540,8 +550,8 @@ export async function fetchBS6MonthTrend(filters = {}, availablePeriods = []) {
   return {
     series,
     summary,
-    startPeriod: targetPeriods[0] || '',
-    endPeriod: targetPeriods[targetPeriods.length - 1] || '',
+    startPeriod: targetPeriods[0] ? formatPeriod(targetPeriods[0]) : '',
+    endPeriod: targetPeriods[targetPeriods.length - 1] ? formatPeriod(targetPeriods[targetPeriods.length - 1]) : '',
   };
 }
 

@@ -296,7 +296,7 @@ export default function InventoryOverview() {
   };
 
   const [appliedFilters, setAppliedFilters] = useState({
-      legalGroup: [1],
+      legalGroup: ["All"],
       legalEntity: [],
       parentDivision: [],
       subdivision: [],
@@ -305,7 +305,7 @@ export default function InventoryOverview() {
       asOnDate: "All",
   });
   const [filters, setFilters] = useState({
-      legalGroup: [1],
+      legalGroup: ["All"],
       legalEntity: [],
       parentDivision: [],
       subdivision: [],
@@ -357,10 +357,10 @@ const [loading, setLoading] = useState(true);
     if (!value) return undefined;
     const text = String(value).trim().toUpperCase();
     const normalized = text
-      .replace(/–/g, "-")
-      .replace(/—/g, "-")
-      .replace(/\s+/g, "_")
-      .replace(/^AGING_/, "");
+      .replace(/[–—]/g, '-')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/\s+/g, '_')
+      .replace(/^AGING_/, '');
 
     const map = {
       "0_30": "0_30",
@@ -689,7 +689,7 @@ const [loading, setLoading] = useState(true);
   });
   const [slowMovingViewMode, setSlowMovingViewMode] = useState("stock"); // "stock" | "mom"
   const [slowMovingFilters, setSlowMovingFilters] = useState({
-    legalGroup: [1],
+    legalGroup: ["All"],
     legalEntity: ['All'],
     parentDivision: ['All'],
     subdivision: ['All'],
@@ -697,7 +697,7 @@ const [loading, setLoading] = useState(true);
     asOnDate: 'All',
   });
   const [slowMovingDraftFilters, setSlowMovingDraftFilters] = useState({
-    legalGroup: [1],
+    legalGroup: ["All"],
     legalEntity: ['All'],
     parentDivision: ['All'],
     subdivision: ['All'],
@@ -709,7 +709,7 @@ const [loading, setLoading] = useState(true);
   const [modalDetailsLoading, setModalDetailsLoading] = useState(false);
   const [mockData, setMockData] = useState({
     filters: {
-      legalGroups: [{ value: 1, label: 'FJ Group' }], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
+      legalGroups: [], legalEntities: [], parentDivisions: [], subdivisions: [], subinventories: [], currencies: [], dates: []
     },
     kpis: [],
     totalInventory: 0,
@@ -1104,8 +1104,8 @@ const [loading, setLoading] = useState(true);
                       days: item.dio !== undefined && item.dio !== null ? Math.round(Number(item.dio)) : (item.days !== undefined && item.days !== null ? Math.round(Number(item.days)) : (item.percentage_obsolete ? `${Math.round(Number(item.percentage_obsolete))}%` : "-"))
                   }));
                   slowMoving = allSlowMoving.slice(0, 5);
-              } else if (details && details.length > 0) {
-                  slowMoving = [...details]
+              } else if (dData.details && dData.details.length > 0) {
+                  slowMoving = [...dData.details]
                       .sort((a, b) => (Number(b.days) || 0) - (Number(a.days) || 0) || (b.total_stock_value - a.total_stock_value))
                       .slice(0, 5)
                       .map((item, idx) => ({
@@ -1505,7 +1505,7 @@ const [loading, setLoading] = useState(true);
 
   const resetFilters = () => {
     const def = {
-      legalGroup: [1],
+      legalGroup: ["All"],
       legalEntity: [],
       parentDivision: [],
       subdivision: [],
@@ -1612,8 +1612,9 @@ const [loading, setLoading] = useState(true);
       : (isUp ? "#16a34a" : "#dc2626"));
 
     // Clean variance display to avoid double "+ " or "- " with arrow
-    const displayVariance = typeof item.variance === 'number'
-      ? `${Math.abs(item.variance).toFixed(1)}%`
+    const numVar = Number(item.variance);
+    const displayVariance = !isNaN(numVar) && item.variance !== null && item.variance !== ""
+      ? `${Math.abs(numVar).toFixed(2)}%`
       : String(item.variance).replace(/^[+-]/, '').trim();
 
     const [hover, setHover] = useState(false);
@@ -4034,7 +4035,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 currency={currentCurrency}
                 activeSegment={hoveredParentDivSegment}
                 onSegmentHover={setHoveredParentDivSegment}
-                /* onSegmentClick removed */
+                onSegmentClick={(item) => handleParentDivisionDrillDown({ parent_division_id: item.name })}
               />
 
               <div style={styles.legendList}>
@@ -4043,7 +4044,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                   return (
                     <div
                       key={item.name}
-                      /* onClick removed from Parent Div Legend */
+                      onClick={() => handleParentDivisionDrillDown({ parent_division_id: item.name })}
                       style={{
                         ...styles.legendListRow,
                         cursor: "pointer",
@@ -4136,7 +4137,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
               currency={currentCurrency}
               activeSegment={hoveredAgingSegment}
               onSegmentHover={setHoveredAgingSegment}
-              /* onSegmentClick removed from Aging Chart */
+              onSegmentClick={(item) => handleAgingDrillDown(item)}
             />
 
             <div style={styles.agingTable}>
@@ -4151,7 +4152,7 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
                 return (
                   <div
                     key={item.name}
-                    /* onClick removed from Aging Legend */
+                    onClick={() => handleAgingDrillDown(item)}
                     style={{
                       ...styles.agingRow,
                       cursor: "pointer",
@@ -4522,11 +4523,16 @@ function ModalMultiSelect({ options = [], value = [], onChange, placeholder = 'A
 const hasDrilldown = Object.keys(viewAllDetailFilters || {}).length > 0 || isModalFilterDifferent;
 const detailsSource = modalFilteredDetails || [];
 
-            let recordsCount, totalInventoryVal, currentStockVal, slowMovingStockVal, obsoleteStockVal;
+            let recordsCount;
+            if (hasDrilldown) {
+                recordsCount = modalApiData?.total ?? modalApiData?.total_records ?? modalApiData?.dashKpis?.total_records ?? modalApiData?.dashKpis?.line_items_count ?? detailsSource.length;
+            } else {
+                recordsCount = modalApiData?.total ?? modalApiData?.total_records ?? modalApiData?.dashKpis?.total_records ?? modalApiData?.dashKpis?.line_items_count ?? mockData.rawKpis?.total_records ?? mockData.rawKpis?.line_items_count ?? mockData.rawKpis?.total_items ?? detailsSource.length;
+            }
+            let totalInventoryVal, currentStockVal, slowMovingStockVal, obsoleteStockVal;
             
             if (hasDrilldown && modalApiData && modalApiData.dashKpis) {
                 // If we have a drilldown and the backend provided the true dashboard KPIs for this drilldown!
-                recordsCount = modalApiData.dashKpis.total_records || detailsSource.length;
                 totalInventoryVal = modalApiData.dashKpis.total_inventory || 0;
                 obsoleteStockVal = modalApiData.dashKpis.inventory_above_365 || 0;
 
@@ -4538,36 +4544,34 @@ const detailsSource = modalFilteredDetails || [];
                     agingList.forEach(item => {
                         const k = String(item.bucket_code || item.bucket || item.name).toLowerCase();
                         const val = Number(item.amount || item.value || 0);
-                        if (k.includes('0_30')) currentTotal += val;
-                        else if (k.includes('91_120') || k.includes('121_180') || k.includes('181_365')) slowMovingTotal += val;
+                        if (k.includes('0_30') || k.includes('31_60') || k.includes('61_90') || k.includes('91_120') || k.includes('121_180')) currentTotal += val;
+                        else if (k.includes('181_365')) slowMovingTotal += val;
                     });
                 }
                 currentStockVal = currentTotal;
                 slowMovingStockVal = slowMovingTotal;
             } else if (hasDrilldown) {
                 // Fallback to summing frontend items if dashKpis is missing
-                recordsCount = detailsSource.length;
                 totalInventoryVal = detailsSource.reduce((s, r) => s + Number(r.total_stock_value || 0), 0);
-                currentStockVal = detailsSource.reduce((s, r) => s + Number(r.aging_0_30 || 0), 0);
-                slowMovingStockVal = detailsSource.reduce((s, r) => s + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0) + Number(r.aging_181_365 || 0), 0);
+                currentStockVal = detailsSource.reduce((s, r) => s + Number(r.aging_0_30 || 0) + Number(r.aging_31_60 || 0) + Number(r.aging_61_90 || 0) + Number(r.aging_91_120 || 0) + Number(r.aging_121_180 || 0), 0);
+                slowMovingStockVal = detailsSource.reduce((s, r) => s + Number(r.aging_181_365 || 0), 0);
                 obsoleteStockVal = detailsSource.reduce((s, r) => s + (Number(r.aging_366_730 || 0) + Number(r.aging_above_730 || 0)), 0);
             } else {
                 // No drilldown -> Global Dashboard state
-                recordsCount = (mockData.rawKpis && mockData.rawKpis.total_records) ? mockData.rawKpis.total_records : detailsSource.length;
                 totalInventoryVal = mockData.totalInventory || 0;
                 
-                const currentBucket = (mockData.aging || []).find(a => String(a.bucket_code || a.name || a.code).toLowerCase().includes('0_30'));
-                currentStockVal = currentBucket ? Number(currentBucket.value || 0) * 10000000 : 0; // wait, mockData.aging is divided by 10M, we need the raw value in AED!
-                
-                // For global slow moving, mockData.slowMoving might be top items. Let's calculate from mockData.aging instead!
-                let slowMovingTotal = 0;
+                let cTotal = 0;
+                let sTotal = 0;
                 (mockData.aging || []).forEach(a => {
                     const k = String(a.bucket_code || a.name || a.code).toLowerCase();
-                    if (k.includes('91_120') || k.includes('121_180') || k.includes('181_365')) {
-                         slowMovingTotal += Number(a.value || 0) * 10000000;
+                    if (k.includes('0_30') || k.includes('31_60') || k.includes('61_90') || k.includes('91_120') || k.includes('121_180')) {
+                        cTotal += Number(a.value || 0) * 10000000;
+                    } else if (k.includes('181_365')) {
+                        sTotal += Number(a.value || 0) * 10000000;
                     }
                 });
-                slowMovingStockVal = slowMovingTotal;
+                currentStockVal = cTotal;
+                slowMovingStockVal = sTotal;
                 obsoleteStockVal = mockData.rawKpis?.inventory_above_365 ? Number(mockData.rawKpis.inventory_above_365) : 0;
             }
 
@@ -5184,7 +5188,7 @@ const detailsSource = modalFilteredDetails || [];
                         type="button"
                         onClick={() => {
                           const resetObj = {
-                            legalGroup: filters.legalGroup?.length ? filters.legalGroup : [1],
+                            legalGroup: filters.legalGroup?.length ? filters.legalGroup : ["All"],
                             legalEntity: ['All'],
                             parentDivision: ['All'],
                             subdivision: ['All'],
@@ -5256,7 +5260,7 @@ const detailsSource = modalFilteredDetails || [];
                       </div>
                       <div>
                         <div style={{ fontSize: 20, fontWeight: 800, color: "#142b6f" }}>
-                          {recordsCount === 500 ? "500+" : recordsCount.toLocaleString()}
+                          {recordsCount.toLocaleString()}
                         </div>
                         <div style={{ fontSize: 10, color: "#64748b", marginTop: 1 }}>
                           records
@@ -5277,7 +5281,7 @@ const detailsSource = modalFilteredDetails || [];
 
                     <SummaryCard
                       icon="▤"
-                      title="Current (0-30 Days)"
+                      title="Current (0-180 Days)"
                       value={formatKPICompact(currentStockVal)}
                       iconBackground="#e5faf2"
                       iconColor="#149b6f"
@@ -5288,7 +5292,7 @@ const detailsSource = modalFilteredDetails || [];
 
                     <SummaryCard
                       icon="⌛"
-                      title="Slow Moving Stock"
+                      title="Slow Moving Stock (181 to 365 Days)"
                       value={formatKPICompact(slowMovingStockVal)}
                       iconBackground="#fff2df"
                       iconColor="#ed8a17"
@@ -5299,7 +5303,7 @@ const detailsSource = modalFilteredDetails || [];
 
                     <SummaryCard
                       icon="!"
-                      title="Obsolete Stock (> 365 Days)"
+                      title="Obsolete Stock (Above 365 Days)"
                       value={formatKPICompact(obsoleteStockVal)}
                       iconBackground="#ffeaf0"
                       iconColor="#ed3c69"
@@ -5470,8 +5474,8 @@ const detailsSource = modalFilteredDetails || [];
                           { code: "0_30", label: "0-30 Days", field: "aging_0_30", status: "Current", color: "#16a34a", bg: "#dcfce7", fg: "#15803d" },
                           { code: "31_60", label: "31-60 Days", field: "aging_31_60", status: "Active", color: "#2563eb", bg: "#dbeafe", fg: "#1d4ed8" },
                           { code: "61_90", label: "61-90 Days", field: "aging_61_90", status: "Active", color: "#0284c7", bg: "#e0f2fe", fg: "#0369a1" },
-                          { code: "91_120", label: "91-120 Days", field: "aging_91_120", status: "Slow Moving", color: "#f59e0b", bg: "#fef3c7", fg: "#b45309" },
-                          { code: "121_180", label: "121-180 Days", field: "aging_121_180", status: "Slow Moving", color: "#ea580c", bg: "#ffedd5", fg: "#c2410c" },
+                          { code: "91_120", label: "91-120 Days", field: "aging_91_120", status: "Active", color: "#f59e0b", bg: "#fef3c7", fg: "#b45309" },
+                          { code: "121_180", label: "121-180 Days", field: "aging_121_180", status: "Active", color: "#ea580c", bg: "#ffedd5", fg: "#c2410c" },
                           { code: "181_365", label: "181-365 Days", field: "aging_181_365", status: "Slow Moving", color: "#dc2626", bg: "#fee2e2", fg: "#b91c1c" },
                           { code: "366_730", label: "366-730 Days", field: "aging_366_730", status: "Obsolete", color: "#9333ea", bg: "#f3e8ff", fg: "#7e22ce" },
                           { code: "above_730", label: "Above 730 Days", field: "aging_above_730", status: "Obsolete", color: "#475569", bg: "#f1f5f9", fg: "#334155" },
@@ -5480,7 +5484,7 @@ const detailsSource = modalFilteredDetails || [];
                         const rows = agingDefs.map(def => {
                           const mockItem = (mockData.aging || []).find(a => toAgingBucketCode(a.bucket_code || a.name || a.code) === def.code);
                           const sumFromDetails = detailsSource.reduce((acc, r) => acc + Number(r[def.field] || 0), 0);
-                          const itemCount = detailsSource.filter(r => Number(r[def.field] || 0) > 0).length;
+                          const itemCount = (mockItem && (mockItem.count || mockItem.itemCount || mockItem.total_records || mockItem.item_count)) ? Number(mockItem.count || mockItem.itemCount || mockItem.total_records || mockItem.item_count) : detailsSource.filter(r => Number(r[def.field] || 0) > 0).length;
                           const finalAmount = sumFromDetails > 0 ? sumFromDetails : (mockItem ? Number(mockItem.value || 0) : 0);
                           const pct = totalInventoryVal > 0 ? (finalAmount / totalInventoryVal) * 100 : (mockItem ? Number(mockItem.percentage || 0) : 0);
                           const isFiltered = viewAllDetailFilters.aging_bucket && toAgingBucketCode(viewAllDetailFilters.aging_bucket) === def.code;
@@ -5499,6 +5503,7 @@ const detailsSource = modalFilteredDetails || [];
                         });
 
                         const totalSum = rows.reduce((s, r) => s + r.amount, 0);
+                        const totalItems = rows.reduce((s, r) => s + r.itemCount, 0);
 
                         return (
                           <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "0.80rem" }}>
@@ -5569,7 +5574,7 @@ const detailsSource = modalFilteredDetails || [];
                                   </td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#1e293b" }}>100.0%</td>
                                   <td style={{ padding: "10px 10px", textAlign: "right", color: "#334155", fontVariantNumeric: "tabular-nums" }}>
-                                    {recordsCount === 500 ? "500+" : recordsCount.toLocaleString("en-US")}
+                                    {totalItems.toLocaleString("en-US")}
                                   </td>
                                   <td style={{ padding: "10px 10px" }} />
                                 </tr>
@@ -5618,7 +5623,7 @@ const detailsSource = modalFilteredDetails || [];
                             </thead>
                             <tbody>
                               {rows.length === 0 ? (
-                                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend records found</td></tr>
+                                <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No trend records found</td></tr>
                               ) : (
                                 rows.map((row, idx) => {
                                   const rawVal = Number(row.inventory_value !== undefined ? row.inventory_value : (row.current !== undefined ? (row.current < 1000 ? row.current * 10000000 : row.current) : (row.total_stock_value || 0)));
@@ -5741,16 +5746,16 @@ const detailsSource = modalFilteredDetails || [];
                                 <th style={{ padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent Division</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Total Stock Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Total</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-30)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Active (31-180)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (&gt;365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-180)<br />({currencyHeader})</th>
+                                
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving (181-365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (Above 365)<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete</th>
                                 </tr>
                             </thead>
                             <tbody>
                               {rows.length === 0 ? (
-                                <tr><td colSpan={8} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No division records found</td></tr>
+                                <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No division records found</td></tr>
                               ) : (
                                 rows.map((row, idx) => (
                                   <tr
@@ -5897,9 +5902,9 @@ const detailsSource = modalFilteredDetails || [];
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 140, verticalAlign: "bottom", lineHeight: 1.3 }}>Inventory Value<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Share</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 100, verticalAlign: "bottom", lineHeight: 1.25 }}>Qty<br />(Nos)</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-30)<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving<br />({currencyHeader})</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (&gt;365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Current (0-180)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Slow Moving (181-365)<br />({currencyHeader})</th>
+                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 120, verticalAlign: "bottom", lineHeight: 1.3 }}>Obsolete (Above 365)<br />({currencyHeader})</th>
                                 <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 90, verticalAlign: "bottom", lineHeight: 1.25 }}>% Obsolete</th>
                                 </tr>
                             </thead>
@@ -6173,6 +6178,7 @@ const detailsSource = modalFilteredDetails || [];
                           const MONTH_ABBREV_MAP = { JANUARY:"JAN",FEBRUARY:"FEB",MARCH:"MAR",APRIL:"APR",MAY:"MAY",JUNE:"JUN",JULY:"JUL",AUGUST:"AUG",SEPTEMBER:"SEP",OCTOBER:"OCT",NOVEMBER:"NOV",DECEMBER:"DEC" };
 
                           const monthlyVals = {};
+                          const monthlyDio = {};
                           if (item.monthly_values && typeof item.monthly_values === 'object') {
                             if (Array.isArray(item.monthly_values)) {
                               // Pre-index: extract month number from every possible key format
@@ -6209,6 +6215,7 @@ const detailsSource = modalFilteredDetails || [];
                               allMonths.forEach((m) => {
                                 const mv = mvLookup[m];
                                 monthlyVals[m] = mv ? Number(mv.value ?? mv.inventory_value ?? mv.obsolete_stock ?? mv.amount ?? mv.total_inventory ?? mv.slow_moving ?? 0) : 0;
+                                monthlyDio[m] = mv && (mv.dio !== undefined || mv.dio_days !== undefined) ? Number(mv.dio ?? mv.dio_days ?? 0) : null;
                               });
                             } else {
                               // Object key lookup
@@ -6256,16 +6263,24 @@ const detailsSource = modalFilteredDetails || [];
                         return (
                           <>
                           <table style={{ width: "100%", minWidth: 1250, borderCollapse: "separate", borderSpacing: 0, marginTop: 8, fontSize: "0.80rem" }}>
-                            <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#f8fafc" }}>
-                              <tr style={{ borderBottom: "2px solid #cbd5e1" }}>
-                                <th style={{ position: "sticky", left: 0, zIndex: 32, background: "#f8fafc", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 140, borderRight: "2px solid #cbd5e1", verticalAlign: "bottom", lineHeight: 1.25 }}>Parent<br />Division <span style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 600 }}>({momRows.length})</span></th>
+                            <thead style={{ position: "sticky", top: 0, zIndex: 30, background: "#ffffff" }}>
+                              <tr>
+                                <th rowSpan={2} style={{ position: "sticky", left: 0, zIndex: 32, background: "#ffffff", padding: "8px 10px", textAlign: "left", color: "#1e3a8a", fontWeight: 700, width: "auto", minWidth: 140, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", verticalAlign: "bottom", textTransform: "uppercase", fontSize: "0.75rem" }}>Parent<br />Division</th>
                                 {allMonths.map(m => (
-                                  <th key={m} style={{ padding: "8px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 68, minWidth: 60, verticalAlign: "bottom", background: "#f8fafc" }}>{m}</th>
+                                  <th key={m} colSpan={2} style={{ padding: "8px 6px", textAlign: "center", color: "#1e3a8a", fontWeight: 700, minWidth: 110, borderBottom: "1px solid #e2e8f0", borderRight: "1px solid #e2e8f0", background: "#ffffff", textTransform: "uppercase", fontSize: "0.75rem" }}>{m}-{String(momYear || 2026).slice(-2)}</th>
                                 ))}
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f1f5f9", borderLeft: "2px solid #cbd5e1" }}>LATEST</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f1f5f9" }}>PREVIOUS<br />MONTH</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f1f5f9" }}>VARIANCE</th>
-                                <th style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "bottom", background: "#f1f5f9" }}>VARIANCE<br />%</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>LATEST</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>PREVIOUS<br />MONTH</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 95, minWidth: 85, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>VARIANCE</th>
+                                <th rowSpan={2} style={{ padding: "8px 10px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, width: 85, minWidth: 75, verticalAlign: "bottom", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontSize: "0.75rem" }}>VARIANCE<br />%</th>
+                              </tr>
+                              <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+                                {allMonths.map(m => (
+                                  <React.Fragment key={`${m}-sub`}>
+                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", width: 70, borderBottom: "1px solid #e2e8f0" }}>{viewAllSection === "parentDivision" ? "TOTAL INV" : (viewAllSection === "slowMoving" ? "SLOW MOVING" : "OBSOLETE")}</th>
+                                    <th style={{ padding: "6px 6px", textAlign: "right", color: "#1e3a8a", fontWeight: 700, fontSize: "0.70rem", background: "#ffffff", width: 40, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0" }}>DIO</th>
+                                  </React.Fragment>
+                                ))}
                               </tr>
                             </thead>
                             <tbody>
@@ -6273,32 +6288,41 @@ const detailsSource = modalFilteredDetails || [];
                                 <tr><td colSpan={18} style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}>No records found</td></tr>
                               ) : (
                                 momRows.map((row, idx) => (
-                                  <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9", background: idx % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                                    <td
-                                      style={{ position: "sticky", left: 0, zIndex: 10, background: idx % 2 === 0 ? "#fff" : "#fafbfc", padding: "7px 10px", fontWeight: 600, color: "#1d4ed8", borderRight: "2px solid #cbd5e1", whiteSpace: "nowrap" }}
-                                      title={`${row.name}`}
-                                    >
+                                  <tr key={idx} style={{ borderBottom: "1px solid #e2e8f0", background: idx % 2 === 0 ? "#ffffff" : "#f8fafc" }}>
+                                    <td style={{ position: "sticky", left: 0, zIndex: 10, background: idx % 2 === 0 ? "#ffffff" : "#f8fafc", padding: "10px 10px", fontWeight: 600, color: "#1e3a8a", borderRight: "1px solid #e2e8f0", whiteSpace: "nowrap" }} title={row.name}>
                                       {row.name}
                                     </td>
                                     {allMonths.map(m => (
-                                      <td
-                                        key={m}
-                                        style={{ padding: "7px 6px", textAlign: "right", color: "#1d4ed8", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}
-                                        title={`Obsolete details for ${row.name} - ${m}`}
-                                      >
-                                        {Math.round((row.monthlyVals[m] || 0) / scale).toLocaleString("en-US")}
-                                      </td>
+                                      <React.Fragment key={m}>
+                                        <td 
+                                          style={{ padding: "10px 6px", textAlign: "right", color: row.monthlyVals[m] ? "#1d4ed8" : "#1e293b", fontVariantNumeric: "tabular-nums", fontWeight: row.monthlyVals[m] ? 700 : 500, cursor: row.monthlyVals[m] ? "pointer" : "default", textDecoration: row.monthlyVals[m] ? "underline" : "none" }} 
+                                          title={`Click to view details for ${row.name} - ${m}`}
+                                          onClick={(e) => {
+                                            if (!row.monthlyVals[m]) return;
+                                            e.stopPropagation();
+                                            const monthIdx = allMonths.indexOf(m);
+                                            const targetDate = new Date(momYear, monthIdx + 1, 0).toISOString().split('T')[0];
+                                            setViewAllDetailFilters(prev => ({ 
+                                              ...prev, 
+                                              drilldown_parent_division_id: row.divId || row.name, 
+                                              as_on_date: targetDate,
+                                              slow_moving: viewAllSection === "parentDivision" ? false : true 
+                                            }));
+                                            setModalActiveTab("details");
+                                            setSlowMovingViewMode("details");
+                                          }}
+                                        >
+                                          {row.monthlyVals[m] ? Math.round((row.monthlyVals[m] || 0) / scale).toLocaleString("en-US") : "-"}
+                                        </td>
+                                        <td style={{ padding: "10px 6px", textAlign: "right", color: row.monthlyDio && row.monthlyDio[m] != null ? "#1e293b" : "#94a3b8", fontVariantNumeric: "tabular-nums", fontWeight: 500, borderRight: "1px solid #e2e8f0" }} title={`DIO for ${row.name} - ${m}`}>
+                                          {row.monthlyDio && row.monthlyDio[m] != null ? Number(row.monthlyDio[m]).toFixed(0) : "-"}
+                                        </td>
+                                      </React.Fragment>
                                     ))}
-                                    <td
-                                      style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", background: "#f8fafc", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }}
-                                      title={`Latest obsolete details for ${row.name}`}
-                                    >
+                                    <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, color: "#1d4ed8", background: "#f8fafc", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }} title={`Latest obsolete details for ${row.name}`}>
                                       {Math.round(row.latest / scale).toLocaleString("en-US")}
                                     </td>
-                                    <td
-                                      style={{ padding: "7px 10px", textAlign: "right", color: "#1d4ed8", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }}
-                                      title={`Previous month obsolete details for ${row.name}`}
-                                    >
+                                    <td style={{ padding: "7px 10px", textAlign: "right", color: "#1d4ed8", background: "#f8fafc", fontVariantNumeric: "tabular-nums", fontWeight: 600 }} title={`Previous month obsolete details for ${row.name}`}>
                                       {Math.round(row.prevMonth / scale).toLocaleString("en-US")}
                                     </td>
                                     <td style={{ padding: "7px 10px", textAlign: "right", fontWeight: 700, background: "#f8fafc", color: row.variance < 0 ? "#16a34a" : "#dc2626", fontVariantNumeric: "tabular-nums" }}>
@@ -6316,9 +6340,14 @@ const detailsSource = modalFilteredDetails || [];
                                 <tr style={{ fontWeight: 800, borderTop: "2px solid #cbd5e1", background: "#f1f5f9", boxShadow: "0 -2px 6px rgba(0,0,0,0.06)" }}>
                                   <td style={{ position: "sticky", left: 0, zIndex: 32, background: "#f1f5f9", padding: "9px 10px", color: "#1e3a8a", fontWeight: 800, borderRight: "2px solid #cbd5e1" }}>Total</td>
                                   {allMonths.map(m => (
-                                    <td key={m} style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
-                                      {Math.round((monthTotals[m] || 0) / scale).toLocaleString("en-US")}
-                                    </td>
+                                    <React.Fragment key={`${m}-total`}>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#1e293b", fontVariantNumeric: "tabular-nums" }}>
+                                        {Math.round((monthTotals[m] || 0) / scale).toLocaleString("en-US")}
+                                      </td>
+                                      <td style={{ padding: "9px 6px", textAlign: "right", color: "#94a3b8", fontVariantNumeric: "tabular-nums", borderRight: "1px solid #e2e8f0" }}>
+                                        -
+                                      </td>
+                                    </React.Fragment>
                                   ))}
                                   <td style={{ padding: "9px 10px", textAlign: "right", color: "#1e293b", background: "#e2e8f0", borderLeft: "2px solid #cbd5e1", fontVariantNumeric: "tabular-nums" }}>
                                     {Math.round(totalLatest / scale).toLocaleString("en-US")}
@@ -7176,6 +7205,12 @@ if (
 
   document.head.appendChild(style);
 }
+
+
+
+
+
+
 
 
 

@@ -925,9 +925,9 @@ function BSRow({ account, currency, onDrilldown }) {
       title={onDrilldown ? `Click to drill down into ${account.account_name}` : undefined}
     >
       <td style={{ ...TD_L, paddingLeft: 32, fontSize: '0.73rem' }}>
-        <span style={{ color: '#64748b', fontSize: '0.66rem', marginRight: 6, fontFamily: 'monospace' }}>
+        {/* <span style={{ color: '#64748b', fontSize: '0.66rem', marginRight: 6, fontFamily: 'monospace' }}>
           {account.account_code}
-        </span>
+        </span> */}
         {account.account_name}
         {onDrilldown && hover && (
           <span style={{ marginLeft: 6, fontSize: '0.64rem', color: C.primary, fontWeight: 600 }}>→ drilldown</span>
@@ -1803,7 +1803,7 @@ function StatementViewAll({
             title={onDrilldown ? `Click to view drilldown for ${r.name}` : undefined}
           >
             <td style={{ ...VTD_L, paddingLeft: 24 }}>
-              <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#64748b', marginRight: 8 }}>{r.code}</span>
+              {/* <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#64748b', marginRight: 8 }}>{r.code}</span> */}
               <span style={{ fontWeight: 500, color: '#1e293b' }}>{r.name}</span>
             </td>
             <td style={{ ...VTD, fontWeight: 600 }}>{fmtTableCell(r.current, modalUnit)}</td>
