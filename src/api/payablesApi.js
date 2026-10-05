@@ -48,9 +48,7 @@ import axios from "axios";
    API BASE URL
    ───────────────────────────────────────────── */
 
-import { getApiRoot } from '../utils/apiBase';
-
-const API_BASE_URL = getApiRoot();
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
 /* ─────────────────────────────────────────────
    AXIOS INSTANCE
@@ -115,6 +113,7 @@ function appendParam(params, key, value) {
             }
         });
 
+
         return;
     }
 
@@ -156,6 +155,8 @@ function buildDashboardParams(filters = {}) {
         "reporting_currency",
         filters.reporting_currency || "AED"
     );
+    appendParam(params, "supplier_type", filters.supplier_type);
+    appendParam(params, "gl_code", filters.gl_code);
 
     return params;
 }
@@ -220,7 +221,7 @@ function buildExportParams(filters = {}) {
  * Returns the available Payables filter options.
  */
 export async function getPayablesFilterOptions() {
-    const response = await api.get("/payables/filter-options", {
+    const response = await api.get("/api/payables/filter-options", {
         headers: getAuthHeaders(),
     });
 
@@ -246,7 +247,7 @@ export async function getPayablesFilterOptions() {
 export async function getPayablesDashboard(filters = {}) {
     const params = buildDashboardParams(filters);
 
-    const response = await api.get("/payables/dashboard", {
+    const response = await api.get("/api/payables/dashboard", {
         params,
         headers: getAuthHeaders(),
     });
@@ -254,6 +255,23 @@ export async function getPayablesDashboard(filters = {}) {
     return response;
 }
 
+
+
+export async function getPayablesOtherBalances(filters = {}) {
+    const params = buildDashboardParams(filters);
+
+    appendParam(params, "year", filters.year);
+
+    const response = await api.get(
+        "/api/payables/other-balances",
+        {
+            params,
+            headers: getAuthHeaders(),
+        }
+    );
+
+    return response;
+}
 /* ─────────────────────────────────────────────
    VIEW ALL
    ───────────────────────────────────────────── */
@@ -272,7 +290,7 @@ export async function getPayablesDashboard(filters = {}) {
 export async function getPayablesViewAll(filters = {}) {
     const params = buildViewAllParams(filters);
 
-    const response = await api.get("/payables/view-all", {
+    const response = await api.get("/api/payables/view-all", {
         params,
         headers: getAuthHeaders(),
     });
@@ -304,7 +322,7 @@ export async function getPayablesViewAll(filters = {}) {
 export async function getPayablesBySubdivision(filters = {}) {
     const params = buildDashboardParams(filters);
 
-    const response = await api.get("/payables/by-subdivision", {
+    const response = await api.get("/api/payables/by-subdivision", {
         params,
         headers: getAuthHeaders(),
     });
@@ -341,7 +359,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
 
     appendParam(params, "year", filters.year);
 
-    const response = await api.get("/payables/month-on-month", {
+    const response = await api.get("/api/payables/month-on-month", {
         params,
         headers: getAuthHeaders(),
     });
@@ -370,7 +388,7 @@ export async function getPayablesMonthOnMonth(filters = {}) {
 export async function exportPayablesExcel(filters = {}) {
     const params = buildExportParams(filters);
 
-    const response = await api.get("/payables/export/excel", {
+    const response = await api.get("/api/payables/export/excel", {
         params,
         headers: getAuthHeaders(),
         responseType: "blob",
@@ -400,7 +418,7 @@ export async function exportPayablesExcel(filters = {}) {
 export async function exportPayablesPdf(filters = {}) {
     const params = buildExportParams(filters);
 
-    const response = await api.get("/payables/export/pdf", {
+    const response = await api.get("/api/payables/export/pdf", {
         params,
         headers: getAuthHeaders(),
         responseType: "blob",
@@ -408,6 +426,138 @@ export async function exportPayablesPdf(filters = {}) {
 
     return response;
 }
+
+
+
+/* ─────────────────────────────────────────────
+   PARENT DIVISION MONTH-ON-MONTH
+   ───────────────────────────────────────────── */
+
+/**
+ * GET /api/payables/month-on-month/parent-divisions
+ *
+ * Returns Parent Division Month-on-Month Payables values.
+ *
+ * Additional parameter:
+ *   - year
+ *
+ * Supports the standard Payables filters plus:
+ *   - supplier_type
+ *   - gl_code
+ *
+ * Example:
+ *
+ * getPayablesParentDivisionMonthOnMonth({
+ *   year: 2026,
+ *   aging_basis: "DUE_DATE",
+ *   as_on_date: "2026-09-17",
+ *   reporting_currency: "AED",
+ *   legal_group_id: [1],
+ *   legal_entity_id: [2],
+ *   parent_division_id: [13, 14],
+ *   subdivision_id: [15],
+ *   supplier_type: ["ALL"],
+ *   gl_code: ["223801", "223802"],
+ * });
+ *
+ * IMPORTANT:
+ * Do not convert null month values to 0 here.
+ */
+export async function getPayablesParentDivisionMonthOnMonth(filters = {}) {
+    const params = buildDashboardParams(filters);
+
+    appendParam(params, "year", filters.year);
+
+    // New Payables filters
+    appendParam(params, "supplier_type", filters.supplier_type);
+    appendParam(params, "gl_code", filters.gl_code);
+
+    const response = await api.get(
+        "/api/payables/month-on-month/parent-divisions",
+        {
+            params,
+            headers: getAuthHeaders(),
+        }
+    );
+
+    return response;
+}
+
+
+/* ─────────────────────────────────────────────
+   PARENT DIVISION MONTH-ON-MONTH EXPORT EXCEL
+   ───────────────────────────────────────────── */
+
+/**
+ * GET /api/payables/month-on-month/parent-divisions/export/excel
+ *
+ * Returns Parent Division Month-on-Month data
+ * as a downloadable Excel file.
+ *
+ * IMPORTANT:
+ * responseType must be "blob".
+ */
+export async function exportPayablesParentDivisionMonthOnMonthExcel(
+    filters = {}
+) {
+    const params = buildDashboardParams(filters);
+
+    appendParam(params, "year", filters.year);
+
+    // New Payables filters
+    appendParam(params, "supplier_type", filters.supplier_type);
+    appendParam(params, "gl_code", filters.gl_code);
+
+    const response = await api.get(
+        "/api/payables/month-on-month/parent-divisions/export/excel",
+        {
+            params,
+            headers: getAuthHeaders(),
+            responseType: "blob",
+        }
+    );
+
+    return response;
+}
+
+
+/* ─────────────────────────────────────────────
+   PARENT DIVISION MONTH-ON-MONTH EXPORT PDF
+   ───────────────────────────────────────────── */
+
+/**
+ * GET /api/payables/month-on-month/parent-divisions/export/pdf
+ *
+ * Returns Parent Division Month-on-Month data
+ * as a downloadable PDF file.
+ *
+ * IMPORTANT:
+ * responseType must be "blob".
+ */
+export async function exportPayablesParentDivisionMonthOnMonthPdf(
+    filters = {}
+) {
+    const params = buildDashboardParams(filters);
+
+    appendParam(params, "year", filters.year);
+
+    // New Payables filters
+    appendParam(params, "supplier_type", filters.supplier_type);
+    appendParam(params, "gl_code", filters.gl_code);
+
+    const response = await api.get(
+        "/api/payables/month-on-month/parent-divisions/export/pdf",
+        {
+            params,
+            headers: getAuthHeaders(),
+            responseType: "blob",
+        }
+    );
+
+    return response;
+}
+
+
 
 
 

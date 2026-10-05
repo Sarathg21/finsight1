@@ -64,7 +64,6 @@ const NAV_BY_ROLE = {
     // { to: '/dashboard',          label: 'CFO Dashboard',                       group: 'Overview'         },
 
     { to: '/pl', label: 'P&L Report', group: 'Financials' },
-    { to: '/financial-position', label: 'Financial Position', group: 'Financials' },
     { to: '/balance-sheet', label: 'Balance Sheet Analysis', group: 'Financials' },
     { to: '/operating-expenses', label: 'Operating Expenses', group: 'Financials' },
     { to: '/revenue', label: 'Sales Revenue Dashboard', group: 'Financials' },
@@ -72,6 +71,7 @@ const NAV_BY_ROLE = {
     { to: '/payables', label: 'Payables Report', group: 'Reports' },
     { to: '/inventory', label: 'Inventory Overview', group: 'Reports' },
     { to: '/WorkingCapital', label: 'WorkingCapital Report', group: 'Reports' },
+    { to: '/financial-position', label: 'Financial Position', group: 'Reports' },
 
     // { to: '/fixed-assets',       label: 'Fixed Assets',                        group: 'Financials'       },
     // { to: '/ar',                 label: 'Receivables Aging',                   group: 'Working Capital'  },

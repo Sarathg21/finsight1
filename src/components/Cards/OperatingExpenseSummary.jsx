@@ -1,6 +1,12 @@
 
+import React, {
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 
-import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+
 import {
     LineChart,
     Target,
@@ -8,6 +14,7 @@ import {
     Percent,
     BarChart3,
 } from "lucide-react";
+
 
 /* =========================================================
    ANIMATED NUMBER
@@ -18,10 +25,14 @@ const AnimatedNumber = ({
     formatter,
     duration = 900,
 }) => {
-    const [displayValue, setDisplayValue] = useState(0);
+    const [displayValue, setDisplayValue] =
+        useState(0);
 
-    const animationFrameRef = useRef(null);
-    const previousValueRef = useRef(null);
+    const animationFrameRef =
+        useRef(null);
+
+    const previousValueRef =
+        useRef(null);
 
     useEffect(() => {
         /* =====================================================
@@ -75,7 +86,8 @@ const AnimatedNumber = ({
         const startTime = performance.now();
 
         const animate = (currentTime) => {
-            const elapsed = currentTime - startTime;
+            const elapsed =
+                currentTime - startTime;
 
             const progress = Math.min(
                 elapsed / duration,
@@ -87,7 +99,11 @@ const AnimatedNumber = ({
             ================================================= */
 
             const easedProgress =
-                1 - Math.pow(1 - progress, 3);
+                1 -
+                Math.pow(
+                    1 - progress,
+                    3
+                );
 
             const currentValue =
                 startValue +
@@ -98,10 +114,14 @@ const AnimatedNumber = ({
 
             if (progress < 1) {
                 animationFrameRef.current =
-                    requestAnimationFrame(animate);
+                    requestAnimationFrame(
+                        animate
+                    );
             } else {
                 setDisplayValue(endValue);
-                previousValueRef.current = endValue;
+
+                previousValueRef.current =
+                    endValue;
             }
         };
 
@@ -136,7 +156,10 @@ const AnimatedNumber = ({
    FORMAT CURRENCY
 ========================================================= */
 
-const formatCurrency = (value, currency = "AED") => {
+const formatCurrency = (
+    value,
+    currency = "AED"
+) => {
     if (
         value === null ||
         value === undefined ||
@@ -153,10 +176,13 @@ const formatCurrency = (value, currency = "AED") => {
 
     const millions = number / 1000000;
 
-    return `${currency} ${millions.toLocaleString("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    })}M`;
+    return `${currency} ${millions.toLocaleString(
+        "en-US",
+        {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }
+    )}M`;
 };
 
 
@@ -185,6 +211,7 @@ const formatPercentage = (value) => {
 
 /* =========================================================
    FORMAT VARIANCE
+
    Uses backend variance percentage directly.
 
    IMPORTANT:
@@ -206,7 +233,10 @@ const formatVariance = (value) => {
         return "—";
     }
 
-    const arrow = number < 0 ? "▼" : "▲";
+    const arrow =
+        number < 0
+            ? "▼"
+            : "▲";
 
     return `${arrow} ${Math.abs(number).toFixed(2)}%`;
 };
@@ -231,9 +261,77 @@ const formatRawValue = (value) => {
         return String(value);
     }
 
-    return number.toLocaleString("en-US", {
-        maximumFractionDigits: 2,
-    });
+    return number.toLocaleString(
+        "en-US",
+        {
+            maximumFractionDigits: 2,
+        }
+    );
+};
+
+
+/* =========================================================
+   GET VARIANCE STATUS COLOR
+
+   OPEX BUSINESS RULE:
+
+   FAVOURABLE
+   = Actual below Target
+   = GREEN
+
+   UNFAVOURABLE
+   = Actual above Target
+   = RED
+
+   The API status is authoritative.
+
+   If the API status is unavailable, fallback to the
+   OPEX variance-sign rule:
+   negative = favourable/green
+   positive = unfavourable/red
+========================================================= */
+
+const getVarianceStatusColor = (
+    varianceStatus,
+    varianceValue
+) => {
+    const status = String(
+        varianceStatus ?? ""
+    )
+        .trim()
+        .toUpperCase();
+
+    if (status === "FAVOURABLE") {
+        return "#16A34A";
+    }
+
+    if (status === "UNFAVOURABLE") {
+        return "#DC2626";
+    }
+
+    /* =====================================================
+       FALLBACK ONLY WHEN API STATUS IS NOT AVAILABLE
+    ===================================================== */
+
+    const numericVariance = Number(
+        varianceValue
+    );
+
+    if (
+        !Number.isNaN(numericVariance) &&
+        numericVariance < 0
+    ) {
+        return "#16A34A";
+    }
+
+    if (
+        !Number.isNaN(numericVariance) &&
+        numericVariance > 0
+    ) {
+        return "#DC2626";
+    }
+
+    return "#64748B";
 };
 
 
@@ -263,498 +361,1149 @@ function OpexKpiCard({
     targetValue = null,
     varianceValue = null,
 
+    /* =====================================================
+       API VARIANCE STATUS
+
+       Example:
+       FAVOURABLE
+       UNFAVOURABLE
+    ===================================================== */
+
+    varianceStatus = null,
 }) {
 
     /* =========================================================
        CARD HOVER
     ========================================================= */
 
-    const [isHovered, setIsHovered] = useState(false);
+    const [isHovered, setIsHovered] =
+        useState(false);
+
 
     /* =========================================================
-       TARGET / VARIANCE TOOLTIP HOVER
+       KPI CARD REF
     ========================================================= */
 
-    const [isTargetVarianceHovered, setIsTargetVarianceHovered] =
-        useState(false);
+    const cardRef = useRef(null);
+
+
+    /* =========================================================
+       MODERN TOOLTIP POSITION
+
+       Tooltip is positioned ABOVE the KPI card.
+    ========================================================= */
+
+    const [
+        tooltipPosition,
+        setTooltipPosition,
+    ] = useState({
+        top: 0,
+        left: 0,
+    });
+
+
+    /* =========================================================
+       UPDATE TOOLTIP POSITION
+    ========================================================= */
+
+    const updateTooltipPosition = () => {
+        if (!cardRef.current) {
+            return;
+        }
+
+        const rect =
+            cardRef.current.getBoundingClientRect();
+
+        setTooltipPosition({
+            bottom:
+                window.innerHeight -
+                rect.top +
+                10,
+
+            left:
+                rect.left +
+                rect.width / 2,
+        });
+    };
+
+
+    /* =========================================================
+       UPDATE POSITION WHEN HOVERED
+    ========================================================= */
+
+    useEffect(() => {
+        if (!isHovered) {
+            return undefined;
+        }
+
+        updateTooltipPosition();
+
+        const handlePositionUpdate = () => {
+            updateTooltipPosition();
+        };
+
+        window.addEventListener(
+            "resize",
+            handlePositionUpdate
+        );
+
+        window.addEventListener(
+            "scroll",
+            handlePositionUpdate,
+            true
+        );
+
+        return () => {
+            window.removeEventListener(
+                "resize",
+                handlePositionUpdate
+            );
+
+            window.removeEventListener(
+                "scroll",
+                handlePositionUpdate,
+                true
+            );
+        };
+    }, [isHovered]);
+
+
+    /* =========================================================
+       HAS TARGET
+    ========================================================= */
 
     const hasTarget =
         targetValue !== null &&
         targetValue !== undefined &&
         targetValue !== "";
 
+
+    /* =========================================================
+       HAS VARIANCE
+    ========================================================= */
+
     const hasVariance =
         varianceValue !== null &&
         varianceValue !== undefined &&
         varianceValue !== "";
 
-    const numericVariance = Number(varianceValue);
 
-    const varianceIsPositive =
-        hasVariance &&
-        !Number.isNaN(numericVariance) &&
-        numericVariance >= 0;
+    /* =========================================================
+       API STATUS COLOUR
 
-    const targetTooltipValue =
-        !hasTarget
-            ? "—"
-            : `${reportingCurrency} ${formatRawValue(targetValue)}`;
+       Backend status controls the colour.
+    ========================================================= */
 
-    const varianceTooltipValue =
-        !hasVariance
-            ? "—"
-            : `${formatRawValue(varianceValue)}%`;
+    const varianceColor =
+        getVarianceStatusColor(
+            varianceStatus,
+            varianceValue
+        );
+
+
+    /* =========================================================
+       MODERN TOOLTIP VALUES
+    ========================================================= */
+
+    const modernCurrentValue =
+        isPercentage
+            ? formatPercentage(value)
+            : formatCurrency(
+                value,
+                reportingCurrency
+            );
+
+
+    const modernTargetValue =
+        hasTarget
+            ? formatCurrency(
+                targetValue,
+                reportingCurrency
+            )
+            : "—";
+
+
+    const modernVarianceValue =
+        hasVariance
+            ? formatVariance(
+                varianceValue
+            )
+            : "—";
+
+
+    /* =========================================================
+       STATUS FOR VISUAL INDICATOR ONLY
+
+       Backend status is NOT displayed as text.
+    ========================================================= */
+
+    const normalizedStatus =
+        String(
+            varianceStatus ?? ""
+        )
+            .trim()
+            .toUpperCase();
+
+
+    const hasFavourableStatus =
+        normalizedStatus ===
+        "FAVOURABLE";
+
+
+    const hasUnfavourableStatus =
+        normalizedStatus ===
+        "UNFAVOURABLE";
+
+
+    const statusIndicatorColor =
+        hasFavourableStatus
+            ? "#22C55E"
+            : hasUnfavourableStatus
+                ? "#EF4444"
+                : varianceColor;
+
 
     return (
-        <div
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            style={{
-                flex: "1 1 0",
-                minWidth: 0,
-
-                height: 82,
-
-                background: `linear-gradient(
-                    145deg,
-                    #FFFFFF 0%,
-                    ${iconBackground} 100%
-                )`,
-
-                border:
-                    `1px solid ${isHovered
-                        ? `${iconColor}55`
-                        : "rgba(15, 23, 42, 0.05)"
-                    }`,
-
-                borderRadius: 12,
-
-                boxSizing: "border-box",
-
-                padding: "10px 12px",
-
-                display: "flex",
-                alignItems: "center",
-
-                overflow: "visible",
-
-                /* =================================================
-                   KPI CARD HOVER EFFECT
-                   Subtle lift + stronger shadow
-                ================================================= */
-
-                transform: isHovered
-                    ? "translateY(-3px)"
-                    : "translateY(0)",
-
-                boxShadow: isHovered
-                    ? `0 10px 24px ${iconColor}25`
-                    : "0 2px 8px rgba(15, 23, 42, 0.05)",
-
-                transition:
-                    "transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease",
-
-                position: "relative",
-
-                zIndex: isHovered ? 20 : 1,
-
-                cursor: "default",
-            }}
-        >
-
-            {/* =================================================
-                ICON
-            ================================================= */}
+        <>
+            {/* =====================================================
+                KPI CARD
+            ===================================================== */}
 
             <div
-                style={{
-                    width: 44,
-                    height: 44,
+                ref={cardRef}
 
-                    minWidth: 44,
+                onMouseEnter={() => {
+                    updateTooltipPosition();
 
-                    borderRadius: "50%",
-
-                    background: iconBackground,
-
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-
-                    marginRight: 10,
-
-                    boxSizing: "border-box",
-
-                    color: iconColor,
+                    setIsHovered(true);
                 }}
-            >
-                <Icon
-                    size={22}
-                    strokeWidth={2.35}
-                    color={iconColor}
-                />
-            </div>
 
+                onMouseLeave={() => {
+                    setIsHovered(false);
+                }}
 
-            {/* =================================================
-                CONTENT
-            ================================================= */}
-
-            <div
                 style={{
+                    flex: "1 1 0",
+
                     minWidth: 0,
 
-                    flex: 1,
+                    height: 82,
 
-                    display: "flex",
-                    flexDirection: "column",
+                    background:
+                        `linear-gradient(
+                            145deg,
+                            #FFFFFF 0%,
+                            ${iconBackground} 100%
+                        )`,
 
-                    justifyContent: "center",
+                    border:
+                        `1px solid ${isHovered
+                            ? `${iconColor}55`
+                            : "rgba(15, 23, 42, 0.05)"
+                        }`,
 
-                    overflow: "visible",
+                    borderRadius: 12,
+
+                    boxSizing:
+                        "border-box",
+
+                    padding:
+                        "10px 12px",
+
+                    display:
+                        "flex",
+
+                    alignItems:
+                        "center",
+
+                    overflow:
+                        "visible",
+
+                    /* =================================================
+                       KPI CARD HOVER EFFECT
+                    ================================================= */
+
+                    transform:
+                        isHovered
+                            ? "translateY(-3px)"
+                            : "translateY(0)",
+
+                    boxShadow:
+                        isHovered
+                            ? `0 10px 24px ${iconColor}25`
+                            : "0 2px 8px rgba(15, 23, 42, 0.05)",
+
+                    transition:
+                        "transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease",
+
+                    position:
+                        "relative",
+
+                    zIndex:
+                        isHovered
+                            ? 20
+                            : 1,
+
+                    cursor:
+                        "default",
                 }}
             >
 
                 {/* =================================================
-                    TITLE
+                    ICON
                 ================================================= */}
 
                 <div
                     style={{
-                        color: titleColor,
+                        width: 44,
 
-                        fontSize: 10.5,
+                        height: 44,
 
-                        lineHeight: "12px",
+                        minWidth: 44,
 
-                        fontWeight: 700,
+                        borderRadius:
+                            "50%",
 
-                        whiteSpace: "nowrap",
+                        background:
+                            iconBackground,
 
-                        overflow: "hidden",
+                        display:
+                            "flex",
 
-                        textOverflow: "ellipsis",
+                        alignItems:
+                            "center",
 
-                        marginBottom: 2,
+                        justifyContent:
+                            "center",
+
+                        marginRight: 10,
+
+                        boxSizing:
+                            "border-box",
+
+                        color:
+                            iconColor,
                     }}
                 >
-                    {title}
-                </div>
+                    <Icon
+                        size={22}
 
+                        strokeWidth={
+                            2.35
+                        }
 
-                {/* =================================================
-                    MAIN VALUE
-                ================================================= */}
-
-                <div
-                    style={{
-                        fontSize: 15,
-
-                        lineHeight: "20px",
-
-                        fontWeight: 800,
-
-                        color: "#0F172A",
-
-                        whiteSpace: "nowrap",
-
-                        overflow: "hidden",
-
-                        textOverflow: "ellipsis",
-
-                        letterSpacing: "-0.25px",
-                    }}
-                >
-                    <AnimatedNumber
-                        value={value}
-                        formatter={
-                            isPercentage
-                                ? formatPercentage
-                                : (animatedValue) =>
-                                    formatCurrency(
-                                        animatedValue,
-                                        reportingCurrency
-                                    )
+                        color={
+                            iconColor
                         }
                     />
                 </div>
 
 
                 {/* =================================================
-                    TARGET / VARIANCE
+                    CONTENT
                 ================================================= */}
 
                 <div
-                    onMouseEnter={() =>
-                        setIsTargetVarianceHovered(true)
-                    }
-                    onMouseLeave={() =>
-                        setIsTargetVarianceHovered(false)
-                    }
                     style={{
-                        position: "relative",
-
-                        display: "inline-flex",
-
-                        alignItems: "center",
-
-                        alignSelf: "flex-start",
-
-                        gap: 5,
-
-                        marginTop: 2,
-
-                        padding: "3px 6px",
-
-                        borderRadius: 5,
-
-                        background: "#EEF2F7",
-
-                        fontSize: 9.5,
-
-                        lineHeight: "11px",
-
-                        fontWeight: 600,
-
-                        whiteSpace: "nowrap",
-
                         minWidth: 0,
 
-                        maxWidth: "100%",
+                        flex: 1,
 
-                        boxSizing: "border-box",
+                        display:
+                            "flex",
 
-                        cursor: "help",
+                        flexDirection:
+                            "column",
+
+                        justifyContent:
+                            "center",
+
+                        overflow:
+                            "visible",
                     }}
                 >
 
                     {/* =================================================
-                        TARGET
+                        TITLE
                     ================================================= */}
 
-                    <span
+                    <div
                         style={{
-                            color: "#64748B",
+                            color:
+                                titleColor,
+
+                            fontSize:
+                                10.5,
+
+                            lineHeight:
+                                "12px",
+
+                            fontWeight:
+                                700,
+
+                            whiteSpace:
+                                "nowrap",
+
+                            overflow:
+                                "hidden",
+
+                            textOverflow:
+                                "ellipsis",
+
+                            marginBottom: 2,
+                        }}
+                    >
+                        {title}
+                    </div>
+
+
+                    {/* =================================================
+                        MAIN VALUE
+                    ================================================= */}
+
+                    <div
+                        style={{
+                            fontSize: 15,
+
+                            lineHeight:
+                                "20px",
+
+                            fontWeight:
+                                800,
+
+                            color:
+                                "#0F172A",
+
+                            whiteSpace:
+                                "nowrap",
+
+                            overflow:
+                                "hidden",
+
+                            textOverflow:
+                                "ellipsis",
+
+                            letterSpacing:
+                                "-0.25px",
+                        }}
+                    >
+                        <AnimatedNumber
+                            value={value}
+
+                            formatter={
+                                isPercentage
+                                    ? formatPercentage
+                                    : (
+                                        animatedValue
+                                    ) =>
+                                        formatCurrency(
+                                            animatedValue,
+                                            reportingCurrency
+                                        )
+                            }
+                        />
+                    </div>
+
+
+                    {/* =================================================
+                        TARGET / VARIANCE DISPLAY
+
+                        The old hover tooltip has been removed.
+
+                        This remains only as the small inline
+                        Target + Variance information.
+                    ================================================= */}
+
+                    <div
+                        style={{
+                            display:
+                                "inline-flex",
+
+                            alignItems:
+                                "center",
+
+                            alignSelf:
+                                "flex-start",
+
+                            gap: 5,
+
+                            marginTop: 2,
+
+                            padding:
+                                "3px 6px",
+
+                            borderRadius: 5,
+
+                            background:
+                                "#EEF2F7",
+
+                            fontSize:
+                                9.5,
+
+                            lineHeight:
+                                "11px",
+
+                            fontWeight:
+                                600,
+
+                            whiteSpace:
+                                "nowrap",
 
                             minWidth: 0,
 
-                            overflow: "hidden",
+                            maxWidth:
+                                "100%",
 
-                            textOverflow: "ellipsis",
-
-                            fontSize: 9.5,
-
-                            fontWeight: 600,
+                            boxSizing:
+                                "border-box",
                         }}
                     >
-                        Target:{" "}
-                        {hasTarget
-                            ? formatCurrency(
-                                targetValue,
-                                reportingCurrency
-                            )
-                            : "—"}
-                    </span>
 
+                        {/* =================================================
+                            TARGET
+                        ================================================= */}
 
-                    {/* =================================================
-                        VARIANCE
-                    ================================================= */}
-
-                    <span
-                        style={{
-                            color:
-                                !hasVariance || varianceIsPositive
-                                    ? "#16A34A"
-                                    : "#DC2626",
-
-                            fontWeight: 700,
-
-                            flexShrink: 0,
-
-                            fontSize: 9.5,
-                        }}
-                    >
-                        {formatVariance(
-                            varianceValue
-                        )}
-                    </span>
-
-
-                    {/* =================================================
-                        NEW TARGET / VARIANCE TOOLTIP
-
-                        Different style:
-                        Dark floating information card
-                    ================================================= */}
-
-                    {isTargetVarianceHovered && (
-                        <div
+                        <span
                             style={{
-                                position: "absolute",
+                                color:
+                                    "#64748B",
 
-                                left: "50%",
+                                minWidth: 0,
 
-                                bottom: "calc(100% + 9px)",
+                                overflow:
+                                    "hidden",
 
-                                transform: "translateX(-50%)",
+                                textOverflow:
+                                    "ellipsis",
 
-                                background: "#1E293B",
+                                fontSize:
+                                    9.5,
 
-                                color: "#FFFFFF",
-
-                                padding: "9px 11px",
-
-                                borderRadius: 8,
-
-                                fontSize: 10,
-
-                                lineHeight: "15px",
-
-                                fontWeight: 500,
-
-                                whiteSpace: "nowrap",
-
-                                boxShadow:
-                                    "0 8px 20px rgba(15, 23, 42, 0.28)",
-
-                                zIndex: 9999,
-
-                                minWidth: 155,
-
-                                boxSizing: "border-box",
-
-                                pointerEvents: "none",
+                                fontWeight:
+                                    600,
                             }}
                         >
+                            Target:{" "}
 
-                            {/* =================================================
-                                TOOLTIP HEADER
-                            ================================================= */}
-
-                            <div
-                                style={{
-                                    fontSize: 9,
-
-                                    fontWeight: 700,
-
-                                    color: "#CBD5E1",
-
-                                    textTransform: "uppercase",
-
-                                    letterSpacing: "0.4px",
-
-                                    marginBottom: 5,
-                                }}
-                            >
-                                Backend Values
-                            </div>
+                            {hasTarget
+                                ? formatCurrency(
+                                    targetValue,
+                                    reportingCurrency
+                                )
+                                : "—"}
+                        </span>
 
 
-                            {/* =================================================
-                                TARGET VALUE
-                            ================================================= */}
+                        {/* =================================================
+                            VARIANCE
 
-                            <div
-                                style={{
-                                    display: "flex",
+                            Colour is still controlled by API status.
+                        ================================================= */}
 
-                                    justifyContent: "space-between",
+                        <span
+                            style={{
+                                color:
+                                    varianceColor,
 
-                                    gap: 14,
+                                fontWeight:
+                                    700,
 
-                                    marginBottom: 3,
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        color: "#CBD5E1",
-                                    }}
-                                >
-                                    Target
-                                </span>
+                                flexShrink: 0,
 
-                                <span
-                                    style={{
-                                        color: "#FFFFFF",
+                                fontSize:
+                                    9.5,
+                            }}
+                        >
+                            {formatVariance(
+                                varianceValue
+                            )}
+                        </span>
 
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    {targetTooltipValue}
-                                </span>
-                            </div>
+                    </div>
 
 
-                            {/* =================================================
-                                VARIANCE VALUE
-                            ================================================= */}
+                    {/* =================================================
+                        UNFAVORABLE
+                    ================================================= */}
 
-                            <div
-                                style={{
-                                    display: "flex",
+                    {showUnfavorable && (
+                        <div
+                            style={{
+                                marginTop: 2,
 
-                                    justifyContent: "space-between",
+                                fontSize: 9,
 
-                                    gap: 14,
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        color: "#CBD5E1",
-                                    }}
-                                >
-                                    Variance
-                                </span>
+                                lineHeight:
+                                    "11px",
 
-                                <span
-                                    style={{
-                                        color:
-                                            !hasVariance ||
-                                                varianceIsPositive
-                                                ? "#86EFAC"
-                                                : "#FCA5A5",
+                                fontWeight:
+                                    600,
 
-                                        fontWeight: 700,
-                                    }}
-                                >
-                                    {varianceTooltipValue}
-                                </span>
-                            </div>
+                                color:
+                                    varianceColor,
 
+                                whiteSpace:
+                                    "nowrap",
+                            }}
+                        >
+                            Unfavorable
                         </div>
                     )}
 
                 </div>
 
-
-                {/* =================================================
-                    UNFAVORABLE
-                ================================================= */}
-
-                {showUnfavorable && (
-                    <div
-                        style={{
-                            marginTop: 2,
-
-                            fontSize: 9,
-
-                            lineHeight: "11px",
-
-                            fontWeight: 600,
-
-                            color: "#DC2626",
-
-                            whiteSpace: "nowrap",
-                        }}
-                    >
-                        Unfavorable
-                    </div>
-                )}
-
             </div>
 
-        </div>
+
+            {/* =========================================================
+                MODERN KPI HOVER TOOLTIP
+
+                IMPORTANT:
+
+                - Only ONE tooltip is shown.
+                - Appears ABOVE the KPI card.
+                - No Backend Status section.
+                - No "No backend status available".
+                - Backend status is used ONLY for colour.
+                - Rendered through portal to avoid clipping.
+            ========================================================= */}
+
+            {typeof document !==
+                "undefined" &&
+                createPortal(
+                    <div
+                        style={{
+                            position:
+                                "fixed",
+
+                            bottom:
+                                tooltipPosition.bottom,
+
+                            left:
+                                tooltipPosition.left,
+
+                            transform:
+                                isHovered
+                                    ? "translate(-50%, 0)"
+                                    : "translate(-50%, 8px)",
+
+                            width: 255,
+
+                            padding: 14,
+
+                            borderRadius: 13,
+
+                            background:
+                                "linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98))",
+
+                            border:
+                                "1px solid rgba(255, 255, 255, 0.10)",
+
+                            boxShadow:
+                                "0 20px 45px rgba(15, 23, 42, 0.32), 0 5px 15px rgba(15, 23, 42, 0.18)",
+
+                            backdropFilter:
+                                "blur(12px)",
+
+                            WebkitBackdropFilter:
+                                "blur(12px)",
+
+                            color:
+                                "#FFFFFF",
+
+                            opacity:
+                                isHovered
+                                    ? 1
+                                    : 0,
+
+                            visibility:
+                                isHovered
+                                    ? "visible"
+                                    : "hidden",
+
+                            pointerEvents:
+                                "none",
+
+                            transition:
+                                "opacity 180ms ease, transform 180ms ease, visibility 180ms ease",
+
+                            zIndex:
+                                100000,
+
+                            boxSizing:
+                                "border-box",
+
+                            fontFamily:
+                                "inherit",
+                        }}
+                    >
+
+                        {/* =================================================
+                            SMALL TOP ACCENT
+                        ================================================= */}
+
+                        <div
+                            style={{
+                                position:
+                                    "absolute",
+
+                                top: 0,
+
+                                left: 16,
+
+                                right: 16,
+
+                                height: 2,
+
+                                borderRadius:
+                                    "0 0 4px 4px",
+
+                                background:
+                                    `linear-gradient(
+                                        90deg,
+                                        ${iconColor},
+                                        ${statusIndicatorColor}
+                                    )`,
+                            }}
+                        />
+
+
+                        {/* =================================================
+                            TOOLTIP HEADER
+                        ================================================= */}
+
+                        <div
+                            style={{
+                                display:
+                                    "flex",
+
+                                alignItems:
+                                    "center",
+
+                                gap: 9,
+
+                                marginBottom:
+                                    11,
+
+                                paddingTop: 2,
+                            }}
+                        >
+
+                            {/* KPI ICON */}
+
+                            <div
+                                style={{
+                                    width: 28,
+
+                                    height: 28,
+
+                                    minWidth: 28,
+
+                                    borderRadius:
+                                        8,
+
+                                    display:
+                                        "flex",
+
+                                    alignItems:
+                                        "center",
+
+                                    justifyContent:
+                                        "center",
+
+                                    background:
+                                        `${iconColor}20`,
+
+                                    border:
+                                        `1px solid ${iconColor}35`,
+
+                                    color:
+                                        iconColor,
+                                }}
+                            >
+                                <Icon
+                                    size={15}
+
+                                    strokeWidth={
+                                        2.3
+                                    }
+
+                                    color={
+                                        iconColor
+                                    }
+                                />
+                            </div>
+
+
+                            {/* KPI NAME */}
+
+                            <div
+                                style={{
+                                    minWidth:
+                                        0,
+
+                                    flex: 1,
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        fontSize:
+                                            11.5,
+
+                                        lineHeight:
+                                            "15px",
+
+                                        fontWeight:
+                                            800,
+
+                                        color:
+                                            "#FFFFFF",
+
+                                        whiteSpace:
+                                            "nowrap",
+
+                                        overflow:
+                                            "hidden",
+
+                                        textOverflow:
+                                            "ellipsis",
+                                    }}
+                                >
+                                    {title}
+                                </div>
+
+
+                            </div>
+
+
+                            {/* STATUS DOT */}
+
+                            <div
+                                style={{
+                                    width: 8,
+
+                                    height: 8,
+
+                                    minWidth: 8,
+
+                                    borderRadius:
+                                        "50%",
+
+                                    background:
+                                        statusIndicatorColor,
+
+                                    boxShadow:
+                                        `0 0 0 4px ${statusIndicatorColor}20`,
+                                }}
+                            />
+
+                        </div>
+
+
+                        {/* =================================================
+                            CURRENT VALUE
+                        ================================================= */}
+
+                        <div
+                            style={{
+                                padding:
+                                    "10px 11px",
+
+                                marginBottom:
+                                    8,
+
+                                borderRadius:
+                                    9,
+
+                                background:
+                                    "rgba(255, 255, 255, 0.07)",
+
+                                border:
+                                    "1px solid rgba(255, 255, 255, 0.07)",
+                            }}
+                        >
+
+                            <div
+                                style={{
+                                    fontSize:
+                                        8.5,
+
+                                    fontWeight:
+                                        700,
+
+                                    color:
+                                        "#94A3B8",
+
+                                    textTransform:
+                                        "uppercase",
+
+                                    letterSpacing:
+                                        "0.5px",
+
+                                    marginBottom:
+                                        3,
+                                }}
+                            >
+                                Current Value
+                            </div>
+
+                            <div
+                                style={{
+                                    fontSize:
+                                        17,
+
+                                    lineHeight:
+                                        "21px",
+
+                                    fontWeight:
+                                        800,
+
+                                    color:
+                                        "#FFFFFF",
+
+                                    letterSpacing:
+                                        "-0.3px",
+                                }}
+                            >
+                                {
+                                    modernCurrentValue
+                                }
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            TARGET + VARIANCE
+                        ================================================= */}
+
+                        <div
+                            style={{
+                                display:
+                                    "grid",
+
+                                gridTemplateColumns:
+                                    "1fr 1fr",
+
+                                gap: 7,
+
+                                marginBottom:
+                                    8,
+                            }}
+                        >
+
+                            {/* =================================================
+                                TARGET
+                            ================================================= */}
+
+                            <div
+                                style={{
+                                    padding:
+                                        "8px 9px",
+
+                                    borderRadius:
+                                        8,
+
+                                    background:
+                                        "rgba(255, 255, 255, 0.045)",
+
+                                    border:
+                                        "1px solid rgba(255, 255, 255, 0.055)",
+                                }}
+                            >
+
+                                <div
+                                    style={{
+                                        fontSize:
+                                            8,
+
+                                        fontWeight:
+                                            700,
+
+                                        color:
+                                            "#94A3B8",
+
+                                        textTransform:
+                                            "uppercase",
+
+                                        letterSpacing:
+                                            "0.4px",
+
+                                        marginBottom:
+                                            4,
+                                    }}
+                                >
+                                    Target
+                                </div>
+
+                                <div
+                                    style={{
+                                        fontSize:
+                                            10.5,
+
+                                        fontWeight:
+                                            700,
+
+                                        color:
+                                            "#E2E8F0",
+
+                                        whiteSpace:
+                                            "nowrap",
+
+                                        overflow:
+                                            "hidden",
+
+                                        textOverflow:
+                                            "ellipsis",
+                                    }}
+                                >
+                                    {
+                                        modernTargetValue
+                                    }
+                                </div>
+
+                            </div>
+
+
+                            {/* =================================================
+                                VARIANCE
+                            ================================================= */}
+
+                            <div
+                                style={{
+                                    padding:
+                                        "8px 9px",
+
+                                    borderRadius:
+                                        8,
+
+                                    background:
+                                        `${varianceColor}12`,
+
+                                    border:
+                                        `1px solid ${varianceColor}25`,
+                                }}
+                            >
+
+                                <div
+                                    style={{
+                                        fontSize:
+                                            8,
+
+                                        fontWeight:
+                                            700,
+
+                                        color:
+                                            "#94A3B8",
+
+                                        textTransform:
+                                            "uppercase",
+
+                                        letterSpacing:
+                                            "0.4px",
+
+                                        marginBottom:
+                                            4,
+                                    }}
+                                >
+                                    Variance
+                                </div>
+
+                                <div
+                                    style={{
+                                        fontSize:
+                                            10.5,
+
+                                        fontWeight:
+                                            800,
+
+                                        color:
+                                            varianceColor,
+
+                                        whiteSpace:
+                                            "nowrap",
+                                    }}
+                                >
+                                    {
+                                        modernVarianceValue
+                                    }
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            BOTTOM STATUS INDICATOR
+
+                            No status text is shown.
+                            Only a subtle contextual indicator remains.
+                        ================================================= */}
+
+                        {/* <div
+                            style={{
+                                display:
+                                    "flex",
+
+                                alignItems:
+                                    "center",
+
+                                gap: 7,
+
+                                padding:
+                                    "7px 9px",
+
+                                borderRadius:
+                                    8,
+
+                                background:
+                                    `${statusIndicatorColor}10`,
+
+                                border:
+                                    `1px solid ${statusIndicatorColor}20`,
+                            }}
+                        >
+
+                            <span
+                                style={{
+                                    width: 6,
+
+                                    height: 6,
+
+                                    minWidth: 6,
+
+                                    borderRadius:
+                                        "50%",
+
+                                    background:
+                                        statusIndicatorColor,
+                                }}
+                            />
+
+                            <span
+                                style={{
+                                    fontSize:
+                                        8.5,
+
+                                    fontWeight:
+                                        600,
+
+                                    color:
+                                        "#CBD5E1",
+                                }}
+                            >
+                                Variance indicator
+                            </span>
+
+                        </div> */}
+
+                    </div>,
+
+                    document.body
+                )}
+
+        </>
     );
 }
 
@@ -777,11 +1526,13 @@ export default function OperatingExpenseSummary({
         targetPTD: null,
         variancePTD: null,
         variancePTDPercent: null,
+        variancePTDStatus: null,
 
         actualYTD: null,
         targetYTD: null,
         varianceYTD: null,
         varianceYTDPercent: null,
+        varianceYTDStatus: null,
     };
 
 
@@ -795,11 +1546,13 @@ export default function OperatingExpenseSummary({
         data.actualPTD ??
         null;
 
+
     kpiData.targetPTD =
         data.target_ptd ??
         data.target_ptd_aed ??
         data.targetPTD ??
         null;
+
 
     kpiData.variancePTD =
         data.variance_ptd ??
@@ -821,6 +1574,23 @@ export default function OperatingExpenseSummary({
 
 
     /* =========================================================
+       PTD VARIANCE STATUS
+
+       IMPORTANT:
+       This comes directly from the API.
+
+       Example:
+       "FAVOURABLE"
+       "UNFAVOURABLE"
+    ========================================================= */
+
+    kpiData.variancePTDStatus =
+        data.variance_ptd_status ??
+        data.variancePTDStatus ??
+        null;
+
+
+    /* =========================================================
        YTD VALUES
     ========================================================= */
 
@@ -830,11 +1600,13 @@ export default function OperatingExpenseSummary({
         data.actualYTD ??
         null;
 
+
     kpiData.targetYTD =
         data.target_ytd ??
         data.target_ytd_aed ??
         data.targetYTD ??
         null;
+
 
     kpiData.varianceYTD =
         data.variance_ytd ??
@@ -855,20 +1627,36 @@ export default function OperatingExpenseSummary({
         null;
 
 
+    /* =========================================================
+       YTD VARIANCE STATUS
+
+       IMPORTANT:
+       This comes directly from the API.
+    ========================================================= */
+
+    kpiData.varianceYTDStatus =
+        data.variance_ytd_status ??
+        data.varianceYTDStatus ??
+        null;
+
+
     return (
         <div
             style={{
                 width: "100%",
 
-                background: "#F8FAFC",
+                background:
+                    "#F8FAFC",
 
                 border: "none",
 
                 borderRadius: 10,
 
-                boxSizing: "border-box",
+                boxSizing:
+                    "border-box",
 
-                overflow: "visible",
+                overflow:
+                    "visible",
             }}
         >
 
@@ -880,17 +1668,23 @@ export default function OperatingExpenseSummary({
                 style={{
                     height: 38,
 
-                    display: "flex",
+                    display:
+                        "flex",
 
-                    alignItems: "center",
+                    alignItems:
+                        "center",
 
-                    justifyContent: "space-between",
+                    justifyContent:
+                        "space-between",
 
-                    padding: "0 9px",
+                    padding:
+                        "0 9px",
 
-                    boxSizing: "border-box",
+                    boxSizing:
+                        "border-box",
 
-                    background: "#F8FAFC",
+                    background:
+                        "#F8FAFC",
                 }}
             >
 
@@ -900,13 +1694,16 @@ export default function OperatingExpenseSummary({
 
                         fontSize: 13,
 
-                        lineHeight: "15px",
+                        lineHeight:
+                            "15px",
 
                         fontWeight: 700,
 
-                        color: "#0F172A",
+                        color:
+                            "#0F172A",
 
-                        whiteSpace: "nowrap",
+                        whiteSpace:
+                            "nowrap",
                     }}
                 >
                     Operating Expense Summary
@@ -923,23 +1720,31 @@ export default function OperatingExpenseSummary({
                 style={{
                     width: "100%",
 
-                    display: "flex",
+                    display:
+                        "flex",
 
-                    alignItems: "stretch",
+                    alignItems:
+                        "stretch",
 
                     gap: 8,
 
-                    padding: "7px",
+                    padding:
+                        "7px",
 
-                    boxSizing: "border-box",
+                    boxSizing:
+                        "border-box",
 
-                    overflowX: "auto",
+                    overflowX:
+                        "auto",
 
-                    overflowY: "visible",
+                    overflowY:
+                        "visible",
 
-                    background: "#F8FAFC",
+                    background:
+                        "#F8FAFC",
 
-                    scrollbarWidth: "thin",
+                    scrollbarWidth:
+                        "thin",
                 }}
             >
 
@@ -949,22 +1754,35 @@ export default function OperatingExpenseSummary({
 
                 <OpexKpiCard
                     title="Actual PTD"
-                    value={kpiData.actualPTD}
+
+                    value={
+                        kpiData.actualPTD
+                    }
 
                     Icon={LineChart}
 
                     iconColor="#2563EB"
+
                     iconBackground="#EFF6FF"
 
                     titleColor="#2563EB"
+
                     titleBackground="#EFF4FF"
 
-                    reportingCurrency={reportingCurrency}
+                    reportingCurrency={
+                        reportingCurrency
+                    }
 
-                    targetValue={kpiData.targetPTD}
+                    targetValue={
+                        kpiData.targetPTD
+                    }
 
                     varianceValue={
                         kpiData.variancePTDPercent
+                    }
+
+                    varianceStatus={
+                        kpiData.variancePTDStatus
                     }
                 />
 
@@ -975,22 +1793,35 @@ export default function OperatingExpenseSummary({
 
                 <OpexKpiCard
                     title="Target PTD"
-                    value={kpiData.targetPTD}
+
+                    value={
+                        kpiData.targetPTD
+                    }
 
                     Icon={Target}
 
                     iconColor="#16A34A"
+
                     iconBackground="#ECFDF3"
 
                     titleColor="#16A34A"
+
                     titleBackground="#F0FBF3"
 
-                    reportingCurrency={reportingCurrency}
+                    reportingCurrency={
+                        reportingCurrency
+                    }
 
-                    targetValue={kpiData.targetPTD}
+                    targetValue={
+                        kpiData.targetPTD
+                    }
 
                     varianceValue={
                         kpiData.variancePTDPercent
+                    }
+
+                    varianceStatus={
+                        kpiData.variancePTDStatus
                     }
                 />
 
@@ -1001,22 +1832,35 @@ export default function OperatingExpenseSummary({
 
                 <OpexKpiCard
                     title="Variance PTD"
-                    value={kpiData.variancePTD}
+
+                    value={
+                        kpiData.variancePTD
+                    }
 
                     Icon={TrendingUp}
 
                     iconColor="#F97316"
+
                     iconBackground="#FFF7ED"
 
                     titleColor="#EA580C"
+
                     titleBackground="#FFF6E9"
 
-                    reportingCurrency={reportingCurrency}
+                    reportingCurrency={
+                        reportingCurrency
+                    }
 
-                    targetValue={kpiData.targetPTD}
+                    targetValue={
+                        kpiData.targetPTD
+                    }
 
                     varianceValue={
                         kpiData.variancePTDPercent
+                    }
+
+                    varianceStatus={
+                        kpiData.variancePTDStatus
                     }
                 />
 
@@ -1027,24 +1871,35 @@ export default function OperatingExpenseSummary({
 
                 <OpexKpiCard
                     title="Variance PTD %"
-                    value={kpiData.variancePTDPercent}
+
+                    value={
+                        kpiData.variancePTDPercent
+                    }
 
                     Icon={Percent}
 
                     iconColor="#DB2777"
+
                     iconBackground="#FDF2F8"
 
                     titleColor="#DB2777"
+
                     titleBackground="#FFF1F5"
 
                     isPercentage
 
-                    reportingCurrency={reportingCurrency}
+                    reportingCurrency={
+                        reportingCurrency
+                    }
 
                     targetValue={null}
 
                     varianceValue={
                         kpiData.variancePTDPercent
+                    }
+
+                    varianceStatus={
+                        kpiData.variancePTDStatus
                     }
                 />
 
@@ -1055,22 +1910,35 @@ export default function OperatingExpenseSummary({
 
                 <OpexKpiCard
                     title="Actual YTD"
-                    value={kpiData.actualYTD}
+
+                    value={
+                        kpiData.actualYTD
+                    }
 
                     Icon={BarChart3}
 
                     iconColor="#0891B2"
+
                     iconBackground="#ECFEFF"
 
                     titleColor="#0891B2"
+
                     titleBackground="#EFFBFC"
 
-                    reportingCurrency={reportingCurrency}
+                    reportingCurrency={
+                        reportingCurrency
+                    }
 
-                    targetValue={kpiData.targetYTD}
+                    targetValue={
+                        kpiData.targetYTD
+                    }
 
                     varianceValue={
                         kpiData.varianceYTDPercent
+                    }
+
+                    varianceStatus={
+                        kpiData.varianceYTDStatus
                     }
                 />
 
@@ -1081,22 +1949,35 @@ export default function OperatingExpenseSummary({
 
                 <OpexKpiCard
                     title="Target YTD"
-                    value={kpiData.targetYTD}
+
+                    value={
+                        kpiData.targetYTD
+                    }
 
                     Icon={Target}
 
                     iconColor="#7C3AED"
+
                     iconBackground="#F5F3FF"
 
                     titleColor="#7C3AED"
+
                     titleBackground="#F5F3FF"
 
-                    reportingCurrency={reportingCurrency}
+                    reportingCurrency={
+                        reportingCurrency
+                    }
 
-                    targetValue={kpiData.targetYTD}
+                    targetValue={
+                        kpiData.targetYTD
+                    }
 
                     varianceValue={
                         kpiData.varianceYTDPercent
+                    }
+
+                    varianceStatus={
+                        kpiData.varianceYTDStatus
                     }
                 />
 

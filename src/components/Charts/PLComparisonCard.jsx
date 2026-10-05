@@ -2262,7 +2262,7 @@ export default function PLComparisonCard({
             'plInsightIn 0.4s ease 0.3s both'
         }}
       >
-        <AIInsightPanel data={data} />
+        {/* <AIInsightPanel data={data} /> */}
       </div>
     </div>
   );
