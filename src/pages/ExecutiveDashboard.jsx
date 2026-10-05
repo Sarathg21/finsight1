@@ -3,76 +3,9 @@ import {
     LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, Area, AreaChart
 } from 'recharts';
 import { 
-    BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye
+    BarChart3, RefreshCw, Layers, Wallet, Target, Landmark, Percent, PieChart, Coins, Briefcase, Calendar, MapPin, Building, Globe, RefreshCcw, FileText, ExternalLink, MoreVertical, Download, Eye, TrendingUp
 } from 'lucide-react';
 import ExecDashboardViewAll from '../components/ExecDashboardViewAll';
-
-/* ----------------- MOCK DATA ----------------- */
-
-const KPIData = [
-    { title: "Total Revenue", value: "AED 1,250M", change: "+12.4%", isPositive: true, isRed: false, icon: BarChart3, iconColor: "blue", colorClass: "blue", sparklineData: [10,12,15,14,18,22,20,25] },
-    { title: "Cost of Material", value: "AED 780M", change: "+6.8%", isPositive: true, isRed: true, icon: Coins, iconColor: "blue", colorClass: "red", sparklineData: [20,22,21,24,23,26,25,28] },
-    { title: "Gross Profit", value: "AED 470M", change: "+23.1%", isPositive: true, isRed: false, icon: BarChart3, iconColor: "green", colorClass: "green", sparklineData: [10,11,13,15,14,17,16,20] },
-    { title: "EBITDA", value: "AED 320M", change: "+18.7%", isPositive: true, isRed: false, icon: Briefcase, iconColor: "blue", colorClass: "blue", sparklineData: [8,9,11,10,13,15,14,18] },
-    { title: "Net Profit", value: "AED 210M", change: "+20.0%", isPositive: true, isRed: false, icon: Coins, iconColor: "green", colorClass: "green", sparklineData: [5,6,5,7,8,7,9,11] },
-    { title: "Trade Working Capital", value: "AED 540M", change: "+4.2%", isPositive: true, isRed: true, icon: RefreshCw, iconColor: "blue", colorClass: "red", sparklineData: [10,12,11,13,12,14,13,15] },
-    { title: "Overdue Receivables", value: "AED 180M", change: "+15.3%", isPositive: true, isRed: true, icon: Wallet, iconColor: "blue", colorClass: "red", sparklineData: [5,6,8,7,9,10,12,14] },
-    { title: "Slow Moving & Obsolete Stock", value: "AED 95M", change: "-8.7%", isPositive: false, isRed: false, icon: Layers, iconColor: "green", colorClass: "green", sparklineData: [15,14,16,13,12,10,11,9] },
-    { title: "Cash Collection", value: "AED 980M", change: "+18.1%", isPositive: true, isRed: false, icon: Wallet, iconColor: "blue", colorClass: "blue", sparklineData: [20,22,25,24,28,30,29,32] },
-    { title: "Collection Efficiency", value: "92%", change: "+6.2 pp", isPositive: true, isRed: false, icon: Target, iconColor: "blue", colorClass: "blue", sparklineData: [80,82,81,85,84,88,87,92] },
-    { title: "Total Short Term Borrowing", value: "AED 360M", change: "+5.9%", isPositive: true, isRed: true, icon: Landmark, iconColor: "blue", colorClass: "red", sparklineData: [20,21,20,22,23,24,25,26] },
-    { title: "ROI %", value: "14.8%", change: "+2.3 pp", isPositive: true, isRed: false, icon: BarChart3, iconColor: "blue", colorClass: "green", sparklineData: [10,11,12,11,13,12,14,15] }
-];
-
-const twcTrendData = [
-    { month: 'Apr 24', tr: 200, inv: 250, tp: 100, twc: 350 },
-    { month: 'May 24', tr: 220, inv: 280, tp: 110, twc: 390 },
-    { month: 'Jun 24', tr: 210, inv: 260, tp: 105, twc: 365 },
-    { month: 'Jul 24', tr: 230, inv: 270, tp: 115, twc: 385 },
-    { month: 'Aug 24', tr: 240, inv: 290, tp: 120, twc: 410 },
-    { month: 'Sep 24', tr: 250, inv: 300, tp: 130, twc: 420 },
-    { month: 'Oct 24', tr: 260, inv: 310, tp: 140, twc: 430 },
-    { month: 'Nov 24', tr: 280, inv: 330, tp: 150, twc: 460 },
-    { month: 'Dec 24', tr: 300, inv: 350, tp: 160, twc: 490 },
-    { month: 'Jan 25', tr: 310, inv: 340, tp: 170, twc: 480 },
-    { month: 'Feb 25', tr: 330, inv: 360, tp: 180, twc: 510 },
-    { month: 'Mar 25', tr: 350, inv: 380, tp: 190, twc: 540 },
-];
-
-const revenueRegionData = [
-    { name: 'UAE', value: 420 },
-    { name: 'KSA', value: 310 },
-    { name: 'Oman', value: 160 },
-    { name: 'Qatar', value: 120 },
-    { name: 'India', value: 140 },
-    { name: 'Iraq', value: 100 },
-];
-
-const profitRegionData = [
-    { name: 'UAE', gp: 180, np: 85 },
-    { name: 'KSA', gp: 120, np: 55 },
-    { name: 'Oman', gp: 70, np: 28 },
-    { name: 'Qatar', gp: 50, np: 20 },
-    { name: 'India', gp: 60, np: 18 },
-    { name: 'Iraq', gp: 40, np: 12 },
-];
-
-const paramTableData = [
-    { param: "Total Revenue", m1: "AED 1,250M", m2: "AED 1,112M", mom: "+12.4%", m3: "AED 980M", yoy: "+27.6%", momPos: true, yoyPos: true, comment: "Higher sales across UAE and KSA" },
-    { param: "Gross Profit", m1: "AED 470M", m2: "AED 382M", mom: "+23.1%", m3: "AED 360M", yoy: "+30.6%", momPos: true, yoyPos: true, comment: "Improved product mix and pricing" },
-    { param: "EBITDA", m1: "AED 320M", m2: "AED 270M", mom: "+18.7%", m3: "AED 250M", yoy: "+28.0%", momPos: true, yoyPos: true, comment: "Operational efficiencies" },
-    { param: "Net Profit", m1: "AED 210M", m2: "AED 175M", mom: "+20.0%", m3: "AED 150M", yoy: "+40.0%", momPos: true, yoyPos: true, comment: "Higher profitability across key markets" },
-    { param: "Trade Working Capital", m1: "AED 540M", m2: "AED 518M", mom: "+4.2%", m3: "AED 480M", yoy: "+12.5%", momPos: true, yoyPos: true, momRed: true, yoyRed: true, comment: "Increase due to higher receivables" },
-    { param: "Net Working Capital", m1: "AED 620M", m2: "AED 590M", mom: "+5.1%", m3: "AED 560M", yoy: "+10.7%", momPos: true, yoyPos: true, momRed: true, yoyRed: true, comment: "In line with business growth" },
-    { param: "DSO (Days)", m1: "58", m2: "52", mom: "+6", m3: "55", yoy: "+3", momPos: false, yoyPos: false, momRed: true, yoyRed: true, comment: "Slight increase in collection period" },
-    { param: "DIO (Days)", m1: "72", m2: "78", mom: "-6", m3: "80", yoy: "-8", momPos: false, yoyPos: false, comment: "Better inventory management" },
-    { param: "DPO (Days)", m1: "66", m2: "64", mom: "+2", m3: "62", yoy: "+4", momPos: true, yoyPos: true, momRed: true, yoyRed: true, comment: "Aligned with supplier terms" },
-    { param: "CCC (Days)", m1: "64", m2: "66", mom: "-2", m3: "73", yoy: "-9", momPos: false, yoyPos: false, comment: "Improved working capital cycle" },
-    { param: "Current Ratio", m1: "1.8x", m2: "1.7x", mom: "+0.1x", m3: "1.6x", yoy: "+0.2x", momPos: true, yoyPos: true, comment: "Healthy short-term liquidity" },
-    { param: "Tangible Net Worth Ratio", m1: "0.62x", m2: "0.60x", mom: "+0.02x", m3: "0.55x", yoy: "+0.07x", momPos: true, yoyPos: true, comment: "Stronger balance sheet" },
-    { param: "ROI %", m1: "14.8%", m2: "12.5%", mom: "+2.3 pp", m3: "11.2%", yoy: "+3.6 pp", momPos: true, yoyPos: true, comment: "Higher returns on invested capital" }
-];
-
 
 /* ----------------- COMPONENTS ----------------- */
 
@@ -184,12 +117,258 @@ function ChartMenu({ menuItems }) {
 }
 
 export default function ExecutiveDashboard() {
-    const [viewAll, setViewAll] = useState({ open: false, section: 'twc_parent' });
-    const [appliedFilters] = useState({ period: 'Mar 2025' });
-    const currency = 'AED';
+    const [viewAll, setViewAll] = useState({ open: false, section: 'twc_viewall' });
+
+    // ── Filter state (IDs passed to backend per handoff doc) ──
+    const [filters, setFilters] = useState({
+        as_on_date: '',        // e.g. "2026-09-25"
+        period_type: 'PTD',    // PTD | YTD
+        reporting_currency: 'AED',
+        legal_group_id: null,
+        legal_entity_id: null,
+        parent_division_id: null,
+        subdivision_id: null,
+    });
+    const [pendingFilters, setPendingFilters] = useState({ ...filters });
+    const [appliedFilters, setAppliedFilters] = useState({ ...filters });
+    const currency = appliedFilters.reporting_currency || 'AED';
+
+    // ── KPI state ──
+    const [kpiData, setKpiData] = useState(null);
+    const [kpiLoading, setKpiLoading] = useState(false);
+    const [kpiError, setKpiError] = useState(null);
+
+    // ── TWC Trend state ──
+    const [twcTrend, setTwcTrend] = useState([]);
+    // ── Regional & Parameters state ──
+    const [revRegionData, setRevRegionData] = useState([]);
+    const [profitRegionDataState, setProfitRegionDataState] = useState([]);
+    const [keyParamsState, setKeyParamsState] = useState(null);
+
+    // ── Import API functions ──
+    const { 
+        getExecKpis, 
+        getExecTwcTrend, 
+        getExecRevenueByRegion, 
+        getExecProfitabilityByRegion, 
+        getExecKeyFinancialParameters 
+    } = React.useMemo(() => {
+        try {
+            return require('../api/executiveDashboardApi');
+        } catch {
+            return { getExecKpis: null, getExecTwcTrend: null, getExecRevenueByRegion: null, getExecProfitabilityByRegion: null, getExecKeyFinancialParameters: null };
+        }
+    }, []);
+
+    // ── Fetch KPIs on filter apply ──
+    useEffect(() => {
+        if (!getExecKpis) return;
+        let cancelled = false;
+        setKpiLoading(true);
+        setKpiError(null);
+
+        const apiFilters = {
+            ...(appliedFilters.as_on_date ? { as_of_date: appliedFilters.as_on_date } : {}),
+            period_type: appliedFilters.period_type || 'PTD',
+            reporting_currency: appliedFilters.reporting_currency || 'AED',
+            ...(appliedFilters.legal_group_id ? { legal_group_id: appliedFilters.legal_group_id } : {}),
+            ...(appliedFilters.legal_entity_id ? { legal_entity_id: appliedFilters.legal_entity_id } : {}),
+            ...(appliedFilters.parent_division_id ? { parent_division_id: appliedFilters.parent_division_id } : {}),
+            ...(appliedFilters.subdivision_id ? { subdivision_id: appliedFilters.subdivision_id } : {}),
+        };
+
+        getExecKpis(apiFilters)
+            .then(data => { if (!cancelled) setKpiData(data); })
+            .catch(err => {
+                if (!cancelled) {
+                    console.error('[Exec KPIs]', err.response?.status, err.response?.data || err.message);
+                    setKpiError(err);
+                }
+            })
+            .finally(() => { if (!cancelled) setKpiLoading(false); });
+
+        return () => { cancelled = true; };
+    }, [appliedFilters, getExecKpis]);
+
+    // ── Fetch TWC Trend on filter apply ──
+    useEffect(() => {
+        if (!getExecTwcTrend) return;
+        let cancelled = false;
+        setTwcLoading(true);
+
+        const apiFilters = {
+            months: 12,
+            ...(appliedFilters.legal_group_id ? { legal_group_id: appliedFilters.legal_group_id } : {}),
+            ...(appliedFilters.legal_entity_id ? { legal_entity_id: appliedFilters.legal_entity_id } : {}),
+            ...(appliedFilters.parent_division_id ? { parent_division_id: appliedFilters.parent_division_id } : {}),
+            ...(appliedFilters.subdivision_id ? { subdivision_id: appliedFilters.subdivision_id } : {}),
+        };
+
+        getExecTwcTrend(apiFilters)
+            .then(data => {
+                if (!cancelled) {
+                    const rows = Array.isArray(data) ? data : data?.data ?? data?.results ?? [];
+                    setTwcTrend(rows.map(r => ({
+                        month: r.month_label ?? r.month ?? r.period_name ?? '',
+                        tr: r.trade_receivables ?? 0,
+                        inv: r.inventory ?? 0,
+                        tp: r.trade_payables ?? 0,
+                        twc: r.trade_working_capital ?? 0,
+                    })));
+                }
+            })
+            .catch(err => {
+                if (!cancelled) console.error('[TWC Trend]', err.response?.status, err.response?.data || err.message);
+            })
+            .finally(() => { if (!cancelled) setTwcLoading(false); });
+
+        return () => { cancelled = true; };
+    }, [appliedFilters, getExecTwcTrend]);
+
+    // ── Fetch Revenue by Region ──
+    useEffect(() => {
+        if (!getExecRevenueByRegion) return;
+        let cancelled = false;
+        getExecRevenueByRegion(appliedFilters)
+            .then(data => {
+                if (!cancelled) {
+                    const rows = Array.isArray(data) ? data : data?.data ?? data?.results ?? [];
+                    setRevRegionData(rows.map(r => ({
+                        name: r.region ?? r.country ?? r.country_name ?? '',
+                        value: Number(r.revenue ?? r.total_revenue ?? 0)
+                    })));
+                }
+            })
+            .catch(err => {
+                if (!cancelled) console.error('[Revenue by Region API]', err.response?.status, err.response?.data || err.message);
+            });
+        return () => { cancelled = true; };
+    }, [appliedFilters, getExecRevenueByRegion]);
+
+    // ── Fetch Profitability by Region ──
+    useEffect(() => {
+        if (!getExecProfitabilityByRegion) return;
+        let cancelled = false;
+        getExecProfitabilityByRegion(appliedFilters)
+            .then(data => {
+                if (!cancelled) {
+                    const rows = Array.isArray(data) ? data : data?.data ?? data?.results ?? [];
+                    setProfitRegionDataState(rows.map(r => ({
+                        name: r.region ?? r.country ?? r.country_name ?? '',
+                        gp: Number(r.gross_profit ?? 0),
+                        np: Number(r.net_profit ?? 0)
+                    })));
+                }
+            })
+            .catch(err => {
+                if (!cancelled) console.error('[Profitability by Region API]', err.response?.status, err.response?.data || err.message);
+            });
+        return () => { cancelled = true; };
+    }, [appliedFilters, getExecProfitabilityByRegion]);
+
+    // ── Fetch Key Financial Parameters ──
+    useEffect(() => {
+        if (!getExecKeyFinancialParameters) return;
+        let cancelled = false;
+        getExecKeyFinancialParameters(appliedFilters)
+            .then(data => {
+                if (!cancelled) setKeyParamsState(data);
+            })
+            .catch(err => {
+                if (!cancelled) console.error('[Key Financial Parameters API]', err.response?.status, err.response?.data || err.message);
+            });
+        return () => { cancelled = true; };
+    }, [appliedFilters, getExecKeyFinancialParameters]);
+
+    // ── KPI card config — values come from API, not hardcoded ──
+    const KPI_CONFIG = [
+        { key: 'total_revenue',               title: 'Total Revenue',                  icon: BarChart3, iconColor: 'blue', colorClass: 'blue', isRed: false },
+        { key: 'cost_of_material',            title: 'Cost of Material',               icon: Coins,     iconColor: 'blue', colorClass: 'red',  isRed: true },
+        { key: 'gross_profit',                title: 'Gross Profit',                   icon: BarChart3, iconColor: 'green',colorClass: 'green', isRed: false },
+        { key: 'ebitda',                      title: 'EBITDA',                         icon: Briefcase, iconColor: 'blue', colorClass: 'blue', isRed: false },
+        { key: 'net_profit',                  title: 'Net Profit',                     icon: Coins,     iconColor: 'green',colorClass: 'green', isRed: false },
+        { key: 'trade_working_capital',       title: 'Trade Working Capital',          icon: RefreshCw, iconColor: 'blue', colorClass: 'red',  isRed: true },
+        { key: 'overdue_receivables',         title: 'Overdue Receivables',            icon: Wallet,    iconColor: 'blue', colorClass: 'red',  isRed: true },
+        { key: 'slow_moving_obsolete_stock',  title: 'Slow Moving & Obsolete Stock',   icon: Layers,    iconColor: 'green',colorClass: 'green', isRed: false },
+        { key: 'cash_collection',             title: 'Cash Collection',                icon: Wallet,    iconColor: 'blue', colorClass: 'blue', isRed: false },
+        { key: 'collection_efficiency',       title: 'Collection Efficiency',          icon: Target,    iconColor: 'blue', colorClass: 'blue', isRed: false, isPct: true },
+        { key: 'total_short_term_borrowing',  title: 'Total Short Term Borrowing',     icon: Landmark,  iconColor: 'blue', colorClass: 'red',  isRed: true },
+        { key: 'roi',                         title: 'ROI %',                          icon: BarChart3, iconColor: 'blue', colorClass: 'green', isRed: false, isPct: true },
+    ];
+
+    // Build display values from API or fallback to mock
+    // Build display values from API — no static mock fallbacks
+    const displayKpis = KPI_CONFIG.map(cfg => {
+        const apiVal = kpiData ? (kpiData[cfg.key] ?? kpiData?.kpis?.[cfg.key]) : undefined;
+        const apiChange = kpiData ? (kpiData[`${cfg.key}_change`] ?? kpiData[`${cfg.key}_mom_change`]) : undefined;
+        const apiSpark = kpiData ? (kpiData[`${cfg.key}_sparkline`] ?? kpiData?.sparklines?.[cfg.key]) : undefined;
+        // Format value — null stays '–', 0 stays '0.00'
+        let displayVal = '–';
+        if (apiVal !== null && apiVal !== undefined) {
+            const n = Number(apiVal);
+            if (cfg.isPct) {
+                displayVal = `${n.toFixed(1)}%`;
+            } else if (Math.abs(n) >= 1_000_000) {
+                displayVal = `${currency} ${(n / 1_000_000).toFixed(1)}M`;
+            } else if (Math.abs(n) >= 1_000) {
+                displayVal = `${currency} ${(n / 1_000).toFixed(0)}K`;
+            } else {
+                displayVal = `${currency} ${n.toFixed(2)}`;
+            }
+        }
+        const changeVal = apiChange !== null && apiChange !== undefined
+            ? `${Number(apiChange) >= 0 ? '+' : ''}${Number(apiChange).toFixed(1)}%`
+            : '–';
+        const sparkData = Array.isArray(apiSpark) ? apiSpark : [0];
+        return { ...cfg, value: displayVal, change: changeVal, isPositive: !apiChange || Number(apiChange) >= 0, sparklineData: sparkData };
+    });
 
     const openViewAll = (section) => setViewAll({ open: true, section });
     const closeViewAll = () => setViewAll(v => ({ ...v, open: false }));
+    const handleApplyFilters = () => setAppliedFilters({ ...pendingFilters });
+    const handleResetFilters = () => {
+        const reset = { as_on_date: '', period_type: 'PTD', reporting_currency: 'AED', legal_group_id: null, legal_entity_id: null, parent_division_id: null, subdivision_id: null };
+        setPendingFilters(reset);
+        setAppliedFilters(reset);
+    };
+
+    // Live API chart data
+    const chartTwcData = twcTrend;
+    const chartRevRegionData = revRegionData;
+    const chartProfitRegionData = profitRegionDataState;
+
+    // Build Key Financial Parameters table directly from backend API response (null → '-', 0 → 0.00)
+    const displayParamTableData = React.useMemo(() => {
+        if (!keyParamsState) return [];
+        const rawRows = Array.isArray(keyParamsState) ? keyParamsState : keyParamsState?.data ?? keyParamsState?.results ?? [];
+
+        return rawRows.map(item => {
+            const formatVal = (v, isRatio = false) => {
+                if (v === null || v === undefined) return '–';
+                const n = Number(v);
+                if (isNaN(n)) return '–';
+                if (isRatio) return n.toFixed(2);
+                if (Math.abs(n) >= 1_000_000) return `${currency} ${(n / 1_000_000).toFixed(1)}M`;
+                if (Math.abs(n) >= 1_000) return `${currency} ${(n / 1_000).toFixed(0)}K`;
+                return `${currency} ${n.toFixed(2)}`;
+            };
+
+            const momVal = item.mom_change ?? item.mom;
+            const yoyVal = item.yoy_change ?? item.yoy;
+
+            return {
+                param: item.parameter_name ?? item.param ?? item.name ?? '–',
+                m1: formatVal(item.current_period ?? item.m1, item.is_ratio),
+                m2: formatVal(item.prev_period ?? item.m2, item.is_ratio),
+                mom: momVal !== null && momVal !== undefined ? `${Number(momVal) >= 0 ? '+' : ''}${Number(momVal).toFixed(1)}%` : '–',
+                m3: formatVal(item.prev_year_period ?? item.m3, item.is_ratio),
+                yoy: yoyVal !== null && yoyVal !== undefined ? `${Number(yoyVal) >= 0 ? '+' : ''}${Number(yoyVal).toFixed(1)}%` : '–',
+                momPos: momVal === null || momVal === undefined || Number(momVal) >= 0,
+                yoyPos: yoyVal === null || yoyVal === undefined || Number(yoyVal) >= 0,
+                comment: item.comment ?? item.remarks ?? ''
+            };
+        });
+    }, [keyParamsState, currency]);
 
     return (
         <div style={{ padding: '20px 24px', background: 'var(--clr-bg)', minHeight: '100vh' }}>
@@ -230,6 +409,10 @@ export default function ExecutiveDashboard() {
                 .icon-box.green {
                     background: rgba(16, 185, 129, 0.1); color: var(--clr-success);
                 }
+                @keyframes shimmer {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
+                }
             `}</style>
             
             {/* 1. FILTER BAR */}
@@ -256,18 +439,18 @@ export default function ExecutiveDashboard() {
                 </div>
                 
                 <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-                    <button style={{ background: '#273e6b', color: '#fff', border: 'none', padding: '0 16px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', transition: 'background 0.2s', letterSpacing: '0.02em' }} onMouseEnter={e => e.currentTarget.style.background='#1e3054'} onMouseLeave={e => e.currentTarget.style.background='#273e6b'}>
+                    <button onClick={handleApplyFilters} style={{ background: '#273e6b', color: '#fff', border: 'none', padding: '0 16px', borderRadius: 6, fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', transition: 'background 0.2s', letterSpacing: '0.02em' }} onMouseEnter={e => e.currentTarget.style.background='#1e3054'} onMouseLeave={e => e.currentTarget.style.background='#273e6b'}>
                         Apply Filters
                     </button>
-                    <button style={{ background: 'transparent', color: '#475569', border: 'none', padding: '0 8px', fontWeight: 600, fontSize: '0.7rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', gap: 4, transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color='#1e293b'} onMouseLeave={e => e.currentTarget.style.color='#475569'}>
+                    <button onClick={handleResetFilters} style={{ background: 'transparent', color: '#475569', border: 'none', padding: '0 8px', fontWeight: 600, fontSize: '0.7rem', cursor: 'pointer', height: 32, display: 'flex', alignItems: 'center', gap: 4, transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color='#1e293b'} onMouseLeave={e => e.currentTarget.style.color='#475569'}>
                         <RefreshCcw size={14} strokeWidth={2.5} /> Reset
                     </button>
                 </div>
             </div>
 
-            {/* 2. KPI CARDS */}
+            {/* 2. KPI CARDS — values from backend API */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 20 }}>
-                {KPIData.map((kpi, idx) => (
+                {displayKpis.map((kpi, idx) => (
                     <div key={idx} className="card" style={{ padding: '14px 14px', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         {/* Title Row */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
@@ -276,17 +459,20 @@ export default function ExecutiveDashboard() {
                             </div>
                             <div className="kpi-title">{kpi.title}</div>
                         </div>
-                        
+
                         {/* Value & Change */}
                         <div style={{ zIndex: 1 }}>
-                            <div className="kpi-val">{kpi.value}</div>
+                            {kpiLoading
+                                ? <div style={{ height: 24, width: '70%', borderRadius: 4, background: 'linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+                                : <div className="kpi-val">{kpi.value}</div>
+                            }
                             <div className="kpi-change" style={{ color: kpi.isRed ? 'var(--clr-danger)' : 'var(--clr-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <span style={{ fontSize: '0.65rem' }}>{kpi.isPositive ? '?' : '?'}</span> 
-                                <span>{kpi.change}</span> 
-                                <span style={{ color: 'var(--clr-text-dim)', fontWeight: 500, fontSize: '0.6rem', marginLeft: 2 }}>vs. Feb 2025</span>
+                                <span style={{ fontSize: '0.65rem' }}>{kpi.isPositive ? '▲' : '▼'}</span>
+                                <span>{kpi.change}</span>
+                                <span style={{ color: 'var(--clr-text-dim)', fontWeight: 500, fontSize: '0.6rem', marginLeft: 2 }}>vs prev</span>
                             </div>
                         </div>
-                        
+
                         {/* Sparkline overlay right-bottom */}
                         <div style={{ position: 'absolute', bottom: 8, right: 0, width: '45%', height: 35, opacity: 0.9 }}>
                             <Sparkline data={kpi.sparklineData} colorClass={kpi.colorClass} />
@@ -297,22 +483,22 @@ export default function ExecutiveDashboard() {
 
             {/* 3. CHARTS ROW */}
             <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
-                {/* Trade Working Capital Trend */}
+                {/* Trade Working Capital Trend — data from backend */}
                 <div className="card" style={{ flex: 2, padding: 18 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--clr-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <BarChart3 size={16} color="var(--clr-primary)" /> Trade Working Capital Trend
                         </div>
                         <ChartMenu menuItems={[
-                            { icon: Eye, label: 'View All (Parent Wise)', action: () => openViewAll('twc_parent') },
-                            { icon: Eye, label: 'View All (MoM)', action: () => openViewAll('twc_mom') },
-                            { icon: FileText, label: 'Export Excel', action: () => console.log('Exporting TWC Excel...') },
-                            { icon: Download, label: 'Export PDF', action: () => console.log('Exporting TWC PDF...') }
+                            { icon: Eye, label: 'View All', action: () => openViewAll('twc_viewall') },
+                            { icon: TrendingUp, label: 'Month on Month Trend', action: () => openViewAll('twc_trend') },
+                            { icon: FileText, label: 'Export Excel', action: () => { const { exportExecTwcExcel } = require('../api/executiveDashboardApi'); exportExecTwcExcel(appliedFilters).catch(e => console.error(e)); } },
+                            { icon: Download, label: 'Export PDF', action: () => { const { exportExecTwcPdf } = require('../api/executiveDashboardApi'); exportExecTwcPdf(appliedFilters).catch(e => console.error(e)); } }
                         ]} />
                     </div>
                     <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={twcTrendData} margin={{ top: 20, right: 20, bottom: 0, left: -10 }}>
+                            <ComposedChart data={chartTwcData} margin={{ top: 20, right: 20, bottom: 0, left: -10 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
                                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} dy={10} />
                                 <YAxis label={{ value: 'AED Million', angle: -90, position: 'insideLeft', style: {textAnchor: 'middle', fill: 'var(--clr-text-muted)', fontSize: 10} }} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
@@ -344,13 +530,13 @@ export default function ExecutiveDashboard() {
                     </div>
                     <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart layout="vertical" data={revenueRegionData} margin={{ top: 0, right: 30, bottom: 0, left: 0 }}>
+                            <BarChart layout="vertical" data={chartRevRegionData} margin={{ top: 0, right: 30, bottom: 0, left: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--clr-border-strong)" />
                                 <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
                                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)', fontWeight: 600 }} width={50} />
                                 <Tooltip content={<CustomTooltip />} cursor={{fill: 'var(--clr-surface-2)'}} />
                                 <Bar dataKey="value" fill="var(--clr-primary)" barSize={16} radius={[0, 4, 4, 0]}>
-                                    {revenueRegionData.map((entry, index) => (
+                                    {chartRevRegionData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill="var(--clr-primary)" />
                                     ))}
                                 </Bar>
@@ -376,7 +562,7 @@ export default function ExecutiveDashboard() {
                     </div>
                     <div style={{ height: 260 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={profitRegionData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
+                            <BarChart data={chartProfitRegionData} margin={{ top: 10, right: 0, bottom: 0, left: -20 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--clr-border-strong)" />
                                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)', fontWeight: 600 }} dy={10} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--clr-text-muted)' }} />
@@ -416,7 +602,7 @@ export default function ExecutiveDashboard() {
                             </tr>
                         </thead>
                         <tbody>
-                            {paramTableData.map((row, idx) => (
+                            {displayParamTableData.map((row, idx) => (
                                 <tr key={idx} style={{ transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='var(--clr-surface-2)'} onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                                     <td className="td-cell" style={{ color: 'var(--clr-text)', fontWeight: 800 }}>{row.param}</td>
                                     <td className="td-cell" style={{ fontFamily: 'var(--font-mono)' }}>{row.m1}</td>
@@ -440,11 +626,17 @@ export default function ExecutiveDashboard() {
             </div>
 
             {/* View All Modal */}
-            <ExecDashboardViewAll 
-                isOpen={viewAll.open} 
-                onClose={closeViewAll} 
+            <ExecDashboardViewAll
+                isOpen={viewAll.open}
+                onClose={closeViewAll}
                 initialSection={viewAll.section}
-                filters={appliedFilters}
+                filters={{
+                    as_on_date: appliedFilters.as_on_date || undefined,
+                    legal_group_id: appliedFilters.legal_group_id || undefined,
+                    legal_entity_id: appliedFilters.legal_entity_id || undefined,
+                    parent_division_id: appliedFilters.parent_division_id || undefined,
+                    subdivision_id: appliedFilters.subdivision_id || undefined,
+                }}
                 currency={currency}
             />
         </div>
