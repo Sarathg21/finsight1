@@ -60,25 +60,7 @@
  * ============================================================
  */
 
-import axios from "axios";
-
-/* ============================================================
-   API BASE URL
-============================================================ */
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
-
-/* ============================================================
-   AXIOS INSTANCE
-============================================================ */
-
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-    },
-});
+import api from "./axios";
 
 /* ============================================================
    AUTHENTICATION
@@ -282,10 +264,9 @@ export async function getFinancialPositionKpis(filters = {}) {
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/kpis",
+        "/financial-position/kpis",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -313,10 +294,9 @@ export async function getFinancialPositionEquityContribution(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/equity-contribution",
+        "/financial-position/equity-contribution",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -348,10 +328,9 @@ export async function getFinancialPositionEquityViewAll(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/equity-contribution/view-all",
+        "/financial-position/equity-contribution/view-all",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -383,10 +362,9 @@ export async function getFinancialPositionEquityMonthlyByParentDivision(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/equity-contribution/monthly-by-parent-division",
+        "/financial-position/equity-contribution/monthly-by-parent-division",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -417,10 +395,9 @@ export async function getFinancialPositionInvestmentsByParentDivision(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/investments/by-parent-division",
+        "/financial-position/investments/by-parent-division",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -462,10 +439,9 @@ export async function getFinancialPositionInvestmentsMonthlyByParentDivision(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/investments/monthly-by-parent-division",
+        "/financial-position/investments/monthly-by-parent-division",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -518,10 +494,9 @@ export async function getFinancialPositionBorrowingsByParentDivision(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/borrowings/by-parent-division",
+        "/financial-position/borrowings/by-parent-division",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -548,10 +523,9 @@ export async function getFinancialPositionBorrowingsMonthlyByParentDivision(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/borrowings/monthly-by-parent-division",
+        "/financial-position/borrowings/monthly-by-parent-division",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -587,10 +561,9 @@ export async function getFinancialPositionCurrentAssetsLiabilitiesComposition(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/current-assets-liabilities/composition",
+        "/financial-position/current-assets-liabilities/composition",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -634,10 +607,9 @@ export async function getFinancialPositionCurrentAssetsLiabilitiesViewAll(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/current-assets-liabilities/by-parent-division",
+        "/financial-position/current-assets-liabilities/by-parent-division",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
@@ -650,10 +622,9 @@ export async function getFinancialPositionNetWorkingCapitalTrend(
     const params = buildFinancialPositionParams(filters);
 
     return api.get(
-        "/api/financial-position/net-working-capital/trend",
+        "/financial-position/net-working-capital/trend",
         {
             params,
-            headers: getAuthHeaders(),
         }
     );
 }
