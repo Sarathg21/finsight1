@@ -8,6 +8,7 @@
 // } from 'react';
 
 // import { createPortal } from 'react-dom';
+// import html2canvas from 'html2canvas';
 
 // import {
 //     BarChart,
@@ -18,6 +19,7 @@
 //     Legend,
 //     ResponsiveContainer,
 //     Tooltip,
+//     ReferenceLine,
 //     XAxis,
 //     YAxis,
 // } from 'recharts';
@@ -32,6 +34,7 @@
 //     RefreshCw,
 //     ShoppingBag,
 //     MoreVertical,
+//     Search,
 //     X,
 // } from 'lucide-react';
 
@@ -41,6 +44,7 @@
 //     fetchPLDirectCostDetail,
 //     fetchPLDirectCostMonthly,
 //     fetchPLDirectCostDetailMonthly,
+//     fetchPLStatement,
 //     exportPL,
 // } from '../services/plApi';
 
@@ -56,19 +60,19 @@
 //     'Cost of Material': {
 //         color: '#19b99d',
 //         icon: Package,
-//         bg: '#dff8f1',
+//         bg: '#ecfaf6',
 //     },
 
 //     'Direct Expenses': {
 //         color: '#7040dc',
 //         icon: BarChart3,
-//         bg: '#eee7ff',
+//         bg: '#f3efff',
 //     },
 
 //     'Operating Expenses': {
 //         color: '#f47d20',
 //         icon: ShoppingBag,
-//         bg: '#fff0df',
+//         bg: '#fff6e8',
 //     },
 // };
 
@@ -220,17 +224,190 @@
 // ]);
 
 
-// const getTargetPTD = (row) => getValue(row, [
-//     'target_ptd',
-//     'target_period',
-//     'target',
-// ]);
+// const getTargetPTD = (row, periodName = '') => {
+//     const directTarget = getValue(row, [
+//         'target_ptd',
+//         'target_ptd_aed',
+//         'target_period',
+//         'target_period_aed',
+//         'target',
+//         'target_aed',
+//     ]);
+
+//     if (directTarget !== null && directTarget !== undefined && directTarget !== '') {
+//         return directTarget;
+//     }
+
+//     const monthlyTarget = row?.monthly_target;
+//     if (monthlyTarget && typeof monthlyTarget === 'object' && !Array.isArray(monthlyTarget)) {
+//         if (periodName && Object.prototype.hasOwnProperty.call(monthlyTarget, periodName)) {
+//             return monthlyTarget[periodName];
+//         }
+
+//         const firstTarget = Object.values(monthlyTarget).find(
+//             (value) => value !== null && value !== undefined && value !== ''
+//         );
+
+//         if (firstTarget !== undefined) {
+//             return firstTarget;
+//         }
+//     }
+
+//     return null;
+// };
 
 
 // const getTargetYTD = (row) => getValue(row, [
 //     'target_ytd',
 //     'ytd_target',
 // ]);
+
+
+// const getVariancePercent = (row, period = 'ptd', periodName = '') => {
+//     const explicit = getValue(row, period === 'ptd'
+//         ? ['variance_ptd_pct', 'variance_pct_ptd', 'variance_percentage_ptd']
+//         : ['variance_ytd_pct', 'variance_pct_ytd', 'variance_percentage_ytd']
+//     );
+
+//     const explicitNumber = numberOrNull(explicit);
+//     if (explicitNumber !== null) {
+//         return explicitNumber;
+//     }
+
+//     const variance = numberOrNull(
+//         period === 'ptd' ? getVariancePTD(row) : getVarianceYTD(row)
+//     );
+//     const target = numberOrNull(
+//         period === 'ptd' ? getTargetPTD(row, periodName) : getTargetYTD(row)
+//     );
+
+//     if (variance === null || target === null || target === 0) {
+//         return null;
+//     }
+
+//     return (variance / target) * 100;
+// };
+
+
+// const getVarianceNature = (row) => {
+//     if (!row || typeof row !== 'object') {
+//         return 'expense';
+//     }
+
+//     const explicitIncome =
+//         row.is_income ??
+//         row.isIncome ??
+//         row.income ??
+//         row.is_revenue ??
+//         row.isRevenue;
+
+//     const explicitExpense =
+//         row.is_expense ??
+//         row.isExpense ??
+//         row.expense ??
+//         row.is_cost ??
+//         row.isCost;
+
+//     if (explicitIncome === true || String(explicitIncome).toLowerCase() === 'true') {
+//         return 'income';
+//     }
+
+//     if (explicitExpense === true || String(explicitExpense).toLowerCase() === 'true') {
+//         return 'expense';
+//     }
+
+//     const nature = [
+//         row.variance_type,
+//         row.variance_nature,
+//         row.account_type,
+//         row.category_type,
+//         row.type,
+//         row.nature,
+//         row.classification,
+//     ]
+//         .find((value) => value !== null && value !== undefined && value !== '');
+
+//     const normalizedNature = String(nature || '').trim().toLowerCase();
+
+//     if (
+//         normalizedNature.includes('income') ||
+//         normalizedNature.includes('revenue') ||
+//         normalizedNature.includes('sales')
+//     ) {
+//         return 'income';
+//     }
+
+//     if (
+//         normalizedNature.includes('expense') ||
+//         normalizedNature.includes('cost')
+//     ) {
+//         return 'expense';
+//     }
+
+//     const category = String(
+//         row.category ??
+//         row.category_name ??
+//         row.name ??
+//         row.label ??
+//         ''
+//     ).trim().toLowerCase();
+
+//     if (
+//         category.includes('income') ||
+//         category.includes('revenue') ||
+//         category.includes('sales')
+//     ) {
+//         return 'income';
+//     }
+
+//     // Cost Structure categories are expenses by definition.
+//     return 'expense';
+// };
+
+
+// const varianceColor = (value, row) => {
+//     const numeric = numberOrNull(value);
+
+//     if (numeric === null || numeric === 0) {
+//         return '#334155';
+//     }
+
+//     const nature = getVarianceNature(row);
+
+//     // API variance convention:
+//     // Expense/Cost: negative = favourable, positive = unfavourable.
+//     // Income/Revenue: positive = favourable, negative = unfavourable.
+//     const favourable = nature === 'income'
+//         ? numeric > 0
+//         : numeric < 0;
+
+//     return favourable ? '#16a34a' : '#dc2626';
+// };
+
+
+// const varianceTooltip = (row, period, currency = 'AED', periodName = '') => {
+//     const actual = numberOrNull(period === 'ptd' ? getPTD(row) : getYTD(row));
+//     const target = numberOrNull(period === 'ptd' ? getTargetPTD(row, periodName) : getTargetYTD(row));
+//     const variance = numberOrNull(period === 'ptd' ? getVariancePTD(row) : getVarianceYTD(row));
+//     const percentage = getVariancePercent(row, period, periodName);
+
+//     if (actual === null && target === null && variance === null) {
+//         return undefined;
+//     }
+
+//     const money = (value) => value === null
+//         ? '—'
+//         : `${currency} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+//     const targetIsImmaterial = target !== null && Math.abs(target) < 1000;
+//     const percentageText = targetIsImmaterial
+//         ? 'N/M (target is immaterial)'
+//         : percentage === null
+//             ? '—'
+//             : `${percentage.toFixed(2)}%`;
+
+//     return `${period.toUpperCase()} Variance\nActual: ${money(actual)}\nTarget: ${money(target)}\nVariance: ${money(variance)}\nVariance %: ${percentageText}`;
+// };
 
 
 // const getVariancePTD = (row) => getValue(row, [
@@ -418,6 +595,68 @@
 
 
 // /* =========================================================
+//    BACKEND-READY CATEGORY PERCENTAGE HELPER
+// ========================================================= */
+
+// const getCategoryPercentage = (row, category = '', periodName = '') => {
+//     if (!row || typeof row !== 'object') return null;
+
+//     const normalizedCategory = String(category || '')
+//         .trim()
+//         .toLowerCase()
+//         .replace(/[^a-z0-9]+/g, '_')
+//         .replace(/^_|_$/g, '');
+
+//     const specificKeys = [
+//         `${normalizedCategory}_percentage`,
+//         `${normalizedCategory}_percent`,
+//         `${normalizedCategory}_pct`,
+//         `${normalizedCategory}_percentage_ptd`,
+//         `${normalizedCategory}_pct_ptd`,
+//         `percentage_${normalizedCategory}`,
+//         `percent_${normalizedCategory}`,
+//         `pct_${normalizedCategory}`,
+//     ];
+
+//     const direct = getValue(row, [
+//         ...specificKeys,
+//         'percentage',
+//         'percent',
+//         'pct',
+//         'share',
+//         'mix_percentage',
+//         'cost_mix_percentage',
+//         'cost_percentage',
+//     ]);
+
+//     if (direct !== null && direct !== undefined && direct !== '') {
+//         const n = numberOrNull(direct);
+//         if (n === null) return null;
+//         return Math.abs(n) <= 1 ? n * 100 : n;
+//     }
+
+//     const monthlyPercentage = getValue(row, [
+//         'monthly_percentage',
+//         'monthly_percent',
+//         'monthly_pct',
+//         'monthly_share',
+//         'monthly_cost_mix_percentage',
+//     ]);
+
+//     if (monthlyPercentage && typeof monthlyPercentage === 'object' && !Array.isArray(monthlyPercentage)) {
+//         const value = periodName && Object.prototype.hasOwnProperty.call(monthlyPercentage, periodName)
+//             ? monthlyPercentage[periodName]
+//             : Object.values(monthlyPercentage).find((v) => v !== null && v !== undefined && v !== '');
+
+//         const n = numberOrNull(value);
+//         if (n !== null) return Math.abs(n) <= 1 ? n * 100 : n;
+//     }
+
+//     return null;
+// };
+
+
+// /* =========================================================
 //    MONTHLY CATEGORY NORMALIZATION
 // ========================================================= */
 
@@ -510,8 +749,11 @@
 //                 const result = {
 //                     period,
 //                     material: null,
+//                     materialPct: null,
 //                     direct: null,
+//                     directPct: null,
 //                     operating: null,
+//                     operatingPct: null,
 //                 };
 
 //                 monthlyRows.forEach((row) => {
@@ -529,6 +771,11 @@
 //                     ) {
 //                         result[key] = numberOrNull(monthly[period]);
 //                     }
+
+//                     const percentage = getCategoryPercentage(row, key === 'material' ? 'cost_of_material' : key === 'direct' ? 'direct_expenses' : 'operating_expenses', period);
+//                     if (key === 'material') result.materialPct = percentage;
+//                     if (key === 'direct') result.directPct = percentage;
+//                     if (key === 'operating') result.operatingPct = percentage;
 //                 });
 
 //                 return result;
@@ -569,6 +816,9 @@
 //                 'operating_ptd',
 //                 'operating_ptd_aed',
 //             ])),
+//             materialPct: getCategoryPercentage(row, 'cost_of_material', getPeriod(row)),
+//             directPct: getCategoryPercentage(row, 'direct_expenses', getPeriod(row)),
+//             operatingPct: getCategoryPercentage(row, 'operating_expenses', getPeriod(row)),
 //         }))
 //         .filter((row) => row.period !== '—');
 // };
@@ -584,13 +834,34 @@
 //     const categoryKey = (label) => {
 //         const normalized = String(label || '')
 //             .trim()
-//             .toLowerCase();
+//             .toLowerCase()
+//             .replace(/[–—]/g, '-')
+//             .replace(/\s+/g, ' ');
 
 //         if (normalized === 'cost of material') return 'material';
 //         if (normalized === 'direct labour' || normalized === 'direct labor') return 'labour';
-//         if (normalized === 'manufacturing / direct overheads' || normalized === 'manufacturing/direct overheads') return 'manufacturing';
+//         if (
+//             normalized === 'manufacturing / direct overheads' ||
+//             normalized === 'manufacturing/direct overheads' ||
+//             normalized === 'manufacturing / direct overhead' ||
+//             normalized === 'manufacturing/direct overhead'
+//         ) return 'manufacturing';
 //         if (normalized === 'overhead absorption') return 'absorption';
-//         if (normalized === 'direct expenses - rkme' || normalized === 'direct expenses–rkme') return 'rkme';
+//         if (
+//             normalized === 'direct expenses - rkme' ||
+//             normalized === 'direct expenses–rkme'
+//         ) return 'rkme';
+//         if (
+//             normalized === 'direct expenses' ||
+//             normalized === 'direct expense'
+//         ) return 'direct';
+//         if (
+//             normalized === 'operating expenses' ||
+//             normalized === 'operating expense' ||
+//             normalized === 'total operating expenses' ||
+//             normalized === 'total operating expense'
+//         ) return 'operating';
+
 //         return null;
 //     };
 
@@ -607,16 +878,60 @@
 //         return (year < 100 ? 2000 + year : year) * 12 + (monthIndex ?? 0);
 //     };
 
-//     const monthlyRows = sourceRows.filter((row) => {
-//         const monthly = getValue(row, ['monthly_actual', 'monthly_actual_aed']);
-//         return monthly && typeof monthly === 'object' && !Array.isArray(monthly);
-//     });
+//     /*
+//      * The monthly API may return the month values under different backend
+//      * object names. Keep the existing mappings first, then support the
+//      * common period-map names without changing the API request.
+//      */
+//     const getMonthlyMap = (row) => {
+//         if (!row || typeof row !== 'object') return null;
+
+//         const candidateKeys = [
+//             'monthly_actual',
+//             'monthly_actual_aed',
+//             'monthly_values',
+//             'monthly_data',
+//             'monthly',
+//             'actuals_by_period',
+//             'values_by_period',
+//             'period_values',
+//         ];
+
+//         for (const key of candidateKeys) {
+//             const value = row[key];
+//             if (
+//                 value &&
+//                 typeof value === 'object' &&
+//                 !Array.isArray(value)
+//             ) {
+//                 return value;
+//             }
+//         }
+
+//         /* Also detect a backend field whose value is a period -> amount map. */
+//         for (const [key, value] of Object.entries(row)) {
+//             if (
+//                 value &&
+//                 typeof value === 'object' &&
+//                 !Array.isArray(value) &&
+//                 Object.keys(value).some((period) =>
+//                     /^[A-Za-z]{3}[-\s]\d{2,4}$/.test(String(period))
+//                 )
+//             ) {
+//                 return value;
+//             }
+//         }
+
+//         return null;
+//     };
+
+//     const monthlyRows = sourceRows.filter((row) => Boolean(getMonthlyMap(row)));
 
 //     if (monthlyRows.length) {
 //         const periods = new Set();
 
 //         monthlyRows.forEach((row) => {
-//             const monthly = getValue(row, ['monthly_actual', 'monthly_actual_aed']);
+//             const monthly = getMonthlyMap(row);
 //             Object.keys(monthly || {}).forEach((period) => periods.add(period));
 //         });
 
@@ -636,8 +951,12 @@
 //                     const key = categoryKey(getLabel(row));
 //                     if (!key) return;
 
-//                     const monthly = getValue(row, ['monthly_actual', 'monthly_actual_aed']);
-//                     if (monthly && Object.prototype.hasOwnProperty.call(monthly, period)) {
+//                     const monthly = getMonthlyMap(row);
+
+//                     if (
+//                         monthly &&
+//                         Object.prototype.hasOwnProperty.call(monthly, period)
+//                     ) {
 //                         result[key] = numberOrNull(monthly[period]);
 //                     }
 //                 });
@@ -646,16 +965,147 @@
 //             });
 //     }
 
-//     return sourceRows
-//         .map((row) => ({
-//             period: getPeriod(row),
-//             material: numberOrNull(getValue(row, ['cost_of_material', 'material', 'actual_cost_of_material'])),
-//             labour: numberOrNull(getValue(row, ['direct_labour', 'direct_labor', 'labour', 'labor'])),
-//             manufacturing: numberOrNull(getValue(row, ['manufacturing_direct_overheads', 'manufacturing_direct_overhead', 'manufacturing'])),
-//             absorption: numberOrNull(getValue(row, ['overhead_absorption', 'absorption'])),
-//             rkme: numberOrNull(getValue(row, ['direct_expenses_rkme', 'rkme'])),
-//         }))
-//         .filter((row) => row.period !== '—');
+//     /*
+//      * Backward-compatible support for period-oriented backend responses.
+//      * This also supports rows shaped like:
+//      *   { period: 'Jan-26', category: 'Cost of Material', value: 123 }
+//      * so the backend value is not lost just because it is not nested in a
+//      * monthly object.
+//      */
+//     const grouped = new Map();
+
+//     sourceRows.forEach((row) => {
+//         const period = getPeriod(row);
+//         if (!period || period === '—') return;
+
+//         if (!grouped.has(period)) {
+//             grouped.set(period, {
+//                 period,
+//                 material: null,
+//                 labour: null,
+//                 manufacturing: null,
+//                 absorption: null,
+//                 rkme: null,
+//                 direct: null,
+//                 operating: null,
+//             });
+//         }
+
+//         const result = grouped.get(period);
+//         const key = categoryKey(getLabel(row));
+
+//         if (key) {
+//             const value = numberOrNull(getValue(row, [
+//                 'value',
+//                 'amount',
+//                 'actual',
+//                 'current',
+//                 'actual_ptd',
+//                 'actual_ptd_aed',
+//                 'ptd',
+//                 'ptd_value',
+//                 'cost_of_material',
+//                 'cost_of_material_ptd',
+//                 'cost_of_material_ptd_aed',
+//                 'direct_labour',
+//                 'direct_labor',
+//                 'labour',
+//                 'labor',
+//                 'manufacturing_direct_overheads',
+//                 'manufacturing_direct_overhead',
+//                 'manufacturing',
+//                 'overhead_absorption',
+//                 'absorption',
+//                 'direct_expenses_rkme',
+//                 'rkme',
+//                 'direct_expenses',
+//                 'operating_expenses',
+//                 'operating',
+//             ]));
+
+//             if (value !== null) {
+//                 result[key] = value;
+//                 return;
+//             }
+//         }
+
+//         /*
+//          * If the response is already period-oriented with one row containing
+//          * all category columns, preserve those values as well.
+//          */
+//         const directValues = {
+//             material: [
+//                 'cost_of_material',
+//                 'cost_of_material_ptd',
+//                 'cost_of_material_ptd_aed',
+//                 'actual_cost_of_material',
+//                 'actual_cost_of_material_aed',
+//                 'material',
+//                 'material_ptd',
+//                 'material_ptd_aed',
+//             ],
+//             labour: [
+//                 'direct_labour',
+//                 'direct_labor',
+//                 'direct_labour_ptd',
+//                 'direct_labor_ptd',
+//                 'labour',
+//                 'labor',
+//                 'labour_ptd',
+//                 'labor_ptd',
+//             ],
+//             manufacturing: [
+//                 'manufacturing_direct_overheads',
+//                 'manufacturing_direct_overhead',
+//                 'manufacturing_direct_overheads_ptd',
+//                 'manufacturing_direct_overhead_ptd',
+//                 'manufacturing',
+//                 'manufacturing_ptd',
+//             ],
+//             absorption: [
+//                 'overhead_absorption',
+//                 'overhead_absorption_ptd',
+//                 'absorption',
+//                 'absorption_ptd',
+//             ],
+//             rkme: [
+//                 'direct_expenses_rkme',
+//                 'direct_expenses_rkme_ptd',
+//                 'rkme',
+//                 'rkme_ptd',
+//             ],
+//             direct: [
+//                 'direct_expenses',
+//                 'direct_expenses_ptd',
+//                 'direct_expenses_ptd_aed',
+//                 'actual_direct_expenses',
+//                 'actual_direct_expenses_aed',
+//                 'direct',
+//                 'direct_ptd',
+//                 'direct_ptd_aed',
+//             ],
+//             operating: [
+//                 'operating_expenses',
+//                 'operating_expenses_ptd',
+//                 'operating_expenses_ptd_aed',
+//                 'actual_operating_expenses',
+//                 'actual_operating_expenses_aed',
+//                 'operating',
+//                 'operating_ptd',
+//                 'operating_ptd_aed',
+//             ],
+//         };
+
+//         Object.entries(directValues).forEach(([category, keys]) => {
+//             const value = numberOrNull(getValue(row, keys));
+//             if (value !== null) {
+//                 result[category] = value;
+//             }
+//         });
+//     });
+
+//     return Array.from(grouped.values())
+//         .sort((a, b) => periodSortValue(a.period) - periodSortValue(b.period));
 // };
 
 
@@ -710,6 +1160,7 @@
 //                         fontWeight: 800,
 //                         color: '#173b82',
 //                         marginBottom: 9,
+//                         textAlign: 'center',
 //                     }}
 //                     title={
 //                         title === 'Direct Expenses'
@@ -909,38 +1360,82 @@
 //                     }}
 //                 >
 //                     <div style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
-//                         <input
-//                             type="text"
-//                             value={search}
-//                             onChange={(e) => setSearch(e.target.value)}
-//                             onClick={(e) => e.stopPropagation()}
-//                             placeholder="🔍 Search..."
+//                         <div
 //                             style={{
-//                                 width: '100%',
-//                                 boxSizing: 'border-box',
-//                                 height: 30,
-//                                 padding: '5px 8px',
-//                                 border: '1px solid #dbe2ea',
-//                                 borderRadius: 6,
-//                                 outline: 'none',
-//                                 fontSize: 11,
-//                                 color: '#334155',
+//                                 position: 'relative',
+//                                 display: 'flex',
+//                                 alignItems: 'center',
 //                             }}
-//                         />
+//                         >
+//                             <Search
+//                                 size={14}
+//                                 strokeWidth={2}
+//                                 color="#64748b"
+//                                 style={{
+//                                     position: 'absolute',
+//                                     left: 9,
+//                                     pointerEvents: 'none',
+//                                 }}
+//                             />
+//                             <input
+//                                 type="text"
+//                                 value={search}
+//                                 onChange={(e) => setSearch(e.target.value)}
+//                                 onClick={(e) => e.stopPropagation()}
+//                                 placeholder="Search..."
+//                                 style={{
+//                                     width: '100%',
+//                                     boxSizing: 'border-box',
+//                                     height: 32,
+//                                     padding: '5px 8px 5px 30px',
+//                                     border: '1px solid #dbe2ea',
+//                                     borderRadius: 6,
+//                                     outline: 'none',
+//                                     fontSize: 11,
+//                                     color: '#334155',
+//                                     background: '#fff',
+//                                 }}
+//                             />
+//                         </div>
 //                     </div>
 
-//                     <div style={{ display: 'flex', gap: 6, padding: '7px 8px', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
+//                     <div
+//                         style={{
+//                             display: 'flex',
+//                             justifyContent: 'space-between',
+//                             alignItems: 'center',
+//                             padding: '8px 12px',
+//                             borderBottom: '1px solid #f1f5f9',
+//                             background: '#fff',
+//                         }}
+//                     >
 //                         <button
 //                             type="button"
 //                             onClick={selectAll}
-//                             style={{ flex: 1, border: '1px solid #dbe2ea', borderRadius: 6, background: '#f8fafc', color: '#334155', padding: '5px 6px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+//                             style={{
+//                                 border: 0,
+//                                 background: 'transparent',
+//                                 color: '#173b68',
+//                                 padding: 0,
+//                                 fontSize: 11,
+//                                 fontWeight: 700,
+//                                 cursor: 'pointer',
+//                             }}
 //                         >
 //                             Select All
 //                         </button>
 //                         <button
 //                             type="button"
 //                             onClick={clearAll}
-//                             style={{ flex: 1, border: '1px solid #dbe2ea', borderRadius: 6, background: '#fff', color: '#64748b', padding: '5px 6px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+//                             style={{
+//                                 border: 0,
+//                                 background: 'transparent',
+//                                 color: '#64748b',
+//                                 padding: 0,
+//                                 fontSize: 11,
+//                                 fontWeight: 700,
+//                                 cursor: 'pointer',
+//                             }}
 //                         >
 //                             Clear
 //                         </button>
@@ -1208,16 +1703,16 @@
 //                     }}
 //                 >
 //                     <span>
-//                         YTD:{' '}
+//                         Target:{' '}
 //                         <span style={{ color: '#526071' }}>
-//                             {formatMillions(ytd, currency)}
+//                             {formatMillions(target, currency)}
 //                         </span>
 //                     </span>
 
 //                     <span>
-//                         Target:{' '}
+//                         YTD:{' '}
 //                         <span style={{ color: '#526071' }}>
-//                             {formatMillions(target, currency)}
+//                             {formatMillions(ytd, currency)}
 //                         </span>
 //                     </span>
 //                 </div>
@@ -1228,12 +1723,582 @@
 
 
 // /* =========================================================
+//    PL TREND STYLE COST TOOLTIP
+//    Presentation-only component. No API/calculation changes.
+// ========================================================= */
+
+// function CostPLTrendTooltip({
+//     active,
+//     payload,
+//     label,
+//     currency = 'AED',
+// }) {
+//     if (!active || !payload?.length) {
+//         return null;
+//     }
+
+//     const rows = payload
+//         .filter((item) => item?.value !== null && item?.value !== undefined)
+//         .map((item) => ({
+//             key: item.dataKey,
+//             name: item.name || item.dataKey,
+//             value: item.value,
+//             color: item.color || '#64748b',
+//         }));
+
+//     const formatTooltipMoney = (value) => {
+//         if (value === null || value === undefined || value === '') {
+//             return '—';
+//         }
+
+//         const numeric = numberOrNull(value);
+
+//         if (numeric === null) {
+//             return String(value);
+//         }
+
+//         return `${currency} ${numeric.toLocaleString('en-US', {
+//             maximumFractionDigits: 0,
+//             minimumFractionDigits: 0,
+//         })}`;
+//     };
+
+//     return (
+//         <div
+//             style={{
+//                 minWidth: 235,
+//                 maxWidth: 290,
+//                 background: 'rgba(255,255,255,0.92)',
+//                 backdropFilter: 'blur(16px)',
+//                 WebkitBackdropFilter: 'blur(16px)',
+//                 border: '1px solid rgba(255,255,255,0.55)',
+//                 borderRadius: 14,
+//                 padding: '12px 14px',
+//                 boxShadow:
+//                     '0 12px 36px rgba(15,23,42,0.14), 0 2px 10px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+//                 fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+//                 pointerEvents: 'none',
+//                 animation: 'costPlTooltipIn 0.16s ease-out forwards',
+//             }}
+//         >
+//             <div
+//                 style={{
+//                     display: 'flex',
+//                     alignItems: 'center',
+//                     justifyContent: 'space-between',
+//                     gap: 12,
+//                     marginBottom: 10,
+//                     paddingBottom: 9,
+//                     borderBottom: '1px solid rgba(226,232,240,0.72)',
+//                 }}
+//             >
+//                 <span
+//                     style={{
+//                         fontSize: '0.82rem',
+//                         fontWeight: 800,
+//                         color: '#0f172a',
+//                         letterSpacing: '-0.02em',
+//                         lineHeight: 1,
+//                     }}
+//                 >
+//                     {label}
+//                 </span>
+
+//                 <span
+//                     style={{
+//                         fontSize: '0.61rem',
+//                         fontWeight: 700,
+//                         padding: '4px 9px',
+//                         borderRadius: 999,
+//                         background: '#eff6ff',
+//                         color: '#2563eb',
+//                         border: '1px solid rgba(37,99,235,0.14)',
+//                         letterSpacing: '0.02em',
+//                         whiteSpace: 'nowrap',
+//                     }}
+//                 >
+//                     Monthly
+//                 </span>
+//             </div>
+
+//             <div
+//                 style={{
+//                     display: 'flex',
+//                     flexDirection: 'column',
+//                     gap: 5,
+//                 }}
+//             >
+//                 {rows.map((item) => (
+//                     <div
+//                         key={String(item.key)}
+//                         style={{
+//                             display: 'grid',
+//                             gridTemplateColumns: '1fr auto',
+//                             alignItems: 'center',
+//                             columnGap: 12,
+//                             padding: '7px 9px',
+//                             borderRadius: 9,
+//                             background: 'rgba(248,250,252,0.72)',
+//                             border: '1px solid rgba(226,232,240,0.48)',
+//                             backdropFilter: 'blur(4px)',
+//                         }}
+//                     >
+//                         <div
+//                             style={{
+//                                 display: 'flex',
+//                                 alignItems: 'center',
+//                                 gap: 8,
+//                                 minWidth: 0,
+//                             }}
+//                         >
+//                             <span
+//                                 style={{
+//                                     width: 9,
+//                                     height: 9,
+//                                     borderRadius: 3,
+//                                     flexShrink: 0,
+//                                     background: item.color,
+//                                     boxShadow: `0 2px 6px ${item.color}55`,
+//                                 }}
+//                             />
+
+//                             <span
+//                                 style={{
+//                                     fontSize: '0.67rem',
+//                                     fontWeight: 600,
+//                                     color: '#475569',
+//                                     lineHeight: 1.2,
+//                                     whiteSpace: 'nowrap',
+//                                     overflow: 'hidden',
+//                                     textOverflow: 'ellipsis',
+//                                 }}
+//                             >
+//                                 {item.name}
+//                             </span>
+//                         </div>
+
+//                         <span
+//                             style={{
+//                                 fontSize: '0.70rem',
+//                                 fontWeight: 800,
+//                                 color:
+//                                     numberOrNull(item.value) !== null &&
+//                                         numberOrNull(item.value) < 0
+//                                         ? '#dc2626'
+//                                         : '#0f172a',
+//                                 fontVariantNumeric: 'tabular-nums',
+//                                 letterSpacing: '-0.015em',
+//                                 whiteSpace: 'nowrap',
+//                             }}
+//                         >
+//                             {formatTooltipMoney(item.value)}
+//                         </span>
+//                     </div>
+//                 ))}
+//             </div>
+//         </div>
+//     );
+// }
+
+// /* =========================================================
+//    PREMIUM COST CHART VISUALS — PL TREND LANGUAGE
+//    Presentation-only enhancements. Existing API/data mapping is unchanged.
+// ========================================================= */
+
+// const COST_CHART_SERIES = [
+//     { key: 'material', label: 'Cost of Material', color: '#19b99d', end: '#34d3b2', shadow: 'rgba(25,185,157,.24)' },
+//     { key: 'direct', label: 'Direct Expenses', color: '#7040dc', end: '#a78bfa', shadow: 'rgba(112,64,220,.24)' },
+//     { key: 'operating', label: 'Operating Expenses', color: '#f47d20', end: '#fbbf24', shadow: 'rgba(244,125,32,.24)' },
+// ];
+
+// const DIRECT_COST_CHART_SERIES = [
+//     { key: 'material', label: 'Cost of Material', color: '#19b99d', end: '#34d3b2', shadow: 'rgba(25,185,157,.24)' },
+//     { key: 'labour', label: 'Direct Labour', color: '#7040dc', end: '#a78bfa', shadow: 'rgba(112,64,220,.24)' },
+//     { key: 'manufacturing', label: 'Manufacturing / Direct Overheads', color: '#8b5cf6', end: '#c4b5fd', shadow: 'rgba(139,92,246,.24)' },
+//     { key: 'absorption', label: 'Overhead Absorption', color: '#f59e0b', end: '#fbbf24', shadow: 'rgba(245,158,11,.24)' },
+//     { key: 'rkme', label: 'Direct Expenses - RKME', color: '#f47d20', end: '#fb923c', shadow: 'rgba(244,125,32,.24)' },
+// ];
+
+// function CostGradientDefs({ series }) {
+//     return (
+//         <defs>
+//             {series.map((item) => (
+//                 <linearGradient key={item.key} id={`costGrad-${item.key}`} x1="0%" y1="0%" x2="0%" y2="100%">
+//                     <stop offset="0%" stopColor={item.color} stopOpacity="0.98" />
+//                     <stop offset="100%" stopColor={item.end} stopOpacity="0.82" />
+//                 </linearGradient>
+//             ))}
+//         </defs>
+//     );
+// }
+
+// function CostPremiumLegend({ series, hidden, hoveredKey, onToggle, onHover, onHoverEnd, onIsolate }) {
+//     return (
+//         <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 7, flexWrap: 'wrap' }}>
+//             {series.map((item) => {
+//                 const isHidden = hidden.has(item.key);
+//                 const isHovered = hoveredKey === item.key;
+//                 const isDimmed = hoveredKey && hoveredKey !== item.key;
+//                 return (
+//                     <button
+//                         key={item.key}
+//                         type="button"
+//                         title="Click to toggle · Double-click to isolate"
+//                         onClick={() => onToggle(item.key)}
+//                         onDoubleClick={() => onIsolate(item.key)}
+//                         onMouseEnter={() => onHover(item.key)}
+//                         onMouseLeave={onHoverEnd}
+//                         style={{
+//                             display: 'flex', alignItems: 'center', gap: 7,
+//                             padding: '5px 10px', borderRadius: 20, cursor: 'pointer',
+//                             background: isHovered ? `${item.color}12` : 'transparent',
+//                             border: isHovered ? `1px solid ${item.color}40` : '1px solid transparent',
+//                             opacity: isHidden ? 0.35 : isDimmed ? 0.42 : 1,
+//                             transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
+//                             boxShadow: isHovered ? `0 4px 12px ${item.shadow}` : 'none',
+//                             transition: 'all .2s cubic-bezier(.34,1.4,.64,1)',
+//                             outline: 'none',
+//                             fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+//                         }}
+//                     >
+//                         <span style={{ width: 22, height: 3, borderRadius: 99, background: isHidden ? '#cbd5e1' : `linear-gradient(90deg, ${item.color}, ${item.end})`, boxShadow: isHovered ? `0 0 5px ${item.color}66` : 'none' }} />
+//                         <span style={{ fontSize: '0.63rem', fontWeight: 600, color: isHidden ? '#94a3b8' : isHovered ? item.color : '#475569', textDecoration: isHidden ? 'line-through' : 'none', whiteSpace: 'nowrap' }}>
+//                             {item.label}
+//                         </span>
+//                     </button>
+//                 );
+//             })}
+//         </div>
+//     );
+// }
+
+// function CostChartKebab({ onCSV, onExcel, onPDF, onCopyData, onCopyImage, onFullscreen }) {
+//     const [open, setOpen] = useState(false);
+//     const ref = useRef(null);
+//     useEffect(() => {
+//         if (!open) return;
+//         const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+//         document.addEventListener('mousedown', handler);
+//         return () => document.removeEventListener('mousedown', handler);
+//     }, [open]);
+//     const items = [
+//         { icon: '⬇', label: 'Export CSV', action: onCSV },
+//         { icon: '📊', label: 'Export Excel', action: onExcel },
+//         { icon: '📄', label: 'Export PDF', action: onPDF },
+//         { icon: '⎘', label: 'Copy Data', action: onCopyData },
+//         { icon: '🖼', label: 'Copy Chart Image', action: onCopyImage },
+//         { icon: '⛶', label: 'View Full Screen', action: onFullscreen },
+//     ];
+//     return (
+//         <div ref={ref} style={{ position: 'relative' }}>
+//             <button type="button" aria-label="Options" title="Options" onClick={() => setOpen(v => !v)} style={{ width: 30, height: 30, borderRadius: 8, border: open ? '1px solid rgba(99,102,241,.2)' : '1px solid transparent', background: open ? 'rgba(99,102,241,.08)' : 'transparent', color: open ? '#6366f1' : '#94a3b8', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⋮</button>
+//             {open && (
+//                 <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 7px)', minWidth: 180, zIndex: 500, overflow: 'hidden', borderRadius: 12, background: 'rgba(255,255,255,.97)', backdropFilter: 'blur(16px)', boxShadow: '0 16px 40px rgba(15,23,42,.14), 0 0 0 1px rgba(226,232,240,.8)' }}>
+//                     {items.map((item, index) => (
+//                         <button key={item.label} type="button" onClick={() => { item.action?.(); setOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px', background: 'none', border: 0, borderTop: index ? '1px solid #f1f5f9' : 'none', color: '#334155', fontSize: '.73rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
+//                             <span style={{ width: 18, textAlign: 'center' }}>{item.icon}</span>{item.label}
+//                         </button>
+//                     ))}
+//                 </div>
+//             )}
+//         </div>
+//     );
+// }
+
+
+// function CostVarianceTooltip({ row, period, currency = 'AED', periodName = '' }) {
+//     const actual = numberOrNull(period === 'ptd' ? getPTD(row) : getYTD(row));
+//     const target = numberOrNull(
+//         period === 'ptd'
+//             ? getTargetPTD(row, periodName)
+//             : getTargetYTD(row)
+//     );
+//     const variance = numberOrNull(
+//         period === 'ptd'
+//             ? getVariancePTD(row)
+//             : getVarianceYTD(row)
+//     );
+//     const percentage = getVariancePercent(row, period, periodName);
+//     const targetIsImmaterial = target !== null && Math.abs(target) < 1000;
+//     const percentageText = targetIsImmaterial
+//         ? 'N/M (target is immaterial)'
+//         : percentage === null
+//             ? '—'
+//             : `${percentage.toFixed(2)}%`;
+
+//     const money = (value) => value === null
+//         ? '—'
+//         : `${currency} ${value.toLocaleString('en-US', {
+//             minimumFractionDigits: 2,
+//             maximumFractionDigits: 2,
+//         })}`;
+
+//     const accountName = String(
+//         getValue(row, [
+//             'account_name',
+//             'name',
+//             'particulars',
+//             'label',
+//             'category',
+//         ]) ?? 'Variance'
+//     );
+
+//     return (
+//         <span
+//             className="cost-variance-tooltip"
+//             role="tooltip"
+//             aria-hidden="true"
+//         >
+//             <span
+//                 style={{
+//                     minWidth: 235,
+//                     maxWidth: 290,
+//                     display: 'block',
+//                     background: 'rgba(255,255,255,.92)',
+//                     backdropFilter: 'blur(16px)',
+//                     WebkitBackdropFilter: 'blur(16px)',
+//                     border: '1px solid rgba(255,255,255,.55)',
+//                     borderRadius: 14,
+//                     padding: '12px 14px',
+//                     boxShadow: '0 12px 36px rgba(15,23,42,.14), 0 2px 10px rgba(15,23,42,.06), inset 0 1px 0 rgba(255,255,255,.8)',
+//                     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif',
+//                     pointerEvents: 'none',
+//                     boxSizing: 'border-box',
+//                 }}
+//             >
+//                 <span
+//                     style={{
+//                         display: 'flex',
+//                         alignItems: 'center',
+//                         justifyContent: 'space-between',
+//                         gap: 12,
+//                         marginBottom: 10,
+//                         paddingBottom: 9,
+//                         borderBottom: '1px solid rgba(226,232,240,.72)',
+//                     }}
+//                 >
+//                     <span
+//                         style={{
+//                             fontSize: '.82rem',
+//                             fontWeight: 800,
+//                             color: '#0f172a',
+//                             letterSpacing: '-.02em',
+//                             minWidth: 0,
+//                             overflow: 'hidden',
+//                             textOverflow: 'ellipsis',
+//                             whiteSpace: 'nowrap',
+//                         }}
+//                     >
+//                         {accountName}
+//                     </span>
+//                     <span
+//                         style={{
+//                             fontSize: '.61rem',
+//                             fontWeight: 700,
+//                             padding: '4px 9px',
+//                             borderRadius: 999,
+//                             background: '#eff6ff',
+//                             color: '#2563eb',
+//                             border: '1px solid rgba(37,99,235,.14)',
+//                             flexShrink: 0,
+//                         }}
+//                     >
+//                         {period.toUpperCase()}
+//                     </span>
+//                 </span>
+
+//                 <span
+//                     style={{
+//                         display: 'flex',
+//                         flexDirection: 'column',
+//                         gap: 5,
+//                     }}
+//                 >
+//                     {[
+//                         ['Actual', actual, '#0f172a'],
+//                         ['Target', target, '#0f172a'],
+//                         ['Variance', variance, varianceColor(variance, row)],
+//                     ].map(([label, value, color]) => (
+//                         <span
+//                             key={label}
+//                             style={{
+//                                 display: 'grid',
+//                                 gridTemplateColumns: '1fr auto',
+//                                 alignItems: 'center',
+//                                 columnGap: 12,
+//                                 padding: '7px 9px',
+//                                 borderRadius: 9,
+//                                 background: 'rgba(248,250,252,.72)',
+//                                 border: '1px solid rgba(226,232,240,.48)',
+//                             }}
+//                         >
+//                             <span
+//                                 style={{
+//                                     fontSize: '.67rem',
+//                                     fontWeight: 600,
+//                                     color: '#475569',
+//                                 }}
+//                             >
+//                                 {label}
+//                             </span>
+//                             <span
+//                                 style={{
+//                                     fontSize: '.70rem',
+//                                     fontWeight: 800,
+//                                     color,
+//                                     fontVariantNumeric: 'tabular-nums',
+//                                     whiteSpace: 'nowrap',
+//                                 }}
+//                             >
+//                                 {money(value)}
+//                             </span>
+//                         </span>
+//                     ))}
+
+//                     <span
+//                         style={{
+//                             display: 'grid',
+//                             gridTemplateColumns: '1fr auto',
+//                             alignItems: 'center',
+//                             columnGap: 12,
+//                             padding: '7px 9px',
+//                             borderRadius: 9,
+//                             background: 'rgba(248,250,252,.72)',
+//                             border: '1px solid rgba(226,232,240,.48)',
+//                         }}
+//                     >
+//                         <span
+//                             style={{
+//                                 fontSize: '.67rem',
+//                                 fontWeight: 600,
+//                                 color: '#475569',
+//                             }}
+//                         >
+//                             Variance %
+//                         </span>
+//                         <span
+//                             style={{
+//                                 fontSize: '.70rem',
+//                                 fontWeight: 800,
+//                                 color: targetIsImmaterial ? '#64748b' : varianceColor(variance, row),
+//                                 fontVariantNumeric: 'tabular-nums',
+//                                 whiteSpace: 'nowrap',
+//                             }}
+//                         >
+//                             {percentageText}
+//                         </span>
+//                     </span>
+//                 </span>
+//             </span>
+//         </span>
+//     );
+// }
+
+// function CostPremiumTooltip({ active, payload, label, currency = 'AED' }) {
+//     if (!active || !payload?.length) return null;
+//     const rows = payload.filter(p => p?.value !== null && p?.value !== undefined).map(p => ({ key: p.dataKey, name: p.name || p.dataKey, value: p.value, color: p.color || '#64748b' }));
+//     return (
+//         <div style={{ minWidth: 235, maxWidth: 290, background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.55)', borderRadius: 14, padding: '12px 14px', boxShadow: '0 12px 36px rgba(15,23,42,.14), 0 2px 10px rgba(15,23,42,.06), inset 0 1px 0 rgba(255,255,255,.8)', fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif', pointerEvents: 'none', animation: 'costPlTooltipIn .16s ease-out forwards' }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, paddingBottom: 9, borderBottom: '1px solid rgba(226,232,240,.72)' }}>
+//                 <span style={{ fontSize: '.82rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-.02em' }}>{label}</span>
+//                 <span style={{ fontSize: '.61rem', fontWeight: 700, padding: '4px 9px', borderRadius: 999, background: '#eff6ff', color: '#2563eb', border: '1px solid rgba(37,99,235,.14)' }}>Monthly</span>
+//             </div>
+//             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+//                 {rows.map(item => (
+//                     <div key={String(item.key)} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 12, padding: '7px 9px', borderRadius: 9, background: 'rgba(248,250,252,.72)', border: '1px solid rgba(226,232,240,.48)' }}>
+//                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+//                             <span style={{ width: 9, height: 9, borderRadius: 3, flexShrink: 0, background: item.color, boxShadow: `0 2px 6px ${item.color}55` }} />
+//                             <span style={{ fontSize: '.67rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
+//                         </div>
+//                         <span style={{ fontSize: '.70rem', fontWeight: 800, color: numberOrNull(item.value) !== null && numberOrNull(item.value) < 0 ? '#dc2626' : '#0f172a', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatMoney(item.value, currency)}</span>
+//                     </div>
+//                 ))}
+//             </div>
+//         </div>
+//     );
+// }
+
+// function CostPremiumBarChart({ data, series, currency, title, height = 246, exportName = 'cost-classification-monthly', exportFilters = null, onExport, compact = false }) {
+//     const [hidden, setHidden] = useState(new Set());
+//     const [hovered, setHovered] = useState(null);
+//     const [fullscreen, setFullscreen] = useState(false);
+//     const [copied, setCopied] = useState(false);
+//     const ref = useRef(null);
+//     const visibleSeries = series.filter(s => !hidden.has(s.key));
+
+//     useEffect(() => {
+//         const keyHandler = e => { if (e.key === 'Escape') setFullscreen(false); };
+//         document.addEventListener('keydown', keyHandler);
+//         return () => document.removeEventListener('keydown', keyHandler);
+//     }, []);
+
+//     const toggle = key => setHidden(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+//     const isolate = key => setHidden(new Set(series.map(s => s.key).filter(k => k !== key)));
+
+//     const downloadCSV = () => {
+//         const headers = ['Period', ...series.map(s => s.label)];
+//         const csv = [headers, ...data.map(row => [row.period, ...series.map(s => numberOrNull(row[s.key]) ?? '')])].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+//         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+//         const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${exportName}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+//     };
+//     const copyData = () => {
+//         const text = data.map(row => `${row.period}: ${series.map(s => `${s.label} ${formatMoney(row[s.key], currency)}`).join(' | ')}`).join('\n');
+//         navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+//     };
+//     const copyImage = async () => {
+//         if (!ref.current || !navigator.clipboard || typeof ClipboardItem === 'undefined') return;
+//         try {
+//             const canvas = await html2canvas(ref.current, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+//             canvas.toBlob(async blob => { if (!blob) return; try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (_) { } }, 'image/png');
+//         } catch (_) { }
+//     };
+//     const doExport = async format => { if (typeof onExport !== 'function') return; try { await onExport(format, exportName, exportFilters || undefined); } catch (_) { } };
+
+//     const content = (
+//         <div ref={ref} className="cost-structure-chart" style={{ width: '100%', height: fullscreen ? 'calc(100vh - 80px)' : height, minHeight: compact ? 250 : 246, position: 'relative', background: 'radial-gradient(circle at top right, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 62%)', border: '1px solid rgba(226,232,240,.88)', borderRadius: fullscreen ? 0 : 14, padding: compact ? '10px 12px' : '13px 14px', boxSizing: 'border-box', boxShadow: fullscreen ? 'none' : '0 6px 22px rgba(15,23,42,.055), 0 1px 4px rgba(15,23,42,.035)', overflow: 'visible' }}>
+//             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: compact ? 5 : 8 }}>
+//                 <div>
+//                     <div style={{ fontSize: '.76rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-.01em' }}>{title}</div>
+//                     <div style={{ fontSize: '.58rem', color: '#94a3b8', marginTop: 2 }}>Interactive monthly cost trend</div>
+//                 </div>
+//                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+//                     {copied && <span style={{ fontSize: '.6rem', color: '#16a34a', fontWeight: 700 }}>✓ Copied</span>}
+//                 </div>
+//             </div>
+//             <div style={{ height: fullscreen ? 'calc(100% - 70px)' : (compact ? 'calc(100% - 62px)' : 188) }}>
+//                 {data.length ? (
+//                     <ResponsiveContainer width="100%" height="100%" style={{ overflow: 'visible' }}>
+//                         <BarChart data={data} margin={{ top: 12, right: 18, left: 2, bottom: 6 }} barGap={compact ? 8 : 10} barCategoryGap="22%" style={{ overflow: 'visible' }}>
+//                             <CostGradientDefs series={series} />
+//                             <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(226,232,240,.45)" />
+//                             <XAxis dataKey="period" tick={{ fontSize: compact ? 9 : 10, fill: '#94a3b8', fontWeight: 500, fontFamily: 'Inter, system-ui' }} axisLine={false} tickLine={false} dy={7} />
+//                             <YAxis tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 500, fontFamily: 'Inter, system-ui' }} axisLine={false} tickLine={false} width={48} tickFormatter={v => Number(v) === 0 ? '0' : `${(Number(v) / 1000000).toFixed(0)}M`} />
+//                             <ReferenceLine y={0} stroke="rgba(148,163,184,.5)" strokeDasharray="5 3" strokeWidth={1.2} />
+//                             <Tooltip content={<CostPremiumTooltip currency={currency} />} cursor={{ stroke: 'rgba(99,102,241,.22)', strokeWidth: 1.5, strokeDasharray: '5 3', fill: 'rgba(99,102,241,.03)' }} offset={16} allowEscapeViewBox={{ x: false, y: true }} wrapperStyle={{ zIndex: 999, outline: 'none', pointerEvents: 'none' }} animationEasing="ease-out" animationDuration={100} />
+//                             {series.map((item, index) => {
+//                                 if (hidden.has(item.key)) return null;
+//                                 const opacity = hovered && hovered !== item.key ? .38 : 1;
+//                                 return <Bar key={item.key} dataKey={item.key} name={item.label} fill={`url(#costGrad-${item.key})`} barSize={compact ? 13 : 14} radius={[4, 4, 0, 0]} animationDuration={900} animationBegin={index * 90} animationEasing="ease-out" fillOpacity={opacity} onMouseEnter={() => setHovered(item.key)} onMouseLeave={() => setHovered(null)} />;
+//                             })}
+//                         </BarChart>
+//                     </ResponsiveContainer>
+//                 ) : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>No data available</div>}
+//             </div>
+//             <CostPremiumLegend series={series} hidden={hidden} hoveredKey={hovered} onToggle={toggle} onHover={setHovered} onHoverEnd={() => setHovered(null)} onIsolate={isolate} />
+//         </div>
+//     );
+//     return fullscreen ? createPortal(<div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#f8fafc', padding: 18, overflow: 'auto' }}>{content}</div>, document.body) : content;
+// }
+
+// /* =========================================================
 //    MAIN COST CHART
 // ========================================================= */
 
 // function MainCostChart({
 //     data,
 //     currency,
+//     onExport,
+//     exportFilters,
 // }) {
 //     /*
 //      * /api/pl/cost-classification-monthly returns one row per
@@ -1413,172 +2478,16 @@
 //             : chartData;
 
 //     return (
-//         <div
-//             className="cost-structure-chart"
-//             style={{
-//                 background: '#fff',
-//                 border: '1px solid #e7ebf1',
-//                 borderRadius: 11,
-//                 padding: '12px 14px',
-//                 height: 246,
-//                 boxSizing: 'border-box',
-//                 boxShadow:
-//                     '0 1px 3px rgba(15,23,42,.035)',
-//             }}
-//         >
-//             <div
-//                 style={{
-//                     fontSize: 13,
-//                     fontWeight: 700,
-//                     color: '#182338',
-//                     marginBottom: 8,
-//                 }}
-//             >
-//                 Month-on-Month Cost Classification
-//             </div>
-
-//             <div
-//                 style={{
-//                     height: 188,
-//                 }}
-//             >
-//                 {fallbackChartData.length ? (
-//                     <ResponsiveContainer
-//                         width="100%"
-//                         height="100%"
-//                     >
-//                         <LineChart
-//                             data={fallbackChartData}
-//                             margin={{
-//                                 top: 8,
-//                                 right: 10,
-//                                 left: -12,
-//                                 bottom: 4,
-//                             }}
-//                         >
-//                             <CartesianGrid
-//                                 strokeDasharray="3 3"
-//                                 vertical={false}
-//                                 stroke="#edf0f4"
-//                             />
-
-//                             <XAxis
-//                                 dataKey="period"
-//                                 tick={{
-//                                     fontSize: 10,
-//                                     fill: '#687386',
-//                                 }}
-//                                 axisLine={{
-//                                     stroke: '#dfe5ec',
-//                                 }}
-//                                 tickLine={false}
-//                             />
-
-//                             <YAxis
-//                                 tick={{
-//                                     fontSize: 10,
-//                                     fill: '#8b94a3',
-//                                 }}
-//                                 axisLine={false}
-//                                 tickLine={false}
-//                                 tickFormatter={(v) =>
-//                                     `${(
-//                                         Number(v) /
-//                                         1000000
-//                                     ).toFixed(0)}M`
-//                                 }
-//                             />
-
-//                             <Tooltip
-//                                 formatter={(value, name) => [
-//                                     formatMoney(value, currency),
-//                                     name,
-//                                 ]}
-//                                 contentStyle={{
-//                                     borderRadius: 8,
-//                                     border:
-//                                         '1px solid #e2e8f0',
-//                                     fontSize: 11,
-//                                     boxShadow:
-//                                         '0 8px 24px rgba(15,23,42,.12)',
-//                                 }}
-//                             />
-
-//                             <Legend
-//                                 verticalAlign="bottom"
-//                                 height={20}
-//                                 wrapperStyle={{
-//                                     fontSize: 10,
-//                                     paddingTop: 2,
-//                                 }}
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="material"
-//                                 name="Cost of Material"
-//                                 stroke={CATEGORY_META['Cost of Material'].color}
-//                                 strokeWidth={2.5}
-//                                 dot={{
-//                                     r: 3,
-//                                     strokeWidth: 1.5,
-//                                 }}
-//                                 activeDot={{
-//                                     r: 5,
-//                                 }}
-//                                 connectNulls
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="direct"
-//                                 name="Direct Expenses"
-//                                 stroke={CATEGORY_META['Direct Expenses'].color}
-//                                 strokeWidth={2.5}
-//                                 dot={{
-//                                     r: 3,
-//                                     strokeWidth: 1.5,
-//                                 }}
-//                                 activeDot={{
-//                                     r: 5,
-//                                 }}
-//                                 connectNulls
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="operating"
-//                                 name="Operating Expenses"
-//                                 stroke={CATEGORY_META['Operating Expenses'].color}
-//                                 strokeWidth={2.5}
-//                                 dot={{
-//                                     r: 3,
-//                                     strokeWidth: 1.5,
-//                                 }}
-//                                 activeDot={{
-//                                     r: 5,
-//                                 }}
-//                                 connectNulls
-//                             />
-//                         </LineChart>
-//                     </ResponsiveContainer>
-//                 ) : (
-//                     <div
-//                         style={{
-//                             height: '100%',
-//                             display: 'flex',
-//                             alignItems: 'center',
-//                             justifyContent:
-//                                 'center',
-//                             color: '#94a3b8',
-//                             fontSize: 13,
-//                         }}
-//                     >
-//                         No data available
-//                     </div>
-//                 )}
-//             </div>
-//         </div>
+//         <CostPremiumBarChart
+//             data={fallbackChartData}
+//             series={COST_CHART_SERIES}
+//             currency={currency}
+//             title="Month-on-Month Cost Classification"
+//             height={246}
+//             exportName="cost-classification-monthly"
+//             exportFilters={exportFilters}
+//             onExport={onExport}
+//         />
 //     );
 // }
 
@@ -1739,22 +2648,26 @@
 //         }
 //     );
 
+//     const [hoveredMix, setHoveredMix] = useState(null);
+
 //     return (
 //         <div
+//             className="cost-structure-chart"
 //             style={{
 //                 background: '#fff',
 //                 border: '1px solid #e7ebf1',
-//                 borderRadius: 11,
-//                 padding: '12px 14px',
+//                 borderRadius: 14,
+//                 padding: '13px 14px',
 //                 height: 246,
 //                 boxSizing: 'border-box',
-//                 boxShadow:
-//                     '0 1px 3px rgba(15,23,42,.035)',
+//                 boxShadow: '0 6px 22px rgba(15,23,42,.055), 0 1px 4px rgba(15,23,42,.035)',
+//                 fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+//                 position: 'relative',
 //             }}
 //         >
 //             <div
 //                 style={{
-//                     fontSize: 13,
+//                     fontSize: 12,
 //                     fontWeight: 700,
 //                     color: '#182338',
 //                     marginBottom: 14,
@@ -1792,13 +2705,19 @@
 //                         return (
 //                             <div
 //                                 key={item.label}
+//                                 onMouseEnter={() => setHoveredMix(item.label)}
+//                                 onMouseLeave={() => setHoveredMix(null)}
 //                                 style={{
 //                                     display: 'grid',
-//                                     gridTemplateColumns:
-//                                         '88px minmax(0, 1fr) 78px',
-//                                     alignItems:
-//                                         'center',
+//                                     gridTemplateColumns: '88px minmax(0, 1fr) 78px',
+//                                     alignItems: 'center',
 //                                     gap: 10,
+//                                     position: 'relative',
+//                                     padding: '4px 5px',
+//                                     margin: '-4px -5px',
+//                                     borderRadius: 9,
+//                                     background: hoveredMix === item.label ? 'rgba(248,250,252,.78)' : 'transparent',
+//                                     transition: 'background .16s ease, transform .16s ease',
 //                                 }}
 //                             >
 //                                 <div
@@ -1885,6 +2804,19 @@
 //                                         )}
 //                                     </div>
 //                                 </div>
+//                                 {hoveredMix === item.label && (
+//                                     <div style={{ position: 'absolute', left: 8, bottom: 'calc(100% + 8px)', zIndex: 20, minWidth: 220, maxWidth: 270, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.55)', borderRadius: 12, padding: '10px 12px', boxShadow: '0 12px 30px rgba(15,23,42,.14), 0 2px 8px rgba(15,23,42,.06)', pointerEvents: 'none', animation: 'costPlTooltipIn .16s ease-out forwards' }}>
+//                                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+//                                             <span style={{ width: 8, height: 8, borderRadius: 3, background: meta.color }} />
+//                                             <span style={{ fontSize: '.72rem', fontWeight: 800, color: '#0f172a' }}>{item.label}</span>
+//                                         </div>
+//                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 5, fontSize: '.67rem' }}>
+//                                             <span style={{ color: '#64748b' }}>PTD Value</span><strong style={{ color: '#0f172a' }}>{formatMillions(item.value, currency)}</strong>
+//                                             <span style={{ color: '#64748b' }}>PTD Share</span><strong style={{ color: meta.color }}>{formatPercent(item.percentage)}</strong>
+//                                             <span style={{ color: '#64748b' }}>Period</span><strong style={{ color: '#475569' }}>{periodName || 'Current'}</strong>
+//                                         </div>
+//                                     </div>
+//                                 )}
 //                             </div>
 //                         );
 //                     })
@@ -1911,6 +2843,7 @@
 // function DirectCostTable({
 //     rows,
 //     currency,
+//     periodName = '',
 //     onExpand,
 //     expanded,
 //     details,
@@ -1932,6 +2865,13 @@
 //                     fontSize: 11,
 //                 }}
 //             >
+//                 <colgroup>
+//                     <col style={{ width: '3%' }} />
+//                     <col style={{ width: '24%' }} />
+//                     {Array.from({ length: 6 }).map((_, i) => (
+//                         <col key={i} style={{ width: '12.1667%' }} />
+//                     ))}
+//                 </colgroup>
 //                 <thead>
 //                     <tr
 //                         style={{
@@ -2100,9 +3040,25 @@
 //                                                     '#344054',
 //                                                 borderRight:
 //                                                     '1px solid #edf0f4',
+//                                                 fontSize: 9,
+
+//                                                 textTransform: 'uppercase',
+//                                                 whiteSpace: 'normal',
+//                                                 overflowWrap: 'anywhere',
+//                                                 wordBreak: 'break-word',
+//                                                 lineHeight: 1.3,
 //                                             }}
 //                                         >
-//                                             <span title={categoryTooltip}>
+//                                             <span
+//                                                 title={categoryTooltip}
+//                                                 style={{
+//                                                     display: 'inline-block',
+//                                                     maxWidth: '100%',
+//                                                     whiteSpace: 'normal',
+//                                                     overflowWrap: 'anywhere',
+//                                                     wordBreak: 'break-word',
+//                                                 }}
+//                                             >
 //                                                 {category}
 //                                                 {categoryTooltip ? (
 //                                                     <span
@@ -2152,18 +3108,16 @@
 //                                                 textAlign:
 //                                                     'right',
 //                                                 color:
-//                                                     valueColor(
-//                                                         getTargetPTD(
-//                                                             row
-//                                                         )
-//                                                     ),
+//                                                     '#334155',
+
 //                                                 borderRight:
 //                                                     '1px solid #edf0f4',
 //                                             }}
 //                                         >
 //                                             {formatTableMoney(
 //                                                 getTargetPTD(
-//                                                     row
+//                                                     row,
+//                                                     periodName
 //                                                 ),
 //                                                 currency
 //                                             )}
@@ -2176,14 +3130,21 @@
 //                                                 textAlign:
 //                                                     'right',
 //                                                 color:
-//                                                     valueColor(
+//                                                     varianceColor(
 //                                                         getVariancePTD(
 //                                                             row
-//                                                         )
+//                                                         ),
+//                                                         row
 //                                                     ),
 //                                                 borderRight:
 //                                                     '1px solid #edf0f4',
 //                                             }}
+//                                             title={varianceTooltip(
+//                                                 row,
+//                                                 'ptd',
+//                                                 currency,
+//                                                 periodName
+//                                             )}
 //                                         >
 //                                             {formatTableMoney(
 //                                                 getVariancePTD(
@@ -2220,11 +3181,7 @@
 //                                                 textAlign:
 //                                                     'right',
 //                                                 color:
-//                                                     valueColor(
-//                                                         getTargetYTD(
-//                                                             row
-//                                                         )
-//                                                     ),
+//                                                     '#334155',
 //                                                 borderRight:
 //                                                     '1px solid #edf0f4',
 //                                             }}
@@ -2244,12 +3201,19 @@
 //                                                 textAlign:
 //                                                     'right',
 //                                                 color:
-//                                                     valueColor(
+//                                                     varianceColor(
 //                                                         getVarianceYTD(
 //                                                             row
-//                                                         )
+//                                                         ),
+//                                                         row
 //                                                     ),
 //                                             }}
+//                                             title={varianceTooltip(
+//                                                 row,
+//                                                 'ytd',
+//                                                 currency,
+//                                                 periodName
+//                                             )}
 //                                         >
 //                                             {formatTableMoney(
 //                                                 getVarianceYTD(
@@ -2293,20 +3257,36 @@
 //                                                 ) : rowDetails.length ? (
 //                                                     <div>
 //                                                         <table
-//                                                             className="cost-structure-table"
+//                                                             className="cost-structure-table cost-detail-table"
 //                                                             style={{
 //                                                                 width: '100%',
 //                                                                 borderCollapse:
 //                                                                     'collapse',
+//                                                                 tableLayout: 'fixed',
 //                                                                 fontSize: 11,
 //                                                             }}
 //                                                         >
+//                                                             <colgroup>
+//                                                                 <col style={{ width: '3%' }} />
+//                                                                 <col style={{ width: '9%' }} />
+//                                                                 <col style={{ width: '15%' }} />
+//                                                                 {Array.from({ length: 6 }).map((_, i) => (
+//                                                                     <col key={i} style={{ width: '12.1667%' }} />
+//                                                                 ))}
+//                                                             </colgroup>
 //                                                             <thead>
 //                                                                 <tr>
 //                                                                     <th
+//                                                                         aria-hidden="true"
+//                                                                         style={{
+//                                                                             padding: 0,
+//                                                                             background: '#fff',
+//                                                                         }}
+//                                                                     />
+//                                                                     <th
 //                                                                         style={{
 //                                                                             padding:
-//                                                                                 '7px 10px 7px 42px',
+//                                                                                 '7px 10px',
 //                                                                             textAlign:
 //                                                                                 'left',
 //                                                                             color:
@@ -2365,7 +3345,71 @@
 //                                                                                 700,
 //                                                                         }}
 //                                                                     >
+//                                                                         Target PTD
+//                                                                     </th>
+
+//                                                                     <th
+//                                                                         style={{
+//                                                                             padding: 7,
+//                                                                             textAlign:
+//                                                                                 'right',
+//                                                                             color:
+//                                                                                 '#173b68',
+//                                                                             background:
+//                                                                                 '#fff',
+//                                                                             fontWeight:
+//                                                                                 700,
+//                                                                         }}
+//                                                                     >
+//                                                                         Variance PTD
+//                                                                     </th>
+
+//                                                                     <th
+//                                                                         style={{
+//                                                                             padding: 7,
+//                                                                             textAlign:
+//                                                                                 'right',
+//                                                                             color:
+//                                                                                 '#173b68',
+//                                                                             background:
+//                                                                                 '#fff',
+//                                                                             fontWeight:
+//                                                                                 700,
+//                                                                         }}
+//                                                                     >
 //                                                                         Actual YTD
+//                                                                     </th>
+
+//                                                                     <th
+//                                                                         style={{
+//                                                                             padding: 7,
+//                                                                             textAlign:
+//                                                                                 'right',
+//                                                                             color:
+//                                                                                 '#173b68',
+//                                                                             background:
+//                                                                                 '#fff',
+//                                                                             fontWeight:
+//                                                                                 700,
+//                                                                         }}
+//                                                                     >
+//                                                                         Target YTD
+//                                                                     </th>
+
+//                                                                     <th
+//                                                                         style={{
+//                                                                             padding: 7,
+//                                                                             textAlign:
+//                                                                                 'right',
+//                                                                             color:
+//                                                                                 '#173b68',
+//                                                                             background:
+//                                                                                 '#fff',
+//                                                                             fontWeight:
+//                                                                                 700,
+//                                                                         }}
+//                                                                     >
+//                                                                         Variance YTD
 //                                                                     </th>
 //                                                                 </tr>
 //                                                             </thead>
@@ -2386,9 +3430,14 @@
 //                                                                             }}
 //                                                                         >
 //                                                                             <td
+//                                                                                 aria-hidden="true"
 //                                                                                 style={{
-//                                                                                     padding:
-//                                                                                         '7px 10px 7px 42px',
+//                                                                                     padding: 0,
+//                                                                                 }}
+//                                                                             />
+//                                                                             <td
+//                                                                                 style={{
+//                                                                                     padding: '7px 10px',
 //                                                                                     textAlign:
 //                                                                                         'left',
 //                                                                                     color:
@@ -2414,7 +3463,27 @@
 //                                                                                         'left',
 //                                                                                     color:
 //                                                                                         '#475569',
+//                                                                                     whiteSpace:
+//                                                                                         'normal',
+//                                                                                     overflowWrap:
+//                                                                                         'anywhere',
+//                                                                                     wordBreak:
+//                                                                                         'break-word',
+//                                                                                     lineHeight:
+//                                                                                         1.3,
 //                                                                                 }}
+//                                                                                 title={
+//                                                                                     getValue(
+//                                                                                         detail,
+//                                                                                         [
+//                                                                                             'account_name',
+//                                                                                             'accountName',
+//                                                                                             'name',
+//                                                                                             'particulars',
+//                                                                                         ]
+//                                                                                     ) ??
+//                                                                                     '—'
+//                                                                                 }
 //                                                                             >
 //                                                                                 {getValue(
 //                                                                                     detail,
@@ -2456,6 +3525,66 @@
 //                                                                                         'right',
 //                                                                                     color:
 //                                                                                         valueColor(
+//                                                                                             getTargetPTD(
+//                                                                                                 detail,
+//                                                                                                 periodName
+//                                                                                             )
+//                                                                                         ),
+//                                                                                 }}
+//                                                                             >
+//                                                                                 {formatTableMoney(
+//                                                                                     getTargetPTD(
+//                                                                                         detail,
+//                                                                                         periodName
+//                                                                                     ),
+//                                                                                     currency
+//                                                                                 )}
+//                                                                             </td>
+
+//                                                                             <td
+//                                                                                 style={{
+//                                                                                     padding: 7,
+//                                                                                     textAlign:
+//                                                                                         'right',
+//                                                                                     color:
+//                                                                                         varianceColor(
+//                                                                                             getVariancePTD(
+//                                                                                                 detail
+//                                                                                             ),
+//                                                                                             detail
+//                                                                                         ),
+//                                                                                 }}
+//                                                                             >
+//                                                                                 <span
+//                                                                                     className="cost-variance-tooltip-wrap"
+//                                                                                     style={{
+//                                                                                         position: 'relative',
+//                                                                                         display: 'inline-flex',
+//                                                                                         alignItems: 'center',
+//                                                                                     }}
+//                                                                                 >
+//                                                                                     {formatTableMoney(
+//                                                                                         getVariancePTD(
+//                                                                                             detail
+//                                                                                         ),
+//                                                                                         currency
+//                                                                                     )}
+//                                                                                     <CostVarianceTooltip
+//                                                                                         row={detail}
+//                                                                                         period="ptd"
+//                                                                                         currency={currency}
+//                                                                                         periodName={periodName}
+//                                                                                     />
+//                                                                                 </span>
+//                                                                             </td>
+
+//                                                                             <td
+//                                                                                 style={{
+//                                                                                     padding: 7,
+//                                                                                     textAlign:
+//                                                                                         'right',
+//                                                                                     color:
+//                                                                                         valueColor(
 //                                                                                             getYTD(
 //                                                                                                 detail
 //                                                                                             )
@@ -2468,6 +3597,64 @@
 //                                                                                     ),
 //                                                                                     currency
 //                                                                                 )}
+//                                                                             </td>
+
+//                                                                             <td
+//                                                                                 style={{
+//                                                                                     padding: 7,
+//                                                                                     textAlign:
+//                                                                                         'right',
+//                                                                                     color:
+//                                                                                         valueColor(
+//                                                                                             getTargetYTD(
+//                                                                                                 detail
+//                                                                                             )
+//                                                                                         ),
+//                                                                                 }}
+//                                                                             >
+//                                                                                 {formatTableMoney(
+//                                                                                     getTargetYTD(
+//                                                                                         detail
+//                                                                                     ),
+//                                                                                     currency
+//                                                                                 )}
+//                                                                             </td>
+
+//                                                                             <td
+//                                                                                 style={{
+//                                                                                     padding: 7,
+//                                                                                     textAlign:
+//                                                                                         'right',
+//                                                                                     color:
+//                                                                                         varianceColor(
+//                                                                                             getVarianceYTD(
+//                                                                                                 detail
+//                                                                                             ),
+//                                                                                             detail
+//                                                                                         ),
+//                                                                                 }}
+//                                                                             >
+//                                                                                 <span
+//                                                                                     className="cost-variance-tooltip-wrap"
+//                                                                                     style={{
+//                                                                                         position: 'relative',
+//                                                                                         display: 'inline-flex',
+//                                                                                         alignItems: 'center',
+//                                                                                     }}
+//                                                                                 >
+//                                                                                     {formatTableMoney(
+//                                                                                         getVarianceYTD(
+//                                                                                             detail
+//                                                                                         ),
+//                                                                                         currency
+//                                                                                     )}
+//                                                                                     <CostVarianceTooltip
+//                                                                                         row={detail}
+//                                                                                         period="ytd"
+//                                                                                         currency={currency}
+//                                                                                         periodName={periodName}
+//                                                                                     />
+//                                                                                 </span>
 //                                                                             </td>
 //                                                                         </tr>
 //                                                                     )
@@ -2499,21 +3686,21 @@
 
 //                     {rows.length > 0 && (() => {
 //                         const totalPTD = sumNumbers(rows.map((row) => getPTD(row)));
-//                         const totalTargetPTD = sumNumbers(rows.map((row) => getTargetPTD(row)));
+//                         const totalTargetPTD = sumNumbers(rows.map((row) => getTargetPTD(row, periodName)));
 //                         const totalVariancePTD = sumNumbers(rows.map((row) => getVariancePTD(row)));
 //                         const totalYTD = sumNumbers(rows.map((row) => getYTD(row)));
 //                         const totalTargetYTD = sumNumbers(rows.map((row) => getTargetYTD(row)));
 //                         const totalVarianceYTD = sumNumbers(rows.map((row) => getVarianceYTD(row)));
 //                         return (
-//                             <tr style={{ background: '#f1f5f9', fontWeight: 800 }}>
+//                             <tr className="cost-total-cost-of-sales" style={{ background: '#f1f5f9', fontWeight: 800 }}>
 //                                 <td style={{ textAlign: 'center', padding: '9px 3px', borderRight: '1px solid #edf0f4' }} />
 //                                 <td style={{ padding: '9px 8px', color: '#182338', fontWeight: 800, borderRight: '1px solid #edf0f4' }}>Total Cost of Sales</td>
-//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalPTD, currency)}</td>
-//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalTargetPTD, currency)}</td>
-//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVariancePTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalVariancePTD, currency)}</td>
-//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalYTD, currency)}</td>
-//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalTargetYTD, currency)}</td>
-//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVarianceYTD), fontWeight: 800 }}>{formatMoney(totalVarianceYTD, currency)}</td>
+//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalPTD)}</td>
+//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalTargetPTD)}</td>
+//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVariancePTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalVariancePTD)}</td>
+//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalYTD)}</td>
+//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalTargetYTD)}</td>
+//                                 <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVarianceYTD), fontWeight: 800 }}>{formatTableMoney(totalVarianceYTD)}</td>
 //                             </tr>
 //                         );
 //                     })()}
@@ -3130,8 +4317,8 @@
 //                     borderRadius: 0,
 //                     width: '98%',
 //                     maxWidth: 1500,
-//                     height: '90vh',
-//                     maxHeight: '90vh',
+//                     height: '96vh',
+//                     maxHeight: '96vh',
 //                     minHeight: 0,
 //                     display: 'flex',
 //                     flexDirection:
@@ -3143,7 +4330,7 @@
 //                     overflow: 'hidden',
 //                     border:
 //                         '1px solid #e2e8f0',
-//                     marginTop: '5vh',
+//                     marginTop: '2vh',
 //                     flexShrink: 0,
 //                     boxSizing: 'border-box',
 //                 }}
@@ -3459,6 +4646,7 @@
 //                         currency={
 //                             currency
 //                         }
+//                         periodName={filters?.periodName || ''}
 //                         expanded={
 //                             expanded
 //                         }
@@ -3483,12 +4671,24 @@
 //                         currency={
 //                             currency
 //                         }
+//                         onExport={onExport}
 //                     />
 //                 )}
 //             </div>
 //         </div>
 //     );
 // }
+
+
+// /* =========================================================
+//    TABLE PERCENTAGE FORMATTER
+// ========================================================= */
+
+// const formatTablePercentage = (value) => {
+//     const n = numberOrNull(value);
+//     if (n === null) return '—';
+//     return `${n.toFixed(2)}%`;
+// };
 
 
 // /* =========================================================
@@ -3499,13 +4699,29 @@
 //     rows,
 //     currency,
 // }) {
+//     const valueKeys = {
+//         material: [
+//             'cost_of_material',
+//             'cost_of_material_ptd',
+//             'material',
+//             'material_ptd',
+//         ],
+//         direct: [
+//             'direct_expenses',
+//             'direct_expenses_ptd',
+//             'direct',
+//             'direct_ptd',
+//         ],
+//         operating: [
+//             'operating_expenses',
+//             'operating_expenses_ptd',
+//             'operating',
+//             'operating_ptd',
+//         ],
+//     };
+
 //     return (
-//         <div
-//             style={{
-//                 minHeight: '100%',
-//                 boxSizing: 'border-box',
-//             }}
-//         >
+//         <div style={{ minHeight: '100%', boxSizing: 'border-box' }}>
 //             <div
 //                 style={{
 //                     fontSize: 14,
@@ -3517,201 +4733,94 @@
 //                 Cost Classification
 //             </div>
 
-//             <div
-//                 style={{
-//                     overflowX: 'auto',
-//                 }}
-//             >
+//             <div style={{ overflowX: 'auto' }}>
 //                 <table
 //                     className="cost-structure-table"
 //                     style={{
 //                         width: '100%',
-//                         borderCollapse:
-//                             'collapse',
+//                         borderCollapse: 'collapse',
 //                         fontSize: 12,
+//                         minWidth: 820,
 //                     }}
 //                 >
 //                     <thead>
-//                         <tr
-//                             style={{
-//                                 background:
-//                                     '#fff',
-//                             }}
-//                         >
+//                         <tr style={{ background: '#fff' }}>
+//                             <th style={modalThLeft}>Period</th>
+//                             <th style={modalTh}>Cost of Material</th>
+//                             <th style={modalTh}>Cost of Material %</th>
 //                             <th
-//                                 style={
-//                                     modalThLeft
-//                                 }
-//                             >
-//                                 Period
-//                             </th>
-
-//                             <th
-//                                 style={
-//                                     modalTh
-//                                 }
-//                             >
-//                                 Cost of Material
-//                             </th>
-
-//                             <th
-//                                 style={
-//                                     modalTh
-//                                 }
+//                                 style={modalTh}
 //                                 title="Direct Expenses includes Direct Labour, Manufacturing/Direct Overheads, Overhead Absorption and Direct Expenses–RKME."
 //                             >
 //                                 Direct Expenses
 //                             </th>
-
-//                             <th
-//                                 style={
-//                                     modalTh
-//                                 }
-//                             >
-//                                 Operating Expenses
-//                             </th>
+//                             <th style={modalTh}>Direct Expenses %</th>
+//                             <th style={modalTh}>Operating Expenses</th>
+//                             <th style={modalTh}>Operating Expenses %</th>
 //                         </tr>
 //                     </thead>
 
 //                     <tbody>
-//                         {rows.map(
-//                             (
-//                                 row,
-//                                 i
-//                             ) => (
-//                                 <tr
-//                                     key={
-//                                         i
-//                                     }
-//                                 >
-//                                     <td
-//                                         style={
-//                                             modalTdLeft
-//                                         }
-//                                     >
-//                                         {getPeriod(
-//                                             row
-//                                         )}
+//                         {rows.map((row, i) => {
+//                             const material = getValue(row, valueKeys.material);
+//                             const direct = getValue(row, valueKeys.direct);
+//                             const operating = getValue(row, valueKeys.operating);
+
+//                             return (
+//                                 <tr key={i}>
+//                                     <td style={modalTdLeft}>{getPeriod(row)}</td>
+
+//                                     <td style={{ ...modalTd, color: valueColor(material) }}>
+//                                         {formatTableMoney(material, currency)}
+//                                     </td>
+//                                     <td style={{ ...modalTd, color: '#64748b' }}>
+//                                         {formatTablePercentage(row.materialPct)}
 //                                     </td>
 
-//                                     <td
-//                                         style={{
-//                                             ...modalTd,
-//                                             color: valueColor(
-//                                                 getValue(
-//                                                     row,
-//                                                     [
-//                                                         'cost_of_material',
-//                                                         'cost_of_material_ptd',
-//                                                         'material',
-//                                                         'material_ptd',
-//                                                     ]
-//                                                 )
-//                                             ),
-//                                         }}
-//                                     >
-//                                         {formatTableMoney(
-//                                             getValue(
-//                                                 row,
-//                                                 [
-//                                                     'cost_of_material',
-//                                                     'cost_of_material_ptd',
-//                                                     'material',
-//                                                     'material_ptd',
-//                                                 ]
-//                                             )
-//                                         )}
+//                                     <td style={{ ...modalTd, color: valueColor(direct) }}>
+//                                         {formatTableMoney(direct, currency)}
+//                                     </td>
+//                                     <td style={{ ...modalTd, color: '#64748b' }}>
+//                                         {formatTablePercentage(row.directPct)}
 //                                     </td>
 
-//                                     <td
-//                                         style={{
-//                                             ...modalTd,
-//                                             color: valueColor(
-//                                                 getValue(
-//                                                     row,
-//                                                     [
-//                                                         'direct_expenses',
-//                                                         'direct_expenses_ptd',
-//                                                         'direct',
-//                                                         'direct_ptd',
-//                                                     ]
-//                                                 )
-//                                             ),
-//                                         }}
-//                                     >
-//                                         {formatTableMoney(
-//                                             getValue(
-//                                                 row,
-//                                                 [
-//                                                     'direct_expenses',
-//                                                     'direct_expenses_ptd',
-//                                                     'direct',
-//                                                     'direct_ptd',
-//                                                 ]
-//                                             )
-//                                         )}
+//                                     <td style={{ ...modalTd, color: valueColor(operating) }}>
+//                                         {formatTableMoney(operating, currency)}
 //                                     </td>
-
-//                                     <td
-//                                         style={{
-//                                             ...modalTd,
-//                                             color: valueColor(
-//                                                 getValue(
-//                                                     row,
-//                                                     [
-//                                                         'operating_expenses',
-//                                                         'operating_expenses_ptd',
-//                                                         'operating',
-//                                                         'operating_ptd',
-//                                                     ]
-//                                                 )
-//                                             ),
-//                                         }}
-//                                     >
-//                                         {formatTableMoney(
-//                                             getValue(
-//                                                 row,
-//                                                 [
-//                                                     'operating_expenses',
-//                                                     'operating_expenses_ptd',
-//                                                     'operating',
-//                                                     'operating_ptd',
-//                                                 ]
-//                                             )
-//                                         )}
+//                                     <td style={{ ...modalTd, color: '#64748b' }}>
+//                                         {formatTablePercentage(row.operatingPct)}
 //                                     </td>
 //                                 </tr>
-//                             )
-//                         )}
+//                             );
+//                         })}
 
 //                         {rows.length > 0 && (() => {
-//                             const totalMaterial = sumNumbers(rows.map((row) => getValue(row, ['cost_of_material', 'cost_of_material_ptd', 'material', 'material_ptd'])));
-//                             const totalDirect = sumNumbers(rows.map((row) => getValue(row, ['direct_expenses', 'direct_expenses_ptd', 'direct', 'direct_ptd'])));
-//                             const totalOperating = sumNumbers(rows.map((row) => getValue(row, ['operating_expenses', 'operating_expenses_ptd', 'operating', 'operating_ptd'])));
+//                             const totalMaterial = sumNumbers(rows.map((row) => getValue(row, valueKeys.material)));
+//                             const totalDirect = sumNumbers(rows.map((row) => getValue(row, valueKeys.direct)));
+//                             const totalOperating = sumNumbers(rows.map((row) => getValue(row, valueKeys.operating)));
+
 //                             return (
 //                                 <tr style={{ background: '#f1f5f9', fontWeight: 800 }}>
 //                                     <td style={{ ...modalTdLeft, fontWeight: 800 }}>Total</td>
-//                                     <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalMaterial) }}>{formatTableMoney(totalMaterial)}</td>
-//                                     <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalDirect) }}>{formatTableMoney(totalDirect)}</td>
-//                                     <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalOperating) }}>{formatTableMoney(totalOperating)}</td>
+//                                     <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalMaterial) }}>
+//                                         {formatTableMoney(totalMaterial, currency)}
+//                                     </td>
+//                                     <td style={{ ...modalTd, fontWeight: 800, color: '#64748b' }}>—</td>
+//                                     <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalDirect) }}>
+//                                         {formatTableMoney(totalDirect, currency)}
+//                                     </td>
+//                                     <td style={{ ...modalTd, fontWeight: 800, color: '#64748b' }}>—</td>
+//                                     <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalOperating) }}>
+//                                         {formatTableMoney(totalOperating, currency)}
+//                                     </td>
+//                                     <td style={{ ...modalTd, fontWeight: 800, color: '#64748b' }}>—</td>
 //                                 </tr>
 //                             );
 //                         })()}
 
 //                         {!rows.length && (
 //                             <tr>
-//                                 <td
-//                                     colSpan={
-//                                         4
-//                                     }
-//                                     style={{
-//                                         padding: 30,
-//                                         textAlign:
-//                                             'center',
-//                                         color:
-//                                             '#94a3b8',
-//                                     }}
-//                                 >
+//                                 <td colSpan={7} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>
 //                                     No data available
 //                                 </td>
 //                             </tr>
@@ -3723,7 +4832,6 @@
 //     );
 // }
 
-
 // /* =========================================================
 //    MONTHLY TAB
 // ========================================================= */
@@ -3732,7 +4840,43 @@
 //     rows,
 //     chartRows,
 //     currency,
+//     onExport,
 // }) {
+//     const periods = (chartRows || []).map((row) => getPeriod(row)).filter((p) => p && p !== '—');
+
+//     const uniquePeriods = Array.from(new Set(periods));
+
+//     const findRow = (period) =>
+//         (chartRows || []).find((row) => getPeriod(row) === period) || {};
+
+//     /*
+//      * Keep the Month-on-Month table aligned with the actual backend response.
+//      * The direct-cost monthly endpoint returns five direct-cost categories,
+//      * while the classification endpoint returns the three top-level
+//      * categories. Support both shapes without changing the API calls.
+//      */
+//     const categoryDefinitions = [
+//         { key: 'material', label: 'Cost of Material' },
+//         { key: 'labour', label: 'Direct Labour' },
+//         { key: 'manufacturing', label: 'Manufacturing / Direct Overheads' },
+//         { key: 'absorption', label: 'Overhead Absorption' },
+//         { key: 'rkme', label: 'Direct Expenses - RKME' },
+//         { key: 'direct', label: 'Direct Expenses' },
+//         { key: 'operating', label: 'Operating Expenses' },
+//     ];
+
+//     const availableKeys = new Set(
+//         (chartRows || []).flatMap((row) =>
+//             categoryDefinitions
+//                 .map((definition) => definition.key)
+//                 .filter((key) => row?.[key] !== null && row?.[key] !== undefined)
+//         )
+//     );
+
+//     const categoryRows = categoryDefinitions.filter((definition) =>
+//         availableKeys.has(definition.key)
+//     );
+
 //     return (
 //         <div>
 //             <div
@@ -3746,218 +4890,71 @@
 //                 Month-on-Month Cost Classification
 //             </div>
 
-//             <div
-//                 className="cost-structure-chart"
-//                 style={{
-//                     height: 'clamp(280px, 42vh, 420px)',
-//                     minHeight: 300,
-//                     marginBottom: 16,
-//                 }}
-//             >
-//                 {chartRows.length ? (
-//                     <ResponsiveContainer
-//                         width="100%"
-//                         height="100%"
-//                     >
-//                         <LineChart
-//                             data={
-//                                 chartRows
-//                             }
-//                             margin={{
-//                                 top: 10,
-//                                 right: 20,
-//                                 left: 0,
-//                                 bottom: 8,
-//                             }}
-//                         >
-//                             <CartesianGrid
-//                                 strokeDasharray="3 3"
-//                                 vertical={
-//                                     false
-//                                 }
-//                             />
+//             <CostPremiumBarChart
+//                 data={chartRows}
+//                 series={DIRECT_COST_CHART_SERIES}
+//                 currency={currency}
+//                 title="Month-on-Month Direct Cost Trend"
+//                 height={420}
+//                 compact
+//                 exportName="direct-cost-monthly"
+//                 onExport={onExport ? (format) => onExport(format) : undefined}
+//             />
 
-//                             <XAxis
-//                                 dataKey="period"
-//                                 tick={{
-//                                     fontSize: 13,
-//                                 }}
-//                             />
-
-//                             <YAxis
-//                                 tick={{
-//                                     fontSize: 13,
-//                                 }}
-//                                 tickFormatter={(
-//                                     v
-//                                 ) =>
-//                                     `${(
-//                                         Number(
-//                                             v
-//                                         ) /
-//                                         1000000
-//                                     ).toFixed(
-//                                         0
-//                                     )}M`
-//                                 }
-//                             />
-
-//                             <Tooltip
-//                                 formatter={(
-//                                     value
-//                                 ) =>
-//                                     formatMoney(
-//                                         value,
-//                                         currency
-//                                     )
-//                                 }
-//                             />
-
-//                             <Legend
-//                                 wrapperStyle={{
-//                                     fontSize: 13,
-//                                 }}
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="material"
-//                                 name="Cost of Material"
-//                                 stroke="#19b99d"
-//                                 strokeWidth={2}
-//                                 dot={{ r: 3 }}
-//                                 activeDot={{ r: 5 }}
-//                                 connectNulls
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="labour"
-//                                 name="Direct Labour"
-//                                 stroke="#7040dc"
-//                                 strokeWidth={2}
-//                                 dot={{ r: 3 }}
-//                                 activeDot={{ r: 5 }}
-//                                 connectNulls
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="manufacturing"
-//                                 name="Manufacturing / Direct Overheads"
-//                                 stroke="#8b5cf6"
-//                                 strokeWidth={2}
-//                                 dot={{ r: 3 }}
-//                                 activeDot={{ r: 5 }}
-//                                 connectNulls
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="absorption"
-//                                 name="Overhead Absorption"
-//                                 stroke="#f59e0b"
-//                                 strokeWidth={2}
-//                                 dot={{ r: 3 }}
-//                                 activeDot={{ r: 5 }}
-//                                 connectNulls
-//                             />
-
-//                             <Line
-//                                 type="monotone"
-//                                 dataKey="rkme"
-//                                 name="Direct Expenses - RKME"
-//                                 stroke="#f47d20"
-//                                 strokeWidth={2}
-//                                 dot={{ r: 3 }}
-//                                 activeDot={{ r: 5 }}
-//                                 connectNulls
-//                             />
-//                         </LineChart>
-//                     </ResponsiveContainer>
-//                 ) : (
-//                     <div
-//                         style={{
-//                             height: '100%',
-//                             display: 'flex',
-//                             alignItems:
-//                                 'center',
-//                             justifyContent:
-//                                 'center',
-//                             color:
-//                                 '#94a3b8',
-//                         }}
-//                     >
-//                         No data available
-//                     </div>
-//                 )}
-//             </div>
-
-//             <div
-//                 style={{
-//                     overflowX: 'auto',
-//                 }}
-//             >
+//             <div style={{ overflowX: 'auto', marginTop: 12 }}>
 //                 <table
 //                     className="cost-structure-table"
 //                     style={{
 //                         width: '100%',
-//                         borderCollapse:
-//                             'collapse',
-//                         fontSize: 13,
+//                         borderCollapse: 'collapse',
+//                         fontSize: 12,
+//                         minWidth: Math.max(520, 170 + uniquePeriods.length * 105),
 //                     }}
 //                 >
 //                     <thead>
-//                         <tr
-//                             style={{
-//                                 background:
-//                                     '#fff',
-//                             }}
-//                         >
-//                             <th
-//                                 style={
-//                                     modalThLeft
-//                                 }
-//                             >
-//                                 Period
-//                             </th>
-
-//                             <th style={modalTh}>Cost of Material</th>
-//                             <th style={modalTh}>Direct Labour</th>
-//                             <th style={modalTh}>Manufacturing / Direct Overheads</th>
-//                             <th style={modalTh}>Overhead Absorption</th>
-//                             <th style={modalTh}>Direct Expenses - RKME</th>
+//                         <tr style={{ background: '#fff' }}>
+//                             <th style={modalThLeft}>Cost Category</th>
+//                             {uniquePeriods.map((period) => (
+//                                 <th key={period} style={modalTh}>{period}</th>
+//                             ))}
 //                         </tr>
 //                     </thead>
-
 //                     <tbody>
-//                         {rows.map(
-//                             (
-//                                 row,
-//                                 i
-//                             ) => (
-//                                 <tr
-//                                     key={
-//                                         i
-//                                     }
+//                         {categoryRows.map((category) => (
+//                             <tr key={category.key}>
+//                                 <td
+//                                     style={{
+//                                         ...modalTdLeft,
+//                                         fontWeight: 700,
+//                                         color: '#334155',
+//                                     }}
 //                                 >
-//                                     <td
-//                                         style={
-//                                             modalTdLeft
-//                                         }
-//                                     >
-//                                         {getPeriod(
-//                                             row
-//                                         )}
-//                                     </td>
+//                                     {category.label}
+//                                 </td>
+//                                 {uniquePeriods.map((period) => {
+//                                     const row = findRow(period);
+//                                     const value = row[category.key];
+//                                     return (
+//                                         <td
+//                                             key={`${category.key}-${period}`}
+//                                             style={{
+//                                                 ...modalTd,
+//                                                 color: '#334155',
+//                                             }}
+//                                         >
+//                                             {formatTableMoney(value, currency)}
+//                                         </td>
+//                                     );
+//                                 })}
+//                             </tr>
+//                         ))}
 
-//                                     <td style={{ ...modalTd, color: valueColor(row.material) }}>{formatTableMoney(row.material)}</td>
-//                                     <td style={{ ...modalTd, color: valueColor(row.labour) }}>{formatTableMoney(row.labour)}</td>
-//                                     <td style={{ ...modalTd, color: valueColor(row.manufacturing) }}>{formatTableMoney(row.manufacturing)}</td>
-//                                     <td style={{ ...modalTd, color: valueColor(row.absorption) }}>{formatTableMoney(row.absorption)}</td>
-//                                     <td style={{ ...modalTd, color: valueColor(row.rkme) }}>{formatTableMoney(row.rkme)}</td>
-//                                 </tr>
-//                             )
+//                         {!uniquePeriods.length && (
+//                             <tr>
+//                                 <td colSpan={1} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>
+//                                     No data available
+//                                 </td>
+//                             </tr>
 //                         )}
 //                     </tbody>
 //                 </table>
@@ -3965,7 +4962,6 @@
 //         </div>
 //     );
 // }
-
 
 // /* ===================ABLE STYLES
 // ========================================================= */
@@ -4032,36 +5028,79 @@
 //     classification,
 //     breakdown,
 //     currency,
-//     periodName = ''
+//     periodName = '',
+//     statement = null
 // ) {
 //     /*
-//      * The cost-classification-monthly backend response is shaped like:
+//      * KPI actuals continue to come from the P&L classification response.
+//      * KPI targets use the target_ptd/monthly_target values already returned
+//      * by the P&L Statement / Direct Cost Breakdown APIs.
 //      *
-//      * {
-//      *   category: "Cost of Material",
-//      *   monthly_actual: { "Jan-26": "56057542.41" },
-//      *   actual_ytd: "56057542.41",
-//      *   monthly_target: { "Jan-26": null },
-//      *   target_ytd: null
-//      * }
-//      *
-//      * IMPORTANT:
-//      * Do not read PTD from `actual_ptd` here because that field does
-//      * not exist in this response. PTD must come from monthly_actual
-//      * for the currently selected period.
-//      *
-//      * Also, do not use the last row as a fallback for a different
-//      * category. That can make one KPI display another category's value.
+//      * Direct Expenses is intentionally calculated from the four direct-cost
+//      * categories required by the business rule instead of relying on a
+//      * single "Direct Expenses" classification target.
 //      */
 
 //     const classRows = unwrapRows(classification);
+//     const breakdownRows = unwrapRows(breakdown);
+//     const statementRows = unwrapRows(statement);
 
-//     const findCategory = (name) =>
-//         classRows.find(
-//             (row) =>
-//                 getLabel(row).trim().toLowerCase() ===
-//                 name.toLowerCase()
+//     const normalizeCategoryName = (value) =>
+//         String(value ?? '')
+//             .trim()
+//             .replace(/[–—]/g, '-')
+//             .replace(/\s*\/\s*/g, '/')
+//             .replace(/\s+/g, ' ')
+//             .toLowerCase();
+
+//     const findCategory = (rows, name) => {
+//         const aliases = {
+//             'cost of material': [
+//                 'cost of material',
+//                 'cost of materials',
+//             ],
+//             'direct expenses': [
+//                 'direct expenses',
+//                 'direct expense',
+//             ],
+//             'operating expenses': [
+//                 'operating expenses',
+//                 'operating expense',
+//                 'total operating expenses',
+//                 'total operating expense',
+//                 'operating costs',
+//                 'operating cost',
+//                 'opex',
+//                 'o.p.ex',
+//             ],
+//             'direct labour': [
+//                 'direct labour',
+//                 'direct labor',
+//             ],
+//             'manufacturing / direct overheads': [
+//                 'manufacturing / direct overheads',
+//                 'manufacturing/direct overheads',
+//                 'manufacturing / direct overhead',
+//                 'manufacturing/direct overhead',
+//             ],
+//             'overhead absorption': [
+//                 'overhead absorption',
+//             ],
+//             'direct expenses - rkme': [
+//                 'direct expenses - rkme',
+//                 'direct expenses–rkme',
+//             ],
+//         };
+
+//         const expected = normalizeCategoryName(name);
+//         const accepted = new Set(
+//             (aliases[expected] || [expected]).map(normalizeCategoryName)
 //         );
+
+//         return rows.find((row) =>
+//             accepted.has(normalizeCategoryName(getLabel(row)))
+//         );
+//     };
 
 //     const getMonthlyValue = (row, objectKeys, directKeys = []) => {
 //         if (!row || typeof row !== 'object') {
@@ -4076,26 +5115,22 @@
 //                 typeof monthly === 'object' &&
 //                 !Array.isArray(monthly)
 //             ) {
-//                 /*
-//                  * Prefer the selected period. If the selected period
-//                  * is not present (for example during initial loading),
-//                  * use the first available month from the backend
-//                  * response rather than returning a wrong category value.
-//                  */
 //                 if (
 //                     periodName &&
-//                     Object.prototype.hasOwnProperty.call(
-//                         monthly,
-//                         periodName
-//                     )
+//                     Object.prototype.hasOwnProperty.call(monthly, periodName) &&
+//                     monthly[periodName] !== null &&
+//                     monthly[periodName] !== undefined
 //                 ) {
 //                     return monthly[periodName];
 //                 }
 
 //                 const availablePeriods = Object.keys(monthly);
+//                 const firstValue = availablePeriods
+//                     .map((period) => monthly[period])
+//                     .find((value) => value !== null && value !== undefined);
 
-//                 if (availablePeriods.length) {
-//                     return monthly[availablePeriods[0]];
+//                 if (firstValue !== undefined) {
+//                     return firstValue;
 //                 }
 //             }
 //         }
@@ -4117,18 +5152,20 @@
 //         ) {
 //             if (
 //                 periodName &&
-//                 Object.prototype.hasOwnProperty.call(
-//                     monthlyTarget,
-//                     periodName
-//                 )
+//                 Object.prototype.hasOwnProperty.call(monthlyTarget, periodName) &&
+//                 monthlyTarget[periodName] !== null &&
+//                 monthlyTarget[periodName] !== undefined
 //             ) {
 //                 return monthlyTarget[periodName];
 //             }
 
 //             const availablePeriods = Object.keys(monthlyTarget);
+//             const firstTarget = availablePeriods
+//                 .map((period) => monthlyTarget[period])
+//                 .find((value) => value !== null && value !== undefined);
 
-//             if (availablePeriods.length) {
-//                 return monthlyTarget[availablePeriods[0]];
+//             if (firstTarget !== undefined) {
+//                 return firstTarget;
 //             }
 //         }
 
@@ -4139,10 +5176,31 @@
 //         ]);
 //     };
 
-//     const buildCategory = (name) => {
-//         const row = findCategory(name);
+//     const getBreakdownTargetPTD = (name) => {
+//         const row = findCategory(breakdownRows, name);
+//         return getTargetPTD(row, periodName);
+//     };
 
-//         if (!row) {
+//     const getStatementTargetPTD = (name) => {
+//         const row = findCategory(statementRows, name);
+//         return getTargetPTD(row, periodName);
+//     };
+
+//     const getBreakdownTargetYTD = (name) => {
+//         const row = findCategory(breakdownRows, name);
+//         return getTargetYTD(row);
+//     };
+
+//     const getStatementTargetYTD = (name) => {
+//         const row = findCategory(statementRows, name);
+//         return getTargetYTD(row);
+//     };
+
+//     const buildCategory = (name) => {
+//         const row = findCategory(classRows, name);
+//         const breakdownRow = findCategory(breakdownRows, name);
+
+//         if (!row && !breakdownRow) {
 //             return {
 //                 ptd: null,
 //                 ytd: null,
@@ -4151,49 +5209,89 @@
 //         }
 
 //         return {
-//             ptd: getMonthlyValue(
-//                 row,
-//                 [
-//                     'monthly_actual',
-//                     'monthly_actual_aed',
-//                 ],
-//                 [
-//                     'actual_ptd',
-//                     'actual_ptd_aed',
-//                     'current_ptd',
-//                     'current_ptd_aed',
-//                     'ptd',
-//                     'ptd_value',
-//                     'value',
-//                     'amount',
-//                 ]
-//             ),
+//             ptd: row
+//                 ? getMonthlyValue(
+//                     row,
+//                     [
+//                         'monthly_actual',
+//                         'monthly_actual_aed',
+//                     ],
+//                     [
+//                         'actual_ptd',
+//                         'actual_ptd_aed',
+//                         'current_ptd',
+//                         'current_ptd_aed',
+//                         'ptd',
+//                         'ptd_value',
+//                         'value',
+//                         'amount',
+//                     ]
+//                 )
+//                 : getPTD(breakdownRow),
 
-//             ytd: getValue(row, [
-//                 'actual_ytd',
-//                 'actual_ytd_aed',
-//                 'current_ytd',
-//                 'current_ytd_aed',
-//                 'ytd',
-//                 'ytd_value',
-//                 'ytd_aed',
-//             ]),
+//             ytd: row
+//                 ? getValue(row, [
+//                     'actual_ytd',
+//                     'actual_ytd_aed',
+//                     'current_ytd',
+//                     'current_ytd_aed',
+//                     'ytd',
+//                     'ytd_value',
+//                     'ytd_aed',
+//                 ])
+//                 : getYTD(breakdownRow),
 
-//             target: getTargetMonthlyValue(row),
+//             /* Prefer an explicit YTD target for the YTD/Target KPI row. */
+//             target: getTargetYTD(breakdownRow) ??
+//                 getTargetYTD(row) ??
+//                 getTargetPTD(breakdownRow, periodName) ??
+//                 getTargetMonthlyValue(row),
 //         };
 //     };
+
+//     const directTargetYTD = sumNumbers([
+//         getBreakdownTargetYTD('Direct Labour'),
+//         getBreakdownTargetYTD('Manufacturing / Direct Overheads'),
+//         getBreakdownTargetYTD('Overhead Absorption'),
+//         getBreakdownTargetYTD('Direct Expenses - RKME'),
+//     ]);
+
+//     const directTargetPTD = sumNumbers([
+//         getBreakdownTargetPTD('Direct Labour'),
+//         getBreakdownTargetPTD('Manufacturing / Direct Overheads'),
+//         getBreakdownTargetPTD('Overhead Absorption'),
+//         getBreakdownTargetPTD('Direct Expenses - RKME'),
+//     ]);
+
+//     const direct = buildCategory('Direct Expenses');
 
 //     return {
 //         material: buildCategory('Cost of Material'),
 
-//         direct: buildCategory('Direct Expenses'),
+//         direct: {
+//             ...direct,
+//             /* Prefer YTD target for the card; fall back to the existing PTD target only when YTD target is unavailable. */
+//             target: directTargetYTD ?? directTargetPTD ?? direct.target,
+//         },
 
-//         operating: buildCategory('Operating Expenses'),
+//         operating: {
+//             ...buildCategory('Operating Expenses'),
+//             /*
+//              * Operating Expenses is a P&L Statement category. Prefer the
+//              * Direct Cost Breakdown/classification target when the backend
+//              * already provides it; otherwise use the target_ptd returned by
+//              * the P&L Statement API.
+//              */
+//             target:
+//                 getTargetYTD(findCategory(breakdownRows, 'Operating Expenses')) ??
+//                 getTargetYTD(findCategory(statementRows, 'Operating Expenses')) ??
+//                 buildCategory('Operating Expenses').target ??
+//                 getStatementTargetPTD('Operating Expenses'),
+//         },
 
 //         currency,
 //     };
 // }
-
 
 
 // /* =========================================================
@@ -4213,6 +5311,11 @@
 //     const [
 //         breakdown,
 //         setBreakdown,
+//     ] = useState(null);
+
+//     const [
+//         statement,
+//         setStatement,
 //     ] = useState(null);
 
 //     const [
@@ -4420,6 +5523,7 @@
 //                     const [
 //                         classificationResult,
 //                         breakdownResult,
+//                         statementResult,
 //                     ] =
 //                         await Promise.all([
 //                             fetchPLCostClassificationMonthly(
@@ -4427,6 +5531,10 @@
 //                             ),
 
 //                             fetchPLDirectCostBreakdown(
+//                                 baseFilters
+//                             ),
+
+//                             fetchPLStatement(
 //                                 baseFilters
 //                             ),
 //                         ]);
@@ -4437,6 +5545,10 @@
 
 //                     setBreakdown(
 //                         breakdownResult
+//                     );
+
+//                     setStatement(
+//                         statementResult
 //                     );
 
 //                     /*
@@ -5169,7 +6281,8 @@
 //             classification,
 //             breakdown,
 //             baseFilters.currency,
-//             baseFilters.periodName
+//             baseFilters.periodName,
+//             statement
 //         );
 
 
@@ -5260,6 +6373,16 @@
 //                                 direct expenses
 //                                 and operating
 //                                 expenses.
+//                             </div>
+
+//                             <div
+//                                 style={{
+//                                     marginTop: 4,
+//                                     fontSize: 11,
+//                                     color: '#8a94a6',
+//                                 }}
+//                             >
+//                                 All values in {baseFilters.currency || 'AED'} | {baseFilters.periodName || '—'}
 //                             </div>
 //                         </div>
 
@@ -5489,7 +6612,7 @@
 //                                 .target
 //                         }
 //                         color="#18b89b"
-//                         bg="#dff8f1"
+//                         bg="#ecfaf6"
 //                         icon={Package}
 //                         loading={
 //                             loading
@@ -5517,7 +6640,7 @@
 //                                 .target
 //                         }
 //                         color="#7040dc"
-//                         bg="#eee7ff"
+//                         bg="#f3efff"
 //                         icon={
 //                             BarChart3
 //                         }
@@ -5547,7 +6670,7 @@
 //                                 .target
 //                         }
 //                         color="#f47d20"
-//                         bg="#fff0df"
+//                         bg="#fff6e8"
 //                         icon={
 //                             ShoppingBag
 //                         }
@@ -5558,6 +6681,44 @@
 //                             baseFilters.currency
 //                         }
 //                     />
+//                 </div>
+
+//                 <div
+//                     title="Interim budget phasing: PTD Target = Annual Budget ÷ 12; YTD Target = Annual Budget × elapsed months ÷ 12."
+//                     style={{
+//                         display: 'flex',
+//                         alignItems: 'center',
+//                         gap: 6,
+//                         margin: '-2px 0 10px',
+//                         padding: '9px 12px',
+//                         borderRadius: 8,
+//                         background: '#f8fafc',
+//                         border: '1px solid #dbe3ec',
+//                         color: '#334155',
+//                         fontSize: 12,
+//                         lineHeight: 1.45,
+//                     }}
+//                 >
+//                     <span
+//                         style={{
+//                             width: 18,
+//                             height: 18,
+//                             borderRadius: '50%',
+//                             display: 'inline-flex',
+//                             alignItems: 'center',
+//                             justifyContent: 'center',
+//                             flexShrink: 0,
+//                             background: '#e2e8f0',
+//                             color: '#334155',
+//                             fontSize: 11,
+//                             fontWeight: 800,
+//                         }}
+//                     >
+//                         i
+//                     </span>
+//                     <span>
+//                         Interim budget phasing: PTD Target = Annual Budget ÷ 12; YTD Target = Annual Budget × elapsed months ÷ 12.
+//                     </span>
 //                 </div>
 
 
@@ -5578,6 +6739,15 @@
 //                         )}
 //                         currency={
 //                             baseFilters.currency
+//                         }
+//                         exportFilters={baseFilters}
+//                         onExport={(format, reportName, sourceFilters) =>
+//                             handleExport(
+//                                 format,
+//                                 reportName,
+//                                 null,
+//                                 sourceFilters || baseFilters
+//                             )
 //                         }
 //                     />
 
@@ -5626,6 +6796,7 @@
 //                         currency={
 //                             baseFilters.currency
 //                         }
+//                         periodName={baseFilters.periodName}
 //                         expanded={
 //                             mainExpanded
 //                         }
@@ -5698,10 +6869,10 @@
 //                                     color: '#8a94a6',
 //                                 }}
 //                             >
-//                                 Period: {
-//                                     (modalFilters || baseFilters).periodName || '—'
-//                                 } | All values in {
+//                                 All values in {
 //                                     (modalFilters || baseFilters).currency || 'AED'
+//                                 } | {
+//                                     (modalFilters || baseFilters).periodName || '—'
 //                                 }
 //                             </div>
 //                         </div>
@@ -5815,6 +6986,69 @@
 
 //             <style>
 //                 {`
+//                     /* =========================================================
+//    PL TREND VISUAL LANGUAGE — COST PL CHARTS ONLY
+// ========================================================= */
+
+//                     .cost-structure-chart {
+//                         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+//                     }
+
+//                     .cost-structure-chart .recharts-text {
+//                         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                     }
+
+//                     .cost-structure-chart .recharts-legend-item-text {
+//                         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                         font-weight: 600 !important;
+//                     }
+
+//                     .cost-structure-chart .recharts-tooltip-wrapper {
+//                         outline: none !important;
+//                     }
+
+//                     .cost-variance-tooltip-wrap {
+//                         cursor: help;
+//                     }
+
+//                     .cost-variance-tooltip {
+//                         position: absolute;
+//                         right: 0;
+//                         bottom: calc(100% + 10px);
+//                         z-index: 10000;
+//                         visibility: hidden;
+//                         opacity: 0;
+//                         transform: translateY(4px) scale(.985);
+//                         transition: opacity .16s ease-out, transform .16s ease-out, visibility .16s ease-out;
+//                         pointer-events: none;
+//                         white-space: normal;
+//                         text-align: left;
+//                     }
+
+//                     .cost-variance-tooltip-wrap:hover .cost-variance-tooltip {
+//                         visibility: visible;
+//                         opacity: 1;
+//                         transform: translateY(0) scale(1);
+//                     }
+
+//                     @keyframes costPlTooltipIn {
+//                         from {
+//                             opacity: 0;
+//                             transform: translateY(4px) scale(0.985);
+//                         }
+//                         to {
+//                             opacity: 1;
+//                             transform: translateY(0) scale(1);
+//                         }
+//                     }
+
+//                     @media (prefers-reduced-motion: reduce) {
+//                         .cost-structure-chart * {
+//                             animation: none !important;
+//                             transition: none !important;
+//                         }
+//                     }
+
 //                     @media (max-width: 1200px) {
 //                         .cost-structure-filter-grid {
 //                             grid-template-columns: repeat(4, minmax(140px, 1fr)) !important;
@@ -5850,6 +7084,76 @@
 //                     }
 
 //                     /* =========================================================
+//    SALES REVENUE TABLE TYPOGRAPHY — COST PL SCOPED
+// ========================================================= */
+//                     .cost-structure-table {
+//                         font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+//                         font-size: 0.74rem !important;
+//                         border-collapse: collapse !important;
+//                         color: #334155 !important;
+//                     }
+
+//                     .cost-structure-table thead th {
+//                         background: #f8fafc !important;
+//                         color: #1e3a8a !important;
+//                         font-size: 0.74rem !important;
+//                         line-height: 1.25 !important;
+//                         padding: 8px 10px !important;
+//                         font-weight: 700 !important;
+//                         border-bottom: 2px solid #e2e8f0 !important;
+//                         white-space: nowrap !important;
+//                     }
+
+//                     .cost-structure-table tbody td {
+//                         font-size: 0.70rem !important;
+//                         line-height: 1.35 !important;
+//                         padding: 8px 10px !important;
+//                         color: #334155;
+//                         font-weight: 800 !important;
+//                         border-bottom: 1px solid #f1f5f9 !important;
+//                     }
+
+//                     .cost-structure-table tbody tr {
+//                         background: #fff !important;
+//                         transition: background 0.12s ease !important;
+//                     }
+
+//                     .cost-structure-table tbody tr:hover {
+//                         background: #f5f3ff !important;
+//                     }
+
+//                     /* Expanded account rows use normal-weight text and align
+//                        their numeric columns with the parent drill-down table. */
+//                     .cost-detail-table tbody td {
+//                         font-weight: 400 !important;
+//                     }
+
+//                     .cost-detail-table tbody tr:hover {
+//                         background: #fff !important;
+//                     }
+
+//                     .cost-structure-table tbody tr.cost-total-cost-of-sales td {
+//                         font-weight: 800 !important;
+//                     }
+
+//                     .cost-structure-table tbody tr.cost-total-cost-of-sales td:first-of-type {
+//                         text-transform: uppercase !important;
+//                     }
+
+//                     .cost-structure-table tfoot td {
+//                         font-size: 0.74rem !important;
+//                         padding: 8px 10px !important;
+//                         font-weight: 800 !important;
+//                         background: #f8fafc !important;
+//                         color: #1e3a8a !important;
+//                         border-top: 2px solid #e2e8f0 !important;
+//                     }
+
+//                     .cost-structure-table button {
+//                         font-family: inherit !important;
+//                     }
+
+//                     /* =========================================================
 //    TABLE HEADER CONSISTENCY
 // ========================================================= */
 
@@ -5881,6 +7185,8 @@
 // }
 
 
+
+
 import React, {
     useCallback,
     useEffect,
@@ -5890,6 +7196,7 @@ import React, {
 } from 'react';
 
 import { createPortal } from 'react-dom';
+import html2canvas from 'html2canvas';
 
 import {
     BarChart,
@@ -5900,6 +7207,7 @@ import {
     Legend,
     ResponsiveContainer,
     Tooltip,
+    ReferenceLine,
     XAxis,
     YAxis,
 } from 'recharts';
@@ -5914,6 +7222,7 @@ import {
     RefreshCw,
     ShoppingBag,
     MoreVertical,
+    Search,
     X,
 } from 'lucide-react';
 
@@ -5923,11 +7232,11 @@ import {
     fetchPLDirectCostDetail,
     fetchPLDirectCostMonthly,
     fetchPLDirectCostDetailMonthly,
+    fetchPLStatement,
     exportPL,
 } from '../services/plApi';
 
 import { C } from '../utils/theme';
-import { getApiBaseUrl } from '../utils/apiBase';
 import ExportButtons from "../components/Common/ExportButtons";
 
 
@@ -5939,19 +7248,19 @@ const CATEGORY_META = {
     'Cost of Material': {
         color: '#19b99d',
         icon: Package,
-        bg: '#dff8f1',
+        bg: '#ecfaf6',
     },
 
     'Direct Expenses': {
         color: '#7040dc',
         icon: BarChart3,
-        bg: '#eee7ff',
+        bg: '#f3efff',
     },
 
     'Operating Expenses': {
         color: '#f47d20',
         icon: ShoppingBag,
-        bg: '#fff0df',
+        bg: '#fff6e8',
     },
 };
 
@@ -6103,17 +7412,190 @@ const getYTD = (row) => getValue(row, [
 ]);
 
 
-const getTargetPTD = (row) => getValue(row, [
-    'target_ptd',
-    'target_period',
-    'target',
-]);
+const getTargetPTD = (row, periodName = '') => {
+    const directTarget = getValue(row, [
+        'target_ptd',
+        'target_ptd_aed',
+        'target_period',
+        'target_period_aed',
+        'target',
+        'target_aed',
+    ]);
+
+    if (directTarget !== null && directTarget !== undefined && directTarget !== '') {
+        return directTarget;
+    }
+
+    const monthlyTarget = row?.monthly_target;
+    if (monthlyTarget && typeof monthlyTarget === 'object' && !Array.isArray(monthlyTarget)) {
+        if (periodName && Object.prototype.hasOwnProperty.call(monthlyTarget, periodName)) {
+            return monthlyTarget[periodName];
+        }
+
+        const firstTarget = Object.values(monthlyTarget).find(
+            (value) => value !== null && value !== undefined && value !== ''
+        );
+
+        if (firstTarget !== undefined) {
+            return firstTarget;
+        }
+    }
+
+    return null;
+};
 
 
 const getTargetYTD = (row) => getValue(row, [
     'target_ytd',
     'ytd_target',
 ]);
+
+
+const getVariancePercent = (row, period = 'ptd', periodName = '') => {
+    const explicit = getValue(row, period === 'ptd'
+        ? ['variance_ptd_pct', 'variance_pct_ptd', 'variance_percentage_ptd']
+        : ['variance_ytd_pct', 'variance_pct_ytd', 'variance_percentage_ytd']
+    );
+
+    const explicitNumber = numberOrNull(explicit);
+    if (explicitNumber !== null) {
+        return explicitNumber;
+    }
+
+    const variance = numberOrNull(
+        period === 'ptd' ? getVariancePTD(row) : getVarianceYTD(row)
+    );
+    const target = numberOrNull(
+        period === 'ptd' ? getTargetPTD(row, periodName) : getTargetYTD(row)
+    );
+
+    if (variance === null || target === null || target === 0) {
+        return null;
+    }
+
+    return (variance / target) * 100;
+};
+
+
+const getVarianceNature = (row) => {
+    if (!row || typeof row !== 'object') {
+        return 'expense';
+    }
+
+    const explicitIncome =
+        row.is_income ??
+        row.isIncome ??
+        row.income ??
+        row.is_revenue ??
+        row.isRevenue;
+
+    const explicitExpense =
+        row.is_expense ??
+        row.isExpense ??
+        row.expense ??
+        row.is_cost ??
+        row.isCost;
+
+    if (explicitIncome === true || String(explicitIncome).toLowerCase() === 'true') {
+        return 'income';
+    }
+
+    if (explicitExpense === true || String(explicitExpense).toLowerCase() === 'true') {
+        return 'expense';
+    }
+
+    const nature = [
+        row.variance_type,
+        row.variance_nature,
+        row.account_type,
+        row.category_type,
+        row.type,
+        row.nature,
+        row.classification,
+    ]
+        .find((value) => value !== null && value !== undefined && value !== '');
+
+    const normalizedNature = String(nature || '').trim().toLowerCase();
+
+    if (
+        normalizedNature.includes('income') ||
+        normalizedNature.includes('revenue') ||
+        normalizedNature.includes('sales')
+    ) {
+        return 'income';
+    }
+
+    if (
+        normalizedNature.includes('expense') ||
+        normalizedNature.includes('cost')
+    ) {
+        return 'expense';
+    }
+
+    const category = String(
+        row.category ??
+        row.category_name ??
+        row.name ??
+        row.label ??
+        ''
+    ).trim().toLowerCase();
+
+    if (
+        category.includes('income') ||
+        category.includes('revenue') ||
+        category.includes('sales')
+    ) {
+        return 'income';
+    }
+
+    // Cost Structure categories are expenses by definition.
+    return 'expense';
+};
+
+
+const varianceColor = (value, row) => {
+    const numeric = numberOrNull(value);
+
+    if (numeric === null || numeric === 0) {
+        return '#334155';
+    }
+
+    const nature = getVarianceNature(row);
+
+    // API variance convention:
+    // Expense/Cost: negative = favourable, positive = unfavourable.
+    // Income/Revenue: positive = favourable, negative = unfavourable.
+    const favourable = nature === 'income'
+        ? numeric > 0
+        : numeric < 0;
+
+    return favourable ? '#16a34a' : '#dc2626';
+};
+
+
+const varianceTooltip = (row, period, currency = 'AED', periodName = '') => {
+    const actual = numberOrNull(period === 'ptd' ? getPTD(row) : getYTD(row));
+    const target = numberOrNull(period === 'ptd' ? getTargetPTD(row, periodName) : getTargetYTD(row));
+    const variance = numberOrNull(period === 'ptd' ? getVariancePTD(row) : getVarianceYTD(row));
+    const percentage = getVariancePercent(row, period, periodName);
+
+    if (actual === null && target === null && variance === null) {
+        return undefined;
+    }
+
+    const money = (value) => value === null
+        ? '—'
+        : `${currency} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const targetIsImmaterial = target !== null && Math.abs(target) < 1000;
+    const percentageText = targetIsImmaterial
+        ? 'N/M (target is immaterial)'
+        : percentage === null
+            ? '—'
+            : `${percentage.toFixed(2)}%`;
+
+    return `${period.toUpperCase()} Variance\nActual: ${money(actual)}\nTarget: ${money(target)}\nVariance: ${money(variance)}\nVariance %: ${percentageText}`;
+};
 
 
 const getVariancePTD = (row) => getValue(row, [
@@ -6301,6 +7783,68 @@ const optionLabel = (option) => {
 
 
 /* =========================================================
+   BACKEND-READY CATEGORY PERCENTAGE HELPER
+========================================================= */
+
+const getCategoryPercentage = (row, category = '', periodName = '') => {
+    if (!row || typeof row !== 'object') return null;
+
+    const normalizedCategory = String(category || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_|_$/g, '');
+
+    const specificKeys = [
+        `${normalizedCategory}_percentage`,
+        `${normalizedCategory}_percent`,
+        `${normalizedCategory}_pct`,
+        `${normalizedCategory}_percentage_ptd`,
+        `${normalizedCategory}_pct_ptd`,
+        `percentage_${normalizedCategory}`,
+        `percent_${normalizedCategory}`,
+        `pct_${normalizedCategory}`,
+    ];
+
+    const direct = getValue(row, [
+        ...specificKeys,
+        'percentage',
+        'percent',
+        'pct',
+        'share',
+        'mix_percentage',
+        'cost_mix_percentage',
+        'cost_percentage',
+    ]);
+
+    if (direct !== null && direct !== undefined && direct !== '') {
+        const n = numberOrNull(direct);
+        if (n === null) return null;
+        return Math.abs(n) <= 1 ? n * 100 : n;
+    }
+
+    const monthlyPercentage = getValue(row, [
+        'monthly_percentage',
+        'monthly_percent',
+        'monthly_pct',
+        'monthly_share',
+        'monthly_cost_mix_percentage',
+    ]);
+
+    if (monthlyPercentage && typeof monthlyPercentage === 'object' && !Array.isArray(monthlyPercentage)) {
+        const value = periodName && Object.prototype.hasOwnProperty.call(monthlyPercentage, periodName)
+            ? monthlyPercentage[periodName]
+            : Object.values(monthlyPercentage).find((v) => v !== null && v !== undefined && v !== '');
+
+        const n = numberOrNull(value);
+        if (n !== null) return Math.abs(n) <= 1 ? n * 100 : n;
+    }
+
+    return null;
+};
+
+
+/* =========================================================
    MONTHLY CATEGORY NORMALIZATION
 ========================================================= */
 
@@ -6393,8 +7937,11 @@ const normalizeCategoryMonthlyRows = (rows) => {
                 const result = {
                     period,
                     material: null,
+                    materialPct: null,
                     direct: null,
+                    directPct: null,
                     operating: null,
+                    operatingPct: null,
                 };
 
                 monthlyRows.forEach((row) => {
@@ -6412,6 +7959,11 @@ const normalizeCategoryMonthlyRows = (rows) => {
                     ) {
                         result[key] = numberOrNull(monthly[period]);
                     }
+
+                    const percentage = getCategoryPercentage(row, key === 'material' ? 'cost_of_material' : key === 'direct' ? 'direct_expenses' : 'operating_expenses', period);
+                    if (key === 'material') result.materialPct = percentage;
+                    if (key === 'direct') result.directPct = percentage;
+                    if (key === 'operating') result.operatingPct = percentage;
                 });
 
                 return result;
@@ -6452,6 +8004,9 @@ const normalizeCategoryMonthlyRows = (rows) => {
                 'operating_ptd',
                 'operating_ptd_aed',
             ])),
+            materialPct: getCategoryPercentage(row, 'cost_of_material', getPeriod(row)),
+            directPct: getCategoryPercentage(row, 'direct_expenses', getPeriod(row)),
+            operatingPct: getCategoryPercentage(row, 'operating_expenses', getPeriod(row)),
         }))
         .filter((row) => row.period !== '—');
 };
@@ -6467,13 +8022,34 @@ const normalizeDirectCostMonthlyRows = (rows) => {
     const categoryKey = (label) => {
         const normalized = String(label || '')
             .trim()
-            .toLowerCase();
+            .toLowerCase()
+            .replace(/[–—]/g, '-')
+            .replace(/\s+/g, ' ');
 
         if (normalized === 'cost of material') return 'material';
         if (normalized === 'direct labour' || normalized === 'direct labor') return 'labour';
-        if (normalized === 'manufacturing / direct overheads' || normalized === 'manufacturing/direct overheads') return 'manufacturing';
+        if (
+            normalized === 'manufacturing / direct overheads' ||
+            normalized === 'manufacturing/direct overheads' ||
+            normalized === 'manufacturing / direct overhead' ||
+            normalized === 'manufacturing/direct overhead'
+        ) return 'manufacturing';
         if (normalized === 'overhead absorption') return 'absorption';
-        if (normalized === 'direct expenses - rkme' || normalized === 'direct expenses–rkme') return 'rkme';
+        if (
+            normalized === 'direct expenses - rkme' ||
+            normalized === 'direct expenses–rkme'
+        ) return 'rkme';
+        if (
+            normalized === 'direct expenses' ||
+            normalized === 'direct expense'
+        ) return 'direct';
+        if (
+            normalized === 'operating expenses' ||
+            normalized === 'operating expense' ||
+            normalized === 'total operating expenses' ||
+            normalized === 'total operating expense'
+        ) return 'operating';
+
         return null;
     };
 
@@ -6490,16 +8066,60 @@ const normalizeDirectCostMonthlyRows = (rows) => {
         return (year < 100 ? 2000 + year : year) * 12 + (monthIndex ?? 0);
     };
 
-    const monthlyRows = sourceRows.filter((row) => {
-        const monthly = getValue(row, ['monthly_actual', 'monthly_actual_aed']);
-        return monthly && typeof monthly === 'object' && !Array.isArray(monthly);
-    });
+    /*
+     * The monthly API may return the month values under different backend
+     * object names. Keep the existing mappings first, then support the
+     * common period-map names without changing the API request.
+     */
+    const getMonthlyMap = (row) => {
+        if (!row || typeof row !== 'object') return null;
+
+        const candidateKeys = [
+            'monthly_actual',
+            'monthly_actual_aed',
+            'monthly_values',
+            'monthly_data',
+            'monthly',
+            'actuals_by_period',
+            'values_by_period',
+            'period_values',
+        ];
+
+        for (const key of candidateKeys) {
+            const value = row[key];
+            if (
+                value &&
+                typeof value === 'object' &&
+                !Array.isArray(value)
+            ) {
+                return value;
+            }
+        }
+
+        /* Also detect a backend field whose value is a period -> amount map. */
+        for (const [key, value] of Object.entries(row)) {
+            if (
+                value &&
+                typeof value === 'object' &&
+                !Array.isArray(value) &&
+                Object.keys(value).some((period) =>
+                    /^[A-Za-z]{3}[-\s]\d{2,4}$/.test(String(period))
+                )
+            ) {
+                return value;
+            }
+        }
+
+        return null;
+    };
+
+    const monthlyRows = sourceRows.filter((row) => Boolean(getMonthlyMap(row)));
 
     if (monthlyRows.length) {
         const periods = new Set();
 
         monthlyRows.forEach((row) => {
-            const monthly = getValue(row, ['monthly_actual', 'monthly_actual_aed']);
+            const monthly = getMonthlyMap(row);
             Object.keys(monthly || {}).forEach((period) => periods.add(period));
         });
 
@@ -6519,8 +8139,12 @@ const normalizeDirectCostMonthlyRows = (rows) => {
                     const key = categoryKey(getLabel(row));
                     if (!key) return;
 
-                    const monthly = getValue(row, ['monthly_actual', 'monthly_actual_aed']);
-                    if (monthly && Object.prototype.hasOwnProperty.call(monthly, period)) {
+                    const monthly = getMonthlyMap(row);
+
+                    if (
+                        monthly &&
+                        Object.prototype.hasOwnProperty.call(monthly, period)
+                    ) {
                         result[key] = numberOrNull(monthly[period]);
                     }
                 });
@@ -6529,16 +8153,147 @@ const normalizeDirectCostMonthlyRows = (rows) => {
             });
     }
 
-    return sourceRows
-        .map((row) => ({
-            period: getPeriod(row),
-            material: numberOrNull(getValue(row, ['cost_of_material', 'material', 'actual_cost_of_material'])),
-            labour: numberOrNull(getValue(row, ['direct_labour', 'direct_labor', 'labour', 'labor'])),
-            manufacturing: numberOrNull(getValue(row, ['manufacturing_direct_overheads', 'manufacturing_direct_overhead', 'manufacturing'])),
-            absorption: numberOrNull(getValue(row, ['overhead_absorption', 'absorption'])),
-            rkme: numberOrNull(getValue(row, ['direct_expenses_rkme', 'rkme'])),
-        }))
-        .filter((row) => row.period !== '—');
+    /*
+     * Backward-compatible support for period-oriented backend responses.
+     * This also supports rows shaped like:
+     *   { period: 'Jan-26', category: 'Cost of Material', value: 123 }
+     * so the backend value is not lost just because it is not nested in a
+     * monthly object.
+     */
+    const grouped = new Map();
+
+    sourceRows.forEach((row) => {
+        const period = getPeriod(row);
+        if (!period || period === '—') return;
+
+        if (!grouped.has(period)) {
+            grouped.set(period, {
+                period,
+                material: null,
+                labour: null,
+                manufacturing: null,
+                absorption: null,
+                rkme: null,
+                direct: null,
+                operating: null,
+            });
+        }
+
+        const result = grouped.get(period);
+        const key = categoryKey(getLabel(row));
+
+        if (key) {
+            const value = numberOrNull(getValue(row, [
+                'value',
+                'amount',
+                'actual',
+                'current',
+                'actual_ptd',
+                'actual_ptd_aed',
+                'ptd',
+                'ptd_value',
+                'cost_of_material',
+                'cost_of_material_ptd',
+                'cost_of_material_ptd_aed',
+                'direct_labour',
+                'direct_labor',
+                'labour',
+                'labor',
+                'manufacturing_direct_overheads',
+                'manufacturing_direct_overhead',
+                'manufacturing',
+                'overhead_absorption',
+                'absorption',
+                'direct_expenses_rkme',
+                'rkme',
+                'direct_expenses',
+                'operating_expenses',
+                'operating',
+            ]));
+
+            if (value !== null) {
+                result[key] = value;
+                return;
+            }
+        }
+
+        /*
+         * If the response is already period-oriented with one row containing
+         * all category columns, preserve those values as well.
+         */
+        const directValues = {
+            material: [
+                'cost_of_material',
+                'cost_of_material_ptd',
+                'cost_of_material_ptd_aed',
+                'actual_cost_of_material',
+                'actual_cost_of_material_aed',
+                'material',
+                'material_ptd',
+                'material_ptd_aed',
+            ],
+            labour: [
+                'direct_labour',
+                'direct_labor',
+                'direct_labour_ptd',
+                'direct_labor_ptd',
+                'labour',
+                'labor',
+                'labour_ptd',
+                'labor_ptd',
+            ],
+            manufacturing: [
+                'manufacturing_direct_overheads',
+                'manufacturing_direct_overhead',
+                'manufacturing_direct_overheads_ptd',
+                'manufacturing_direct_overhead_ptd',
+                'manufacturing',
+                'manufacturing_ptd',
+            ],
+            absorption: [
+                'overhead_absorption',
+                'overhead_absorption_ptd',
+                'absorption',
+                'absorption_ptd',
+            ],
+            rkme: [
+                'direct_expenses_rkme',
+                'direct_expenses_rkme_ptd',
+                'rkme',
+                'rkme_ptd',
+            ],
+            direct: [
+                'direct_expenses',
+                'direct_expenses_ptd',
+                'direct_expenses_ptd_aed',
+                'actual_direct_expenses',
+                'actual_direct_expenses_aed',
+                'direct',
+                'direct_ptd',
+                'direct_ptd_aed',
+            ],
+            operating: [
+                'operating_expenses',
+                'operating_expenses_ptd',
+                'operating_expenses_ptd_aed',
+                'actual_operating_expenses',
+                'actual_operating_expenses_aed',
+                'operating',
+                'operating_ptd',
+                'operating_ptd_aed',
+            ],
+        };
+
+        Object.entries(directValues).forEach(([category, keys]) => {
+            const value = numberOrNull(getValue(row, keys));
+            if (value !== null) {
+                result[category] = value;
+            }
+        });
+    });
+
+    return Array.from(grouped.values())
+        .sort((a, b) => periodSortValue(a.period) - periodSortValue(b.period));
 };
 
 
@@ -6593,6 +8348,7 @@ function ViewAllCostCard({
                         fontWeight: 800,
                         color: '#173b82',
                         marginBottom: 9,
+                        textAlign: 'center',
                     }}
                     title={
                         title === 'Direct Expenses'
@@ -6792,38 +8548,82 @@ function CompactMultiSelect({
                     }}
                 >
                     <div style={{ padding: 8, borderBottom: '1px solid #f1f5f9' }}>
-                        <input
-                            type="text"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="🔍 Search..."
+                        <div
                             style={{
-                                width: '100%',
-                                boxSizing: 'border-box',
-                                height: 30,
-                                padding: '5px 8px',
-                                border: '1px solid #dbe2ea',
-                                borderRadius: 6,
-                                outline: 'none',
-                                fontSize: 11,
-                                color: '#334155',
+                                position: 'relative',
+                                display: 'flex',
+                                alignItems: 'center',
                             }}
-                        />
+                        >
+                            <Search
+                                size={14}
+                                strokeWidth={2}
+                                color="#64748b"
+                                style={{
+                                    position: 'absolute',
+                                    left: 9,
+                                    pointerEvents: 'none',
+                                }}
+                            />
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                placeholder="Search..."
+                                style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    height: 32,
+                                    padding: '5px 8px 5px 30px',
+                                    border: '1px solid #dbe2ea',
+                                    borderRadius: 6,
+                                    outline: 'none',
+                                    fontSize: 11,
+                                    color: '#334155',
+                                    background: '#fff',
+                                }}
+                            />
+                        </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 6, padding: '7px 8px', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
+                    <div
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '8px 12px',
+                            borderBottom: '1px solid #f1f5f9',
+                            background: '#fff',
+                        }}
+                    >
                         <button
                             type="button"
                             onClick={selectAll}
-                            style={{ flex: 1, border: '1px solid #dbe2ea', borderRadius: 6, background: '#f8fafc', color: '#334155', padding: '5px 6px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                            style={{
+                                border: 0,
+                                background: 'transparent',
+                                color: '#173b68',
+                                padding: 0,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                            }}
                         >
                             Select All
                         </button>
                         <button
                             type="button"
                             onClick={clearAll}
-                            style={{ flex: 1, border: '1px solid #dbe2ea', borderRadius: 6, background: '#fff', color: '#64748b', padding: '5px 6px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}
+                            style={{
+                                border: 0,
+                                background: 'transparent',
+                                color: '#64748b',
+                                padding: 0,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                            }}
                         >
                             Clear
                         </button>
@@ -7091,16 +8891,16 @@ function CostCard({
                     }}
                 >
                     <span>
-                        YTD:{' '}
+                        Target:{' '}
                         <span style={{ color: '#526071' }}>
-                            {formatMillions(ytd, currency)}
+                            {formatMillions(target, currency)}
                         </span>
                     </span>
 
                     <span>
-                        Target:{' '}
+                        YTD:{' '}
                         <span style={{ color: '#526071' }}>
-                            {formatMillions(target, currency)}
+                            {formatMillions(ytd, currency)}
                         </span>
                     </span>
                 </div>
@@ -7111,12 +8911,582 @@ function CostCard({
 
 
 /* =========================================================
+   PL TREND STYLE COST TOOLTIP
+   Presentation-only component. No API/calculation changes.
+========================================================= */
+
+function CostPLTrendTooltip({
+    active,
+    payload,
+    label,
+    currency = 'AED',
+}) {
+    if (!active || !payload?.length) {
+        return null;
+    }
+
+    const rows = payload
+        .filter((item) => item?.value !== null && item?.value !== undefined)
+        .map((item) => ({
+            key: item.dataKey,
+            name: item.name || item.dataKey,
+            value: item.value,
+            color: item.color || '#64748b',
+        }));
+
+    const formatTooltipMoney = (value) => {
+        if (value === null || value === undefined || value === '') {
+            return '—';
+        }
+
+        const numeric = numberOrNull(value);
+
+        if (numeric === null) {
+            return String(value);
+        }
+
+        return `${currency} ${numeric.toLocaleString('en-US', {
+            maximumFractionDigits: 0,
+            minimumFractionDigits: 0,
+        })}`;
+    };
+
+    return (
+        <div
+            style={{
+                minWidth: 235,
+                maxWidth: 290,
+                background: 'rgba(255,255,255,0.92)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255,255,255,0.55)',
+                borderRadius: 14,
+                padding: '12px 14px',
+                boxShadow:
+                    '0 12px 36px rgba(15,23,42,0.14), 0 2px 10px rgba(15,23,42,0.06), inset 0 1px 0 rgba(255,255,255,0.8)',
+                fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                pointerEvents: 'none',
+                animation: 'costPlTooltipIn 0.16s ease-out forwards',
+            }}
+        >
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    marginBottom: 10,
+                    paddingBottom: 9,
+                    borderBottom: '1px solid rgba(226,232,240,0.72)',
+                }}
+            >
+                <span
+                    style={{
+                        fontSize: '0.82rem',
+                        fontWeight: 800,
+                        color: '#0f172a',
+                        letterSpacing: '-0.02em',
+                        lineHeight: 1,
+                    }}
+                >
+                    {label}
+                </span>
+
+                <span
+                    style={{
+                        fontSize: '0.61rem',
+                        fontWeight: 700,
+                        padding: '4px 9px',
+                        borderRadius: 999,
+                        background: '#eff6ff',
+                        color: '#2563eb',
+                        border: '1px solid rgba(37,99,235,0.14)',
+                        letterSpacing: '0.02em',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    Monthly
+                </span>
+            </div>
+
+            <div
+                style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 5,
+                }}
+            >
+                {rows.map((item) => (
+                    <div
+                        key={String(item.key)}
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr auto',
+                            alignItems: 'center',
+                            columnGap: 12,
+                            padding: '7px 9px',
+                            borderRadius: 9,
+                            background: 'rgba(248,250,252,0.72)',
+                            border: '1px solid rgba(226,232,240,0.48)',
+                            backdropFilter: 'blur(4px)',
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                minWidth: 0,
+                            }}
+                        >
+                            <span
+                                style={{
+                                    width: 9,
+                                    height: 9,
+                                    borderRadius: 3,
+                                    flexShrink: 0,
+                                    background: item.color,
+                                    boxShadow: `0 2px 6px ${item.color}55`,
+                                }}
+                            />
+
+                            <span
+                                style={{
+                                    fontSize: '0.67rem',
+                                    fontWeight: 600,
+                                    color: '#475569',
+                                    lineHeight: 1.2,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                {item.name}
+                            </span>
+                        </div>
+
+                        <span
+                            style={{
+                                fontSize: '0.70rem',
+                                fontWeight: 800,
+                                color:
+                                    numberOrNull(item.value) !== null &&
+                                        numberOrNull(item.value) < 0
+                                        ? '#dc2626'
+                                        : '#0f172a',
+                                fontVariantNumeric: 'tabular-nums',
+                                letterSpacing: '-0.015em',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {formatTooltipMoney(item.value)}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+/* =========================================================
+   PREMIUM COST CHART VISUALS — PL TREND LANGUAGE
+   Presentation-only enhancements. Existing API/data mapping is unchanged.
+========================================================= */
+
+const COST_CHART_SERIES = [
+    { key: 'material', label: 'Cost of Material', color: '#19b99d', end: '#34d3b2', shadow: 'rgba(25,185,157,.24)' },
+    { key: 'direct', label: 'Direct Expenses', color: '#7040dc', end: '#a78bfa', shadow: 'rgba(112,64,220,.24)' },
+    { key: 'operating', label: 'Operating Expenses', color: '#f47d20', end: '#fbbf24', shadow: 'rgba(244,125,32,.24)' },
+];
+
+const DIRECT_COST_CHART_SERIES = [
+    { key: 'material', label: 'Cost of Material', color: '#19b99d', end: '#34d3b2', shadow: 'rgba(25,185,157,.24)' },
+    { key: 'labour', label: 'Direct Labour', color: '#7040dc', end: '#a78bfa', shadow: 'rgba(112,64,220,.24)' },
+    { key: 'manufacturing', label: 'Manufacturing / Direct Overheads', color: '#8b5cf6', end: '#c4b5fd', shadow: 'rgba(139,92,246,.24)' },
+    { key: 'absorption', label: 'Overhead Absorption', color: '#f59e0b', end: '#fbbf24', shadow: 'rgba(245,158,11,.24)' },
+    { key: 'rkme', label: 'Direct Expenses - RKME', color: '#f47d20', end: '#fb923c', shadow: 'rgba(244,125,32,.24)' },
+];
+
+function CostGradientDefs({ series }) {
+    return (
+        <defs>
+            {series.map((item) => (
+                <linearGradient key={item.key} id={`costGrad-${item.key}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor={item.color} stopOpacity="0.98" />
+                    <stop offset="100%" stopColor={item.end} stopOpacity="0.82" />
+                </linearGradient>
+            ))}
+        </defs>
+    );
+}
+
+function CostPremiumLegend({ series, hidden, hoveredKey, onToggle, onHover, onHoverEnd, onIsolate }) {
+    return (
+        <div style={{ display: 'flex', gap: 4, justifyContent: 'center', marginTop: 7, flexWrap: 'wrap' }}>
+            {series.map((item) => {
+                const isHidden = hidden.has(item.key);
+                const isHovered = hoveredKey === item.key;
+                const isDimmed = hoveredKey && hoveredKey !== item.key;
+                return (
+                    <button
+                        key={item.key}
+                        type="button"
+                        title="Click to toggle · Double-click to isolate"
+                        onClick={() => onToggle(item.key)}
+                        onDoubleClick={() => onIsolate(item.key)}
+                        onMouseEnter={() => onHover(item.key)}
+                        onMouseLeave={onHoverEnd}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 7,
+                            padding: '5px 10px', borderRadius: 20, cursor: 'pointer',
+                            background: isHovered ? `${item.color}12` : 'transparent',
+                            border: isHovered ? `1px solid ${item.color}40` : '1px solid transparent',
+                            opacity: isHidden ? 0.35 : isDimmed ? 0.42 : 1,
+                            transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
+                            boxShadow: isHovered ? `0 4px 12px ${item.shadow}` : 'none',
+                            transition: 'all .2s cubic-bezier(.34,1.4,.64,1)',
+                            outline: 'none',
+                            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+                        }}
+                    >
+                        <span style={{ width: 22, height: 3, borderRadius: 99, background: isHidden ? '#cbd5e1' : `linear-gradient(90deg, ${item.color}, ${item.end})`, boxShadow: isHovered ? `0 0 5px ${item.color}66` : 'none' }} />
+                        <span style={{ fontSize: '0.63rem', fontWeight: 600, color: isHidden ? '#94a3b8' : isHovered ? item.color : '#475569', textDecoration: isHidden ? 'line-through' : 'none', whiteSpace: 'nowrap' }}>
+                            {item.label}
+                        </span>
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+function CostChartKebab({ onCSV, onExcel, onPDF, onCopyData, onCopyImage, onFullscreen }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef(null);
+    useEffect(() => {
+        if (!open) return;
+        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [open]);
+    const items = [
+        { icon: '⬇', label: 'Export CSV', action: onCSV },
+        { icon: '📊', label: 'Export Excel', action: onExcel },
+        { icon: '📄', label: 'Export PDF', action: onPDF },
+        { icon: '⎘', label: 'Copy Data', action: onCopyData },
+        { icon: '🖼', label: 'Copy Chart Image', action: onCopyImage },
+        { icon: '⛶', label: 'View Full Screen', action: onFullscreen },
+    ];
+    return (
+        <div ref={ref} style={{ position: 'relative' }}>
+            <button type="button" aria-label="Options" title="Options" onClick={() => setOpen(v => !v)} style={{ width: 30, height: 30, borderRadius: 8, border: open ? '1px solid rgba(99,102,241,.2)' : '1px solid transparent', background: open ? 'rgba(99,102,241,.08)' : 'transparent', color: open ? '#6366f1' : '#94a3b8', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⋮</button>
+            {open && (
+                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 7px)', minWidth: 180, zIndex: 500, overflow: 'hidden', borderRadius: 12, background: 'rgba(255,255,255,.97)', backdropFilter: 'blur(16px)', boxShadow: '0 16px 40px rgba(15,23,42,.14), 0 0 0 1px rgba(226,232,240,.8)' }}>
+                    {items.map((item, index) => (
+                        <button key={item.label} type="button" onClick={() => { item.action?.(); setOpen(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 14px', background: 'none', border: 0, borderTop: index ? '1px solid #f1f5f9' : 'none', color: '#334155', fontSize: '.73rem', fontWeight: 600, cursor: 'pointer', textAlign: 'left' }}>
+                            <span style={{ width: 18, textAlign: 'center' }}>{item.icon}</span>{item.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+
+function CostVarianceTooltip({ row, period, currency = 'AED', periodName = '' }) {
+    const actual = numberOrNull(period === 'ptd' ? getPTD(row) : getYTD(row));
+    const target = numberOrNull(
+        period === 'ptd'
+            ? getTargetPTD(row, periodName)
+            : getTargetYTD(row)
+    );
+    const variance = numberOrNull(
+        period === 'ptd'
+            ? getVariancePTD(row)
+            : getVarianceYTD(row)
+    );
+    const percentage = getVariancePercent(row, period, periodName);
+    const targetIsImmaterial = target !== null && Math.abs(target) < 1000;
+    const percentageText = targetIsImmaterial
+        ? 'N/M (target is immaterial)'
+        : percentage === null
+            ? '—'
+            : `${percentage.toFixed(2)}%`;
+
+    const money = (value) => value === null
+        ? '—'
+        : `${currency} ${value.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
+
+    const accountName = String(
+        getValue(row, [
+            'account_name',
+            'name',
+            'particulars',
+            'label',
+            'category',
+        ]) ?? 'Variance'
+    );
+
+    return (
+        <span
+            className="cost-variance-tooltip"
+            role="tooltip"
+            aria-hidden="true"
+        >
+            <span
+                style={{
+                    minWidth: 235,
+                    maxWidth: 290,
+                    display: 'block',
+                    background: 'rgba(255,255,255,.92)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255,255,255,.55)',
+                    borderRadius: 14,
+                    padding: '12px 14px',
+                    boxShadow: '0 12px 36px rgba(15,23,42,.14), 0 2px 10px rgba(15,23,42,.06), inset 0 1px 0 rgba(255,255,255,.8)',
+                    fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif',
+                    pointerEvents: 'none',
+                    boxSizing: 'border-box',
+                }}
+            >
+                <span
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 12,
+                        marginBottom: 10,
+                        paddingBottom: 9,
+                        borderBottom: '1px solid rgba(226,232,240,.72)',
+                    }}
+                >
+                    <span
+                        style={{
+                            fontSize: '.82rem',
+                            fontWeight: 800,
+                            color: '#0f172a',
+                            letterSpacing: '-.02em',
+                            minWidth: 0,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {accountName}
+                    </span>
+                    <span
+                        style={{
+                            fontSize: '.61rem',
+                            fontWeight: 700,
+                            padding: '4px 9px',
+                            borderRadius: 999,
+                            background: '#eff6ff',
+                            color: '#2563eb',
+                            border: '1px solid rgba(37,99,235,.14)',
+                            flexShrink: 0,
+                        }}
+                    >
+                        {period.toUpperCase()}
+                    </span>
+                </span>
+
+                <span
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 5,
+                    }}
+                >
+                    {[
+                        ['Actual', actual, '#0f172a'],
+                        ['Target', target, '#0f172a'],
+                        ['Variance', variance, varianceColor(variance, row)],
+                    ].map(([label, value, color]) => (
+                        <span
+                            key={label}
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr auto',
+                                alignItems: 'center',
+                                columnGap: 12,
+                                padding: '7px 9px',
+                                borderRadius: 9,
+                                background: 'rgba(248,250,252,.72)',
+                                border: '1px solid rgba(226,232,240,.48)',
+                            }}
+                        >
+                            <span
+                                style={{
+                                    fontSize: '.67rem',
+                                    fontWeight: 600,
+                                    color: '#475569',
+                                }}
+                            >
+                                {label}
+                            </span>
+                            <span
+                                style={{
+                                    fontSize: '.70rem',
+                                    fontWeight: 800,
+                                    color,
+                                    fontVariantNumeric: 'tabular-nums',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {money(value)}
+                            </span>
+                        </span>
+                    ))}
+
+                    <span
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr auto',
+                            alignItems: 'center',
+                            columnGap: 12,
+                            padding: '7px 9px',
+                            borderRadius: 9,
+                            background: 'rgba(248,250,252,.72)',
+                            border: '1px solid rgba(226,232,240,.48)',
+                        }}
+                    >
+                        <span
+                            style={{
+                                fontSize: '.67rem',
+                                fontWeight: 600,
+                                color: '#475569',
+                            }}
+                        >
+                            Variance %
+                        </span>
+                        <span
+                            style={{
+                                fontSize: '.70rem',
+                                fontWeight: 800,
+                                color: targetIsImmaterial ? '#64748b' : varianceColor(variance, row),
+                                fontVariantNumeric: 'tabular-nums',
+                                whiteSpace: 'nowrap',
+                            }}
+                        >
+                            {percentageText}
+                        </span>
+                    </span>
+                </span>
+            </span>
+        </span>
+    );
+}
+
+function CostPremiumTooltip({ active, payload, label, currency = 'AED' }) {
+    if (!active || !payload?.length) return null;
+    const rows = payload.filter(p => p?.value !== null && p?.value !== undefined).map(p => ({ key: p.dataKey, name: p.name || p.dataKey, value: p.value, color: p.color || '#64748b' }));
+    return (
+        <div style={{ minWidth: 235, maxWidth: 290, background: 'rgba(255,255,255,.92)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.55)', borderRadius: 14, padding: '12px 14px', boxShadow: '0 12px 36px rgba(15,23,42,.14), 0 2px 10px rgba(15,23,42,.06), inset 0 1px 0 rgba(255,255,255,.8)', fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif', pointerEvents: 'none', animation: 'costPlTooltipIn .16s ease-out forwards' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, paddingBottom: 9, borderBottom: '1px solid rgba(226,232,240,.72)' }}>
+                <span style={{ fontSize: '.82rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-.02em' }}>{label}</span>
+                <span style={{ fontSize: '.61rem', fontWeight: 700, padding: '4px 9px', borderRadius: 999, background: '#eff6ff', color: '#2563eb', border: '1px solid rgba(37,99,235,.14)' }}>Monthly</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {rows.map(item => (
+                    <div key={String(item.key)} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', columnGap: 12, padding: '7px 9px', borderRadius: 9, background: 'rgba(248,250,252,.72)', border: '1px solid rgba(226,232,240,.48)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                            <span style={{ width: 9, height: 9, borderRadius: 3, flexShrink: 0, background: item.color, boxShadow: `0 2px 6px ${item.color}55` }} />
+                            <span style={{ fontSize: '.67rem', fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
+                        </div>
+                        <span style={{ fontSize: '.70rem', fontWeight: 800, color: numberOrNull(item.value) !== null && numberOrNull(item.value) < 0 ? '#dc2626' : '#0f172a', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatMoney(item.value, currency)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function CostPremiumBarChart({ data, series, currency, title, height = 246, exportName = 'cost-classification-monthly', exportFilters = null, onExport, compact = false }) {
+    const [hidden, setHidden] = useState(new Set());
+    const [hovered, setHovered] = useState(null);
+    const [fullscreen, setFullscreen] = useState(false);
+    const [copied, setCopied] = useState(false);
+    const ref = useRef(null);
+    const visibleSeries = series.filter(s => !hidden.has(s.key));
+
+    useEffect(() => {
+        const keyHandler = e => { if (e.key === 'Escape') setFullscreen(false); };
+        document.addEventListener('keydown', keyHandler);
+        return () => document.removeEventListener('keydown', keyHandler);
+    }, []);
+
+    const toggle = key => setHidden(prev => { const next = new Set(prev); next.has(key) ? next.delete(key) : next.add(key); return next; });
+    const isolate = key => setHidden(new Set(series.map(s => s.key).filter(k => k !== key)));
+
+    const downloadCSV = () => {
+        const headers = ['Period', ...series.map(s => s.label)];
+        const csv = [headers, ...data.map(row => [row.period, ...series.map(s => numberOrNull(row[s.key]) ?? '')])].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${exportName}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    const copyData = () => {
+        const text = data.map(row => `${row.period}: ${series.map(s => `${s.label} ${formatMoney(row[s.key], currency)}`).join(' | ')}`).join('\n');
+        navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    };
+    const copyImage = async () => {
+        if (!ref.current || !navigator.clipboard || typeof ClipboardItem === 'undefined') return;
+        try {
+            const canvas = await html2canvas(ref.current, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+            canvas.toBlob(async blob => { if (!blob) return; try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (_) { } }, 'image/png');
+        } catch (_) { }
+    };
+    const doExport = async format => { if (typeof onExport !== 'function') return; try { await onExport(format, exportName, exportFilters || undefined); } catch (_) { } };
+
+    const content = (
+        <div ref={ref} className="cost-structure-chart" style={{ width: '100%', height: fullscreen ? 'calc(100vh - 80px)' : height, minHeight: compact ? 250 : 246, position: 'relative', background: 'radial-gradient(circle at top right, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 62%)', border: '1px solid rgba(226,232,240,.88)', borderRadius: fullscreen ? 0 : 14, padding: compact ? '10px 12px' : '13px 14px', boxSizing: 'border-box', boxShadow: fullscreen ? 'none' : '0 6px 22px rgba(15,23,42,.055), 0 1px 4px rgba(15,23,42,.035)', overflow: 'visible' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: compact ? 5 : 8 }}>
+                <div>
+                    <div style={{ fontSize: '.76rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-.01em' }}>{title}</div>
+                    <div style={{ fontSize: '.58rem', color: '#94a3b8', marginTop: 2 }}>Interactive monthly cost trend</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {copied && <span style={{ fontSize: '.6rem', color: '#16a34a', fontWeight: 700 }}>✓ Copied</span>}
+                </div>
+            </div>
+            <div style={{ height: fullscreen ? 'calc(100% - 70px)' : (compact ? 'calc(100% - 62px)' : 188) }}>
+                {data.length ? (
+                    <ResponsiveContainer width="100%" height="100%" style={{ overflow: 'visible' }}>
+                        <BarChart data={data} margin={{ top: 12, right: 18, left: 2, bottom: 6 }} barGap={compact ? 8 : 10} barCategoryGap="22%" style={{ overflow: 'visible' }}>
+                            <CostGradientDefs series={series} />
+                            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(226,232,240,.45)" />
+                            <XAxis dataKey="period" tick={{ fontSize: compact ? 9 : 10, fill: '#94a3b8', fontWeight: 500, fontFamily: 'Inter, system-ui' }} axisLine={false} tickLine={false} dy={7} />
+                            <YAxis tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 500, fontFamily: 'Inter, system-ui' }} axisLine={false} tickLine={false} width={48} tickFormatter={v => Number(v) === 0 ? '0' : `${(Number(v) / 1000000).toFixed(0)}M`} />
+                            <ReferenceLine y={0} stroke="rgba(148,163,184,.5)" strokeDasharray="5 3" strokeWidth={1.2} />
+                            <Tooltip content={<CostPremiumTooltip currency={currency} />} cursor={{ stroke: 'rgba(99,102,241,.22)', strokeWidth: 1.5, strokeDasharray: '5 3', fill: 'rgba(99,102,241,.03)' }} offset={16} allowEscapeViewBox={{ x: false, y: true }} wrapperStyle={{ zIndex: 999, outline: 'none', pointerEvents: 'none' }} animationEasing="ease-out" animationDuration={100} />
+                            {series.map((item, index) => {
+                                if (hidden.has(item.key)) return null;
+                                const opacity = hovered && hovered !== item.key ? .38 : 1;
+                                return <Bar key={item.key} dataKey={item.key} name={item.label} fill={`url(#costGrad-${item.key})`} barSize={compact ? 13 : 14} radius={[4, 4, 0, 0]} animationDuration={900} animationBegin={index * 90} animationEasing="ease-out" fillOpacity={opacity} onMouseEnter={() => setHovered(item.key)} onMouseLeave={() => setHovered(null)} />;
+                            })}
+                        </BarChart>
+                    </ResponsiveContainer>
+                ) : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>No data available</div>}
+            </div>
+            <CostPremiumLegend series={series} hidden={hidden} hoveredKey={hovered} onToggle={toggle} onHover={setHovered} onHoverEnd={() => setHovered(null)} onIsolate={isolate} />
+        </div>
+    );
+    return fullscreen ? createPortal(<div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: '#f8fafc', padding: 18, overflow: 'auto' }}>{content}</div>, document.body) : content;
+}
+
+/* =========================================================
    MAIN COST CHART
 ========================================================= */
 
 function MainCostChart({
     data,
     currency,
+    onExport,
+    exportFilters,
 }) {
     /*
      * /api/pl/cost-classification-monthly returns one row per
@@ -7296,150 +9666,16 @@ function MainCostChart({
             : chartData;
 
     return (
-        <div
-            className="cost-structure-chart"
-            style={{
-                background: '#fff',
-                border: '1px solid #e7ebf1',
-                borderRadius: 11,
-                padding: '12px 14px',
-                height: 246,
-                boxSizing: 'border-box',
-                boxShadow:
-                    '0 1px 3px rgba(15,23,42,.035)',
-            }}
-        >
-            <div
-                style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: '#182338',
-                    marginBottom: 8,
-                }}
-            >
-                Month-on-Month Cost Classification
-            </div>
-
-            <div
-                style={{
-                    height: 188,
-                }}
-            >
-                {fallbackChartData.length ? (
-                    <ResponsiveContainer
-                        width="100%"
-                        height="100%"
-                    >
-                        <BarChart
-                            data={fallbackChartData}
-                            margin={{
-                                top: 8,
-                                right: 10,
-                                left: -12,
-                                bottom: 4,
-                            }}
-                            barGap={8}
-                            barCategoryGap="20%"
-                        >
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                                vertical={false}
-                                stroke="#edf0f4"
-                            />
-
-                            <XAxis
-                                dataKey="period"
-                                tick={{
-                                    fontSize: 10,
-                                    fill: '#687386',
-                                }}
-                                axisLine={{
-                                    stroke: '#dfe5ec',
-                                }}
-                                tickLine={false}
-                            />
-
-                            <YAxis
-                                tick={{
-                                    fontSize: 10,
-                                    fill: '#8b94a3',
-                                }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={(v) =>
-                                    Number(v) === 0
-                                        ? '0'
-                                        : `${(
-                                            Number(v) /
-                                            1000000
-                                        ).toFixed(0)}M`
-                                }
-                            />
-
-                            <Tooltip
-                                formatter={(value, name) => [
-                                    formatMoney(value, currency),
-                                    name,
-                                ]}
-                                contentStyle={{
-                                    borderRadius: 8,
-                                    border:
-                                        '1px solid #e2e8f0',
-                                    fontSize: 11,
-                                    boxShadow:
-                                        '0 8px 24px rgba(15,23,42,.12)',
-                                }}
-                            />
-
-                            <Legend
-                                verticalAlign="bottom"
-                                height={20}
-                                wrapperStyle={{
-                                    fontSize: 10,
-                                    paddingTop: 2,
-                                }}
-                            />
-
-                            <Bar
-                                dataKey="material"
-                                name="Cost of Material"
-                                fill={CATEGORY_META['Cost of Material'].color}
-                                barSize={12}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="direct"
-                                name="Direct Expenses"
-                                fill={CATEGORY_META['Direct Expenses'].color}
-                                barSize={12}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="operating"
-                                name="Operating Expenses"
-                                fill={CATEGORY_META['Operating Expenses'].color}
-                                barSize={12}
-                                radius={[4, 4, 0, 0]}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
-                ) : (
-                    <div
-                        style={{
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent:
-                                'center',
-                            color: '#94a3b8',
-                            fontSize: 13,
-                        }}
-                    >
-                        No data available
-                    </div>
-                )}
-            </div>
-        </div>
+        <CostPremiumBarChart
+            data={fallbackChartData}
+            series={COST_CHART_SERIES}
+            currency={currency}
+            title="Month-on-Month Cost Classification"
+            height={246}
+            exportName="cost-classification-monthly"
+            exportFilters={exportFilters}
+            onExport={onExport}
+        />
     );
 }
 
@@ -7600,22 +9836,26 @@ function CostMix({
         }
     );
 
+    const [hoveredMix, setHoveredMix] = useState(null);
+
     return (
         <div
+            className="cost-structure-chart"
             style={{
                 background: '#fff',
                 border: '1px solid #e7ebf1',
-                borderRadius: 11,
-                padding: '12px 14px',
+                borderRadius: 14,
+                padding: '13px 14px',
                 height: 246,
                 boxSizing: 'border-box',
-                boxShadow:
-                    '0 1px 3px rgba(15,23,42,.035)',
+                boxShadow: '0 6px 22px rgba(15,23,42,.055), 0 1px 4px rgba(15,23,42,.035)',
+                fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                position: 'relative',
             }}
         >
             <div
                 style={{
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: 700,
                     color: '#182338',
                     marginBottom: 14,
@@ -7653,13 +9893,19 @@ function CostMix({
                         return (
                             <div
                                 key={item.label}
+                                onMouseEnter={() => setHoveredMix(item.label)}
+                                onMouseLeave={() => setHoveredMix(null)}
                                 style={{
                                     display: 'grid',
-                                    gridTemplateColumns:
-                                        '88px minmax(0, 1fr) 78px',
-                                    alignItems:
-                                        'center',
+                                    gridTemplateColumns: '88px minmax(0, 1fr) 78px',
+                                    alignItems: 'center',
                                     gap: 10,
+                                    position: 'relative',
+                                    padding: '4px 5px',
+                                    margin: '-4px -5px',
+                                    borderRadius: 9,
+                                    background: hoveredMix === item.label ? 'rgba(248,250,252,.78)' : 'transparent',
+                                    transition: 'background .16s ease, transform .16s ease',
                                 }}
                             >
                                 <div
@@ -7746,6 +9992,19 @@ function CostMix({
                                         )}
                                     </div>
                                 </div>
+                                {hoveredMix === item.label && (
+                                    <div style={{ position: 'absolute', left: 8, bottom: 'calc(100% + 8px)', zIndex: 20, minWidth: 220, maxWidth: 270, background: 'rgba(255,255,255,.94)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.55)', borderRadius: 12, padding: '10px 12px', boxShadow: '0 12px 30px rgba(15,23,42,.14), 0 2px 8px rgba(15,23,42,.06)', pointerEvents: 'none', animation: 'costPlTooltipIn .16s ease-out forwards' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6, paddingBottom: 6, borderBottom: '1px solid #e2e8f0' }}>
+                                            <span style={{ width: 8, height: 8, borderRadius: 3, background: meta.color }} />
+                                            <span style={{ fontSize: '.72rem', fontWeight: 800, color: '#0f172a' }}>{item.label}</span>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 5, fontSize: '.67rem' }}>
+                                            <span style={{ color: '#64748b' }}>PTD Value</span><strong style={{ color: '#0f172a' }}>{formatMillions(item.value, currency)}</strong>
+                                            <span style={{ color: '#64748b' }}>PTD Share</span><strong style={{ color: meta.color }}>{formatPercent(item.percentage)}</strong>
+                                            <span style={{ color: '#64748b' }}>Period</span><strong style={{ color: '#475569' }}>{periodName || 'Current'}</strong>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })
@@ -7772,6 +10031,7 @@ function CostMix({
 function DirectCostTable({
     rows,
     currency,
+    periodName = '',
     onExpand,
     expanded,
     details,
@@ -7793,6 +10053,13 @@ function DirectCostTable({
                     fontSize: 11,
                 }}
             >
+                <colgroup>
+                    <col style={{ width: '3%' }} />
+                    <col style={{ width: '24%' }} />
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <col key={i} style={{ width: '12.1667%' }} />
+                    ))}
+                </colgroup>
                 <thead>
                     <tr
                         style={{
@@ -7961,9 +10228,25 @@ function DirectCostTable({
                                                     '#344054',
                                                 borderRight:
                                                     '1px solid #edf0f4',
+                                                fontSize: 9,
+
+                                                textTransform: 'uppercase',
+                                                whiteSpace: 'normal',
+                                                overflowWrap: 'anywhere',
+                                                wordBreak: 'break-word',
+                                                lineHeight: 1.3,
                                             }}
                                         >
-                                            <span title={categoryTooltip}>
+                                            <span
+                                                title={categoryTooltip}
+                                                style={{
+                                                    display: 'inline-block',
+                                                    maxWidth: '100%',
+                                                    whiteSpace: 'normal',
+                                                    overflowWrap: 'anywhere',
+                                                    wordBreak: 'break-word',
+                                                }}
+                                            >
                                                 {category}
                                                 {categoryTooltip ? (
                                                     <span
@@ -8013,18 +10296,16 @@ function DirectCostTable({
                                                 textAlign:
                                                     'right',
                                                 color:
-                                                    valueColor(
-                                                        getTargetPTD(
-                                                            row
-                                                        )
-                                                    ),
+                                                    '#334155',
+
                                                 borderRight:
                                                     '1px solid #edf0f4',
                                             }}
                                         >
                                             {formatTableMoney(
                                                 getTargetPTD(
-                                                    row
+                                                    row,
+                                                    periodName
                                                 ),
                                                 currency
                                             )}
@@ -8037,14 +10318,21 @@ function DirectCostTable({
                                                 textAlign:
                                                     'right',
                                                 color:
-                                                    valueColor(
+                                                    varianceColor(
                                                         getVariancePTD(
                                                             row
-                                                        )
+                                                        ),
+                                                        row
                                                     ),
                                                 borderRight:
                                                     '1px solid #edf0f4',
                                             }}
+                                            title={varianceTooltip(
+                                                row,
+                                                'ptd',
+                                                currency,
+                                                periodName
+                                            )}
                                         >
                                             {formatTableMoney(
                                                 getVariancePTD(
@@ -8081,11 +10369,7 @@ function DirectCostTable({
                                                 textAlign:
                                                     'right',
                                                 color:
-                                                    valueColor(
-                                                        getTargetYTD(
-                                                            row
-                                                        )
-                                                    ),
+                                                    '#334155',
                                                 borderRight:
                                                     '1px solid #edf0f4',
                                             }}
@@ -8105,12 +10389,19 @@ function DirectCostTable({
                                                 textAlign:
                                                     'right',
                                                 color:
-                                                    valueColor(
+                                                    varianceColor(
                                                         getVarianceYTD(
                                                             row
-                                                        )
+                                                        ),
+                                                        row
                                                     ),
                                             }}
+                                            title={varianceTooltip(
+                                                row,
+                                                'ytd',
+                                                currency,
+                                                periodName
+                                            )}
                                         >
                                             {formatTableMoney(
                                                 getVarianceYTD(
@@ -8154,20 +10445,36 @@ function DirectCostTable({
                                                 ) : rowDetails.length ? (
                                                     <div>
                                                         <table
-                                                            className="cost-structure-table"
+                                                            className="cost-structure-table cost-detail-table"
                                                             style={{
                                                                 width: '100%',
                                                                 borderCollapse:
                                                                     'collapse',
+                                                                tableLayout: 'fixed',
                                                                 fontSize: 11,
                                                             }}
                                                         >
+                                                            <colgroup>
+                                                                <col style={{ width: '3%' }} />
+                                                                <col style={{ width: '9%' }} />
+                                                                <col style={{ width: '15%' }} />
+                                                                {Array.from({ length: 6 }).map((_, i) => (
+                                                                    <col key={i} style={{ width: '12.1667%' }} />
+                                                                ))}
+                                                            </colgroup>
                                                             <thead>
                                                                 <tr>
                                                                     <th
+                                                                        aria-hidden="true"
+                                                                        style={{
+                                                                            padding: 0,
+                                                                            background: '#fff',
+                                                                        }}
+                                                                    />
+                                                                    <th
                                                                         style={{
                                                                             padding:
-                                                                                '7px 10px 7px 42px',
+                                                                                '7px 10px',
                                                                             textAlign:
                                                                                 'left',
                                                                             color:
@@ -8226,7 +10533,71 @@ function DirectCostTable({
                                                                                 700,
                                                                         }}
                                                                     >
+                                                                        Target PTD
+                                                                    </th>
+
+                                                                    <th
+                                                                        style={{
+                                                                            padding: 7,
+                                                                            textAlign:
+                                                                                'right',
+                                                                            color:
+                                                                                '#173b68',
+                                                                            background:
+                                                                                '#fff',
+                                                                            fontWeight:
+                                                                                700,
+                                                                        }}
+                                                                    >
+                                                                        Variance PTD
+                                                                    </th>
+
+                                                                    <th
+                                                                        style={{
+                                                                            padding: 7,
+                                                                            textAlign:
+                                                                                'right',
+                                                                            color:
+                                                                                '#173b68',
+                                                                            background:
+                                                                                '#fff',
+                                                                            fontWeight:
+                                                                                700,
+                                                                        }}
+                                                                    >
                                                                         Actual YTD
+                                                                    </th>
+
+                                                                    <th
+                                                                        style={{
+                                                                            padding: 7,
+                                                                            textAlign:
+                                                                                'right',
+                                                                            color:
+                                                                                '#173b68',
+                                                                            background:
+                                                                                '#fff',
+                                                                            fontWeight:
+                                                                                700,
+                                                                        }}
+                                                                    >
+                                                                        Target YTD
+                                                                    </th>
+
+                                                                    <th
+                                                                        style={{
+                                                                            padding: 7,
+                                                                            textAlign:
+                                                                                'right',
+                                                                            color:
+                                                                                '#173b68',
+                                                                            background:
+                                                                                '#fff',
+                                                                            fontWeight:
+                                                                                700,
+                                                                        }}
+                                                                    >
+                                                                        Variance YTD
                                                                     </th>
                                                                 </tr>
                                                             </thead>
@@ -8247,9 +10618,14 @@ function DirectCostTable({
                                                                             }}
                                                                         >
                                                                             <td
+                                                                                aria-hidden="true"
                                                                                 style={{
-                                                                                    padding:
-                                                                                        '7px 10px 7px 42px',
+                                                                                    padding: 0,
+                                                                                }}
+                                                                            />
+                                                                            <td
+                                                                                style={{
+                                                                                    padding: '7px 10px',
                                                                                     textAlign:
                                                                                         'left',
                                                                                     color:
@@ -8275,7 +10651,27 @@ function DirectCostTable({
                                                                                         'left',
                                                                                     color:
                                                                                         '#475569',
+                                                                                    whiteSpace:
+                                                                                        'normal',
+                                                                                    overflowWrap:
+                                                                                        'anywhere',
+                                                                                    wordBreak:
+                                                                                        'break-word',
+                                                                                    lineHeight:
+                                                                                        1.3,
                                                                                 }}
+                                                                                title={
+                                                                                    getValue(
+                                                                                        detail,
+                                                                                        [
+                                                                                            'account_name',
+                                                                                            'accountName',
+                                                                                            'name',
+                                                                                            'particulars',
+                                                                                        ]
+                                                                                    ) ??
+                                                                                    '—'
+                                                                                }
                                                                             >
                                                                                 {getValue(
                                                                                     detail,
@@ -8317,6 +10713,66 @@ function DirectCostTable({
                                                                                         'right',
                                                                                     color:
                                                                                         valueColor(
+                                                                                            getTargetPTD(
+                                                                                                detail,
+                                                                                                periodName
+                                                                                            )
+                                                                                        ),
+                                                                                }}
+                                                                            >
+                                                                                {formatTableMoney(
+                                                                                    getTargetPTD(
+                                                                                        detail,
+                                                                                        periodName
+                                                                                    ),
+                                                                                    currency
+                                                                                )}
+                                                                            </td>
+
+                                                                            <td
+                                                                                style={{
+                                                                                    padding: 7,
+                                                                                    textAlign:
+                                                                                        'right',
+                                                                                    color:
+                                                                                        varianceColor(
+                                                                                            getVariancePTD(
+                                                                                                detail
+                                                                                            ),
+                                                                                            detail
+                                                                                        ),
+                                                                                }}
+                                                                            >
+                                                                                <span
+                                                                                    className="cost-variance-tooltip-wrap"
+                                                                                    style={{
+                                                                                        position: 'relative',
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                    }}
+                                                                                >
+                                                                                    {formatTableMoney(
+                                                                                        getVariancePTD(
+                                                                                            detail
+                                                                                        ),
+                                                                                        currency
+                                                                                    )}
+                                                                                    <CostVarianceTooltip
+                                                                                        row={detail}
+                                                                                        period="ptd"
+                                                                                        currency={currency}
+                                                                                        periodName={periodName}
+                                                                                    />
+                                                                                </span>
+                                                                            </td>
+
+                                                                            <td
+                                                                                style={{
+                                                                                    padding: 7,
+                                                                                    textAlign:
+                                                                                        'right',
+                                                                                    color:
+                                                                                        valueColor(
                                                                                             getYTD(
                                                                                                 detail
                                                                                             )
@@ -8329,6 +10785,64 @@ function DirectCostTable({
                                                                                     ),
                                                                                     currency
                                                                                 )}
+                                                                            </td>
+
+                                                                            <td
+                                                                                style={{
+                                                                                    padding: 7,
+                                                                                    textAlign:
+                                                                                        'right',
+                                                                                    color:
+                                                                                        valueColor(
+                                                                                            getTargetYTD(
+                                                                                                detail
+                                                                                            )
+                                                                                        ),
+                                                                                }}
+                                                                            >
+                                                                                {formatTableMoney(
+                                                                                    getTargetYTD(
+                                                                                        detail
+                                                                                    ),
+                                                                                    currency
+                                                                                )}
+                                                                            </td>
+
+                                                                            <td
+                                                                                style={{
+                                                                                    padding: 7,
+                                                                                    textAlign:
+                                                                                        'right',
+                                                                                    color:
+                                                                                        varianceColor(
+                                                                                            getVarianceYTD(
+                                                                                                detail
+                                                                                            ),
+                                                                                            detail
+                                                                                        ),
+                                                                                }}
+                                                                            >
+                                                                                <span
+                                                                                    className="cost-variance-tooltip-wrap"
+                                                                                    style={{
+                                                                                        position: 'relative',
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                    }}
+                                                                                >
+                                                                                    {formatTableMoney(
+                                                                                        getVarianceYTD(
+                                                                                            detail
+                                                                                        ),
+                                                                                        currency
+                                                                                    )}
+                                                                                    <CostVarianceTooltip
+                                                                                        row={detail}
+                                                                                        period="ytd"
+                                                                                        currency={currency}
+                                                                                        periodName={periodName}
+                                                                                    />
+                                                                                </span>
                                                                             </td>
                                                                         </tr>
                                                                     )
@@ -8360,21 +10874,21 @@ function DirectCostTable({
 
                     {rows.length > 0 && (() => {
                         const totalPTD = sumNumbers(rows.map((row) => getPTD(row)));
-                        const totalTargetPTD = sumNumbers(rows.map((row) => getTargetPTD(row)));
+                        const totalTargetPTD = sumNumbers(rows.map((row) => getTargetPTD(row, periodName)));
                         const totalVariancePTD = sumNumbers(rows.map((row) => getVariancePTD(row)));
                         const totalYTD = sumNumbers(rows.map((row) => getYTD(row)));
                         const totalTargetYTD = sumNumbers(rows.map((row) => getTargetYTD(row)));
                         const totalVarianceYTD = sumNumbers(rows.map((row) => getVarianceYTD(row)));
                         return (
-                            <tr style={{ background: '#f1f5f9', fontWeight: 800 }}>
+                            <tr className="cost-total-cost-of-sales" style={{ background: '#f1f5f9', fontWeight: 800 }}>
                                 <td style={{ textAlign: 'center', padding: '9px 3px', borderRight: '1px solid #edf0f4' }} />
                                 <td style={{ padding: '9px 8px', color: '#182338', fontWeight: 800, borderRight: '1px solid #edf0f4' }}>Total Cost of Sales</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalPTD, currency)}</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalTargetPTD, currency)}</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVariancePTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalVariancePTD, currency)}</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalYTD, currency)}</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatMoney(totalTargetYTD, currency)}</td>
-                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVarianceYTD), fontWeight: 800 }}>{formatMoney(totalVarianceYTD, currency)}</td>
+                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalPTD)}</td>
+                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetPTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalTargetPTD)}</td>
+                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVariancePTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalVariancePTD)}</td>
+                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalYTD)}</td>
+                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalTargetYTD), borderRight: '1px solid #edf0f4', fontWeight: 800 }}>{formatTableMoney(totalTargetYTD)}</td>
+                                <td style={{ padding: '9px 8px', textAlign: 'right', color: valueColor(totalVarianceYTD), fontWeight: 800 }}>{formatTableMoney(totalVarianceYTD)}</td>
                             </tr>
                         );
                     })()}
@@ -8991,8 +11505,8 @@ function Modal({
                     borderRadius: 0,
                     width: '98%',
                     maxWidth: 1500,
-                    height: '90vh',
-                    maxHeight: '90vh',
+                    height: '96vh',
+                    maxHeight: '96vh',
                     minHeight: 0,
                     display: 'flex',
                     flexDirection:
@@ -9004,7 +11518,7 @@ function Modal({
                     overflow: 'hidden',
                     border:
                         '1px solid #e2e8f0',
-                    marginTop: '5vh',
+                    marginTop: '2vh',
                     flexShrink: 0,
                     boxSizing: 'border-box',
                 }}
@@ -9104,6 +11618,7 @@ function ViewAllContent({
                 display: 'flex',
                 flexDirection: 'column',
                 flex: '1 1 auto',
+                minHeight: 0,
                 height: '100%',
                 minHeight: '100%',
                 overflow: 'hidden',
@@ -9319,6 +11834,7 @@ function ViewAllContent({
                         currency={
                             currency
                         }
+                        periodName={filters?.periodName || ''}
                         expanded={
                             expanded
                         }
@@ -9343,12 +11859,24 @@ function ViewAllContent({
                         currency={
                             currency
                         }
+                        onExport={onExport}
                     />
                 )}
             </div>
         </div>
     );
 }
+
+
+/* =========================================================
+   TABLE PERCENTAGE FORMATTER
+========================================================= */
+
+const formatTablePercentage = (value) => {
+    const n = numberOrNull(value);
+    if (n === null) return '—';
+    return `${n.toFixed(2)}%`;
+};
 
 
 /* =========================================================
@@ -9359,13 +11887,29 @@ function ClassificationTab({
     rows,
     currency,
 }) {
+    const valueKeys = {
+        material: [
+            'cost_of_material',
+            'cost_of_material_ptd',
+            'material',
+            'material_ptd',
+        ],
+        direct: [
+            'direct_expenses',
+            'direct_expenses_ptd',
+            'direct',
+            'direct_ptd',
+        ],
+        operating: [
+            'operating_expenses',
+            'operating_expenses_ptd',
+            'operating',
+            'operating_ptd',
+        ],
+    };
+
     return (
-        <div
-            style={{
-                minHeight: '100%',
-                boxSizing: 'border-box',
-            }}
-        >
+        <div style={{ minHeight: '100%', boxSizing: 'border-box' }}>
             <div
                 style={{
                     fontSize: 14,
@@ -9377,201 +11921,94 @@ function ClassificationTab({
                 Cost Classification
             </div>
 
-            <div
-                style={{
-                    overflowX: 'auto',
-                }}
-            >
+            <div style={{ overflowX: 'auto' }}>
                 <table
                     className="cost-structure-table"
                     style={{
                         width: '100%',
-                        borderCollapse:
-                            'collapse',
+                        borderCollapse: 'collapse',
                         fontSize: 12,
+                        minWidth: 820,
                     }}
                 >
                     <thead>
-                        <tr
-                            style={{
-                                background:
-                                    '#fff',
-                            }}
-                        >
+                        <tr style={{ background: '#fff' }}>
+                            <th style={modalThLeft}>Period</th>
+                            <th style={modalTh}>Cost of Material</th>
+                            <th style={modalTh}>Cost of Material %</th>
                             <th
-                                style={
-                                    modalThLeft
-                                }
-                            >
-                                Period
-                            </th>
-
-                            <th
-                                style={
-                                    modalTh
-                                }
-                            >
-                                Cost of Material
-                            </th>
-
-                            <th
-                                style={
-                                    modalTh
-                                }
+                                style={modalTh}
                                 title="Direct Expenses includes Direct Labour, Manufacturing/Direct Overheads, Overhead Absorption and Direct Expenses–RKME."
                             >
                                 Direct Expenses
                             </th>
-
-                            <th
-                                style={
-                                    modalTh
-                                }
-                            >
-                                Operating Expenses
-                            </th>
+                            <th style={modalTh}>Direct Expenses %</th>
+                            <th style={modalTh}>Operating Expenses</th>
+                            <th style={modalTh}>Operating Expenses %</th>
                         </tr>
                     </thead>
 
                     <tbody>
-                        {rows.map(
-                            (
-                                row,
-                                i
-                            ) => (
-                                <tr
-                                    key={
-                                        i
-                                    }
-                                >
-                                    <td
-                                        style={
-                                            modalTdLeft
-                                        }
-                                    >
-                                        {getPeriod(
-                                            row
-                                        )}
+                        {rows.map((row, i) => {
+                            const material = getValue(row, valueKeys.material);
+                            const direct = getValue(row, valueKeys.direct);
+                            const operating = getValue(row, valueKeys.operating);
+
+                            return (
+                                <tr key={i}>
+                                    <td style={modalTdLeft}>{getPeriod(row)}</td>
+
+                                    <td style={{ ...modalTd, color: valueColor(material) }}>
+                                        {formatTableMoney(material, currency)}
+                                    </td>
+                                    <td style={{ ...modalTd, color: '#64748b' }}>
+                                        {formatTablePercentage(row.materialPct)}
                                     </td>
 
-                                    <td
-                                        style={{
-                                            ...modalTd,
-                                            color: valueColor(
-                                                getValue(
-                                                    row,
-                                                    [
-                                                        'cost_of_material',
-                                                        'cost_of_material_ptd',
-                                                        'material',
-                                                        'material_ptd',
-                                                    ]
-                                                )
-                                            ),
-                                        }}
-                                    >
-                                        {formatTableMoney(
-                                            getValue(
-                                                row,
-                                                [
-                                                    'cost_of_material',
-                                                    'cost_of_material_ptd',
-                                                    'material',
-                                                    'material_ptd',
-                                                ]
-                                            )
-                                        )}
+                                    <td style={{ ...modalTd, color: valueColor(direct) }}>
+                                        {formatTableMoney(direct, currency)}
+                                    </td>
+                                    <td style={{ ...modalTd, color: '#64748b' }}>
+                                        {formatTablePercentage(row.directPct)}
                                     </td>
 
-                                    <td
-                                        style={{
-                                            ...modalTd,
-                                            color: valueColor(
-                                                getValue(
-                                                    row,
-                                                    [
-                                                        'direct_expenses',
-                                                        'direct_expenses_ptd',
-                                                        'direct',
-                                                        'direct_ptd',
-                                                    ]
-                                                )
-                                            ),
-                                        }}
-                                    >
-                                        {formatTableMoney(
-                                            getValue(
-                                                row,
-                                                [
-                                                    'direct_expenses',
-                                                    'direct_expenses_ptd',
-                                                    'direct',
-                                                    'direct_ptd',
-                                                ]
-                                            )
-                                        )}
+                                    <td style={{ ...modalTd, color: valueColor(operating) }}>
+                                        {formatTableMoney(operating, currency)}
                                     </td>
-
-                                    <td
-                                        style={{
-                                            ...modalTd,
-                                            color: valueColor(
-                                                getValue(
-                                                    row,
-                                                    [
-                                                        'operating_expenses',
-                                                        'operating_expenses_ptd',
-                                                        'operating',
-                                                        'operating_ptd',
-                                                    ]
-                                                )
-                                            ),
-                                        }}
-                                    >
-                                        {formatTableMoney(
-                                            getValue(
-                                                row,
-                                                [
-                                                    'operating_expenses',
-                                                    'operating_expenses_ptd',
-                                                    'operating',
-                                                    'operating_ptd',
-                                                ]
-                                            )
-                                        )}
+                                    <td style={{ ...modalTd, color: '#64748b' }}>
+                                        {formatTablePercentage(row.operatingPct)}
                                     </td>
                                 </tr>
-                            )
-                        )}
+                            );
+                        })}
 
                         {rows.length > 0 && (() => {
-                            const totalMaterial = sumNumbers(rows.map((row) => getValue(row, ['cost_of_material', 'cost_of_material_ptd', 'material', 'material_ptd'])));
-                            const totalDirect = sumNumbers(rows.map((row) => getValue(row, ['direct_expenses', 'direct_expenses_ptd', 'direct', 'direct_ptd'])));
-                            const totalOperating = sumNumbers(rows.map((row) => getValue(row, ['operating_expenses', 'operating_expenses_ptd', 'operating', 'operating_ptd'])));
+                            const totalMaterial = sumNumbers(rows.map((row) => getValue(row, valueKeys.material)));
+                            const totalDirect = sumNumbers(rows.map((row) => getValue(row, valueKeys.direct)));
+                            const totalOperating = sumNumbers(rows.map((row) => getValue(row, valueKeys.operating)));
+
                             return (
                                 <tr style={{ background: '#f1f5f9', fontWeight: 800 }}>
                                     <td style={{ ...modalTdLeft, fontWeight: 800 }}>Total</td>
-                                    <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalMaterial) }}>{formatTableMoney(totalMaterial)}</td>
-                                    <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalDirect) }}>{formatTableMoney(totalDirect)}</td>
-                                    <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalOperating) }}>{formatTableMoney(totalOperating)}</td>
+                                    <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalMaterial) }}>
+                                        {formatTableMoney(totalMaterial, currency)}
+                                    </td>
+                                    <td style={{ ...modalTd, fontWeight: 800, color: '#64748b' }}>—</td>
+                                    <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalDirect) }}>
+                                        {formatTableMoney(totalDirect, currency)}
+                                    </td>
+                                    <td style={{ ...modalTd, fontWeight: 800, color: '#64748b' }}>—</td>
+                                    <td style={{ ...modalTd, fontWeight: 800, color: valueColor(totalOperating) }}>
+                                        {formatTableMoney(totalOperating, currency)}
+                                    </td>
+                                    <td style={{ ...modalTd, fontWeight: 800, color: '#64748b' }}>—</td>
                                 </tr>
                             );
                         })()}
 
                         {!rows.length && (
                             <tr>
-                                <td
-                                    colSpan={
-                                        4
-                                    }
-                                    style={{
-                                        padding: 30,
-                                        textAlign:
-                                            'center',
-                                        color:
-                                            '#94a3b8',
-                                    }}
-                                >
+                                <td colSpan={7} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>
                                     No data available
                                 </td>
                             </tr>
@@ -9583,7 +12020,6 @@ function ClassificationTab({
     );
 }
 
-
 /* =========================================================
    MONTHLY TAB
 ========================================================= */
@@ -9592,7 +12028,43 @@ function MonthlyTab({
     rows,
     chartRows,
     currency,
+    onExport,
 }) {
+    const periods = (chartRows || []).map((row) => getPeriod(row)).filter((p) => p && p !== '—');
+
+    const uniquePeriods = Array.from(new Set(periods));
+
+    const findRow = (period) =>
+        (chartRows || []).find((row) => getPeriod(row) === period) || {};
+
+    /*
+     * Keep the Month-on-Month table aligned with the actual backend response.
+     * The direct-cost monthly endpoint returns five direct-cost categories,
+     * while the classification endpoint returns the three top-level
+     * categories. Support both shapes without changing the API calls.
+     */
+    const categoryDefinitions = [
+        { key: 'material', label: 'Cost of Material' },
+        { key: 'labour', label: 'Direct Labour' },
+        { key: 'manufacturing', label: 'Manufacturing / Direct Overheads' },
+        { key: 'absorption', label: 'Overhead Absorption' },
+        { key: 'rkme', label: 'Direct Expenses - RKME' },
+        { key: 'direct', label: 'Direct Expenses' },
+        { key: 'operating', label: 'Operating Expenses' },
+    ];
+
+    const availableKeys = new Set(
+        (chartRows || []).flatMap((row) =>
+            categoryDefinitions
+                .map((definition) => definition.key)
+                .filter((key) => row?.[key] !== null && row?.[key] !== undefined)
+        )
+    );
+
+    const categoryRows = categoryDefinitions.filter((definition) =>
+        availableKeys.has(definition.key)
+    );
+
     return (
         <div>
             <div
@@ -9606,223 +12078,71 @@ function MonthlyTab({
                 Month-on-Month Cost Classification
             </div>
 
-            <div
-                className="cost-structure-chart"
-                style={{
-                    height: 'clamp(280px, 42vh, 420px)',
-                    minHeight: 300,
-                    marginBottom: 16,
-                }}
-            >
-                {chartRows.length ? (
-                    <ResponsiveContainer
-                        width="100%"
-                        height="100%"
-                    >
-                        <BarChart
-                            data={
-                                chartRows
-                            }
-                            margin={{
-                                top: 10,
-                                right: 20,
-                                left: 0,
-                                bottom: 8,
-                            }}
-                            barGap={8}
-                            barCategoryGap="20%"
-                        >
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                                vertical={
-                                    false
-                                }
-                                stroke="#edf0f4"
-                            />
+            <CostPremiumBarChart
+                data={chartRows}
+                series={DIRECT_COST_CHART_SERIES}
+                currency={currency}
+                title="Month-on-Month Direct Cost Trend"
+                height={420}
+                compact
+                exportName="direct-cost-monthly"
+                onExport={onExport ? (format) => onExport(format) : undefined}
+            />
 
-                            <XAxis
-                                dataKey="period"
-                                tick={{
-                                    fontSize: 12,
-                                    fill: '#687386',
-                                }}
-                                axisLine={{
-                                    stroke: '#dfe5ec',
-                                }}
-                                tickLine={false}
-                            />
-
-                            <YAxis
-                                tick={{
-                                    fontSize: 12,
-                                    fill: '#8b94a3',
-                                }}
-                                axisLine={false}
-                                tickLine={false}
-                                tickFormatter={(
-                                    v
-                                ) =>
-                                    Number(v) === 0
-                                        ? '0'
-                                        : `${(
-                                            Number(
-                                                v
-                                            ) /
-                                            1000000
-                                        ).toFixed(
-                                            0
-                                        )}M`
-                                }
-                            />
-
-                            <Tooltip
-                                formatter={(
-                                    value
-                                ) =>
-                                    formatMoney(
-                                        value,
-                                        currency
-                                    )
-                                }
-                                contentStyle={{
-                                    borderRadius: 8,
-                                    border:
-                                        '1px solid #e2e8f0',
-                                    fontSize: 11,
-                                    boxShadow:
-                                        '0 8px 24px rgba(15,23,42,.12)',
-                                }}
-                            />
-
-                            <Legend
-                                verticalAlign="bottom"
-                                height={24}
-                                wrapperStyle={{
-                                    fontSize: 11,
-                                    paddingTop: 4,
-                                }}
-                            />
-
-                            <Bar
-                                dataKey="material"
-                                name="Cost of Material"
-                                fill="#19b99d"
-                                barSize={14}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="labour"
-                                name="Direct Labour"
-                                fill="#7040dc"
-                                barSize={14}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="manufacturing"
-                                name="Manufacturing / Direct Overheads"
-                                fill="#8b5cf6"
-                                barSize={14}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="absorption"
-                                name="Overhead Absorption"
-                                fill="#f59e0b"
-                                barSize={14}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="rkme"
-                                name="Direct Expenses - RKME"
-                                fill="#f47d20"
-                                barSize={14}
-                                radius={[4, 4, 0, 0]}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
-                ) : (
-                    <div
-                        style={{
-                            height: '100%',
-                            display: 'flex',
-                            alignItems:
-                                'center',
-                            justifyContent:
-                                'center',
-                            color:
-                                '#94a3b8',
-                        }}
-                    >
-                        No data available
-                    </div>
-                )}
-            </div>
-
-            <div
-                style={{
-                    overflowX: 'auto',
-                }}
-            >
+            <div style={{ overflowX: 'auto', marginTop: 12 }}>
                 <table
                     className="cost-structure-table"
                     style={{
                         width: '100%',
-                        borderCollapse:
-                            'collapse',
-                        fontSize: 13,
+                        borderCollapse: 'collapse',
+                        fontSize: 12,
+                        minWidth: Math.max(520, 170 + uniquePeriods.length * 105),
                     }}
                 >
                     <thead>
-                        <tr
-                            style={{
-                                background:
-                                    '#fff',
-                            }}
-                        >
-                            <th
-                                style={
-                                    modalThLeft
-                                }
-                            >
-                                Period
-                            </th>
-
-                            <th style={modalTh}>Cost of Material</th>
-                            <th style={modalTh}>Direct Labour</th>
-                            <th style={modalTh}>Manufacturing / Direct Overheads</th>
-                            <th style={modalTh}>Overhead Absorption</th>
-                            <th style={modalTh}>Direct Expenses - RKME</th>
+                        <tr style={{ background: '#fff' }}>
+                            <th style={modalThLeft}>Cost Category</th>
+                            {uniquePeriods.map((period) => (
+                                <th key={period} style={modalTh}>{period}</th>
+                            ))}
                         </tr>
                     </thead>
-
                     <tbody>
-                        {rows.map(
-                            (
-                                row,
-                                i
-                            ) => (
-                                <tr
-                                    key={
-                                        i
-                                    }
+                        {categoryRows.map((category) => (
+                            <tr key={category.key}>
+                                <td
+                                    style={{
+                                        ...modalTdLeft,
+                                        fontWeight: 700,
+                                        color: '#334155',
+                                    }}
                                 >
-                                    <td
-                                        style={
-                                            modalTdLeft
-                                        }
-                                    >
-                                        {getPeriod(
-                                            row
-                                        )}
-                                    </td>
+                                    {category.label}
+                                </td>
+                                {uniquePeriods.map((period) => {
+                                    const row = findRow(period);
+                                    const value = row[category.key];
+                                    return (
+                                        <td
+                                            key={`${category.key}-${period}`}
+                                            style={{
+                                                ...modalTd,
+                                                color: '#334155',
+                                            }}
+                                        >
+                                            {formatTableMoney(value, currency)}
+                                        </td>
+                                    );
+                                })}
+                            </tr>
+                        ))}
 
-                                    <td style={{ ...modalTd, color: valueColor(row.material) }}>{formatTableMoney(row.material)}</td>
-                                    <td style={{ ...modalTd, color: valueColor(row.labour) }}>{formatTableMoney(row.labour)}</td>
-                                    <td style={{ ...modalTd, color: valueColor(row.manufacturing) }}>{formatTableMoney(row.manufacturing)}</td>
-                                    <td style={{ ...modalTd, color: valueColor(row.absorption) }}>{formatTableMoney(row.absorption)}</td>
-                                    <td style={{ ...modalTd, color: valueColor(row.rkme) }}>{formatTableMoney(row.rkme)}</td>
-                                </tr>
-                            )
+                        {!uniquePeriods.length && (
+                            <tr>
+                                <td colSpan={1} style={{ padding: 30, textAlign: 'center', color: '#94a3b8' }}>
+                                    No data available
+                                </td>
+                            </tr>
                         )}
                     </tbody>
                 </table>
@@ -9830,7 +12150,6 @@ function MonthlyTab({
         </div>
     );
 }
-
 
 /* ===================ABLE STYLES
 ========================================================= */
@@ -9897,36 +12216,79 @@ function normalizeSummary(
     classification,
     breakdown,
     currency,
-    periodName = ''
+    periodName = '',
+    statement = null
 ) {
     /*
-     * The cost-classification-monthly backend response is shaped like:
+     * KPI actuals continue to come from the P&L classification response.
+     * KPI targets use the target_ptd/monthly_target values already returned
+     * by the P&L Statement / Direct Cost Breakdown APIs.
      *
-     * {
-     *   category: "Cost of Material",
-     *   monthly_actual: { "Jan-26": "56057542.41" },
-     *   actual_ytd: "56057542.41",
-     *   monthly_target: { "Jan-26": null },
-     *   target_ytd: null
-     * }
-     *
-     * IMPORTANT:
-     * Do not read PTD from `actual_ptd` here because that field does
-     * not exist in this response. PTD must come from monthly_actual
-     * for the currently selected period.
-     *
-     * Also, do not use the last row as a fallback for a different
-     * category. That can make one KPI display another category's value.
+     * Direct Expenses is intentionally calculated from the four direct-cost
+     * categories required by the business rule instead of relying on a
+     * single "Direct Expenses" classification target.
      */
 
     const classRows = unwrapRows(classification);
+    const breakdownRows = unwrapRows(breakdown);
+    const statementRows = unwrapRows(statement);
 
-    const findCategory = (name) =>
-        classRows.find(
-            (row) =>
-                getLabel(row).trim().toLowerCase() ===
-                name.toLowerCase()
+    const normalizeCategoryName = (value) =>
+        String(value ?? '')
+            .trim()
+            .replace(/[–—]/g, '-')
+            .replace(/\s*\/\s*/g, '/')
+            .replace(/\s+/g, ' ')
+            .toLowerCase();
+
+    const findCategory = (rows, name) => {
+        const aliases = {
+            'cost of material': [
+                'cost of material',
+                'cost of materials',
+            ],
+            'direct expenses': [
+                'direct expenses',
+                'direct expense',
+            ],
+            'operating expenses': [
+                'operating expenses',
+                'operating expense',
+                'total operating expenses',
+                'total operating expense',
+                'operating costs',
+                'operating cost',
+                'opex',
+                'o.p.ex',
+            ],
+            'direct labour': [
+                'direct labour',
+                'direct labor',
+            ],
+            'manufacturing / direct overheads': [
+                'manufacturing / direct overheads',
+                'manufacturing/direct overheads',
+                'manufacturing / direct overhead',
+                'manufacturing/direct overhead',
+            ],
+            'overhead absorption': [
+                'overhead absorption',
+            ],
+            'direct expenses - rkme': [
+                'direct expenses - rkme',
+                'direct expenses–rkme',
+            ],
+        };
+
+        const expected = normalizeCategoryName(name);
+        const accepted = new Set(
+            (aliases[expected] || [expected]).map(normalizeCategoryName)
         );
+
+        return rows.find((row) =>
+            accepted.has(normalizeCategoryName(getLabel(row)))
+        );
+    };
 
     const getMonthlyValue = (row, objectKeys, directKeys = []) => {
         if (!row || typeof row !== 'object') {
@@ -9941,26 +12303,22 @@ function normalizeSummary(
                 typeof monthly === 'object' &&
                 !Array.isArray(monthly)
             ) {
-                /*
-                 * Prefer the selected period. If the selected period
-                 * is not present (for example during initial loading),
-                 * use the first available month from the backend
-                 * response rather than returning a wrong category value.
-                 */
                 if (
                     periodName &&
-                    Object.prototype.hasOwnProperty.call(
-                        monthly,
-                        periodName
-                    )
+                    Object.prototype.hasOwnProperty.call(monthly, periodName) &&
+                    monthly[periodName] !== null &&
+                    monthly[periodName] !== undefined
                 ) {
                     return monthly[periodName];
                 }
 
                 const availablePeriods = Object.keys(monthly);
+                const firstValue = availablePeriods
+                    .map((period) => monthly[period])
+                    .find((value) => value !== null && value !== undefined);
 
-                if (availablePeriods.length) {
-                    return monthly[availablePeriods[0]];
+                if (firstValue !== undefined) {
+                    return firstValue;
                 }
             }
         }
@@ -9982,18 +12340,20 @@ function normalizeSummary(
         ) {
             if (
                 periodName &&
-                Object.prototype.hasOwnProperty.call(
-                    monthlyTarget,
-                    periodName
-                )
+                Object.prototype.hasOwnProperty.call(monthlyTarget, periodName) &&
+                monthlyTarget[periodName] !== null &&
+                monthlyTarget[periodName] !== undefined
             ) {
                 return monthlyTarget[periodName];
             }
 
             const availablePeriods = Object.keys(monthlyTarget);
+            const firstTarget = availablePeriods
+                .map((period) => monthlyTarget[period])
+                .find((value) => value !== null && value !== undefined);
 
-            if (availablePeriods.length) {
-                return monthlyTarget[availablePeriods[0]];
+            if (firstTarget !== undefined) {
+                return firstTarget;
             }
         }
 
@@ -10004,10 +12364,31 @@ function normalizeSummary(
         ]);
     };
 
-    const buildCategory = (name) => {
-        const row = findCategory(name);
+    const getBreakdownTargetPTD = (name) => {
+        const row = findCategory(breakdownRows, name);
+        return getTargetPTD(row, periodName);
+    };
 
-        if (!row) {
+    const getStatementTargetPTD = (name) => {
+        const row = findCategory(statementRows, name);
+        return getTargetPTD(row, periodName);
+    };
+
+    const getBreakdownTargetYTD = (name) => {
+        const row = findCategory(breakdownRows, name);
+        return getTargetYTD(row);
+    };
+
+    const getStatementTargetYTD = (name) => {
+        const row = findCategory(statementRows, name);
+        return getTargetYTD(row);
+    };
+
+    const buildCategory = (name) => {
+        const row = findCategory(classRows, name);
+        const breakdownRow = findCategory(breakdownRows, name);
+
+        if (!row && !breakdownRow) {
             return {
                 ptd: null,
                 ytd: null,
@@ -10016,49 +12397,88 @@ function normalizeSummary(
         }
 
         return {
-            ptd: getMonthlyValue(
-                row,
-                [
-                    'monthly_actual',
-                    'monthly_actual_aed',
-                ],
-                [
-                    'actual_ptd',
-                    'actual_ptd_aed',
-                    'current_ptd',
-                    'current_ptd_aed',
-                    'ptd',
-                    'ptd_value',
-                    'value',
-                    'amount',
-                ]
-            ),
+            ptd: row
+                ? getMonthlyValue(
+                    row,
+                    [
+                        'monthly_actual',
+                        'monthly_actual_aed',
+                    ],
+                    [
+                        'actual_ptd',
+                        'actual_ptd_aed',
+                        'current_ptd',
+                        'current_ptd_aed',
+                        'ptd',
+                        'ptd_value',
+                        'value',
+                        'amount',
+                    ]
+                )
+                : getPTD(breakdownRow),
 
-            ytd: getValue(row, [
-                'actual_ytd',
-                'actual_ytd_aed',
-                'current_ytd',
-                'current_ytd_aed',
-                'ytd',
-                'ytd_value',
-                'ytd_aed',
-            ]),
+            ytd: row
+                ? getValue(row, [
+                    'actual_ytd',
+                    'actual_ytd_aed',
+                    'current_ytd',
+                    'current_ytd_aed',
+                    'ytd',
+                    'ytd_value',
+                    'ytd_aed',
+                ])
+                : getYTD(breakdownRow),
 
-            target: getTargetMonthlyValue(row),
+            /* Main KPI cards must use PTD Target, not YTD Target. */
+            target: getTargetPTD(breakdownRow, periodName) ??
+                getTargetPTD(row, periodName) ??
+                getTargetMonthlyValue(row),
         };
     };
+
+    const directTargetYTD = sumNumbers([
+        getBreakdownTargetYTD('Direct Labour'),
+        getBreakdownTargetYTD('Manufacturing / Direct Overheads'),
+        getBreakdownTargetYTD('Overhead Absorption'),
+        getBreakdownTargetYTD('Direct Expenses - RKME'),
+    ]);
+
+    const directTargetPTD = sumNumbers([
+        getBreakdownTargetPTD('Direct Labour'),
+        getBreakdownTargetPTD('Manufacturing / Direct Overheads'),
+        getBreakdownTargetPTD('Overhead Absorption'),
+        getBreakdownTargetPTD('Direct Expenses - RKME'),
+    ]);
+
+    const direct = buildCategory('Direct Expenses');
 
     return {
         material: buildCategory('Cost of Material'),
 
-        direct: buildCategory('Direct Expenses'),
+        direct: {
+            ...direct,
+            /* Main Direct Expenses KPI card must use PTD Target. */
+            target: directTargetPTD ?? direct.target,
+        },
 
-        operating: buildCategory('Operating Expenses'),
+        operating: {
+            ...buildCategory('Operating Expenses'),
+            /*
+             * Operating Expenses is a P&L Statement category. Prefer the
+             * Direct Cost Breakdown/classification target when the backend
+             * already provides it; otherwise use the target_ptd returned by
+             * the P&L Statement API.
+             */
+            target:
+                getTargetPTD(findCategory(breakdownRows, 'Operating Expenses'), periodName) ??
+                getTargetPTD(findCategory(statementRows, 'Operating Expenses'), periodName) ??
+                buildCategory('Operating Expenses').target ??
+                getStatementTargetPTD('Operating Expenses'),
+        },
 
         currency,
     };
 }
-
 
 
 /* =========================================================
@@ -10078,6 +12498,11 @@ export default function CostStructureAnalysis({
     const [
         breakdown,
         setBreakdown,
+    ] = useState(null);
+
+    const [
+        statement,
+        setStatement,
     ] = useState(null);
 
     const [
@@ -10285,6 +12710,7 @@ export default function CostStructureAnalysis({
                     const [
                         classificationResult,
                         breakdownResult,
+                        statementResult,
                     ] =
                         await Promise.all([
                             fetchPLCostClassificationMonthly(
@@ -10292,6 +12718,10 @@ export default function CostStructureAnalysis({
                             ),
 
                             fetchPLDirectCostBreakdown(
+                                baseFilters
+                            ),
+
+                            fetchPLStatement(
                                 baseFilters
                             ),
                         ]);
@@ -10302,6 +12732,10 @@ export default function CostStructureAnalysis({
 
                     setBreakdown(
                         breakdownResult
+                    );
+
+                    setStatement(
+                        statementResult
                     );
 
                     /*
@@ -10666,7 +13100,7 @@ export default function CostStructureAnalysis({
 
     const downloadCostStructureExport = useCallback(
         async (reportName, format, sourceFilters = {}, category = null) => {
-            const baseUrl = getApiBaseUrl();
+            const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
             const params = new URLSearchParams();
 
             params.set('format', format === 'xlsx' ? 'excel' : format);
@@ -11034,7 +13468,8 @@ export default function CostStructureAnalysis({
             classification,
             breakdown,
             baseFilters.currency,
-            baseFilters.periodName
+            baseFilters.periodName,
+            statement
         );
 
 
@@ -11125,6 +13560,16 @@ export default function CostStructureAnalysis({
                                 direct expenses
                                 and operating
                                 expenses.
+                            </div>
+
+                            <div
+                                style={{
+                                    marginTop: 4,
+                                    fontSize: 11,
+                                    color: '#8a94a6',
+                                }}
+                            >
+                                All values in {baseFilters.currency || 'AED'} | {baseFilters.periodName || '—'}
                             </div>
                         </div>
 
@@ -11354,7 +13799,7 @@ export default function CostStructureAnalysis({
                                 .target
                         }
                         color="#18b89b"
-                        bg="#dff8f1"
+                        bg="#ecfaf6"
                         icon={Package}
                         loading={
                             loading
@@ -11382,7 +13827,7 @@ export default function CostStructureAnalysis({
                                 .target
                         }
                         color="#7040dc"
-                        bg="#eee7ff"
+                        bg="#f3efff"
                         icon={
                             BarChart3
                         }
@@ -11412,7 +13857,7 @@ export default function CostStructureAnalysis({
                                 .target
                         }
                         color="#f47d20"
-                        bg="#fff0df"
+                        bg="#fff6e8"
                         icon={
                             ShoppingBag
                         }
@@ -11423,6 +13868,44 @@ export default function CostStructureAnalysis({
                             baseFilters.currency
                         }
                     />
+                </div>
+
+                <div
+                    title="Interim budget phasing: PTD Target = Annual Budget ÷ 12; YTD Target = Annual Budget × elapsed months ÷ 12."
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        margin: '-2px 0 10px',
+                        padding: '9px 12px',
+                        borderRadius: 8,
+                        background: '#f8fafc',
+                        border: '1px solid #dbe3ec',
+                        color: '#334155',
+                        fontSize: 12,
+                        lineHeight: 1.45,
+                    }}
+                >
+                    <span
+                        style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: '50%',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            background: '#e2e8f0',
+                            color: '#334155',
+                            fontSize: 11,
+                            fontWeight: 800,
+                        }}
+                    >
+                        i
+                    </span>
+                    <span>
+                        Interim budget phasing: PTD Target = Annual Budget ÷ 12; YTD Target = Annual Budget × elapsed months ÷ 12.
+                    </span>
                 </div>
 
 
@@ -11443,6 +13926,15 @@ export default function CostStructureAnalysis({
                         )}
                         currency={
                             baseFilters.currency
+                        }
+                        exportFilters={baseFilters}
+                        onExport={(format, reportName, sourceFilters) =>
+                            handleExport(
+                                format,
+                                reportName,
+                                null,
+                                sourceFilters || baseFilters
+                            )
                         }
                     />
 
@@ -11491,6 +13983,7 @@ export default function CostStructureAnalysis({
                         currency={
                             baseFilters.currency
                         }
+                        periodName={baseFilters.periodName}
                         expanded={
                             mainExpanded
                         }
@@ -11563,10 +14056,10 @@ export default function CostStructureAnalysis({
                                     color: '#8a94a6',
                                 }}
                             >
-                                Period: {
-                                    (modalFilters || baseFilters).periodName || '—'
-                                } | All values in {
+                                All values in {
                                     (modalFilters || baseFilters).currency || 'AED'
+                                } | {
+                                    (modalFilters || baseFilters).periodName || '—'
                                 }
                             </div>
                         </div>
@@ -11680,6 +14173,69 @@ export default function CostStructureAnalysis({
 
             <style>
                 {`
+                    /* =========================================================
+   PL TREND VISUAL LANGUAGE — COST PL CHARTS ONLY
+========================================================= */
+
+                    .cost-structure-chart {
+                        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                    }
+
+                    .cost-structure-chart .recharts-text {
+                        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                    }
+
+                    .cost-structure-chart .recharts-legend-item-text {
+                        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                        font-weight: 600 !important;
+                    }
+
+                    .cost-structure-chart .recharts-tooltip-wrapper {
+                        outline: none !important;
+                    }
+
+                    .cost-variance-tooltip-wrap {
+                        cursor: help;
+                    }
+
+                    .cost-variance-tooltip {
+                        position: absolute;
+                        right: 0;
+                        bottom: calc(100% + 10px);
+                        z-index: 10000;
+                        visibility: hidden;
+                        opacity: 0;
+                        transform: translateY(4px) scale(.985);
+                        transition: opacity .16s ease-out, transform .16s ease-out, visibility .16s ease-out;
+                        pointer-events: none;
+                        white-space: normal;
+                        text-align: left;
+                    }
+
+                    .cost-variance-tooltip-wrap:hover .cost-variance-tooltip {
+                        visibility: visible;
+                        opacity: 1;
+                        transform: translateY(0) scale(1);
+                    }
+
+                    @keyframes costPlTooltipIn {
+                        from {
+                            opacity: 0;
+                            transform: translateY(4px) scale(0.985);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0) scale(1);
+                        }
+                    }
+
+                    @media (prefers-reduced-motion: reduce) {
+                        .cost-structure-chart * {
+                            animation: none !important;
+                            transition: none !important;
+                        }
+                    }
+
                     @media (max-width: 1200px) {
                         .cost-structure-filter-grid {
                             grid-template-columns: repeat(4, minmax(140px, 1fr)) !important;
@@ -11712,6 +14268,76 @@ export default function CostStructureAnalysis({
                         .cost-structure-chart-grid {
                             grid-template-columns: 1fr !important;
                         }
+                    }
+
+                    /* =========================================================
+   SALES REVENUE TABLE TYPOGRAPHY — COST PL SCOPED
+========================================================= */
+                    .cost-structure-table {
+                        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+                        font-size: 0.74rem !important;
+                        border-collapse: collapse !important;
+                        color: #334155 !important;
+                    }
+
+                    .cost-structure-table thead th {
+                        background: #f8fafc !important;
+                        color: #1e3a8a !important;
+                        font-size: 0.74rem !important;
+                        line-height: 1.25 !important;
+                        padding: 8px 10px !important;
+                        font-weight: 700 !important;
+                        border-bottom: 2px solid #e2e8f0 !important;
+                        white-space: nowrap !important;
+                    }
+
+                    .cost-structure-table tbody td {
+                        font-size: 0.70rem !important;
+                        line-height: 1.35 !important;
+                        padding: 8px 10px !important;
+                        color: #334155;
+                        font-weight: 800 !important;
+                        border-bottom: 1px solid #f1f5f9 !important;
+                    }
+
+                    .cost-structure-table tbody tr {
+                        background: #fff !important;
+                        transition: background 0.12s ease !important;
+                    }
+
+                    .cost-structure-table tbody tr:hover {
+                        background: #f5f3ff !important;
+                    }
+
+                    /* Expanded account rows use normal-weight text and align
+                       their numeric columns with the parent drill-down table. */
+                    .cost-detail-table tbody td {
+                        font-weight: 400 !important;
+                    }
+
+                    .cost-detail-table tbody tr:hover {
+                        background: #fff !important;
+                    }
+
+                    .cost-structure-table tbody tr.cost-total-cost-of-sales td {
+                        font-weight: 800 !important;
+                    }
+
+                    .cost-structure-table tbody tr.cost-total-cost-of-sales td:first-of-type {
+                        text-transform: uppercase !important;
+                    }
+
+                    .cost-structure-table tfoot td {
+                        font-size: 0.74rem !important;
+                        padding: 8px 10px !important;
+                        font-weight: 800 !important;
+                        background: #f8fafc !important;
+                        color: #1e3a8a !important;
+                        border-top: 2px solid #e2e8f0 !important;
+                    }
+
+                    .cost-structure-table button {
+                        font-family: inherit !important;
                     }
 
                     /* =========================================================
