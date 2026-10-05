@@ -5,7 +5,7 @@
  *
  * Financial Position Backend Integration
  *
- * Endpoints:
+ * Backend Endpoints:
  *
  *   GET /api/financial-position/kpis
  *
@@ -27,21 +27,18 @@
  *
  *   GET /api/financial-position/current-assets-liabilities/by-parent-division
  *
- * Authentication:
- *   Bearer token from localStorage
- *
  * ============================================================
  *
- * Common Financial Position parameters:
+ * COMMON FILTER PARAMETERS
  *
- *   - calendar_date
- *   - legal_group_id
- *   - legal_entity_id
- *   - parent_division_id
- *   - subdivision_id
- *   - reporting_currency
+ *   calendar_date
+ *   legal_group_id[]
+ *   legal_entity_id[]
+ *   parent_division_id[]
+ *   subdivision_id[]
+ *   reporting_currency
  *
- * Multi-select IDs are sent repeatedly:
+ * Multi-select IDs are sent as repeated query parameters:
  *
  *   parent_division_id=2
  *   parent_division_id=3
@@ -51,26 +48,29 @@
  *   parent_division_id=2,3
  *
  * Default reporting currency:
+ *
  *   AED
  *
  * IMPORTANT:
- *   Financial formulas are calculated by the backend.
- *   No frontend financial recalculation is performed here.
  *
+ * - Backend returns values in requested reporting currency.
+ * - No frontend FX conversion is performed here.
+ * - No financial formulas are recalculated here.
+ * - Backend null values are preserved.
  * ============================================================
  */
 
 import axios from "axios";
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    API BASE URL
-   ───────────────────────────────────────────── */
+============================================================ */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    AXIOS INSTANCE
-   ───────────────────────────────────────────── */
+============================================================ */
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -80,15 +80,15 @@ const api = axios.create({
     },
 });
 
-/* ─────────────────────────────────────────────
-   AUTH TOKEN
-   ───────────────────────────────────────────── */
+/* ============================================================
+   AUTHENTICATION
+============================================================ */
 
 /**
  * Get FinSight authentication token.
  *
- * Supports the same token locations used by the
- * existing Payables API.
+ * Supports the token locations used by the existing
+ * FinSight API services.
  */
 function getAuthToken() {
     return (
@@ -104,26 +104,28 @@ function getAuthToken() {
 function getAuthHeaders() {
     const token = getAuthToken();
 
-    return token
-        ? {
-            Authorization: `Bearer ${token}`,
-        }
-        : {};
+    if (!token) {
+        return {};
+    }
+
+    return {
+        Authorization: `Bearer ${token}`,
+    };
 }
 
-/* ─────────────────────────────────────────────
-   QUERY PARAM HELPERS
-   ───────────────────────────────────────────── */
+/* ============================================================
+   QUERY PARAMETER HELPERS
+============================================================ */
 
 /**
- * Appends a parameter.
+ * Append a query parameter.
  *
- * Supports:
+ * Supported values:
  *   - string
  *   - number
- *   - arrays
+ *   - array
  *
- * Arrays are appended repeatedly.
+ * Arrays are appended as repeated query parameters.
  *
  * Example:
  *
@@ -139,6 +141,10 @@ function appendParam(params, key, value) {
         return;
     }
 
+    /* --------------------------------------------------------
+       Array / Multi-select
+    -------------------------------------------------------- */
+
     if (Array.isArray(value)) {
         value.forEach((item) => {
             if (
@@ -146,40 +152,44 @@ function appendParam(params, key, value) {
                 item !== null &&
                 item !== ""
             ) {
-                params.append(key, item);
+                params.append(key, String(item));
             }
         });
 
         return;
     }
 
-    params.append(key, value);
+    /* --------------------------------------------------------
+       Scalar
+    -------------------------------------------------------- */
+
+    params.append(key, String(value));
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    STANDARD FINANCIAL POSITION PARAMETERS
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
- * Build standard Financial Position query parameters.
+ * Build common Financial Position query parameters.
  *
- * Used by every Financial Position endpoint.
+ * Every Financial Position endpoint uses the same filters:
  *
- * Parameters:
+ *   calendar_date
+ *   legal_group_id
+ *   legal_entity_id
+ *   parent_division_id
+ *   subdivision_id
+ *   reporting_currency
  *
- *   - calendar_date
- *   - legal_group_id
- *   - legal_entity_id
- *   - parent_division_id
- *   - subdivision_id
- *   - reporting_currency
+ * The hierarchy IDs support multi-select.
  */
 function buildFinancialPositionParams(filters = {}) {
     const params = new URLSearchParams();
 
-    /* ----------------------------------------------------------
+    /* --------------------------------------------------------
        Calendar Date
-    ---------------------------------------------------------- */
+    -------------------------------------------------------- */
 
     appendParam(
         params,
@@ -187,9 +197,9 @@ function buildFinancialPositionParams(filters = {}) {
         filters.calendar_date
     );
 
-    /* ----------------------------------------------------------
+    /* --------------------------------------------------------
        Legal Group
-    ---------------------------------------------------------- */
+    -------------------------------------------------------- */
 
     appendParam(
         params,
@@ -197,9 +207,9 @@ function buildFinancialPositionParams(filters = {}) {
         filters.legal_group_id
     );
 
-    /* ----------------------------------------------------------
+    /* --------------------------------------------------------
        Legal Entity
-    ---------------------------------------------------------- */
+    -------------------------------------------------------- */
 
     appendParam(
         params,
@@ -207,9 +217,9 @@ function buildFinancialPositionParams(filters = {}) {
         filters.legal_entity_id
     );
 
-    /* ----------------------------------------------------------
+    /* --------------------------------------------------------
        Parent Division
-    ---------------------------------------------------------- */
+    -------------------------------------------------------- */
 
     appendParam(
         params,
@@ -217,9 +227,9 @@ function buildFinancialPositionParams(filters = {}) {
         filters.parent_division_id
     );
 
-    /* ----------------------------------------------------------
+    /* --------------------------------------------------------
        Sub-Division
-    ---------------------------------------------------------- */
+    -------------------------------------------------------- */
 
     appendParam(
         params,
@@ -227,10 +237,10 @@ function buildFinancialPositionParams(filters = {}) {
         filters.subdivision_id
     );
 
-    /* ----------------------------------------------------------
+    /* --------------------------------------------------------
        Reporting Currency
        Default = AED
-    ---------------------------------------------------------- */
+    -------------------------------------------------------- */
 
     appendParam(
         params,
@@ -241,402 +251,353 @@ function buildFinancialPositionParams(filters = {}) {
     return params;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    1. KPI CARDS
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
- * GET /api/financial-position/kpis
- *
- * Returns Financial Position KPI data.
+ * GET
+ * /api/financial-position/kpis
  *
  * Fields:
  *
- *   - net_working_capital
- *   - total_current_assets
- *   - total_current_liabilities
- *   - current_ratio
- *   - nwc_turnover_ratio
- *   - total_investments
- *   - equity_position
- *   - fixed_assets_and_other_non_current_assets
- *   - long_term_bank_borrowings
- *   - short_term_bank_borrowings
- *   - loan_from_related_party
+ *   net_working_capital
+ *   total_current_assets
+ *   total_current_liabilities
+ *   current_ratio
+ *   nwc_turnover_ratio
+ *   total_investments
+ *   equity_position
+ *   fixed_assets_and_other_non_current_assets
+ *   long_term_bank_borrowings
+ *   short_term_bank_borrowings
+ *   loan_from_related_party
+ *
+ * loan_from_related_party is currently expected to be null.
  *
  * IMPORTANT:
- *
- * loan_from_related_party is currently expected to be null
- * because the related-party loan Balance Sheet mapping is
- * still pending.
- *
- * Do not convert null to 0 in this API service.
+ * Do not convert null to 0 here.
  */
-export async function getFinancialPositionKpis(
-    filters = {}
-) {
-    const params =
-        buildFinancialPositionParams(filters);
+export async function getFinancialPositionKpis(filters = {}) {
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/kpis",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    2. EQUITY CONTRIBUTION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
- * GET /api/financial-position/equity-contribution
+ * GET
+ * /api/financial-position/equity-contribution
  *
- * Returns:
+ * Fields:
  *
- *   - share_capital
- *   - additional_capital
- *   - reserves_and_surplus
- *   - partner_current_account
- *   - current_year_profit
- *   - equity_total
+ *   share_capital
+ *   additional_capital
+ *   reserves_and_surplus
+ *   partner_current_account
+ *   current_year_profit
+ *   equity_total
  */
 export async function getFinancialPositionEquityContribution(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/equity-contribution",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    3. EQUITY VIEW ALL
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
- * GET /api/financial-position/equity-contribution/view-all
+ * GET
+ * /api/financial-position/equity-contribution/view-all
  *
- * Returns one row per Parent Division.
+ * One row per Parent Division.
  *
  * Fields:
  *
- *   - parent_division_code
- *   - parent_division_name
- *   - share_capital
- *   - additional_capital
- *   - reserves_and_surplus
- *   - partner_current_account
- *   - current_year_profit
- *   - equity_total
+ *   parent_division_code
+ *   parent_division_name
+ *   share_capital
+ *   additional_capital
+ *   reserves_and_surplus
+ *   partner_current_account
+ *   current_year_profit
+ *   equity_total
  */
 export async function getFinancialPositionEquityViewAll(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/equity-contribution/view-all",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    4. EQUITY MONTHLY BY PARENT DIVISION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
  * /api/financial-position/equity-contribution/monthly-by-parent-division
  *
- * Returns:
+ * Fields:
  *
- *   - period_code
- *   - period_month
- *   - parent_division_code
- *   - parent_division_name
- *   - equity_total
+ *   period_code
+ *   period_month
+ *   parent_division_code
+ *   parent_division_name
+ *   equity_total
  *
  * Used for:
  *
  *   Parent Division × Month
  *   Equity analysis
- *
- * This endpoint should only be called when the relevant
- * section is visible/required.
  */
 export async function getFinancialPositionEquityMonthlyByParentDivision(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/equity-contribution/monthly-by-parent-division",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    5. INVESTMENTS BY PARENT DIVISION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
  * /api/financial-position/investments/by-parent-division
  *
- * Fields include:
- *
- *   - parent_division_code
- *   - parent_division_name
- *   - total_non_current_assets
- *   - long_term_lease_liability
- *   - fixed_assets_and_other_non_current_assets
- *   - provision_for_gratuity
- *   - current_assets
- *   - current_liabilities
- *   - net_working_capital
- *   - total_investments
- *
  * Used for:
  *
- *   - Fixed Assets View All
- *   - Investments Analysis
- *   - NWC by Parent Division
- *   - Provision for Gratuity analysis
+ *   Fixed Assets View All
+ *   Investments Analysis
+ *   NWC by Parent Division
+ *   Provision for Gratuity analysis
  *
  * IMPORTANT:
- * Financial formulas are supplied by the backend.
- * Do not recalculate them in this API file.
+ *
+ * Financial formulas are supplied by backend.
+ * Do not recalculate them here.
  */
 export async function getFinancialPositionInvestmentsByParentDivision(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/investments/by-parent-division",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    6. INVESTMENTS MONTHLY BY PARENT DIVISION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
  * /api/financial-position/investments/monthly-by-parent-division
  *
+ * IMPORTANT:
+ *
+ * This is the single monthly endpoint used by:
+ *
+ *   1. Fixed Assets & Other Non-Current Assets
+ *   2. Investments MoM
+ *   3. Month on Month Net Working Capital
+ *   4. Gratuity MoM
+ *
  * Fields:
  *
- *   - period_code
- *   - period_month
- *   - parent_division_code
- *   - parent_division_name
- *   - fixed_assets_and_other_non_current_assets
- *   - provision_for_gratuity
- *   - net_working_capital
- *   - total_investments
+ *   period_code
+ *   period_month
+ *   parent_division_code
+ *   parent_division_name
+ *   fixed_assets_and_other_non_current_assets
+ *   provision_for_gratuity
+ *   net_working_capital
+ *   total_investments
  *
- * ONE endpoint should be reused for:
- *
- *   - Fixed Assets MoM
- *   - Investments MoM
- *   - NWC MoM
- *   - Gratuity MoM
- *
- * Do not make four separate frontend API calls.
+ * Do NOT create separate API requests for Fixed Assets
+ * and NWC when this endpoint already returns both values.
  */
 export async function getFinancialPositionInvestmentsMonthlyByParentDivision(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/investments/monthly-by-parent-division",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    7. BORROWINGS BY PARENT DIVISION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
  * /api/financial-position/borrowings/by-parent-division
  *
+ * Used for:
+ *
+ *   Borrowing Position
+ *   Borrowings View All
+ *   Borrowing analysis by Parent Division
+ *
  * Fields:
  *
- *   - parent_division_code
- *   - parent_division_name
- *   - long_term_bank_borrowings
- *   - short_term_bank_borrowings
- *   - bank_borrowings_total
- *   - loan_from_related_party
- *   - total_borrowings
+ *   parent_division_code
+ *   parent_division_name
+ *   long_term_bank_borrowings
+ *   short_term_bank_borrowings
+ *   bank_borrowings_total
+ *   loan_from_related_party
+ *   total_borrowings
  *
  * IMPORTANT:
  *
- * loan_from_related_party = null currently.
+ * loan_from_related_party = null
+ * total_borrowings = null
  *
- * total_borrowings = null currently.
+ * Do not replace null with 0.
  *
- * Do not replace these null values with zero.
+ * Do not substitute:
  *
- * Do not substitute 920008 Due to Related Party
- * as Loan from Related Party.
+ *   920008 Due to Related Party
  *
- * bank_borrowings_total represents:
+ * for:
  *
- *   LT Bank Borrowings + ST Bank Borrowings
+ *   Loan from Related Party
+ *
+ * bank_borrowings_total is the backend-provided
+ * LT Bank Borrowings + ST Bank Borrowings value.
  */
 export async function getFinancialPositionBorrowingsByParentDivision(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/borrowings/by-parent-division",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    8. BORROWINGS MONTHLY BY PARENT DIVISION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
  * /api/financial-position/borrowings/monthly-by-parent-division
  *
- * Used for:
+ * One response is used for:
  *
- *   - Long-Term Bank Loan MoM
- *   - Short-Term Bank Borrowing MoM
- *   - Combined Bank Borrowing trend
+ *   Long-Term Bank Loan MoM
+ *   Short-Term Bank Borrowing MoM
+ *   Combined Bank Borrowing trend
  *
  * Related Party Loan remains pending.
  */
 export async function getFinancialPositionBorrowingsMonthlyByParentDivision(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/borrowings/monthly-by-parent-division",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    9. CURRENT ASSETS / LIABILITIES COMPOSITION
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
  * /api/financial-position/current-assets-liabilities/composition
  *
- * Returns:
+ * Response:
  *
- *   - total_current_assets
- *   - total_current_liabilities
- *   - current_assets[]
- *   - current_liabilities[]
+ *   total_current_assets
+ *   total_current_liabilities
+ *   current_assets[]
+ *   current_liabilities[]
  *
- * Each category contains:
+ * Category structure:
  *
- *   - category
- *   - amount
- *   - percentage_of_total
+ *   category
+ *   amount
+ *   percentage_of_total
  *
- * Current Asset categories:
+ * Zero-value categories may be absent from backend response.
  *
- *   - Inventories
- *   - Trade Receivables
- *   - Other Current Assets
- *   - Prepayments & Advances
- *   - Cash & Bank
- *   - Due from Related Party
- *
- * Current Liability categories:
- *
- *   - Short Term Bank Borrowings
- *   - Trade Payables
- *   - Lease Liability - Short Term
- *   - Other Current Liabilities
- *   - Due to Related Party
- *
- * Zero-value categories may not appear in the backend response.
+ * Do not manufacture missing categories in this API service.
  */
 export async function getFinancialPositionCurrentAssetsLiabilitiesComposition(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/current-assets-liabilities/composition",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
+/* ============================================================
    10. CURRENT ASSETS / LIABILITIES VIEW ALL
-   ───────────────────────────────────────────── */
+============================================================ */
 
 /**
  * GET
@@ -644,72 +605,117 @@ export async function getFinancialPositionCurrentAssetsLiabilitiesComposition(
  *
  * One row per Parent Division.
  *
- * Includes:
+ * Current Assets:
  *
- *   - inventories
- *   - trade_receivables
- *   - other_current_assets
- *   - prepayments_and_advances
- *   - cash_and_bank
- *   - due_from_related_party
- *   - total_current_assets
- *   - short_term_bank_borrowings
- *   - trade_payables
- *   - short_term_lease_liability
- *   - other_current_liabilities
- *   - due_to_related_party
- *   - total_current_liabilities
- *   - net_working_capital
+ *   inventories
+ *   trade_receivables
+ *   other_current_assets
+ *   prepayments_and_advances
+ *   cash_and_bank
+ *   due_from_related_party
+ *   total_current_assets
  *
- * Used for the combined View All table.
+ * Current Liabilities:
+ *
+ *   short_term_bank_borrowings
+ *   trade_payables
+ *   short_term_lease_liability
+ *   other_current_liabilities
+ *   due_to_related_party
+ *   total_current_liabilities
+ *
+ * Working Capital:
+ *
+ *   net_working_capital
  */
 export async function getFinancialPositionCurrentAssetsLiabilitiesViewAll(
     filters = {}
 ) {
-    const params =
-        buildFinancialPositionParams(filters);
+    const params = buildFinancialPositionParams(filters);
 
-    const response = await api.get(
+    return api.get(
         "/api/financial-position/current-assets-liabilities/by-parent-division",
         {
             params,
             headers: getAuthHeaders(),
         }
     );
-
-    return response;
 }
 
-/* ─────────────────────────────────────────────
-   DEFAULT EXPORT
-   ───────────────────────────────────────────── */
 
-/**
- * Default API object.
- *
- * This is provided in addition to the named exports so
- * either import style can be used.
- */
+
+export async function getFinancialPositionNetWorkingCapitalTrend(
+    filters = {}
+) {
+    const params = buildFinancialPositionParams(filters);
+
+    return api.get(
+        "/api/financial-position/net-working-capital/trend",
+        {
+            params,
+            headers: getAuthHeaders(),
+        }
+    );
+}
+/* ============================================================
+   DEFAULT EXPORT
+============================================================ */
+
 const financialPositionApi = {
+    /* --------------------------------------------------------
+       KPI
+    -------------------------------------------------------- */
+
     getFinancialPositionKpis,
 
+    /* --------------------------------------------------------
+       Equity
+    -------------------------------------------------------- */
+
     getFinancialPositionEquityContribution,
-
     getFinancialPositionEquityViewAll,
-
     getFinancialPositionEquityMonthlyByParentDivision,
+
+    /* --------------------------------------------------------
+       Investments / Fixed Assets / NWC
+    -------------------------------------------------------- */
 
     getFinancialPositionInvestmentsByParentDivision,
 
+    /*
+     * IMPORTANT:
+     * This ONE endpoint is used by both:
+     *
+     * Fixed Assets & Other Non-Current Assets
+     * Month on Month Net Working Capital
+     */
     getFinancialPositionInvestmentsMonthlyByParentDivision,
 
+    /* --------------------------------------------------------
+       Borrowings
+    -------------------------------------------------------- */
+
+    /*
+     * Borrowing Position uses this endpoint.
+     */
     getFinancialPositionBorrowingsByParentDivision,
 
     getFinancialPositionBorrowingsMonthlyByParentDivision,
 
-    getFinancialPositionCurrentAssetsLiabilitiesComposition,
+    /* --------------------------------------------------------
+       Current Assets / Current Liabilities
+    -------------------------------------------------------- */
 
+    getFinancialPositionCurrentAssetsLiabilitiesComposition,
     getFinancialPositionCurrentAssetsLiabilitiesViewAll,
+    getFinancialPositionNetWorkingCapitalTrend,
 };
 
 export default financialPositionApi;
+
+
+
+
+
+
+
